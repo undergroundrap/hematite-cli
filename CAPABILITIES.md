@@ -1,6 +1,6 @@
 # Hematite Capabilities
 
-This document summarizes the technical strengths of **Hematite-CLI** as a local GPU-aware coding harness for LM Studio and Gemma-family models.
+This document summarizes the technical strengths of **Hematite-CLI** as a local GPU-aware coding harness for LM Studio and Gemma-family models, with the strongest optimization focus on single-GPU consumer hardware such as the RTX 4070 class.
 
 ## 1. Model-Native Reasoning Flow
 
@@ -24,7 +24,8 @@ Hematite continuously adapts to the machine it is running on.
 
 - **VRAM monitoring**: live GPU usage is tracked so the harness can react before the session destabilizes
 - **Adaptive brief mode**: output and worker behavior can tighten automatically under memory pressure
-- **Consumer GPU focus**: the runtime is shaped around practical local hardware such as the RTX 4070 class
+- **Single-GPU focus**: the runtime is shaped around one practical local GPU, not multi-GPU or cloud assumptions
+- **4070-class target**: the design center is the common 12 GB consumer setup where open models need careful context shaping, compaction, and tool discipline
 
 ## 4. Workspace-Native Tooling
 
@@ -71,4 +72,4 @@ That boundary gives Hematite three advantages:
 
 ---
 
-Hematite is strongest when treated as a polished local coding harness: GPU-aware, terminal-native, tool-rich, and tuned for serious project work on consumer hardware.
+Hematite is strongest when treated as a polished local coding harness: GPU-aware, terminal-native, tool-rich, and tuned for serious project work on single-GPU consumer hardware, especially RTX 4070-class machines.

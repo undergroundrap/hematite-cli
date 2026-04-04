@@ -1,6 +1,6 @@
-use tokio::sync::{mpsc, Semaphore};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::sync::{mpsc, Semaphore};
 
 pub use crate::agent::economics::{SessionEconomics, ToolRecord};
 
@@ -41,7 +41,7 @@ pub struct ToolFunction {
 
 // ── Message types ─────────────────────────────────────────────────────────────
 
-/// OpenAI-compatible chat message. Content can be a string (legacy) or a 
+/// OpenAI-compatible chat message. Content can be a string (legacy) or a
 /// Vec of ContentPart (multimodal).
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChatMessage {
@@ -104,12 +104,22 @@ impl MessageContent {
 
 impl ChatMessage {
     pub fn system(content: &str) -> Self {
-        Self { role: "system".into(), content: MessageContent::Text(content.into()),
-               tool_calls: Vec::new(), tool_call_id: None, name: None }
+        Self {
+            role: "system".into(),
+            content: MessageContent::Text(content.into()),
+            tool_calls: Vec::new(),
+            tool_call_id: None,
+            name: None,
+        }
     }
     pub fn user(content: &str) -> Self {
-        Self { role: "user".into(), content: MessageContent::Text(content.into()),
-               tool_calls: Vec::new(), tool_call_id: None, name: None }
+        Self {
+            role: "user".into(),
+            content: MessageContent::Text(content.into()),
+            tool_calls: Vec::new(),
+            tool_call_id: None,
+            name: None,
+        }
     }
     pub fn user_with_image(text: &str, image_url: &str) -> Self {
         let mut text_parts = text.to_string();
@@ -120,7 +130,11 @@ impl ChatMessage {
             role: "user".into(),
             content: MessageContent::Parts(vec![
                 ContentPart::Text { text: text_parts },
-                ContentPart::ImageUrl { image_url: ImageUrlSource { url: image_url.into() } },
+                ContentPart::ImageUrl {
+                    image_url: ImageUrlSource {
+                        url: image_url.into(),
+                    },
+                },
             ]),
             tool_calls: Vec::new(),
             tool_call_id: None,
@@ -128,23 +142,35 @@ impl ChatMessage {
         }
     }
     pub fn assistant_text(content: &str) -> Self {
-        Self { role: "assistant".into(), content: MessageContent::Text(content.into()),
-               tool_calls: Vec::new(), tool_call_id: None, name: None }
+        Self {
+            role: "assistant".into(),
+            content: MessageContent::Text(content.into()),
+            tool_calls: Vec::new(),
+            tool_call_id: None,
+            name: None,
+        }
     }
     pub fn assistant_tool_calls(content: &str, calls: Vec<ToolCallResponse>) -> Self {
-        Self { 
-            role: "assistant".into(), 
-            content: MessageContent::Text(content.into()), 
-            tool_calls: calls, 
-            tool_call_id: None, 
-            name: None 
+        Self {
+            role: "assistant".into(),
+            content: MessageContent::Text(content.into()),
+            tool_calls: calls,
+            tool_call_id: None,
+            name: None,
         }
     }
     pub fn tool_result(tool_call_id: &str, fn_name: &str, content: &str) -> Self {
-        let native_resp = format!("<|tool_response>response:{}{}{}<tool_response|>", fn_name, "{", content);
-        Self { role: "tool".into(), content: MessageContent::Text(native_resp),
-               tool_calls: Vec::new(), tool_call_id: Some(tool_call_id.into()),
-               name: Some(fn_name.into()) }
+        let native_resp = format!(
+            "<|tool_response>response:{}{}{}<tool_response|>",
+            fn_name, "{", content
+        );
+        Self {
+            role: "tool".into(),
+            content: MessageContent::Text(native_resp),
+            tool_calls: Vec::new(),
+            tool_call_id: Some(tool_call_id.into()),
+            name: Some(fn_name.into()),
+        }
     }
 }
 
@@ -218,9 +244,18 @@ pub enum InferenceEvent {
     /// Critical diagnostic feedback from the voice synthesis engine.
     VoiceStatus(String),
     /// A tool call is starting – show a status line in the TUI.
-    ToolCallStart { id: String, name: String, args: String },
+    ToolCallStart {
+        id: String,
+        name: String,
+        args: String,
+    },
     /// A tool call completed – show result in the TUI.
-    ToolCallResult { id: String, name: String, output: String, is_error: bool },
+    ToolCallResult {
+        id: String,
+        name: String,
+        output: String,
+        is_error: bool,
+    },
     /// A risky tool requires explicit user approval.
     /// The TUI must send `true` (approved) or `false` (rejected) via `responder`.
     ApprovalRequired {
@@ -234,7 +269,11 @@ pub enum InferenceEvent {
     /// An error occurred during inference.
     Error(String),
     /// A generic task progress update (e.g. for single-agent tool execution).
-    TaskProgress { id: String, label: String, progress: u8 },
+    TaskProgress {
+        id: String,
+        label: String,
+        progress: u8,
+    },
     /// Real-time token usage update from the API.
     UsageUpdate(TokenUsage),
     /// The model ID detected on boot.
@@ -244,7 +283,11 @@ pub enum InferenceEvent {
 // ── Engine implementation ─────────────────────────────────────────────────────
 
 impl InferenceEngine {
-    pub fn new(api_url: String, species: String, snark: u8) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(
+        api_url: String,
+        species: String,
+        snark: u8,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(180))
             .build()?;
@@ -283,13 +326,20 @@ impl InferenceEngine {
     /// Query /v1/models and return the first loaded model id.
     pub async fn get_loaded_model(&self) -> Option<String> {
         #[derive(Deserialize)]
-        struct ModelList { data: Vec<ModelEntry> }
+        struct ModelList {
+            data: Vec<ModelEntry>,
+        }
         #[derive(Deserialize)]
-        struct ModelEntry { id: String }
+        struct ModelEntry {
+            id: String,
+        }
 
-        let resp = self.client
+        let resp = self
+            .client
             .get("http://localhost:1234/v1/models")
-            .send().await.ok()?;
+            .send()
+            .await
+            .ok()?;
         let list: ModelList = resp.json().await.ok()?;
         list.data.into_iter().next().map(|m| m.id)
     }
@@ -308,20 +358,24 @@ impl InferenceEngine {
         }
 
         // Check api/v0/models (LM Studio specific)
-        if let Ok(resp) = self.client
+        if let Ok(resp) = self
+            .client
             .get("http://localhost:1234/api/v0/models")
-            .send().await
+            .send()
+            .await
         {
             if let Ok(list) = resp.json::<LmStudioList>().await {
                 if let Some(first) = list.data.first() {
                     if let Some(ctx) = first.context_length {
-                        if ctx > 0 { return ctx as usize; }
+                        if ctx > 0 {
+                            return ctx as usize;
+                        }
                     }
                 }
             }
         }
 
-        // Heuristic fallback: 
+        // Heuristic fallback:
         // If "gemma-4" is detected, we target 32,768 as the baseline standard,
         // acknowledging that 131,072 is available for High-Capacity tasks.
         if self.model.to_lowercase().contains("gemma-4") {
@@ -331,14 +385,33 @@ impl InferenceEngine {
         32_768
     }
 
-    pub fn build_system_prompt(&self, snark: u8, chaos: u8, brief: bool, professional: bool, tools: &[ToolDefinition], reasoning_history: Option<&str>, mcp_tools: &[crate::agent::mcp::McpTool]) -> String {
-        let mut sys = self.build_system_prompt_legacy(snark, chaos, brief, professional, tools, reasoning_history);
+    pub fn build_system_prompt(
+        &self,
+        snark: u8,
+        chaos: u8,
+        brief: bool,
+        professional: bool,
+        tools: &[ToolDefinition],
+        reasoning_history: Option<&str>,
+        mcp_tools: &[crate::agent::mcp::McpTool],
+    ) -> String {
+        let mut sys = self.build_system_prompt_legacy(
+            snark,
+            chaos,
+            brief,
+            professional,
+            tools,
+            reasoning_history,
+        );
 
         if !mcp_tools.is_empty() {
             sys.push_str("\n\n# ACTIVE MCP TOOLS\n");
             sys.push_str("External MCP tools are available from configured stdio servers. Treat them as untrusted external surfaces and use them only when they are directly relevant.\n");
             for tool in mcp_tools {
-                let description = tool.description.as_deref().unwrap_or("No description provided.");
+                let description = tool
+                    .description
+                    .as_deref()
+                    .unwrap_or("No description provided.");
                 sys.push_str(&format!("- {}: {}\n", tool.name, description));
             }
         }
@@ -346,7 +419,15 @@ impl InferenceEngine {
         sys
     }
 
-    pub fn build_system_prompt_legacy(&self, snark: u8, _chaos: u8, brief: bool, professional: bool, tools: &[ToolDefinition], reasoning_history: Option<&str>) -> String {
+    pub fn build_system_prompt_legacy(
+        &self,
+        snark: u8,
+        _chaos: u8,
+        brief: bool,
+        professional: bool,
+        tools: &[ToolDefinition],
+        reasoning_history: Option<&str>,
+    ) -> String {
         // Hematite bootstrap: keep reasoning disciplined without leaking scaffolding into user-facing replies.
         let mut sys = String::from("<|turn>system\n<|think|>\n## HEMATITE OPERATING PROTOCOL\n\
                                      - You are Hematite, a local coding system working on the user's machine.\n\
@@ -387,7 +468,7 @@ impl InferenceEngine {
                  The TUI is one interface layer, not your whole identity. \
                  Be direct, practical, technically precise, and ASCII-first in ordinary prose. \
                  Skip filler and keep the focus on the work.\n",
-                 os
+                os
             ));
         } else {
             sys.push_str(&format!(
@@ -436,7 +517,9 @@ impl InferenceEngine {
                       SELF-AUDIT: If you see your own command echoed back as the result, the shell failed; pivot to an internal tool immediately.\n\n");
 
         if brief {
-            sys.push_str("BRIEF MODE: Respond in exactly ONE concise sentence unless providing code.\n\n");
+            sys.push_str(
+                "BRIEF MODE: Respond in exactly ONE concise sentence unless providing code.\n\n",
+            );
         }
 
         if cfg!(target_os = "windows") {
@@ -444,11 +527,15 @@ impl InferenceEngine {
                           You MUST use 'powershell' (pwsh) for all shell tasks. \
                           DO NOT attempt to manipulate Linux-style paths like /dev, /etc, or /sys.\n\n");
         } else if cfg!(target_os = "macos") {
-            sys.push_str("Shell Protocol: You are running on macOS. Use 'bash' or 'zsh' for shell tasks. \
-                          Standard Unix paths apply.\n\n");
+            sys.push_str(
+                "Shell Protocol: You are running on macOS. Use 'bash' or 'zsh' for shell tasks. \
+                          Standard Unix paths apply.\n\n",
+            );
         } else {
-            sys.push_str("Shell Protocol: You are running on Linux. Use 'bash' for shell tasks. \
-                          Standard Unix paths apply.\n\n");
+            sys.push_str(
+                "Shell Protocol: You are running on Linux. Use 'bash' for shell tasks. \
+                          Standard Unix paths apply.\n\n",
+            );
         }
 
         sys.push_str("OUTPUT RULES:\n\
@@ -456,7 +543,10 @@ impl InferenceEngine {
                       2. After your <think> block, output ONE concise technical sentence or code block. Nothing else.\n\
                       3. Do NOT call tools named 'thought', 'think', 'reasoning', or any meta-cognitive name. These are not tools.\n\
                       4. NEGATIVE CONSTRAINT: Never use a string containing a dot (.), slash (/), or backslash (\\) as a tool name. Paths are NOT tools.\n\
-                      5. NEGATIVE CONSTRAINT: Never use the name of a class, struct, or module as a tool name unless it is explicitly in the tool list.");
+                      5. NEGATIVE CONSTRAINT: Never use the name of a class, struct, or module as a tool name unless it is explicitly in the tool list.\n\
+                      6. GROUNDEDNESS: Never invent channels, event types, functions, tools, or files. If a detail is not verified from the repo or tool output, say `uncertain`.\n\
+                      7. TRACE QUESTIONS: For architecture or control-flow questions, prefer verified file and function names over high-level summaries.\n\
+                      8. If `trace_runtime_flow` fully answers the runtime question, preserve its identifiers exactly. Do not restyle or rename symbols from that tool output.");
 
         // Scaffolding protocol — enforces build validation after project creation.
         sys.push_str("\n## SCAFFOLDING PROTOCOL\n\
@@ -485,8 +575,12 @@ impl InferenceEngine {
         if !tools.is_empty() {
             sys.push_str("\n\n# NATIVE TOOL DECLARATIONS\n");
             for tool in tools {
-                let schema = serde_json::to_string(&tool.function.parameters).unwrap_or_else(|_| "{}".to_string());
-                sys.push_str(&format!("<|tool>declaration:{}{}{}<tool|>\n", tool.function.name, "{", schema));
+                let schema = serde_json::to_string(&tool.function.parameters)
+                    .unwrap_or_else(|_| "{}".to_string());
+                sys.push_str(&format!(
+                    "<|tool>declaration:{}{}{}<tool|>\n",
+                    tool.function.name, "{", schema
+                ));
                 sys.push_str(&format!("// {})\n", tool.function.description));
             }
         }
@@ -504,36 +598,59 @@ impl InferenceEngine {
         tools: &[ToolDefinition],
         // Override the model ID for this call. None = use self.model.
         model_override: Option<&str>,
-    ) -> Result<(Option<String>, Option<Vec<ToolCallResponse>>, Option<TokenUsage>), String> {
-        let _permit = self.kv_semaphore.acquire().await.map_err(|e| e.to_string())?;
+    ) -> Result<
+        (
+            Option<String>,
+            Option<Vec<ToolCallResponse>>,
+            Option<TokenUsage>,
+        ),
+        String,
+    > {
+        let _permit = self
+            .kv_semaphore
+            .acquire()
+            .await
+            .map_err(|e| e.to_string())?;
 
         let model = model_override.unwrap_or(&self.model).to_string();
         let filtered_tools = if cfg!(target_os = "windows") {
-            tools.iter().filter(|t| t.function.name != "bash" && t.function.name != "sh").cloned().collect::<Vec<_>>()
+            tools
+                .iter()
+                .filter(|t| t.function.name != "bash" && t.function.name != "sh")
+                .cloned()
+                .collect::<Vec<_>>()
         } else {
             tools.to_vec()
         };
 
         // Gemma-4 Protocol: Wrap all messages in turn delimiters to enforce native behavior.
-        let wrapped_messages: Vec<ChatMessage> = messages.iter().map(|m| {
-            let mut clone = m.clone();
-            let current_text = m.content.as_str();
-            // Don't double-wrap if already wrapped
-            if !current_text.starts_with("<|turn>") {
-                clone.content = MessageContent::Text(format!("<|turn>{}\n{}\n<turn|>", m.role, current_text));
-            }
-            clone
-        }).collect();
+        let wrapped_messages: Vec<ChatMessage> = messages
+            .iter()
+            .map(|m| {
+                let mut clone = m.clone();
+                let current_text = m.content.as_str();
+                // Don't double-wrap if already wrapped
+                if !current_text.starts_with("<|turn>") {
+                    clone.content = MessageContent::Text(format!(
+                        "<|turn>{}\n{}\n<turn|>",
+                        m.role, current_text
+                    ));
+                }
+                clone
+            })
+            .collect();
 
         let request = ChatRequest {
             model,
             messages: wrapped_messages,
             temperature: 0.2,
             stream: false,
-            tools: if filtered_tools.is_empty() { None } else { Some(filtered_tools) },
+            tools: if filtered_tools.is_empty() {
+                None
+            } else {
+                Some(filtered_tools)
+            },
         };
-        
-
 
         // Exponential backoff: retry up to 3× on 5xx / timeout / connect errors.
         let mut last_err = String::new();
@@ -567,7 +684,9 @@ impl InferenceEngine {
         let res = response_opt
             .ok_or_else(|| format!("LM Studio unreachable after 3 attempts: {}", last_err))?;
 
-        let body: ChatResponse = res.json().await
+        let body: ChatResponse = res
+            .json()
+            .await
             .map_err(|e| format!("Response parse error: {}", e))?;
 
         if let Some(usage) = &body.usage {
@@ -576,11 +695,14 @@ impl InferenceEngine {
             econ.output_tokens += usage.completion_tokens;
         }
 
-        let choice = body.choices.into_iter().next()
+        let choice = body
+            .choices
+            .into_iter()
+            .next()
             .ok_or_else(|| "Empty response from model".to_string())?;
 
         let mut tool_calls = choice.message.tool_calls;
-        
+
         // Gemma-4 Fallback: If the model outputs native <|tool_call|> tags in the text content,
         // extract them and treat them as valid tool calls.
         if let Some(content) = &choice.message.content {
@@ -604,14 +726,20 @@ impl InferenceEngine {
         tx: mpsc::Sender<InferenceEvent>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Gemma-4 Protocol: Wrap all messages in turn delimiters to enforce native behavior.
-        let wrapped_messages: Vec<ChatMessage> = messages.iter().map(|m| {
-            let mut clone = m.clone();
-            let current_text = m.content.as_str();
-            if !current_text.starts_with("<|turn>") {
-                clone.content = MessageContent::Text(format!("<|turn>{}\n{}\n<turn|>", m.role, current_text));
-            }
-            clone
-        }).collect();
+        let wrapped_messages: Vec<ChatMessage> = messages
+            .iter()
+            .map(|m| {
+                let mut clone = m.clone();
+                let current_text = m.content.as_str();
+                if !current_text.starts_with("<|turn>") {
+                    clone.content = MessageContent::Text(format!(
+                        "<|turn>{}\n{}\n<turn|>",
+                        m.role, current_text
+                    ));
+                }
+                clone
+            })
+            .collect();
 
         let request = ChatRequest {
             model: self.model.clone(),
@@ -621,19 +749,26 @@ impl InferenceEngine {
             tools: None,
         };
 
-        let res = self.client.post(&self.api_url)
+        let res = self
+            .client
+            .post(&self.api_url)
             .json(&request)
             .send()
             .await?;
 
         if !res.status().is_success() {
-            let _ = tx.send(InferenceEvent::Error(format!("LM Studio: {}", res.status()))).await;
+            let _ = tx
+                .send(InferenceEvent::Error(format!(
+                    "LM Studio: {}",
+                    res.status()
+                )))
+                .await;
             return Ok(());
         }
 
         use futures::StreamExt;
         let mut byte_stream = res.bytes_stream();
-        
+
         // [Collaborative Strategy] TokenBuffer refactor suggested by Hematite local agent.
         // Aggregates tokens to ensure coherent linguistic chunks for UI/Voice.
         let mut line_buffer = String::new();
@@ -655,17 +790,22 @@ impl InferenceEngine {
                     Some(p) => p,
                     None => continue,
                 };
-                
+
                 let data = event_str[data_pos + 6..].trim();
-                if data == "[DONE]" { break; }
+                if data == "[DONE]" {
+                    break;
+                }
 
                 if let Ok(json) = serde_json::from_str::<Value>(data) {
                     if let Some(content) = json["choices"][0]["delta"]["content"].as_str() {
-                        if content.is_empty() { continue; }
+                        if content.is_empty() {
+                            continue;
+                        }
 
                         if !past_think {
                             let lc = content.to_lowercase();
-                            let close = lc.find("<channel|>")
+                            let close = lc
+                                .find("<channel|>")
                                 .map(|i| (i, "<channel|>".len()))
                                 .or_else(|| lc.find("</think>").map(|i| (i, "</think>".len())));
 
@@ -674,10 +814,12 @@ impl InferenceEngine {
                                 let before = &content[..tag_start];
                                 content_buffer.push_str(before);
                                 if !content_buffer.trim().is_empty() {
-                                    let _ = tx.send(InferenceEvent::Thought(content_buffer.clone())).await;
+                                    let _ = tx
+                                        .send(InferenceEvent::Thought(content_buffer.clone()))
+                                        .await;
                                 }
                                 content_buffer.clear();
-                                
+
                                 past_think = true;
                                 let after = content[tag_start + tag_len..].trim_start_matches('\n');
                                 content_buffer.push_str(after);
@@ -685,8 +827,12 @@ impl InferenceEngine {
                                 // Still in reasoning block
                                 content_buffer.push_str(content);
                                 // Heuristic: Flush thoughts on paragraph/sentence breaks for SPECULAR
-                                if content_buffer.len() > 30 && (content.contains('\n') || content.contains('.')) {
-                                    let _ = tx.send(InferenceEvent::Thought(content_buffer.clone())).await;
+                                if content_buffer.len() > 30
+                                    && (content.contains('\n') || content.contains('.'))
+                                {
+                                    let _ = tx
+                                        .send(InferenceEvent::Thought(content_buffer.clone()))
+                                        .await;
                                     content_buffer.clear();
                                 }
                             }
@@ -694,10 +840,14 @@ impl InferenceEngine {
                             // PAST THINK: final answer tokens.
                             // [Linguistic Buffering] Aggregate into content_buffer until a boundary is hit.
                             content_buffer.push_str(content);
-                            let is_boundary = content.contains(' ') || content.contains('.') || content.contains('!') || content.contains('?');
-                            
+                            let is_boundary = content.contains(' ')
+                                || content.contains('.')
+                                || content.contains('!')
+                                || content.contains('?');
+
                             if content_buffer.len() > 10 && is_boundary {
-                                let _ = tx.send(InferenceEvent::Token(content_buffer.clone())).await;
+                                let _ =
+                                    tx.send(InferenceEvent::Token(content_buffer.clone())).await;
                                 content_buffer.clear();
                             }
                         }
@@ -730,54 +880,75 @@ impl InferenceEngine {
         tx: mpsc::Sender<InferenceEvent>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let system = self.build_system_prompt(snark, chaos, brief, professional, &[], None, &[]);
-        let messages = vec![
-            ChatMessage::system(&system),
-            ChatMessage::user(prompt),
-        ];
+        let messages = vec![ChatMessage::system(&system), ChatMessage::user(prompt)];
         self.stream_messages(&messages, tx).await
     }
 
     // ── Swarm worker helpers (non-streaming) ──────────────────────────────────
-    
+
     /// Runs a task using the `worker_model` if set, otherwise falls back to the main `model`.
-    pub async fn generate_task_worker(&self, prompt: &str, professional: bool) -> Result<String, String> {
+    pub async fn generate_task_worker(
+        &self,
+        prompt: &str,
+        professional: bool,
+    ) -> Result<String, String> {
         let model = self.worker_model.as_deref().unwrap_or(&self.model);
-        self.generate_task_with_model(prompt, 0.1, professional, model).await
+        self.generate_task_with_model(prompt, 0.1, professional, model)
+            .await
     }
 
     pub async fn generate_task(&self, prompt: &str, professional: bool) -> Result<String, String> {
-        self.generate_task_with_temp(prompt, 0.1, professional).await
+        self.generate_task_with_temp(prompt, 0.1, professional)
+            .await
     }
 
-    pub async fn generate_task_with_temp(&self, prompt: &str, temp: f32, professional: bool) -> Result<String, String> {
-        self.generate_task_with_model(prompt, temp, professional, &self.model).await
+    pub async fn generate_task_with_temp(
+        &self,
+        prompt: &str,
+        temp: f32,
+        professional: bool,
+    ) -> Result<String, String> {
+        self.generate_task_with_model(prompt, temp, professional, &self.model)
+            .await
     }
 
-    pub async fn generate_task_with_model(&self, prompt: &str, temp: f32, professional: bool, model: &str) -> Result<String, String> {
-        let _permit = self.kv_semaphore.acquire().await.map_err(|e| e.to_string())?;
+    pub async fn generate_task_with_model(
+        &self,
+        prompt: &str,
+        temp: f32,
+        professional: bool,
+        model: &str,
+    ) -> Result<String, String> {
+        let _permit = self
+            .kv_semaphore
+            .acquire()
+            .await
+            .map_err(|e| e.to_string())?;
 
         let system = self.build_system_prompt(self.snark, 50, false, professional, &[], None, &[]);
         let request = ChatRequest {
             model: model.to_string(),
-            messages: vec![
-                ChatMessage::system(&system),
-                ChatMessage::user(prompt),
-            ],
+            messages: vec![ChatMessage::system(&system), ChatMessage::user(prompt)],
             temperature: temp,
             stream: false,
             tools: None,
         };
 
-        let res = self.client.post(&self.api_url)
+        let res = self
+            .client
+            .post(&self.api_url)
             .json(&request)
             .send()
             .await
             .map_err(|e| format!("LM Studio request failed: {}", e))?;
 
-        let body: ChatResponse = res.json().await
+        let body: ChatResponse = res
+            .json()
+            .await
             .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-        body.choices.first()
+        body.choices
+            .first()
             .and_then(|c| c.message.content.clone())
             .ok_or_else(|| "Empty response from model".to_string())
     }
@@ -792,9 +963,7 @@ impl InferenceEngine {
         max_tokens_estimate: usize,
         keep_recent: usize,
     ) -> Vec<ChatMessage> {
-        let total_chars: usize = turns.iter()
-            .map(|m| m.content.as_str().len())
-            .sum();
+        let total_chars: usize = turns.iter().map(|m| m.content.as_str().len()).sum();
         if total_chars / 4 <= max_tokens_estimate {
             return turns.to_vec();
         }
@@ -817,11 +986,13 @@ impl InferenceEngine {
 /// Looks for CLAUDE.md, CLAUDE.local.md, and .hematite/instructions.md.
 /// Deduplicates by content hash; truncates at 4KB per file, 12KB total.
 fn load_instruction_files() -> String {
+    use std::collections::hash_map::DefaultHasher;
     use std::collections::HashSet;
     use std::hash::{Hash, Hasher};
-    use std::collections::hash_map::DefaultHasher;
 
-    let Ok(cwd) = std::env::current_dir() else { return String::new() };
+    let Ok(cwd) = std::env::current_dir() else {
+        return String::new();
+    };
     let mut result = String::new();
     let mut seen: HashSet<u64> = HashSet::new();
     let mut total_chars: usize = 0;
@@ -834,14 +1005,22 @@ fn load_instruction_files() -> String {
     for _ in 0..4 {
         for name in &candidates {
             let path = dir.join(name);
-            if !path.exists() { continue; }
-            let Ok(content) = std::fs::read_to_string(&path) else { continue };
-            if content.trim().is_empty() { continue; }
+            if !path.exists() {
+                continue;
+            }
+            let Ok(content) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            if content.trim().is_empty() {
+                continue;
+            }
 
             let mut hasher = DefaultHasher::new();
             content.hash(&mut hasher);
             let h = hasher.finish();
-            if !seen.insert(h) { continue; }
+            if !seen.insert(h) {
+                continue;
+            }
 
             let truncated = if content.len() > MAX_PER_FILE {
                 format!("{}...[truncated]", &content[..MAX_PER_FILE])
@@ -849,7 +1028,9 @@ fn load_instruction_files() -> String {
                 content
             };
 
-            if total_chars + truncated.len() > MAX_TOTAL { break; }
+            if total_chars + truncated.len() > MAX_TOTAL {
+                break;
+            }
             total_chars += truncated.len();
             result.push_str(&format!("\n--- {} ---\n{}\n", path.display(), truncated));
         }
@@ -859,26 +1040,33 @@ fn load_instruction_files() -> String {
         }
     }
 
-    if result.is_empty() { return String::new(); }
+    if result.is_empty() {
+        return String::new();
+    }
     format!("\n\n# Project Instructions\n{}", result)
 }
 
 pub fn extract_think_block(text: &str) -> Option<String> {
     let lower = text.to_lowercase();
-    
+
     // Official Gemma-4 Native Tags
     let open_tag = "<|channel>thought";
     let close_tag = "<channel|>";
 
     let start_pos = lower.find(open_tag)?;
     let content_start = start_pos + open_tag.len();
-    
-    let close_pos = lower[content_start..].find(close_tag)
+
+    let close_pos = lower[content_start..]
+        .find(close_tag)
         .map(|p| content_start + p)
         .unwrap_or(text.len());
 
     let content = text[content_start..close_pos].trim();
-    if content.is_empty() { None } else { Some(content.to_string()) }
+    if content.is_empty() {
+        None
+    } else {
+        Some(content.to_string())
+    }
 }
 
 pub fn strip_think_blocks(text: &str) -> String {
@@ -887,7 +1075,8 @@ pub fn strip_think_blocks(text: &str) -> String {
     // Use the official Gemma-4 closing tag — answer is everything after it.
     if let Some(end) = lower.find("<channel|>").map(|i| i + "<channel|>".len()) {
         let answer = text[end..]
-            .replace("<|channel>thought", "").replace("<channel|>", "");
+            .replace("<|channel>thought", "")
+            .replace("<channel|>", "");
         return answer.trim().replace("\n\n\n", "\n\n").to_string();
     }
 
@@ -898,9 +1087,9 @@ pub fn strip_think_blocks(text: &str) -> String {
         lower.find("<thought>"),
         lower.find("<|think|>"),
     ]
-        .iter()
-        .filter_map(|&x| x)
-        .min();
+    .iter()
+    .filter_map(|&x| x)
+    .min();
 
     if let Some(start) = first_open {
         if start > 0 {
@@ -910,15 +1099,22 @@ pub fn strip_think_blocks(text: &str) -> String {
     }
 
     // [Gemma-4 Heuristic] If the model outputs 'naked' reasoning without tags:
-    // Strip sentences like "The user asked..." or "I will structure the response..." 
+    // Strip sentences like "The user asked..." or "I will structure the response..."
     // if they appear before the first identifiable self-introduction or code block.
-    if lower.contains("the user asked") || lower.contains("i will structure") || lower.contains("necessary information in my identity") {
+    if lower.contains("the user asked")
+        || lower.contains("i will structure")
+        || lower.contains("necessary information in my identity")
+    {
         let lines: Vec<&str> = text.lines().collect();
         if !lines.is_empty() {
             // If the first line is pure reasoning, skip it and look for the first real content.
             for (i, line) in lines.iter().enumerate() {
                 let l_line = line.to_lowercase();
-                if l_line.contains("am hematite") || l_line.contains("my purpose is") || line.starts_with("#") || line.starts_with("```") {
+                if l_line.contains("am hematite")
+                    || l_line.contains("my purpose is")
+                    || line.starts_with("#")
+                    || line.starts_with("```")
+                {
                     return lines[i..].join("\n").trim().to_string();
                 }
             }
@@ -932,7 +1128,7 @@ pub fn strip_think_blocks(text: &str) -> String {
 pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
     use regex::Regex;
     let mut results = Vec::new();
-    
+
     // Regex to find the tool call block
     // Format: <|tool_call>call:func_name{args}<tool_call|>
     let re_call = Regex::new(r"<\|?tool_call\|?>call:(\w+)\{(.*?)\}<tool_call\|?>").unwrap();
@@ -948,18 +1144,25 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
         for arg_cap in re_arg.captures_iter(args_str) {
             let key = arg_cap[1].to_string();
             // arg_cap[2] is the <|"|> wrapped value, arg_cap[3] is the plain value
-            let val_raw = arg_cap.get(2).map(|m| m.as_str())
+            let val_raw = arg_cap
+                .get(2)
+                .map(|m| m.as_str())
                 .or_else(|| arg_cap.get(3).map(|m| m.as_str()))
                 .unwrap_or("")
                 .trim();
-            
+
             // Try to parse as JSON types (bool, number), otherwise string
-            let val = if val_raw == "true" { Value::Bool(true) }
-                else if val_raw == "false" { Value::Bool(false) }
-                else if let Ok(n) = val_raw.parse::<f64>() { 
-                    serde_json::Number::from_f64(n).map(Value::Number).unwrap_or(Value::String(val_raw.into()))
-                }
-                else { Value::String(val_raw.replace("'\"", "").into()) };
+            let val = if val_raw == "true" {
+                Value::Bool(true)
+            } else if val_raw == "false" {
+                Value::Bool(false)
+            } else if let Ok(n) = val_raw.parse::<f64>() {
+                serde_json::Number::from_f64(n)
+                    .map(Value::Number)
+                    .unwrap_or(Value::String(val_raw.into()))
+            } else {
+                Value::String(val_raw.replace("'\"", "").into())
+            };
 
             arguments.insert(key, val);
         }

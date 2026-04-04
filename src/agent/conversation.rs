@@ -1,13 +1,14 @@
 use crate::agent::inference::{
-    ChatMessage, InferenceEngine, InferenceEvent, ToolDefinition, ToolFunction, ToolCallFn, MessageContent,
+    ChatMessage, InferenceEngine, InferenceEvent, MessageContent, ToolCallFn, ToolDefinition,
+    ToolFunction,
 };
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
 use crate::agent::compaction::{self, CompactionConfig};
 use crate::ui::gpu_monitor::GpuState;
 
+use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
-use serde_json::Value;
 
 // ── Session persistence ───────────────────────────────────────────────────────
 
@@ -24,12 +25,26 @@ fn session_path() -> std::path::PathBuf {
         .join("session.json")
 }
 
-fn load_session_data() -> (Vec<crate::agent::inference::ChatMessage>, Option<String>, Option<String>) {
+fn load_session_data() -> (
+    Vec<crate::agent::inference::ChatMessage>,
+    Option<String>,
+    Option<String>,
+) {
     let path = session_path();
-    if !path.exists() { return (Vec::new(), None, None); }
-    let Ok(data) = std::fs::read_to_string(&path) else { return (Vec::new(), None, None) };
-    let Ok(saved) = serde_json::from_str::<SavedSession>(&data) else { return (Vec::new(), None, None) };
-    (saved.history, saved.running_summary, saved.reasoning_history)
+    if !path.exists() {
+        return (Vec::new(), None, None);
+    }
+    let Ok(data) = std::fs::read_to_string(&path) else {
+        return (Vec::new(), None, None);
+    };
+    let Ok(saved) = serde_json::from_str::<SavedSession>(&data) else {
+        return (Vec::new(), None, None);
+    };
+    (
+        saved.history,
+        saved.running_summary,
+        saved.reasoning_history,
+    )
 }
 
 fn purge_task_files() {
@@ -58,6 +73,22 @@ fn purge_task_files() {
             }
         }
     }
+}
+
+fn should_enable_grounded_trace_mode(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    let asks_trace = lower.contains("trace")
+        || lower.contains("how does")
+        || lower.contains("what are the main runtime subsystems")
+        || lower.contains("how does a user message move")
+        || lower.contains("separate normal assistant output")
+        || lower.contains("session reset behavior")
+        || lower.contains("file references")
+        || lower.contains("event types")
+        || lower.contains("channels");
+    let read_only = lower.contains("read-only");
+    let anti_guess = lower.contains("do not guess") || lower.contains("if you are unsure");
+    asks_trace || read_only || anti_guess
 }
 
 // ── Tool catalogue ────────────────────────────────────────────────────────────
@@ -93,6 +124,33 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             serde_json::json!({
                 "type": "object",
                 "properties": {}
+            }),
+        ),
+        make_tool(
+            "trace_runtime_flow",
+            "Return an authoritative read-only trace of Hematite runtime flow. \
+             Use this for architecture questions about keyboard input to final output, \
+             reasoning/specular separation, startup wiring, runtime subsystems, or \
+             session reset commands like /clear, /new, and /forget. Prefer this over guessing.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "enum": ["user_turn", "session_reset", "reasoning_split", "runtime_subsystems", "startup"],
+                        "description": "Which verified runtime report to return"
+                    },
+                    "input": {
+                        "type": "string",
+                        "description": "Optional user input to label a normal user-turn trace"
+                    },
+                    "command": {
+                        "type": "string",
+                        "enum": ["/clear", "/new", "/forget", "all"],
+                        "description": "Optional reset command when topic=session_reset"
+                    }
+                },
+                "required": ["topic"]
             }),
         ),
         make_tool(
@@ -536,7 +594,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
     ];
-    
+
     // ── Semantic Ignition: Specialized LSP Tools ───────────────
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
@@ -637,16 +695,26 @@ impl ConversationManager {
         let (saved_history, saved_summary, saved_reasoning) = load_session_data();
 
         // Build the initial mcp_manager
-        let mcp_manager = Arc::new(tokio::sync::Mutex::new(crate::agent::mcp_manager::McpManager::new()));
-        
+        let mcp_manager = Arc::new(tokio::sync::Mutex::new(
+            crate::agent::mcp_manager::McpManager::new(),
+        ));
+
         // Build the initial system prompt using the canonical InferenceEngine path.
-        let dynamic_instructions = engine.build_system_prompt(snark, chaos, brief, professional, &[], saved_reasoning.as_deref(), &[]);
-        
+        let dynamic_instructions = engine.build_system_prompt(
+            snark,
+            chaos,
+            brief,
+            professional,
+            &[],
+            saved_reasoning.as_deref(),
+            &[],
+        );
+
         let mut history = vec![ChatMessage::system(&dynamic_instructions)];
         if !saved_history.is_empty() {
-             // Preserve earlier conversation but update the core instructions with latest context (Date/Git/CLAUDE.md).
-             history = vec![ChatMessage::system(&dynamic_instructions)];
-             history.extend(saved_history.into_iter().skip(1));
+            // Preserve earlier conversation but update the core instructions with latest context (Date/Git/CLAUDE.md).
+            history = vec![ChatMessage::system(&dynamic_instructions)];
+            history.extend(saved_history.into_iter().skip(1));
         }
 
         let vein_path = crate::tools::file_ops::workspace_root()
@@ -677,7 +745,9 @@ impl ConversationManager {
             session_memory: crate::agent::compaction::SessionMemory::default(),
             swarm_coordinator,
             voice_manager,
-            lsp_manager: Arc::new(Mutex::new(crate::agent::lsp::manager::LspManager::new(crate::tools::file_ops::workspace_root()))),
+            lsp_manager: Arc::new(Mutex::new(crate::agent::lsp::manager::LspManager::new(
+                crate::tools::file_ops::workspace_root(),
+            ))),
             reasoning_history: saved_reasoning,
             pinned_files: Arc::new(Mutex::new(std::collections::HashMap::new())),
         }
@@ -705,15 +775,17 @@ impl ConversationManager {
     }
 
     fn replace_mcp_tool_definitions(&mut self, mcp_tools: &[crate::agent::mcp::McpTool]) {
-        self.tools.retain(|tool| !tool.function.name.starts_with("mcp__"));
-        self.tools.extend(mcp_tools.iter().map(|tool| ToolDefinition {
-            tool_type: "function".into(),
-            function: ToolFunction {
-                name: tool.name.clone(),
-                description: tool.description.clone().unwrap_or_default(),
-                parameters: tool.input_schema.clone(),
-            },
-        }));
+        self.tools
+            .retain(|tool| !tool.function.name.starts_with("mcp__"));
+        self.tools
+            .extend(mcp_tools.iter().map(|tool| ToolDefinition {
+                tool_type: "function".into(),
+                function: ToolFunction {
+                    name: tool.name.clone(),
+                    description: tool.description.clone().unwrap_or_default(),
+                    parameters: tool.input_schema.clone(),
+                },
+            }));
     }
 
     async fn refresh_mcp_tools(
@@ -758,14 +830,19 @@ impl ConversationManager {
         let mcp_tools = match self.refresh_mcp_tools().await {
             Ok(tools) => tools,
             Err(e) => {
-                let _ = tx.send(InferenceEvent::Error(format!("MCP refresh failed: {}", e))).await;
+                let _ = tx
+                    .send(InferenceEvent::Error(format!("MCP refresh failed: {}", e)))
+                    .await;
                 Vec::new()
             }
         };
 
         // Apply config model overrides (config takes precedence over CLI flags).
         let effective_fast = config.fast_model.as_deref().or(self.fast_model.as_deref());
-        let effective_think = config.think_model.as_deref().or(self.think_model.as_deref());
+        let effective_think = config
+            .think_model
+            .as_deref()
+            .or(self.think_model.as_deref());
 
         // ── /new: reset session ───────────────────────────────────────────────
         if user_input.trim() == "/new" {
@@ -778,7 +855,10 @@ impl ConversationManager {
             purge_task_files();
             let _ = std::fs::remove_file(session_path());
             // Hard sync for session purge.
-            let _ = std::fs::write(session_path(), "{\"history\": [], \"running_summary\": null}");
+            let _ = std::fs::write(
+                session_path(),
+                "{\"history\": [], \"running_summary\": null}",
+            );
             for chunk in chunk_text("Session cleared. Fresh context.", 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
@@ -791,10 +871,19 @@ impl ConversationManager {
             let mut lsp = self.lsp_manager.lock().await;
             match lsp.start_servers().await {
                 Ok(_) => {
-                    let _ = tx.send(InferenceEvent::MutedToken("LSP: Servers Initialized OK.".to_string())).await;
+                    let _ = tx
+                        .send(InferenceEvent::MutedToken(
+                            "LSP: Servers Initialized OK.".to_string(),
+                        ))
+                        .await;
                 }
                 Err(e) => {
-                    let _ = tx.send(InferenceEvent::Error(format!("LSP: Failed to start servers - {}", e))).await;
+                    let _ = tx
+                        .send(InferenceEvent::Error(format!(
+                            "LSP: Failed to start servers - {}",
+                            e
+                        )))
+                        .await;
                 }
             }
             let _ = tx.send(InferenceEvent::Done).await;
@@ -811,7 +900,10 @@ impl ConversationManager {
             self.pinned_files.lock().await.clear();
             purge_task_files();
             let _ = std::fs::remove_file(session_path());
-            let _ = std::fs::write(session_path(), "{\"history\": [], \"running_summary\": null}");
+            let _ = std::fs::write(
+                session_path(),
+                "{\"history\": [], \"running_summary\": null}",
+            );
             for chunk in chunk_text("Task Memory & History purged. Clean slate achieved.", 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
@@ -830,7 +922,10 @@ impl ConversationManager {
         }
         if user_input.trim() == "/no_think" {
             self.think_mode = Some(false);
-            for chunk in chunk_text("Think mode: OFF — fast mode enabled (no chain-of-thought).", 8) {
+            for chunk in chunk_text(
+                "Think mode: OFF — fast mode enabled (no chain-of-thought).",
+                8,
+            ) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
             let _ = tx.send(InferenceEvent::Done).await;
@@ -842,14 +937,25 @@ impl ConversationManager {
             let path = user_input.trim_start()[5..].trim();
             match std::fs::read_to_string(path) {
                 Ok(content) => {
-                    self.pinned_files.lock().await.insert(path.to_string(), content);
-                    let msg = format!("Pinned: {} — this file is now locked in model context.", path);
+                    self.pinned_files
+                        .lock()
+                        .await
+                        .insert(path.to_string(), content);
+                    let msg = format!(
+                        "Pinned: {} — this file is now locked in model context.",
+                        path
+                    );
                     for chunk in chunk_text(&msg, 8) {
                         let _ = tx.send(InferenceEvent::Token(chunk)).await;
                     }
                 }
                 Err(e) => {
-                    let _ = tx.send(InferenceEvent::Error(format!("Failed to pin {}: {}", path, e))).await;
+                    let _ = tx
+                        .send(InferenceEvent::Error(format!(
+                            "Failed to pin {}: {}",
+                            path, e
+                        )))
+                        .await;
                 }
             }
             let _ = tx.send(InferenceEvent::Done).await;
@@ -865,21 +971,38 @@ impl ConversationManager {
                     let _ = tx.send(InferenceEvent::Token(chunk)).await;
                 }
             } else {
-                let _ = tx.send(InferenceEvent::Error(format!("File {} was not pinned.", path))).await;
+                let _ = tx
+                    .send(InferenceEvent::Error(format!(
+                        "File {} was not pinned.",
+                        path
+                    )))
+                    .await;
             }
             let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
         }
 
         // ── Normal processing ───────────────────────────────────────────────
-        
+
         // Ensure MCP is initialized and tools are discovered for this turn.
-        let mut base_prompt = self.engine.build_system_prompt(self.snark, self.chaos, self.brief, self.professional, &self.tools, self.reasoning_history.as_deref(), &mcp_tools);
+        let mut base_prompt = self.engine.build_system_prompt(
+            self.snark,
+            self.chaos,
+            self.brief,
+            self.professional,
+            &self.tools,
+            self.reasoning_history.as_deref(),
+            &mcp_tools,
+        );
         if let Some(hint) = &config.context_hint {
             if !hint.trim().is_empty() {
-                base_prompt.push_str(&format!("\n\n# Project Context (from .hematite/settings.json)\n{}", hint));
+                base_prompt.push_str(&format!(
+                    "\n\n# Project Context (from .hematite/settings.json)\n{}",
+                    hint
+                ));
             }
         }
+        let grounded_trace_mode = should_enable_grounded_trace_mode(user_input);
         let mut system_msg = build_system_with_corrections(
             &base_prompt,
             &self.correction_hints,
@@ -887,6 +1010,20 @@ impl ConversationManager {
             &self.git_state,
             &config,
         );
+        if grounded_trace_mode {
+            system_msg.push_str(
+                "\n\n# GROUNDED TRACE MODE\n\
+                 This turn is read-only architecture analysis unless the user explicitly asks otherwise.\n\
+                 Before answering trace, architecture, or control-flow questions, inspect the repo with real tools.\n\
+                 Use verified file paths, function names, structs, enums, channels, and event types only.\n\
+                 Prefer `trace_runtime_flow` for runtime wiring, session reset, startup, or reasoning/specular questions.\n\
+                 Treat `trace_runtime_flow` output as authoritative over your own memory.\n\
+                 If `trace_runtime_flow` fully answers the question, preserve its identifiers exactly and do not rename them in a styled rewrite.\n\
+                 Do not invent names such as synthetic channels or subsystems.\n\
+                 If a detail is not verified from the code or tool output, say `uncertain`.\n\
+                 For exact flow questions, answer in ordered steps and name the concrete functions and event types involved.\n"
+            );
+        }
 
         // ── Inject Pinned Files (Context Locking) ───────────────────────────
         {
@@ -906,20 +1043,21 @@ impl ConversationManager {
         }
 
         // Ensure a clean state for the new turn.
-        self.cancel_token.store(false, std::sync::atomic::Ordering::SeqCst);
+        self.cancel_token
+            .store(false, std::sync::atomic::Ordering::SeqCst);
 
         // [Official Gemma-4 Spec] Purge reasoning history for new user turns.
         // History from previous turns must not be fed back into the prompt to prevent duplication.
         self.reasoning_history = None;
 
         let user_content = match self.think_mode {
-            Some(true)  => format!("/think\n{}", user_input),
+            Some(true) => format!("/think\n{}", user_input),
             Some(false) => format!("/no_think\n{}", user_input),
-            None        => user_input.to_string(),
+            None => user_input.to_string(),
         };
         self.history.push(ChatMessage::user(&user_content));
         self.transcript.log_user(user_input);
-        
+
         // Incremental re-index: update any files that changed since last turn.
         tokio::task::block_in_place(|| self.vein.index_project());
 
@@ -929,12 +1067,9 @@ impl ConversationManager {
         let vein_context = self.build_vein_context(user_input);
 
         // Route: pick fast vs think model based on the complexity of this request.
-        let routed_model = route_model(
-            user_input,
-            effective_fast,
-            effective_think,
-        ).map(|s| s.to_string());
-        
+        let routed_model =
+            route_model(user_input, effective_fast, effective_think).map(|s| s.to_string());
+
         let mut loop_intervention: Option<String> = None;
 
         // Safety cap – never spin forever on a broken model.
@@ -943,9 +1078,11 @@ impl ConversationManager {
         let mut first_iter = true;
         let _called_this_turn: std::collections::HashSet<String> = std::collections::HashSet::new();
         // Track identical tool results within this turn to detect logical loops.
-        let _result_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let _result_counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
         // Track the count of identical (name, args) calls to detect infinite tool loops.
-        let mut repeat_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut repeat_counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
 
         // Track the index of the message that started THIS turn, so compaction doesn't summarize it.
         let mut turn_anchor = self.history.len().saturating_sub(1);
@@ -954,14 +1091,20 @@ impl ConversationManager {
             let mut mutation_occurred = false;
             // Priority Check: External Cancellation (via Esc key in TUI)
             if self.cancel_token.load(std::sync::atomic::Ordering::SeqCst) {
-                self.cancel_token.store(false, std::sync::atomic::Ordering::SeqCst);
-                let _ = tx.send(InferenceEvent::Thought("Turn cancelled by user.".into())).await;
+                self.cancel_token
+                    .store(false, std::sync::atomic::Ordering::SeqCst);
+                let _ = tx
+                    .send(InferenceEvent::Thought("Turn cancelled by user.".into()))
+                    .await;
                 let _ = tx.send(InferenceEvent::Done).await;
                 return Ok(());
             }
 
             // ── Intelligence Surge: Proactive Compaction Check ──────────────────────
-            if self.compact_history_if_needed(&tx, Some(turn_anchor)).await? {
+            if self
+                .compact_history_if_needed(&tx, Some(turn_anchor))
+                .await?
+            {
                 // After compaction, history is [system, summary, turn_anchor, ...]
                 // The new turn_anchor is index 2.
                 turn_anchor = 2;
@@ -985,7 +1128,8 @@ impl ConversationManager {
             }
             prompt_msgs.extend(messages);
 
-            let (text, tool_calls, usage) = self.engine
+            let (text, tool_calls, usage) = self
+                .engine
                 .call_with_tools(&prompt_msgs, &self.tools, routed_model.as_deref())
                 .await
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?;
@@ -1003,22 +1147,28 @@ impl ConversationManager {
                 // VOCAL AGENT: If the model provided reasoning alongside tools,
                 // stream it to the SPECULAR panel now using the hardened extraction.
                 let raw_content = text.as_deref().unwrap_or(" ");
-                
+
                 if let Some(thought) = crate::agent::inference::extract_think_block(raw_content) {
                     let _ = tx.send(InferenceEvent::Thought(thought.clone())).await;
                     // Reasoning is silent (hidden in SPECULAR only).
                     self.reasoning_history = Some(thought);
                 }
-                
+
                 // [Gemma-4 Protocol] Keep raw content (including thoughts) during tool loops.
                 // Thoughts are only stripped before the 'final' user turn.
-                self.history.push(ChatMessage::assistant_tool_calls(raw_content, calls.clone()));
+                self.history.push(ChatMessage::assistant_tool_calls(
+                    raw_content,
+                    calls.clone(),
+                ));
 
                 // ── LAYER 4: Parallel Tool Orchestration (Batching) ────────────────────
                 let mut results = Vec::new();
 
                 // Partition tool calls: Parallel Read vs Serial Mutating
-                let (parallel_calls, serial_calls): (Vec<_>, Vec<_>) = calls.clone().into_iter().partition(|c| is_parallel_safe(&c.function.name));
+                let (parallel_calls, serial_calls): (Vec<_>, Vec<_>) = calls
+                    .clone()
+                    .into_iter()
+                    .partition(|c| is_parallel_safe(&c.function.name));
 
                 // 1. Concurrent Execution (ParallelRead)
                 if !parallel_calls.is_empty() {
@@ -1028,7 +1178,13 @@ impl ConversationManager {
                         let config_clone = config.clone();
                         // Carry the real call ID into the outcome
                         let call_with_id = call.clone();
-                        tasks.push(self.process_tool_call(call_with_id.function, config_clone, yolo, tx_clone, call_with_id.id));
+                        tasks.push(self.process_tool_call(
+                            call_with_id.function,
+                            config_clone,
+                            yolo,
+                            tx_clone,
+                            call_with_id.id,
+                        ));
                     }
                     // Wait for all read-only tasks to complete simultaneously.
                     results.extend(futures::future::join_all(tasks).await);
@@ -1036,10 +1192,20 @@ impl ConversationManager {
 
                 // 2. Sequential Execution (SerialMutating)
                 for call in serial_calls {
-                    results.push(self.process_tool_call(call.function, config.clone(), yolo, tx.clone(), call.id).await);
+                    results.push(
+                        self.process_tool_call(
+                            call.function,
+                            config.clone(),
+                            yolo,
+                            tx.clone(),
+                            call.id,
+                        )
+                        .await,
+                    );
                 }
 
                 // 3. Collate Messages into History & UI
+                let mut authoritative_trace_output: Option<String> = None;
                 for res in results {
                     let call_id = res.call_id.clone();
                     let tool_name = res.tool_name.clone();
@@ -1056,7 +1222,11 @@ impl ConversationManager {
                     }
 
                     // Update Repeat Guard
-                    let call_key = format!("{}:{}", tool_name, serde_json::to_string(&res.args).unwrap_or_default());
+                    let call_key = format!(
+                        "{}:{}",
+                        tool_name,
+                        serde_json::to_string(&res.args).unwrap_or_default()
+                    );
                     let repeat_count = repeat_counts.entry(call_key.clone()).or_insert(0);
                     *repeat_count += 1;
 
@@ -1074,22 +1244,33 @@ impl ConversationManager {
                              clarification if you cannot proceed.".to_string()
                         );
                     }
-                    
+
                     if consecutive_errors >= 4 {
-                        let _ = tx.send(InferenceEvent::Error("Hard termination: too many consecutive tool errors.".into())).await;
+                        let _ = tx
+                            .send(InferenceEvent::Error(
+                                "Hard termination: too many consecutive tool errors.".into(),
+                            ))
+                            .await;
                         return Ok(());
                     }
 
-                    let _ = tx.send(InferenceEvent::ToolCallResult {
-                        id: call_id.clone(),
-                        name: tool_name.clone(),
-                        output: final_output.clone(),
-                        is_error,
-                    }).await;
+                    let _ = tx
+                        .send(InferenceEvent::ToolCallResult {
+                            id: call_id.clone(),
+                            name: tool_name.clone(),
+                            output: final_output.clone(),
+                            is_error,
+                        })
+                        .await;
 
                     // Cap output before history
                     let capped = cap_output(&final_output, 8000);
-                    self.history.push(ChatMessage::tool_result(&call_id, &tool_name, &capped));
+                    self.history
+                        .push(ChatMessage::tool_result(&call_id, &tool_name, &capped));
+
+                    if grounded_trace_mode && tool_name == "trace_runtime_flow" && !is_error {
+                        authoritative_trace_output = Some(final_output);
+                    }
 
                     if *repeat_count >= 5 {
                         let _ = tx.send(InferenceEvent::Done).await;
@@ -1097,19 +1278,45 @@ impl ConversationManager {
                     }
                 }
 
+                if let Some(trace_output) = authoritative_trace_output {
+                    self.history.push(ChatMessage::assistant_text(&trace_output));
+                    self.transcript.log_agent(&trace_output);
+
+                    for chunk in chunk_text(&trace_output, 8) {
+                        if !chunk.is_empty() {
+                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                        }
+                    }
+
+                    let _ = tx.send(InferenceEvent::Done).await;
+                    break;
+                }
+
                 // 4. Auto-Verification Loop (The Perfect Bake)
                 if mutation_occurred && !yolo {
-                    let _ = tx.send(InferenceEvent::Thought("Self-Verification: Running 'cargo check' to ensure build integrity...".into())).await;
+                    let _ = tx
+                        .send(InferenceEvent::Thought(
+                            "Self-Verification: Running 'cargo check' to ensure build integrity..."
+                                .into(),
+                        ))
+                        .await;
                     let verify_res = self.auto_verify_build().await;
-                    self.history.push(ChatMessage::system(&format!("\n# SYSTEM VERIFICATION\n{verify_res}")));
-                    let _ = tx.send(InferenceEvent::Thought("Verification turn injected into history.".into())).await;
+                    self.history.push(ChatMessage::system(&format!(
+                        "\n# SYSTEM VERIFICATION\n{verify_res}"
+                    )));
+                    let _ = tx
+                        .send(InferenceEvent::Thought(
+                            "Verification turn injected into history.".into(),
+                        ))
+                        .await;
                 }
 
                 // Continue loop – the model will respond to the results.
                 continue;
             } else if let Some(response_text) = text {
                 // 1. Process and route the reasoning block to SPECULAR.
-                if let Some(thought) = crate::agent::inference::extract_think_block(&response_text) {
+                if let Some(thought) = crate::agent::inference::extract_think_block(&response_text)
+                {
                     let _ = tx.send(InferenceEvent::Thought(thought.clone())).await;
                     // Persist for history audit (stripped from next turn by Volatile Reasoning rule).
                     // This will be summarized in the next turn's system prompt.
@@ -1118,7 +1325,7 @@ impl ConversationManager {
 
                 // 2. Process and stream the final answer to the chat interface.
                 let cleaned = crate::agent::inference::strip_think_blocks(&response_text);
-                
+
                 // [Hardened Interface] Strictly respect the stripper.
                 // If it's empty, we stay silent in the chat area (reasoning is in SPECULAR).
                 if cleaned.is_empty() {
@@ -1135,13 +1342,15 @@ impl ConversationManager {
                         let _ = tx.send(InferenceEvent::Token(chunk.clone())).await;
                     }
                 }
-                
+
                 let _ = tx.send(InferenceEvent::Done).await;
                 break;
             } else {
-                let _ = tx.send(InferenceEvent::Error(
-                    "Model returned an empty response.".into()
-                )).await;
+                let _ = tx
+                    .send(InferenceEvent::Error(
+                        "Model returned an empty response.".into(),
+                    ))
+                    .await;
                 break;
             }
         }
@@ -1177,7 +1386,7 @@ impl ConversationManager {
     /// Triggers the Deterministic Smart Compaction algorithm to shrink history while preserving context.
     /// Triggers the Recursive Context Compactor.
     async fn compact_history_if_needed(
-        &mut self, 
+        &mut self,
         tx: &mpsc::Sender<InferenceEvent>,
         anchor_index: Option<usize>,
     ) -> Result<bool, String> {
@@ -1189,20 +1398,22 @@ impl ConversationManager {
             return Ok(false);
         }
 
-        let _ = tx.send(InferenceEvent::Thought(format!(
-            "Compaction: ctx={}k vram={:.0}% threshold={}k tokens — chaining summary...",
-            context_length / 1000,
-            vram_ratio * 100.0,
-            config.max_estimated_tokens / 1000,
-        ))).await;
+        let _ = tx
+            .send(InferenceEvent::Thought(format!(
+                "Compaction: ctx={}k vram={:.0}% threshold={}k tokens — chaining summary...",
+                context_length / 1000,
+                vram_ratio * 100.0,
+                config.max_estimated_tokens / 1000,
+            )))
+            .await;
 
         let result = compaction::compact_history(
             &self.history,
             self.running_summary.as_deref(),
             config,
-            anchor_index
+            anchor_index,
         );
-        
+
         self.history = result.messages;
         self.running_summary = result.summary;
 
@@ -1211,26 +1422,33 @@ impl ConversationManager {
 
         // Jinja alignment: preserved slice may start with assistant/tool messages.
         // Strip any leading non-user messages so the first non-system message is always user.
-        let first_non_sys = self.history.iter().position(|m| m.role != "system")
+        let first_non_sys = self
+            .history
+            .iter()
+            .position(|m| m.role != "system")
             .unwrap_or(self.history.len());
         if first_non_sys < self.history.len() {
-            if let Some(user_offset) = self.history[first_non_sys..].iter().position(|m| m.role == "user") {
+            if let Some(user_offset) = self.history[first_non_sys..]
+                .iter()
+                .position(|m| m.role == "user")
+            {
                 if user_offset > 0 {
-                    self.history.drain(first_non_sys..first_non_sys + user_offset);
+                    self.history
+                        .drain(first_non_sys..first_non_sys + user_offset);
                 }
             }
         }
 
-        let _ = tx.send(InferenceEvent::Thought(format!(
-            "Memory Synthesis: Extracted context for task: '{}'. Working set: {} files.",
-            self.session_memory.current_task,
-            self.session_memory.working_set.len()
-        ))).await;
+        let _ = tx
+            .send(InferenceEvent::Thought(format!(
+                "Memory Synthesis: Extracted context for task: '{}'. Working set: {} files.",
+                self.session_memory.current_task,
+                self.session_memory.working_set.len()
+            )))
+            .await;
 
         Ok(true)
     }
-
-
 
     /// Query The Vein for context relevant to the user's message.
     /// Returns a formatted system message string, or None if nothing useful found.
@@ -1273,12 +1491,14 @@ impl ConversationManager {
     /// This ensures we don't have redundant system blocks and prevents Jinja crashes.
     fn context_window_slice(&self) -> Vec<ChatMessage> {
         let mut result = Vec::new();
-        
+
         // Skip index 0 (the raw system message) and any stray system messages in history.
         if self.history.len() > 1 {
             for m in &self.history[1..] {
-                if m.role == "system" { continue; }
-                
+                if m.role == "system" {
+                    continue;
+                }
+
                 let mut sanitized = m.clone();
                 // DEEP SANITIZE: LM Studio Jinja templates for Qwen crash on truly empty content.
                 if (m.role == "assistant" || m.role == "tool") && m.content.as_str().is_empty() {
@@ -1314,8 +1534,15 @@ impl ConversationManager {
         let mut files = std::collections::HashSet::new();
         for m in messages {
             for word in m.content.as_str().split_whitespace() {
-                let word = word.trim_matches(|c: char| matches!(c, ',' | '.' | ':' | ';' | ')' | '(' | '"' | '\'' | '`'));
-                if (word.contains('/') || word.contains('\\')) && (word.ends_with(".rs") || word.ends_with(".sh") || word.ends_with(".toml") || word.ends_with(".md")) {
+                let word = word.trim_matches(|c: char| {
+                    matches!(c, ',' | '.' | ':' | ';' | ')' | '(' | '"' | '\'' | '`')
+                });
+                if (word.contains('/') || word.contains('\\'))
+                    && (word.ends_with(".rs")
+                        || word.ends_with(".sh")
+                        || word.ends_with(".toml")
+                        || word.ends_with(".md"))
+                {
                     files.insert(word.to_string());
                 }
             }
@@ -1347,16 +1574,27 @@ impl ConversationManager {
 
         // 3. Compact Key Timeline
         lines.push("- Key Timeline:".to_string());
-        for m in messages.iter().take(20) { // Keep the first 20 in sequence for the timeline
+        for m in messages.iter().take(20) {
+            // Keep the first 20 in sequence for the timeline
             let content_str = m.content.as_str();
             let content_preview = if content_str.len() > 100 {
                 format!("{}...", &content_str[..97])
             } else if content_str.trim().is_empty() && !m.tool_calls.is_empty() {
-                format!("Executing tools: {:?}", m.tool_calls.iter().map(|c| &c.function.name).collect::<Vec<_>>())
+                format!(
+                    "Executing tools: {:?}",
+                    m.tool_calls
+                        .iter()
+                        .map(|c| &c.function.name)
+                        .collect::<Vec<_>>()
+                )
             } else {
                 content_str.to_string()
             };
-            lines.push(format!("  - {}: {}", m.role, content_preview.replace('\n', " ")));
+            lines.push(format!(
+                "  - {}: {}",
+                m.role,
+                content_preview.replace('\n', " ")
+            ));
         }
 
         lines.join("\n")
@@ -1364,7 +1602,9 @@ impl ConversationManager {
 
     /// Drop old turns from the middle of history.
     fn trim_history(&mut self, max_messages: usize) {
-        if self.history.len() <= max_messages { return; }
+        if self.history.len() <= max_messages {
+            return;
+        }
         // Always keep [0] (system prompt).
         let excess = self.history.len() - max_messages;
         self.history.drain(1..=excess);
@@ -1374,13 +1614,14 @@ impl ConversationManager {
     #[allow(dead_code)]
     async fn perform_auto_verify(&mut self) -> Option<String> {
         let root = crate::tools::file_ops::workspace_root();
-        
+
         // Strategy: Only run if it's a Rust project (Cargo.toml exists).
         if root.join("Cargo.toml").exists() {
             let output = crate::tools::shell::execute(&serde_json::json!({
                 "command": "cargo check --color never",
                 "timeout_secs": 15
-            })).await;
+            }))
+            .await;
 
             match output {
                 Ok(out) => {
@@ -1401,8 +1642,13 @@ impl ConversationManager {
         bad_json: &str,
         tx: &mpsc::Sender<InferenceEvent>,
     ) -> Result<Value, String> {
-        let _ = tx.send(InferenceEvent::Thought(format!("Attempting to repair malformed JSON for '{}'...", tool_name))).await;
-        
+        let _ = tx
+            .send(InferenceEvent::Thought(format!(
+                "Attempting to repair malformed JSON for '{}'...",
+                tool_name
+            )))
+            .await;
+
         let prompt = format!(
             "The following JSON for tool '{}' is malformed and failed to parse:\n\n```json\n{}\n```\n\nOutput ONLY the corrected JSON string that fixes the syntax error (e.g. missing commas, unescaped quotes). Do NOT include markdown blocks or any other text.",
             tool_name, bad_json
@@ -1410,14 +1656,18 @@ impl ConversationManager {
 
         let messages = vec![
             ChatMessage::system("You are a JSON repair tool. Output ONLY pure JSON."),
-            ChatMessage::user(&prompt)
+            ChatMessage::user(&prompt),
         ];
 
         // Use fast model for speed if available.
-        let (text, _, _) = self.engine.call_with_tools(&messages, &[], self.fast_model.as_deref()).await
+        let (text, _, _) = self
+            .engine
+            .call_with_tools(&messages, &[], self.fast_model.as_deref())
+            .await
             .map_err(|e| e.to_string())?;
 
-        let cleaned = text.unwrap_or_default()
+        let cleaned = text
+            .unwrap_or_default()
             .trim()
             .trim_start_matches("```json")
             .trim_start_matches("```")
@@ -1436,13 +1686,21 @@ impl ConversationManager {
         tx: &mpsc::Sender<InferenceEvent>,
     ) -> Option<String> {
         // Only run for source code files.
-        let ext = std::path::Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("");
+        let ext = std::path::Path::new(path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
         const CRITIC_EXTS: &[&str] = &["rs", "js", "ts", "py", "go", "c", "cpp"];
         if !CRITIC_EXTS.contains(&ext) {
             return None;
         }
 
-        let _ = tx.send(InferenceEvent::Thought(format!("CRITIC: Reviewing changes to '{}'...", path))).await;
+        let _ = tx
+            .send(InferenceEvent::Thought(format!(
+                "CRITIC: Reviewing changes to '{}'...",
+                path
+            )))
+            .await;
 
         let truncated = cap_output(content, 4000);
 
@@ -1456,7 +1714,10 @@ impl ConversationManager {
             ChatMessage::user(&prompt)
         ];
 
-        let (text, _, _) = self.engine.call_with_tools(&messages, &[], self.fast_model.as_deref()).await
+        let (text, _, _) = self
+            .engine
+            .call_with_tools(&messages, &[], self.fast_model.as_deref())
+            .await
             .ok()?;
 
         let critique = text?.trim().to_string();
@@ -1474,6 +1735,7 @@ pub async fn dispatch_tool(name: &str, args: &Value) -> Result<String, String> {
     match name {
         "shell"       => crate::tools::shell::execute(args).await,
         "map_project" => crate::tools::file_ops::map_project(args).await,
+        "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "read_file"   => crate::tools::file_ops::read_file(args).await,
         "inspect_lines" => crate::tools::file_ops::inspect_lines(args).await,
         "write_file"  => crate::tools::file_ops::write_file(args).await,
@@ -1539,7 +1801,10 @@ impl ConversationManager {
                 // Check if there's an explicit 'allow' override for this specific call (e.g. "git branch").
                 if name == "shell" {
                     let cmd = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
-                    if matches!(crate::agent::config::permission_for_shell(cmd, config), PermissionDecision::Allow) {
+                    if matches!(
+                        crate::agent::config::permission_for_shell(cmd, config),
+                        PermissionDecision::Allow
+                    ) {
                         return PermissionDecision::Allow;
                     }
                 }
@@ -1575,10 +1840,18 @@ impl ConversationManager {
         let args: Value = match serde_json::from_str(&call.arguments) {
             Ok(v) => v,
             Err(_) => {
-                match self.repair_tool_args(&call.name, &call.arguments, &tx).await {
+                match self
+                    .repair_tool_args(&call.name, &call.arguments, &tx)
+                    .await
+                {
                     Ok(v) => v,
                     Err(e) => {
-                        let _ = tx.send(InferenceEvent::Thought(format!("JSON Repair failed: {}", e))).await;
+                        let _ = tx
+                            .send(InferenceEvent::Thought(format!(
+                                "JSON Repair failed: {}",
+                                e
+                            )))
+                            .await;
                         Value::Object(Default::default())
                     }
                 }
@@ -1587,64 +1860,98 @@ impl ConversationManager {
 
         let display = format_tool_display(&call.name, &args);
         let auth = self.check_authorization(&call.name, &args, &config, yolo);
-        
+
         // 2. Permission Check
         let decision_result = match auth {
             crate::agent::config::PermissionDecision::Allow => Ok(()),
             crate::agent::config::PermissionDecision::Ask => {
                 let (approve_tx, approve_rx) = tokio::sync::oneshot::channel::<bool>();
-                let _ = tx.send(InferenceEvent::ApprovalRequired {
-                    id: real_id.clone(), 
-                    name: call.name.clone(),
-                    display: display.clone(),
-                    responder: approve_tx,
-                }).await;
+                let _ = tx
+                    .send(InferenceEvent::ApprovalRequired {
+                        id: real_id.clone(),
+                        name: call.name.clone(),
+                        display: display.clone(),
+                        responder: approve_tx,
+                    })
+                    .await;
 
                 match approve_rx.await {
                     Ok(true) => Ok(()),
                     _ => Err("Declined by user".into()),
                 }
-            },
-            crate::agent::config::PermissionDecision::Deny => {
-                Err(format!("Access Denied: Tool '{}' is forbidden in current Permission Mode.", call.name))
-            },
-            _ => Err("Unauthorized".into())
+            }
+            crate::agent::config::PermissionDecision::Deny => Err(format!(
+                "Access Denied: Tool '{}' is forbidden in current Permission Mode.",
+                call.name
+            )),
+            _ => Err("Unauthorized".into()),
         };
 
         // 3. Execution (Local or MCP)
         let (output, is_error) = match decision_result {
             Err(e) => (format!("Error: {}", e), true),
             Ok(_) => {
-                let _ = tx.send(InferenceEvent::ToolCallStart {
-                    id: real_id.clone(),
-                    name: call.name.clone(),
-                    args: display.clone(),
-                }).await;
+                let _ = tx
+                    .send(InferenceEvent::ToolCallStart {
+                        id: real_id.clone(),
+                        name: call.name.clone(),
+                        args: display.clone(),
+                    })
+                    .await;
 
                 let result = if call.name.starts_with("lsp_") {
                     let lsp = self.lsp_manager.clone();
-                    let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let path = args
+                        .get("path")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
                     let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-                    let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                    let character =
+                        args.get("character").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
 
                     match call.name.as_str() {
-                        "lsp_definitions" => crate::tools::lsp_tools::lsp_definitions(lsp, path, line, character).await,
-                        "lsp_references" => crate::tools::lsp_tools::lsp_references(lsp, path, line, character).await,
-                        "lsp_hover" => crate::tools::lsp_tools::lsp_hover(lsp, path, line, character).await,
+                        "lsp_definitions" => {
+                            crate::tools::lsp_tools::lsp_definitions(lsp, path, line, character)
+                                .await
+                        }
+                        "lsp_references" => {
+                            crate::tools::lsp_tools::lsp_references(lsp, path, line, character)
+                                .await
+                        }
+                        "lsp_hover" => {
+                            crate::tools::lsp_tools::lsp_hover(lsp, path, line, character).await
+                        }
                         "lsp_search_symbol" => {
-                            let query = args.get("query").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                            let query = args
+                                .get("query")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or_default()
+                                .to_string();
                             crate::tools::lsp_tools::lsp_search_symbol(lsp, query).await
                         }
                         "lsp_rename_symbol" => {
-                            let new_name = args.get("new_name").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-                            crate::tools::lsp_tools::lsp_rename_symbol(lsp, path, line, character, new_name).await
+                            let new_name = args
+                                .get("new_name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or_default()
+                                .to_string();
+                            crate::tools::lsp_tools::lsp_rename_symbol(
+                                lsp, path, line, character, new_name,
+                            )
+                            .await
                         }
-                        "lsp_get_diagnostics" => crate::tools::lsp_tools::lsp_get_diagnostics(lsp, path).await,
+                        "lsp_get_diagnostics" => {
+                            crate::tools::lsp_tools::lsp_get_diagnostics(lsp, path).await
+                        }
                         _ => Err(format!("Unknown LSP tool: {}", call.name)),
                     }
                 } else if call.name == "auto_pin_context" {
                     let pts = args.get("paths").and_then(|v| v.as_array());
-                    let reason = args.get("reason").and_then(|v| v.as_str()).unwrap_or("uninformed scoping");
+                    let reason = args
+                        .get("reason")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("uninformed scoping");
                     if let Some(arr) = pts {
                         let mut pinned = Vec::new();
                         {
@@ -1666,8 +1973,14 @@ impl ConversationManager {
                                 }
                             }
                         }
-                        let msg = format!("Autonomous Scoping: Locked {} in high-fidelity memory. Reason: {}", pinned.join(", "), reason);
-                        let _ = tx.send(InferenceEvent::Thought(format!("[AUTO-PIN] {}", msg))).await;
+                        let msg = format!(
+                            "Autonomous Scoping: Locked {} in high-fidelity memory. Reason: {}",
+                            pinned.join(", "),
+                            reason
+                        );
+                        let _ = tx
+                            .send(InferenceEvent::Thought(format!("[AUTO-PIN] {}", msg)))
+                            .await;
                         Ok(msg)
                     } else {
                         Err("Missing 'paths' array for auto_pin_context.".to_string())
@@ -1676,10 +1989,13 @@ impl ConversationManager {
                     let paths_msg = {
                         let pinned = self.pinned_files.lock().await;
                         if pinned.is_empty() {
-                             "No files are currently pinned.".to_string()
+                            "No files are currently pinned.".to_string()
                         } else {
                             let paths: Vec<_> = pinned.keys().cloned().collect();
-                            format!("Currently pinned files in active memory:\n- {}", paths.join("\n- "))
+                            format!(
+                                "Currently pinned files in active memory:\n- {}",
+                                paths.join("\n- ")
+                            )
                         }
                     };
                     Ok(paths_msg)
@@ -1692,40 +2008,77 @@ impl ConversationManager {
                 } else if call.name == "swarm" {
                     // ── Swarm Orchestration ──
                     let tasks_val = args.get("tasks").cloned().unwrap_or(Value::Array(vec![]));
-                    let max_workers = args.get("max_workers").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
-                    
+                    let max_workers = args
+                        .get("max_workers")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(3) as usize;
+
                     let mut task_objs = Vec::new();
                     if let Value::Array(arr) = tasks_val {
                         for v in arr {
-                            let id = v.get("id").and_then(|x| x.as_str()).unwrap_or("?").to_string();
-                            let target = v.get("target").and_then(|x| x.as_str()).unwrap_or("?").to_string();
-                            let instruction = v.get("instruction").and_then(|x| x.as_str()).unwrap_or("?").to_string();
-                            task_objs.push(crate::agent::parser::WorkerTask { id, target, instruction });
+                            let id = v
+                                .get("id")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("?")
+                                .to_string();
+                            let target = v
+                                .get("target")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("?")
+                                .to_string();
+                            let instruction = v
+                                .get("instruction")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("?")
+                                .to_string();
+                            task_objs.push(crate::agent::parser::WorkerTask {
+                                id,
+                                target,
+                                instruction,
+                            });
                         }
                     }
 
                     if task_objs.is_empty() {
                         Err("No tasks provided for swarm.".to_string())
                     } else {
-                        let (swarm_tx_internal, mut swarm_rx_internal) = tokio::sync::mpsc::channel(32);
+                        let (swarm_tx_internal, mut swarm_rx_internal) =
+                            tokio::sync::mpsc::channel(32);
                         let tx_forwarder = tx.clone();
-                        
+
                         // Bridge SwarmMessage -> InferenceEvent
                         tokio::spawn(async move {
                             while let Some(msg) = swarm_rx_internal.recv().await {
                                 match msg {
                                     crate::agent::swarm::SwarmMessage::Progress(id, p) => {
-                                        let _ = tx_forwarder.send(InferenceEvent::Thought(format!("Swarm [{}]: {}% complete", id, p))).await;
+                                        let _ = tx_forwarder
+                                            .send(InferenceEvent::Thought(format!(
+                                                "Swarm [{}]: {}% complete",
+                                                id, p
+                                            )))
+                                            .await;
                                     }
-                                    crate::agent::swarm::SwarmMessage::ReviewRequest { worker_id, file_path, before: _, after: _, tx } => {
-                                        let (approve_tx, approve_rx) = tokio::sync::oneshot::channel::<bool>();
-                                        let display = format!("Swarm worker [{}]: Integrated changes into {:?}", worker_id, file_path);
-                                        let _ = tx_forwarder.send(InferenceEvent::ApprovalRequired {
-                                            id: format!("swarm_{}", worker_id),
-                                            name: "swarm_apply".to_string(),
-                                            display,
-                                            responder: approve_tx,
-                                        }).await;
+                                    crate::agent::swarm::SwarmMessage::ReviewRequest {
+                                        worker_id,
+                                        file_path,
+                                        before: _,
+                                        after: _,
+                                        tx,
+                                    } => {
+                                        let (approve_tx, approve_rx) =
+                                            tokio::sync::oneshot::channel::<bool>();
+                                        let display = format!(
+                                            "Swarm worker [{}]: Integrated changes into {:?}",
+                                            worker_id, file_path
+                                        );
+                                        let _ = tx_forwarder
+                                            .send(InferenceEvent::ApprovalRequired {
+                                                id: format!("swarm_{}", worker_id),
+                                                name: "swarm_apply".to_string(),
+                                                display,
+                                                responder: approve_tx,
+                                            })
+                                            .await;
                                         if let Ok(approved) = approve_rx.await {
                                             let response = if approved {
                                                 crate::agent::swarm::ReviewResponse::Accept
@@ -1741,8 +2094,14 @@ impl ConversationManager {
                         });
 
                         let coordinator = self.swarm_coordinator.clone();
-                        match coordinator.dispatch_swarm(task_objs, swarm_tx_internal, max_workers).await {
-                            Ok(_) => Ok("Swarm execution completed. Check files for integration results.".to_string()),
+                        match coordinator
+                            .dispatch_swarm(task_objs, swarm_tx_internal, max_workers)
+                            .await
+                        {
+                            Ok(_) => Ok(
+                                "Swarm execution completed. Check files for integration results."
+                                    .to_string(),
+                            ),
                             Err(e) => Err(format!("Swarm failure: {}", e)),
                         }
                     }
@@ -1772,10 +2131,25 @@ impl ConversationManager {
         if !is_error && (call.name == "edit_file" || call.name == "write_file") {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let content = args.get("content").and_then(|v| v.as_str()).unwrap_or("");
-            let ext = std::path::Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("");
-            const SKIP_EXTS: &[&str] = &["md", "toml", "json", "txt", "yml", "yaml", "cfg", "csv", "lock", "gitignore"];
+            let ext = std::path::Path::new(path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("");
+            const SKIP_EXTS: &[&str] = &[
+                "md",
+                "toml",
+                "json",
+                "txt",
+                "yml",
+                "yaml",
+                "cfg",
+                "csv",
+                "lock",
+                "gitignore",
+            ];
             let line_count = content.lines().count();
-            if !path.is_empty() && !content.is_empty()
+            if !path.is_empty()
+                && !content.is_empty()
                 && !SKIP_EXTS.contains(&ext)
                 && line_count >= 50
             {
@@ -1789,7 +2163,7 @@ impl ConversationManager {
         }
 
         ToolExecutionOutcome {
-            call_id: real_id, 
+            call_id: real_id,
             tool_name: call.name,
             args,
             output,
@@ -1814,7 +2188,14 @@ struct ToolExecutionOutcome {
 fn is_destructive_tool(name: &str) -> bool {
     matches!(
         name,
-        "write_file" | "edit_file" | "patch_hunk" | "shell" | "git_commit" | "git_push" | "git_remote" | "git_onboarding"
+        "write_file"
+            | "edit_file"
+            | "patch_hunk"
+            | "shell"
+            | "git_commit"
+            | "git_push"
+            | "git_remote"
+            | "git_onboarding"
     )
 }
 
@@ -1822,11 +2203,18 @@ fn is_destructive_tool(name: &str) -> bool {
 /// where permission prompts are bypassed for internal bookkeeping.
 fn is_path_safe(path: &str) -> bool {
     let p = path.to_lowercase();
-    p.contains(".hematite/") || p.contains(".hematite\\") || p.contains("tmp/") || p.contains("tmp\\")
+    p.contains(".hematite/")
+        || p.contains(".hematite\\")
+        || p.contains("tmp/")
+        || p.contains("tmp\\")
 }
 
 /// Returns true if this tool call should require explicit user approval in Developer mode.
-fn requires_approval(name: &str, args: &Value, config: &crate::agent::config::HematiteConfig) -> bool {
+fn requires_approval(
+    name: &str,
+    args: &Value,
+    config: &crate::agent::config::HematiteConfig,
+) -> bool {
     use crate::agent::config::{permission_for_shell, PermissionDecision};
     use crate::tools::RiskLevel;
 
@@ -1872,11 +2260,17 @@ fn requires_approval(name: &str, args: &Value, config: &crate::agent::config::He
 // ── Display helpers ───────────────────────────────────────────────────────────
 
 pub fn format_tool_display(name: &str, args: &Value) -> String {
-    let get = |key: &str| args.get(key).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let get = |key: &str| {
+        args.get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string()
+    };
     match name {
-        "shell"      => format!("$ {}", get("command")),
+        "shell" => format!("$ {}", get("command")),
         "map_project" => "map project tree".to_string(),
-        _            => format!("{} {:?}", name, args),
+        "trace_runtime_flow" => format!("trace runtime {}", get("topic")),
+        _ => format!("{} {:?}", name, args),
     }
 }
 
@@ -1893,7 +2287,11 @@ fn cap_output(text: &str, max_bytes: usize) -> String {
         while !text.is_char_boundary(split_at) && split_at > 0 {
             split_at -= 1;
         }
-        format!("{}\n... [output capped at {}B]", &text[..split_at], max_bytes)
+        format!(
+            "{}\n... [output capped at {}B]",
+            &text[..split_at],
+            max_bytes
+        )
     }
 }
 
@@ -1920,7 +2318,13 @@ fn chunk_text(text: &str, words_per_chunk: usize) -> Vec<String> {
     chunks
 }
 
-fn build_system_with_corrections(base: &str, hints: &[String], gpu: &Arc<GpuState>, git: &Arc<crate::agent::git_monitor::GitState>, config: &crate::agent::config::HematiteConfig) -> String {
+fn build_system_with_corrections(
+    base: &str,
+    hints: &[String],
+    gpu: &Arc<GpuState>,
+    git: &Arc<crate::agent::git_monitor::GitState>,
+    config: &crate::agent::config::HematiteConfig,
+) -> String {
     let mut system_msg = base.to_string();
 
     // Inject Permission Mode.
@@ -1931,7 +2335,7 @@ fn build_system_with_corrections(base: &str, hints: &[String], gpu: &Arc<GpuStat
         crate::agent::config::PermissionMode::SystemAdmin => "SYSTEM-ADMIN (UNRESTRICTED)",
     };
     system_msg.push_str(&format!("CURRENT MODE: {}\n", mode_label));
-    
+
     if config.mode == crate::agent::config::PermissionMode::ReadOnly {
         system_msg.push_str("PERMISSION: You are restricted to READ-ONLY access. Do NOT attempt to use write_file, edit_file, or shell for any modification. Focus entirely on analysis, indexing, and reporting.\n");
     } else {
@@ -1956,8 +2360,11 @@ fn build_system_with_corrections(base: &str, hints: &[String], gpu: &Arc<GpuStat
     system_msg.push_str("\n\n# Git Repository Context\n");
     let git_status_label = git.label();
     let git_url = git.url();
-    system_msg.push_str(&format!("REMOTE STATUS: {} | URL: {}\n", git_status_label, git_url));
-    
+    system_msg.push_str(&format!(
+        "REMOTE STATUS: {} | URL: {}\n",
+        git_status_label, git_url
+    ));
+
     // Live Snapshots (Status/Diff)
     let root = crate::tools::file_ops::workspace_root();
     if let Some(status_snapshot) = crate::agent::git_context::read_git_status(&root) {
@@ -1965,7 +2372,7 @@ fn build_system_with_corrections(base: &str, hints: &[String], gpu: &Arc<GpuStat
         system_msg.push_str(&status_snapshot);
         system_msg.push_str("\n");
     }
-    
+
     if let Some(diff_snapshot) = crate::agent::git_context::read_git_diff(&root, 2000) {
         system_msg.push_str("\nGit diff snapshot:\n");
         system_msg.push_str(&diff_snapshot);
@@ -1999,8 +2406,17 @@ fn route_model<'a>(
     think_model: Option<&'a str>,
 ) -> Option<&'a str> {
     let text = user_input.to_lowercase();
-    let is_think = text.contains("refactor") || text.contains("rewrite") || text.contains("implement") || text.contains("create") || text.contains("fix") || text.contains("debug");
-    let is_fast = text.contains("what") || text.contains("show") || text.contains("find") || text.contains("list") || text.contains("status");
+    let is_think = text.contains("refactor")
+        || text.contains("rewrite")
+        || text.contains("implement")
+        || text.contains("create")
+        || text.contains("fix")
+        || text.contains("debug");
+    let is_fast = text.contains("what")
+        || text.contains("show")
+        || text.contains("find")
+        || text.contains("list")
+        || text.contains("status");
 
     if is_think && think_model.is_some() {
         return think_model;
@@ -2013,8 +2429,18 @@ fn route_model<'a>(
 fn is_parallel_safe(name: &str) -> bool {
     matches!(
         name,
-        "read_file" | "inspect_lines" | "list_files" | "grep_files" | "map_project" | 
-        "lsp_definitions" | "lsp_references" | "lsp_hover" | "vision_analyze" |
-        "manage_tasks" | "research_web" | "fetch_docs"
+        "read_file"
+            | "inspect_lines"
+            | "list_files"
+            | "grep_files"
+            | "map_project"
+            | "trace_runtime_flow"
+            | "lsp_definitions"
+            | "lsp_references"
+            | "lsp_hover"
+            | "vision_analyze"
+            | "manage_tasks"
+            | "research_web"
+            | "fetch_docs"
     )
 }

@@ -9,7 +9,9 @@ pub struct SystemPromptBuilder {
 
 impl SystemPromptBuilder {
     pub fn new(root: PathBuf) -> Self {
-        Self { workspace_root: root }
+        Self {
+            workspace_root: root,
+        }
     }
 
     /// Build the full system prompt with Rule Hierarchy and Gemma-4 Optimization.
@@ -79,7 +81,10 @@ impl SystemPromptBuilder {
 
                         if include {
                             if let Ok(content) = fs::read_to_string(&path) {
-                                static_sections.push(format!("\n# DEEP CONTEXT RULES ({}.md)\n{}", stem, content));
+                                static_sections.push(format!(
+                                    "\n# DEEP CONTEXT RULES ({}.md)\n{}",
+                                    stem, content
+                                ));
                             }
                         }
                     }
@@ -88,12 +93,21 @@ impl SystemPromptBuilder {
         }
 
         let mut prompt = static_sections.join("\n");
-        prompt.push_str("\n\n###############################################################################\n");
-        prompt.push_str("# DYNAMIC CONTEXT (Changes every turn)                                        #\n");
-        prompt.push_str("###############################################################################\n");
+        prompt.push_str(
+            "\n\n###############################################################################\n",
+        );
+        prompt.push_str(
+            "# DYNAMIC CONTEXT (Changes every turn)                                        #\n",
+        );
+        prompt.push_str(
+            "###############################################################################\n",
+        );
 
         if let Some(s) = summary {
-            prompt.push_str(&format!("\n# COMPACTED HISTORY SUMMARY\n{}\nRecent messages are preserved below.", s));
+            prompt.push_str(&format!(
+                "\n# COMPACTED HISTORY SUMMARY\n{}\nRecent messages are preserved below.",
+                s
+            ));
         }
 
         if let Some(mem) = memory {
@@ -101,7 +115,10 @@ impl SystemPromptBuilder {
         }
 
         prompt.push_str("\n# ENVIRONMENT");
-        prompt.push_str(&format!("\n- Local Time: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")));
+        prompt.push_str(&format!(
+            "\n- Local Time: {}",
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+        ));
         prompt.push_str("\n- Operating System: Windows (User workspace)");
 
         if git::is_git_repo(&self.workspace_root) {
@@ -111,7 +128,10 @@ impl SystemPromptBuilder {
         }
 
         let hematite_dir = self.workspace_root.join(".hematite");
-        for (name, path) in [("TASK", hematite_dir.join("TASK.md")), ("PLAN", hematite_dir.join("PLAN.md"))] {
+        for (name, path) in [
+            ("TASK", hematite_dir.join("TASK.md")),
+            ("PLAN", hematite_dir.join("PLAN.md")),
+        ] {
             if path.exists() {
                 if let Ok(content) = fs::read_to_string(&path) {
                     if !content.trim().is_empty() {
@@ -120,7 +140,10 @@ impl SystemPromptBuilder {
                         } else {
                             content
                         };
-                        prompt.push_str(&format!("\n\n# ACTIVE TASK {} (.hematite/)\n{}", name, content));
+                        prompt.push_str(&format!(
+                            "\n\n# ACTIVE TASK {} (.hematite/)\n{}",
+                            name, content
+                        ));
                     }
                 }
             }
@@ -129,7 +152,10 @@ impl SystemPromptBuilder {
         if !mcp_tools.is_empty() {
             prompt.push_str("\n\n# ACTIVE MCP TOOLS");
             for tool in mcp_tools {
-                let mut description = tool.description.clone().unwrap_or_else(|| "No description provided.".to_string());
+                let mut description = tool
+                    .description
+                    .clone()
+                    .unwrap_or_else(|| "No description provided.".to_string());
                 if description.len() > 180 {
                     description.truncate(180);
                     description.push_str("...");
@@ -149,7 +175,9 @@ impl SystemPromptBuilder {
         prompt.push_str("4. **Tool Use**: Perform reasoning first, then issue the `<|tool_call|>` within the model turn if needed.\n");
         prompt.push_str("5. **Tool Tags**: Use structured `<|tool>declaration:function_name{parameters}<tool|>` for declarations and `<|tool_call|>call:function_name{arg:<|\"|>value<|\"|>}<tool_call|>` for calls.\n");
         prompt.push_str("6. **Safety**: String values MUST use the `<|\"|>` wrapper for safety.\n");
-        prompt.push_str("7. **Deep Sync**: Every 6th turn, review the full TASK.md.\n\n8. **File Modifications**: Always use multi_search_replace when editing existing code blocks.");
+        prompt.push_str("7. **Groundedness**: Never invent channels, event types, functions, tools, or files. If a detail is not verified from the repo or tool output, say `uncertain`.\n");
+        prompt.push_str("8. **Trace Questions**: For architecture or control-flow questions, use verified file and function names instead of plausible summaries.\n");
+        prompt.push_str("9. **Deep Sync**: Every 6th turn, review the full TASK.md.\n\n10. **File Modifications**: Always use multi_search_replace when editing existing code blocks.");
 
         prompt
     }

@@ -1,6 +1,6 @@
 # hematite
 
-**A local GPU coding agent harness and terminal CLI for LM Studio. Windows-first. Optimized for Gemma-4, compatible with Gemma-family models. No API key. No cloud. No per-token cost.**
+**A local GPU coding agent harness and terminal CLI for LM Studio. Windows-first. Built for single-GPU consumer hardware, especially RTX 4070-class machines. Optimized for Gemma-4, compatible with Gemma-family models. No API key. No cloud. No per-token cost.**
 
 `hematite` is a high-performance local coding harness that turns LM Studio into a serious agentic CLI. Hematite owns the TUI, tool execution, file editing, git workflows, retrieval, voice, and orchestration layer. LM Studio handles model loading, swapping, and serving. Hematite is tuned around Gemma-4 behavior, but it can work with other Gemma-family models and custom Gemma variants you load through LM Studio.
 
@@ -22,6 +22,7 @@ Most local AI coding tools are Linux-first afterthoughts that quietly fall apart
 - **LM Studio native workflow** - easy local model loading, swapping, and updating
 - **Gemma-tuned prompting** - built around Gemma-4 E4B control tokens and reasoning flow, while remaining usable with other Gemma-family checkpoints
 - **Cross-platform shell correctness** - PowerShell on Windows, bash on Linux/macOS
+- **4070-class local target** - designed around what a single consumer GPU can realistically sustain
 - **GPU-aware harness** - reads VRAM live and adapts agent behavior
 - **Offline after setup** - no cloud dependency once your local stack is in place
 
@@ -59,10 +60,12 @@ That split is intentional. Hematite focuses on being the best local coding harne
 | macOS | bash / zsh | Degrades gracefully |
 
 - [LM Studio](https://lmstudio.ai) with a model loaded and the local server running on port `1234`
-- NVIDIA GPU with 8 GB+ VRAM recommended; 12 GB is a good target for larger Gemma variants
+- NVIDIA GPU with 8 GB+ VRAM recommended; 12 GB VRAM is the sweet spot Hematite is most actively shaped around
 - Rust toolchain if building from source
 
 **Recommended models:** any Gemma-family model that behaves well in LM Studio, including stock Gemma-4 checkpoints and custom Gemma variants. Hematite is most tuned for Gemma-4 style prompting.
+
+**Primary hardware target:** a single RTX 4070-class GPU on a normal desktop Windows machine. Hematite is engineered around that constraint: limited local VRAM, one active consumer GPU, LM Studio as the serving layer, and open models that need strong tooling and context discipline instead of cloud-scale brute force.
 
 ---
 
@@ -181,6 +184,8 @@ Hematite is aligned with the Gemma-4 E4B prompting model. It uses native control
 ### Hardware-Aware Context Management
 
 Hematite reads GPU VRAM every 2 seconds. When memory pressure rises, it compacts earlier and caps parallel workers. The loaded model's context window is detected from LM Studio and injected into the system prompt so the model knows its own budget.
+
+This is intentionally tuned around single-GPU consumer hardware. The design goal is not cloud parity; it is to get the best practical coding workflow out of a 4070-class local box.
 
 ### Adaptive Thought Efficiency
 

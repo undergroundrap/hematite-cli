@@ -2,7 +2,7 @@
 
 ## What this project is
 
-Hematite is a local AI coding harness built in Rust. It runs on your machine, uses LM Studio as the local model runtime on `localhost:1234`, and is tuned for Gemma-4 and other Gemma-family models. The terminal TUI is one interface layer of the product, not the whole product.
+Hematite is a local AI coding harness built in Rust. It runs on your machine, uses LM Studio as the local model runtime on `localhost:1234`, and is tuned for Gemma-4 and other Gemma-family models. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
 
 ## Build and Run
 
@@ -28,6 +28,14 @@ pwsh ./clean.ps1
 - `/swarm`: trigger parallel worker agents
 
 Requires LM Studio running locally with a model loaded and the server started on port `1234`.
+
+## Hardware Intent
+
+Hematite is not trying to outscale cloud agents. It is trying to make a single local consumer GPU perform as well as possible for real coding work.
+
+- Primary target: one RTX 4070-class GPU with roughly 12 GB VRAM
+- Main engineering constraints: limited local context, open-model inconsistency, and VRAM pressure under long sessions
+- Design response: stronger tooling, grounded traces, compaction, retrieval, and operator workflow instead of pretending the model is smarter than it is
 
 ## MCP Configuration
 
