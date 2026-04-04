@@ -1,0 +1,8 @@
+# Hematite RAG Indexing Exceptions
+
+node_modules/
+target/
+.git/
+.hematite_scratch/
+*.sqlite
+MEMORY.md

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs wc:*)",
+      "Bash(wc -l \"C:\\\\Users\\\\ocean\\\\Downloads\\\\claw-code-dev-rust\\\\claw-code-dev-rust\"/rust/crates/**/*.rs)",
+      "Read(//c/Users/ocean/Downloads/claw-code-dev-rust/**)",
+      "Read(//c/Users/ocean/Downloads/**)",
+      "Bash(cargo check:*)"
+    ]
+  }
+}

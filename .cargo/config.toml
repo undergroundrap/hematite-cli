@@ -1,0 +1,9 @@
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-C", "link-arg=advapi32.lib",
+    "-C", "link-arg=user32.lib",
+    "-C", "link-arg=cfgmgr32.lib",
+    "-C", "link-arg=shell32.lib",
+    "-C", "link-arg=ole32.lib",
+    "-C", "link-arg=oleaut32.lib"
+]

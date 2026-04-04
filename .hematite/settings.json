@@ -1,0 +1,22 @@
+{
+  "_comment": "Hematite settings — edit and save, changes apply immediately without restart.",
+
+  "permissions": {
+    "allow": [
+      "cargo *",
+      "git status",
+      "git log *",
+      "git diff *",
+      "git branch *"
+    ],
+    "ask": [],
+    "deny": []
+  },
+
+  "auto_approve_moderate": false,
+
+  "context_hint": null,
+  "model": null,
+  "fast_model": null,
+  "think_model": null
+}

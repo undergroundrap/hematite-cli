@@ -1,0 +1,27 @@
+[package]
+name = "kokoros"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# NLP & Phonemization (G2P)
+misaki-rs = { version = "0.3.0", default-features = false }
+# Tensor Runtime (ORT 2.0 Unified)
+ort = { version = "2.0.0-rc.12", features = ["directml"] }
+# Vector Math
+ndarray = "0.17"
+ndarray-npy = "0.10"
+# Utilities
+lazy_static = "1.4"
+tracing = "0.1"
+indicatif = "0.17"
+mp3lame-encoder = "0.1.0"
+serde_json = "1.0"
+regex = "1.10"
+wav = "1.0"
+reqwest = { version = "0.11", features = ["json", "stream"] }
+tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
+
+[features]
+default = []

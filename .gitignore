@@ -1,0 +1,53 @@
+# Build artifacts (Recursive)
+target/
+libs/**/target/
+*.exe
+*.pdb
+*.zip
+*.log
+dist/
+
+# Voice Engine Models (Large Binaries)
+.hematite/assets/voice/*.onnx
+.hematite/assets/voice/*.bin
+.hematite/assets/voice/*.npz
+.hematite/assets/voice/tokenizer.json
+
+# Runtime / temp artifacts
+.hematite/ghost/*.bak
+.hematite/ghost/ledger.txt
+.hematite/scratch/
+.hematite/session.json
+.hematite_scratch/
+.hematite_logs/
+tmp/
+
+# Logs, JSON, and error dumps
+error.log
+error_log.txt
+cargo_errors*.txt
+our_errors.txt
+error_lines.txt
+build_errors.txt
+errors.txt
+errors.json
+errors.json.txt
+build_errors.txt.txt
+build_errors.txt.json
+errors.txt.json
+
+# Build test leftovers
+hatch_test.rs
+onnx_lib/
+
+# Databases & Runtime
+*.db
+*.db-shm
+*.db-wal
+# Secrets & Config
+.env
+.env.*
+*.key
+*.pem
+credentials.json
+auth.json

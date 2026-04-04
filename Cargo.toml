@@ -1,0 +1,52 @@
+[package]
+name = "hematite"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "hematite"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full", "parking_lot"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+ratatui = "0.26"
+crossterm = { version = "0.27", features = ["event-stream"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+thiserror = "1.0"
+notify = "6.1"
+futures = "0.3"
+rand = "0.8"
+lazy_static = "1.4"
+walkdir = "2"
+regex = "1"
+chrono = "0.4"
+percent-encoding = "2.3"
+
+# Voice & Audio Synthesis
+kokoros = { path = "libs/kokoros" }
+rodio = "0.19"
+ort = { version = "2.0.0-rc.12", features = ["directml"] }
+base64 = "0.22.1"
+home = "0.5.12"
+anyhow = "1.0.102"
+
+# Performance overrides for heavy AI logic in Debug mode
+[profile.dev.package.ort]
+opt-level = 3
+codegen-units = 1
+[profile.dev.package.kokoros]
+opt-level = 3
+codegen-units = 1
+[profile.dev.package.ndarray]
+opt-level = 3
+codegen-units = 1
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
