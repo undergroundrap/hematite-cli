@@ -1,31 +1,80 @@
 # Contributing to Hematite
 
-Welcome to the Forge. Hematite is built as an aggressive, local-first alternative to cloud-tethered development environments. Because of the strict 12GB VRAM limits enforced by the `Arc<InferenceEngine>`, adding new tools to the ecosystem requires strict optimization.
+Hematite is a local coding harness built in Rust and designed to work with local models through LM Studio. Contribute with small, clear changes that improve real behavior on a developer machine.
 
-## How to Add a New Tool ("The Forger's Guide")
+## Development Principles
 
-Hematite uses a deterministic `OnceLock` Schema caching layer in `src/tools/tool_schema_cache.rs` to prevent sub-second LLM load latency. If you deploy a new tool, it must be mapped securely across 3 bounds:
+- Keep Hematite local-first. Core workflows should not depend on the cloud.
+- Preserve Windows correctness. PowerShell, terminal behavior, and path safety matter here.
+- Treat the TUI as one interface layer of the product, not the whole product.
+- Prefer concrete wording over dramatic or vague phrasing in prompts, labels, and docs.
+- Keep the product boundary honest: Hematite is the harness, LM Studio is the model runtime.
 
-### 1. Register the JSON Schema
-Open `src/tools/tool_schema_cache.rs` and inject the raw string schema natively inside the cache array:
+## Getting Started
 
-```json
-{
-    "name": "YourNewTool",
-    "description": "Short, precise description of when the agent should use this tool.",
-    "parameters": {
-        "arg1": { "type": "string" }
-    }
-}
+```powershell
+cargo build
+cargo run
+cargo run -- --no-splash
+pwsh ./scripts/package-windows.ps1
 ```
 
-### 2. Build the Logic implementation
-Create `src/tools/your_tool.rs`. The logic must run physically on the OS. **Crucially: All path interactions MUST pass through the Glass Wall.**
+Requirements:
 
-If your tool reads/writes paths, you must invoke `guard::path_is_safe(&workspace_root, &target)` before executing local File I/O. 
+- Rust toolchain
+- LM Studio running locally with a model loaded on port `1234`
+- Inno Setup if you want to build the Windows installer
 
-### 3. Expose the Module
-Update `src/tools/mod.rs` to expose your struct natively into the CLI binary limits!
+## Project Areas
 
----
-**Performance Note**: Never initialize a persistent loop or massive memory map array in a tool. Tools must execute *synchronously* and return lightweight JSON strings natively back to "The Vein" RAG Context in under 3 seconds to keep Swarm iterations flowing.
+- `src/agent/`: prompting, orchestration, conversation flow, MCP, compaction, LSP, model interaction
+- `src/tools/`: local tool implementations and tool registration
+- `src/ui/`: TUI, voice integration, GPU monitor, and review flows
+- `src/memory/`: local retrieval and session memory systems
+- `libs/kokoros/`: vendored voice synthesis library
+
+## Adding a New Tool
+
+1. Add the implementation under `src/tools/`.
+2. Register the tool in the registry.
+3. Respect the existing workspace safety checks for any file or shell access.
+4. Keep tool output concise and machine-usable.
+5. Verify the tool in a real Hematite run, not just by inspection.
+
+If a tool changes files or shells out, assume it needs careful review.
+
+## Editing Standards
+
+- Prefer small, reviewable commits.
+- Use conventional commit prefixes like `feat:`, `fix:`, `docs:`, and `refactor:`.
+- Do not weaken path safety or approval behavior without a strong reason.
+- Avoid UI labels that sound theatrical. Labels should describe what Hematite is actually doing.
+- Update docs when behavior changes in a user-visible way.
+
+## Verification
+
+At minimum, run:
+
+```powershell
+cargo check
+```
+
+If your change affects packaging or release behavior, also run:
+
+```powershell
+pwsh ./scripts/package-windows.ps1
+```
+
+If your change affects installer behavior, run:
+
+```powershell
+pwsh ./scripts/package-windows.ps1 -Installer
+```
+
+## Release Notes
+
+- Package version comes from `Cargo.toml`
+- Local Windows packaging is handled by `scripts/package-windows.ps1`
+- Tagged GitHub releases are built by `.github/workflows/windows-release.yml`
+
+Before a public release, make sure the README still matches the actual install and update flow.

@@ -216,6 +216,7 @@ Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically li
 
 ```text
 /new              Reset session and clear context
+/forget           Purge saved conversation memory and wipe visible session state
 /think            Enable Gemma-4 native reasoning channel
 /no_think         Enable lower-effort reasoning
 /worktree list    List all git worktrees
@@ -225,7 +226,7 @@ Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically li
 /swarm <directive>  Spawn parallel worker agents
 /diff             Show git diff --stat
 /undo             Undo last file edit
-/clear            Clear dialogue display
+/clear            Clear visible dialogue and side-panel session state
 /help             Show all commands
 ```
 
