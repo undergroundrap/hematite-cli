@@ -34,6 +34,9 @@ Hematite is more than a chat shell around a local model.
 - **File and shell tools**: direct project reading, editing, search, and shell execution
 - **Git-aware workflows**: worktrees, commit helpers, and rollback via hidden ghost snapshots
 - **Project retrieval**: SQLite FTS-backed memory helps recover relevant local context each turn
+- **Built-in web research**: `research_web` and `fetch_docs` let the harness search for technical information and pull external docs into a readable form when local context is insufficient
+- **Grounded architecture tracing**: `trace_runtime_flow` gives the model a verified read-only path for exact runtime/control-flow questions instead of encouraging confident guessing
+- **Vision support**: screenshot and diagram analysis can flow through `vision_analyze` when a task benefits from visual inspection
 
 ## 5. Stateful Local Workflow
 

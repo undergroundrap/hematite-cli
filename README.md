@@ -167,6 +167,10 @@ Hematite gives the loaded model a real local tool suite for coding work:
 | `list_files` | Directory listing with extension filtering |
 | `map_project` | Recursive project structure map |
 | `shell` | Run PowerShell commands with timeout and output capping |
+| `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
+| `fetch_docs` | Fetch and convert documentation pages into readable Markdown for follow-up analysis |
+| `vision_analyze` | Inspect screenshots, diagrams, and UI images with the multimodal model path |
+| `trace_runtime_flow` | Return a grounded read-only trace of runtime control flow for architecture questions |
 | `git_commit` | Stage all and commit with Conventional Commits style |
 | `git_push` | Push to origin HEAD |
 | `git_worktree` | Create, list, prune, and remove isolated worktrees |
@@ -211,6 +215,18 @@ Drop a `CLAUDE.md` or `.hematite.md` in your project root. Hematite picks it up 
 
 An SQLite FTS5 index of your project source is queried every turn so relevant code can be pulled into context without extra tool calls.
 
+### Built-In Web Research
+
+Hematite can search the web for technical information when local context is not enough. `research_web` is used to find likely documentation or debugging leads, and `fetch_docs` pulls the resulting pages into clean Markdown so the model can actually read them instead of guessing from snippets.
+
+### Grounded Runtime Tracing
+
+For architecture and control-flow questions, Hematite can use `trace_runtime_flow` to return a verified read-only runtime trace instead of relying on model memory alone. This is especially useful on local open models where exact symbol tracing is weaker than cloud frontier models.
+
+### Vision Analysis
+
+Hematite can inspect screenshots, diagrams, and UI captures through `vision_analyze`, which lets the model reason about visual bugs and interface state instead of relying only on text descriptions.
+
 ### Background Audio Engine
 
 Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically linked 24 kHz Kokoro pipeline and loads the voice model in the background so the CLI can stay responsive during startup.
@@ -224,18 +240,20 @@ Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically li
 /forget           Purge saved conversation memory and wipe visible session state
 /think            Enable Gemma-4 native reasoning channel
 /no_think         Enable lower-effort reasoning
+/lsp              Start language servers manually
 /worktree list    List all git worktrees
 /worktree add <path> [branch]  Create isolated worktree
 /worktree remove <path>        Remove a worktree
 /worktree prune   Remove stale worktree entries
 /swarm <directive>  Spawn parallel worker agents
 /diff             Show git diff --stat
+/copy             Copy the session transcript
 /undo             Undo last file edit
 /clear            Clear visible dialogue and side-panel session state
 /help             Show all commands
 ```
 
-**Hotkeys:** `Ctrl+B` brief mode, `Ctrl+P` professional mode, `Ctrl+Y` YOLO mode, `Ctrl+T` voice toggle, `Ctrl+Z` undo, `Ctrl+Q` quit, `ESC` cancel
+**Hotkeys:** `Ctrl+B` brief mode, `Ctrl+P` professional mode, `Ctrl+Y` YOLO mode, `Ctrl+T` voice toggle, `Ctrl+Z` undo, `Ctrl+Q`/`Ctrl+C` quit, `ESC` cancel
 
 ---
 
