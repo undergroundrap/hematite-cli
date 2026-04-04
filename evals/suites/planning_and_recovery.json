@@ -1,0 +1,90 @@
+[
+  {
+    "id": "editing_planning_01",
+    "category": "editing_planning",
+    "title": "Safe edit planning",
+    "mode": "normal",
+    "prompt": "You need to change behavior across multiple Rust files. Before editing, what should Hematite do to reduce mistakes on a local open model?",
+    "success_criteria": [
+      "Mentions map_project, scoping, reading relevant files, or auto_pin_context",
+      "Prefers grounded planning before mutation"
+    ]
+  },
+  {
+    "id": "editing_planning_02",
+    "category": "editing_planning",
+    "title": "Build verification mindset",
+    "mode": "normal",
+    "prompt": "After changing code, how should Hematite verify that the result is still healthy?",
+    "success_criteria": [
+      "Mentions verify_build or cargo check path",
+      "Frames verification as part of the workflow"
+    ]
+  },
+  {
+    "id": "editing_planning_03",
+    "category": "editing_planning",
+    "title": "Context pinning awareness",
+    "mode": "normal",
+    "prompt": "What is Hematite's context pinning concept for core files, and when is it useful?",
+    "success_criteria": [
+      "Mentions auto_pin_context or pinned files",
+      "Frames it as keeping core files visible during complex work"
+    ]
+  },
+  {
+    "id": "editing_planning_04",
+    "category": "editing_planning",
+    "title": "Clarify tool restraint",
+    "mode": "normal",
+    "prompt": "When should Hematite ask a clarifying question instead of pressing ahead?",
+    "success_criteria": [
+      "Mentions genuine blockers or ambiguity",
+      "Reflects clarify behavior"
+    ]
+  },
+  {
+    "id": "long_context_recovery_01",
+    "category": "long_context_recovery",
+    "title": "Recovery after stale context",
+    "mode": "normal",
+    "prompt": "If a session has gone stale or confused, what are Hematite's main recovery mechanisms?",
+    "success_criteria": [
+      "Mentions /clear, /new, /forget",
+      "May mention compaction or brief mode appropriately"
+    ]
+  },
+  {
+    "id": "long_context_recovery_02",
+    "category": "long_context_recovery",
+    "title": "Compaction explanation",
+    "mode": "read_only",
+    "prompt": "Read-only mode. How does Hematite keep long sessions usable on a local 4070-class setup?",
+    "success_criteria": [
+      "Mentions compaction and VRAM/context awareness",
+      "Frames it around practical local constraints"
+    ]
+  },
+  {
+    "id": "long_context_recovery_03",
+    "category": "long_context_recovery",
+    "title": "Brief mode awareness",
+    "mode": "normal",
+    "prompt": "What is brief mode for, and why would it matter on local hardware?",
+    "success_criteria": [
+      "Explains output or reasoning tightening under pressure",
+      "Connects it to hardware and context constraints"
+    ]
+  },
+  {
+    "id": "long_context_recovery_04",
+    "category": "long_context_recovery",
+    "title": "Grounded trace under pressure",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Do not guess. If you are asked an exact architecture question after a long session, what mechanism should you prefer so you do not bluff?",
+    "success_criteria": [
+      "Prefers trace_runtime_flow or real tools over memory",
+      "Explicitly avoids bluffing"
+    ]
+  }
+]

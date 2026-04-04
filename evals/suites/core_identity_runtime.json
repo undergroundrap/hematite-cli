@@ -1,0 +1,117 @@
+[
+  {
+    "id": "identity_meta_01",
+    "category": "identity_meta",
+    "title": "Simple identity answer",
+    "mode": "normal",
+    "prompt": "who are you?",
+    "success_criteria": [
+      "Leads with Hematite identity",
+      "Does not describe itself as only a TUI",
+      "Does not overexpose internal scaffolding unless asked",
+      "No mojibake or broken Unicode"
+    ]
+  },
+  {
+    "id": "identity_meta_02",
+    "category": "identity_meta",
+    "title": "Product boundary clarity",
+    "mode": "normal",
+    "prompt": "What is Hematite, and what is LM Studio, in one clear paragraph?",
+    "success_criteria": [
+      "Hematite is described as the local harness",
+      "LM Studio is described as the runtime layer",
+      "No confusion about who owns inference vs workflow"
+    ]
+  },
+  {
+    "id": "identity_meta_03",
+    "category": "identity_meta",
+    "title": "Single GPU framing",
+    "mode": "normal",
+    "prompt": "What kind of hardware is Hematite mainly engineered around?",
+    "success_criteria": [
+      "Mentions single-GPU consumer hardware",
+      "Mentions RTX 4070-class or 12 GB class target"
+    ]
+  },
+  {
+    "id": "identity_meta_04",
+    "category": "identity_meta",
+    "title": "Capability summary",
+    "mode": "normal",
+    "prompt": "In plain language, what can you actually do for me inside this repo?",
+    "success_criteria": [
+      "Mentions code reading/editing/tooling",
+      "Stays grounded to actual Hematite capabilities"
+    ]
+  },
+  {
+    "id": "runtime_grounding_01",
+    "category": "runtime_grounding",
+    "title": "Exact user-turn trace",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Do not guess, do not infer names, and do not propose patches. Use the most authoritative read-only tool available for runtime/control-flow tracing. Trace one exact user turn for this input: \"who are you?\" Start at keyboard input in the TUI and end at the final rendered assistant text on screen. Requirements: 1. Use only names that exist in this repository. 2. Name the actual channels, functions, structs, enums, and event types involved, in order. 3. For each step, include at least one file reference. 4. If a step is uncertain, write exactly: uncertain. 5. Do not invent tool calls that did not happen. 6. Separate: visible chat output path, reasoning/specular path, voice path. 7. End with a short list titled `Possible weak points` containing only risks you can support from the code.",
+    "success_criteria": [
+      "Uses trace_runtime_flow",
+      "Preserves exact identifiers like user_input_tx and user_input_rx",
+      "Avoids synthetic channel names"
+    ]
+  },
+  {
+    "id": "runtime_grounding_02",
+    "category": "runtime_grounding",
+    "title": "Session reset trace",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Do not guess. Explain the exact difference between /clear, /new, and /forget in Hematite, including which parts are TUI-only and which parts cross into the agent loop.",
+    "success_criteria": [
+      "Correctly states /clear is UI-only",
+      "Correctly states /new and /forget are forwarded to ConversationManager::run_turn"
+    ]
+  },
+  {
+    "id": "runtime_grounding_03",
+    "category": "runtime_grounding",
+    "title": "Reasoning split trace",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Do not guess. Explain exactly how Hematite separates normal assistant output from reasoning/specular output.",
+    "success_criteria": [
+      "Mentions InferenceEvent::Thought vs Token/MutedToken",
+      "Mentions SpecularEvent as a separate watcher path"
+    ]
+  },
+  {
+    "id": "runtime_grounding_04",
+    "category": "runtime_grounding",
+    "title": "Startup trace",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Trace Hematite startup from main() through TUI launch. Use only verified symbol names.",
+    "success_criteria": [
+      "Mentions run_agent_task and run_app",
+      "Mentions channel creation in main",
+      "Mentions LM Studio health check and model/context detection"
+    ]
+  },
+  {
+    "id": "runtime_grounding_05",
+    "category": "runtime_grounding",
+    "title": "Subsystem ownership",
+    "mode": "read_only",
+    "prompt": "Read-only mode. What are the main runtime subsystems of Hematite, and which files own them?",
+    "success_criteria": [
+      "Maps subsystem names to real files",
+      "Distinguishes TUI, agent loop, inference, voice, specular, memory, MCP"
+    ]
+  },
+  {
+    "id": "runtime_grounding_06",
+    "category": "runtime_grounding",
+    "title": "Weak-point analysis",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Based on the actual code, what are the most likely architectural weak points in Hematite right now?",
+    "success_criteria": [
+      "Risks are supported by code structure",
+      "Avoids hand-wavy generic risks"
+    ]
+  }
+]

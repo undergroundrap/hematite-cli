@@ -1,0 +1,99 @@
+[
+  {
+    "id": "repo_read_only_01",
+    "category": "repo_read_only",
+    "title": "High-level repo map",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Give me a useful top-down explanation of this repository for a new contributor.",
+    "success_criteria": [
+      "Covers main modules and their purpose",
+      "Uses actual repo structure"
+    ]
+  },
+  {
+    "id": "repo_read_only_02",
+    "category": "repo_read_only",
+    "title": "Feature ownership",
+    "mode": "read_only",
+    "prompt": "Read-only mode. If I wanted to change voice behavior, which files would I inspect first and why?",
+    "success_criteria": [
+      "Mentions src/ui/voice.rs",
+      "Explains ownership, not just filenames"
+    ]
+  },
+  {
+    "id": "repo_read_only_03",
+    "category": "repo_read_only",
+    "title": "MCP ownership",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Where is MCP handled in this codebase, and what parts are transport vs lifecycle management?",
+    "success_criteria": [
+      "Mentions mcp.rs and mcp_manager.rs separately"
+    ]
+  },
+  {
+    "id": "repo_read_only_04",
+    "category": "repo_read_only",
+    "title": "Compaction understanding",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Explain how Hematite handles growing conversation state and context pressure.",
+    "success_criteria": [
+      "Mentions compaction and/or Vein context",
+      "Mentions hardware/context-window awareness"
+    ]
+  },
+  {
+    "id": "repo_read_only_05",
+    "category": "repo_read_only",
+    "title": "Model routing",
+    "mode": "read_only",
+    "prompt": "Read-only mode. How does Hematite choose between fast vs think model paths?",
+    "success_criteria": [
+      "Mentions route_model",
+      "Explains that it is heuristic and input-driven"
+    ]
+  },
+  {
+    "id": "tool_discipline_01",
+    "category": "tool_discipline",
+    "title": "No fake tools",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Explain Hematite's available repo-inspection tools. Use only real tool names.",
+    "success_criteria": [
+      "Uses actual tool names",
+      "Avoids synthetic helpers"
+    ]
+  },
+  {
+    "id": "tool_discipline_02",
+    "category": "tool_discipline",
+    "title": "Read-only tool selection",
+    "mode": "read_only",
+    "prompt": "Read-only mode. You need to understand a feature spread across multiple files. Tell me which Hematite tools you would prefer and why.",
+    "success_criteria": [
+      "Prefers map_project/read_file/list_files/grep_files/lsp tools appropriately",
+      "Avoids mutating tools in read-only mode"
+    ]
+  },
+  {
+    "id": "tool_discipline_03",
+    "category": "tool_discipline",
+    "title": "Grounded tracing tool awareness",
+    "mode": "read_only",
+    "prompt": "Read-only mode. For architecture questions, what tool should you prefer before guessing from memory?",
+    "success_criteria": [
+      "Mentions trace_runtime_flow"
+    ]
+  },
+  {
+    "id": "tool_discipline_04",
+    "category": "tool_discipline",
+    "title": "LSP awareness",
+    "mode": "read_only",
+    "prompt": "Read-only mode. What LSP-related tools exist in Hematite, and when are they more useful than grep?",
+    "success_criteria": [
+      "Mentions real LSP tools",
+      "Explains semantic vs textual search"
+    ]
+  }
+]

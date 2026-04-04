@@ -71,6 +71,8 @@ If your change affects installer behavior, run:
 pwsh ./scripts/package-windows.ps1 -Installer
 ```
 
+For behavior regressions and prompt-quality checks, use the benchmark prompts under `evals/`. Run `evals/quick_smoke.md` for fast iteration and use `evals/prompt_suite.json` plus `evals/score_template.csv` for broader manual eval runs.
+
 ## Release Notes
 
 - Package version comes from `Cargo.toml`

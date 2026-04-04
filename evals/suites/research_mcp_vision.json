@@ -1,0 +1,79 @@
+[
+  {
+    "id": "web_research_01",
+    "category": "web_research",
+    "title": "Web research capability awareness",
+    "mode": "normal",
+    "prompt": "If local repo context is not enough, what internet research capabilities do you actually have available in Hematite?",
+    "success_criteria": [
+      "Mentions research_web and fetch_docs",
+      "Frames them accurately"
+    ]
+  },
+  {
+    "id": "web_research_02",
+    "category": "web_research",
+    "title": "Research workflow explanation",
+    "mode": "normal",
+    "prompt": "How should Hematite use web research when debugging a library or API mismatch?",
+    "success_criteria": [
+      "Search first, docs fetch second",
+      "Keeps it grounded to actual tool workflow"
+    ]
+  },
+  {
+    "id": "web_research_03",
+    "category": "web_research",
+    "title": "Research restraint",
+    "mode": "normal",
+    "prompt": "When should Hematite prefer local repo context over internet research?",
+    "success_criteria": [
+      "States local repo context should come first when enough",
+      "Uses research as fallback when local info is insufficient"
+    ]
+  },
+  {
+    "id": "mcp_lsp_vision_01",
+    "category": "mcp_lsp_vision",
+    "title": "MCP product boundary",
+    "mode": "normal",
+    "prompt": "How does Hematite load MCP servers, and what is the boundary between MCP and Hematite's built-in capabilities?",
+    "success_criteria": [
+      "Mentions config-driven MCP loading",
+      "Frames MCP as extension boundary, not the core identity"
+    ]
+  },
+  {
+    "id": "mcp_lsp_vision_02",
+    "category": "mcp_lsp_vision",
+    "title": "Vision capability awareness",
+    "mode": "normal",
+    "prompt": "What visual-analysis capability does Hematite have for screenshots or diagrams?",
+    "success_criteria": [
+      "Mentions vision_analyze",
+      "Frames it as image and screenshot analysis"
+    ]
+  },
+  {
+    "id": "mcp_lsp_vision_03",
+    "category": "mcp_lsp_vision",
+    "title": "LSP vs grep tradeoff",
+    "mode": "read_only",
+    "prompt": "Read-only mode. When is lsp_search_symbol more useful than grep_files in Hematite?",
+    "success_criteria": [
+      "Explains semantic symbol search vs text search",
+      "Uses real tool names"
+    ]
+  },
+  {
+    "id": "mcp_lsp_vision_04",
+    "category": "mcp_lsp_vision",
+    "title": "MCP config scope",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Where can Hematite load MCP server config from?",
+    "success_criteria": [
+      "Mentions global and workspace config locations",
+      "Does not invent additional config files"
+    ]
+  }
+]

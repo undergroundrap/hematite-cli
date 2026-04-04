@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "target": "single_gpu_consumer_local",
+  "primary_hardware_focus": "RTX 4070 class",
+  "runner_mode": "manual",
+  "suite_files": [
+    {
+      "path": "evals/suites/core_identity_runtime.json",
+      "categories": ["identity_meta", "runtime_grounding"],
+      "count": 10
+    },
+    {
+      "path": "evals/suites/repo_and_tools.json",
+      "categories": ["repo_read_only", "tool_discipline"],
+      "count": 9
+    },
+    {
+      "path": "evals/suites/safety_and_workflow.json",
+      "categories": ["safety_shell_git", "local_workflow"],
+      "count": 8
+    },
+    {
+      "path": "evals/suites/research_mcp_vision.json",
+      "categories": ["web_research", "mcp_lsp_vision"],
+      "count": 7
+    },
+    {
+      "path": "evals/suites/planning_and_recovery.json",
+      "categories": ["editing_planning", "long_context_recovery"],
+      "count": 8
+    }
+  ]
+}
