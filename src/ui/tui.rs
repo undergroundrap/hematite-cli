@@ -289,7 +289,7 @@ impl App {
                 }
             }
         }
-        self.current_objective = "Strategist: Standby".into();
+        self.current_objective = "Idle".into();
     }
 
     /// [Auto-Diagnostic] Copy full session transcript to clipboard.
@@ -298,9 +298,9 @@ impl App {
             .map(|m| format!("[{}] {}\n", m.0, m.1))
             .collect::<String>();
         
-        history.push_str("\n--- DIAGNOSTIC HINT ---\n");
-        history.push_str(&format!("Final Tokens: {}\n", self.total_tokens));
-        history.push_str(&format!("Session Cost: ${:.4}\n", self.current_session_cost));
+        history.push_str("\nSession Stats\n");
+        history.push_str(&format!("Tokens: {}\n", self.total_tokens));
+        history.push_str(&format!("Cost: ${:.4}\n", self.current_session_cost));
         
         // Windows clip.exe — fast and zero dependencies.
         let mut child = std::process::Command::new("clip.exe")
@@ -1163,10 +1163,22 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         (Color::Rgb(80, 80, 80), "•") // Standby
     };
 
-    let objective_text = if app.current_objective.len() > 30 {
-        format!("{}...", &app.current_objective[..27])
-    } else {
+    let live_objective = if app.current_objective != "Idle" {
         app.current_objective.clone()
+    } else if !app.active_workers.is_empty() {
+        "Swarm active".to_string()
+    } else if app.thinking {
+        "Reasoning".to_string()
+    } else if app.agent_running {
+        "Working".to_string()
+    } else {
+        "Idle".to_string()
+    };
+
+    let objective_text = if live_objective.len() > 30 {
+        format!("{}...", &live_objective[..27])
+    } else {
+        live_objective
     };
 
     let core_title = if app.professional { 
@@ -1263,7 +1275,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     }
     
     let ctx_block = Block::default()
-        .title(" CONTEXT (Strategy Deck) ")
+        .title(" ACTIVE CONTEXT ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
         
@@ -1940,8 +1952,50 @@ fn filter_tui_noise(text: &str) -> String {
         // Strip random terminal control characters that might have escaped.
         let sanitized: String = line.chars().filter(|c| !c.is_control() || *c == '\t').collect();
         if sanitized.trim().is_empty() && !line.trim().is_empty() { continue; }
-        
-        lines.push(sanitized);
+
+        lines.push(normalize_tui_text(&sanitized));
     }
     lines.join("\n").trim().to_string()
+}
+
+fn normalize_tui_text(text: &str) -> String {
+    let mut normalized = text
+        .replace("ΓÇö", "-")
+        .replace("ΓÇô", "-")
+        .replace("ΓÇª", "...")
+        .replace("Γ£à", "[OK]")
+        .replace("≡ƒ¢á∩╕Å", "")
+        .replace("—", "-")
+        .replace("–", "-")
+        .replace("…", "...")
+        .replace("•", "*")
+        .replace("✅", "[OK]")
+        .replace("🚨", "[!]");
+
+    normalized = normalized
+        .chars()
+        .map(|c| match c {
+            '\u{00A0}' => ' ',
+            '\u{2018}' | '\u{2019}' => '\'',
+            '\u{201C}' | '\u{201D}' => '"',
+            c if c.is_ascii() || c == '\n' || c == '\t' => c,
+            _ => ' ',
+        })
+        .collect();
+
+    let mut compacted = String::with_capacity(normalized.len());
+    let mut prev_space = false;
+    for ch in normalized.chars() {
+        if ch == ' ' {
+            if !prev_space {
+                compacted.push(ch);
+            }
+            prev_space = true;
+        } else {
+            compacted.push(ch);
+            prev_space = false;
+        }
+    }
+
+    compacted.trim().to_string()
 }

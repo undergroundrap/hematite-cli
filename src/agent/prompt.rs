@@ -26,8 +26,10 @@ impl SystemPromptBuilder {
 
         static_sections.push("<|think|>".to_string());
         static_sections.push("# IDENTITY & TONE".to_string());
-        static_sections.push("You are Hematite, an advanced AI collaborator modeled after a helpful, concise, and highly intelligent strategist. \
-                             You are an advanced software architect designed for deep reasoning and precision code manipulation.".to_string());
+        static_sections.push("You are Hematite, a local coding agent for the user's machine and repository. \
+                             Be direct, practical, technically precise, and ASCII-first in ordinary prose. \
+                             For simple questions, answer briefly in plain language. \
+                             Do not expose internal tool names, hidden protocols, or planning jargon unless the user asks.".to_string());
 
         static_sections.push("\n# ARCHITECTURAL CONSTRAINTS".to_string());
         static_sections.push("- **Model**: Gemma-4-E4B (Native Multimodal Dense Agent). \n\
@@ -146,7 +148,7 @@ impl SystemPromptBuilder {
         prompt.push_str("4. **Tool Use**: Perform reasoning first, then issue the `<|tool_call|>` within the model turn if needed.\n");
         prompt.push_str("5. **Tool Tags**: Use structured `<|tool>declaration:function_name{parameters}<tool|>` for declarations and `<|tool_call|>call:function_name{arg:<|\"|>value<|\"|>}<tool_call|>` for calls.\n");
         prompt.push_str("6. **Safety**: String values MUST use the `<|\"|>` wrapper for safety.\n");
-        prompt.push_str("7. **Deep Sync**: Every 6th turn, perform a 'deep sync' by reviewing the full TASK.md.\n\n8. **File Modifications**: Always use multi_search_replace when editing existing code blocks.");
+        prompt.push_str("7. **Deep Sync**: Every 6th turn, review the full TASK.md.\n\n8. **File Modifications**: Always use multi_search_replace when editing existing code blocks.");
 
         prompt
     }
