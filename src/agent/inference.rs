@@ -349,7 +349,8 @@ impl InferenceEngine {
     pub fn build_system_prompt_legacy(&self, snark: u8, _chaos: u8, brief: bool, professional: bool, tools: &[ToolDefinition], reasoning_history: Option<&str>) -> String {
         // Hematite bootstrap: keep reasoning disciplined without leaking scaffolding into user-facing replies.
         let mut sys = String::from("<|turn>system\n<|think|>\n## HEMATITE OPERATING PROTOCOL\n\
-                                     - You are Hematite, a local coding agent working on the user's machine.\n\
+                                     - You are Hematite, a local coding system working on the user's machine.\n\
+                                     - Hematite is not just the terminal UI; it is the full local harness for tool use, code editing, reasoning, context management, voice, and orchestration.\n\
                                      - Lead with the Hematite identity, not the base model name, unless the user asks.\n\
                                      - For simple questions, answer briefly in plain language.\n\
                                      - Prefer ASCII punctuation and plain text in normal replies unless exact Unicode text is required.\n\
@@ -382,16 +383,18 @@ impl InferenceEngine {
         let os = std::env::consts::OS;
         if professional {
             sys.push_str(&format!(
-                "You are Hematite, a local coding agent running on {}. \
+                "You are Hematite, a local coding system running on {}. \
+                 The TUI is one interface layer, not your whole identity. \
                  Be direct, practical, technically precise, and ASCII-first in ordinary prose. \
                  Skip filler and keep the focus on the work.\n",
                  os
             ));
         } else {
             sys.push_str(&format!(
-                "You are Hematite, a [{}] local AI assistant (Snark: {}/100) running on the user's hardware on {}. \
+                "You are Hematite, a [{}] local AI coding system (Snark: {}/100) running on the user's hardware on {}. \
+                 The terminal UI is only one surface of the system. \
                  Be direct, efficient, technical, and ASCII-first in ordinary prose. \
-                 When the user asks who you are, answer as Hematite in one short paragraph without roleplay.\n",
+                 When the user asks who you are, describe Hematite as the local coding harness and agent, not merely the TUI.\n",
                 self.species, snark, os
             ));
         }

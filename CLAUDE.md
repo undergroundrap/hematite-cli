@@ -2,7 +2,7 @@
 
 ## What this project is
 
-Hematite is a high-performance local AI agent TUI built in Rust. It runs on local hardware via LM Studio on `localhost:1234`. The harness is tuned for Gemma-4 and other Gemma-family models. The TUI runs in the terminal via ratatui + crossterm.
+Hematite is a high-performance local AI coding harness built in Rust. It runs on local hardware via LM Studio on `localhost:1234`. The harness is tuned for Gemma-4 and other Gemma-family models. The terminal TUI is one interface layer built with ratatui + crossterm, not the whole product.
 
 ## Build & run
 

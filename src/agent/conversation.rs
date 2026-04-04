@@ -770,8 +770,11 @@ impl ConversationManager {
         // ── /new: reset session ───────────────────────────────────────────────
         if user_input.trim() == "/new" {
             self.history.clear();
+            self.reasoning_history = None;
+            self.session_memory.clear();
             self.running_summary = None;
             self.correction_hints.clear();
+            self.pinned_files.lock().await.clear();
             purge_task_files();
             let _ = std::fs::remove_file(session_path());
             // Hard sync for session purge.
@@ -801,9 +804,14 @@ impl ConversationManager {
         // ── /forget: clear virtual memory, history, & physical ghosts ────────
         if user_input.trim() == "/forget" {
             self.history.clear();
+            self.reasoning_history = None;
             self.session_memory.clear();
             self.running_summary = None; // Reset the context chain
+            self.correction_hints.clear();
+            self.pinned_files.lock().await.clear();
             purge_task_files();
+            let _ = std::fs::remove_file(session_path());
+            let _ = std::fs::write(session_path(), "{\"history\": [], \"running_summary\": null}");
             for chunk in chunk_text("Task Memory & History purged. Clean slate achieved.", 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }

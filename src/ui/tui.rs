@@ -705,6 +705,11 @@ pub async fn run_app<B: Backend>(
                                             "/clear" => {
                                                 app.messages.clear();
                                                 app.messages_raw.clear();
+                                                app.last_reasoning.clear();
+                                                app.current_thought.clear();
+                                                app.specular_logs.clear();
+                                                app.active_context.clear();
+                                                app.current_objective = "Idle".into();
                                                 app.push_message("System", "Dialogue buffer cleared.");
                                                 app.history_idx = None;
                                                 continue;
@@ -738,6 +743,9 @@ pub async fn run_app<B: Backend>(
                                                 app.messages_raw.clear();
                                                 app.last_reasoning.clear();
                                                 app.current_thought.clear();
+                                                app.specular_logs.clear();
+                                                app.active_context.clear();
+                                                app.current_objective = "Idle".into();
                                                 app.push_message("You", "/new");
                                                 app.agent_running = true;
                                                 let _ = app.user_input_tx.try_send("/new".to_string());
@@ -745,8 +753,13 @@ pub async fn run_app<B: Backend>(
                                                 continue;
                                             }
                                             "/forget" => {
+                                                app.messages.clear();
+                                                app.messages_raw.clear();
                                                 app.last_reasoning.clear();
                                                 app.current_thought.clear();
+                                                app.specular_logs.clear();
+                                                app.active_context.clear();
+                                                app.current_objective = "Idle".into();
                                                 app.push_message("You", "/forget");
                                                 app.agent_running = true;
                                                 let _ = app.user_input_tx.try_send("/forget".to_string());
