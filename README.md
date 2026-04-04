@@ -126,6 +126,24 @@ Notes:
 - the packaging script clears `CARGO_NET_OFFLINE` for the build step so ONNX Runtime provisioning does not fail in release mode
 - `-Installer` requires Inno Setup (`iscc`) to be installed locally
 
+### Automated Windows Releases
+
+GitHub Actions can build the latest Windows installer and portable zip for you.
+
+- `workflow_dispatch` lets you run the release build manually from GitHub
+- pushing a tag like `v0.1.0` builds the newest Windows artifacts automatically
+- tagged builds also attach the generated `.zip` and `Setup.exe` to the GitHub release
+
+Typical release flow:
+
+```powershell
+git commit -am "release: prepare v0.1.1"
+git tag v0.1.1
+git push origin main --tags
+```
+
+Versioning still comes from `Cargo.toml`, so the package names and installer version stay aligned with the Rust crate version.
+
 ### Updating Hematite
 
 Updating is as simple as replacing `hematite.exe` or installing a newer packaged release. Project-specific histories, rules, and task files live in each project's `.hematite/` directory and survive upgrades.
