@@ -30,6 +30,15 @@ Check:
 - the TUI picks up the new model or CTX value
 - Gemma-native mode is re-evaluated against the refreshed model identity
 
+Also try:
+```text
+/runtime-refresh
+```
+
+Check:
+- Hematite reports the current LM Studio model and CTX immediately
+- if a context-window failure just happened, the next refresh path confirms or updates the live profile instead of leaving the old budget hidden
+
 ## 1d. Tiny-Context Fallback
 
 If LM Studio is serving a very small active context like 4096, ask a trivial prompt such as `who are you?`.

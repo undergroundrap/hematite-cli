@@ -34,6 +34,18 @@
     ]
   },
   {
+    "id": "local_workflow_00d",
+    "category": "local_workflow",
+    "title": "Manual runtime refresh command",
+    "mode": "normal",
+    "prompt": "/runtime-refresh should force Hematite to re-read the live LM Studio model and context budget and report the result immediately.",
+    "success_criteria": [
+      "The command reports the current model and CTX without requiring a restart",
+      "The command uses the same live refresh path as the automatic per-turn runtime sync",
+      "After a context-window failure, a forced refresh can confirm or update the live runtime profile"
+    ]
+  },
+  {
     "id": "local_workflow_00c",
     "category": "local_workflow",
     "title": "Tiny-context fallback",

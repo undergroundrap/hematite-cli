@@ -1627,6 +1627,27 @@ pub struct ConversationManager {
 }
 
 impl ConversationManager {
+    async fn refresh_runtime_profile_and_report(
+        &mut self,
+        tx: &mpsc::Sender<InferenceEvent>,
+        reason: &str,
+    ) -> Option<(String, usize, bool)> {
+        let refreshed = self.engine.refresh_runtime_profile().await;
+        if let Some((model_id, context_length, changed)) = refreshed.as_ref() {
+            let _ = tx
+                .send(InferenceEvent::RuntimeProfile {
+                    model_id: model_id.clone(),
+                    context_length: *context_length,
+                })
+                .await;
+            self.transcript.log_system(&format!(
+                "Runtime profile refresh ({}): model={} ctx={} changed={}",
+                reason, model_id, context_length, changed
+            ));
+        }
+        refreshed
+    }
+
     pub fn new(
         engine: Arc<InferenceEngine>,
         professional: bool,
@@ -2107,19 +2128,20 @@ impl ConversationManager {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Reload config every turn (edits apply immediately, no restart needed).
         let config = crate::agent::config::load_config();
-        if let Some((model_id, context_length, changed)) = self.engine.refresh_runtime_profile().await
-        {
-            if changed {
-                let _ = tx
-                    .send(InferenceEvent::RuntimeProfile {
-                        model_id: model_id.clone(),
-                        context_length,
-                    })
-                    .await;
-                self.transcript.log_system(&format!(
-                    "Runtime profile refreshed before turn: model={} ctx={}",
-                    model_id, context_length
-                ));
+        let manual_runtime_refresh = user_input.trim() == "/runtime-refresh";
+        if !manual_runtime_refresh {
+            if let Some((model_id, context_length, changed)) = self
+                .refresh_runtime_profile_and_report(&tx, "turn_start")
+                .await
+            {
+                if changed {
+                    let _ = tx
+                        .send(InferenceEvent::Thought(format!(
+                            "Runtime refresh: using model `{}` with CTX {} for this turn.",
+                            model_id, context_length
+                        )))
+                        .await;
+                }
             }
         }
         let current_model = self.engine.current_model();
@@ -2186,6 +2208,40 @@ impl ConversationManager {
                             "LSP: Failed to start servers - {}",
                             e
                         )))
+                        .await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        if user_input.trim() == "/runtime-refresh" {
+            match self
+                .refresh_runtime_profile_and_report(&tx, "manual_command")
+                .await
+            {
+                Some((model_id, context_length, changed)) => {
+                    let msg = if changed {
+                        format!(
+                            "Runtime profile refreshed. Model: {} | CTX: {}",
+                            model_id, context_length
+                        )
+                    } else {
+                        format!(
+                            "Runtime profile unchanged. Model: {} | CTX: {}",
+                            model_id, context_length
+                        )
+                    };
+                    for chunk in chunk_text(&msg, 8) {
+                        let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                    }
+                }
+                None => {
+                    let _ = tx
+                        .send(InferenceEvent::Error(
+                            "Runtime refresh failed: LM Studio profile could not be read."
+                                .to_string(),
+                        ))
                         .await;
                 }
             }
@@ -3547,6 +3603,25 @@ impl ConversationManager {
         class: RuntimeFailureClass,
         detail: &str,
     ) {
+        if class == RuntimeFailureClass::ContextWindow {
+            if let Some((model_id, context_length, changed)) = self
+                .refresh_runtime_profile_and_report(tx, "context_window_failure")
+                .await
+            {
+                let note = if changed {
+                    format!(
+                        "Runtime refresh after context-window failure: model {} | CTX {}",
+                        model_id, context_length
+                    )
+                } else {
+                    format!(
+                        "Runtime refresh after context-window failure confirms model {} | CTX {}",
+                        model_id, context_length
+                    )
+                };
+                let _ = tx.send(InferenceEvent::Thought(note)).await;
+            }
+        }
         let formatted = format_runtime_failure(class, detail);
         self.history
             .push(ChatMessage::system(&format!("# RUNTIME FAILURE\n{}", formatted)));

@@ -963,6 +963,13 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/runtime-refresh" => {
+                                                app.push_message("You", "/runtime-refresh");
+                                                app.agent_running = true;
+                                                let _ = app.user_input_tx.try_send("/runtime-refresh".to_string());
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/help" => {
                                                 app.push_message("System",
                                                     "Hematite Commands:\n\
@@ -975,6 +982,7 @@ pub async fn run_app<B: Backend>(
                                                      /forget           — (Wipe) Nuclear pivot: reset history & active tasks\n\
                                                      /clear            — (UI) Clear dialogue display only\n\
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
+                                                     /runtime-refresh  — (Model) Re-read LM Studio model + CTX now\n\
                                                      /undo             — (Ghost) Revert last file change\n\
                                                      /diff             — (Git) Show session changes (--stat)\n\
                                                      /lsp              — (Logic) Start Language Servers (semantic intelligence)\n\
