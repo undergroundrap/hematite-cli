@@ -32,6 +32,7 @@ Hematite continuously adapts to the machine it is running on.
 Hematite is more than a chat shell around a local model.
 
 - **File and shell tools**: direct project reading, editing, search, and shell execution
+- **Architecture-aware repo mapping**: `map_project` now returns likely entrypoints, core owner files, and extracted top symbols instead of just a raw file tree
 - **Git-aware workflows**: worktrees, commit helpers, and rollback via hidden ghost snapshots
 - **Project retrieval**: SQLite FTS-backed memory helps recover relevant local context each turn
 - **Built-in web research**: `research_web` and `fetch_docs` let the harness search for technical information and pull external docs into a readable form when local context is insufficient

@@ -8,6 +8,7 @@ pub mod guard;
 pub mod health;
 pub mod lsp_tools;
 pub mod plan;
+pub mod project_map;
 pub mod research;
 pub mod risk_evaluator;
 pub mod runtime_trace;

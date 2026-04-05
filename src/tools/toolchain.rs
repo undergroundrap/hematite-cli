@@ -63,9 +63,9 @@ fn describe_read_only_codebase_tools() -> String {
     "Verified Hematite read-only toolchain\n\n\
 Text search and file inspection\n\
 - `map_project`\n\
-  Good for: first-pass spatial awareness of the repository layout.\n\
-  Bad for: symbol-level detail or exact control flow.\n\
-  Choose it over another tool when: you need the top-level shape of the codebase before diving into files.\n\
+  Good for: first-pass spatial awareness of the repository layout, likely entrypoints, core owner files, and a small set of extracted top symbols.\n\
+  Bad for: exact control flow, full call graphs, or precise line-level inspection.\n\
+  Choose it over another tool when: you need a compact architecture map before diving into files or LSP.\n\
 - `list_files`\n\
   Good for: enumerating files in a directory, optionally narrowed by extension.\n\
   Bad for: content search or semantic understanding.\n\

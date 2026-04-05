@@ -326,11 +326,25 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         ),
         make_tool(
             "map_project",
-            "High-level recursive map of the project structure and configuration. \
-             Use this at the start of a task to gain spatial awareness of the codebase.",
+            "Compact architecture-aware map of the project structure, key configuration files, \
+             likely entrypoints, and core owner files. Use this at the start of a task to gain \
+             spatial awareness before deeper file reads or LSP inspection.",
             serde_json::json!({
                 "type": "object",
-                "properties": {}
+                "properties": {
+                    "focus": {
+                        "type": "string",
+                        "description": "Optional relative subpath to focus the map on instead of the whole workspace."
+                    },
+                    "include_symbols": {
+                        "type": "boolean",
+                        "description": "Whether to extract a small set of top symbols from core files. Defaults to true."
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "Optional tree depth cap for the directory section. Defaults to 4 and is capped internally."
+                    }
+                }
             }),
         ),
         make_tool(
@@ -370,7 +384,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["read_only_codebase", "user_turn_plan", "all"],
+                        "enum": ["read_only_codebase", "user_turn_plan", "voice_latency_plan", "all"],
                         "description": "Which authoritative toolchain report to return"
                     },
                     "question": {
@@ -2456,7 +2470,7 @@ impl ConversationManager {
 pub async fn dispatch_tool(name: &str, args: &Value) -> Result<String, String> {
     match name {
         "shell"       => crate::tools::shell::execute(args).await,
-        "map_project" => crate::tools::file_ops::map_project(args).await,
+        "map_project" => crate::tools::project_map::map_project(args).await,
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
         "read_file"   => crate::tools::file_ops::read_file(args).await,
@@ -3112,7 +3126,7 @@ pub fn format_tool_display(name: &str, args: &Value) -> String {
     };
     match name {
         "shell" => format!("$ {}", get("command")),
-        "map_project" => "map project tree".to_string(),
+        "map_project" => "map project architecture".to_string(),
         "trace_runtime_flow" => format!("trace runtime {}", get("topic")),
         "describe_toolchain" => format!("describe toolchain {}", get("topic")),
         _ => format!("{} {:?}", name, args),

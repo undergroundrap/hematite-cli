@@ -165,7 +165,7 @@ Hematite gives the loaded model a real local tool suite for coding work:
 | `multi_search_replace` | Precision engine for bulk find-and-replace blocks |
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
-| `map_project` | Recursive project structure map |
+| `map_project` | Compact architecture map with config markers, likely entrypoints, core owner files, and a bounded directory tree |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
 | `fetch_docs` | Fetch and convert documentation pages into readable Markdown for follow-up analysis |
@@ -227,6 +227,10 @@ For architecture and control-flow questions, Hematite can use `trace_runtime_flo
 ### Grounded Tool Selection
 
 For tooling-discipline and investigation-plan questions, Hematite can use `describe_toolchain` to return the real built-in tool surface, what each tool is good or bad for, and a concrete read-only investigation order. This helps local open models avoid inventing fake helper tools or fake symbol names when explaining how they would inspect a Rust codebase.
+
+### Architecture-Aware Repo Mapping
+
+`map_project` is not just a file tree. It returns a compact repo map with configuration markers, likely entrypoints, core owner files, and extracted top symbols so smaller local models can get useful spatial awareness before spending turns on deeper file reads or LSP queries.
 
 ### Vision Analysis
 

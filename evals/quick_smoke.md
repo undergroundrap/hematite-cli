@@ -259,7 +259,18 @@ Check:
 - treats `/architect` as plan-first rather than immediate editing
 - treats `/code` as the explicit implementation mode
 
-## 24. Ask Mode Redirect
+## 24. Repo Map Quality
+
+```text
+Read-only mode. Use `map_project` first, then tell me the likely entrypoints and core owner files for this repository without guessing.
+```
+
+Check:
+- `map_project` output is more than a raw file tree
+- includes likely entrypoints or core owner files
+- preserves real file paths and extracted symbols
+
+## 25. Ask Mode Redirect
 
 ```text
 /ask
@@ -271,7 +282,7 @@ Check:
 - does not mutate
 - redirects clearly toward `/code` or `/auto`
 
-## 25. Inline Workflow Prompt
+## 26. Inline Workflow Prompt
 
 ```text
 /ask Why does Hematite separate reasoning output from visible chat output?

@@ -121,5 +121,18 @@
       "Keeps src/ui/tui.rs and src/ui/voice.rs as likely owner files",
       "Avoids fake MCP filesystem helpers"
     ]
+  },
+  {
+    "id": "tool_discipline_07",
+    "category": "tool_discipline",
+    "title": "Architecture-aware repo map",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Use `map_project` first, then tell me the likely entrypoints and core owner files for this repository without guessing.",
+    "success_criteria": [
+      "Uses map_project",
+      "Treats map_project as more than a raw file tree",
+      "Mentions likely entrypoints or core owner files from the repo map output",
+      "Preserves real file paths and extracted symbols"
+    ]
   }
 ]
