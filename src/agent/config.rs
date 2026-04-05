@@ -3,6 +3,7 @@
 /// Read from `.hematite/settings.json` in the workspace root.
 /// Re-loaded at the start of every turn so edits take effect without restart.
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq)]
 pub enum PermissionMode {
@@ -27,9 +28,35 @@ pub struct HematiteConfig {
     pub think_model: Option<String>,
     /// Extra text appended verbatim to the system prompt (project notes, conventions, etc.).
     pub context_hint: Option<String>,
+    /// Per-project verification commands for build/test/lint/fix workflows.
+    #[serde(default)]
+    pub verify: VerifyProfilesConfig,
     /// Tool Lifecycle Hooks for automated pre/post scripts.
     #[serde(default)]
     pub hooks: crate::agent::hooks::RuntimeHookConfig,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+pub struct VerifyProfilesConfig {
+    /// Optional default profile name to use when verify_build is called without an explicit profile.
+    pub default_profile: Option<String>,
+    /// Named verification profiles keyed by stack or workspace role.
+    #[serde(default)]
+    pub profiles: BTreeMap<String, VerifyProfile>,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+pub struct VerifyProfile {
+    /// Build/compile validation command.
+    pub build: Option<String>,
+    /// Test command.
+    pub test: Option<String>,
+    /// Lint/static analysis command.
+    pub lint: Option<String>,
+    /// Optional auto-fix command, typically lint --fix or formatter repair.
+    pub fix: Option<String>,
+    /// Optional timeout override for this profile.
+    pub timeout_secs: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
@@ -89,6 +116,19 @@ fn write_default_config(path: &std::path::Path) {
   "model": null,
   "fast_model": null,
   "think_model": null,
+
+  "verify": {
+    "default_profile": null,
+    "profiles": {
+      "rust": {
+        "build": "cargo build --color never",
+        "test": "cargo test --color never",
+        "lint": "cargo clippy --all-targets --all-features -- -D warnings",
+        "fix": "cargo fmt",
+        "timeout_secs": 120
+      }
+    }
+  },
 
   "hooks": {
     "pre_tool_use": [],

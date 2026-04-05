@@ -293,3 +293,15 @@ Check:
 - keeps ASK as the sticky workflow mode
 - answers the question instead of treating the whole line as an unknown slash command
 - does not reach for `describe_toolchain` for a plain reasoning-vs-chat explanation
+
+## 27. Verify Profiles
+
+```text
+Read-only mode. Explain how `verify_build` should behave when a project defines build, test, lint, and fix commands in `.hematite/settings.json`.
+```
+
+Check:
+- mentions per-project verify profiles
+- distinguishes build/test/lint/fix actions
+- says auto-detect is the fallback rather than the only behavior
+- does not call `describe_toolchain` for this product-surface question

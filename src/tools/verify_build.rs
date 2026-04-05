@@ -1,74 +1,166 @@
+use crate::agent::config;
 use serde_json::Value;
-use std::process::Stdio;
-use std::time::Duration;
-use tokio::process::Command;
 
 const BUILD_TIMEOUT_SECS: u64 = 120;
 
-/// Auto-detect the project type from the current directory and run the
-/// appropriate build/validation command.
-///
-/// Supports: Rust (Cargo.toml), Node (package.json), Python (pyproject.toml),
-/// Go (go.mod). Returns "BUILD OK" or "BUILD FAILED:\n{error output}".
-pub async fn execute(_args: &Value) -> Result<String, String> {
+pub async fn execute(args: &Value) -> Result<String, String> {
     let cwd = std::env::current_dir()
         .map_err(|e| format!("Cannot determine working directory: {e}"))?;
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("build");
+    let explicit_profile = args.get("profile").and_then(|v| v.as_str());
+    let timeout_override = args.get("timeout_secs").and_then(|v| v.as_u64());
 
-    let (label, cmd, args): (&str, &str, Vec<&str>) =
-        if cwd.join("Cargo.toml").exists() {
-            ("Rust/Cargo", "cargo", vec!["build", "--color", "never"])
-        } else if cwd.join("package.json").exists() {
-            // npm install is non-destructive if node_modules already exists.
-            ("Node/npm", "npm", vec!["run", "build", "--if-present"])
-        } else if cwd.join("pyproject.toml").exists() || cwd.join("setup.py").exists() {
-            ("Python", "python", vec!["-m", "py_compile"])
-        } else if cwd.join("go.mod").exists() {
-            ("Go", "go", vec!["build", "./..."])
-        } else {
-            return Err(
-                "No recognized project root found.\n\
-                 Expected one of: Cargo.toml, package.json, pyproject.toml, go.mod\n\
-                 Ensure you are in the project root directory.".into()
-            );
-        };
-
-    let child = Command::new(cmd)
-        .args(&args)
-        .current_dir(&cwd)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to spawn `{cmd}`: {e}"))?;
-
-    let output = tokio::time::timeout(
-        Duration::from_secs(BUILD_TIMEOUT_SECS),
-        child.wait_with_output(),
-    )
-    .await
-    .map_err(|_| format!("[{label}] Build timed out after {BUILD_TIMEOUT_SECS}s"))?
-    .map_err(|e| format!("Build process error: {e}"))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    // Combine both streams for full diagnostics.
-    let combined = {
-        let mut s = String::new();
-        if !stdout.is_empty() { s.push_str(&stdout); }
-        if !stderr.is_empty() {
-            if !s.is_empty() { s.push('\n'); }
-            s.push_str(&stderr);
+    let config = config::load_config();
+    if let Some(profile_name) = explicit_profile {
+        let profile = config.verify.profiles.get(profile_name).ok_or_else(|| {
+            format!(
+                "Unknown verify profile `{}`. Define it in `.hematite/settings.json` or omit the profile argument.",
+                profile_name
+            )
+        })?;
+        if let Some(command) = profile_command(profile, action) {
+            let timeout_secs = timeout_override.or(profile.timeout_secs).unwrap_or(BUILD_TIMEOUT_SECS);
+            return run_profile_command(profile_name, action, command, timeout_secs).await;
         }
-        s
+
+        return Err(format!(
+            "VERIFY PROFILE MISSING [{profile_name}] action `{action}`.\n\
+             Configure `.hematite/settings.json` with a `{action}` command for this profile, \
+             or call `verify_build` with a different action/profile."
+        ));
+    }
+
+    if let Some(default_profile) = config.verify.default_profile.as_deref() {
+        let profile = config.verify.profiles.get(default_profile).ok_or_else(|| {
+            format!(
+                "Configured default verify profile `{}` was not found in `.hematite/settings.json`.",
+                default_profile
+            )
+        })?;
+        if let Some(command) = profile_command(profile, action) {
+            let timeout_secs = timeout_override.or(profile.timeout_secs).unwrap_or(BUILD_TIMEOUT_SECS);
+            return run_profile_command(default_profile, action, command, timeout_secs).await;
+        }
+
+        return Err(format!(
+            "VERIFY PROFILE MISSING [{default_profile}] action `{action}`.\n\
+             Configure `.hematite/settings.json` with a `{action}` command for the default profile, \
+             or call `verify_build` with an explicit profile."
+        ));
+    }
+
+    let (label, command, timeout_secs) = autodetect_command(&cwd, action, timeout_override)?;
+    run_profile_command(label, action, &command, timeout_secs).await
+}
+
+fn profile_command<'a>(profile: &'a config::VerifyProfile, action: &str) -> Option<&'a str> {
+    match action {
+        "build" => profile.build.as_deref(),
+        "test" => profile.test.as_deref(),
+        "lint" => profile.lint.as_deref(),
+        "fix" => profile.fix.as_deref(),
+        _ => None,
+    }
+}
+
+fn autodetect_command(
+    cwd: &std::path::Path,
+    action: &str,
+    timeout_override: Option<u64>,
+) -> Result<(&'static str, String, u64), String> {
+    let timeout_secs = timeout_override.unwrap_or(BUILD_TIMEOUT_SECS);
+    let command = if cwd.join("Cargo.toml").exists() {
+        match action {
+            "build" => ("Rust/Cargo", "cargo build --color never".to_string()),
+            "test" => ("Rust/Cargo", "cargo test --color never".to_string()),
+            "lint" => (
+                "Rust/Cargo",
+                "cargo clippy --all-targets --all-features -- -D warnings".to_string(),
+            ),
+            "fix" => ("Rust/Cargo", "cargo fmt".to_string()),
+            _ => return Err(unknown_action(action)),
+        }
+    } else if cwd.join("package.json").exists() {
+        match action {
+            "build" => ("Node/npm", "npm run build --if-present".to_string()),
+            "test" => ("Node/npm", "npm test --if-present".to_string()),
+            "lint" => ("Node/npm", "npm run lint --if-present".to_string()),
+            "fix" => return Err(missing_profile_msg("Node/npm", action)),
+            _ => return Err(unknown_action(action)),
+        }
+    } else if cwd.join("pyproject.toml").exists() || cwd.join("setup.py").exists() {
+        match action {
+            "build" => ("Python", "python -m compileall .".to_string()),
+            "test" => return Err(missing_profile_msg("Python", action)),
+            "lint" => return Err(missing_profile_msg("Python", action)),
+            "fix" => return Err(missing_profile_msg("Python", action)),
+            _ => return Err(unknown_action(action)),
+        }
+    } else if cwd.join("go.mod").exists() {
+        match action {
+            "build" => ("Go", "go build ./...".to_string()),
+            "test" => ("Go", "go test ./...".to_string()),
+            "lint" => return Err(missing_profile_msg("Go", action)),
+            "fix" => return Err(missing_profile_msg("Go", action)),
+            _ => return Err(unknown_action(action)),
+        }
+    } else {
+        return Err(
+            "No recognized project root found.\n\
+             Expected one of: Cargo.toml, package.json, pyproject.toml, go.mod\n\
+             Ensure you are in the project root directory or configure `.hematite/settings.json` verify profiles."
+                .into(),
+        );
     };
 
-    if output.status.success() {
-        Ok(format!("BUILD OK [{label}]\n{}", combined.trim()))
+    Ok((command.0, command.1, timeout_secs))
+}
+
+fn missing_profile_msg(stack: &str, action: &str) -> String {
+    format!(
+        "No auto-detected `{action}` command for [{stack}].\n\
+         Add a verify profile in `.hematite/settings.json` if you want Hematite to run `{action}` for this project."
+    )
+}
+
+fn unknown_action(action: &str) -> String {
+    format!(
+        "Unknown verify_build action `{}`. Use one of: build, test, lint, fix.",
+        action
+    )
+}
+
+async fn run_profile_command(
+    profile_name: &str,
+    action: &str,
+    command: &str,
+    timeout_secs: u64,
+) -> Result<String, String> {
+    let output = crate::tools::shell::execute(&serde_json::json!({
+        "command": command,
+        "timeout_secs": timeout_secs,
+        "reason": format!("verify_build:{}:{}", profile_name, action),
+    }))
+    .await?;
+
+    if output.contains("[exit code: 0]") || !output.contains("[exit code:") {
+        Ok(format!(
+            "BUILD OK [{}:{}]\ncommand: {}\n{}",
+            profile_name,
+            action,
+            command,
+            output.trim()
+        ))
     } else {
-        let exit_code = output.status.code().map_or("?".to_string(), |c| c.to_string());
         Err(format!(
-            "BUILD FAILED [{label}] (exit {exit_code})\n{}",
-            combined.trim()
+            "BUILD FAILED [{}:{}]\ncommand: {}\n{}",
+            profile_name,
+            action,
+            command,
+            output.trim()
         ))
     }
 }

@@ -217,6 +217,21 @@ fn build_workflow_modes_answer() -> String {
     "/ask is sticky read-only analysis mode: inspect, explain, and answer without making changes.\n\n/code is sticky implementation mode: Hematite can edit, verify, and carry out coding work with the normal proof-before-action safeguards.\n\n/architect is sticky plan-first mode: inspect the repo, shape the solution, and produce the implementation approach before editing. It should not mutate code unless you explicitly ask to implement.\n\n/read-only is the hard no-mutation workflow: analysis only, no file edits, no mutating shell commands, and no commits.\n\n/auto returns Hematite to the default behavior where it chooses the narrowest effective path for the request.".to_string()
 }
 
+fn should_answer_verify_profiles_directly(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("verify_build")
+        && lower.contains(".hematite/settings.json")
+        && (lower.contains("build")
+            || lower.contains("test")
+            || lower.contains("lint")
+            || lower.contains("fix")
+            || lower.contains("verification commands"))
+}
+
+fn build_verify_profiles_answer() -> String {
+    "When a project defines verify profiles in `.hematite/settings.json`, `verify_build` should treat those profile commands as the first source of truth.\n\nEach action stays separate: `build` runs the profile's build command, `test` runs the test command, `lint` runs the lint command, and `fix` runs the fix command. `verify_build` should not run all of them at once unless you call those actions separately.\n\nIf you pass an explicit profile, Hematite should use that profile or fail clearly if it does not exist. If the project defines a default profile, Hematite should use it when no explicit profile is given. Only when no profile is configured should Hematite fall back to stack-aware auto-detection.".to_string()
+}
+
 fn looks_like_mutation_request(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     [
@@ -740,13 +755,27 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         ),
         make_tool(
             "verify_build",
-            "Auto-detect the project type from the current directory (Cargo.toml, package.json, \
-             pyproject.toml, go.mod) and run the appropriate build validation command. \
-             Returns BUILD OK or BUILD FAILED with compiler/linker output. \
-             ALWAYS call this after scaffolding a new project or making structural changes.",
+            "Run project verification for build, test, lint, or fix workflows. \
+             Prefer per-project verify profiles from `.hematite/settings.json`, and fall back to \
+             auto-detected defaults when no profile is configured. Returns BUILD OK or BUILD FAILED \
+             with command output. ALWAYS call this after scaffolding a new project or making structural changes.",
             serde_json::json!({
                 "type": "object",
-                "properties": {}
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["build", "test", "lint", "fix"],
+                        "description": "Which verification action to run. Defaults to build."
+                    },
+                    "profile": {
+                        "type": "string",
+                        "description": "Optional named verify profile from `.hematite/settings.json`."
+                    },
+                    "timeout_secs": {
+                        "type": "integer",
+                        "description": "Optional timeout override for this verification run."
+                    }
+                }
             }),
         ),
         make_tool(
@@ -1497,6 +1526,24 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if should_answer_verify_profiles_directly(&effective_user_input) {
+            let response = build_verify_profiles_answer();
+            self.history.push(ChatMessage::user(&effective_user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
         if self.workflow_mode.is_read_only() && looks_like_mutation_request(&effective_user_input) {
             let response = build_mode_redirect_answer(self.workflow_mode);
             self.history.push(ChatMessage::user(&effective_user_input));
@@ -2098,23 +2145,12 @@ impl ConversationManager {
 
     /// [Task Analyzer] Run 'cargo check' and return a concise summary for the model.
     async fn auto_verify_build(&self) -> String {
-        let output = tokio::process::Command::new("cargo")
-            .arg("check")
-            .current_dir(crate::tools::file_ops::workspace_root())
-            .output()
-            .await;
-
-        match output {
-            Ok(out) => {
-                let stderr = String::from_utf8_lossy(&out.stderr);
-                if out.status.success() {
-                    "BUILD SUCCESS: Your changes are architecturally sound.".to_string()
-                } else {
-                    format!("BUILD FAILURE: The build is currently broken. FIX THESE ERRORS IMMEDIATELY:\n\n{}", 
-                        if stderr.len() > 2000 { format!("{}...", &stderr[..2000]) } else { stderr.to_string() })
-                }
-            }
-            Err(e) => format!("SYSTEM ERROR: Could not run verification command: {}", e),
+        match crate::tools::verify_build::execute(&serde_json::json!({ "action": "build" })).await {
+            Ok(out) => "BUILD SUCCESS: Your changes are architecturally sound.\n\n".to_string() + &cap_output(&out, 2000),
+            Err(e) => format!(
+                "BUILD FAILURE: The build is currently broken. FIX THESE ERRORS IMMEDIATELY:\n\n{}",
+                cap_output(&e, 2000)
+            ),
         }
     }
 

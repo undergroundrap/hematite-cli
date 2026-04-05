@@ -175,7 +175,7 @@ Hematite gives the loaded model a real local tool suite for coding work:
 | `git_commit` | Stage all and commit with Conventional Commits style |
 | `git_push` | Push to origin HEAD |
 | `git_worktree` | Create, list, prune, and remove isolated worktrees |
-| `verify_build` | Auto-detect project type and run build validation |
+| `verify_build` | Run build/test/lint/fix validation through verify profiles or auto-detected defaults |
 | `clarify` | Ask the user a question when genuinely blocked |
 
 ---
@@ -306,11 +306,25 @@ Hematite reads `.hematite/settings.json` from your project root:
   "mode": "developer",
   "context_hint": "This is a Rust project using Axum and SQLx.",
   "fast_model": "gemma-4-9b",
-  "think_model": "gemma-4-27b"
+  "think_model": "gemma-4-27b",
+  "verify": {
+    "default_profile": "rust",
+    "profiles": {
+      "rust": {
+        "build": "cargo build --color never",
+        "test": "cargo test --color never",
+        "lint": "cargo clippy --all-targets --all-features -- -D warnings",
+        "fix": "cargo fmt",
+        "timeout_secs": 120
+      }
+    }
+  }
 }
 ```
 
 Permission modes: `read-only`, `developer`, `system-admin`
+
+`verify_build` prefers these per-project profiles for `build`, `test`, `lint`, and `fix`. If no profile is configured, Hematite falls back to stack-aware defaults where it can and tells you when a profile is needed for a less-standard action.
 
 ---
 
