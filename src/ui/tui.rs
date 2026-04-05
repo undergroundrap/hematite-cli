@@ -40,10 +40,40 @@ pub struct RustyStats {
 
 use std::collections::HashMap;
 
+#[derive(Clone)]
 pub struct ContextFile {
     pub path: String,
     pub size: u64,
     pub status: String,
+}
+
+fn default_active_context() -> Vec<ContextFile> {
+    let root = crate::tools::file_ops::workspace_root();
+    let candidates = [
+        ("src/main.rs", "Active"),
+        ("src/ui/tui.rs", "Active"),
+        ("Cargo.toml", "Active"),
+        ("./src", "Watching"),
+    ];
+
+    let mut files = Vec::new();
+    for (path, status) in candidates {
+        let joined = if path == "./src" {
+            root.join("src")
+        } else {
+            root.join(path)
+        };
+        if joined.exists() {
+            let size = std::fs::metadata(&joined).map(|m| m.len()).unwrap_or(0);
+            files.push(ContextFile {
+                path: path.to_string(),
+                size,
+                status: status.to_string(),
+            });
+        }
+    }
+
+    files
 }
 
 pub struct App {
@@ -107,6 +137,10 @@ pub struct App {
 }
 
 impl App {
+    pub fn reset_active_context(&mut self) {
+        self.active_context = default_active_context();
+    }
+
     pub fn push_message(&mut self, speaker: &str, content: &str) {
         let filtered = filter_tui_noise(content);
         if filtered.is_empty() && !content.is_empty() { return; } // Completely suppressed noise
@@ -362,10 +396,7 @@ pub async fn run_app<B: Backend>(
         current_thought: String::new(),
         professional, 
         last_reasoning: String::new(),
-        active_context: vec![
-            ContextFile { path: "src/main.rs".into(), size: 0, status: "Active".into() },
-            ContextFile { path: "src/ui/tui.rs".into(), size: 0, status: "Active".into() }
-        ], 
+        active_context: default_active_context(),
         manual_scroll_offset: None,
         user_input_tx,
         specular_scroll: 0,
@@ -708,7 +739,7 @@ pub async fn run_app<B: Backend>(
                                                 app.last_reasoning.clear();
                                                 app.current_thought.clear();
                                                 app.specular_logs.clear();
-                                                app.active_context.clear();
+                                                app.reset_active_context();
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("System", "Dialogue buffer cleared.");
                                                 app.history_idx = None;
@@ -744,7 +775,7 @@ pub async fn run_app<B: Backend>(
                                                 app.last_reasoning.clear();
                                                 app.current_thought.clear();
                                                 app.specular_logs.clear();
-                                                app.active_context.clear();
+                                                app.reset_active_context();
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("You", "/new");
                                                 app.agent_running = true;
@@ -758,7 +789,7 @@ pub async fn run_app<B: Backend>(
                                                 app.last_reasoning.clear();
                                                 app.current_thought.clear();
                                                 app.specular_logs.clear();
-                                                app.active_context.clear();
+                                                app.reset_active_context();
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("You", "/forget");
                                                 app.agent_running = true;
@@ -1268,7 +1299,12 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         .split(top[1]);
 
     // Pane 1: Context (Nervous focus)
-    let mut context_display = app.active_context.iter().map(|f| {
+    let context_source = if app.active_context.is_empty() {
+        default_active_context()
+    } else {
+        app.active_context.clone()
+    };
+    let mut context_display = context_source.iter().map(|f| {
         let (icon, color) = match f.status.as_str() {
             "Running" => ("⚙️", Color::Cyan),
             "Dirty"   => ("📝", Color::Yellow),

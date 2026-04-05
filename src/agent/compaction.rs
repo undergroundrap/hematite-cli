@@ -46,7 +46,7 @@ const COMPACT_INSTRUCTION: &str = "\n\nIMPORTANT: Resume directly from the last 
 
 /// Layer 6: Structured Session Memory.
 /// Preserves the "Mission Context" across compactions.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct SessionMemory {
     pub current_task: String,
     pub working_set: std::collections::HashSet<String>,
@@ -54,6 +54,13 @@ pub struct SessionMemory {
 }
 
 impl SessionMemory {
+    pub fn has_signal(&self) -> bool {
+        let task = self.current_task.trim();
+        (!task.is_empty() && task != "Ready for new mission.")
+            || !self.working_set.is_empty()
+            || !self.learnings.is_empty()
+    }
+
     pub fn to_prompt(&self) -> String {
         let mut s = format!("- **Active Task**: {}\n", self.current_task);
         if !self.working_set.is_empty() {

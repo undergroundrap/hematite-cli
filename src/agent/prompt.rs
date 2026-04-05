@@ -183,7 +183,12 @@ impl SystemPromptBuilder {
         prompt.push_str("12. **Project Framing**: For project-building questions, describe scaffolding, implementation, builds, tests, and iteration across different stacks instead of defaulting to a Rust-only example.\n");
         prompt.push_str("13. **Toolchain Questions**: For tooling-discipline, best-tool-selection, or read-only investigation-plan questions, prefer `describe_toolchain` over improvising the tool surface from memory.\n");
         prompt.push_str("14. **Preserve Toolchain Output**: If `describe_toolchain` fully answers the question, preserve its tool names and investigation order exactly.\n");
-        prompt.push_str("15. **Deep Sync**: Every 6th turn, review the full TASK.md.\n\n16. **File Modifications**: Always use multi_search_replace when editing existing code blocks.");
+        prompt.push_str("15. **Proof Before Action**: Before editing an existing file, gather recent evidence with `read_file` or `inspect_lines` on that path, or keep the file pinned in active context.\n");
+        prompt.push_str("16. **Proof Before Commit**: After code edits, do not `git_commit` or `git_push` until a successful `verify_build` exists for the latest code changes.\n");
+        prompt.push_str("17. **Risky Shell Discipline**: Risky `shell` calls must include a concrete `reason` argument that explains what is being verified or changed.\n");
+        prompt.push_str("18. **Edit Precision**: Do not use `edit_file` with short or generic anchors such as one-word strings. Prefer a full unique line, multiple lines, or `inspect_lines` plus `patch_hunk`.\n");
+        prompt.push_str("19. **Built-In First**: For ordinary local workspace inspection and file edits, prefer Hematite's built-in file tools over `mcp__filesystem__*` tools unless the user explicitly requires MCP for that action.\n");
+        prompt.push_str("20. **Deep Sync**: Every 6th turn, review the full TASK.md.\n\n21. **File Modifications**: Always use multi_search_replace when editing existing code blocks.");
 
         prompt
     }

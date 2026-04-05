@@ -180,8 +180,26 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
         
     save_ghost_backup(path, &original);
 
+    let search_trimmed = search.trim();
+    let search_non_ws_len = search_trimmed.chars().filter(|c| !c.is_whitespace()).count();
+    let search_line_count = search_trimmed.lines().count();
+    if search_non_ws_len < 12 && search_line_count <= 1 {
+        return Err(format!(
+            "edit_file: search string is too short or generic for a safe mutation in {path}.\n\
+             Provide a more specific anchor (prefer a full line, multiple lines, or use `inspect_lines` + `patch_hunk`)."
+        ));
+    }
+
     // ── Exact match first ────────────────────────────────────────────────────
     let (effective_search, was_repaired) = if original.contains(search) {
+        let exact_match_count = original.matches(search).count();
+        if exact_match_count > 1 && !replace_all {
+            return Err(format!(
+                "edit_file: search string matched {} times in {path}.\n\
+                 Provide a more specific unique anchor or use `inspect_lines` + `patch_hunk`.",
+                exact_match_count
+            ));
+        }
         (search.to_string(), false)
     } else {
         // ── Fuzzy repair: try whitespace-normalised match ─────────────────

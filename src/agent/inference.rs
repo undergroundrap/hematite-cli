@@ -555,7 +555,12 @@ impl InferenceEngine {
                       14. For project-building questions, talk about scaffolding, implementation, builds, tests, and iteration across different stacks instead of defaulting to a Rust-only example like `cargo build`.\n\
                       15. Never mention raw `mcp__*` tool names unless those tools are active this turn and directly relevant.\n\
                       16. For tooling-discipline or best-tool-selection questions, prefer `describe_toolchain` over improvising the tool surface from memory.\n\
-                      17. If `describe_toolchain` fully answers the tooling question, preserve its tool names and investigation order exactly.");
+                      17. If `describe_toolchain` fully answers the tooling question, preserve its tool names and investigation order exactly.\n\
+                      18. PROOF BEFORE ACTION: Before editing an existing file, gather recent evidence with `read_file` or `inspect_lines` on that path or keep it pinned in active context.\n\
+                      19. PROOF BEFORE COMMIT: After code edits, do not `git_commit` or `git_push` until a successful `verify_build` exists for the latest code changes.\n\
+                      20. RISKY SHELL DISCIPLINE: Risky `shell` calls must include a concrete `reason` argument explaining what is being verified or changed.\n\
+                      21. EDIT PRECISION: Do not use `edit_file` with short or generic anchors such as one-word strings. Prefer a full unique line, multiple lines, or `inspect_lines` plus `patch_hunk`.\n\
+                      22. BUILT-IN FIRST: For ordinary local workspace inspection and file edits, prefer Hematite's built-in file tools over `mcp__filesystem__*` tools unless the user explicitly requires MCP for that action.");
 
         // Scaffolding protocol — enforces build validation after project creation.
         sys.push_str("\n## SCAFFOLDING PROTOCOL\n\

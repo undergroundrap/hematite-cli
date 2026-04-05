@@ -14,9 +14,18 @@ use tokio::sync::{mpsc, Mutex};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct SavedSession {
-    history: Vec<crate::agent::inference::ChatMessage>,
     running_summary: Option<String>,
-    reasoning_history: Option<String>,
+    #[serde(default)]
+    session_memory: crate::agent::compaction::SessionMemory,
+}
+
+#[derive(Default)]
+struct ActionGroundingState {
+    turn_index: u64,
+    observed_paths: std::collections::HashMap<String, u64>,
+    last_verify_build_turn: Option<u64>,
+    last_verify_build_ok: bool,
+    code_changed_since_verify: bool,
 }
 
 fn session_path() -> std::path::PathBuf {
@@ -26,25 +35,20 @@ fn session_path() -> std::path::PathBuf {
 }
 
 fn load_session_data() -> (
-    Vec<crate::agent::inference::ChatMessage>,
     Option<String>,
-    Option<String>,
+    crate::agent::compaction::SessionMemory,
 ) {
     let path = session_path();
     if !path.exists() {
-        return (Vec::new(), None, None);
+        return (None, crate::agent::compaction::SessionMemory::default());
     }
     let Ok(data) = std::fs::read_to_string(&path) else {
-        return (Vec::new(), None, None);
+        return (None, crate::agent::compaction::SessionMemory::default());
     };
     let Ok(saved) = serde_json::from_str::<SavedSession>(&data) else {
-        return (Vec::new(), None, None);
+        return (None, crate::agent::compaction::SessionMemory::default());
     };
-    (
-        saved.history,
-        saved.running_summary,
-        saved.reasoning_history,
-    )
+    (saved.running_summary, saved.session_memory)
 }
 
 fn purge_task_files() {
@@ -149,6 +153,18 @@ fn build_language_capability_answer() -> String {
     "Hematite itself is written in Rust, but it is not limited to that language. I can help with projects in Python, JavaScript, TypeScript, Go, C#, and other languages.\n\nI can help create projects by scaffolding files and directories, implementing features, editing code precisely, running the appropriate local build or test commands for the target stack, and iterating on the project structure as it grows. The main limits are the local model, the available tooling on this machine, and how much context fits cleanly in session.".to_string()
 }
 
+fn should_answer_session_memory_directly(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    (lower.contains("carry forward by default") || lower.contains("session memory should you carry forward"))
+        && (lower.contains("restarted hematite")
+            || lower.contains("restarted")
+            || lower.contains("avoid carrying forward"))
+}
+
+fn build_session_memory_answer() -> String {
+    "By default, Hematite should carry forward lightweight project and task signal, not full conversational residue.\n\nCarry forward: Vein-backed project memory, compact session summary, current task memory, working-set files, and explicit pinned context when it is still relevant.\n\nAvoid carrying forward: full chat history, stale reasoning chains, one-off conversational residue, and transient in-flight state from the previous turn.\n\nFor a local model, the right split is to save the project and the active task signal, not replay old dialogue unless you explicitly want to continue the same thread.".to_string()
+}
+
 fn should_enable_toolchain_mode(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     lower.contains("tooling discipline")
@@ -191,6 +207,10 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                     "command": {
                         "type": "string",
                         "description": "The command to run"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "For risky shell calls, explain what this command is verifying or changing."
                     },
                     "timeout_secs": {
                         "type": "integer",
@@ -779,6 +799,8 @@ pub struct ConversationManager {
     pub reasoning_history: Option<String>,
     /// Layer 8: Active Reference Pinning (Context Locked)
     pub pinned_files: Arc<Mutex<std::collections::HashMap<String, String>>>,
+    /// Hard action-grounding state for proof-before-action checks.
+    action_grounding: Arc<Mutex<ActionGroundingState>>,
 }
 
 impl ConversationManager {
@@ -795,7 +817,7 @@ impl ConversationManager {
         swarm_coordinator: Arc<crate::agent::swarm::SwarmCoordinator>,
         voice_manager: Arc<crate::ui::voice::VoiceManager>,
     ) -> Self {
-        let (saved_history, saved_summary, saved_reasoning) = load_session_data();
+        let (saved_summary, saved_memory) = load_session_data();
 
         // Build the initial mcp_manager
         let mcp_manager = Arc::new(tokio::sync::Mutex::new(
@@ -809,16 +831,11 @@ impl ConversationManager {
             brief,
             professional,
             &[],
-            saved_reasoning.as_deref(),
+            None,
             &[],
         );
 
-        let mut history = vec![ChatMessage::system(&dynamic_instructions)];
-        if !saved_history.is_empty() {
-            // Preserve earlier conversation but update the core instructions with latest context (Date/Git/CLAUDE.md).
-            history = vec![ChatMessage::system(&dynamic_instructions)];
-            history.extend(saved_history.into_iter().skip(1));
-        }
+        let history = vec![ChatMessage::system(&dynamic_instructions)];
 
         let vein_path = crate::tools::file_ops::workspace_root()
             .join(".hematite")
@@ -845,14 +862,15 @@ impl ConversationManager {
             cancel_token: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             git_state,
             think_mode: None,
-            session_memory: crate::agent::compaction::SessionMemory::default(),
+            session_memory: saved_memory,
             swarm_coordinator,
             voice_manager,
             lsp_manager: Arc::new(Mutex::new(crate::agent::lsp::manager::LspManager::new(
                 crate::tools::file_ops::workspace_root(),
             ))),
-            reasoning_history: saved_reasoning,
+            reasoning_history: None,
             pinned_files: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            action_grounding: Arc::new(Mutex::new(ActionGroundingState::default())),
         }
     }
 
@@ -868,13 +886,198 @@ impl ConversationManager {
             let _ = std::fs::create_dir_all(parent);
         }
         let saved = SavedSession {
-            history: self.history.clone(),
             running_summary: self.running_summary.clone(),
-            reasoning_history: self.reasoning_history.clone(),
+            session_memory: self.session_memory.clone(),
         };
         if let Ok(json) = serde_json::to_string(&saved) {
             let _ = std::fs::write(&path, json);
         }
+    }
+
+    fn save_empty_session(&self) {
+        let path = session_path();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let saved = SavedSession {
+            running_summary: None,
+            session_memory: crate::agent::compaction::SessionMemory::default(),
+        };
+        if let Ok(json) = serde_json::to_string(&saved) {
+            let _ = std::fs::write(&path, json);
+        }
+    }
+
+    fn refresh_session_memory(&mut self) {
+        self.session_memory = compaction::extract_memory(&self.history);
+    }
+
+    fn append_session_handoff(&self, system_msg: &mut String) {
+        let has_summary = self
+            .running_summary
+            .as_ref()
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+        let has_memory = self.session_memory.has_signal();
+
+        if !has_summary && !has_memory {
+            return;
+        }
+
+        system_msg.push_str(
+            "\n\n# LIGHTWEIGHT SESSION HANDOFF\n\
+             This is compact carry-over from earlier work on this machine.\n\
+             Use it only when it helps the current request.\n\
+             Prefer current repository state, pinned files, and fresh tool results over stale session memory.\n",
+        );
+
+        if has_memory {
+            system_msg.push_str("\n## Active Task Memory\n");
+            system_msg.push_str(&self.session_memory.to_prompt());
+        }
+
+        if let Some(summary) = self.running_summary.as_deref() {
+            if !summary.trim().is_empty() {
+                system_msg.push_str("\n## Compacted Session Summary\n");
+                system_msg.push_str(summary);
+                system_msg.push('\n');
+            }
+        }
+    }
+
+    async fn begin_grounded_turn(&self) -> u64 {
+        let mut state = self.action_grounding.lock().await;
+        state.turn_index += 1;
+        state.turn_index
+    }
+
+    async fn reset_action_grounding(&self) {
+        let mut state = self.action_grounding.lock().await;
+        *state = ActionGroundingState::default();
+    }
+
+    async fn record_read_observation(&self, path: &str) {
+        let normalized = normalize_workspace_path(path);
+        let mut state = self.action_grounding.lock().await;
+        let turn = state.turn_index;
+        state.observed_paths.insert(normalized, turn);
+    }
+
+    async fn record_verify_build_result(&self, ok: bool) {
+        let mut state = self.action_grounding.lock().await;
+        let turn = state.turn_index;
+        state.last_verify_build_turn = Some(turn);
+        state.last_verify_build_ok = ok;
+        if ok {
+            state.code_changed_since_verify = false;
+        }
+    }
+
+    async fn record_successful_mutation(&self, path: Option<&str>) {
+        let mut state = self.action_grounding.lock().await;
+        state.code_changed_since_verify = match path {
+            Some(p) => is_code_like_path(p),
+            None => true,
+        };
+    }
+
+    async fn validate_action_preconditions(
+        &self,
+        name: &str,
+        args: &Value,
+    ) -> Result<(), String> {
+        let normalized_target = action_target_path(name, args);
+        if let Some(target) = normalized_target.as_deref() {
+            let path_exists = std::path::Path::new(target).exists();
+            if path_exists {
+                let state = self.action_grounding.lock().await;
+                let pinned = self.pinned_files.lock().await;
+                let recent_observed = state
+                    .observed_paths
+                    .get(target)
+                    .map(|turn| state.turn_index.saturating_sub(*turn) <= 3)
+                    .unwrap_or(false);
+                let pinned_match = pinned
+                    .keys()
+                    .any(|p| normalize_workspace_path(p) == target);
+                drop(pinned);
+                if !recent_observed && !pinned_match {
+                    return Err(format!(
+                        "Action blocked: `{}` on '{}' requires recent file evidence. Use `read_file` or `inspect_lines` on that path first, or pin the file into active context.",
+                        name, target
+                    ));
+                }
+            }
+        }
+
+        if is_mcp_mutating_tool(name) {
+            return Err(format!(
+                "Action blocked: `{}` is an external MCP mutation tool. For workspace file edits, prefer Hematite's built-in edit path (`read_file`/`inspect_lines` plus `patch_hunk`, `edit_file`, or `multi_search_replace`) unless the user explicitly requires MCP for that action.",
+                name
+            ));
+        }
+
+        if is_mcp_workspace_read_tool(name) {
+            return Err(format!(
+                "Action blocked: `{}` is an external MCP filesystem read tool. For local workspace inspection, prefer Hematite's built-in read path (`read_file`, `inspect_lines`, `list_files`, or `grep_files`) unless the user explicitly requires MCP for that action.",
+                name
+            ));
+        }
+
+        if name == "git_commit" || name == "git_push" {
+            let state = self.action_grounding.lock().await;
+            if state.code_changed_since_verify && !state.last_verify_build_ok {
+                return Err(format!(
+                    "Action blocked: `{}` requires a successful `verify_build` after the latest code edits. Run verification first so Hematite has proof that the tree is build-clean.",
+                    name
+                ));
+            }
+        }
+
+        if name == "shell" {
+            let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
+            let reason = args.get("reason").and_then(|v| v.as_str()).unwrap_or("").trim();
+            let risk = crate::tools::guard::classify_bash_risk(command);
+            if !matches!(risk, crate::tools::RiskLevel::Safe) && reason.is_empty() {
+                return Err(
+                    "Action blocked: risky `shell` calls require a concrete `reason` argument that explains what is being verified or changed."
+                        .to_string(),
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    fn build_action_receipt(
+        &self,
+        name: &str,
+        args: &Value,
+        output: &str,
+        is_error: bool,
+    ) -> Option<ChatMessage> {
+        if is_error || !is_destructive_tool(name) {
+            return None;
+        }
+
+        let mut receipt = String::from("[ACTION RECEIPT]\n");
+        receipt.push_str(&format!("- tool: {}\n", name));
+        if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
+            receipt.push_str(&format!("- target: {}\n", path));
+        }
+        if name == "shell" {
+            if let Some(command) = args.get("command").and_then(|v| v.as_str()) {
+                receipt.push_str(&format!("- command: {}\n", command));
+            }
+            if let Some(reason) = args.get("reason").and_then(|v| v.as_str()) {
+                if !reason.trim().is_empty() {
+                    receipt.push_str(&format!("- reason: {}\n", reason.trim()));
+                }
+            }
+        }
+        let first_line = output.lines().next().unwrap_or(output).trim();
+        receipt.push_str(&format!("- outcome: {}\n", first_line));
+        Some(ChatMessage::system(&receipt))
     }
 
     fn replace_mcp_tool_definitions(&mut self, mcp_tools: &[crate::agent::mcp::McpTool]) {
@@ -929,6 +1132,7 @@ impl ConversationManager {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Reload config every turn (edits apply immediately, no restart needed).
         let config = crate::agent::config::load_config();
+        let _turn_id = self.begin_grounded_turn().await;
         let _hook_runner = crate::agent::hooks::HookRunner::new(config.hooks.clone());
         let mcp_tools = match self.refresh_mcp_tools().await {
             Ok(tools) => tools,
@@ -955,13 +1159,10 @@ impl ConversationManager {
             self.running_summary = None;
             self.correction_hints.clear();
             self.pinned_files.lock().await.clear();
+            self.reset_action_grounding().await;
             purge_task_files();
             let _ = std::fs::remove_file(session_path());
-            // Hard sync for session purge.
-            let _ = std::fs::write(
-                session_path(),
-                "{\"history\": [], \"running_summary\": null}",
-            );
+            self.save_empty_session();
             for chunk in chunk_text("Session cleared. Fresh context.", 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
@@ -1001,12 +1202,10 @@ impl ConversationManager {
             self.running_summary = None; // Reset the context chain
             self.correction_hints.clear();
             self.pinned_files.lock().await.clear();
+            self.reset_action_grounding().await;
             purge_task_files();
             let _ = std::fs::remove_file(session_path());
-            let _ = std::fs::write(
-                session_path(),
-                "{\"history\": [], \"running_summary\": null}",
-            );
+            self.save_empty_session();
             for chunk in chunk_text("Task Memory & History purged. Clean slate achieved.", 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
@@ -1028,6 +1227,25 @@ impl ConversationManager {
             }
             let _ = tx.send(InferenceEvent::Done).await;
             self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
+        if should_answer_session_memory_directly(user_input) {
+            let response = build_session_memory_answer();
+            self.history.push(ChatMessage::user(user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
             self.save_session();
             return Ok(());
         }
@@ -1060,6 +1278,7 @@ impl ConversationManager {
             }
             let _ = tx.send(InferenceEvent::Done).await;
             self.trim_history(80);
+            self.refresh_session_memory();
             self.save_session();
             return Ok(());
         }
@@ -1218,6 +1437,7 @@ impl ConversationManager {
                 }
             }
         }
+        self.append_session_handoff(&mut system_msg);
         if self.history.is_empty() || self.history[0].role != "system" {
             self.history.insert(0, ChatMessage::system(&system_msg));
         } else {
@@ -1407,6 +1627,7 @@ impl ConversationManager {
 
                 // 3. Collate Messages into History & UI
                 let mut authoritative_tool_output: Option<String> = None;
+                let mut blocked_policy_output: Option<String> = None;
                 for res in results {
                     let call_id = res.call_id.clone();
                     let tool_name = res.tool_name.clone();
@@ -1473,13 +1694,31 @@ impl ConversationManager {
                         && ((grounded_trace_mode && tool_name == "trace_runtime_flow")
                             || (toolchain_mode && tool_name == "describe_toolchain"))
                     {
-                        authoritative_tool_output = Some(final_output);
+                        authoritative_tool_output = Some(final_output.clone());
+                    }
+
+                    if res.blocked_by_policy && blocked_policy_output.is_none() {
+                        blocked_policy_output = Some(final_output.clone());
                     }
 
                     if *repeat_count >= 5 {
                         let _ = tx.send(InferenceEvent::Done).await;
                         return Ok(());
                     }
+                }
+
+                if let Some(blocked_output) = blocked_policy_output {
+                    self.history.push(ChatMessage::assistant_text(&blocked_output));
+                    self.transcript.log_agent(&blocked_output);
+
+                    for chunk in chunk_text(&blocked_output, 8) {
+                        if !chunk.is_empty() {
+                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                        }
+                    }
+
+                    let _ = tx.send(InferenceEvent::Done).await;
+                    break;
                 }
 
                 if let Some(tool_output) = authoritative_tool_output {
@@ -1505,6 +1744,7 @@ impl ConversationManager {
                         ))
                         .await;
                     let verify_res = self.auto_verify_build().await;
+                    self.record_verify_build_result(verify_res.contains("BUILD SUCCESS")).await;
                     self.history.push(ChatMessage::system(&format!(
                         "\n# SYSTEM VERIFICATION\n{verify_res}"
                     )));
@@ -1560,6 +1800,7 @@ impl ConversationManager {
         }
 
         self.trim_history(80);
+        self.refresh_session_memory();
         self.save_session();
         Ok(())
     }
@@ -2064,10 +2305,13 @@ impl ConversationManager {
         };
 
         let display = format_tool_display(&call.name, &args);
+        let precondition_result = self.validate_action_preconditions(&call.name, &args).await;
         let auth = self.check_authorization(&call.name, &args, &config, yolo);
 
         // 2. Permission Check
-        let decision_result = match auth {
+        let decision_result = match precondition_result {
+            Err(e) => Err(e),
+            Ok(_) => match auth {
             crate::agent::config::PermissionDecision::Allow => Ok(()),
             crate::agent::config::PermissionDecision::Ask => {
                 let (approve_tx, approve_rx) = tokio::sync::oneshot::channel::<bool>();
@@ -2090,7 +2334,8 @@ impl ConversationManager {
                 call.name
             )),
             _ => Err("Unauthorized".into()),
-        };
+        }};
+        let blocked_by_policy = matches!(&decision_result, Err(e) if e.starts_with("Action blocked:"));
 
         // 3. Execution (Local or MCP)
         let (output, is_error) = match decision_result {
@@ -2330,6 +2575,36 @@ impl ConversationManager {
             }
         }
 
+        if !is_error {
+            if matches!(call.name.as_str(), "read_file" | "inspect_lines") {
+                if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
+                    self.record_read_observation(path).await;
+                }
+            }
+
+            if call.name == "verify_build" {
+                let ok = output.contains("BUILD OK")
+                    || output.contains("BUILD SUCCESS")
+                    || output.contains("BUILD OKAY");
+                self.record_verify_build_result(ok).await;
+            }
+
+            if matches!(
+                call.name.as_str(),
+                "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace"
+            ) || is_mcp_mutating_tool(&call.name)
+            {
+                self.record_successful_mutation(
+                    action_target_path(&call.name, &args).as_deref(),
+                )
+                .await;
+            }
+
+            if let Some(receipt) = self.build_action_receipt(&call.name, &args, &output, is_error) {
+                msg_results.push(receipt);
+            }
+        }
+
         // 4. Critic Check (Specular Tier 2)
         // Gated: Only run on code files with substantive content to avoid burning tokens
         // on trivial doc/config edits.
@@ -2373,6 +2648,7 @@ impl ConversationManager {
             args,
             output,
             is_error,
+            blocked_by_policy,
             msg_results,
         }
     }
@@ -2386,6 +2662,7 @@ struct ToolExecutionOutcome {
     args: Value,
     output: String,
     is_error: bool,
+    blocked_by_policy: bool,
     msg_results: Vec<ChatMessage>,
 }
 
@@ -2401,7 +2678,7 @@ fn is_destructive_tool(name: &str) -> bool {
             | "git_push"
             | "git_remote"
             | "git_onboarding"
-    )
+    ) || is_mcp_mutating_tool(name)
 }
 
 /// Returns true if the path is inside a "Safe Zone" (.hematite/ or tmp/)
@@ -2412,6 +2689,91 @@ fn is_path_safe(path: &str) -> bool {
         || p.contains(".hematite\\")
         || p.contains("tmp/")
         || p.contains("tmp\\")
+}
+
+fn normalize_workspace_path(path: &str) -> String {
+    let root = crate::tools::file_ops::workspace_root();
+    let candidate = std::path::Path::new(path);
+    let joined = if candidate.is_absolute() {
+        candidate.to_path_buf()
+    } else {
+        root.join(candidate)
+    };
+    joined
+        .to_string_lossy()
+        .replace('\\', "/")
+        .to_lowercase()
+}
+
+fn is_mcp_mutating_tool(name: &str) -> bool {
+    if !name.starts_with("mcp__") {
+        return false;
+    }
+    let lower = name.to_ascii_lowercase();
+    [
+        "__edit",
+        "__write",
+        "__create",
+        "__move",
+        "__delete",
+        "__remove",
+        "__rename",
+        "__replace",
+        "__patch",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+fn is_mcp_workspace_read_tool(name: &str) -> bool {
+    if !name.starts_with("mcp__filesystem__") {
+        return false;
+    }
+    let lower = name.to_ascii_lowercase();
+    [
+        "__read",
+        "__list",
+        "__search",
+        "__get_file_info",
+        "__stat",
+        "__metadata",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+fn action_target_path(name: &str, args: &Value) -> Option<String> {
+    match name {
+        "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace" => args
+            .get("path")
+            .and_then(|v| v.as_str())
+            .map(normalize_workspace_path),
+        _ if is_mcp_mutating_tool(name) => args
+            .get("path")
+            .or_else(|| args.get("target"))
+            .or_else(|| args.get("target_path"))
+            .or_else(|| args.get("destination"))
+            .or_else(|| args.get("destination_path"))
+            .or_else(|| args.get("source"))
+            .or_else(|| args.get("source_path"))
+            .or_else(|| args.get("from"))
+            .and_then(|v| v.as_str())
+            .map(normalize_workspace_path),
+        _ => None,
+    }
+}
+
+fn is_code_like_path(path: &str) -> bool {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    matches!(
+        ext.as_str(),
+        "rs" | "js" | "ts" | "tsx" | "jsx" | "py" | "go" | "java" | "c" | "cpp" | "cc" | "h"
+            | "hpp" | "cs" | "swift" | "kt" | "kts" | "rb" | "php"
+    )
 }
 
 /// Returns true if this tool call should require explicit user approval in Developer mode.
