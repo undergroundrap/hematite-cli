@@ -2,21 +2,61 @@ use serde_json::Value;
 
 pub async fn describe_toolchain(args: &Value) -> Result<String, String> {
     let topic = args.get("topic").and_then(|v| v.as_str()).unwrap_or("all");
-    let question = args.get("question").and_then(|v| v.as_str()).unwrap_or("");
+    let question = normalize_question_label(
+        args.get("question").and_then(|v| v.as_str()).unwrap_or(""),
+    );
 
     match topic {
         "read_only_codebase" => Ok(describe_read_only_codebase_tools()),
         "user_turn_plan" => Ok(describe_user_turn_plan(question)),
+        "voice_latency_plan" => Ok(describe_voice_latency_plan(question)),
         "all" => Ok(format!(
             "{}\n\n{}",
             describe_read_only_codebase_tools(),
-            describe_user_turn_plan(question)
+            describe_best_plan_for_question(question)
         )),
         other => Err(format!(
-            "Unknown topic '{}'. Use one of: read_only_codebase, user_turn_plan, all.",
+            "Unknown topic '{}'. Use one of: read_only_codebase, user_turn_plan, voice_latency_plan, all.",
             other
         )),
     }
+}
+
+fn describe_best_plan_for_question(question: &str) -> String {
+    if is_voice_latency_question(question) {
+        describe_voice_latency_plan(question)
+    } else {
+        describe_user_turn_plan(question)
+    }
+}
+
+fn is_voice_latency_question(question: &str) -> bool {
+    let lower = question.to_lowercase();
+    (lower.contains("voice output") || lower.contains("voice"))
+        && (lower.contains("lag") || lower.contains("behind visible text") || lower.contains("latency"))
+}
+
+fn normalize_question_label(question: &str) -> &str {
+    let trimmed = question.trim();
+    if trimmed.is_empty() {
+        return trimmed;
+    }
+
+    if let Some(idx) = trimmed.find("Question:") {
+        let after = trimmed[idx + "Question:".len()..].trim();
+        if !after.is_empty() {
+            let requirement_markers = ["Requirements:", "Requirement:", "Initial Investigation Order"];
+            let mut end = after.len();
+            for marker in requirement_markers {
+                if let Some(marker_idx) = after.find(marker) {
+                    end = end.min(marker_idx);
+                }
+            }
+            return after[..end].trim();
+        }
+    }
+
+    trimmed
 }
 
 fn describe_read_only_codebase_tools() -> String {
@@ -157,6 +197,52 @@ Tools I would not start with\n\
 - `research_web`, `fetch_docs`, `vision_analyze`: not first-choice tools for this repo-local runtime question.\n\
 \nBest Read-Only Toolchain\n\
 `trace_runtime_flow` -> `read_file` -> `inspect_lines` -> `lsp_search_symbol` -> `lsp_definitions` / `lsp_references` -> `lsp_hover` -> `auto_pin_context` -> optional `shell`",
+        label
+    )
+}
+
+fn describe_voice_latency_plan(question: &str) -> String {
+    let label = if question.trim().is_empty() {
+        "If I needed to understand why Hematite's voice output can lag behind visible text, what tools would I choose first, in order, and why?"
+    } else {
+        question
+    };
+
+    format!(
+        "Concrete read-only investigation plan for: {:?}\n\n\
+1. `trace_runtime_flow`\n\
+   Why first: it is the only authoritative built-in runtime/control-flow report, and it already covers the visible text path and the voice path inside a normal `user_turn` trace.\n\
+   Use: request the `user_turn` report first so you can see where visible `InferenceEvent::Token` handling and `app.voice_manager.speak(...)` diverge.\n\
+2. `read_file`\n\
+   Why second: once the high-level flow is confirmed, read the owner files directly instead of inventing helper layers.\n\
+   Use: inspect `src/ui/tui.rs` for `InferenceEvent::Token`, `InferenceEvent::MutedToken`, and `InferenceEvent::Done` handling, then inspect `src/ui/voice.rs` for `VoiceManager::new`, `VoiceManager::speak`, and `VoiceManager::flush`.\n\
+3. `inspect_lines`\n\
+   Why third: narrow to the exact windows where visible text is appended and where voice work is queued or flushed.\n\
+   Use: inspect the token-handling block in `src/ui/tui.rs` and the queueing / synthesis blocks in `src/ui/voice.rs` without rereading the full files.\n\
+4. `lsp_search_symbol`\n\
+   Why fourth: if you need precise navigation after the first file read, this is the fastest semantic jump.\n\
+   Use: search for `VoiceManager`, `VoiceManager::speak`, `VoiceManager::flush`, and `run_app`.\n\
+5. `lsp_references`\n\
+   Why fifth: confirm every place where the TUI calls into the voice path and where the relevant voice methods are used.\n\
+   Use: trace who calls `VoiceManager::speak` and `VoiceManager::flush` to see whether lag is created before queueing, during streaming, or at turn finalization.\n\
+6. `lsp_hover`\n\
+   Why sixth: quickly confirm type signatures and payload details for `InferenceEvent` handling and voice methods without extra full-file reading.\n\
+   Use: inspect the event variants and the `VoiceManager` method surfaces when the control-flow meaning is still unclear.\n\
+7. `lsp_definitions`\n\
+   Why seventh: anchor the final understanding on the true definition sites if a search result or reference set is ambiguous.\n\
+   Use: confirm exact definition coordinates for `VoiceManager` methods and the relevant `InferenceEvent` enum variants.\n\
+8. `shell`\n\
+   Why last and only if needed: shell is for runtime verification after the source investigation, not before it.\n\
+   Use: only if you need to confirm host-level load or reproduce the lag under observation after the static code path is understood.\n\n\
+Built-in authoritative tool note\n\
+- `trace_runtime_flow` is authoritative for part of this question because it already describes the visible chat path and the voice path inside a `user_turn` trace.\n\
+- It is not sufficient by itself to explain why lag happens inside `VoiceManager`, so the next step is direct file reading in `src/ui/tui.rs` and `src/ui/voice.rs`.\n\n\
+Tools I would not start with\n\
+- `mcp__*` tools: optional external surface, not the baseline for this built-in voice investigation.\n\
+- `research_web`, `fetch_docs`, `vision_analyze`: not first-choice tools for a repo-local voice-latency question.\n\
+- `map_project`: useful if ownership were unclear, but unnecessary here because the runtime trace and symbol names already point to the likely owners.\n\
+\nInitial Investigation Order\n\
+`trace_runtime_flow` -> `read_file` -> `inspect_lines` -> `lsp_search_symbol` -> `lsp_references` -> `lsp_hover` -> `lsp_definitions` -> optional `shell`",
         label
     )
 }

@@ -158,6 +158,8 @@ fn should_enable_toolchain_mode(user_input: &str) -> bool {
         || lower.contains("do not execute the plan")
         || (lower.contains("which tools") && lower.contains("why"))
         || (lower.contains("available repo-inspection tools"))
+        || (lower.contains("tool choice discipline"))
+        || (lower.contains("what tools would you choose first"))
         || (lower.contains("when would you choose") && lower.contains("tool"))
 }
 
@@ -167,7 +169,9 @@ fn should_answer_toolchain_directly(user_input: &str) -> bool {
         && lower.contains("read-only")
         && (lower.contains("tooling discipline")
             || lower.contains("investigation plan")
-            || lower.contains("best read-only toolchain"))
+            || lower.contains("best read-only toolchain")
+            || lower.contains("tool choice discipline")
+            || lower.contains("what tools would you choose first"))
 }
 
 // ── Tool catalogue ────────────────────────────────────────────────────────────
@@ -1029,8 +1033,18 @@ impl ConversationManager {
         }
 
         if should_answer_toolchain_directly(user_input) {
+            let lower = user_input.to_lowercase();
+            let topic = if (lower.contains("voice output") || lower.contains("voice"))
+                && (lower.contains("lag")
+                    || lower.contains("behind visible text")
+                    || lower.contains("latency"))
+            {
+                "voice_latency_plan"
+            } else {
+                "all"
+            };
             let response = crate::tools::toolchain::describe_toolchain(&serde_json::json!({
-                "topic": "all",
+                "topic": topic,
                 "question": user_input,
             }))
             .await

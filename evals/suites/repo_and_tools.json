@@ -108,5 +108,18 @@
       "Provides an ordered read-only investigation plan",
       "Avoids fake MCP helpers and fake runtime symbols"
     ]
+  },
+  {
+    "id": "tool_discipline_06",
+    "category": "tool_discipline",
+    "title": "Voice latency investigation planning",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Do not modify files, do not propose patches, and do not guess. I want to test your tool choice discipline on a non-trivial investigation. If I needed to understand why Hematite's voice output can lag behind visible text, what tools would you choose first, in order, and why? Do not execute the investigation. Use only real tool names. Distinguish between runtime/control-flow tools, file-reading tools, semantic/LSP tools, and shell verification. If a built-in authoritative tool exists for part of the question, say so. End with `Initial Investigation Order`.",
+    "success_criteria": [
+      "Prefers grounded toolchain guidance",
+      "Uses only real built-in tool names",
+      "Keeps src/ui/tui.rs and src/ui/voice.rs as likely owner files",
+      "Avoids fake MCP filesystem helpers"
+    ]
   }
 ]

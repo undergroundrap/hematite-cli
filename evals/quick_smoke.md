@@ -142,3 +142,28 @@ Check:
 - uses only real built-in tool names
 - does not invent fake MCP helpers or fake symbols
 - gives an ordered, read-only investigation plan
+
+## 15. Voice Latency Tool Choice
+
+```text
+Read-only mode. Do not modify files, do not propose patches, and do not guess.
+
+I want to test your tool choice discipline on a non-trivial investigation.
+
+Question:
+If I needed to understand why Hematite's voice output can lag behind visible text, what tools would you choose first, in order, and why?
+
+Requirements:
+1. Do not execute the investigation.
+2. Use only real tool names.
+3. Distinguish between runtime/control-flow tools, file-reading tools, semantic/LSP tools, and shell verification.
+4. If a built-in authoritative tool exists for part of the question, say so.
+5. Do not invent helper functions, channels, or subsystems.
+6. End with a short section titled `Initial Investigation Order`.
+```
+
+Check:
+- prefers grounded toolchain guidance over freehand planning
+- uses only real built-in tool names
+- keeps `src/ui/tui.rs` and `src/ui/voice.rs` as the likely owner files
+- does not invent MCP filesystem helpers
