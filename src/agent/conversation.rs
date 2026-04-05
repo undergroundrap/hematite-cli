@@ -149,6 +149,27 @@ fn build_language_capability_answer() -> String {
     "Hematite itself is written in Rust, but it is not limited to that language. I can help with projects in Python, JavaScript, TypeScript, Go, C#, and other languages.\n\nI can help create projects by scaffolding files and directories, implementing features, editing code precisely, running the appropriate local build or test commands for the target stack, and iterating on the project structure as it grows. The main limits are the local model, the available tooling on this machine, and how much context fits cleanly in session.".to_string()
 }
 
+fn should_enable_toolchain_mode(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("tooling discipline")
+        || lower.contains("best read-only toolchain")
+        || lower.contains("identify the best tools you actually have")
+        || lower.contains("concrete read-only investigation plan")
+        || lower.contains("do not execute the plan")
+        || (lower.contains("which tools") && lower.contains("why"))
+        || (lower.contains("available repo-inspection tools"))
+        || (lower.contains("when would you choose") && lower.contains("tool"))
+}
+
+fn should_answer_toolchain_directly(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    should_enable_toolchain_mode(user_input)
+        && lower.contains("read-only")
+        && (lower.contains("tooling discipline")
+            || lower.contains("investigation plan")
+            || lower.contains("best read-only toolchain"))
+}
+
 // ── Tool catalogue ────────────────────────────────────────────────────────────
 
 /// Returns the full set of tools exposed to the model.
@@ -209,6 +230,26 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                     }
                 },
                 "required": ["topic"]
+            }),
+        ),
+        make_tool(
+            "describe_toolchain",
+            "Return an authoritative read-only description of Hematite's actual tool surface and investigation strategy. \
+             Use this for tooling-discipline questions, best-tool selection, or read-only plans for tracing runtime behavior. \
+             Prefer this over improvising tool names or investigation steps from memory.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "enum": ["read_only_codebase", "user_turn_plan", "all"],
+                        "description": "Which authoritative toolchain report to return"
+                    },
+                    "question": {
+                        "type": "string",
+                        "description": "Optional user question to label or tailor the read-only investigation plan"
+                    }
+                }
             }),
         ),
         make_tool(
@@ -987,6 +1028,28 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if should_answer_toolchain_directly(user_input) {
+            let response = crate::tools::toolchain::describe_toolchain(&serde_json::json!({
+                "topic": "all",
+                "question": user_input,
+            }))
+            .await
+            .unwrap_or_else(|e| format!("Error: {}", e));
+            self.history.push(ChatMessage::user(user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.save_session();
+            return Ok(());
+        }
+
         if user_input.trim() == "/think" {
             self.think_mode = Some(true);
             for chunk in chunk_text("Think mode: ON — full chain-of-thought enabled.", 8) {
@@ -1079,6 +1142,7 @@ impl ConversationManager {
         }
         let grounded_trace_mode = should_enable_grounded_trace_mode(user_input);
         let capability_mode = should_enable_capability_mode(user_input);
+        let toolchain_mode = should_enable_toolchain_mode(user_input);
         let capability_needs_repo = capability_question_requires_repo_inspection(user_input);
         let mut system_msg = build_system_with_corrections(
             &base_prompt,
@@ -1115,6 +1179,17 @@ impl ConversationManager {
                  For project-building questions, describe cross-project workflows like scaffolding files, shaping structure, implementing features, and running the appropriate local build or test commands for the target stack. Do not overclaim certainty.\n\
                  Never mention raw `mcp__*` tool names unless those tools are active this turn and directly relevant.\n\
                  Keep the answer short, plain, and ASCII-first.\n"
+            );
+        }
+        if toolchain_mode {
+            system_msg.push_str(
+                "\n\n# TOOLCHAIN DISCIPLINE MODE\n\
+                 This turn is about Hematite's real built-in tools and how to choose them.\n\
+                 Prefer `describe_toolchain` before you try to summarize tool capabilities or propose a read-only investigation plan from memory.\n\
+                 Use only real built-in tool names.\n\
+                 Do not invent helper tools, MCP tool names, synthetic symbols, or example function names.\n\
+                 If `describe_toolchain` fully answers the question, preserve its output exactly instead of restyling it.\n\
+                 Be explicit about which tools are optional or conditional.\n"
             );
         }
 
@@ -1317,7 +1392,7 @@ impl ConversationManager {
                 }
 
                 // 3. Collate Messages into History & UI
-                let mut authoritative_trace_output: Option<String> = None;
+                let mut authoritative_tool_output: Option<String> = None;
                 for res in results {
                     let call_id = res.call_id.clone();
                     let tool_name = res.tool_name.clone();
@@ -1380,8 +1455,11 @@ impl ConversationManager {
                     self.history
                         .push(ChatMessage::tool_result(&call_id, &tool_name, &capped));
 
-                    if grounded_trace_mode && tool_name == "trace_runtime_flow" && !is_error {
-                        authoritative_trace_output = Some(final_output);
+                    if !is_error
+                        && ((grounded_trace_mode && tool_name == "trace_runtime_flow")
+                            || (toolchain_mode && tool_name == "describe_toolchain"))
+                    {
+                        authoritative_tool_output = Some(final_output);
                     }
 
                     if *repeat_count >= 5 {
@@ -1390,11 +1468,11 @@ impl ConversationManager {
                     }
                 }
 
-                if let Some(trace_output) = authoritative_trace_output {
-                    self.history.push(ChatMessage::assistant_text(&trace_output));
-                    self.transcript.log_agent(&trace_output);
+                if let Some(tool_output) = authoritative_tool_output {
+                    self.history.push(ChatMessage::assistant_text(&tool_output));
+                    self.transcript.log_agent(&tool_output);
 
-                    for chunk in chunk_text(&trace_output, 8) {
+                    for chunk in chunk_text(&tool_output, 8) {
                         if !chunk.is_empty() {
                             let _ = tx.send(InferenceEvent::Token(chunk)).await;
                         }
@@ -1848,6 +1926,7 @@ pub async fn dispatch_tool(name: &str, args: &Value) -> Result<String, String> {
         "shell"       => crate::tools::shell::execute(args).await,
         "map_project" => crate::tools::file_ops::map_project(args).await,
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
+        "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
         "read_file"   => crate::tools::file_ops::read_file(args).await,
         "inspect_lines" => crate::tools::file_ops::inspect_lines(args).await,
         "write_file"  => crate::tools::file_ops::write_file(args).await,
@@ -2382,6 +2461,7 @@ pub fn format_tool_display(name: &str, args: &Value) -> String {
         "shell" => format!("$ {}", get("command")),
         "map_project" => "map project tree".to_string(),
         "trace_runtime_flow" => format!("trace runtime {}", get("topic")),
+        "describe_toolchain" => format!("describe toolchain {}", get("topic")),
         _ => format!("{} {:?}", name, args),
     }
 }
@@ -2547,6 +2627,7 @@ fn is_parallel_safe(name: &str) -> bool {
             | "grep_files"
             | "map_project"
             | "trace_runtime_flow"
+            | "describe_toolchain"
             | "lsp_definitions"
             | "lsp_references"
             | "lsp_hover"

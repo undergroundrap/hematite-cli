@@ -113,3 +113,32 @@ Check:
 - does not mention fake `mcp__*` tool names
 - describes capability in terms of real mechanisms
 - mentions real programming languages instead of falling back to file extensions
+
+## 14. Toolchain Discipline
+
+```text
+Read-only mode. Do not modify files, do not propose patches, and do not guess.
+
+I want to evaluate your tooling discipline inside this repository.
+
+Task:
+1. Identify the best tools you actually have available for understanding a medium-sized Rust codebase like this one.
+2. For each tool, explain what it is good for, what it is bad for, and when you would choose it over another available tool.
+3. Then give me a concrete read-only investigation plan for answering this question:
+   "How does Hematite move a user message from the TUI to the model and back?"
+4. The plan must use only tools that really exist in this repo/runtime.
+5. Do not execute the plan. Just name the tools in order and explain why.
+
+Requirements:
+- Use only real tool names.
+- Distinguish between text search, semantic/LSP tools, runtime tracing, web research, vision, and shell usage.
+- If a tool is optional or conditional, say so.
+- If a tool is loaded only in some situations, say so.
+- End with a short section titled `Best Read-Only Toolchain`.
+```
+
+Check:
+- prefers `describe_toolchain`
+- uses only real built-in tool names
+- does not invent fake MCP helpers or fake symbols
+- gives an ordered, read-only investigation plan

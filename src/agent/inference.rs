@@ -553,7 +553,9 @@ impl InferenceEngine {
                       12. For language questions, answer at the harness level: file operations, shell, build verification, language-aware tooling when available, and multi-language project work.\n\
                       13. Prefer real programming language examples like Python, JavaScript, TypeScript, Go, and C# over file extensions when answering language questions.\n\
                       14. For project-building questions, talk about scaffolding, implementation, builds, tests, and iteration across different stacks instead of defaulting to a Rust-only example like `cargo build`.\n\
-                      15. Never mention raw `mcp__*` tool names unless those tools are active this turn and directly relevant.");
+                      15. Never mention raw `mcp__*` tool names unless those tools are active this turn and directly relevant.\n\
+                      16. For tooling-discipline or best-tool-selection questions, prefer `describe_toolchain` over improvising the tool surface from memory.\n\
+                      17. If `describe_toolchain` fully answers the tooling question, preserve its tool names and investigation order exactly.");
 
         // Scaffolding protocol — enforces build validation after project creation.
         sys.push_str("\n## SCAFFOLDING PROTOCOL\n\

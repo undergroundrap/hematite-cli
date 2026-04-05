@@ -95,5 +95,18 @@
       "Mentions real LSP tools",
       "Explains semantic vs textual search"
     ]
+  },
+  {
+    "id": "tool_discipline_05",
+    "category": "tool_discipline",
+    "title": "Authoritative toolchain guidance",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Do not modify files, do not propose patches, and do not guess. I want to evaluate your tooling discipline inside this repository. Identify the best tools you actually have available for understanding a medium-sized Rust codebase like this one, explain what each is good or bad for, and give me a concrete read-only investigation plan for tracing how Hematite moves a user message from the TUI to the model and back. Do not execute the plan. Use only real tool names and end with `Best Read-Only Toolchain`.",
+    "success_criteria": [
+      "Prefers describe_toolchain",
+      "Uses only real built-in tool names",
+      "Provides an ordered read-only investigation plan",
+      "Avoids fake MCP helpers and fake runtime symbols"
+    ]
   }
 ]

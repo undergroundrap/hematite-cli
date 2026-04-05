@@ -36,6 +36,7 @@ Hematite is more than a chat shell around a local model.
 - **Project retrieval**: SQLite FTS-backed memory helps recover relevant local context each turn
 - **Built-in web research**: `research_web` and `fetch_docs` let the harness search for technical information and pull external docs into a readable form when local context is insufficient
 - **Grounded architecture tracing**: `trace_runtime_flow` gives the model a verified read-only path for exact runtime/control-flow questions instead of encouraging confident guessing
+- **Grounded toolchain guidance**: `describe_toolchain` gives the model a verified read-only map of Hematite's actual built-in tools, when to use them, and what investigation order makes sense
 - **Vision support**: screenshot and diagram analysis can flow through `vision_analyze` when a task benefits from visual inspection
 
 ## 5. Stateful Local Workflow

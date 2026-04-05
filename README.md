@@ -171,6 +171,7 @@ Hematite gives the loaded model a real local tool suite for coding work:
 | `fetch_docs` | Fetch and convert documentation pages into readable Markdown for follow-up analysis |
 | `vision_analyze` | Inspect screenshots, diagrams, and UI images with the multimodal model path |
 | `trace_runtime_flow` | Return a grounded read-only trace of runtime control flow for architecture questions |
+| `describe_toolchain` | Return a grounded read-only description of Hematite's real built-in tools and the right investigation order |
 | `git_commit` | Stage all and commit with Conventional Commits style |
 | `git_push` | Push to origin HEAD |
 | `git_worktree` | Create, list, prune, and remove isolated worktrees |
@@ -222,6 +223,10 @@ Hematite can search the web for technical information when local context is not 
 ### Grounded Runtime Tracing
 
 For architecture and control-flow questions, Hematite can use `trace_runtime_flow` to return a verified read-only runtime trace instead of relying on model memory alone. This is especially useful on local open models where exact symbol tracing is weaker than cloud frontier models.
+
+### Grounded Tool Selection
+
+For tooling-discipline and investigation-plan questions, Hematite can use `describe_toolchain` to return the real built-in tool surface, what each tool is good or bad for, and a concrete read-only investigation order. This helps local open models avoid inventing fake helper tools or fake symbol names when explaining how they would inspect a Rust codebase.
 
 ### Vision Analysis
 
