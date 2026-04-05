@@ -1,6 +1,6 @@
 use crate::agent::inference::{
-    ChatMessage, InferenceEngine, InferenceEvent, MessageContent, ToolCallFn, ToolDefinition,
-    ToolCallResponse, ToolFunction,
+    ChatMessage, InferenceEngine, InferenceEvent, MessageContent, ProviderRuntimeState,
+    ToolCallFn, ToolDefinition, ToolCallResponse, ToolFunction,
 };
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
 use crate::agent::compaction::{self, CompactionConfig};
@@ -710,6 +710,45 @@ fn format_runtime_failure(class: RuntimeFailureClass, detail: &str) -> String {
         class.operator_guidance(),
         detail.trim()
     )
+}
+
+fn provider_state_for_runtime_failure(class: RuntimeFailureClass) -> Option<ProviderRuntimeState> {
+    match class {
+        RuntimeFailureClass::ContextWindow => Some(ProviderRuntimeState::ContextWindow),
+        RuntimeFailureClass::ProviderDegraded => Some(ProviderRuntimeState::Degraded),
+        RuntimeFailureClass::EmptyModelResponse => Some(ProviderRuntimeState::EmptyResponse),
+        _ => None,
+    }
+}
+
+fn compact_runtime_recovery_summary(class: RuntimeFailureClass) -> &'static str {
+    match class {
+        RuntimeFailureClass::ProviderDegraded => {
+            "LM Studio degraded during the turn; retrying once before surfacing a failure."
+        }
+        RuntimeFailureClass::EmptyModelResponse => {
+            "The model returned an empty reply; retrying once before surfacing a failure."
+        }
+        _ => "Runtime recovery in progress.",
+    }
+}
+
+fn compact_runtime_failure_summary(class: RuntimeFailureClass) -> &'static str {
+    match class {
+        RuntimeFailureClass::ContextWindow => {
+            "LM Studio context ceiling hit; narrow the turn or refresh the live runtime budget."
+        }
+        RuntimeFailureClass::ProviderDegraded => {
+            "LM Studio degraded and did not recover cleanly; operator action is now required."
+        }
+        RuntimeFailureClass::EmptyModelResponse => {
+            "LM Studio returned an empty reply after recovery; operator action is now required."
+        }
+        RuntimeFailureClass::ToolLoop => {
+            "Repeated failing tool pattern detected; Hematite stopped the loop."
+        }
+        _ => "Runtime failure surfaced to the operator.",
+    }
 }
 
 fn should_retry_runtime_failure(class: RuntimeFailureClass) -> bool {
@@ -2973,10 +3012,10 @@ impl ConversationManager {
                             e.trim()
                         ));
                         let _ = tx
-                            .send(InferenceEvent::Thought(format!(
-                                "Provider recovery: detected a degraded LM Studio turn (`{}`). Retrying once before surfacing a failure.",
-                                class.tag()
-                            )))
+                            .send(InferenceEvent::ProviderStatus {
+                                state: ProviderRuntimeState::Recovering,
+                                summary: compact_runtime_recovery_summary(class).into(),
+                            })
                             .await;
                         continue;
                     }
@@ -3578,10 +3617,10 @@ impl ConversationManager {
                         "Automatic provider recovery triggered: model returned an empty response.",
                     );
                     let _ = tx
-                        .send(InferenceEvent::Thought(
-                            "Provider recovery: model returned an empty response. Retrying once before surfacing a failure."
-                                .into(),
-                        ))
+                        .send(InferenceEvent::ProviderStatus {
+                            state: ProviderRuntimeState::Recovering,
+                            summary: compact_runtime_recovery_summary(class).into(),
+                        })
                         .await;
                     continue;
                 }
@@ -3621,6 +3660,14 @@ impl ConversationManager {
                 };
                 let _ = tx.send(InferenceEvent::Thought(note)).await;
             }
+        }
+        if let Some(state) = provider_state_for_runtime_failure(class) {
+            let _ = tx
+                .send(InferenceEvent::ProviderStatus {
+                    state,
+                    summary: compact_runtime_failure_summary(class).into(),
+                })
+                .await;
         }
         let formatted = format_runtime_failure(class, detail);
         self.history

@@ -156,6 +156,8 @@ Check:
 - describes classified runtime failures instead of vague raw provider prose
 - mentions at least `context_window` and `provider_degraded`
 - mentions one automatic retry for degraded or empty provider turns before surfacing the failure
+- the LM badge or SPECULAR surface reflects compact provider states like recovery, degraded runtime, or context ceiling instead of only raw error prose
+- a runtime-profile refresh does not immediately wipe a real `LM:CEIL` or `LM:WARN` state before a successful turn clears it
 
 Also watch for:
 - no silent empty completion on plain streaming or startup-style text generations

@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use crate::ui::gpu_monitor::GpuState;
 use std::time::Instant;
 use tokio::sync::mpsc::Receiver;
+use crate::agent::inference::ProviderRuntimeState;
 use crate::agent::specular::SpecularEvent;
 use crate::agent::swarm::{SwarmMessage, ReviewResponse};
 use super::modal_review::{ActiveReview, draw_diff_review};
@@ -76,12 +77,6 @@ fn default_active_context() -> Vec<ContextFile> {
     files
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum LmStudioIssue {
-    ContextWindow,
-    ProviderDegraded,
-}
-
 pub struct App {
     pub messages: Vec<Line<'static>>,
     pub messages_raw: Vec<(String, String)>, // Keep raw for reference or re-formatting if needed
@@ -123,7 +118,8 @@ pub struct App {
     pub model_id: String,
     pub context_length: usize,
     last_runtime_profile_time: Instant,
-    lm_studio_issue: Option<LmStudioIssue>,
+    provider_state: ProviderRuntimeState,
+    last_provider_summary: String,
     /// Mirrors ConversationManager::think_mode for status bar display.
     /// None = auto, Some(true) = /think, Some(false) = /no_think.
     pub think_mode: Option<bool>,
@@ -430,7 +426,8 @@ pub async fn run_app<B: Backend>(
         model_id: "detecting...".to_string(),
         context_length: 0,
         last_runtime_profile_time: Instant::now(),
-        lm_studio_issue: None,
+        provider_state: ProviderRuntimeState::Booting,
+        last_provider_summary: String::new(),
         think_mode: None,
         workflow_mode: "AUTO".into(),
         autocomplete_suggestions: Vec::new(),
@@ -1136,6 +1133,9 @@ pub async fn run_app<B: Backend>(
                     InferenceEvent::Token(ref token) | InferenceEvent::MutedToken(ref token) => {
                         let is_muted = matches!(event, InferenceEvent::MutedToken(_));
                         app.thinking = false;
+                        if app.provider_state != ProviderRuntimeState::Booting {
+                            app.provider_state = ProviderRuntimeState::Live;
+                        }
                         if app.messages_raw.last().map(|(s, _)| s.as_str()) != Some("Hematite") {
                             app.push_message("Hematite", "");
                         }
@@ -1161,6 +1161,9 @@ pub async fn run_app<B: Backend>(
                     }
                     InferenceEvent::ToolCallResult { id: _, name, output, is_error } => {
                         let icon = if is_error { "[x]" } else { "[v]" };
+                        if !is_error && app.provider_state != ProviderRuntimeState::Booting {
+                            app.provider_state = ProviderRuntimeState::Live;
+                        }
                         // Previews should ALWAYS be sanitized single-line summaries in the chat window.
                         let preview = first_n_chars(&output, 100);
                         app.push_message("Tool", &format!("{}  {} → {}", icon, name, preview));
@@ -1190,6 +1193,9 @@ pub async fn run_app<B: Backend>(
                     InferenceEvent::Done => {
                         app.thinking = false;
                         app.agent_running = false;
+                        if app.provider_state == ProviderRuntimeState::Recovering {
+                            app.provider_state = ProviderRuntimeState::Live;
+                        }
                         if app.voice_manager.is_enabled() {
                             app.voice_manager.flush();
                         }
@@ -1206,21 +1212,29 @@ pub async fn run_app<B: Backend>(
                         app.thinking = false;
                         app.agent_running = false;
                         let lower = e.to_lowercase();
-                        app.lm_studio_issue = if lower.contains("[failure:context_window]") {
-                            Some(LmStudioIssue::ContextWindow)
+                        app.provider_state = if lower.contains("[failure:context_window]") {
+                            ProviderRuntimeState::ContextWindow
                         } else if lower.contains("[failure:provider_degraded]")
                             || lower.contains("[failure:empty_model_response]")
                             || lower.contains("lm studio unreachable")
                             || lower.contains("runtime refresh failed")
                         {
-                            Some(LmStudioIssue::ProviderDegraded)
+                            ProviderRuntimeState::Degraded
                         } else {
-                            app.lm_studio_issue
+                            app.provider_state
                         };
                         if app.voice_manager.is_enabled() {
                             app.voice_manager.flush();
                         }
                         app.push_message("System", &format!("Error: {e}"));
+                    }
+                    InferenceEvent::ProviderStatus { state, summary } => {
+                        app.provider_state = state;
+                        if !summary.trim().is_empty() && app.last_provider_summary != summary {
+                            app.specular_logs.push(format!("PROVIDER: {}", summary));
+                            trim_vec(&mut app.specular_logs, 20);
+                            app.last_provider_summary = summary;
+                        }
                     }
                     InferenceEvent::TaskProgress { id, label, progress } => {
                         let nid = normalize_id(&id);
@@ -1233,7 +1247,9 @@ pub async fn run_app<B: Backend>(
                         app.model_id = model_id.clone();
                         app.context_length = context_length;
                         app.last_runtime_profile_time = Instant::now();
-                        app.lm_studio_issue = None;
+                        if app.provider_state == ProviderRuntimeState::Booting {
+                            app.provider_state = ProviderRuntimeState::Live;
+                        }
                         if changed {
                             app.push_message(
                                 "System",
@@ -1644,9 +1660,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let runtime_age = app.last_runtime_profile_time.elapsed();
     let (lm_label, lm_color) = if app.model_id == "detecting..." || app.context_length == 0 {
         ("LM:BOOT", Color::DarkGray)
-    } else if matches!(app.lm_studio_issue, Some(LmStudioIssue::ProviderDegraded)) {
+    } else if app.provider_state == ProviderRuntimeState::Recovering {
+        ("LM:RECV", Color::Cyan)
+    } else if matches!(
+        app.provider_state,
+        ProviderRuntimeState::Degraded | ProviderRuntimeState::EmptyResponse
+    ) {
         ("LM:WARN", Color::Red)
-    } else if matches!(app.lm_studio_issue, Some(LmStudioIssue::ContextWindow)) {
+    } else if app.provider_state == ProviderRuntimeState::ContextWindow {
         ("LM:CEIL", Color::Yellow)
     } else if runtime_age > std::time::Duration::from_secs(12) {
         ("LM:STALE", Color::Yellow)

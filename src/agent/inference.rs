@@ -309,6 +309,58 @@ fn format_runtime_failure_message(detail: &str) -> String {
     )
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderRuntimeState {
+    Booting,
+    Live,
+    Recovering,
+    Degraded,
+    ContextWindow,
+    EmptyResponse,
+}
+
+fn provider_state_for_failure_tag(tag: &str) -> ProviderRuntimeState {
+    match tag {
+        "context_window" => ProviderRuntimeState::ContextWindow,
+        "empty_model_response" => ProviderRuntimeState::EmptyResponse,
+        _ => ProviderRuntimeState::Degraded,
+    }
+}
+
+fn compact_runtime_failure_summary(tag: &str, detail: &str) -> String {
+    match tag {
+        "context_window" => {
+            "LM Studio context ceiling hit; narrow the turn or refresh the live runtime budget."
+                .to_string()
+        }
+        "empty_model_response" => {
+            "LM Studio returned an empty reply; Hematite will retry once before surfacing a failure."
+                .to_string()
+        }
+        "tool_policy_blocked" => {
+            "A blocked tool path was rejected; stay inside the allowed workflow before retrying."
+                .to_string()
+        }
+        _ => {
+            let mut excerpt = detail
+                .split_whitespace()
+                .take(12)
+                .collect::<Vec<_>>()
+                .join(" ");
+            if excerpt.len() > 110 {
+                excerpt.truncate(110);
+                excerpt.push_str("...");
+            }
+            if excerpt.is_empty() {
+                "LM Studio degraded; Hematite will retry once before surfacing a failure."
+                    .to_string()
+            } else {
+                format!("LM Studio degraded: {}", excerpt)
+            }
+        }
+    }
+}
+
 // ── Events pushed to the TUI ──────────────────────────────────────────────────
 
 #[derive(Debug)]
@@ -346,6 +398,11 @@ pub enum InferenceEvent {
     Done,
     /// An error occurred during inference.
     Error(String),
+    /// Compact provider/runtime state for the operator surface.
+    ProviderStatus {
+        state: ProviderRuntimeState,
+        summary: String,
+    },
     /// A generic task progress update (e.g. for single-agent tool execution).
     TaskProgress {
         id: String,
@@ -1032,6 +1089,13 @@ impl InferenceEngine {
         };
 
         if let Err(e) = preflight_chat_request(&current_model, &request.messages, &[], self.current_context_length()) {
+            let tag = classify_runtime_failure_tag(&e);
+            let _ = tx
+                .send(InferenceEvent::ProviderStatus {
+                    state: provider_state_for_failure_tag(tag),
+                    summary: compact_runtime_failure_summary(tag, &e),
+                })
+                .await;
             let _ = tx
                 .send(InferenceEvent::Error(format_runtime_failure_message(&e)))
                 .await;
@@ -1054,11 +1118,16 @@ impl InferenceEngine {
                     let status = res.status();
                     let body = res.text().await.unwrap_or_default();
                     let preview = &body[..body.len().min(300)];
+                    let detail = format!("LM Studio error {}: {}", status, preview);
+                    let tag = classify_runtime_failure_tag(&detail);
                     let _ = tx
-                        .send(InferenceEvent::Error(format_runtime_failure_message(&format!(
-                            "LM Studio error {}: {}",
-                            status, preview
-                        ))))
+                        .send(InferenceEvent::ProviderStatus {
+                            state: provider_state_for_failure_tag(tag),
+                            summary: compact_runtime_failure_summary(tag, &detail),
+                        })
+                        .await;
+                    let _ = tx
+                        .send(InferenceEvent::Error(format_runtime_failure_message(&detail)))
                         .await;
                     let _ = tx.send(InferenceEvent::Done).await;
                     return Ok(());
@@ -1067,11 +1136,16 @@ impl InferenceEngine {
                     last_err = format!("Request failed: {}", e);
                 }
                 Err(e) => {
+                    let detail = format!("Request failed: {}", e);
+                    let tag = classify_runtime_failure_tag(&detail);
                     let _ = tx
-                        .send(InferenceEvent::Error(format_runtime_failure_message(&format!(
-                            "Request failed: {}",
-                            e
-                        ))))
+                        .send(InferenceEvent::ProviderStatus {
+                            state: provider_state_for_failure_tag(tag),
+                            summary: compact_runtime_failure_summary(tag, &detail),
+                        })
+                        .await;
+                    let _ = tx
+                        .send(InferenceEvent::Error(format_runtime_failure_message(&detail)))
                         .await;
                     let _ = tx.send(InferenceEvent::Done).await;
                     return Ok(());
@@ -1079,20 +1153,25 @@ impl InferenceEngine {
             }
             if attempt < 1 {
                 let _ = tx
-                    .send(InferenceEvent::Thought(
-                        "Provider recovery: detected a degraded LM Studio stream turn. Retrying once before surfacing a failure."
-                            .into(),
-                    ))
+                    .send(InferenceEvent::ProviderStatus {
+                        state: ProviderRuntimeState::Recovering,
+                        summary: "LM Studio degraded during stream startup; retrying once.".into(),
+                    })
                     .await;
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             }
         }
         let Some(res) = response_opt else {
+            let detail = format!("LM Studio unreachable after 2 attempts: {}", last_err);
+            let tag = classify_runtime_failure_tag(&detail);
             let _ = tx
-                .send(InferenceEvent::Error(format_runtime_failure_message(&format!(
-                    "LM Studio unreachable after 2 attempts: {}",
-                    last_err
-                ))))
+                .send(InferenceEvent::ProviderStatus {
+                    state: provider_state_for_failure_tag(tag),
+                    summary: compact_runtime_failure_summary(tag, &detail),
+                })
+                .await;
+            let _ = tx
+                .send(InferenceEvent::Error(format_runtime_failure_message(&detail)))
                 .await;
             let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
@@ -1117,11 +1196,16 @@ impl InferenceEngine {
             let chunk = match item {
                 Ok(chunk) => chunk,
                 Err(e) => {
+                    let detail = format!("Request failed: {}", e);
+                    let tag = classify_runtime_failure_tag(&detail);
                     let _ = tx
-                        .send(InferenceEvent::Error(format_runtime_failure_message(&format!(
-                            "Request failed: {}",
-                            e
-                        ))))
+                        .send(InferenceEvent::ProviderStatus {
+                            state: provider_state_for_failure_tag(tag),
+                            summary: compact_runtime_failure_summary(tag, &detail),
+                        })
+                        .await;
+                    let _ = tx
+                        .send(InferenceEvent::Error(format_runtime_failure_message(&detail)))
                         .await;
                     let _ = tx.send(InferenceEvent::Done).await;
                     return Ok(());
@@ -1215,6 +1299,15 @@ impl InferenceEngine {
         }
 
         if !emitted_any_content {
+            let _ = tx
+                .send(InferenceEvent::ProviderStatus {
+                    state: ProviderRuntimeState::EmptyResponse,
+                    summary: compact_runtime_failure_summary(
+                        "empty_model_response",
+                        "Empty response from model",
+                    ),
+                })
+                .await;
             let _ = tx
                 .send(InferenceEvent::Error(format_runtime_failure_message(
                     "Empty response from model",

@@ -435,6 +435,8 @@
       "Mentions provider_degraded or equivalent degraded-provider handling",
       "Mentions context_window or equivalent context-ceiling classification",
       "Mentions one automatic retry for degraded or empty provider turns before surfacing the final failure",
+      "Treats compact provider state or recovery status as part of the operator surface",
+      "Runtime refresh does not immediately clear a real failure state before a successful turn proves recovery",
       "Does not imply that plain streaming or startup-style text generations can still fail silently",
       "LM Studio context-budget mismatches such as n_keep >= n_ctx are treated as context_window failures instead of generic provider degradation"
     ]
