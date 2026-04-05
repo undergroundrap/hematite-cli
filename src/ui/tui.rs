@@ -117,6 +117,9 @@ pub struct App {
     pub current_session_cost: f64,
     pub model_id: String,
     pub context_length: usize,
+    compaction_percent: u8,
+    compaction_estimated_tokens: usize,
+    compaction_threshold_tokens: usize,
     last_runtime_profile_time: Instant,
     provider_state: ProviderRuntimeState,
     last_provider_summary: String,
@@ -146,6 +149,14 @@ pub struct App {
 impl App {
     pub fn reset_active_context(&mut self) {
         self.active_context = default_active_context();
+    }
+
+    pub fn record_error(&mut self) {
+        self.stats.debugging = self.stats.debugging.saturating_add(1);
+    }
+
+    pub fn reset_error_count(&mut self) {
+        self.stats.debugging = 0;
     }
 
     pub fn push_message(&mut self, speaker: &str, content: &str) {
@@ -425,6 +436,9 @@ pub async fn run_app<B: Backend>(
         current_session_cost: 0.0,
         model_id: "detecting...".to_string(),
         context_length: 0,
+        compaction_percent: 0,
+        compaction_estimated_tokens: 0,
+        compaction_threshold_tokens: 0,
         last_runtime_profile_time: Instant::now(),
         provider_state: ProviderRuntimeState::Booting,
         last_provider_summary: String::new(),
@@ -760,6 +774,7 @@ pub async fn run_app<B: Backend>(
                                                 app.last_reasoning.clear();
                                                 app.current_thought.clear();
                                                 app.specular_logs.clear();
+                                                app.reset_error_count();
                                                 app.reset_active_context();
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("System", "Dialogue buffer cleared.");
@@ -796,6 +811,7 @@ pub async fn run_app<B: Backend>(
                                                 app.last_reasoning.clear();
                                                 app.current_thought.clear();
                                                 app.specular_logs.clear();
+                                                app.reset_error_count();
                                                 app.reset_active_context();
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("You", "/new");
@@ -810,6 +826,7 @@ pub async fn run_app<B: Backend>(
                                                 app.last_reasoning.clear();
                                                 app.current_thought.clear();
                                                 app.specular_logs.clear();
+                                                app.reset_error_count();
                                                 app.reset_active_context();
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("You", "/forget");
@@ -1082,6 +1099,7 @@ pub async fn run_app<B: Backend>(
             Some(specular_evt) = specular_rx.recv() => {
                 match specular_evt {
                     SpecularEvent::SyntaxError { path, details } => {
+                        app.record_error();
                         app.specular_logs.push(format!("ERROR: {:?}", path));
                         trim_vec(&mut app.specular_logs, 20);
 
@@ -1161,6 +1179,9 @@ pub async fn run_app<B: Backend>(
                     }
                     InferenceEvent::ToolCallResult { id: _, name, output, is_error } => {
                         let icon = if is_error { "[x]" } else { "[v]" };
+                        if is_error {
+                            app.record_error();
+                        }
                         if !is_error && app.provider_state != ProviderRuntimeState::Booting {
                             app.provider_state = ProviderRuntimeState::Live;
                         }
@@ -1209,6 +1230,7 @@ pub async fn run_app<B: Backend>(
                         app.worker_labels.remove("AGENT");
                     }
                     InferenceEvent::Error(e) => {
+                        app.record_error();
                         app.thinking = false;
                         app.agent_running = false;
                         let lower = e.to_lowercase();
@@ -1235,6 +1257,15 @@ pub async fn run_app<B: Backend>(
                             trim_vec(&mut app.specular_logs, 20);
                             app.last_provider_summary = summary;
                         }
+                    }
+                    InferenceEvent::CompactionPressure {
+                        estimated_tokens,
+                        threshold_tokens,
+                        percent,
+                    } => {
+                        app.compaction_estimated_tokens = estimated_tokens;
+                        app.compaction_threshold_tokens = threshold_tokens;
+                        app.compaction_percent = percent;
                     }
                     InferenceEvent::TaskProgress { id, label, progress } => {
                         let nid = normalize_id(&id);
@@ -1641,16 +1672,29 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let vigil = if app.brief_mode { "VIGIL:[ON]" } else { "VIGIL:[off]" };
     let yolo  = if app.yolo_mode  { " | APPROVALS: OFF" }     else { "" };
 
+    let bar_constraints = if app.professional {
+        vec![
+            Constraint::Min(0),       // MODE
+            Constraint::Length(12),   // LM
+            Constraint::Length(12),   // CMP
+            Constraint::Length(16),   // REMOTE
+            Constraint::Length(30),   // TOKENS
+            Constraint::Length(30),   // VRAM
+        ]
+    } else {
+        vec![
+            Constraint::Length(12),   // NAME
+            Constraint::Min(0),       // MODE
+            Constraint::Length(12),   // LM
+            Constraint::Length(12),   // CMP
+            Constraint::Length(16),   // REMOTE
+            Constraint::Length(30),   // TOKENS
+            Constraint::Length(30),   // VRAM
+        ]
+    };
     let bar_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Length(12),  // NAME
-            Constraint::Min(0),       // MODE
-            Constraint::Length(12),  // LM
-            Constraint::Length(16),  // REMOTE
-            Constraint::Length(30),  // TOKENS
-            Constraint::Length(30),  // VRAM (expanded to prevent clipping)
-        ])
+        .constraints(bar_constraints)
         .split(chunks[2]);
 
     let char_count: usize = app.messages_raw.iter().map(|(_, c)| c.len()).sum();
@@ -1674,6 +1718,21 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         ("LM:LIVE", Color::Green)
     };
+    let compaction_percent = app.compaction_percent.min(100);
+    let compaction_label = if app.compaction_threshold_tokens == 0 {
+        "CMP:--".to_string()
+    } else {
+        format!(" CMP:{:>3}%", compaction_percent)
+    };
+    let compaction_color = if app.compaction_threshold_tokens == 0 {
+        Color::DarkGray
+    } else if compaction_percent >= 85 {
+        Color::Red
+    } else if compaction_percent >= 60 {
+        Color::Yellow
+    } else {
+        Color::Green
+    };
 
     let think_badge = match app.think_mode {
         Some(true)  => " [THINK]",
@@ -1681,19 +1740,28 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         None        => "",
     };
 
+    let (status_idx, lm_idx, cmp_idx, remote_idx, tokens_idx, vram_idx) = if app.professional {
+        (0usize, 1usize, 2usize, 3usize, 4usize, 5usize)
+    } else {
+        (1usize, 2usize, 3usize, 4usize, 5usize, 6usize)
+    };
+
     if app.professional {
-        f.render_widget(Clear, bar_chunks[0]);
+        f.render_widget(Clear, bar_chunks[status_idx]);
+
+        let voice_badge = if app.voice_manager.is_enabled() { " | VOICE:ON" } else { "" };
         f.render_widget(
-            Paragraph::new(" Hematite").block(Block::default().borders(Borders::ALL)),
-            bar_chunks[0],
-        );
-        f.render_widget(Clear, bar_chunks[1]);
-        
-        let voice_badge = if app.voice_manager.is_enabled() { " | VOICE: ON" } else { "" };
-        f.render_widget(
-            Paragraph::new(format!(" MODE: PROFESSIONAL | FLOW: {}{} | CTX: {} | ERR: {:02}{}{}", app.workflow_mode, yolo, app.context_length, app.stats.debugging, think_badge, voice_badge))
-                .block(Block::default().borders(Borders::ALL)),
-            bar_chunks[1],
+            Paragraph::new(format!(
+                " MODE:PRO | FLOW:{}{} | CTX:{} | ERR:{}{}{}",
+                app.workflow_mode,
+                yolo,
+                app.context_length,
+                app.stats.debugging,
+                think_badge,
+                voice_badge
+            ))
+            .block(Block::default().borders(Borders::ALL)),
+            bar_chunks[status_idx],
         );
     } else {
         f.render_widget(Clear, bar_chunks[0]);
@@ -1701,11 +1769,11 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             Paragraph::new(format!(" {} Rusty", spark)).block(Block::default().borders(Borders::ALL)),
             bar_chunks[0],
         );
-        f.render_widget(Clear, bar_chunks[1]);
+        f.render_widget(Clear, bar_chunks[status_idx]);
         f.render_widget(
             Paragraph::new(format!("{}{}", vigil, think_badge))
                 .block(Block::default().borders(Borders::ALL).fg(Color::Yellow)),
-            bar_chunks[1],
+            bar_chunks[status_idx],
         );
     }
 
@@ -1720,26 +1788,37 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         _ => Color::DarkGray,
     };
     
-    f.render_widget(Clear, bar_chunks[2]);
+    f.render_widget(Clear, bar_chunks[lm_idx]);
     f.render_widget(
         Paragraph::new(format!(" {}", lm_label))
             .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(lm_color)))
             .fg(lm_color),
-        bar_chunks[2],
+        bar_chunks[lm_idx],
     );
 
-    f.render_widget(Clear, bar_chunks[3]);
+    f.render_widget(Clear, bar_chunks[cmp_idx]);
+    f.render_widget(
+        Paragraph::new(compaction_label)
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(compaction_color)))
+            .fg(compaction_color),
+        bar_chunks[cmp_idx],
+    );
+
+    f.render_widget(Clear, bar_chunks[remote_idx]);
     f.render_widget(
         Paragraph::new(format!(" REMOTE: {}", git_label))
             .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(git_color)))
             .fg(git_color),
-        bar_chunks[3],
+        bar_chunks[remote_idx],
     );
 
-    f.render_widget(Clear, bar_chunks[4]);
+    let usage_color = Color::Rgb(215, 125, 40);
+    f.render_widget(Clear, bar_chunks[tokens_idx]);
     f.render_widget(
-        Paragraph::new(usage_text).block(Block::default().borders(Borders::ALL).fg(Color::Cyan)).fg(Color::Cyan),
-        bar_chunks[4],
+        Paragraph::new(usage_text)
+            .block(Block::default().borders(Borders::ALL).fg(usage_color))
+            .fg(usage_color),
+        bar_chunks[tokens_idx],
     );
 
     // ── VRAM gauge (live from nvidia-smi poller) ─────────────────────────────
@@ -1754,14 +1833,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         Color::Cyan
     };
-    f.render_widget(Clear, bar_chunks[5]);
+    f.render_widget(Clear, bar_chunks[vram_idx]);
     f.render_widget(
         Gauge::default()
             .block(Block::default().borders(Borders::ALL).title(format!(" {} ", gpu_name)))
             .gauge_style(Style::default().fg(gauge_color))
             .ratio(vram_ratio)
             .label(format!("  {}  ", vram_label)), // Added extra padding for visual excellence
-        bar_chunks[5],
+        bar_chunks[vram_idx],
     );
 
     // ── Box 4: Input ──────────────────────────────────────────────────────────
@@ -1771,12 +1850,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         Style::default().fg(Color::Rgb(120, 70, 50))
     };
     let input_hint = if app.agent_running {
-        " Working… (wait for response)".to_string()
+        " Working... [Esc] stop".to_string()
     } else {
-        let voice_status = if app.voice_manager.is_enabled() { "ON" } else { "off" };
+        let voice_status = if app.voice_manager.is_enabled() { "ON" } else { "OFF" };
+        let approvals_status = if app.yolo_mode { "OFF" } else { "ON" };
         format!(
-            " [Enter] send · [^S] swarm · [^T] voice:{} · [ESC] sil · [^B] brief · [^Y] approvals · [^Q] quit (Len: {}) ",
+            " [Enter] send | [Esc] stop | [^T] voice:{} | [^Y] appr:{} | [/help] cmds | Len:{} ",
             voice_status,
+            approvals_status,
             app.input.len()
         )
     };
@@ -2157,10 +2238,12 @@ fn draw_splash<B: Backend>(
 
         // Prompt
         lines.push(Line::from(vec![
+            Span::styled("[ ", Style::default().fg(rust_color)),
             Span::styled(
-                "[ Press ENTER to initialize ]",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::DIM),
+                "Press ENTER to initialize",
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
             ),
+            Span::styled(" ]", Style::default().fg(rust_color)),
         ]));
 
         let splash = Paragraph::new(lines)

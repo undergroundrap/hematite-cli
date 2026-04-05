@@ -1666,6 +1666,27 @@ pub struct ConversationManager {
 }
 
 impl ConversationManager {
+    async fn emit_compaction_pressure(&self, tx: &mpsc::Sender<InferenceEvent>) {
+        let context_length = self.engine.current_context_length();
+        let vram_ratio = self.gpu_state.ratio();
+        let config = CompactionConfig::adaptive(context_length, vram_ratio);
+        let estimated_tokens = compaction::estimate_tokens(&self.history);
+        let percent = if config.max_estimated_tokens == 0 {
+            0
+        } else {
+            ((estimated_tokens.saturating_mul(100)) / config.max_estimated_tokens)
+                .min(100) as u8
+        };
+
+        let _ = tx
+            .send(InferenceEvent::CompactionPressure {
+                estimated_tokens,
+                threshold_tokens: config.max_estimated_tokens,
+                percent,
+            })
+            .await;
+    }
+
     async fn refresh_runtime_profile_and_report(
         &mut self,
         tx: &mpsc::Sender<InferenceEvent>,
@@ -2183,6 +2204,7 @@ impl ConversationManager {
                 }
             }
         }
+        self.emit_compaction_pressure(&tx).await;
         let current_model = self.engine.current_model();
         self.engine
             .set_gemma_native_formatting(crate::agent::config::effective_gemma_native_formatting(
@@ -2223,6 +2245,7 @@ impl ConversationManager {
             purge_task_files();
             let _ = std::fs::remove_file(session_path());
             self.save_empty_session();
+            self.emit_compaction_pressure(&tx).await;
             for chunk in chunk_text("Session cleared. Fresh context.", 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
@@ -2300,6 +2323,7 @@ impl ConversationManager {
             purge_task_files();
             let _ = std::fs::remove_file(session_path());
             self.save_empty_session();
+            self.emit_compaction_pressure(&tx).await;
             for chunk in chunk_text("Task Memory & History purged. Clean slate achieved.", 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
@@ -3633,6 +3657,7 @@ impl ConversationManager {
         self.trim_history(80);
         self.refresh_session_memory();
         self.save_session();
+        self.emit_compaction_pressure(&tx).await;
         Ok(())
     }
 
@@ -3725,6 +3750,7 @@ impl ConversationManager {
 
         // Layer 6: Memory Synthesis (Task Context Persistence)
         self.session_memory = compaction::extract_memory(&self.history);
+        self.emit_compaction_pressure(tx).await;
 
         // Jinja alignment: preserved slice may start with assistant/tool messages.
         // Strip any leading non-user messages so the first non-system message is always user.

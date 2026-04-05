@@ -425,6 +425,18 @@
     ]
   },
   {
+    "id": "local_workflow_20b",
+    "category": "local_workflow",
+    "title": "Compaction pressure badge",
+    "mode": "normal",
+    "prompt": "The bottom bar should expose a compact compaction-pressure percentage that tracks Hematite's real adaptive compaction threshold.",
+    "success_criteria": [
+      "The operator can see a compact compaction percentage in the bottom bar",
+      "The percentage is tied to real compaction pressure rather than a decorative fake gauge",
+      "The indicator resets appropriately after hard session resets"
+    ]
+  },
+  {
     "id": "local_workflow_21",
     "category": "local_workflow",
     "title": "Structured failure recovery",

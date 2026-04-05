@@ -403,6 +403,12 @@ pub enum InferenceEvent {
         state: ProviderRuntimeState,
         summary: String,
     },
+    /// Current compaction pressure against the adaptive threshold.
+    CompactionPressure {
+        estimated_tokens: usize,
+        threshold_tokens: usize,
+        percent: u8,
+    },
     /// A generic task progress update (e.g. for single-agent tool execution).
     TaskProgress {
         id: String,

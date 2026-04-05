@@ -146,6 +146,10 @@ Read-only mode. Do not modify anything. Tell me what you would check before runn
 After multiple turns of stale context, what commands or mechanisms does Hematite have to reset or recover the session?
 ```
 
+Also watch for:
+- the bottom bar exposes a compact compaction-pressure badge like `CMP:61%`
+- the percentage rises as session history grows and resets after `/new` or `/forget`
+
 ## 11b. Structured Failure Recovery
 
 ```text
