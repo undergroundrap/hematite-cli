@@ -90,7 +90,7 @@ cargo run --release
 # 3. Skip the splash screen for automation/tests
 cargo run --release -- --no-splash
 
-# 4. Skip approval modals (YOLO mode)
+# 4. Skip approval modals (Approvals Off mode)
 cargo run --release -- --yolo
 
 # 5. Show your Rusty companion stats and exit
@@ -241,6 +241,11 @@ Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically li
 ## TUI Slash Commands
 
 ```text
+/auto             Let Hematite choose the narrowest effective workflow
+/ask [prompt]     Sticky read-only analysis mode; optional inline prompt
+/code [prompt]    Sticky implementation mode; optional inline prompt
+/architect [prompt]  Sticky plan-first mode; optional inline prompt
+/read-only [prompt]  Sticky hard read-only mode; optional inline prompt
 /new              Reset session and clear context
 /forget           Purge saved conversation memory and wipe visible session state
 /think            Enable Gemma-4 native reasoning channel
@@ -258,7 +263,16 @@ Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically li
 /help             Show all commands
 ```
 
-**Hotkeys:** `Ctrl+B` brief mode, `Ctrl+P` professional mode, `Ctrl+Y` YOLO mode, `Ctrl+T` voice toggle, `Ctrl+Z` undo, `Ctrl+Q`/`Ctrl+C` quit, `ESC` cancel
+Workflow note:
+
+- `/ask` is for explanation and repo understanding without mutation
+- `/code` is for implementation work
+- `/architect` is for planning and solution design before editing
+- `/read-only` is the hard no-mutation workflow
+- `/auto` returns Hematite to normal behavior
+- each of those workflow commands can also take an inline prompt, for example `/ask why is this failing?` or `/code fix the startup banner`
+
+**Hotkeys:** `Ctrl+B` brief mode, `Ctrl+P` professional mode, `Ctrl+Y` approvals off, `Ctrl+T` voice toggle, `Ctrl+Z` undo, `Ctrl+Q`/`Ctrl+C` quit, `ESC` cancel
 
 ---
 

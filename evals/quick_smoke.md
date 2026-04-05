@@ -246,3 +246,39 @@ Check:
 - prefers lightweight task and project handoff over replaying full chat history
 - treats Vein, summaries, and working-set memory as useful
 - treats stale conversational residue as something to avoid
+
+## 23. Sticky Workflow Modes
+
+```text
+What are the differences between /ask, /code, /architect, /read-only, and /auto in Hematite?
+```
+
+Check:
+- explains the modes as real workflow contracts, not just wording
+- treats `/ask` and `/read-only` as non-mutating
+- treats `/architect` as plan-first rather than immediate editing
+- treats `/code` as the explicit implementation mode
+
+## 24. Ask Mode Redirect
+
+```text
+/ask
+Fix the startup banner wording in `src/ui/tui.rs`.
+```
+
+Check:
+- does not attempt file tools first
+- does not mutate
+- redirects clearly toward `/code` or `/auto`
+
+## 25. Inline Workflow Prompt
+
+```text
+/ask Why does Hematite separate reasoning output from visible chat output?
+```
+
+Check:
+- accepts the inline mode-prefixed prompt
+- keeps ASK as the sticky workflow mode
+- answers the question instead of treating the whole line as an unknown slash command
+- does not reach for `describe_toolchain` for a plain reasoning-vs-chat explanation

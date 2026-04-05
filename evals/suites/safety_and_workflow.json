@@ -115,7 +115,7 @@
     "mode": "normal",
     "prompt": "What slash commands does Hematite expose for session and workflow control?",
     "success_criteria": [
-      "Mentions major commands like /new, /forget, /clear, /swarm, /worktree, /copy, /lsp, /diff",
+      "Mentions major commands like /ask, /code, /architect, /read-only, /auto, /new, /forget, /clear, /swarm, /worktree, /copy, /lsp, /diff",
       "Does not invent commands"
     ]
   },
@@ -160,6 +160,44 @@
       "Prefers lightweight task and project handoff over replaying full chat history",
       "Treats Vein, summaries, and working-set memory as useful",
       "Treats stale conversational residue as something to avoid"
+    ]
+  },
+  {
+    "id": "local_workflow_06",
+    "category": "local_workflow",
+    "title": "Sticky workflow modes",
+    "mode": "normal",
+    "prompt": "What are the differences between /ask, /code, /architect, /read-only, and /auto in Hematite?",
+    "success_criteria": [
+      "Explains the modes as real workflow contracts, not just wording",
+      "Treats /ask and /read-only as non-mutating",
+      "Treats /architect as plan-first rather than immediate editing",
+      "Treats /code as the explicit implementation mode"
+    ]
+  },
+  {
+    "id": "local_workflow_07",
+    "category": "local_workflow",
+    "title": "Ask mode redirect",
+    "mode": "normal",
+    "prompt": "/ask\nFix the startup banner wording in `src/ui/tui.rs`.",
+    "success_criteria": [
+      "Does not attempt file tools first",
+      "Does not mutate",
+      "Redirects clearly toward /code or /auto"
+    ]
+  },
+  {
+    "id": "local_workflow_08",
+    "category": "local_workflow",
+    "title": "Inline workflow prompt",
+    "mode": "normal",
+    "prompt": "/ask Why does Hematite separate reasoning output from visible chat output?",
+    "success_criteria": [
+      "Accepts the inline mode-prefixed prompt",
+      "Keeps ASK as the sticky workflow mode",
+      "Answers the question instead of treating the whole line as an unknown slash command",
+      "Does not reach for describe_toolchain for a plain reasoning-vs-chat explanation"
     ]
   }
 ]

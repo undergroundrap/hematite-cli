@@ -118,6 +118,8 @@ pub struct App {
     /// Mirrors ConversationManager::think_mode for status bar display.
     /// None = auto, Some(true) = /think, Some(false) = /no_think.
     pub think_mode: Option<bool>,
+    /// Sticky user-facing workflow mode.
+    pub workflow_mode: String,
     /// [Autocomplete Hatch] List of matching project files.
     pub autocomplete_suggestions: Vec<String>,
     /// [Autocomplete Hatch] Index of the currently highlighted suggestion.
@@ -409,6 +411,7 @@ pub async fn run_app<B: Backend>(
         current_session_cost: 0.0,
         model_id: "detecting...".to_string(),
         think_mode: None,
+        workflow_mode: "AUTO".into(),
         autocomplete_suggestions: Vec::new(),
         selected_suggestion: 0,
         show_autocomplete: false,
@@ -575,7 +578,7 @@ pub async fn run_app<B: Backend>(
                             }
                             KeyCode::Char('y') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
                                 app.yolo_mode = !app.yolo_mode;
-                                app.push_message("System", &format!("YOLO Mode: {}", if app.yolo_mode { "ON — all tools auto-approved" } else { "OFF" }));
+                                app.push_message("System", &format!("Approvals Off: {}", if app.yolo_mode { "ON — all tools auto-approved" } else { "OFF" }));
                             }
                             KeyCode::Char('t') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
                                 let enabled = app.voice_manager.toggle();
@@ -797,6 +800,22 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/ask" | "/code" | "/architect" | "/read-only" | "/auto" => {
+                                                let label = match cmd.as_str() {
+                                                    "/ask" => "ASK",
+                                                    "/code" => "CODE",
+                                                    "/architect" => "ARCHITECT",
+                                                    "/read-only" => "READ-ONLY",
+                                                    _ => "AUTO",
+                                                };
+                                                app.workflow_mode = label.to_string();
+                                                let outbound = input_text.trim().to_string();
+                                                app.push_message("You", &outbound);
+                                                app.agent_running = true;
+                                                let _ = app.user_input_tx.try_send(outbound);
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/worktree" => {
                                                 let sub = parts.get(1).copied().unwrap_or("");
                                                 match sub {
@@ -876,6 +895,11 @@ pub async fn run_app<B: Backend>(
                                             "/help" => {
                                                 app.push_message("System",
                                                     "Hematite Commands:\n\
+                                                     /auto             — (Flow) Let Hematite choose the narrowest effective workflow\n\
+                                                     /ask [prompt]     — (Flow) Read-only analysis mode; optional inline prompt\n\
+                                                     /code [prompt]    — (Flow) Explicit implementation mode; optional inline prompt\n\
+                                                     /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
+                                                     /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
                                                      /new              — (Reset) Clear history, memories, and task files\n\
                                                      /forget           — (Wipe) Nuclear pivot: reset history & active tasks\n\
                                                      /clear            — (UI) Clear dialogue display only\n\
@@ -889,7 +913,7 @@ pub async fn run_app<B: Backend>(
                                                      \nHotkeys:\n\
                                                      Ctrl+B — Toggle Brief Mode (minimal output)\n\
                                                      Ctrl+P — Toggle Professional Mode (strip personality)\n\
-                                                     Ctrl+Y — Toggle YOLO (bypass safety approvals)\n\
+                                                     Ctrl+Y — Toggle Approvals Off (bypass safety approvals)\n\
                                                      Ctrl+S — Quick Swarm (hardcoded bootstrap)\n\
                                                      Ctrl+Z — Undo last edit\n\
                                                      Ctrl+Q/C — Quit session\n\
@@ -1476,7 +1500,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let frame = app.tick_count % 3;
     let spark = match frame { 0 => "✧", 1 => "✦", _ => "✨" };
     let vigil = if app.brief_mode { "VIGIL:[ON]" } else { "VIGIL:[off]" };
-    let yolo  = if app.yolo_mode  { " YOLO" }     else { "" };
+    let yolo  = if app.yolo_mode  { " | APPROVALS: OFF" }     else { "" };
 
     let bar_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -1510,7 +1534,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         
         let voice_badge = if app.voice_manager.is_enabled() { " | VOICE: ON" } else { "" };
         f.render_widget(
-            Paragraph::new(format!(" MODE: PROFESSIONAL | ERR: {:02}{}{}{}", app.stats.debugging, yolo, think_badge, voice_badge))
+            Paragraph::new(format!(" MODE: PROFESSIONAL | FLOW: {}{} | ERR: {:02}{}{}", app.workflow_mode, yolo, app.stats.debugging, think_badge, voice_badge))
                 .block(Block::default().borders(Borders::ALL)),
             bar_chunks[1],
         );
@@ -1586,7 +1610,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         let voice_status = if app.voice_manager.is_enabled() { "ON" } else { "off" };
         format!(
-            " [Enter] send · [^S] swarm · [^T] voice:{} · [ESC] sil · [^B] brief · [^Y] yolo · [^Q] quit (Len: {}) ",
+            " [Enter] send · [^S] swarm · [^T] voice:{} · [ESC] sil · [^B] brief · [^Y] approvals · [^Q] quit (Len: {}) ",
             voice_status,
             app.input.len()
         )

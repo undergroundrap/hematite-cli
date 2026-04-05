@@ -28,6 +28,32 @@ struct ActionGroundingState {
     code_changed_since_verify: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum WorkflowMode {
+    #[default]
+    Auto,
+    Ask,
+    Code,
+    Architect,
+    ReadOnly,
+}
+
+impl WorkflowMode {
+    fn label(self) -> &'static str {
+        match self {
+            WorkflowMode::Auto => "AUTO",
+            WorkflowMode::Ask => "ASK",
+            WorkflowMode::Code => "CODE",
+            WorkflowMode::Architect => "ARCHITECT",
+            WorkflowMode::ReadOnly => "READ-ONLY",
+        }
+    }
+
+    fn is_read_only(self) -> bool {
+        matches!(self, WorkflowMode::Ask | WorkflowMode::Architect | WorkflowMode::ReadOnly)
+    }
+}
+
 fn session_path() -> std::path::PathBuf {
     crate::tools::file_ops::workspace_root()
         .join(".hematite")
@@ -163,6 +189,84 @@ fn should_answer_session_memory_directly(user_input: &str) -> bool {
 
 fn build_session_memory_answer() -> String {
     "By default, Hematite should carry forward lightweight project and task signal, not full conversational residue.\n\nCarry forward: Vein-backed project memory, compact session summary, current task memory, working-set files, and explicit pinned context when it is still relevant.\n\nAvoid carrying forward: full chat history, stale reasoning chains, one-off conversational residue, and transient in-flight state from the previous turn.\n\nFor a local model, the right split is to save the project and the active task signal, not replay old dialogue unless you explicitly want to continue the same thread.".to_string()
+}
+
+fn should_answer_reasoning_split_directly(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    (lower.contains("reasoning output") || lower.contains("reasoning"))
+        && (lower.contains("visible chat output")
+            || lower.contains("visible chat")
+            || lower.contains("chat output"))
+}
+
+fn build_reasoning_split_answer() -> String {
+    "Hematite separates reasoning output from visible chat output so the operator sees a clean final answer while the system can still expose its internal reasoning state separately.\n\nVisible chat output is the user-facing reply that belongs in the main transcript. Reasoning output is routed to the SPECULAR side panel and related internal state so Hematite can show its thought process without polluting the main conversation.\n\nThat separation matters for three reasons: cleaner chat logs, easier debugging of agent behavior, and better control over modes like `/ask`, `/architect`, and read-only analysis where internal thinking should not be confused with the final reply.".to_string()
+}
+
+fn should_answer_workflow_modes_directly(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("/ask")
+        && lower.contains("/code")
+        && lower.contains("/architect")
+        && lower.contains("/read-only")
+        && lower.contains("/auto")
+        && (lower.contains("difference") || lower.contains("differences") || lower.contains("what are"))
+}
+
+fn build_workflow_modes_answer() -> String {
+    "/ask is sticky read-only analysis mode: inspect, explain, and answer without making changes.\n\n/code is sticky implementation mode: Hematite can edit, verify, and carry out coding work with the normal proof-before-action safeguards.\n\n/architect is sticky plan-first mode: inspect the repo, shape the solution, and produce the implementation approach before editing. It should not mutate code unless you explicitly ask to implement.\n\n/read-only is the hard no-mutation workflow: analysis only, no file edits, no mutating shell commands, and no commits.\n\n/auto returns Hematite to the default behavior where it chooses the narrowest effective path for the request.".to_string()
+}
+
+fn looks_like_mutation_request(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    [
+        "fix ",
+        "change ",
+        "edit ",
+        "modify ",
+        "update ",
+        "rename ",
+        "refactor ",
+        "patch ",
+        "rewrite ",
+        "implement ",
+        "create a file",
+        "create file",
+        "add a file",
+        "delete ",
+        "remove ",
+        "make the change",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+fn build_mode_redirect_answer(mode: WorkflowMode) -> String {
+    match mode {
+        WorkflowMode::Ask => "Workflow mode ASK is read-only. I can inspect the code, explain what should change, or review the target area, but I will not modify files here. Switch to `/code` to implement the change, or `/auto` to let Hematite choose.".to_string(),
+        WorkflowMode::Architect => "Workflow mode ARCHITECT is plan-first. I can inspect the code and design the implementation approach, but I will not mutate files until you explicitly switch to `/code` or ask me to implement.".to_string(),
+        WorkflowMode::ReadOnly => "Workflow mode READ-ONLY is a hard no-mutation mode. I can analyze, inspect, and explain, but I will not edit files, run mutating shell commands, or commit changes. Switch to `/code` or `/auto` if you want implementation.".to_string(),
+        _ => "Switch to `/code` or `/auto` to allow implementation.".to_string(),
+    }
+}
+
+fn parse_inline_workflow_prompt(user_input: &str) -> Option<(WorkflowMode, &str)> {
+    let trimmed = user_input.trim();
+    for (prefix, mode) in [
+        ("/ask", WorkflowMode::Ask),
+        ("/code", WorkflowMode::Code),
+        ("/architect", WorkflowMode::Architect),
+        ("/read-only", WorkflowMode::ReadOnly),
+        ("/auto", WorkflowMode::Auto),
+    ] {
+        if let Some(rest) = trimmed.strip_prefix(prefix) {
+            let rest = rest.trim();
+            if !rest.is_empty() {
+                return Some((mode, rest));
+            }
+        }
+    }
+    None
 }
 
 fn should_enable_toolchain_mode(user_input: &str) -> bool {
@@ -790,6 +894,7 @@ pub struct ConversationManager {
     /// Reasoning think-mode override. None = let model decide. Some(true) = force /think.
     /// Some(false) = force /no_think (fast mode, 3-5x quicker for simple tasks).
     pub think_mode: Option<bool>,
+    workflow_mode: WorkflowMode,
     /// Layer 6: Dynamic Task Context (extracted during compaction)
     pub session_memory: crate::agent::compaction::SessionMemory,
     pub swarm_coordinator: Arc<crate::agent::swarm::SwarmCoordinator>,
@@ -862,6 +967,7 @@ impl ConversationManager {
             cancel_token: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             git_state,
             think_mode: None,
+            workflow_mode: WorkflowMode::Auto,
             session_memory: saved_memory,
             swarm_coordinator,
             voice_manager,
@@ -945,6 +1051,10 @@ impl ConversationManager {
         }
     }
 
+    fn set_workflow_mode(&mut self, mode: WorkflowMode) {
+        self.workflow_mode = mode;
+    }
+
     async fn begin_grounded_turn(&self) -> u64 {
         let mut state = self.action_grounding.lock().await;
         state.turn_index += 1;
@@ -986,6 +1096,24 @@ impl ConversationManager {
         name: &str,
         args: &Value,
     ) -> Result<(), String> {
+        if self.workflow_mode.is_read_only() && is_destructive_tool(name) {
+            if name == "shell" {
+                let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
+                let risk = crate::tools::guard::classify_bash_risk(command);
+                if !matches!(risk, crate::tools::RiskLevel::Safe) {
+                    return Err(format!(
+                        "Action blocked: workflow mode `{}` is read-only for risky or mutating operations. Switch to `/code` or `/auto` before making changes.",
+                        self.workflow_mode.label()
+                    ));
+                }
+            } else {
+                return Err(format!(
+                    "Action blocked: workflow mode `{}` is read-only. Use `/code` to implement changes or `/auto` to leave mode selection to Hematite.",
+                    self.workflow_mode.label()
+                ));
+            }
+        }
+
         let normalized_target = action_target_path(name, args);
         if let Some(target) = normalized_target.as_deref() {
             let path_exists = std::path::Path::new(target).exists();
@@ -1145,11 +1273,14 @@ impl ConversationManager {
         };
 
         // Apply config model overrides (config takes precedence over CLI flags).
-        let effective_fast = config.fast_model.as_deref().or(self.fast_model.as_deref());
+        let effective_fast = config
+            .fast_model
+            .clone()
+            .or_else(|| self.fast_model.clone());
         let effective_think = config
             .think_model
-            .as_deref()
-            .or(self.think_model.as_deref());
+            .clone()
+            .or_else(|| self.think_model.clone());
 
         // ── /new: reset session ───────────────────────────────────────────────
         if user_input.trim() == "/new" {
@@ -1213,10 +1344,76 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if user_input.trim() == "/ask" {
+            self.set_workflow_mode(WorkflowMode::Ask);
+            for chunk in chunk_text(
+                "Workflow mode: ASK. Stay read-only, explain, inspect, and answer without making changes.",
+                8,
+            ) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        if user_input.trim() == "/code" {
+            self.set_workflow_mode(WorkflowMode::Code);
+            for chunk in chunk_text(
+                "Workflow mode: CODE. Make changes when needed, but keep proof-before-action and verification discipline.",
+                8,
+            ) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        if user_input.trim() == "/architect" {
+            self.set_workflow_mode(WorkflowMode::Architect);
+            for chunk in chunk_text(
+                "Workflow mode: ARCHITECT. Plan, inspect, and shape the approach first. Do not mutate code unless the user explicitly asks to implement.",
+                8,
+            ) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        if user_input.trim() == "/read-only" {
+            self.set_workflow_mode(WorkflowMode::ReadOnly);
+            for chunk in chunk_text(
+                "Workflow mode: READ-ONLY. Analysis only. Do not modify files, run mutating shell commands, or commit changes.",
+                8,
+            ) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        if user_input.trim() == "/auto" {
+            self.set_workflow_mode(WorkflowMode::Auto);
+            for chunk in chunk_text(
+                "Workflow mode: AUTO. Hematite will choose the narrowest effective path for the request.",
+                8,
+            ) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        let mut effective_user_input = user_input.trim().to_string();
+        if let Some((mode, rest)) = parse_inline_workflow_prompt(user_input) {
+            self.set_workflow_mode(mode);
+            effective_user_input = rest.to_string();
+        }
+
         // ── /think / /no_think: reasoning budget toggle ──────────────────────
-        if should_answer_language_capability_directly(user_input) {
+        if should_answer_language_capability_directly(&effective_user_input) {
             let response = build_language_capability_answer();
-            self.history.push(ChatMessage::user(user_input));
+            self.history.push(ChatMessage::user(&effective_user_input));
             self.history.push(ChatMessage::assistant_text(&response));
             self.transcript.log_user(user_input);
             self.transcript.log_agent(&response);
@@ -1232,9 +1429,9 @@ impl ConversationManager {
             return Ok(());
         }
 
-        if should_answer_session_memory_directly(user_input) {
+        if should_answer_session_memory_directly(&effective_user_input) {
             let response = build_session_memory_answer();
-            self.history.push(ChatMessage::user(user_input));
+            self.history.push(ChatMessage::user(&effective_user_input));
             self.history.push(ChatMessage::assistant_text(&response));
             self.transcript.log_user(user_input);
             self.transcript.log_agent(&response);
@@ -1250,8 +1447,62 @@ impl ConversationManager {
             return Ok(());
         }
 
-        if should_answer_toolchain_directly(user_input) {
-            let lower = user_input.to_lowercase();
+        if should_answer_reasoning_split_directly(&effective_user_input) {
+            let response = build_reasoning_split_answer();
+            self.history.push(ChatMessage::user(&effective_user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
+        if should_answer_workflow_modes_directly(&effective_user_input) {
+            let response = build_workflow_modes_answer();
+            self.history.push(ChatMessage::user(&effective_user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
+        if self.workflow_mode.is_read_only() && looks_like_mutation_request(&effective_user_input) {
+            let response = build_mode_redirect_answer(self.workflow_mode);
+            self.history.push(ChatMessage::user(&effective_user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
+        if should_answer_toolchain_directly(&effective_user_input) {
+            let lower = effective_user_input.to_lowercase();
             let topic = if (lower.contains("voice output") || lower.contains("voice"))
                 && (lower.contains("lag")
                     || lower.contains("behind visible text")
@@ -1263,11 +1514,11 @@ impl ConversationManager {
             };
             let response = crate::tools::toolchain::describe_toolchain(&serde_json::json!({
                 "topic": topic,
-                "question": user_input,
+                "question": effective_user_input,
             }))
             .await
             .unwrap_or_else(|e| format!("Error: {}", e));
-            self.history.push(ChatMessage::user(user_input));
+            self.history.push(ChatMessage::user(&effective_user_input));
             self.history.push(ChatMessage::assistant_text(&response));
             self.transcript.log_user(user_input);
             self.transcript.log_agent(&response);
@@ -1373,10 +1624,10 @@ impl ConversationManager {
                 ));
             }
         }
-        let grounded_trace_mode = should_enable_grounded_trace_mode(user_input);
-        let capability_mode = should_enable_capability_mode(user_input);
-        let toolchain_mode = should_enable_toolchain_mode(user_input);
-        let capability_needs_repo = capability_question_requires_repo_inspection(user_input);
+        let grounded_trace_mode = should_enable_grounded_trace_mode(&effective_user_input);
+        let capability_mode = should_enable_capability_mode(&effective_user_input);
+        let toolchain_mode = should_enable_toolchain_mode(&effective_user_input);
+        let capability_needs_repo = capability_question_requires_repo_inspection(&effective_user_input);
         let mut system_msg = build_system_with_corrections(
             &base_prompt,
             &self.correction_hints,
@@ -1427,6 +1678,27 @@ impl ConversationManager {
         }
 
         // ── Inject Pinned Files (Context Locking) ───────────────────────────
+        system_msg.push_str(&format!(
+            "\n\n# WORKFLOW MODE\nCURRENT WORKFLOW: {}\n",
+            self.workflow_mode.label()
+        ));
+        match self.workflow_mode {
+            WorkflowMode::Auto => system_msg.push_str(
+                "AUTO means choose the narrowest effective path for the request. Answer directly when stable product logic exists. Inspect before editing. Mutate only when the user is clearly asking for implementation.\n",
+            ),
+            WorkflowMode::Ask => system_msg.push_str(
+                "ASK means analysis only. Stay read-only, inspect the repo, explain findings, and do not make changes unless the user explicitly switches modes.\n",
+            ),
+            WorkflowMode::Code => system_msg.push_str(
+                "CODE means implementation is allowed when needed. Keep proof-before-action, verification, and edit precision discipline.\n",
+            ),
+            WorkflowMode::Architect => system_msg.push_str(
+                "ARCHITECT means plan first. Inspect, reason, and produce a concrete implementation approach before editing. Do not mutate code unless the user explicitly asks to implement.\n",
+            ),
+            WorkflowMode::ReadOnly => system_msg.push_str(
+                "READ-ONLY means analysis only. Do not modify files, run mutating shell commands, or commit changes.\n",
+            ),
+        }
         {
             let pinned = self.pinned_files.lock().await;
             if !pinned.is_empty() {
@@ -1453,9 +1725,9 @@ impl ConversationManager {
         self.reasoning_history = None;
 
         let user_content = match self.think_mode {
-            Some(true) => format!("/think\n{}", user_input),
-            Some(false) => format!("/no_think\n{}", user_input),
-            None => user_input.to_string(),
+            Some(true) => format!("/think\n{}", effective_user_input),
+            Some(false) => format!("/no_think\n{}", effective_user_input),
+            None => effective_user_input.clone(),
         };
         self.history.push(ChatMessage::user(&user_content));
         self.transcript.log_user(user_input);
@@ -1466,11 +1738,16 @@ impl ConversationManager {
         // Query The Vein for context relevant to this turn.
         // Results are injected as a system message just before the user message,
         // giving the model relevant code snippets without extra tool calls.
-        let vein_context = self.build_vein_context(user_input);
+        let vein_context = self.build_vein_context(&effective_user_input);
 
         // Route: pick fast vs think model based on the complexity of this request.
         let routed_model =
-            route_model(user_input, effective_fast, effective_think).map(|s| s.to_string());
+            route_model(
+                &effective_user_input,
+                effective_fast.as_deref(),
+                effective_think.as_deref(),
+            )
+            .map(|s| s.to_string());
 
         let mut loop_intervention: Option<String> = None;
 
