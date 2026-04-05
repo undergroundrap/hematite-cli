@@ -599,12 +599,144 @@ fn build_architecture_overview_answer(
     out
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RuntimeFailureClass {
+    ContextWindow,
+    ProviderDegraded,
+    ToolArgMalformed,
+    ToolPolicyBlocked,
+    ToolLoop,
+    VerificationFailed,
+    EmptyModelResponse,
+    Unknown,
+}
+
+impl RuntimeFailureClass {
+    fn tag(self) -> &'static str {
+        match self {
+            RuntimeFailureClass::ContextWindow => "context_window",
+            RuntimeFailureClass::ProviderDegraded => "provider_degraded",
+            RuntimeFailureClass::ToolArgMalformed => "tool_arg_malformed",
+            RuntimeFailureClass::ToolPolicyBlocked => "tool_policy_blocked",
+            RuntimeFailureClass::ToolLoop => "tool_loop",
+            RuntimeFailureClass::VerificationFailed => "verification_failed",
+            RuntimeFailureClass::EmptyModelResponse => "empty_model_response",
+            RuntimeFailureClass::Unknown => "unknown",
+        }
+    }
+
+    fn operator_guidance(self) -> &'static str {
+        match self {
+            RuntimeFailureClass::ContextWindow => {
+                "Narrow the request, compact the session, or preserve grounded tool output instead of restyling it. If LM Studio reports a smaller live n_ctx than Hematite expected, reload or re-detect the model budget before retrying."
+            }
+            RuntimeFailureClass::ProviderDegraded => {
+                "Retry once automatically, then narrow the turn or restart LM Studio if it persists."
+            }
+            RuntimeFailureClass::ToolArgMalformed => {
+                "Retry with repaired or narrower tool arguments instead of repeating the same malformed call."
+            }
+            RuntimeFailureClass::ToolPolicyBlocked => {
+                "Stay inside the allowed workflow or switch modes before retrying."
+            }
+            RuntimeFailureClass::ToolLoop => {
+                "Stop repeating the same failing tool pattern and switch to a narrower recovery step."
+            }
+            RuntimeFailureClass::VerificationFailed => {
+                "Fix the build or test failure before treating the task as complete."
+            }
+            RuntimeFailureClass::EmptyModelResponse => {
+                "Retry once automatically, then narrow the turn or restart LM Studio if the model keeps returning nothing."
+            }
+            RuntimeFailureClass::Unknown => {
+                "Inspect the latest grounded tool results or provider status before retrying."
+            }
+        }
+    }
+}
+
+fn classify_runtime_failure(detail: &str) -> RuntimeFailureClass {
+    let lower = detail.to_ascii_lowercase();
+    if lower.contains("context_window_blocked")
+        || lower.contains("context ceiling reached")
+        || lower.contains("exceeds the")
+        || ((lower.contains("n_keep") && lower.contains("n_ctx"))
+            || lower.contains("context length")
+            || lower.contains("keep from the initial prompt")
+            || lower.contains("prompt is greater than the context length"))
+    {
+        RuntimeFailureClass::ContextWindow
+    } else if lower.contains("empty response from model")
+        || lower.contains("model returned an empty response")
+    {
+        RuntimeFailureClass::EmptyModelResponse
+    } else if lower.contains("lm studio unreachable")
+        || lower.contains("lm studio error")
+        || lower.contains("request failed")
+        || lower.contains("response parse error")
+        || lower.contains("provider degraded")
+    {
+        RuntimeFailureClass::ProviderDegraded
+    } else if lower.contains("missing required argument")
+        || lower.contains("json repair failed")
+        || lower.contains("invalid pattern")
+        || lower.contains("invalid line range")
+    {
+        RuntimeFailureClass::ToolArgMalformed
+    } else if lower.contains("action blocked:")
+        || lower.contains("access denied")
+        || lower.contains("declined by user")
+    {
+        RuntimeFailureClass::ToolPolicyBlocked
+    } else if lower.contains("too many consecutive tool errors")
+        || lower.contains("repeated tool failures")
+        || lower.contains("stuck in a loop")
+    {
+        RuntimeFailureClass::ToolLoop
+    } else if lower.contains("build failed")
+        || lower.contains("verification failed")
+        || lower.contains("verify_build")
+    {
+        RuntimeFailureClass::VerificationFailed
+    } else {
+        RuntimeFailureClass::Unknown
+    }
+}
+
+fn format_runtime_failure(class: RuntimeFailureClass, detail: &str) -> String {
+    format!(
+        "[failure:{}] {} Detail: {}",
+        class.tag(),
+        class.operator_guidance(),
+        detail.trim()
+    )
+}
+
+fn should_retry_runtime_failure(class: RuntimeFailureClass) -> bool {
+    matches!(
+        class,
+        RuntimeFailureClass::ProviderDegraded | RuntimeFailureClass::EmptyModelResponse
+    )
+}
+
 fn should_answer_reasoning_split_directly(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     (lower.contains("reasoning output") || lower.contains("reasoning"))
         && (lower.contains("visible chat output")
             || lower.contains("visible chat")
             || lower.contains("chat output"))
+}
+
+fn should_answer_identity_directly(user_input: &str) -> bool {
+    let lower = user_input.trim().to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "who are you" | "who are you?" | "what are you" | "what are you?"
+    ) || (lower.contains("what is hematite") && !lower.contains("lm studio"))
+}
+
+fn build_identity_answer() -> String {
+    "Hematite is the local coding harness and agent running on your machine. It owns the TUI, tool use, file editing, workflow control, and local context management while LM Studio serves the model runtime underneath it.".to_string()
 }
 
 fn build_reasoning_split_answer() -> String {
@@ -1975,10 +2107,26 @@ impl ConversationManager {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Reload config every turn (edits apply immediately, no restart needed).
         let config = crate::agent::config::load_config();
+        if let Some((model_id, context_length, changed)) = self.engine.refresh_runtime_profile().await
+        {
+            if changed {
+                let _ = tx
+                    .send(InferenceEvent::RuntimeProfile {
+                        model_id: model_id.clone(),
+                        context_length,
+                    })
+                    .await;
+                self.transcript.log_system(&format!(
+                    "Runtime profile refreshed before turn: model={} ctx={}",
+                    model_id, context_length
+                ));
+            }
+        }
+        let current_model = self.engine.current_model();
         self.engine
             .set_gemma_native_formatting(crate::agent::config::effective_gemma_native_formatting(
                 &config,
-                &self.engine.model,
+                &current_model,
             ));
         let _turn_id = self.begin_grounded_turn().await;
         let _hook_runner = crate::agent::hooks::HookRunner::new(config.hooks.clone());
@@ -2238,6 +2386,24 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if should_answer_identity_directly(&effective_user_input) {
+            let response = build_identity_answer();
+            self.history.push(ChatMessage::user(&effective_user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
         if should_answer_workflow_modes_directly(&effective_user_input) {
             let response = build_workflow_modes_answer();
             self.history.push(ChatMessage::user(&effective_user_input));
@@ -2458,6 +2624,7 @@ impl ConversationManager {
         // ── Normal processing ───────────────────────────────────────────────
 
         // Ensure MCP is initialized and tools are discovered for this turn.
+        let tiny_context_mode = self.engine.current_context_length() <= 8_192;
         let mut base_prompt = self.engine.build_system_prompt(
             self.snark,
             self.chaos,
@@ -2467,12 +2634,14 @@ impl ConversationManager {
             self.reasoning_history.as_deref(),
             &mcp_tools,
         );
-        if let Some(hint) = &config.context_hint {
-            if !hint.trim().is_empty() {
-                base_prompt.push_str(&format!(
-                    "\n\n# Project Context (from .hematite/settings.json)\n{}",
-                    hint
-                ));
+        if !tiny_context_mode {
+            if let Some(hint) = &config.context_hint {
+                if !hint.trim().is_empty() {
+                    base_prompt.push_str(&format!(
+                        "\n\n# Project Context (from .hematite/settings.json)\n{}",
+                        hint
+                    ));
+                }
             }
         }
         let grounded_trace_mode = should_enable_grounded_trace_mode(&effective_user_input);
@@ -2489,7 +2658,13 @@ impl ConversationManager {
             &self.git_state,
             &config,
         );
-        if grounded_trace_mode {
+        if tiny_context_mode {
+            system_msg.push_str(
+                "\n\n# TINY CONTEXT TURN MODE\n\
+                 Keep this turn compact. Prefer direct answers or one narrow tool step over broad exploration.\n",
+            );
+        }
+        if !tiny_context_mode && grounded_trace_mode {
             system_msg.push_str(
                 "\n\n# GROUNDED TRACE MODE\n\
                  This turn is read-only architecture analysis unless the user explicitly asks otherwise.\n\
@@ -2503,7 +2678,7 @@ impl ConversationManager {
                 For exact flow questions, answer in ordered steps and name the concrete functions and event types involved.\n"
             );
         }
-        if capability_mode {
+        if !tiny_context_mode && capability_mode {
             system_msg.push_str(
                 "\n\n# CAPABILITY QUESTION MODE\n\
                  This is a product or capability question unless the user explicitly asks about repository implementation.\n\
@@ -2519,7 +2694,7 @@ impl ConversationManager {
                  Keep the answer short, plain, and ASCII-first.\n"
             );
         }
-        if toolchain_mode {
+        if !tiny_context_mode && toolchain_mode {
             system_msg.push_str(
                 "\n\n# TOOLCHAIN DISCIPLINE MODE\n\
                  This turn is about Hematite's real built-in tools and how to choose them.\n\
@@ -2530,7 +2705,7 @@ impl ConversationManager {
                  Be explicit about which tools are optional or conditional.\n"
             );
         }
-        if project_map_mode {
+        if !tiny_context_mode && project_map_mode {
             system_msg.push_str(
                 "\n\n# PROJECT MAP DISCIPLINE MODE\n\
                  For repository structure, entrypoint, owner-file, or architecture-map questions, prefer `map_project` first.\n\
@@ -2539,7 +2714,7 @@ impl ConversationManager {
                  Keep the final answer compact and architecture-first.\n"
             );
         }
-        if architecture_overview_mode {
+        if !tiny_context_mode && architecture_overview_mode {
             system_msg.push_str(
                 "\n\n# ARCHITECTURE OVERVIEW DISCIPLINE MODE\n\
                  For broad runtime or architecture walkthroughs, prefer authoritative tools first: `trace_runtime_flow` for control flow and `map_project` for compact structure.\n\
@@ -2553,29 +2728,35 @@ impl ConversationManager {
             "\n\n# WORKFLOW MODE\nCURRENT WORKFLOW: {}\n",
             self.workflow_mode.label()
         ));
-        match self.workflow_mode {
-            WorkflowMode::Auto => system_msg.push_str(
-                "AUTO means choose the narrowest effective path for the request. Answer directly when stable product logic exists. Inspect before editing. Mutate only when the user is clearly asking for implementation.\n",
-            ),
-            WorkflowMode::Ask => system_msg.push_str(
-                "ASK means analysis only. Stay read-only, inspect the repo, explain findings, and do not make changes unless the user explicitly switches modes.\n",
-            ),
-            WorkflowMode::Code => system_msg.push_str(
-                "CODE means implementation is allowed when needed. Keep proof-before-action, verification, and edit precision discipline. If an active plan handoff exists in session memory or `.hematite/PLAN.md`, treat it as the implementation brief unless the user explicitly overrides it. For ordinary workspace inspection during implementation, use built-in read/edit tools first and do not reach for `mcp__filesystem__*` unless the user explicitly requires MCP.\n",
-            ),
-            WorkflowMode::Architect => system_msg.push_str(
-                "ARCHITECT means plan first. Inspect, reason, and produce a concrete implementation approach before editing. Do not mutate code unless the user explicitly asks to implement. When you produce an implementation handoff, use these exact ASCII headings so Hematite can persist the plan: `# Goal`, `# Target Files`, `# Ordered Steps`, `# Verification`, `# Risks`, `# Open Questions`.\n",
-            ),
-            WorkflowMode::ReadOnly => system_msg.push_str(
-                "READ-ONLY means analysis only. Do not modify files, run mutating shell commands, or commit changes.\n",
-            ),
+        if tiny_context_mode {
+            system_msg.push_str(
+                "Use the narrowest safe behavior for this mode. Keep the turn short.\n",
+            );
+        } else {
+            match self.workflow_mode {
+                WorkflowMode::Auto => system_msg.push_str(
+                    "AUTO means choose the narrowest effective path for the request. Answer directly when stable product logic exists. Inspect before editing. Mutate only when the user is clearly asking for implementation.\n",
+                ),
+                WorkflowMode::Ask => system_msg.push_str(
+                    "ASK means analysis only. Stay read-only, inspect the repo, explain findings, and do not make changes unless the user explicitly switches modes.\n",
+                ),
+                WorkflowMode::Code => system_msg.push_str(
+                    "CODE means implementation is allowed when needed. Keep proof-before-action, verification, and edit precision discipline. If an active plan handoff exists in session memory or `.hematite/PLAN.md`, treat it as the implementation brief unless the user explicitly overrides it. For ordinary workspace inspection during implementation, use built-in read/edit tools first and do not reach for `mcp__filesystem__*` unless the user explicitly requires MCP.\n",
+                ),
+                WorkflowMode::Architect => system_msg.push_str(
+                    "ARCHITECT means plan first. Inspect, reason, and produce a concrete implementation approach before editing. Do not mutate code unless the user explicitly asks to implement. When you produce an implementation handoff, use these exact ASCII headings so Hematite can persist the plan: `# Goal`, `# Target Files`, `# Ordered Steps`, `# Verification`, `# Risks`, `# Open Questions`.\n",
+                ),
+                WorkflowMode::ReadOnly => system_msg.push_str(
+                    "READ-ONLY means analysis only. Do not modify files, run mutating shell commands, or commit changes.\n",
+                ),
+            }
         }
-        if self.workflow_mode == WorkflowMode::Architect {
+        if !tiny_context_mode && self.workflow_mode == WorkflowMode::Architect {
             system_msg.push_str("\n\n# ARCHITECT HANDOFF CONTRACT\n");
             system_msg.push_str(architect_handoff_contract());
             system_msg.push('\n');
         }
-        if implement_current_plan {
+        if !tiny_context_mode && implement_current_plan {
             system_msg.push_str(
                 "\n\n# CURRENT PLAN EXECUTION CONTRACT\n\
                  The user explicitly asked you to implement the current saved plan.\n\
@@ -2594,7 +2775,7 @@ impl ConversationManager {
                 }
             }
         }
-        {
+        if !tiny_context_mode {
             let pinned = self.pinned_files.lock().await;
             if !pinned.is_empty() {
                 system_msg.push_str("\n\n# ACTIVE CONTEXT (PINNED FILES)\n");
@@ -2604,7 +2785,9 @@ impl ConversationManager {
                 }
             }
         }
-        self.append_session_handoff(&mut system_msg);
+        if !tiny_context_mode {
+            self.append_session_handoff(&mut system_msg);
+        }
         if self.history.is_empty() || self.history[0].role != "system" {
             self.history.insert(0, ChatMessage::system(&system_msg));
         } else {
@@ -2651,6 +2834,7 @@ impl ConversationManager {
         let non_mutating_plan_hard_cap = 8usize;
         let mut overview_project_map: Option<String> = None;
         let mut overview_runtime_trace: Option<String> = None;
+        let mut provider_recovery_attempted = false;
 
         // Safety cap – never spin forever on a broken model.
         let max_iters = 25;
@@ -2713,16 +2897,38 @@ impl ConversationManager {
             }
             prompt_msgs.extend(messages);
             if let Some(budget_note) =
-                enforce_prompt_budget(&mut prompt_msgs, self.engine.context_length)
+                enforce_prompt_budget(&mut prompt_msgs, self.engine.current_context_length())
             {
                 let _ = tx.send(InferenceEvent::Thought(budget_note)).await;
             }
 
-            let (text, tool_calls, usage, finish_reason) = self
+            let (text, tool_calls, usage, finish_reason) = match self
                 .engine
                 .call_with_tools(&prompt_msgs, &self.tools, routed_model.as_deref())
                 .await
-                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?;
+            {
+                Ok(result) => result,
+                Err(e) => {
+                    let class = classify_runtime_failure(&e);
+                    if should_retry_runtime_failure(class) && !provider_recovery_attempted {
+                        provider_recovery_attempted = true;
+                        self.transcript.log_system(&format!(
+                            "Automatic provider recovery triggered: {}",
+                            e.trim()
+                        ));
+                        let _ = tx
+                            .send(InferenceEvent::Thought(format!(
+                                "Provider recovery: detected a degraded LM Studio turn (`{}`). Retrying once before surfacing a failure.",
+                                class.tag()
+                            )))
+                            .await;
+                        continue;
+                    }
+
+                    self.emit_runtime_failure(&tx, class, &e).await;
+                    break;
+                }
+            };
 
             // Update TUI token counter with actual usage from LM Studio.
             if let Some(ref u) = usage {
@@ -2734,7 +2940,7 @@ impl ConversationManager {
             let tool_calls = tool_calls.filter(|c| !c.is_empty());
             let near_context_ceiling = usage
                 .as_ref()
-                .map(|u| u.prompt_tokens >= (self.engine.context_length * 82 / 100))
+                .map(|u| u.prompt_tokens >= (self.engine.current_context_length() * 82 / 100))
                 .unwrap_or(false);
 
             if let Some(calls) = tool_calls {
@@ -2910,11 +3116,12 @@ impl ConversationManager {
                     }
 
                     if consecutive_errors >= 4 {
-                        let _ = tx
-                            .send(InferenceEvent::Error(
-                                "Hard termination: too many consecutive tool errors.".into(),
-                            ))
-                            .await;
+                        self.emit_runtime_failure(
+                            &tx,
+                            RuntimeFailureClass::ToolLoop,
+                            "Hard termination: too many consecutive tool errors.",
+                        )
+                        .await;
                         return Ok(());
                     }
 
@@ -3239,7 +3446,10 @@ impl ConversationManager {
                         break;
                     }
 
-                    let warning = "Context ceiling reached before the model completed the answer. Hematite trimmed what it could, but this turn still ran out of room. Retry with a narrower inspection step like `grep_files` or `inspect_lines`, or ask for a smaller scoped answer.".to_string();
+                    let warning = format_runtime_failure(
+                        RuntimeFailureClass::ContextWindow,
+                        "Context ceiling reached before the model completed the answer. Hematite trimmed what it could, but this turn still ran out of room. Retry with a narrower inspection step like `grep_files` or `inspect_lines`, or ask for a smaller scoped answer.",
+                    );
                     self.history.push(ChatMessage::assistant_text(&warning));
                     self.transcript.log_agent(&warning);
                     let _ = tx
@@ -3304,11 +3514,23 @@ impl ConversationManager {
                 let _ = tx.send(InferenceEvent::Done).await;
                 break;
             } else {
-                let _ = tx
-                    .send(InferenceEvent::Error(
-                        "Model returned an empty response.".into(),
-                    ))
-                    .await;
+                let detail = "Model returned an empty response.";
+                let class = classify_runtime_failure(detail);
+                if should_retry_runtime_failure(class) && !provider_recovery_attempted {
+                    provider_recovery_attempted = true;
+                    self.transcript.log_system(
+                        "Automatic provider recovery triggered: model returned an empty response.",
+                    );
+                    let _ = tx
+                        .send(InferenceEvent::Thought(
+                            "Provider recovery: model returned an empty response. Retrying once before surfacing a failure."
+                                .into(),
+                        ))
+                        .await;
+                    continue;
+                }
+
+                self.emit_runtime_failure(&tx, class, detail).await;
                 break;
             }
         }
@@ -3317,6 +3539,20 @@ impl ConversationManager {
         self.refresh_session_memory();
         self.save_session();
         Ok(())
+    }
+
+    async fn emit_runtime_failure(
+        &mut self,
+        tx: &mpsc::Sender<InferenceEvent>,
+        class: RuntimeFailureClass,
+        detail: &str,
+    ) {
+        let formatted = format_runtime_failure(class, detail);
+        self.history
+            .push(ChatMessage::system(&format!("# RUNTIME FAILURE\n{}", formatted)));
+        self.transcript.log_system(&formatted);
+        let _ = tx.send(InferenceEvent::Error(formatted)).await;
+        let _ = tx.send(InferenceEvent::Done).await;
     }
 
     /// [Task Analyzer] Run 'cargo check' and return a concise summary for the model.
@@ -3339,7 +3575,7 @@ impl ConversationManager {
         anchor_index: Option<usize>,
     ) -> Result<bool, String> {
         let vram_ratio = self.gpu_state.ratio();
-        let context_length = self.engine.context_length;
+        let context_length = self.engine.current_context_length();
         let config = CompactionConfig::adaptive(context_length, vram_ratio);
 
         if !compaction::should_compact(&self.history, context_length, vram_ratio) {
@@ -3809,7 +4045,8 @@ impl ConversationManager {
         real_id: String,
     ) -> ToolExecutionOutcome {
         let mut msg_results = Vec::new();
-        let gemma4_model = crate::agent::inference::is_gemma4_model_name(&self.engine.model);
+        let gemma4_model =
+            crate::agent::inference::is_gemma4_model_name(&self.engine.current_model());
         let normalized_arguments = if gemma4_model {
             crate::agent::inference::normalize_tool_argument_string(&call.name, &call.arguments)
         } else {

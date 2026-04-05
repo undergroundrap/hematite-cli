@@ -115,6 +115,7 @@ pub struct App {
     pub total_tokens: usize,
     pub current_session_cost: f64,
     pub model_id: String,
+    pub context_length: usize,
     /// Mirrors ConversationManager::think_mode for status bar display.
     /// None = auto, Some(true) = /think, Some(false) = /no_think.
     pub think_mode: Option<bool>,
@@ -419,6 +420,7 @@ pub async fn run_app<B: Backend>(
         total_tokens: 0,
         current_session_cost: 0.0,
         model_id: "detecting...".to_string(),
+        context_length: 0,
         think_mode: None,
         workflow_mode: "AUTO".into(),
         autocomplete_suggestions: Vec::new(),
@@ -1195,8 +1197,20 @@ pub async fn run_app<B: Backend>(
                         app.active_workers.insert(nid.clone(), progress);
                         app.worker_labels.insert(nid, label);
                     }
-                    InferenceEvent::ModelDetected(id) => {
-                        app.model_id = id;
+                    InferenceEvent::RuntimeProfile { model_id, context_length } => {
+                        let changed = app.model_id != "detecting..."
+                            && (app.model_id != model_id || app.context_length != context_length);
+                        app.model_id = model_id.clone();
+                        app.context_length = context_length;
+                        if changed {
+                            app.push_message(
+                                "System",
+                                &format!(
+                                    "Runtime profile refreshed: Model {} | CTX {}",
+                                    model_id, context_length
+                                ),
+                            );
+                        }
                     }
                 }
             }
@@ -1611,7 +1625,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         
         let voice_badge = if app.voice_manager.is_enabled() { " | VOICE: ON" } else { "" };
         f.render_widget(
-            Paragraph::new(format!(" MODE: PROFESSIONAL | FLOW: {}{} | ERR: {:02}{}{}", app.workflow_mode, yolo, app.stats.debugging, think_badge, voice_badge))
+            Paragraph::new(format!(" MODE: PROFESSIONAL | FLOW: {}{} | CTX: {} | ERR: {:02}{}{}", app.workflow_mode, yolo, app.context_length, app.stats.debugging, think_badge, voice_badge))
                 .block(Block::default().borders(Borders::ALL)),
             bar_chunks[1],
         );

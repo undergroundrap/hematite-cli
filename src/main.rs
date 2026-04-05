@@ -45,7 +45,12 @@ async fn run_agent_task(
     );
     manager.cancel_token = cancel_token;
     
-    let _ = agent_tx.send(InferenceEvent::ModelDetected(manager.engine.model.clone())).await;
+    let _ = agent_tx
+        .send(InferenceEvent::RuntimeProfile {
+            model_id: manager.engine.current_model(),
+            context_length: manager.engine.current_context_length(),
+        })
+        .await;
 
     if let Err(e) = manager.initialize_mcp().await {
         let _ = agent_tx.send(InferenceEvent::Error(format!("MCP Init Failed: {}", e))).await;
@@ -59,7 +64,10 @@ async fn run_agent_task(
 
     let greeting = format!(
         "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}",
-        manager.engine.model, manager.engine.context_length, gpu_name, vram
+        manager.engine.current_model(),
+        manager.engine.current_context_length(),
+        gpu_name,
+        vram
     );
 
     let _ = agent_tx.send(InferenceEvent::MutedToken(format!("\n{}", greeting))).await;
@@ -67,11 +75,12 @@ async fn run_agent_task(
     manager.engine.set_gemma_native_formatting(
         crate::agent::config::effective_gemma_native_formatting(
             &startup_config,
-            &manager.engine.model,
+            &manager.engine.current_model(),
         ),
     );
-    if hematite::agent::inference::is_gemma4_model_name(&manager.engine.model) {
-        let mode = crate::agent::config::gemma_native_mode_label(&startup_config, &manager.engine.model);
+    let startup_model = manager.engine.current_model();
+    if hematite::agent::inference::is_gemma4_model_name(&startup_model) {
+        let mode = crate::agent::config::gemma_native_mode_label(&startup_config, &startup_model);
         let status = match mode {
             "on" => "Gemma 4 detected | Gemma Native Formatting: ON (forced)",
             "auto" => "Gemma 4 detected | Gemma Native Formatting: ON (auto)",
@@ -110,8 +119,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let model_name = engine_raw.get_loaded_model().await;
-    if let Some(name) = model_name { engine_raw.model = name; }
-    engine_raw.context_length = engine_raw.detect_context_length().await;
+    if let Some(name) = model_name {
+        engine_raw.set_runtime_profile(&name, engine_raw.current_context_length());
+    }
+    let detected_context = engine_raw.detect_context_length().await;
+    let detected_model = engine_raw.current_model();
+    engine_raw.set_runtime_profile(&detected_model, detected_context);
 
     let (specular_tx, specular_rx) = mpsc::channel(32);
     let _watcher_guard = agent::specular::spawn_watcher(specular_tx)?;

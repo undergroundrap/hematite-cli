@@ -13,6 +13,32 @@ Check:
 - does not sound like a copied cloud agent
 - does not reduce itself to only a TUI
 
+## 1b. Live Context Detection
+
+Restart Hematite against LM Studio and compare the startup banner CTX with LM Studio's loaded-model metadata.
+
+Check:
+- Hematite prefers LM Studio's live `loaded_context_length` when available
+- startup does not fall back to a generic Gemma 32768 baseline if LM Studio reported a different active loaded context
+
+## 1c. Live Runtime Refresh
+
+Change the loaded model or active context length in LM Studio without restarting Hematite, then send a fresh prompt.
+
+Check:
+- Hematite refreshes the runtime profile before the turn
+- the TUI picks up the new model or CTX value
+- Gemma-native mode is re-evaluated against the refreshed model identity
+
+## 1d. Tiny-Context Fallback
+
+If LM Studio is serving a very small active context like 4096, ask a trivial prompt such as `who are you?`.
+
+Check:
+- Hematite does not burn the whole budget on the default heavyweight system prompt
+- a tiny-context runtime profile still lets trivial prompts fit
+- the harness does not immediately self-block on its own scaffolding for a simple turn
+
 ## 2. Grounded Runtime Trace
 
 ```text
@@ -100,6 +126,22 @@ Read-only mode. Do not modify anything. Tell me what you would check before runn
 ```text
 After multiple turns of stale context, what commands or mechanisms does Hematite have to reset or recover the session?
 ```
+
+## 11b. Structured Failure Recovery
+
+```text
+If LM Studio degrades, returns an empty reply, or the turn hits a hard runtime failure, how should Hematite surface that to the operator?
+```
+
+Check:
+- describes classified runtime failures instead of vague raw provider prose
+- mentions at least `context_window` and `provider_degraded`
+- mentions one automatic retry for degraded or empty provider turns before surfacing the failure
+
+Also watch for:
+- no silent empty completion on plain streaming or startup-style text generations
+- no raw `LM Studio: 500` style provider text leaking straight to the operator
+- LM Studio `n_keep >= n_ctx` or similar context-budget rejections are described as `context_window`, not generic `provider_degraded`
 
 ## 12. Product Framing
 

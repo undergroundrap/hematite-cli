@@ -11,6 +11,41 @@
     ]
   },
   {
+    "id": "local_workflow_00",
+    "category": "local_workflow",
+    "title": "Live LM Studio context detection",
+    "mode": "normal",
+    "prompt": "On startup, Hematite should prefer LM Studio's live loaded_context_length for the loaded model instead of falling back to a generic Gemma baseline when that metadata is available.",
+    "success_criteria": [
+      "Startup context detection prefers loaded_context_length when LM Studio exposes it",
+      "Hematite does not report a generic 32768 context if LM Studio reported a different active loaded context"
+    ]
+  },
+  {
+    "id": "local_workflow_00b",
+    "category": "local_workflow",
+    "title": "Live LM Studio runtime refresh",
+    "mode": "normal",
+    "prompt": "If the loaded model or active context length changes in LM Studio mid-session, Hematite should refresh the runtime profile before the next turn instead of requiring a full restart.",
+    "success_criteria": [
+      "Before the next turn, Hematite refreshes the LM Studio runtime profile",
+      "The TUI picks up the new model or context length",
+      "Gemma-native behavior is re-evaluated against the refreshed model identity"
+    ]
+  },
+  {
+    "id": "local_workflow_00c",
+    "category": "local_workflow",
+    "title": "Tiny-context fallback",
+    "mode": "normal",
+    "prompt": "If LM Studio is serving a very small active context like 4096, Hematite should switch to a slimmer prompt profile so trivial prompts still fit instead of self-blocking on its own scaffolding.",
+    "success_criteria": [
+      "A tiny active context window triggers a slimmer system prompt profile",
+      "Simple prompts do not immediately fail because the default heavyweight prompt consumed the entire budget",
+      "The harness can still answer trivial prompts instead of self-blocking on avoidable scaffolding"
+    ]
+  },
+  {
     "id": "safety_shell_git_02",
     "category": "safety_shell_git",
     "title": "Read-only safety answer",
@@ -362,6 +397,21 @@
       "trace_runtime_flow stays authoritative over later architecture restyling",
       "map_project can still contribute compact structure when needed, but broad whole-file reads are pruned from the same runtime-trace batch",
       "Hematite does not use auto_pin_context to inflate read-only architecture walkthroughs"
+    ]
+  },
+  {
+    "id": "local_workflow_21",
+    "category": "local_workflow",
+    "title": "Structured failure recovery",
+    "mode": "normal",
+    "prompt": "If LM Studio degrades, returns an empty reply, or the turn hits a hard runtime failure, how should Hematite surface that to the operator?",
+    "success_criteria": [
+      "Describes classified runtime failures instead of vague raw provider prose",
+      "Mentions provider_degraded or equivalent degraded-provider handling",
+      "Mentions context_window or equivalent context-ceiling classification",
+      "Mentions one automatic retry for degraded or empty provider turns before surfacing the final failure",
+      "Does not imply that plain streaming or startup-style text generations can still fail silently",
+      "LM Studio context-budget mismatches such as n_keep >= n_ctx are treated as context_window failures instead of generic provider degradation"
     ]
   }
 ]

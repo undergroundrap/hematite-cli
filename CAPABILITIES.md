@@ -26,6 +26,9 @@ Hematite continuously adapts to the machine it is running on.
 - **Adaptive brief mode**: output and worker behavior can tighten automatically under memory pressure
 - **Single-GPU focus**: the runtime is shaped around one practical local GPU, not multi-GPU or cloud assumptions
 - **4070-class target**: the design center is the common 12 GB consumer setup where open models need careful context shaping, compaction, and tool discipline
+- **Live LM Studio context detection**: startup now prefers the loaded model's `loaded_context_length` from LM Studio so Hematite budgets against the active runtime context instead of an outdated fallback field
+- **Live runtime-profile refresh**: before each turn, Hematite can resync the loaded LM Studio model ID and active context budget so model swaps or context changes do not require a full Hematite restart
+- **Tiny-context fallback profile**: when LM Studio serves a very small active context window, Hematite can switch to a slimmer system prompt so simple prompts still fit instead of immediately exhausting the budget
 
 ## 4. Workspace-Native Tooling
 
@@ -52,6 +55,10 @@ Hematite is built for repeated project use, not one-off prompts.
 - **Gemma numeric-arg hygiene**: float-shaped tool arguments like `limit: 50.0` or `context: 5.0` are normalized so bounded inspections stay bounded
 - **Opt-in Gemma native formatting**: `.hematite/settings.json` can enable Gemma-native request shaping for Gemma 4 models without changing the default path for other models
 - **Provider-side prompt preflight**: oversized requests can be blocked before they go to LM Studio, reducing silent near-ceiling hangs
+- **Structured runtime failures**: degraded provider turns, context-window overruns, blocked tool calls, and repeated tool loops are surfaced as classified operator states instead of ad hoc error prose
+- **One-shot provider recovery**: empty or degraded LM Studio turns get one automatic retry before Hematite escalates the structured failure
+- **Streaming-path failure discipline**: plain text generations and startup flows now surface structured provider failures instead of raw stream errors or silent empty completions
+- **LM Studio context-mismatch detection**: provider errors like `n_keep >= n_ctx` are classified as `context_window` failures so Hematite points at the real budget mismatch instead of mislabeling them as generic provider degradation
 - **Session persistence**: active state is saved under `.hematite/`
 - **Task awareness**: local task and planning files can shape agent behavior
 - **Instruction discovery**: project rules are loaded automatically from workspace instruction files
