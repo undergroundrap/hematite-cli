@@ -809,6 +809,66 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/gemma-native" => {
+                                                let sub = parts.get(1).copied().unwrap_or("status").to_ascii_lowercase();
+                                                let gemma_detected = crate::agent::inference::is_gemma4_model_name(&app.model_id);
+                                                match sub.as_str() {
+                                                    "auto" => {
+                                                        match crate::agent::config::set_gemma_native_mode("auto") {
+                                                            Ok(_) => {
+                                                                if gemma_detected {
+                                                                    app.push_message("System", "Gemma Native Formatting: AUTO. Gemma 4 will use native formatting automatically on the next turn.");
+                                                                } else {
+                                                                    app.push_message("System", "Gemma Native Formatting: AUTO in settings. It will activate automatically when a Gemma 4 model is loaded.");
+                                                                }
+                                                            }
+                                                            Err(e) => app.push_message("System", &format!("Failed to update settings: {}", e)),
+                                                        }
+                                                    }
+                                                    "on" => {
+                                                        match crate::agent::config::set_gemma_native_mode("on") {
+                                                            Ok(_) => {
+                                                                if gemma_detected {
+                                                                    app.push_message("System", "Gemma Native Formatting: ON (forced). It will apply on the next turn.");
+                                                                } else {
+                                                                    app.push_message("System", "Gemma Native Formatting: ON (forced) in settings. It will activate only when a Gemma 4 model is loaded.");
+                                                                }
+                                                            }
+                                                            Err(e) => app.push_message("System", &format!("Failed to update settings: {}", e)),
+                                                        }
+                                                    }
+                                                    "off" => {
+                                                        match crate::agent::config::set_gemma_native_mode("off") {
+                                                            Ok(_) => app.push_message("System", "Gemma Native Formatting: OFF."),
+                                                            Err(e) => app.push_message("System", &format!("Failed to update settings: {}", e)),
+                                                        }
+                                                    }
+                                                    _ => {
+                                                        let config = crate::agent::config::load_config();
+                                                        let mode = crate::agent::config::gemma_native_mode_label(&config, &app.model_id);
+                                                        let enabled = match mode {
+                                                            "on" => "ON (forced)",
+                                                            "auto" => "ON (auto)",
+                                                            "off" => "OFF",
+                                                            _ => "INACTIVE",
+                                                        };
+                                                        let model_note = if gemma_detected {
+                                                            "Gemma 4 detected."
+                                                        } else {
+                                                            "Current model is not Gemma 4."
+                                                        };
+                                                        app.push_message(
+                                                            "System",
+                                                            &format!(
+                                                                "Gemma Native Formatting: {}. {} Usage: /gemma-native auto | on | off | status",
+                                                                enabled, model_note
+                                                            ),
+                                                        );
+                                                    }
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/ask" | "/code" | "/architect" | "/read-only" | "/auto" => {
                                                 let label = match cmd.as_str() {
                                                     "/ask" => "ASK",
@@ -912,6 +972,7 @@ pub async fn run_app<B: Backend>(
                                                      /new              — (Reset) Clear history, memories, and task files\n\
                                                      /forget           — (Wipe) Nuclear pivot: reset history & active tasks\n\
                                                      /clear            — (UI) Clear dialogue display only\n\
+                                                     /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
                                                      /undo             — (Ghost) Revert last file change\n\
                                                      /diff             — (Git) Show session changes (--stat)\n\
                                                      /lsp              — (Logic) Start Language Servers (semantic intelligence)\n\

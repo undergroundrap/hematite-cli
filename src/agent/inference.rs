@@ -19,6 +19,8 @@ pub struct InferenceEngine {
     pub economics: std::sync::Arc<std::sync::Mutex<SessionEconomics>>,
     /// Optional model ID for worker-level tasks (Swarms / research).
     pub worker_model: Option<String>,
+    /// Opt-in Gemma-native request shaping. Off by default.
+    pub gemma_native_formatting: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Global cancellation token for hard-interrupting the inference stream.
     pub cancel_token: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
@@ -26,6 +28,13 @@ pub struct InferenceEngine {
 pub fn is_gemma4_model_name(model: &str) -> bool {
     let lower = model.to_ascii_lowercase();
     lower.contains("gemma-4") || lower.contains("gemma4")
+}
+
+fn should_use_gemma_native_formatting(
+    engine: &InferenceEngine,
+    model: &str,
+) -> bool {
+    is_gemma4_model_name(model) && engine.gemma_native_formatting_enabled()
 }
 
 // ── OpenAI Tool Definition ────────────────────────────────────────────────────
@@ -315,8 +324,19 @@ impl InferenceEngine {
             context_length: 32_768, // Gemma-4 Sweet Spot (32K)
             economics: std::sync::Arc::new(std::sync::Mutex::new(SessionEconomics::new())),
             worker_model: None,
+            gemma_native_formatting: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             cancel_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         })
+    }
+
+    pub fn set_gemma_native_formatting(&self, enabled: bool) {
+        self.gemma_native_formatting
+            .store(enabled, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub fn gemma_native_formatting_enabled(&self) -> bool {
+        self.gemma_native_formatting
+            .load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Returns true if LM Studio is reachable.
@@ -649,26 +669,29 @@ impl InferenceEngine {
             tools.to_vec()
         };
 
-        // Gemma-4 Protocol: Wrap all messages in turn delimiters to enforce native behavior.
-        let wrapped_messages: Vec<ChatMessage> = messages
-            .iter()
-            .map(|m| {
-                let mut clone = m.clone();
-                let current_text = m.content.as_str();
-                // Don't double-wrap if already wrapped
-                if !current_text.starts_with("<|turn>") {
-                    clone.content = MessageContent::Text(format!(
-                        "<|turn>{}\n{}\n<turn|>",
-                        m.role, current_text
-                    ));
-                }
-                clone
-            })
-            .collect();
+        let request_messages = if should_use_gemma_native_formatting(self, &model) {
+            prepare_gemma_native_messages(messages)
+        } else {
+            messages
+                .iter()
+                .map(|m| {
+                    let mut clone = m.clone();
+                    let current_text = m.content.as_str();
+                    // Don't double-wrap if already wrapped
+                    if !current_text.starts_with("<|turn>") {
+                        clone.content = MessageContent::Text(format!(
+                            "<|turn>{}\n{}\n<turn|>",
+                            m.role, current_text
+                        ));
+                    }
+                    clone
+                })
+                .collect()
+        };
 
         let request = ChatRequest {
             model: model.clone(),
-            messages: wrapped_messages,
+            messages: request_messages,
             temperature: 0.2,
             stream: false,
             tools: if filtered_tools.is_empty() {
@@ -767,25 +790,28 @@ impl InferenceEngine {
         messages: &[ChatMessage],
         tx: mpsc::Sender<InferenceEvent>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Gemma-4 Protocol: Wrap all messages in turn delimiters to enforce native behavior.
-        let wrapped_messages: Vec<ChatMessage> = messages
-            .iter()
-            .map(|m| {
-                let mut clone = m.clone();
-                let current_text = m.content.as_str();
-                if !current_text.starts_with("<|turn>") {
-                    clone.content = MessageContent::Text(format!(
-                        "<|turn>{}\n{}\n<turn|>",
-                        m.role, current_text
-                    ));
-                }
-                clone
-            })
-            .collect();
+        let request_messages = if should_use_gemma_native_formatting(self, &self.model) {
+            prepare_gemma_native_messages(messages)
+        } else {
+            messages
+                .iter()
+                .map(|m| {
+                    let mut clone = m.clone();
+                    let current_text = m.content.as_str();
+                    if !current_text.starts_with("<|turn>") {
+                        clone.content = MessageContent::Text(format!(
+                            "<|turn>{}\n{}\n<turn|>",
+                            m.role, current_text
+                        ));
+                    }
+                    clone
+                })
+                .collect()
+        };
 
         let request = ChatRequest {
             model: self.model.clone(),
-            messages: wrapped_messages,
+            messages: request_messages,
             temperature: 0.7,
             stream: true,
             tools: None,
@@ -968,9 +994,14 @@ impl InferenceEngine {
             .map_err(|e| e.to_string())?;
 
         let system = self.build_system_prompt(self.snark, 50, false, professional, &[], None, &[]);
+        let request_messages = if should_use_gemma_native_formatting(self, model) {
+            prepare_gemma_native_messages(&[ChatMessage::system(&system), ChatMessage::user(prompt)])
+        } else {
+            vec![ChatMessage::system(&system), ChatMessage::user(prompt)]
+        };
         let request = ChatRequest {
             model: model.to_string(),
-            messages: vec![ChatMessage::system(&system), ChatMessage::user(prompt)],
+            messages: request_messages,
             temperature: temp,
             stream: false,
             tools: None,
@@ -1304,6 +1335,61 @@ fn normalize_regex_pattern(input: &str) -> String {
     } else {
         out
     }
+}
+
+fn prepare_gemma_native_messages(messages: &[ChatMessage]) -> Vec<ChatMessage> {
+    let mut system_blocks = Vec::new();
+    let mut prepared = Vec::new();
+    let mut seeded = false;
+
+    for message in messages {
+        if message.role == "system" {
+            let cleaned = strip_legacy_turn_wrappers(message.content.as_str()).trim().to_string();
+            if !cleaned.is_empty() {
+                system_blocks.push(cleaned);
+            }
+            continue;
+        }
+
+        let mut clone = message.clone();
+        clone.content = MessageContent::Text(strip_legacy_turn_wrappers(message.content.as_str()));
+
+        if !seeded && message.role == "user" {
+            let mut merged = String::new();
+            if !system_blocks.is_empty() {
+                merged.push_str("System instructions for this turn:\n");
+                merged.push_str(&system_blocks.join("\n\n"));
+                merged.push_str("\n\n");
+            }
+            merged.push_str(clone.content.as_str());
+            clone.content = MessageContent::Text(merged);
+            seeded = true;
+        }
+
+        prepared.push(clone);
+    }
+
+    if !seeded && !system_blocks.is_empty() {
+        prepared.insert(
+            0,
+            ChatMessage::user(&format!(
+                "System instructions for this turn:\n{}",
+                system_blocks.join("\n\n")
+            )),
+        );
+    }
+
+    prepared
+}
+
+fn strip_legacy_turn_wrappers(text: &str) -> String {
+    text.replace("<|turn>system\n", "")
+        .replace("<|turn>user\n", "")
+        .replace("<|turn>assistant\n", "")
+        .replace("<|turn>tool\n", "")
+        .replace("<turn|>", "")
+        .trim()
+        .to_string()
 }
 
 fn strip_native_tool_call_text(text: &str) -> String {

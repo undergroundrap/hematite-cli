@@ -229,6 +229,30 @@ fn build_workflow_modes_answer() -> String {
     "/ask is sticky read-only analysis mode: inspect, explain, and answer without making changes.\n\n/code is sticky implementation mode: Hematite can edit, verify, and carry out coding work with the normal proof-before-action safeguards.\n\n/architect is sticky plan-first mode: inspect the repo, shape the solution, and produce the implementation approach before editing. It should not mutate code unless you explicitly ask to implement.\n\n/read-only is the hard no-mutation workflow: analysis only, no file edits, no mutating shell commands, and no commits.\n\n/auto returns Hematite to the default behavior where it chooses the narrowest effective path for the request.".to_string()
 }
 
+fn should_answer_gemma_native_directly(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    (lower.contains("/gemma-native") || lower.contains("gemma native"))
+        && (lower.contains("what does")
+            || lower.contains("what is")
+            || lower.contains("how does")
+            || lower.contains("what do"))
+}
+
+fn build_gemma_native_answer() -> String {
+    "`/gemma-native` controls Hematite's Gemma 4 native-formatting mode from inside the TUI.\n\n`/gemma-native auto` restores the default behavior: if the loaded model is Gemma 4, Hematite enables the safer native-formatting path automatically at startup and on new turns.\n\n`/gemma-native on` force-enables that path for Gemma 4, `/gemma-native off` disables it, and `/gemma-native status` reports the current mode.\n\nThis setting matters only for Gemma 4 models. It does not change other model families.".to_string()
+}
+
+fn should_answer_gemma_native_settings_directly(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains(".hematite/settings.json")
+        && lower.contains("gemma_native_auto")
+        && lower.contains("gemma_native_formatting")
+}
+
+fn build_gemma_native_settings_answer() -> String {
+    "For a Gemma 4 model, `gemma_native_auto` is the default startup behavior and `gemma_native_formatting` is the explicit forced-on override.\n\nIf `gemma_native_auto` is `true` and the loaded model is Gemma 4, Hematite enables the Gemma-native formatting path automatically at startup and on new turns.\n\nIf `gemma_native_formatting` is `true`, Hematite force-enables that path for Gemma 4 even if you are not relying on the automatic mode.\n\nIf both are `false`, Gemma-native formatting stays off. These settings do not activate for non-Gemma-4 models.".to_string()
+}
+
 fn should_answer_verify_profiles_directly(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     lower.contains("verify_build")
@@ -1548,6 +1572,11 @@ impl ConversationManager {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Reload config every turn (edits apply immediately, no restart needed).
         let config = crate::agent::config::load_config();
+        self.engine
+            .set_gemma_native_formatting(crate::agent::config::effective_gemma_native_formatting(
+                &config,
+                &self.engine.model,
+            ));
         let _turn_id = self.begin_grounded_turn().await;
         let _hook_runner = crate::agent::hooks::HookRunner::new(config.hooks.clone());
         let mcp_tools = match self.refresh_mcp_tools().await {
@@ -1772,6 +1801,42 @@ impl ConversationManager {
 
         if should_answer_workflow_modes_directly(&effective_user_input) {
             let response = build_workflow_modes_answer();
+            self.history.push(ChatMessage::user(&effective_user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
+        if should_answer_gemma_native_directly(&effective_user_input) {
+            let response = build_gemma_native_answer();
+            self.history.push(ChatMessage::user(&effective_user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
+        if should_answer_gemma_native_settings_directly(&effective_user_input) {
+            let response = build_gemma_native_settings_answer();
             self.history.push(ChatMessage::user(&effective_user_input));
             self.history.push(ChatMessage::assistant_text(&response));
             self.transcript.log_user(user_input);

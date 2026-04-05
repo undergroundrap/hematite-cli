@@ -257,5 +257,31 @@
       "Normalizes over-quoted path and extension arguments into usable built-in tool arguments",
       "Normalizes slash-delimited grep_files patterns before execution"
     ]
+  },
+  {
+    "id": "local_workflow_13",
+    "category": "local_workflow",
+    "title": "Gemma native formatting modes",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Explain what `gemma_native_auto` and `gemma_native_formatting` in `.hematite/settings.json` do and how they should behave for a Gemma 4 model at startup.",
+    "success_criteria": [
+      "Explains that gemma_native_auto enables the Gemma 4 native path automatically by default",
+      "Explains that gemma_native_formatting is the explicit forced-on override",
+      "Limits the behavior to Gemma 4 models",
+      "Answers directly without repo tools or blocked MCP reads"
+    ]
+  },
+  {
+    "id": "local_workflow_14",
+    "category": "local_workflow",
+    "title": "Gemma native command surface",
+    "mode": "normal",
+    "prompt": "What does `/gemma-native` do in Hematite?",
+    "success_criteria": [
+      "Mentions /gemma-native auto, /gemma-native on, /gemma-native off, and /gemma-native status",
+      "Says it updates the Gemma 4 native-formatting mode from inside Hematite",
+      "Makes clear startup can auto-enable the path when a Gemma 4 model is loaded",
+      "Answers directly without reading repo files or docs for this product-surface question"
+    ]
   }
 ]

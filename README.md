@@ -240,6 +240,15 @@ For tooling-discipline and investigation-plan questions, Hematite can use `descr
 
 Hematite now has a narrow Gemma 4 compatibility layer in the inference path. It does not rewrite the full conversation protocol. Instead, it detects Gemma 4 models and normalizes the specific malformed tool-argument patterns that local runs were actually producing, such as over-quoted `path` and `extension` fields or slash-delimited `grep_files` patterns.
 
+For deeper experimentation, `.hematite/settings.json` supports two Gemma-native controls:
+
+- `gemma_native_auto`: defaults to `true` and automatically enables the native-formatting path when the loaded model is Gemma 4
+- `gemma_native_formatting`: defaults to `false` and force-enables the native-formatting path for Gemma 4 when you want to override the automatic mode explicitly
+
+That native path is still limited to Gemma 4 models. When active, Hematite folds the system instructions into the first user turn instead of relying only on the legacy wrapper format. This is the safe way to test more native Gemma request shaping without changing the default runtime contract for every model.
+
+If Hematite detects a Gemma 4 model at startup, it reports whether Gemma Native Formatting is `ON (auto)`, `ON (forced)`, or `OFF`. You can also control it live from the TUI with `/gemma-native auto`, `/gemma-native on`, `/gemma-native off`, or `/gemma-native status`.
+
 ### Vision Analysis
 
 Hematite can inspect screenshots, diagrams, and UI captures through `vision_analyze`, which lets the model reason about visual bugs and interface state instead of relying only on text descriptions.
@@ -258,6 +267,7 @@ Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically li
 /code [prompt]    Sticky implementation mode; optional inline prompt
 /architect [prompt]  Sticky plan-first mode; optional inline prompt that can refresh `.hematite/PLAN.md`
 /read-only [prompt]  Sticky hard read-only mode; optional inline prompt
+/gemma-native [auto|on|off|status]  Auto/force/disable Gemma 4 native formatting
 /new              Reset session and clear context
 /forget           Purge saved conversation memory and wipe visible session state
 /think            Enable Gemma-4 native reasoning channel
@@ -315,6 +325,8 @@ Hematite reads `.hematite/settings.json` from your project root:
   "context_hint": "This is a Rust project using Axum and SQLx.",
   "fast_model": "gemma-4-9b",
   "think_model": "gemma-4-27b",
+  "gemma_native_auto": true,
+  "gemma_native_formatting": false,
   "verify": {
     "default_profile": "rust",
     "profiles": {
@@ -333,6 +345,8 @@ Hematite reads `.hematite/settings.json` from your project root:
 Permission modes: `read-only`, `developer`, `system-admin`
 
 `verify_build` prefers these per-project profiles for `build`, `test`, `lint`, and `fix`. If no profile is configured, Hematite falls back to stack-aware defaults where it can and tells you when a profile is needed for a less-standard action.
+
+For Gemma 4 models, `gemma_native_auto: true` lets Hematite switch into the safer native-formatting path automatically at startup. Use `gemma_native_formatting: true` only when you want to force that path on explicitly, and use `/gemma-native off` if you need to disable it for troubleshooting.
 
 ---
 

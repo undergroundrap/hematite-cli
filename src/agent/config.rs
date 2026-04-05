@@ -5,6 +5,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+fn default_true() -> bool { true }
+
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq)]
 pub enum PermissionMode {
     #[default]
@@ -26,6 +28,12 @@ pub struct HematiteConfig {
     pub fast_model: Option<String>,
     /// Override the think model ID used for complex tasks.
     pub think_model: Option<String>,
+    /// When true, Gemma 4 models enable native-formatting behavior automatically unless explicitly forced off.
+    #[serde(default = "default_true")]
+    pub gemma_native_auto: bool,
+    /// Force Gemma-native request shaping on for Gemma 4 models.
+    #[serde(default)]
+    pub gemma_native_formatting: bool,
     /// Extra text appended verbatim to the system prompt (project notes, conventions, etc.).
     pub context_hint: Option<String>,
     /// Per-project verification commands for build/test/lint/fix workflows.
@@ -72,12 +80,16 @@ pub struct PermissionRules {
     pub deny: Vec<String>,
 }
 
+pub fn settings_path() -> std::path::PathBuf {
+    crate::tools::file_ops::workspace_root()
+        .join(".hematite")
+        .join("settings.json")
+}
+
 /// Load `.hematite/settings.json` from the workspace root.
 /// Returns default config if the file doesn't exist or can't be parsed.
 pub fn load_config() -> HematiteConfig {
-    let path = crate::tools::file_ops::workspace_root()
-        .join(".hematite")
-        .join("settings.json");
+    let path = settings_path();
 
     if !path.exists() {
         write_default_config(&path);
@@ -88,6 +100,59 @@ pub fn load_config() -> HematiteConfig {
         return HematiteConfig::default();
     };
     serde_json::from_str(&data).unwrap_or_default()
+}
+
+pub fn save_config(config: &HematiteConfig) -> Result<(), String> {
+    let path = settings_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| e.to_string())
+}
+
+pub fn set_gemma_native_formatting(enabled: bool) -> Result<(), String> {
+    set_gemma_native_mode(if enabled { "on" } else { "off" })
+}
+
+pub fn set_gemma_native_mode(mode: &str) -> Result<(), String> {
+    let mut config = load_config();
+    match mode {
+        "on" => {
+            config.gemma_native_auto = false;
+            config.gemma_native_formatting = true;
+        }
+        "off" => {
+            config.gemma_native_auto = false;
+            config.gemma_native_formatting = false;
+        }
+        "auto" => {
+            config.gemma_native_auto = true;
+            config.gemma_native_formatting = false;
+        }
+        _ => return Err(format!("Unknown gemma native mode: {}", mode)),
+    }
+    save_config(&config)
+}
+
+pub fn effective_gemma_native_formatting(
+    config: &HematiteConfig,
+    model_name: &str,
+) -> bool {
+    crate::agent::inference::is_gemma4_model_name(model_name)
+        && (config.gemma_native_formatting || config.gemma_native_auto)
+}
+
+pub fn gemma_native_mode_label(config: &HematiteConfig, model_name: &str) -> &'static str {
+    if !crate::agent::inference::is_gemma4_model_name(model_name) {
+        "inactive"
+    } else if config.gemma_native_formatting {
+        "on"
+    } else if config.gemma_native_auto {
+        "auto"
+    } else {
+        "off"
+    }
 }
 
 /// Write a commented default config on first run so users know what's available.
@@ -116,6 +181,8 @@ fn write_default_config(path: &std::path::Path) {
   "model": null,
   "fast_model": null,
   "think_model": null,
+  "gemma_native_auto": true,
+  "gemma_native_formatting": false,
 
   "verify": {
     "default_profile": null,

@@ -48,6 +48,7 @@ Hematite is built for repeated project use, not one-off prompts.
 - **Lightweight session handoff**: Hematite carries forward compact task/project signal instead of replaying full chat residue by default
 - **Architect -> code handoff**: `/architect` can persist a compact implementation brief in `.hematite/PLAN.md` and session memory so `/code` can resume from a structured plan
 - **Safe Gemma 4 native layer**: Gemma 4 runs get narrow argument normalization for malformed tool calls without changing Hematite's broader conversation protocol
+- **Opt-in Gemma native formatting**: `.hematite/settings.json` can enable Gemma-native request shaping for Gemma 4 models without changing the default path for other models
 - **Session persistence**: active state is saved under `.hematite/`
 - **Task awareness**: local task and planning files can shape agent behavior
 - **Instruction discovery**: project rules are loaded automatically from workspace instruction files

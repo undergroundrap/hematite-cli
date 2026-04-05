@@ -63,6 +63,22 @@ async fn run_agent_task(
     );
 
     let _ = agent_tx.send(InferenceEvent::MutedToken(format!("\n{}", greeting))).await;
+    let startup_config = crate::agent::config::load_config();
+    manager.engine.set_gemma_native_formatting(
+        crate::agent::config::effective_gemma_native_formatting(
+            &startup_config,
+            &manager.engine.model,
+        ),
+    );
+    if hematite::agent::inference::is_gemma4_model_name(&manager.engine.model) {
+        let mode = crate::agent::config::gemma_native_mode_label(&startup_config, &manager.engine.model);
+        let status = match mode {
+            "on" => "Gemma 4 detected | Gemma Native Formatting: ON (forced)",
+            "auto" => "Gemma 4 detected | Gemma Native Formatting: ON (auto)",
+            _ => "Gemma 4 detected | Gemma Native Formatting: OFF (use /gemma-native auto|on)",
+        };
+        let _ = agent_tx.send(InferenceEvent::MutedToken(status.to_string())).await;
+    }
 
     while let Some(input) = user_input_rx.recv().await {
         if let Err(e) = manager.run_turn(&input, agent_tx.clone(), yolo).await {

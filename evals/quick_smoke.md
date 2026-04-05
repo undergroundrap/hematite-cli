@@ -358,3 +358,27 @@ Check:
 - does not leak raw `<|tool_call>` or `[END_TOOL_REQUEST]` markup
 - if it emits quoted tool args like `"src/ui/tui.rs"` or `"rs"`, Hematite normalizes them into usable built-in tool arguments
 - if it emits `grep_files` patterns with surrounding slash delimiters, Hematite normalizes them before execution
+
+## 31. Gemma Native Formatting Modes
+
+```text
+Read-only mode. Explain what `gemma_native_auto` and `gemma_native_formatting` in `.hematite/settings.json` do and how they should behave for a Gemma 4 model at startup.
+```
+
+Check:
+- explains that `gemma_native_auto` enables the Gemma 4 native path automatically by default
+- explains that `gemma_native_formatting` is the explicit forced-on override
+- limits the behavior to Gemma 4 models
+- answers directly without repo tools or blocked MCP reads
+
+## 32. Gemma Native Command Surface
+
+```text
+What does `/gemma-native` do in Hematite?
+```
+
+Check:
+- mentions `/gemma-native auto`, `/gemma-native on`, `/gemma-native off`, and `/gemma-native status`
+- says it updates the Gemma 4 native-formatting mode from inside Hematite
+- makes clear startup can auto-enable the path when a Gemma 4 model is loaded
+- answers directly without reading repo files or docs for this product-surface question
