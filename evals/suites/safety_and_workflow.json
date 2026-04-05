@@ -212,5 +212,38 @@
       "Treats auto-detect as fallback rather than the only path",
       "Does not call describe_toolchain for this product-surface question"
     ]
+  },
+  {
+    "id": "local_workflow_10",
+    "category": "local_workflow",
+    "title": "Architect handoff",
+    "mode": "normal",
+    "prompt": "/architect Redesign Hematite's session reset flow so `/clear`, `/new`, and `/forget` are easier for local-model users to understand.",
+    "success_criteria": [
+      "Returns a plan-first answer rather than implementation",
+      "Does not open with process narration like the first step",
+      "Uses a compact handoff shape with goal, target files, ordered steps, verification, risks, and open questions",
+      "Leaves behind a reusable plan in .hematite/PLAN.md",
+      "Does not wander into map_project or full-file reads for this reset redesign case"
+    ]
+  },
+  {
+    "id": "local_workflow_11",
+    "category": "local_workflow",
+    "title": "Code consumes current plan",
+    "mode": "normal",
+    "prompt": "/code Implement the current plan.",
+    "success_criteria": [
+      "Treats the existing architect handoff as the implementation brief",
+      "Does not act like it is starting from an empty task",
+      "Keeps normal proof-before-action and verification discipline",
+      "Does not call map_project during current-plan execution",
+      "Does not call describe_toolchain or trace_runtime_flow during current-plan execution",
+      "Stays on the saved target files instead of broad repo exploration",
+      "Keeps file inspection and edits path-scoped to the saved target files",
+      "Uses inspect_lines before exact edit tools when narrowing an edit region",
+      "Does not leak raw tool-call markup into chat",
+      "Either starts a concrete edit or fails quickly with a specific current-plan blocker instead of spinning in a tool loop"
+    ]
   }
 ]

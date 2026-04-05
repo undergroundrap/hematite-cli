@@ -46,6 +46,7 @@ Hematite is more than a chat shell around a local model.
 Hematite is built for repeated project use, not one-off prompts.
 
 - **Lightweight session handoff**: Hematite carries forward compact task/project signal instead of replaying full chat residue by default
+- **Architect -> code handoff**: `/architect` can persist a compact implementation brief in `.hematite/PLAN.md` and session memory so `/code` can resume from a structured plan
 - **Session persistence**: active state is saved under `.hematite/`
 - **Task awareness**: local task and planning files can shape agent behavior
 - **Instruction discovery**: project rules are loaded automatically from workspace instruction files

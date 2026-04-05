@@ -232,6 +232,10 @@ For tooling-discipline and investigation-plan questions, Hematite can use `descr
 
 `map_project` is not just a file tree. It returns a compact repo map with configuration markers, likely entrypoints, core owner files, and extracted top symbols so smaller local models can get useful spatial awareness before spending turns on deeper file reads or LSP queries.
 
+### Architect -> Code Handoff
+
+`/architect` can persist a compact implementation handoff into `.hematite/PLAN.md` and session memory. That handoff carries the goal, target files, ordered steps, verification action, risks, and open questions so `/code` can resume from a clean brief instead of reconstructing the plan from chat residue.
+
 ### Vision Analysis
 
 Hematite can inspect screenshots, diagrams, and UI captures through `vision_analyze`, which lets the model reason about visual bugs and interface state instead of relying only on text descriptions.
@@ -248,7 +252,7 @@ Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically li
 /auto             Let Hematite choose the narrowest effective workflow
 /ask [prompt]     Sticky read-only analysis mode; optional inline prompt
 /code [prompt]    Sticky implementation mode; optional inline prompt
-/architect [prompt]  Sticky plan-first mode; optional inline prompt
+/architect [prompt]  Sticky plan-first mode; optional inline prompt that can refresh `.hematite/PLAN.md`
 /read-only [prompt]  Sticky hard read-only mode; optional inline prompt
 /new              Reset session and clear context
 /forget           Purge saved conversation memory and wipe visible session state
@@ -270,8 +274,8 @@ Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically li
 Workflow note:
 
 - `/ask` is for explanation and repo understanding without mutation
-- `/code` is for implementation work
-- `/architect` is for planning and solution design before editing
+- `/code` is for implementation work and should consume the current plan handoff when one exists
+- `/architect` is for planning and solution design before editing, and can persist a reusable implementation handoff
 - `/read-only` is the hard no-mutation workflow
 - `/auto` returns Hematite to normal behavior
 - each of those workflow commands can also take an inline prompt, for example `/ask why is this failing?` or `/code fix the startup banner`

@@ -51,6 +51,8 @@ pub struct SessionMemory {
     pub current_task: String,
     pub working_set: std::collections::HashSet<String>,
     pub learnings: Vec<String>,
+    #[serde(default)]
+    pub current_plan: Option<crate::tools::plan::PlanHandoff>,
 }
 
 impl SessionMemory {
@@ -59,10 +61,21 @@ impl SessionMemory {
         (!task.is_empty() && task != "Ready for new mission.")
             || !self.working_set.is_empty()
             || !self.learnings.is_empty()
+            || self
+                .current_plan
+                .as_ref()
+                .map(|plan| plan.has_signal())
+                .unwrap_or(false)
     }
 
     pub fn to_prompt(&self) -> String {
         let mut s = format!("- **Active Task**: {}\n", self.current_task);
+        if let Some(plan) = &self.current_plan {
+            if plan.has_signal() {
+                s.push_str("- **Active Plan Handoff**:\n");
+                s.push_str(&plan.to_prompt());
+            }
+        }
         if !self.working_set.is_empty() {
             let files: Vec<_> = self.working_set.iter().cloned().collect();
             s.push_str(&format!("- **Working Set**: {}\n", files.join(", ")));
@@ -80,6 +93,7 @@ impl SessionMemory {
         self.current_task = "Ready for new mission.".to_string();
         self.working_set.clear();
         self.learnings.clear();
+        self.current_plan = None;
     }
 }
 

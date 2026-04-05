@@ -314,6 +314,15 @@ impl App {
     /// [Task Analyzer] Parse TASK.md to find the current active goal.
     pub fn update_objective(&mut self) {
         let root = crate::tools::file_ops::workspace_root();
+        let plan_path = root.join(".hematite").join("PLAN.md");
+        if plan_path.exists() {
+            if let Some(plan) = crate::tools::plan::load_plan_handoff() {
+                if plan.has_signal() && !plan.goal.trim().is_empty() {
+                    self.current_objective = plan.summary_line();
+                    return;
+                }
+            }
+        }
         let path = root.join(".hematite").join("TASK.md");
         if let Ok(content) = std::fs::read_to_string(path) {
             for line in content.lines() {

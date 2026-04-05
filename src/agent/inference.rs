@@ -716,19 +716,26 @@ impl InferenceEngine {
             .ok_or_else(|| "Empty response from model".to_string())?;
 
         let mut tool_calls = choice.message.tool_calls;
+        let mut content = choice.message.content;
 
         // Gemma-4 Fallback: If the model outputs native <|tool_call|> tags in the text content,
         // extract them and treat them as valid tool calls.
-        if let Some(content) = &choice.message.content {
-            let native_calls = extract_native_tool_calls(content);
+        if let Some(raw_content) = &content {
+            let native_calls = extract_native_tool_calls(raw_content);
             if !native_calls.is_empty() {
                 let mut existing = tool_calls.unwrap_or_default();
                 existing.extend(native_calls);
                 tool_calls = Some(existing);
+                let stripped = strip_native_tool_call_text(raw_content);
+                content = if stripped.trim().is_empty() {
+                    None
+                } else {
+                    Some(stripped)
+                };
             }
         }
 
-        Ok((choice.message.content, tool_calls, body.usage))
+        Ok((content, tool_calls, body.usage))
     }
 
     // ── Streaming call (used for plain-text responses) ────────────────────────
@@ -1144,8 +1151,12 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
     let mut results = Vec::new();
 
     // Regex to find the tool call block
-    // Format: <|tool_call>call:func_name{args}<tool_call|>
-    let re_call = Regex::new(r"<\|?tool_call\|?>call:(\w+)\{(.*?)\}<tool_call\|?>").unwrap();
+    // Formats supported:
+    // <|tool_call|>call:func_name{args}<tool_call|>
+    // <|tool_call>call:func_name{args}[END_TOOL_REQUEST]
+    let re_call = Regex::new(
+        r#"(?s)<\|tool_call\|?>\s*call:([A-Za-z_][A-Za-z0-9_]*)\{(.*?)\}(?:<tool_call\|?>|\[END_TOOL_REQUEST\])"#
+    ).unwrap();
     // Regex to find arguments inside the braces
     // Handles <|"|> wrappers and plain values
     let re_arg = Regex::new(r#"(\w+):(?:<\|"\|>(.*?)<\|"\|>|([^,}]*))"#).unwrap();
@@ -1192,4 +1203,12 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
     }
 
     results
+}
+
+fn strip_native_tool_call_text(text: &str) -> String {
+    use regex::Regex;
+    let re = Regex::new(
+        r#"(?s)<\|tool_call\|?>\s*call:[A-Za-z_][A-Za-z0-9_]*\{.*?\}(?:<tool_call\|?>|\[END_TOOL_REQUEST\])"#
+    ).unwrap();
+    re.replace_all(text, "").trim().to_string()
 }

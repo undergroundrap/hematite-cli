@@ -23,9 +23,21 @@ struct SavedSession {
 struct ActionGroundingState {
     turn_index: u64,
     observed_paths: std::collections::HashMap<String, u64>,
+    inspected_paths: std::collections::HashMap<String, u64>,
     last_verify_build_turn: Option<u64>,
     last_verify_build_ok: bool,
     code_changed_since_verify: bool,
+}
+
+struct PlanExecutionGuard {
+    flag: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl Drop for PlanExecutionGuard {
+    fn drop(&mut self) {
+        self.flag
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -232,6 +244,51 @@ fn build_verify_profiles_answer() -> String {
     "When a project defines verify profiles in `.hematite/settings.json`, `verify_build` should treat those profile commands as the first source of truth.\n\nEach action stays separate: `build` runs the profile's build command, `test` runs the test command, `lint` runs the lint command, and `fix` runs the fix command. `verify_build` should not run all of them at once unless you call those actions separately.\n\nIf you pass an explicit profile, Hematite should use that profile or fail clearly if it does not exist. If the project defines a default profile, Hematite should use it when no explicit profile is given. Only when no profile is configured should Hematite fall back to stack-aware auto-detection.".to_string()
 }
 
+fn should_answer_architect_session_reset_directly(
+    workflow_mode: WorkflowMode,
+    user_input: &str,
+) -> bool {
+    if workflow_mode != WorkflowMode::Architect {
+        return false;
+    }
+    let lower = user_input.to_lowercase();
+    (lower.contains("session reset")
+        || (lower.contains("/clear") && lower.contains("/new") && lower.contains("/forget")))
+        && (lower.contains("redesign")
+            || lower.contains("clearer")
+            || lower.contains("easier")
+            || lower.contains("understand"))
+}
+
+fn build_architect_session_reset_plan() -> crate::tools::plan::PlanHandoff {
+    crate::tools::plan::PlanHandoff {
+        goal: "Redesign Hematite's session reset flow so `/clear`, `/new`, and `/forget` are easy for local-model users to distinguish at a glance.".to_string(),
+        target_files: vec![
+            "src/ui/tui.rs".to_string(),
+            "src/agent/conversation.rs".to_string(),
+            "README.md".to_string(),
+            "evals/quick_smoke.md".to_string(),
+        ],
+        ordered_steps: vec![
+            "Define one explicit reset contract for each command: `/clear` = UI-only cleanup, `/new` = fresh task context, `/forget` = hard memory purge.".to_string(),
+            "Centralize the user-facing reset copy so the TUI and agent loop cannot drift on wording or intent.".to_string(),
+            "Keep `/clear` visibly local to the TUI, and keep `/new` and `/forget` as agent-path resets with clearly different confirmation text.".to_string(),
+            "Update help text and docs so operators can tell the difference without tracing the code.".to_string(),
+            "Add or refresh eval coverage for exact reset semantics so future prompt or tool changes do not blur the three commands again.".to_string(),
+        ],
+        verification: "Run `trace_runtime_flow(topic: \"session_reset\", command: \"all\")` after the redesign and confirm the documented behavior still matches the real code path. Then rerun the session-reset smoke prompt.".to_string(),
+        risks: vec![
+            "Reset behavior is split across `src/ui/tui.rs` and `src/agent/conversation.rs`, so semantics can drift if only one side is updated.".to_string(),
+            "Changing `/clear` too aggressively could accidentally erase more state than a user expects from a visual cleanup command.".to_string(),
+            "If the confirmation strings stay too similar, local models and users will keep conflating `/new` with `/forget`.".to_string(),
+        ],
+        open_questions: vec![
+            "Should `/new` preserve pinned context or always drop it?".to_string(),
+            "Should the TUI expose a one-line reset legend in `/help` or the footer so users do not need to memorize the semantics?".to_string(),
+        ],
+    }
+}
+
 fn looks_like_mutation_request(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     [
@@ -263,6 +320,70 @@ fn build_mode_redirect_answer(mode: WorkflowMode) -> String {
         WorkflowMode::ReadOnly => "Workflow mode READ-ONLY is a hard no-mutation mode. I can analyze, inspect, and explain, but I will not edit files, run mutating shell commands, or commit changes. Switch to `/code` or `/auto` if you want implementation.".to_string(),
         _ => "Switch to `/code` or `/auto` to allow implementation.".to_string(),
     }
+}
+
+fn architect_handoff_contract() -> &'static str {
+    "ARCHITECT OUTPUT CONTRACT:\n\
+Use a compact implementation handoff, not a process narrative.\n\
+Do not say \"the first step\" or describe what you are about to do.\n\
+After one or two read-only inspection tools at most, stop and answer.\n\
+For runtime wiring, reset behavior, or control-flow questions, prefer `trace_runtime_flow` over a broad `map_project` scan.\n\
+If you do use `map_project`, keep it minimal and scoped.\n\
+Use these exact ASCII headings and keep each section short:\n\
+# Goal\n\
+# Target Files\n\
+# Ordered Steps\n\
+# Verification\n\
+# Risks\n\
+# Open Questions\n\
+Keep the whole handoff concise and implementation-oriented."
+}
+
+fn is_current_plan_execution_request(user_input: &str) -> bool {
+    let lower = user_input.trim().to_ascii_lowercase();
+    lower == "implement the current plan."
+        || lower == "implement the current plan"
+        || lower.contains("implement the current plan")
+}
+
+fn is_plan_scoped_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "read_file"
+            | "inspect_lines"
+            | "grep_files"
+            | "list_files"
+            | "edit_file"
+            | "write_file"
+            | "patch_hunk"
+            | "multi_search_replace"
+            | "auto_pin_context"
+    )
+}
+
+fn is_current_plan_irrelevant_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "map_project"
+            | "trace_runtime_flow"
+            | "describe_toolchain"
+            | "research_web"
+            | "fetch_docs"
+            | "vision_analyze"
+            | "lsp_search_symbol"
+            | "lsp_definitions"
+            | "lsp_references"
+            | "lsp_hover"
+            | "lsp_get_diagnostics"
+            | "shell"
+    )
+}
+
+fn is_non_mutating_plan_step_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "read_file" | "inspect_lines" | "grep_files" | "list_files" | "auto_pin_context"
+    )
 }
 
 fn parse_inline_workflow_prompt(user_input: &str) -> Option<(WorkflowMode, &str)> {
@@ -949,6 +1070,8 @@ pub struct ConversationManager {
     pub pinned_files: Arc<Mutex<std::collections::HashMap<String, String>>>,
     /// Hard action-grounding state for proof-before-action checks.
     action_grounding: Arc<Mutex<ActionGroundingState>>,
+    /// True only during `/code Implement the current plan.` style execution turns.
+    plan_execution_active: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl ConversationManager {
@@ -1020,6 +1143,7 @@ impl ConversationManager {
             reasoning_history: None,
             pinned_files: Arc::new(Mutex::new(std::collections::HashMap::new())),
             action_grounding: Arc::new(Mutex::new(ActionGroundingState::default())),
+            plan_execution_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 
@@ -1058,7 +1182,9 @@ impl ConversationManager {
     }
 
     fn refresh_session_memory(&mut self) {
+        let current_plan = self.session_memory.current_plan.clone();
         self.session_memory = compaction::extract_memory(&self.history);
+        self.session_memory.current_plan = current_plan;
     }
 
     fn append_session_handoff(&self, system_msg: &mut String) {
@@ -1098,6 +1224,38 @@ impl ConversationManager {
         self.workflow_mode = mode;
     }
 
+    fn current_plan_summary(&self) -> Option<String> {
+        self.session_memory
+            .current_plan
+            .as_ref()
+            .filter(|plan| plan.has_signal())
+            .map(|plan| plan.summary_line())
+    }
+
+    fn current_plan_allowed_paths(&self) -> Vec<String> {
+        self.session_memory
+            .current_plan
+            .as_ref()
+            .map(|plan| {
+                plan.target_files
+                    .iter()
+                    .map(|path| normalize_workspace_path(path))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn persist_architect_handoff(&mut self, response: &str) {
+        if self.workflow_mode != WorkflowMode::Architect {
+            return;
+        }
+        let Some(plan) = crate::tools::plan::parse_plan_handoff(response) else {
+            return;
+        };
+        let _ = crate::tools::plan::save_plan_handoff(&plan);
+        self.session_memory.current_plan = Some(plan);
+    }
+
     async fn begin_grounded_turn(&self) -> u64 {
         let mut state = self.action_grounding.lock().await;
         state.turn_index += 1;
@@ -1114,6 +1272,14 @@ impl ConversationManager {
         let mut state = self.action_grounding.lock().await;
         let turn = state.turn_index;
         state.observed_paths.insert(normalized, turn);
+    }
+
+    async fn record_line_inspection(&self, path: &str) {
+        let normalized = normalize_workspace_path(path);
+        let mut state = self.action_grounding.lock().await;
+        let turn = state.turn_index;
+        state.observed_paths.insert(normalized.clone(), turn);
+        state.inspected_paths.insert(normalized, turn);
     }
 
     async fn record_verify_build_result(&self, ok: bool) {
@@ -1139,6 +1305,85 @@ impl ConversationManager {
         name: &str,
         args: &Value,
     ) -> Result<(), String> {
+        if self
+            .plan_execution_active
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            if is_current_plan_irrelevant_tool(name) {
+                return Err(format!(
+                    "Action blocked: `{}` is not part of current-plan execution. Stay on the saved target files, use built-in workspace file tools only, and either make a concrete edit or surface one specific blocker.",
+                    name
+                ));
+            }
+
+            if name == "map_project" {
+                return Err(
+                    "Action blocked: `map_project` is too broad for current-plan execution. Use the target files from the saved plan and inspect them directly with built-in workspace tools."
+                        .to_string(),
+                );
+            }
+
+            if is_plan_scoped_tool(name) {
+                let allowed_paths = self.current_plan_allowed_paths();
+                if !allowed_paths.is_empty() {
+                    let in_allowed = match name {
+                        "auto_pin_context" => args
+                            .get("paths")
+                            .and_then(|v| v.as_array())
+                            .map(|paths| {
+                                !paths.is_empty()
+                                    && paths.iter().all(|v| {
+                                        v.as_str()
+                                            .map(normalize_workspace_path)
+                                            .map(|p| allowed_paths.contains(&p))
+                                            .unwrap_or(false)
+                                    })
+                            })
+                            .unwrap_or(false),
+                        "grep_files" | "list_files" => args
+                            .get("path")
+                            .and_then(|v| v.as_str())
+                            .map(normalize_workspace_path)
+                            .map(|p| allowed_paths.contains(&p))
+                            .unwrap_or(false),
+                        _ => action_target_path(name, args)
+                            .map(|p| allowed_paths.contains(&p))
+                            .unwrap_or(false),
+                    };
+
+                    if !in_allowed {
+                        let allowed = allowed_paths
+                            .iter()
+                            .map(|p| format!("`{}`", p))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        return Err(format!(
+                            "Action blocked: current-plan execution is locked to the saved target files. Use a path-scoped built-in tool on one of these files only: {}.",
+                            allowed
+                        ));
+                    }
+                }
+            }
+
+            if matches!(name, "edit_file" | "multi_search_replace" | "patch_hunk") {
+                if let Some(target) = action_target_path(name, args) {
+                    let state = self.action_grounding.lock().await;
+                    let recently_inspected = state
+                        .inspected_paths
+                        .get(&target)
+                        .map(|turn| state.turn_index.saturating_sub(*turn) <= 3)
+                        .unwrap_or(false);
+                    drop(state);
+                    if !recently_inspected {
+                        return Err(format!(
+                            "Action blocked: `{}` on '{}' requires an exact local line window first during current-plan execution. Use `inspect_lines` on that file around the intended edit region, then retry the mutation.",
+                            name, target
+                        ));
+                    }
+                }
+            }
+        }
+
         if self.workflow_mode.is_read_only() && is_destructive_tool(name) {
             if name == "shell" {
                 let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
@@ -1401,10 +1646,12 @@ impl ConversationManager {
 
         if user_input.trim() == "/code" {
             self.set_workflow_mode(WorkflowMode::Code);
-            for chunk in chunk_text(
-                "Workflow mode: CODE. Make changes when needed, but keep proof-before-action and verification discipline.",
-                8,
-            ) {
+            let mut message =
+                "Workflow mode: CODE. Make changes when needed, but keep proof-before-action and verification discipline.".to_string();
+            if let Some(plan) = self.current_plan_summary() {
+                message.push_str(&format!(" Current plan: {plan}."));
+            }
+            for chunk in chunk_text(&message, 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
             let _ = tx.send(InferenceEvent::Done).await;
@@ -1413,10 +1660,12 @@ impl ConversationManager {
 
         if user_input.trim() == "/architect" {
             self.set_workflow_mode(WorkflowMode::Architect);
-            for chunk in chunk_text(
-                "Workflow mode: ARCHITECT. Plan, inspect, and shape the approach first. Do not mutate code unless the user explicitly asks to implement.",
-                8,
-            ) {
+            let mut message =
+                "Workflow mode: ARCHITECT. Plan, inspect, and shape the approach first. Do not mutate code unless the user explicitly asks to implement.".to_string();
+            if let Some(plan) = self.current_plan_summary() {
+                message.push_str(&format!(" Existing plan: {plan}."));
+            }
+            for chunk in chunk_text(&message, 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
             let _ = tx.send(InferenceEvent::Done).await;
@@ -1452,6 +1701,19 @@ impl ConversationManager {
             self.set_workflow_mode(mode);
             effective_user_input = rest.to_string();
         }
+        let implement_current_plan = self.workflow_mode == WorkflowMode::Code
+            && is_current_plan_execution_request(&effective_user_input)
+            && self
+                .session_memory
+                .current_plan
+                .as_ref()
+                .map(|plan| plan.has_signal())
+                .unwrap_or(false);
+        self.plan_execution_active
+            .store(implement_current_plan, std::sync::atomic::Ordering::SeqCst);
+        let _plan_execution_guard = PlanExecutionGuard {
+            flag: self.plan_execution_active.clone(),
+        };
 
         // ── /think / /no_think: reasoning budget toggle ──────────────────────
         if should_answer_language_capability_directly(&effective_user_input) {
@@ -1544,7 +1806,31 @@ impl ConversationManager {
             return Ok(());
         }
 
-        if self.workflow_mode.is_read_only() && looks_like_mutation_request(&effective_user_input) {
+        if should_answer_architect_session_reset_directly(self.workflow_mode, &effective_user_input)
+        {
+            let plan = build_architect_session_reset_plan();
+            let response = plan.to_markdown();
+            let _ = crate::tools::plan::save_plan_handoff(&plan);
+            self.session_memory.current_plan = Some(plan);
+            self.history.push(ChatMessage::user(&effective_user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
+        if matches!(self.workflow_mode, WorkflowMode::Ask | WorkflowMode::ReadOnly)
+            && looks_like_mutation_request(&effective_user_input)
+        {
             let response = build_mode_redirect_answer(self.workflow_mode);
             self.history.push(ChatMessage::user(&effective_user_input));
             self.history.push(ChatMessage::assistant_text(&response));
@@ -1751,14 +2037,38 @@ impl ConversationManager {
                 "ASK means analysis only. Stay read-only, inspect the repo, explain findings, and do not make changes unless the user explicitly switches modes.\n",
             ),
             WorkflowMode::Code => system_msg.push_str(
-                "CODE means implementation is allowed when needed. Keep proof-before-action, verification, and edit precision discipline.\n",
+                "CODE means implementation is allowed when needed. Keep proof-before-action, verification, and edit precision discipline. If an active plan handoff exists in session memory or `.hematite/PLAN.md`, treat it as the implementation brief unless the user explicitly overrides it. For ordinary workspace inspection during implementation, use built-in read/edit tools first and do not reach for `mcp__filesystem__*` unless the user explicitly requires MCP.\n",
             ),
             WorkflowMode::Architect => system_msg.push_str(
-                "ARCHITECT means plan first. Inspect, reason, and produce a concrete implementation approach before editing. Do not mutate code unless the user explicitly asks to implement.\n",
+                "ARCHITECT means plan first. Inspect, reason, and produce a concrete implementation approach before editing. Do not mutate code unless the user explicitly asks to implement. When you produce an implementation handoff, use these exact ASCII headings so Hematite can persist the plan: `# Goal`, `# Target Files`, `# Ordered Steps`, `# Verification`, `# Risks`, `# Open Questions`.\n",
             ),
             WorkflowMode::ReadOnly => system_msg.push_str(
                 "READ-ONLY means analysis only. Do not modify files, run mutating shell commands, or commit changes.\n",
             ),
+        }
+        if self.workflow_mode == WorkflowMode::Architect {
+            system_msg.push_str("\n\n# ARCHITECT HANDOFF CONTRACT\n");
+            system_msg.push_str(architect_handoff_contract());
+            system_msg.push('\n');
+        }
+        if implement_current_plan {
+            system_msg.push_str(
+                "\n\n# CURRENT PLAN EXECUTION CONTRACT\n\
+                 The user explicitly asked you to implement the current saved plan.\n\
+                 Do not restate the plan, do not provide preliminary contracts, and do not stop at analysis.\n\
+                 Use the saved plan as the brief, gather only the minimum built-in file evidence you need, then start editing the target files.\n\
+                 Do not call `map_project` during current-plan execution.\n\
+                 Every file inspection or edit call must be path-scoped to one of the saved target files.\n\
+                 If a built-in workspace read tool gives you enough context, your next step should be mutation or a concrete blocking question, not another summary.\n",
+            );
+            if let Some(plan) = self.session_memory.current_plan.as_ref() {
+                if !plan.target_files.is_empty() {
+                    system_msg.push_str("\n# CURRENT PLAN TARGET FILES\n");
+                    for path in &plan.target_files {
+                        system_msg.push_str(&format!("- {}\n", path));
+                    }
+                }
+            }
         }
         {
             let pinned = self.pinned_files.lock().await;
@@ -1811,6 +2121,10 @@ impl ConversationManager {
             .map(|s| s.to_string());
 
         let mut loop_intervention: Option<String> = None;
+        let mut implementation_started = false;
+        let mut non_mutating_plan_steps = 0usize;
+        let non_mutating_plan_soft_cap = 5usize;
+        let non_mutating_plan_hard_cap = 8usize;
 
         // Safety cap – never spin forever on a broken model.
         let max_iters = 25;
@@ -1852,7 +2166,10 @@ impl ConversationManager {
 
             // On the first iteration inject Vein context; subsequent iters use plain slice
             // (tool results are now in history so Vein context would be redundant).
-            let messages = if first_iter {
+            let messages = if implement_current_plan {
+                first_iter = false;
+                self.context_window_slice_from(turn_anchor)
+            } else if first_iter {
                 first_iter = false;
                 self.context_window_slice_with_vein(vein_context.as_deref())
             } else {
@@ -1915,8 +2232,13 @@ impl ConversationManager {
 
                 // [Gemma-4 Protocol] Keep raw content (including thoughts) during tool loops.
                 // Thoughts are only stripped before the 'final' user turn.
+                let stored_tool_call_content = if implement_current_plan {
+                    cap_output(raw_content, 1200)
+                } else {
+                    raw_content.to_string()
+                };
                 self.history.push(ChatMessage::assistant_tool_calls(
-                    raw_content,
+                    &stored_tool_call_content,
                     calls.clone(),
                 ));
 
@@ -1966,6 +2288,7 @@ impl ConversationManager {
                 // 3. Collate Messages into History & UI
                 let mut authoritative_tool_output: Option<String> = None;
                 let mut blocked_policy_output: Option<String> = None;
+                let mut recoverable_policy_intervention: Option<String> = None;
                 for res in results {
                     let call_id = res.call_id.clone();
                     let tool_name = res.tool_name.clone();
@@ -1977,8 +2300,12 @@ impl ConversationManager {
                     }
 
                     // Update State for Verification Loop
-                    if tool_name == "patch_hunk" || tool_name == "write_file" {
+                    if matches!(
+                        tool_name.as_str(),
+                        "patch_hunk" | "write_file" | "edit_file" | "multi_search_replace"
+                    ) {
                         mutation_occurred = true;
+                        implementation_started = true;
                     }
 
                     // Update Repeat Guard
@@ -2024,7 +2351,15 @@ impl ConversationManager {
                         .await;
 
                     // Cap output before history
-                    let capped = cap_output(&final_output, 8000);
+                    let capped = if implement_current_plan {
+                        cap_output(&final_output, 1200)
+                    } else if tool_name == "map_project"
+                        && self.workflow_mode == WorkflowMode::Architect
+                    {
+                        cap_output(&final_output, 2500)
+                    } else {
+                        cap_output(&final_output, 8000)
+                    };
                     self.history
                         .push(ChatMessage::tool_result(&call_id, &tool_name, &capped));
 
@@ -2035,7 +2370,51 @@ impl ConversationManager {
                         authoritative_tool_output = Some(final_output.clone());
                     }
 
-                    if res.blocked_by_policy && blocked_policy_output.is_none() {
+                    if res.blocked_by_policy
+                        && is_mcp_workspace_read_tool(&tool_name)
+                        && recoverable_policy_intervention.is_none()
+                    {
+                        recoverable_policy_intervention = Some(
+                            "STOP. The MCP filesystem read path is blocked for ordinary workspace inspection. Retry with Hematite's built-in read tools only. Use `read_file`, `inspect_lines`, `list_files`, or `grep_files` against the files already implied by the current plan. Do not call any `mcp__filesystem__*` tool again this turn.".to_string(),
+                        );
+                    } else if res.blocked_by_policy
+                        && implement_current_plan
+                        && tool_name == "map_project"
+                        && recoverable_policy_intervention.is_none()
+                    {
+                        recoverable_policy_intervention = Some(
+                            "STOP. `map_project` is too broad for current-plan execution. Use the saved plan's target files directly. Read only the exact planned files you need, then start editing. Do not call `map_project` again this turn.".to_string(),
+                        );
+                    } else if res.blocked_by_policy
+                        && implement_current_plan
+                        && is_current_plan_irrelevant_tool(&tool_name)
+                        && recoverable_policy_intervention.is_none()
+                    {
+                        recoverable_policy_intervention = Some(format!(
+                            "STOP. `{}` is not part of current-plan execution. Stay on the saved target files only. Use `grep_files` with an explicit `path` or `inspect_lines` on one planned file, then make the edit. Do not call unrelated analysis tools again this turn.",
+                            tool_name
+                        ));
+                    } else if res.blocked_by_policy
+                        && implement_current_plan
+                        && final_output.contains("requires recent file evidence")
+                        && recoverable_policy_intervention.is_none()
+                    {
+                        let target = action_target_path(&tool_name, &res.args)
+                            .unwrap_or_else(|| "the target file".to_string());
+                        recoverable_policy_intervention = Some(format!(
+                            "STOP. The edit was blocked because `{target}` lacks recent file evidence. Read that file now with built-in tools only, preferably `inspect_lines` around the exact area you want to change or `read_file` if you do not know the window yet. After that, retry the edit and continue implementing the current plan. Do not summarize the blockage to the user."
+                        ));
+                    } else if res.blocked_by_policy
+                        && implement_current_plan
+                        && final_output.contains("requires an exact local line window first")
+                        && recoverable_policy_intervention.is_none()
+                    {
+                        let target = action_target_path(&tool_name, &res.args)
+                            .unwrap_or_else(|| "the target file".to_string());
+                        recoverable_policy_intervention = Some(format!(
+                            "STOP. The edit was blocked because `{target}` needs an exact inspected window first. Use `inspect_lines` on that file around the intended edit region, then retry the mutation. Do not answer the user yet."
+                        ));
+                    } else if res.blocked_by_policy && blocked_policy_output.is_none() {
                         blocked_policy_output = Some(final_output.clone());
                     }
 
@@ -2043,6 +2422,43 @@ impl ConversationManager {
                         let _ = tx.send(InferenceEvent::Done).await;
                         return Ok(());
                     }
+
+                    if implement_current_plan
+                        && !implementation_started
+                        && !is_error
+                        && is_non_mutating_plan_step_tool(&tool_name)
+                    {
+                        non_mutating_plan_steps += 1;
+                    }
+                }
+
+                if let Some(intervention) = recoverable_policy_intervention {
+                    loop_intervention = Some(intervention);
+                    let _ = tx
+                        .send(InferenceEvent::Thought(
+                            "Policy recovery: rerouting blocked MCP filesystem inspection to built-in workspace tools."
+                                .into(),
+                        ))
+                        .await;
+                    continue;
+                }
+
+                if implement_current_plan
+                    && !implementation_started
+                    && non_mutating_plan_steps >= non_mutating_plan_hard_cap
+                {
+                    let msg = "Current-plan execution stalled: too many non-mutating inspection steps without a concrete edit. Stay on the saved target files, narrow with `inspect_lines`, and then mutate, or ask one specific blocking question instead of continuing broad exploration.".to_string();
+                    self.history.push(ChatMessage::assistant_text(&msg));
+                    self.transcript.log_agent(&msg);
+
+                    for chunk in chunk_text(&msg, 8) {
+                        if !chunk.is_empty() {
+                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                        }
+                    }
+
+                    let _ = tx.send(InferenceEvent::Done).await;
+                    break;
                 }
 
                 if let Some(blocked_output) = blocked_policy_output {
@@ -2073,6 +2489,25 @@ impl ConversationManager {
                     break;
                 }
 
+                if implement_current_plan && !implementation_started {
+                    let base = "STOP analyzing. The current plan already defines the task. Use the built-in file evidence you now have and begin implementing the plan in the target files. Do not output preliminary findings or restate contracts.";
+                    if non_mutating_plan_steps >= non_mutating_plan_soft_cap {
+                        loop_intervention = Some(format!(
+                            "{} You are close to the non-mutation cap. Use `inspect_lines` on one saved target file, then make the edit now.",
+                            base
+                        ));
+                    } else {
+                        loop_intervention = Some(base.to_string());
+                    }
+                } else if self.workflow_mode == WorkflowMode::Architect {
+                    loop_intervention = Some(
+                        format!(
+                            "STOP exploring. You have enough evidence for a plan-first answer.\n{}\nUse the tool results already in history. Do not narrate your process. Do not call more tools unless a missing file path makes the handoff impossible.",
+                            architect_handoff_contract()
+                        ),
+                    );
+                }
+
                 // 4. Auto-Verification Loop (The Perfect Bake)
                 if mutation_occurred && !yolo {
                     let _ = tx
@@ -2096,6 +2531,13 @@ impl ConversationManager {
                 // Continue loop – the model will respond to the results.
                 continue;
             } else if let Some(response_text) = text {
+                if response_text.contains("<|tool_call") || response_text.contains("[END_TOOL_REQUEST]") {
+                    loop_intervention = Some(
+                        "Your previous response leaked raw native tool-call markup instead of a valid tool invocation or final answer. Retry immediately. If you need a tool, emit a valid tool call only. If you do not need a tool, answer in plain text with no `<|tool_call>` or `[END_TOOL_REQUEST]` markup.".to_string(),
+                    );
+                    continue;
+                }
+
                 // 1. Process and route the reasoning block to SPECULAR.
                 if let Some(thought) = crate::agent::inference::extract_think_block(&response_text)
                 {
@@ -2108,6 +2550,13 @@ impl ConversationManager {
                 // 2. Process and stream the final answer to the chat interface.
                 let cleaned = crate::agent::inference::strip_think_blocks(&response_text);
 
+                if implement_current_plan && !implementation_started {
+                    loop_intervention = Some(
+                        "Do not stop at analysis. Implement the current saved plan now using built-in workspace tools and the target files already named in the plan. Only answer without edits if you have a concrete blocking question.".to_string(),
+                    );
+                    continue;
+                }
+
                 // [Hardened Interface] Strictly respect the stripper.
                 // If it's empty, we stay silent in the chat area (reasoning is in SPECULAR).
                 if cleaned.is_empty() {
@@ -2115,6 +2564,7 @@ impl ConversationManager {
                     break;
                 }
 
+                self.persist_architect_handoff(&cleaned);
                 self.history.push(ChatMessage::assistant_text(&cleaned));
                 self.transcript.log_agent(&cleaned);
 
@@ -2284,6 +2734,31 @@ impl ConversationManager {
         // If not (e.g. because of compaction), we insert a tiny anchor.
         if !result.is_empty() && result[0].role != "user" {
             result.insert(0, ChatMessage::user("Continuing previous context..."));
+        }
+
+        result
+    }
+
+    fn context_window_slice_from(&self, start_idx: usize) -> Vec<ChatMessage> {
+        let mut result = Vec::new();
+
+        if self.history.len() > 1 {
+            let start = start_idx.max(1).min(self.history.len());
+            for m in &self.history[start..] {
+                if m.role == "system" {
+                    continue;
+                }
+
+                let mut sanitized = m.clone();
+                if (m.role == "assistant" || m.role == "tool") && m.content.as_str().is_empty() {
+                    sanitized.content = MessageContent::Text(" ".into());
+                }
+                result.push(sanitized);
+            }
+        }
+
+        if !result.is_empty() && result[0].role != "user" {
+            result.insert(0, ChatMessage::user("Continuing current plan execution..."));
         }
 
         result
@@ -2610,7 +3085,7 @@ impl ConversationManager {
         let mut msg_results = Vec::new();
 
         // 1. Argument Parsing & Repair
-        let args: Value = match serde_json::from_str(&call.arguments) {
+        let mut args: Value = match serde_json::from_str(&call.arguments) {
             Ok(v) => v,
             Err(_) => {
                 match self
@@ -2630,6 +3105,15 @@ impl ConversationManager {
                 }
             }
         };
+
+        if call.name == "map_project" && self.workflow_mode == WorkflowMode::Architect {
+            if let Some(obj) = args.as_object_mut() {
+                obj.entry("include_symbols".to_string())
+                    .or_insert(Value::Bool(false));
+                obj.entry("max_depth".to_string())
+                    .or_insert(Value::Number(2_u64.into()));
+            }
+        }
 
         let display = format_tool_display(&call.name, &args);
         let precondition_result = self.validate_action_preconditions(&call.name, &args).await;
@@ -2905,7 +3389,11 @@ impl ConversationManager {
         if !is_error {
             if matches!(call.name.as_str(), "read_file" | "inspect_lines") {
                 if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
-                    self.record_read_observation(path).await;
+                    if call.name == "inspect_lines" {
+                        self.record_line_inspection(path).await;
+                    } else {
+                        self.record_read_observation(path).await;
+                    }
                 }
             }
 

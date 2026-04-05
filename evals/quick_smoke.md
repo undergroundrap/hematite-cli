@@ -259,7 +259,49 @@ Check:
 - treats `/architect` as plan-first rather than immediate editing
 - treats `/code` as the explicit implementation mode
 
-## 24. Repo Map Quality
+## 24. Code Consumes Current Plan
+
+```text
+/code Implement the current plan.
+```
+
+Check:
+- treats the saved architect handoff as the implementation brief
+- does not call `map_project`, `describe_toolchain`, or `trace_runtime_flow`
+- stays on the saved target files instead of broad repo exploration
+- uses `inspect_lines` before exact edit tools when narrowing an edit region
+- either starts a real edit or fails quickly with a concrete current-plan execution blocker instead of looping indefinitely
+
+## 24. Architect Handoff
+
+```text
+/architect Redesign Hematite's session reset flow so `/clear`, `/new`, and `/forget` are easier for local-model users to understand.
+```
+
+Check:
+- returns a plan-first answer rather than implementation
+- does not open with process narration like "the first step"
+- uses a compact handoff shape with goal, target files, steps, verification, risks, and open questions
+- leaves behind a reusable plan in `.hematite/PLAN.md`
+- does not wander into `map_project` or full-file reads for this reset redesign case
+
+## 25. Code Consumes Current Plan
+
+```text
+/code Implement the current plan.
+```
+
+Check:
+- treats the existing architect handoff as the implementation brief
+- does not act like it is starting from an empty task
+- keeps normal proof-before-action and verification discipline
+- does not call `map_project` during current-plan execution
+- stays on the saved target files instead of broad repo exploration
+- keeps file inspection and edits path-scoped to the saved target files
+- uses `inspect_lines` before exact edit tools when narrowing an edit region
+- does not leak raw `<|tool_call>` or `[END_TOOL_REQUEST]` markup into chat
+
+## 26. Repo Map Quality
 
 ```text
 Read-only mode. Use `map_project` first, then tell me the likely entrypoints and core owner files for this repository without guessing.
@@ -270,7 +312,7 @@ Check:
 - includes likely entrypoints or core owner files
 - preserves real file paths and extracted symbols
 
-## 25. Ask Mode Redirect
+## 27. Ask Mode Redirect
 
 ```text
 /ask
@@ -282,7 +324,7 @@ Check:
 - does not mutate
 - redirects clearly toward `/code` or `/auto`
 
-## 26. Inline Workflow Prompt
+## 28. Inline Workflow Prompt
 
 ```text
 /ask Why does Hematite separate reasoning output from visible chat output?
@@ -294,7 +336,7 @@ Check:
 - answers the question instead of treating the whole line as an unknown slash command
 - does not reach for `describe_toolchain` for a plain reasoning-vs-chat explanation
 
-## 27. Verify Profiles
+## 29. Verify Profiles
 
 ```text
 Read-only mode. Explain how `verify_build` should behave when a project defines build, test, lint, and fix commands in `.hematite/settings.json`.
