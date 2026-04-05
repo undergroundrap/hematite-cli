@@ -47,6 +47,19 @@
     ]
   },
   {
+    "id": "identity_meta_05",
+    "category": "identity_meta",
+    "title": "Language and project capability honesty",
+    "mode": "normal",
+    "prompt": "Do you know other coding languages, and are you capable of making projects too?",
+    "success_criteria": [
+      "Answers directly without unnecessary repo-inspection tools",
+      "Does not mention fake mcp__ tool names",
+      "Describes capability in terms of real mechanisms like file edits, shell, build verification, and language-aware tooling when available",
+      "Mentions real programming languages instead of reducing the answer to file extensions"
+    ]
+  },
+  {
     "id": "runtime_grounding_01",
     "category": "runtime_grounding",
     "title": "Exact user-turn trace",

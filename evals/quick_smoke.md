@@ -101,3 +101,15 @@ After multiple turns of stale context, what commands or mechanisms does Hematite
 ```text
 What is Hematite, and what is LM Studio, in one clear paragraph?
 ```
+
+## 13. Capability Honesty
+
+```text
+Do you know other coding languages, and are you capable of making projects too?
+```
+
+Check:
+- answers directly without unnecessary repo tools
+- does not mention fake `mcp__*` tool names
+- describes capability in terms of real mechanisms
+- mentions real programming languages instead of falling back to file extensions

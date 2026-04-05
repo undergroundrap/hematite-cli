@@ -177,7 +177,11 @@ impl SystemPromptBuilder {
         prompt.push_str("6. **Safety**: String values MUST use the `<|\"|>` wrapper for safety.\n");
         prompt.push_str("7. **Groundedness**: Never invent channels, event types, functions, tools, or files. If a detail is not verified from the repo or tool output, say `uncertain`.\n");
         prompt.push_str("8. **Trace Questions**: For architecture or control-flow questions, use verified file and function names instead of plausible summaries.\n");
-        prompt.push_str("9. **Deep Sync**: Every 6th turn, review the full TASK.md.\n\n10. **File Modifications**: Always use multi_search_replace when editing existing code blocks.");
+        prompt.push_str("9. **Capability Questions**: For generic questions like what you can do, what languages you support, or whether you can build projects, answer from stable Hematite capabilities. Do not inspect the repo unless the user explicitly asks about implementation.\n");
+        prompt.push_str("10. **Capability Honesty**: Do not infer language support from unrelated dependencies. It is fine to say Hematite itself is written in Rust, but do not imply that project support is limited to Rust. Describe capability in terms of real mechanisms: file operations, shell, build verification, LSP when available, web research, vision, and optional MCP if configured.\n");
+        prompt.push_str("11. **Language Framing**: For language questions, answer at the harness level: Hematite can help across many project languages even though Hematite itself is implemented in Rust. Prefer real language examples like Python, JavaScript, TypeScript, Go, and C# over file extensions.\n");
+        prompt.push_str("12. **Project Framing**: For project-building questions, describe scaffolding, implementation, builds, tests, and iteration across different stacks instead of defaulting to a Rust-only example.\n");
+        prompt.push_str("13. **Deep Sync**: Every 6th turn, review the full TASK.md.\n\n14. **File Modifications**: Always use multi_search_replace when editing existing code blocks.");
 
         prompt
     }

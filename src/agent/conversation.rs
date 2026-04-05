@@ -91,6 +91,64 @@ fn should_enable_grounded_trace_mode(user_input: &str) -> bool {
     asks_trace || read_only || anti_guess
 }
 
+fn should_enable_capability_mode(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("what can you do")
+        || lower.contains("what are you capable")
+        || lower.contains("can you make projects")
+        || lower.contains("can you build projects")
+        || lower.contains("do you know other coding languages")
+        || lower.contains("other coding languages")
+        || lower.contains("what languages")
+        || lower.contains("can you use the internet")
+        || lower.contains("internet research capabilities")
+        || lower.contains("what tools do you have")
+}
+
+fn capability_question_requires_repo_inspection(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("this repo")
+        || lower.contains("this repository")
+        || lower.contains("codebase")
+        || lower.contains("which files")
+        || lower.contains("implementation")
+        || lower.contains("in this project")
+}
+
+fn is_capability_probe_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "map_project"
+            | "read_file"
+            | "inspect_lines"
+            | "list_files"
+            | "grep_files"
+            | "lsp_definitions"
+            | "lsp_references"
+            | "lsp_hover"
+            | "lsp_search_symbol"
+            | "lsp_get_diagnostics"
+            | "trace_runtime_flow"
+            | "auto_pin_context"
+            | "list_pinned"
+    )
+}
+
+fn should_answer_language_capability_directly(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    let asks_languages = lower.contains("other coding languages")
+        || lower.contains("what languages")
+        || lower.contains("know other languages");
+    let asks_projects = lower.contains("capable of making projects")
+        || lower.contains("can you make projects")
+        || lower.contains("can you build projects");
+    asks_languages && asks_projects
+}
+
+fn build_language_capability_answer() -> String {
+    "Hematite itself is written in Rust, but it is not limited to that language. I can help with projects in Python, JavaScript, TypeScript, Go, C#, and other languages.\n\nI can help create projects by scaffolding files and directories, implementing features, editing code precisely, running the appropriate local build or test commands for the target stack, and iterating on the project structure as it grows. The main limits are the local model, the available tooling on this machine, and how much context fits cleanly in session.".to_string()
+}
+
 // ── Tool catalogue ────────────────────────────────────────────────────────────
 
 /// Returns the full set of tools exposed to the model.
@@ -912,6 +970,23 @@ impl ConversationManager {
         }
 
         // ── /think / /no_think: reasoning budget toggle ──────────────────────
+        if should_answer_language_capability_directly(user_input) {
+            let response = build_language_capability_answer();
+            self.history.push(ChatMessage::user(user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.save_session();
+            return Ok(());
+        }
+
         if user_input.trim() == "/think" {
             self.think_mode = Some(true);
             for chunk in chunk_text("Think mode: ON — full chain-of-thought enabled.", 8) {
@@ -1003,6 +1078,8 @@ impl ConversationManager {
             }
         }
         let grounded_trace_mode = should_enable_grounded_trace_mode(user_input);
+        let capability_mode = should_enable_capability_mode(user_input);
+        let capability_needs_repo = capability_question_requires_repo_inspection(user_input);
         let mut system_msg = build_system_with_corrections(
             &base_prompt,
             &self.correction_hints,
@@ -1021,7 +1098,23 @@ impl ConversationManager {
                  If `trace_runtime_flow` fully answers the question, preserve its identifiers exactly and do not rename them in a styled rewrite.\n\
                  Do not invent names such as synthetic channels or subsystems.\n\
                  If a detail is not verified from the code or tool output, say `uncertain`.\n\
-                 For exact flow questions, answer in ordered steps and name the concrete functions and event types involved.\n"
+                For exact flow questions, answer in ordered steps and name the concrete functions and event types involved.\n"
+            );
+        }
+        if capability_mode {
+            system_msg.push_str(
+                "\n\n# CAPABILITY QUESTION MODE\n\
+                 This is a product or capability question unless the user explicitly asks about repository implementation.\n\
+                 Answer from stable Hematite capabilities and current runtime state.\n\
+                 It is correct to mention that Hematite itself is built in Rust when relevant, but do not imply that its project support is limited to Rust.\n\
+                 Do NOT call repo-inspection tools like `map_project`, `read_file`, or LSP lookup tools unless the user explicitly asks about implementation or file ownership.\n\
+                 Do NOT infer language or project support from unrelated dependencies, crates, or config files.\n\
+                 Describe language and project support in terms of real mechanisms: reading files, editing code, searching the workspace, running shell commands, build verification, language-aware tooling when available, web research, vision analysis, and optional MCP tools if configured.\n\
+                 If the user asks about languages, answer at the harness level: Hematite can help across many project languages even though Hematite itself is written in Rust.\n\
+                 Prefer real programming language examples like Python, JavaScript, TypeScript, Go, C#, or similar over file extensions like `.json` or `.md`.\n\
+                 For project-building questions, describe cross-project workflows like scaffolding files, shaping structure, implementing features, and running the appropriate local build or test commands for the target stack. Do not overclaim certainty.\n\
+                 Never mention raw `mcp__*` tool names unless those tools are active this turn and directly relevant.\n\
+                 Keep the answer short, plain, and ASCII-first.\n"
             );
         }
 
@@ -1144,6 +1237,25 @@ impl ConversationManager {
             let tool_calls = tool_calls.filter(|c| !c.is_empty());
 
             if let Some(calls) = tool_calls {
+                if capability_mode
+                    && !capability_needs_repo
+                    && calls.iter().all(|c| is_capability_probe_tool(&c.function.name))
+                {
+                    loop_intervention = Some(
+                        "STOP. This is a stable capability question. Do not inspect the repository or call tools. \
+                         Answer directly from verified Hematite capabilities, current runtime state, and the documented product boundary. \
+                         Do not mention raw `mcp__*` names unless they are active and directly relevant."
+                            .to_string(),
+                    );
+                    let _ = tx
+                        .send(InferenceEvent::Thought(
+                            "Capability mode: skipping unnecessary repo-inspection tools and answering directly."
+                                .into(),
+                        ))
+                        .await;
+                    continue;
+                }
+
                 // VOCAL AGENT: If the model provided reasoning alongside tools,
                 // stream it to the SPECULAR panel now using the hardened extraction.
                 let raw_content = text.as_deref().unwrap_or(" ");

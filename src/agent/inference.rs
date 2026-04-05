@@ -546,7 +546,14 @@ impl InferenceEngine {
                       5. NEGATIVE CONSTRAINT: Never use the name of a class, struct, or module as a tool name unless it is explicitly in the tool list.\n\
                       6. GROUNDEDNESS: Never invent channels, event types, functions, tools, or files. If a detail is not verified from the repo or tool output, say `uncertain`.\n\
                       7. TRACE QUESTIONS: For architecture or control-flow questions, prefer verified file and function names over high-level summaries.\n\
-                      8. If `trace_runtime_flow` fully answers the runtime question, preserve its identifiers exactly. Do not restyle or rename symbols from that tool output.");
+                      8. If `trace_runtime_flow` fully answers the runtime question, preserve its identifiers exactly. Do not restyle or rename symbols from that tool output.\n\
+                      9. For generic capability questions, answer from stable Hematite capabilities. Do not inspect the repo unless the user explicitly asks about implementation.\n\
+                      10. Never infer language support, project support, or internet capability from unrelated crates or config files.\n\
+                      11. It is fine to say Hematite itself is written in Rust when relevant, but do not imply that capability is limited to Rust projects.\n\
+                      12. For language questions, answer at the harness level: file operations, shell, build verification, language-aware tooling when available, and multi-language project work.\n\
+                      13. Prefer real programming language examples like Python, JavaScript, TypeScript, Go, and C# over file extensions when answering language questions.\n\
+                      14. For project-building questions, talk about scaffolding, implementation, builds, tests, and iteration across different stacks instead of defaulting to a Rust-only example like `cargo build`.\n\
+                      15. Never mention raw `mcp__*` tool names unless those tools are active this turn and directly relevant.");
 
         // Scaffolding protocol — enforces build validation after project creation.
         sys.push_str("\n## SCAFFOLDING PROTOCOL\n\
