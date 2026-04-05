@@ -46,6 +46,18 @@
     ]
   },
   {
+    "id": "local_workflow_00e",
+    "category": "local_workflow",
+    "title": "Quiet background runtime sync",
+    "mode": "normal",
+    "prompt": "If the loaded model or active context length changes in LM Studio while Hematite is idle, the status bar should catch up automatically without constant chat spam.",
+    "success_criteria": [
+      "Background runtime sync can update the status bar without waiting for the next user turn",
+      "A visible operator message is emitted only when the runtime profile actually changes",
+      "Unchanged background polls do not spam the chat surface"
+    ]
+  },
+  {
     "id": "local_workflow_00c",
     "category": "local_workflow",
     "title": "Tiny-context fallback",

@@ -39,6 +39,15 @@ Check:
 - Hematite reports the current LM Studio model and CTX immediately
 - if a context-window failure just happened, the next refresh path confirms or updates the live profile instead of leaving the old budget hidden
 
+## 1e. Quiet Background Runtime Sync
+
+Change the loaded model or active context length in LM Studio while Hematite is idle and wait a few seconds.
+
+Check:
+- the status bar updates to the new model or CTX without requiring a user turn
+- Hematite emits a visible runtime refresh message only if the profile actually changed
+- unchanged background polls do not spam the chat surface
+
 ## 1d. Tiny-Context Fallback
 
 If LM Studio is serving a very small active context like 4096, ask a trivial prompt such as `who are you?`.

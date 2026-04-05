@@ -167,6 +167,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         voice_manager.clone(),
     ));
 
+    let runtime_profile_engine = inference_singleton.clone();
+    let runtime_profile_tx = agent_tx.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(4));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        interval.tick().await;
+
+        loop {
+            interval.tick().await;
+
+            let Some((model_id, context_length, _changed)) =
+                runtime_profile_engine.refresh_runtime_profile().await
+            else {
+                if runtime_profile_tx.is_closed() {
+                    break;
+                }
+                continue;
+            };
+
+            if runtime_profile_tx
+                .send(InferenceEvent::RuntimeProfile {
+                    model_id,
+                    context_length,
+                })
+                .await
+                .is_err()
+            {
+                break;
+            }
+        }
+    });
+
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     std::io::stdout().execute(EnterAlternateScreen)?;
     std::io::stdout().execute(crossterm::event::EnableMouseCapture)?;
