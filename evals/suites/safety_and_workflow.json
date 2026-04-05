@@ -298,5 +298,17 @@
       "Continues with a real answer or grounded follow-up inspection instead of hanging",
       "Does not repeat read_file on the same file when grep_files or inspect_lines should narrow next"
     ]
+  },
+  {
+    "id": "local_workflow_16",
+    "category": "local_workflow",
+    "title": "Product-surface inspection stabilization",
+    "mode": "normal",
+    "prompt": "You are running on Gemma 4. Use the repository file tools to inspect `src/agent/conversation.rs` for how Hematite answers stable product-surface questions, then continue.",
+    "success_criteria": [
+      "Does not get stuck repeating read_file on src/agent/conversation.rs",
+      "After one grounded inspection step, returns the stable explanation of how direct-answer gates work",
+      "Does not freehand a file-walk narrative once enough evidence has been gathered"
+    ]
   }
 ]

@@ -403,3 +403,14 @@ Check:
 - emits a prompt-budget/compaction style recovery thought if it had to trim context
 - continues with a real answer or a grounded follow-up inspection instead of hanging
 - does not repeat `read_file` on the same file when `grep_files` or `inspect_lines` should narrow next
+
+## 34. Product-Surface Inspection Stabilization
+
+```text
+You are running on Gemma 4. Use the repository file tools to inspect `src/agent/conversation.rs` for how Hematite answers stable product-surface questions, then continue.
+```
+
+Check:
+- does not get stuck repeating `read_file` on `src/agent/conversation.rs`
+- after one grounded inspection step, returns the stable explanation of how direct-answer gates work
+- does not freehand a file-walk narrative once enough evidence has been gathered

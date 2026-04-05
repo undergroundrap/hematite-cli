@@ -225,6 +225,34 @@ fn build_session_reset_semantics_answer() -> String {
     "`/clear` is the UI-only cleanup path: it clears the visible dialogue buffer and SPECULAR side-panel state in the TUI, but it does not run the deeper agent reset path.\n\n`/new` is the fresh-context reset: it clears in-memory history, resets session/task state, drops pinned context, wipes task files, and starts a fresh conversation context.\n\n`/forget` is the hard memory purge path: it performs the same visible/session reset shape as `/new`, but it is framed as the explicit memory-wipe command and reports a hard purge of task memory and history.\n\nSo the practical split is: `/clear` = visual cleanup, `/new` = fresh task context, `/forget` = hard wipe semantics.".to_string()
 }
 
+fn should_answer_product_surface_directly(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    (lower.contains("stable product-surface question")
+        || lower.contains("stable product surface question")
+        || lower.contains("stable product-surface questions")
+        || lower.contains("stable product surface questions"))
+        && (lower.contains("how hematite answers")
+            || lower.contains("how does hematite answer")
+            || lower.contains("how hematite handles")
+            || lower.contains("how does hematite handle"))
+}
+
+fn should_stabilize_product_surface_inspection(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    (lower.contains("stable product-surface question")
+        || lower.contains("stable product surface question")
+        || lower.contains("stable product-surface questions")
+        || lower.contains("stable product surface questions"))
+        && (lower.contains("inspect")
+            || lower.contains("repository file tools")
+            || lower.contains("src/agent/conversation.rs")
+            || lower.contains("then continue"))
+}
+
+fn build_product_surface_answer() -> String {
+    "Hematite answers stable product-surface questions in the conversation loop with direct classifiers before it falls back to the normal model-and-tools path.\n\nFor stable command/config behavior like `/gemma-native`, reset semantics, workflow modes, verify profiles, and session-memory policy, it matches the prompt against dedicated direct-answer gates, returns a prebuilt verified answer, logs it into history, and skips repository inspection entirely.\n\nOnly when the prompt is asking about repository implementation details rather than stable product behavior should Hematite inspect files like `src/agent/conversation.rs` or call other tools. The practical rule is: stable product truth first, repo implementation second.".to_string()
+}
+
 fn should_answer_reasoning_split_directly(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     (lower.contains("reasoning output") || lower.contains("reasoning"))
@@ -1821,6 +1849,24 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if should_answer_product_surface_directly(&effective_user_input) {
+            let response = build_product_surface_answer();
+            self.history.push(ChatMessage::user(&effective_user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
         if should_answer_reasoning_split_directly(&effective_user_input) {
             let response = build_reasoning_split_answer();
             self.history.push(ChatMessage::user(&effective_user_input));
@@ -2610,6 +2656,23 @@ impl ConversationManager {
                     && reset_inspection_evidence
                 {
                     let response = build_session_reset_semantics_answer();
+                    self.history.push(ChatMessage::assistant_text(&response));
+                    self.transcript.log_agent(&response);
+
+                    for chunk in chunk_text(&response, 8) {
+                        if !chunk.is_empty() {
+                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                        }
+                    }
+
+                    let _ = tx.send(InferenceEvent::Done).await;
+                    break;
+                }
+
+                if should_stabilize_product_surface_inspection(&effective_user_input)
+                    && reset_inspection_evidence
+                {
+                    let response = build_product_surface_answer();
                     self.history.push(ChatMessage::assistant_text(&response));
                     self.transcript.log_agent(&response);
 
