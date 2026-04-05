@@ -347,3 +347,14 @@ Check:
 - distinguishes build/test/lint/fix actions
 - says auto-detect is the fallback rather than the only behavior
 - does not call `describe_toolchain` for this product-surface question
+
+## 30. Safe Gemma 4 Argument Normalization
+
+```text
+You are running on Gemma 4. Use the repository file tools to inspect `src/ui/tui.rs` for `/clear`, `/new`, and `/forget`, then continue.
+```
+
+Check:
+- does not leak raw `<|tool_call>` or `[END_TOOL_REQUEST]` markup
+- if it emits quoted tool args like `"src/ui/tui.rs"` or `"rs"`, Hematite normalizes them into usable built-in tool arguments
+- if it emits `grep_files` patterns with surrounding slash delimiters, Hematite normalizes them before execution

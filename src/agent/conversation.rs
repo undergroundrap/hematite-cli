@@ -3083,13 +3083,19 @@ impl ConversationManager {
         real_id: String,
     ) -> ToolExecutionOutcome {
         let mut msg_results = Vec::new();
+        let gemma4_model = crate::agent::inference::is_gemma4_model_name(&self.engine.model);
+        let normalized_arguments = if gemma4_model {
+            crate::agent::inference::normalize_tool_argument_string(&call.name, &call.arguments)
+        } else {
+            call.arguments.clone()
+        };
 
         // 1. Argument Parsing & Repair
-        let mut args: Value = match serde_json::from_str(&call.arguments) {
+        let mut args: Value = match serde_json::from_str(&normalized_arguments) {
             Ok(v) => v,
             Err(_) => {
                 match self
-                    .repair_tool_args(&call.name, &call.arguments, &tx)
+                    .repair_tool_args(&call.name, &normalized_arguments, &tx)
                     .await
                 {
                     Ok(v) => v,

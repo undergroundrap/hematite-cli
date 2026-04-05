@@ -1389,10 +1389,17 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             ),
         ]));
         // Show last 300 chars of current thought, split by line.
-        let preview = if app.current_thought.len() > 300 {
-            &app.current_thought[app.current_thought.len() - 300..]
+        let preview = if app.current_thought.chars().count() > 300 {
+            app.current_thought
+                .chars()
+                .rev()
+                .take(300)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<String>()
         } else {
-            &app.current_thought
+            app.current_thought.clone()
         };
         for raw in preview.lines() {
             let raw = raw.trim();

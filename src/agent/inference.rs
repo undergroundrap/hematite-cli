@@ -23,6 +23,11 @@ pub struct InferenceEngine {
     pub cancel_token: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
+pub fn is_gemma4_model_name(model: &str) -> bool {
+    let lower = model.to_ascii_lowercase();
+    lower.contains("gemma-4") || lower.contains("gemma4")
+}
+
 // ── OpenAI Tool Definition ────────────────────────────────────────────────────
 
 #[derive(Serialize, Clone, Debug)]
@@ -487,6 +492,13 @@ impl InferenceEngine {
                  Calibrate response length and tool-call depth to fit within this budget.\n\n",
                 self.model, self.context_length
             ));
+            if is_gemma4_model_name(&self.model) {
+                sys.push_str(
+                    "Gemma 4 native note: prefer exact tool JSON with no extra prose when calling tools. \
+                     Do not wrap `path`, `extension`, or other string arguments in extra quote layers. \
+                     For `grep_files`, provide the raw regex pattern without surrounding slash delimiters.\n\n",
+                );
+            }
         } else {
             sys.push_str(&format!(
                 "Context window: {} tokens. Calibrate response length to fit within this budget.\n\n",
@@ -655,7 +667,7 @@ impl InferenceEngine {
             .collect();
 
         let request = ChatRequest {
-            model,
+            model: model.clone(),
             messages: wrapped_messages,
             temperature: 0.2,
             stream: false,
@@ -732,6 +744,15 @@ impl InferenceEngine {
                 } else {
                     Some(stripped)
                 };
+            }
+        }
+
+        if is_gemma4_model_name(&model) {
+            if let Some(calls) = tool_calls.as_mut() {
+                for call in calls.iter_mut() {
+                    call.function.arguments =
+                        normalize_tool_argument_string(&call.function.name, &call.function.arguments);
+                }
             }
         }
 
@@ -1203,6 +1224,86 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
     }
 
     results
+}
+
+pub fn normalize_tool_argument_string(tool_name: &str, raw: &str) -> String {
+    let trimmed = raw.trim();
+    let candidate = unwrap_json_string_once(trimmed).unwrap_or_else(|| trimmed.to_string());
+
+    let mut value = match serde_json::from_str::<Value>(&candidate) {
+        Ok(v) => v,
+        Err(_) => return candidate,
+    };
+    normalize_tool_argument_value(tool_name, &mut value);
+    value.to_string()
+}
+
+fn normalize_tool_argument_value(tool_name: &str, value: &mut Value) {
+    match value {
+        Value::String(s) => *s = normalize_string_arg(s),
+        Value::Array(items) => {
+            for item in items {
+                normalize_tool_argument_value(tool_name, item);
+            }
+        }
+        Value::Object(map) => {
+            for val in map.values_mut() {
+                normalize_tool_argument_value(tool_name, val);
+            }
+            if tool_name == "grep_files" {
+                if let Some(Value::String(pattern)) = map.get_mut("pattern") {
+                    *pattern = normalize_regex_pattern(pattern);
+                }
+            }
+            for key in ["path", "extension", "query", "command", "reason"] {
+                if let Some(Value::String(s)) = map.get_mut(key) {
+                    *s = normalize_string_arg(s);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn unwrap_json_string_once(input: &str) -> Option<String> {
+    if input.len() < 2 {
+        return None;
+    }
+    let first = input.chars().next()?;
+    let last = input.chars().last()?;
+    if !matches!((first, last), ('"', '"') | ('\'', '\'') | ('`', '`')) {
+        return None;
+    }
+    let inner = &input[1..input.len() - 1];
+    let unescaped = inner.replace("\\\"", "\"").replace("\\\\", "\\");
+    Some(unescaped.trim().to_string())
+}
+
+fn normalize_string_arg(input: &str) -> String {
+    let mut out = input.trim().to_string();
+    while out.len() >= 2 {
+        let mut changed = false;
+        for (start, end) in [("\"", "\""), ("'", "'"), ("`", "`")] {
+            if out.starts_with(start) && out.ends_with(end) {
+                out = out[start.len()..out.len() - end.len()].trim().to_string();
+                changed = true;
+                break;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    out
+}
+
+fn normalize_regex_pattern(input: &str) -> String {
+    let out = normalize_string_arg(input);
+    if out.len() >= 2 && out.starts_with('/') && out.ends_with('/') {
+        out[1..out.len() - 1].to_string()
+    } else {
+        out
+    }
 }
 
 fn strip_native_tool_call_text(text: &str) -> String {
