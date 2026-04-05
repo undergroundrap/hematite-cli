@@ -54,7 +54,8 @@
     "success_criteria": [
       "Background runtime sync can update the status bar without waiting for the next user turn",
       "A visible operator message is emitted only when the runtime profile actually changes",
-      "Unchanged background polls do not spam the chat surface"
+      "Unchanged background polls do not spam the chat surface",
+      "The bottom bar exposes a compact LM runtime state badge"
     ]
   },
   {

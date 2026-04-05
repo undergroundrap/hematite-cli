@@ -29,6 +29,7 @@ Hematite continuously adapts to the machine it is running on.
 - **Live LM Studio context detection**: startup now prefers the loaded model's `loaded_context_length` from LM Studio so Hematite budgets against the active runtime context instead of an outdated fallback field
 - **Live runtime-profile refresh**: before each turn, Hematite can resync the loaded LM Studio model ID and active context budget so model swaps or context changes do not require a full Hematite restart
 - **Quiet background runtime sync**: while idle, Hematite can keep the status bar aligned with LM Studio's live model and CTX state and only emits a visible operator message when the runtime profile actually changes
+- **Compact LM runtime badge**: the bottom status bar now exposes a low-noise LM Studio state badge so the operator can see live, stale, warning, or context-ceiling conditions at a glance
 - **Tiny-context fallback profile**: when LM Studio serves a very small active context window, Hematite can switch to a slimmer system prompt so simple prompts still fit instead of immediately exhausting the budget
 - **Manual runtime refresh**: `/runtime-refresh` lets the operator force an LM Studio profile resync on demand, and context-window failures trigger the same refresh path automatically
 

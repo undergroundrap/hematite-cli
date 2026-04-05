@@ -47,6 +47,7 @@ Check:
 - the status bar updates to the new model or CTX without requiring a user turn
 - Hematite emits a visible runtime refresh message only if the profile actually changed
 - unchanged background polls do not spam the chat surface
+- the bottom bar shows a compact LM status badge like `LM:LIVE`, `LM:STALE`, `LM:WARN`, or `LM:CEIL` that matches the current runtime state
 
 ## 1d. Tiny-Context Fallback
 

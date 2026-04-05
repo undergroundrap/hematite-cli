@@ -76,6 +76,12 @@ fn default_active_context() -> Vec<ContextFile> {
     files
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LmStudioIssue {
+    ContextWindow,
+    ProviderDegraded,
+}
+
 pub struct App {
     pub messages: Vec<Line<'static>>,
     pub messages_raw: Vec<(String, String)>, // Keep raw for reference or re-formatting if needed
@@ -116,6 +122,8 @@ pub struct App {
     pub current_session_cost: f64,
     pub model_id: String,
     pub context_length: usize,
+    last_runtime_profile_time: Instant,
+    lm_studio_issue: Option<LmStudioIssue>,
     /// Mirrors ConversationManager::think_mode for status bar display.
     /// None = auto, Some(true) = /think, Some(false) = /no_think.
     pub think_mode: Option<bool>,
@@ -421,6 +429,8 @@ pub async fn run_app<B: Backend>(
         current_session_cost: 0.0,
         model_id: "detecting...".to_string(),
         context_length: 0,
+        last_runtime_profile_time: Instant::now(),
+        lm_studio_issue: None,
         think_mode: None,
         workflow_mode: "AUTO".into(),
         autocomplete_suggestions: Vec::new(),
@@ -1195,6 +1205,18 @@ pub async fn run_app<B: Backend>(
                     InferenceEvent::Error(e) => {
                         app.thinking = false;
                         app.agent_running = false;
+                        let lower = e.to_lowercase();
+                        app.lm_studio_issue = if lower.contains("[failure:context_window]") {
+                            Some(LmStudioIssue::ContextWindow)
+                        } else if lower.contains("[failure:provider_degraded]")
+                            || lower.contains("[failure:empty_model_response]")
+                            || lower.contains("lm studio unreachable")
+                            || lower.contains("runtime refresh failed")
+                        {
+                            Some(LmStudioIssue::ProviderDegraded)
+                        } else {
+                            app.lm_studio_issue
+                        };
                         if app.voice_manager.is_enabled() {
                             app.voice_manager.flush();
                         }
@@ -1210,6 +1232,8 @@ pub async fn run_app<B: Backend>(
                             && (app.model_id != model_id || app.context_length != context_length);
                         app.model_id = model_id.clone();
                         app.context_length = context_length;
+                        app.last_runtime_profile_time = Instant::now();
+                        app.lm_studio_issue = None;
                         if changed {
                             app.push_message(
                                 "System",
@@ -1606,6 +1630,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         .constraints([
             Constraint::Length(12),  // NAME
             Constraint::Min(0),       // MODE
+            Constraint::Length(12),  // LM
             Constraint::Length(16),  // REMOTE
             Constraint::Length(30),  // TOKENS
             Constraint::Length(30),  // VRAM (expanded to prevent clipping)
@@ -1616,6 +1641,18 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let est_tokens = char_count / 3;
     let current_tokens = if app.total_tokens > 0 { app.total_tokens } else { est_tokens };
     let usage_text = format!("TOKENS: {:0>5} | TOTAL: ${:.4}", current_tokens, app.current_session_cost);
+    let runtime_age = app.last_runtime_profile_time.elapsed();
+    let (lm_label, lm_color) = if app.model_id == "detecting..." || app.context_length == 0 {
+        ("LM:BOOT", Color::DarkGray)
+    } else if matches!(app.lm_studio_issue, Some(LmStudioIssue::ProviderDegraded)) {
+        ("LM:WARN", Color::Red)
+    } else if matches!(app.lm_studio_issue, Some(LmStudioIssue::ContextWindow)) {
+        ("LM:CEIL", Color::Yellow)
+    } else if runtime_age > std::time::Duration::from_secs(12) {
+        ("LM:STALE", Color::Yellow)
+    } else {
+        ("LM:LIVE", Color::Green)
+    };
 
     let think_badge = match app.think_mode {
         Some(true)  => " [THINK]",
@@ -1664,16 +1701,24 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     
     f.render_widget(Clear, bar_chunks[2]);
     f.render_widget(
-        Paragraph::new(format!(" REMOTE: {}", git_label))
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(git_color)))
-            .fg(git_color),
+        Paragraph::new(format!(" {}", lm_label))
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(lm_color)))
+            .fg(lm_color),
         bar_chunks[2],
     );
 
     f.render_widget(Clear, bar_chunks[3]);
     f.render_widget(
-        Paragraph::new(usage_text).block(Block::default().borders(Borders::ALL).fg(Color::Cyan)).fg(Color::Cyan),
+        Paragraph::new(format!(" REMOTE: {}", git_label))
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(git_color)))
+            .fg(git_color),
         bar_chunks[3],
+    );
+
+    f.render_widget(Clear, bar_chunks[4]);
+    f.render_widget(
+        Paragraph::new(usage_text).block(Block::default().borders(Borders::ALL).fg(Color::Cyan)).fg(Color::Cyan),
+        bar_chunks[4],
     );
 
     // ── VRAM gauge (live from nvidia-smi poller) ─────────────────────────────
@@ -1688,14 +1733,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         Color::Cyan
     };
-    f.render_widget(Clear, bar_chunks[4]);
+    f.render_widget(Clear, bar_chunks[5]);
     f.render_widget(
         Gauge::default()
             .block(Block::default().borders(Borders::ALL).title(format!(" {} ", gpu_name)))
             .gauge_style(Style::default().fg(gauge_color))
             .ratio(vram_ratio)
             .label(format!("  {}  ", vram_label)), // Added extra padding for visual excellence
-        bar_chunks[4],
+        bar_chunks[5],
     );
 
     // ── Box 4: Input ──────────────────────────────────────────────────────────
