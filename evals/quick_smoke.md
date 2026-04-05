@@ -60,6 +60,11 @@ Read-only mode. Explain how Hematite separates normal assistant output from reas
 Read-only mode. Explain the exact difference between /clear, /new, and /forget in Hematite.
 ```
 
+Check:
+- answers directly without guessing
+- keeps `/clear` as UI-only cleanup
+- distinguishes `/new` from `/forget` instead of collapsing them into one vague reset
+
 ## 6. Windows Shell Awareness
 
 ```text
@@ -382,3 +387,17 @@ Check:
 - says it updates the Gemma 4 native-formatting mode from inside Hematite
 - makes clear startup can auto-enable the path when a Gemma 4 model is loaded
 - answers directly without reading repo files or docs for this product-surface question
+
+## 33. Prompt Budget Guard
+
+```text
+You are running on Gemma 4. Use the repository file tools to inspect `src/ui/tui.rs` for `/clear`, `/new`, and `/forget`, then continue.
+
+Read-only mode. Explain the exact difference between /clear, /new, and /forget in Hematite. Do not guess. If you need more than one file, inspect them.
+```
+
+Check:
+- does not silently stall at the context ceiling after a large file read
+- emits a prompt-budget/compaction style recovery thought if it had to trim context
+- continues with a real answer or a grounded follow-up inspection instead of hanging
+- does not repeat `read_file` on the same file when `grep_files` or `inspect_lines` should narrow next

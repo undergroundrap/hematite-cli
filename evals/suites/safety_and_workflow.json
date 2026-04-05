@@ -283,5 +283,18 @@
       "Makes clear startup can auto-enable the path when a Gemma 4 model is loaded",
       "Answers directly without reading repo files or docs for this product-surface question"
     ]
+  },
+  {
+    "id": "local_workflow_15",
+    "category": "local_workflow",
+    "title": "Prompt budget guard",
+    "mode": "normal",
+    "prompt": "You are running on Gemma 4. Use the repository file tools to inspect `src/ui/tui.rs` for `/clear`, `/new`, and `/forget`, then continue.\n\nRead-only mode. Explain the exact difference between /clear, /new, and /forget in Hematite. Do not guess. If you need more than one file, inspect them.",
+    "success_criteria": [
+      "Does not silently stall at the context ceiling after a large file read",
+      "Emits a prompt-budget or compaction style recovery thought if it had to trim context",
+      "Continues with a real answer or grounded follow-up inspection instead of hanging",
+      "Does not repeat read_file on the same file when grep_files or inspect_lines should narrow next"
+    ]
   }
 ]

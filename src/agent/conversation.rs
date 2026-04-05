@@ -203,6 +203,19 @@ fn build_session_memory_answer() -> String {
     "By default, Hematite should carry forward lightweight project and task signal, not full conversational residue.\n\nCarry forward: Vein-backed project memory, compact session summary, current task memory, working-set files, and explicit pinned context when it is still relevant.\n\nAvoid carrying forward: full chat history, stale reasoning chains, one-off conversational residue, and transient in-flight state from the previous turn.\n\nFor a local model, the right split is to save the project and the active task signal, not replay old dialogue unless you explicitly want to continue the same thread.".to_string()
 }
 
+fn should_answer_session_reset_semantics_directly(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    (lower.contains("/clear") && lower.contains("/new") && lower.contains("/forget"))
+        && (lower.contains("exact difference")
+            || lower.contains("difference between")
+            || lower.contains("explain the exact difference")
+            || lower.contains("what is the difference"))
+}
+
+fn build_session_reset_semantics_answer() -> String {
+    "`/clear` is the UI-only cleanup path: it clears the visible dialogue buffer and SPECULAR side-panel state in the TUI, but it does not run the deeper agent reset path.\n\n`/new` is the fresh-context reset: it clears in-memory history, resets session/task state, drops pinned context, wipes task files, and starts a fresh conversation context.\n\n`/forget` is the hard memory purge path: it performs the same visible/session reset shape as `/new`, but it is framed as the explicit memory-wipe command and reports a hard purge of task memory and history.\n\nSo the practical split is: `/clear` = visual cleanup, `/new` = fresh task context, `/forget` = hard wipe semantics.".to_string()
+}
+
 fn should_answer_reasoning_split_directly(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     (lower.contains("reasoning output") || lower.contains("reasoning"))
@@ -1781,6 +1794,24 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if should_answer_session_reset_semantics_directly(&effective_user_input) {
+            let response = build_session_reset_semantics_answer();
+            self.history.push(ChatMessage::user(&effective_user_input));
+            self.history.push(ChatMessage::assistant_text(&response));
+            self.transcript.log_user(user_input);
+            self.transcript.log_agent(&response);
+            for chunk in chunk_text(&response, 8) {
+                if !chunk.is_empty() {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            self.trim_history(80);
+            self.refresh_session_memory();
+            self.save_session();
+            return Ok(());
+        }
+
         if should_answer_reasoning_split_directly(&effective_user_input) {
             let response = build_reasoning_split_answer();
             self.history.push(ChatMessage::user(&effective_user_input));
@@ -2202,6 +2233,8 @@ impl ConversationManager {
         // Track the count of identical (name, args) calls to detect infinite tool loops.
         let mut repeat_counts: std::collections::HashMap<String, usize> =
             std::collections::HashMap::new();
+        let mut successful_read_targets: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
 
         // Track the index of the message that started THIS turn, so compaction doesn't summarize it.
         let mut turn_anchor = self.history.len().saturating_sub(1);
@@ -2249,23 +2282,50 @@ impl ConversationManager {
                 prompt_msgs.push(ChatMessage::system(&intervention));
             }
             prompt_msgs.extend(messages);
+            if let Some(budget_note) =
+                enforce_prompt_budget(&mut prompt_msgs, self.engine.context_length)
+            {
+                let _ = tx.send(InferenceEvent::Thought(budget_note)).await;
+            }
 
-            let (text, tool_calls, usage) = self
+            let (text, tool_calls, usage, finish_reason) = self
                 .engine
                 .call_with_tools(&prompt_msgs, &self.tools, routed_model.as_deref())
                 .await
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?;
 
             // Update TUI token counter with actual usage from LM Studio.
-            if let Some(u) = usage {
-                let _ = tx.send(InferenceEvent::UsageUpdate(u)).await;
+            if let Some(ref u) = usage {
+                let _ = tx.send(InferenceEvent::UsageUpdate(u.clone())).await;
             }
 
-            // Treat empty tool_calls arrays (Some(vec![])) the same as None —
+            // Treat empty tool_calls arrays (Some(vec![])) the same as None –
             // the model returned text only; an empty array causes an infinite loop.
             let tool_calls = tool_calls.filter(|c| !c.is_empty());
+            let near_context_ceiling = usage
+                .as_ref()
+                .map(|u| u.prompt_tokens >= (self.engine.context_length * 82 / 100))
+                .unwrap_or(false);
 
             if let Some(calls) = tool_calls {
+                if let Some(repeated_path) = calls
+                    .iter()
+                    .filter_map(|c| repeated_read_target(&c.function))
+                    .find(|path| successful_read_targets.contains(path))
+                {
+                    loop_intervention = Some(format!(
+                        "STOP. You already read `{}` in this turn. Do not call `read_file` on the same path again unless the offset materially changes. Narrow now with `grep_files` on that path for the exact symbols or `inspect_lines` on the relevant local window, then answer or continue.",
+                        repeated_path
+                    ));
+                    let _ = tx
+                        .send(InferenceEvent::Thought(
+                            "Read discipline: preventing repeated full-file reads on the same path."
+                                .into(),
+                        ))
+                        .await;
+                    continue;
+                }
+
                 if capability_mode
                     && !capability_needs_repo
                     && calls.iter().all(|c| is_capability_probe_tool(&c.function.name))
@@ -2435,6 +2495,12 @@ impl ConversationManager {
                         authoritative_tool_output = Some(final_output.clone());
                     }
 
+                    if !is_error && tool_name == "read_file" {
+                        if let Some(path) = res.args.get("path").and_then(|v| v.as_str()) {
+                            successful_read_targets.insert(normalize_workspace_path(path));
+                        }
+                    }
+
                     if res.blocked_by_policy
                         && is_mcp_workspace_read_tool(&tool_name)
                         && recoverable_policy_intervention.is_none()
@@ -2596,6 +2662,38 @@ impl ConversationManager {
                 // Continue loop – the model will respond to the results.
                 continue;
             } else if let Some(response_text) = text {
+                if finish_reason.as_deref() == Some("length") && near_context_ceiling {
+                    if should_answer_session_reset_semantics_directly(&effective_user_input) {
+                        let cleaned = build_session_reset_semantics_answer();
+                        self.history.push(ChatMessage::assistant_text(&cleaned));
+                        self.transcript.log_agent(&cleaned);
+                        for chunk in chunk_text(&cleaned, 8) {
+                            if !chunk.is_empty() {
+                                let _ = tx.send(InferenceEvent::Token(chunk.clone())).await;
+                            }
+                        }
+                        let _ = tx.send(InferenceEvent::Done).await;
+                        break;
+                    }
+
+                    let warning = "Context ceiling reached before the model completed the answer. Hematite trimmed what it could, but this turn still ran out of room. Retry with a narrower inspection step like `grep_files` or `inspect_lines`, or ask for a smaller scoped answer.".to_string();
+                    self.history.push(ChatMessage::assistant_text(&warning));
+                    self.transcript.log_agent(&warning);
+                    let _ = tx
+                        .send(InferenceEvent::Thought(
+                            "Length recovery: model hit the context ceiling before completing the answer."
+                                .into(),
+                        ))
+                        .await;
+                    for chunk in chunk_text(&warning, 8) {
+                        if !chunk.is_empty() {
+                            let _ = tx.send(InferenceEvent::Token(chunk.clone())).await;
+                        }
+                    }
+                    let _ = tx.send(InferenceEvent::Done).await;
+                    break;
+                }
+
                 if response_text.contains("<|tool_call") || response_text.contains("[END_TOOL_REQUEST]") {
                     loop_intervention = Some(
                         "Your previous response leaked raw native tool-call markup instead of a valid tool invocation or final answer. Retry immediately. If you need a tool, emit a valid tool call only. If you do not need a tool, answer in plain text with no `<|tool_call>` or `[END_TOOL_REQUEST]` markup.".to_string(),
@@ -2972,7 +3070,7 @@ impl ConversationManager {
         ];
 
         // Use fast model for speed if available.
-        let (text, _, _) = self
+        let (text, _, _, _) = self
             .engine
             .call_with_tools(&messages, &[], self.fast_model.as_deref())
             .await
@@ -3026,7 +3124,7 @@ impl ConversationManager {
             ChatMessage::user(&prompt)
         ];
 
-        let (text, _, _) = self
+        let (text, _, _, _) = self
             .engine
             .call_with_tools(&messages, &[], self.fast_model.as_deref())
             .await
@@ -3749,6 +3847,181 @@ fn cap_output(text: &str, max_bytes: usize) -> String {
     }
 }
 
+#[derive(Default)]
+struct PromptBudgetStats {
+    summarized_tool_results: usize,
+    collapsed_tool_results: usize,
+    trimmed_chat_messages: usize,
+    dropped_messages: usize,
+}
+
+fn estimate_prompt_tokens(messages: &[ChatMessage]) -> usize {
+    messages
+        .iter()
+        .map(|m| {
+            let content_tokens = match &m.content {
+                MessageContent::Text(s) => s.len() / 4 + 1,
+                MessageContent::Parts(parts) => parts
+                    .iter()
+                    .map(|p| match p {
+                        crate::agent::inference::ContentPart::Text { text } => text.len() / 4 + 1,
+                        crate::agent::inference::ContentPart::ImageUrl { image_url } => {
+                            image_url.url.len() / 4 + 4
+                        }
+                    })
+                    .sum(),
+            };
+            let tool_tokens: usize = m
+                .tool_calls
+                .iter()
+                .map(|c| (c.function.name.len() + c.function.arguments.len()) / 4 + 4)
+                .sum();
+            content_tokens + tool_tokens + 6
+        })
+        .sum()
+}
+
+fn summarize_prompt_blob(text: &str, max_chars: usize) -> String {
+    let cleaned = text.replace('\r', " ").replace('\n', " ");
+    let compact = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.chars().count() <= max_chars {
+        compact
+    } else {
+        let mut out: String = compact.chars().take(max_chars.saturating_sub(12)).collect();
+        out.push_str("... [snip]");
+        out
+    }
+}
+
+fn summarize_tool_message_for_budget(message: &ChatMessage) -> String {
+    let tool_name = message.name.as_deref().unwrap_or("tool");
+    let body = summarize_prompt_blob(message.content.as_str(), 320);
+    format!(
+        "[Prompt-budget summary of prior `{}` result]\n{}",
+        tool_name, body
+    )
+}
+
+fn summarize_chat_message_for_budget(message: &ChatMessage) -> String {
+    let role = message.role.as_str();
+    let body = summarize_prompt_blob(message.content.as_str(), 240);
+    format!("[Prompt-budget summary of earlier {} message]\n{}", role, body)
+}
+
+fn normalize_prompt_start(messages: &mut Vec<ChatMessage>) {
+    if messages.len() > 1 && messages[1].role != "user" {
+        messages.insert(1, ChatMessage::user("Continuing previous context..."));
+    }
+}
+
+fn enforce_prompt_budget(
+    prompt_msgs: &mut Vec<ChatMessage>,
+    context_length: usize,
+) -> Option<String> {
+    let target_tokens = ((context_length as f64) * 0.68) as usize;
+    if estimate_prompt_tokens(prompt_msgs) <= target_tokens {
+        return None;
+    }
+
+    let mut stats = PromptBudgetStats::default();
+
+    // 1. Summarize the newest large tool outputs first.
+    let mut tool_indices: Vec<usize> = prompt_msgs
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, msg)| (msg.role == "tool").then_some(idx))
+        .collect();
+    for idx in tool_indices.iter().rev().copied() {
+        if estimate_prompt_tokens(prompt_msgs) <= target_tokens {
+            break;
+        }
+        let original = prompt_msgs[idx].content.as_str().to_string();
+        if original.len() > 1200 {
+            prompt_msgs[idx].content =
+                MessageContent::Text(summarize_tool_message_for_budget(&prompt_msgs[idx]));
+            stats.summarized_tool_results += 1;
+        }
+    }
+
+    // 2. Collapse older tool results aggressively, keeping only the most recent two verbatim/summarized.
+    tool_indices = prompt_msgs
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, msg)| (msg.role == "tool").then_some(idx))
+        .collect();
+    if tool_indices.len() > 2 {
+        for idx in tool_indices
+            .iter()
+            .take(tool_indices.len().saturating_sub(2))
+            .copied()
+        {
+            if estimate_prompt_tokens(prompt_msgs) <= target_tokens {
+                break;
+            }
+            prompt_msgs[idx].content = MessageContent::Text(
+                "[Earlier tool output omitted to stay within the prompt budget.]".to_string(),
+            );
+            stats.collapsed_tool_results += 1;
+        }
+    }
+
+    // 3. Trim older long chat messages, but preserve the final user request.
+    let last_user_idx = prompt_msgs.iter().rposition(|m| m.role == "user");
+    for idx in 1..prompt_msgs.len() {
+        if estimate_prompt_tokens(prompt_msgs) <= target_tokens {
+            break;
+        }
+        if Some(idx) == last_user_idx {
+            continue;
+        }
+        let role = prompt_msgs[idx].role.as_str();
+        if matches!(role, "user" | "assistant") && prompt_msgs[idx].content.as_str().len() > 900 {
+            prompt_msgs[idx].content =
+                MessageContent::Text(summarize_chat_message_for_budget(&prompt_msgs[idx]));
+            stats.trimmed_chat_messages += 1;
+        }
+    }
+
+    // 4. Drop the oldest non-system context until we fit, preserving the latest user request.
+    let preserve_last_user_idx = prompt_msgs.iter().rposition(|m| m.role == "user");
+    let mut idx = 1usize;
+    while estimate_prompt_tokens(prompt_msgs) > target_tokens && prompt_msgs.len() > 2 {
+        if Some(idx) == preserve_last_user_idx {
+            idx += 1;
+            if idx >= prompt_msgs.len() {
+                break;
+            }
+            continue;
+        }
+        if idx >= prompt_msgs.len() {
+            break;
+        }
+        prompt_msgs.remove(idx);
+        stats.dropped_messages += 1;
+    }
+
+    normalize_prompt_start(prompt_msgs);
+
+    let new_tokens = estimate_prompt_tokens(prompt_msgs);
+    if stats.summarized_tool_results == 0
+        && stats.collapsed_tool_results == 0
+        && stats.trimmed_chat_messages == 0
+        && stats.dropped_messages == 0
+    {
+        return None;
+    }
+
+    Some(format!(
+        "Prompt Budget Guard: trimmed prompt to about {} tokens (target {}). Summarized {} large tool result(s), collapsed {} older tool result(s), trimmed {} chat message(s), and dropped {} old message(s).",
+        new_tokens,
+        target_tokens,
+        stats.summarized_tool_results,
+        stats.collapsed_tool_results,
+        stats.trimmed_chat_messages,
+        stats.dropped_messages
+    ))
+}
+
 /// Split text into chunks of roughly `words_per_chunk` whitespace-separated tokens.
 fn chunk_text(text: &str, words_per_chunk: usize) -> Vec<String> {
     let mut chunks = Vec::new();
@@ -3770,6 +4043,17 @@ fn chunk_text(text: &str, words_per_chunk: usize) -> Vec<String> {
         chunks.push(current);
     }
     chunks
+}
+
+fn repeated_read_target(call: &crate::agent::inference::ToolCallFn) -> Option<String> {
+    if call.name != "read_file" {
+        return None;
+    }
+    let normalized_arguments =
+        crate::agent::inference::normalize_tool_argument_string(&call.name, &call.arguments);
+    let args: Value = serde_json::from_str(&normalized_arguments).ok()?;
+    let path = args.get("path").and_then(|v| v.as_str())?;
+    Some(normalize_workspace_path(path))
 }
 
 fn build_system_with_corrections(

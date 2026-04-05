@@ -36,7 +36,7 @@ pub async fn vision_analyze(
     ];
 
     // Use the main engine but with tools disabled for the vision-pass sub-call.
-    let (text, _, _) = engine.call_with_tools(&messages, &[], None).await?;
+    let (text, _, _, _) = engine.call_with_tools(&messages, &[], None).await?;
     
     Ok(text.unwrap_or_else(|| "The vision model returned an empty response.".to_string()))
 }

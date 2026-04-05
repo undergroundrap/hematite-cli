@@ -237,6 +237,8 @@ pub struct TokenUsage {
 #[derive(Deserialize, Debug)]
 struct ResponseChoice {
     message: ResponseMessage,
+    #[serde(default)]
+    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -649,6 +651,7 @@ impl InferenceEngine {
             Option<String>,
             Option<Vec<ToolCallResponse>>,
             Option<TokenUsage>,
+            Option<String>,
         ),
         String,
     > {
@@ -750,6 +753,7 @@ impl InferenceEngine {
             .next()
             .ok_or_else(|| "Empty response from model".to_string())?;
 
+        let finish_reason = choice.finish_reason;
         let mut tool_calls = choice.message.tool_calls;
         let mut content = choice.message.content;
 
@@ -779,7 +783,7 @@ impl InferenceEngine {
             }
         }
 
-        Ok((content, tool_calls, body.usage))
+        Ok((content, tool_calls, body.usage, finish_reason))
     }
 
     // ── Streaming call (used for plain-text responses) ────────────────────────
