@@ -255,7 +255,9 @@
     "success_criteria": [
       "Does not leak raw <|tool_call> or [END_TOOL_REQUEST] markup",
       "Normalizes over-quoted path and extension arguments into usable built-in tool arguments",
-      "Normalizes slash-delimited grep_files patterns before execution"
+      "Normalizes slash-delimited grep_files patterns before execution",
+      "Does not freehand reset semantics from partial tui.rs evidence after the inspection step",
+      "Preserves the stable /clear = UI-only cleanup, /new = fresh task context, /forget = hard wipe split in the final answer"
     ]
   },
   {

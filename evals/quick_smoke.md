@@ -363,6 +363,8 @@ Check:
 - does not leak raw `<|tool_call>` or `[END_TOOL_REQUEST]` markup
 - if it emits quoted tool args like `"src/ui/tui.rs"` or `"rs"`, Hematite normalizes them into usable built-in tool arguments
 - if it emits `grep_files` patterns with surrounding slash delimiters, Hematite normalizes them before execution
+- after the inspection step, Hematite does not freehand reset semantics from partial `tui.rs` evidence
+- the final answer preserves the stable `/clear` = UI-only cleanup, `/new` = fresh task context, `/forget` = hard wipe split
 
 ## 31. Gemma Native Formatting Modes
 

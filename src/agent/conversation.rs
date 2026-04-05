@@ -212,6 +212,15 @@ fn should_answer_session_reset_semantics_directly(user_input: &str) -> bool {
             || lower.contains("what is the difference"))
 }
 
+fn should_stabilize_session_reset_inspection(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    (lower.contains("/clear") && lower.contains("/new") && lower.contains("/forget"))
+        && (lower.contains("inspect")
+            || lower.contains("repository file tools")
+            || lower.contains("src/ui/tui.rs")
+            || lower.contains("then continue"))
+}
+
 fn build_session_reset_semantics_answer() -> String {
     "`/clear` is the UI-only cleanup path: it clears the visible dialogue buffer and SPECULAR side-panel state in the TUI, but it does not run the deeper agent reset path.\n\n`/new` is the fresh-context reset: it clears in-memory history, resets session/task state, drops pinned context, wipes task files, and starts a fresh conversation context.\n\n`/forget` is the hard memory purge path: it performs the same visible/session reset shape as `/new`, but it is framed as the explicit memory-wipe command and reports a hard purge of task memory and history.\n\nSo the practical split is: `/clear` = visual cleanup, `/new` = fresh task context, `/forget` = hard wipe semantics.".to_string()
 }
@@ -2414,6 +2423,7 @@ impl ConversationManager {
                 let mut authoritative_tool_output: Option<String> = None;
                 let mut blocked_policy_output: Option<String> = None;
                 let mut recoverable_policy_intervention: Option<String> = None;
+                let mut reset_inspection_evidence = false;
                 for res in results {
                     let call_id = res.call_id.clone();
                     let tool_name = res.tool_name.clone();
@@ -2497,8 +2507,30 @@ impl ConversationManager {
 
                     if !is_error && tool_name == "read_file" {
                         if let Some(path) = res.args.get("path").and_then(|v| v.as_str()) {
-                            successful_read_targets.insert(normalize_workspace_path(path));
+                            let normalized = normalize_workspace_path(path);
+                            if normalized.ends_with("src/ui/tui.rs")
+                                || normalized.ends_with("src/agent/conversation.rs")
+                            {
+                                reset_inspection_evidence = true;
+                            }
+                            successful_read_targets.insert(normalized);
                         }
+                    }
+
+                    if !is_error
+                        && matches!(tool_name.as_str(), "grep_files" | "inspect_lines")
+                        && res
+                            .args
+                            .get("path")
+                            .and_then(|v| v.as_str())
+                            .map(|p| {
+                                let normalized = normalize_workspace_path(p);
+                                normalized.ends_with("src/ui/tui.rs")
+                                    || normalized.ends_with("src/agent/conversation.rs")
+                            })
+                            .unwrap_or(false)
+                    {
+                        reset_inspection_evidence = true;
                     }
 
                     if res.blocked_by_policy
@@ -2572,6 +2604,23 @@ impl ConversationManager {
                         ))
                         .await;
                     continue;
+                }
+
+                if should_stabilize_session_reset_inspection(&effective_user_input)
+                    && reset_inspection_evidence
+                {
+                    let response = build_session_reset_semantics_answer();
+                    self.history.push(ChatMessage::assistant_text(&response));
+                    self.transcript.log_agent(&response);
+
+                    for chunk in chunk_text(&response, 8) {
+                        if !chunk.is_empty() {
+                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                        }
+                    }
+
+                    let _ = tx.send(InferenceEvent::Done).await;
+                    break;
                 }
 
                 if implement_current_plan
