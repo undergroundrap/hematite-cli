@@ -1,6 +1,6 @@
 use crate::agent::inference::{
     ChatMessage, InferenceEngine, InferenceEvent, MessageContent, ToolCallFn, ToolDefinition,
-    ToolFunction,
+    ToolCallResponse, ToolFunction,
 };
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
 use crate::agent::compaction::{self, CompactionConfig};
@@ -251,6 +251,352 @@ fn should_stabilize_product_surface_inspection(user_input: &str) -> bool {
 
 fn build_product_surface_answer() -> String {
     "Hematite answers stable product-surface questions in the conversation loop with direct classifiers before it falls back to the normal model-and-tools path.\n\nFor stable command/config behavior like `/gemma-native`, reset semantics, workflow modes, verify profiles, and session-memory policy, it matches the prompt against dedicated direct-answer gates, returns a prebuilt verified answer, logs it into history, and skips repository inspection entirely.\n\nOnly when the prompt is asking about repository implementation details rather than stable product behavior should Hematite inspect files like `src/agent/conversation.rs` or call other tools. The practical rule is: stable product truth first, repo implementation second.".to_string()
+}
+
+fn should_preserve_project_map_output(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("map_project")
+        || lower.contains("entrypoint")
+        || lower.contains("owner file")
+        || lower.contains("owner files")
+        || lower.contains("project structure")
+        || lower.contains("repository structure")
+        || (lower.contains("architecture")
+            && (lower.contains("repo") || lower.contains("repository")))
+}
+
+fn should_enable_architecture_overview_mode(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    let architecture_signals = lower.contains("architecture walkthrough")
+        || lower.contains("full architecture")
+        || lower.contains("runtime walkthrough")
+        || lower.contains("control flow")
+        || lower.contains("tool routing")
+        || lower.contains("workflow modes")
+        || lower.contains("repo map behavior")
+        || lower.contains("mcp policy")
+        || lower.contains("prompt budgeting")
+        || lower.contains("compaction")
+        || lower.contains("file ownership")
+        || lower.contains("owner files");
+    let broad = lower.contains("full detailed")
+        || lower.contains("all in one answer")
+        || lower.contains("concrete file ownership");
+    (architecture_signals && broad)
+        || (lower.contains("runtime")
+            && lower.contains("workflow")
+            && (lower.contains("architecture") || lower.contains("tool routing")))
+}
+
+fn prompt_mentions_specific_repo_path(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("src/")
+        || lower.contains("cargo.toml")
+        || lower.contains("readme.md")
+        || lower.contains("memory.md")
+        || lower.contains("claude.md")
+        || lower.contains(".rs")
+        || lower.contains(".py")
+        || lower.contains(".ts")
+        || lower.contains(".js")
+        || lower.contains(".go")
+        || lower.contains(".cs")
+}
+
+fn is_broad_repo_read_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "read_file"
+            | "inspect_lines"
+            | "grep_files"
+            | "list_files"
+            | "auto_pin_context"
+            | "lsp_definitions"
+            | "lsp_references"
+            | "lsp_hover"
+            | "lsp_search_symbol"
+            | "lsp_get_diagnostics"
+    )
+}
+
+fn prune_read_only_context_bloat_batch(
+    calls: Vec<ToolCallResponse>,
+    read_only_mode: bool,
+    architecture_overview_mode: bool,
+) -> (Vec<ToolCallResponse>, Option<String>) {
+    if !read_only_mode || !architecture_overview_mode {
+        return (calls, None);
+    }
+
+    let mut kept = Vec::new();
+    let mut dropped = Vec::new();
+    for call in calls {
+        if matches!(call.function.name.as_str(), "auto_pin_context" | "list_pinned") {
+            dropped.push(call.function.name.clone());
+        } else {
+            kept.push(call);
+        }
+    }
+
+    if dropped.is_empty() {
+        return (kept, None);
+    }
+
+    (
+        kept,
+        Some(format!(
+            "Read-only architecture discipline: skipping context-bloat tools in analysis mode (dropped: {}). Use grounded tool output already gathered instead of pinning more files.",
+            dropped.join(", ")
+        )),
+    )
+}
+
+fn trace_topic_priority_for_architecture(call: &ToolCallResponse) -> i32 {
+    let args: Value = serde_json::from_str(&call.function.arguments).unwrap_or(Value::Null);
+    match args.get("topic").and_then(|v| v.as_str()).unwrap_or("") {
+        "runtime_subsystems" => 3,
+        "user_turn" => 2,
+        "startup" => 1,
+        _ => 0,
+    }
+}
+
+fn prune_architecture_trace_batch(
+    calls: Vec<ToolCallResponse>,
+    architecture_overview_mode: bool,
+) -> (Vec<ToolCallResponse>, Option<String>) {
+    if !architecture_overview_mode {
+        return (calls, None);
+    }
+
+    let trace_calls: Vec<_> = calls
+        .iter()
+        .filter(|call| call.function.name == "trace_runtime_flow")
+        .cloned()
+        .collect();
+    if trace_calls.len() <= 1 {
+        return (calls, None);
+    }
+
+    let best_trace = trace_calls
+        .iter()
+        .max_by_key(|call| trace_topic_priority_for_architecture(call))
+        .map(|call| call.id.clone());
+
+    let mut kept = Vec::new();
+    let mut dropped_topics = Vec::new();
+    for call in calls {
+        if call.function.name == "trace_runtime_flow" && Some(call.id.clone()) != best_trace {
+            let args: Value = serde_json::from_str(&call.function.arguments).unwrap_or(Value::Null);
+            let topic = args
+                .get("topic")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            dropped_topics.push(topic.to_string());
+        } else {
+            kept.push(call);
+        }
+    }
+
+    (
+        kept,
+        Some(format!(
+            "Architecture overview discipline: keeping one runtime trace topic for this batch and dropping extra variants (dropped: {}).",
+            dropped_topics.join(", ")
+        )),
+    )
+}
+
+fn prune_authoritative_tool_batch(
+    calls: Vec<ToolCallResponse>,
+    grounded_trace_mode: bool,
+    user_input: &str,
+) -> (Vec<ToolCallResponse>, Option<String>) {
+    if !grounded_trace_mode || prompt_mentions_specific_repo_path(user_input) {
+        return (calls, None);
+    }
+
+    let has_trace = calls
+        .iter()
+        .any(|call| call.function.name == "trace_runtime_flow");
+    if !has_trace {
+        return (calls, None);
+    }
+
+    let mut kept = Vec::new();
+    let mut dropped = Vec::new();
+    for call in calls {
+        if is_broad_repo_read_tool(&call.function.name) {
+            dropped.push(call.function.name.clone());
+        } else {
+            kept.push(call);
+        }
+    }
+
+    if dropped.is_empty() {
+        return (kept, None);
+    }
+
+    (
+        kept,
+        Some(format!(
+            "Runtime-trace discipline: preserving `trace_runtime_flow` as the authoritative runtime source and skipping extra repo reads in the same batch (dropped: {}).",
+            dropped.join(", ")
+        )),
+    )
+}
+
+fn collect_project_map_bullets(report: &str, header: &str, limit: usize) -> Vec<String> {
+    let mut in_section = false;
+    let mut bullets = Vec::new();
+
+    for line in report.lines() {
+        let trimmed = line.trim();
+        if trimmed == header {
+            in_section = true;
+            continue;
+        }
+
+        if !in_section {
+            continue;
+        }
+
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if trimmed.starts_with("-- ") || trimmed == "Likely entrypoints" || trimmed == "Core owner files" {
+            if !bullets.is_empty() {
+                break;
+            }
+            continue;
+        }
+
+        if trimmed.starts_with("- ") {
+            bullets.push(trimmed.to_string());
+            if bullets.len() >= limit {
+                break;
+            }
+            continue;
+        }
+
+        if !trimmed.starts_with("symbols:") {
+            break;
+        }
+    }
+
+    bullets
+}
+
+fn summarize_project_map_output(report: &str) -> String {
+    let mut entrypoints = collect_project_map_bullets(report, "Likely entrypoints", 4);
+    let mut owners = collect_project_map_bullets(report, "Core owner files", 8);
+
+    if owners.is_empty() {
+        let fallback: Vec<String> = report
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.starts_with("- "))
+            .take(8)
+            .map(|line| line.to_string())
+            .collect();
+        owners = fallback;
+    }
+
+    if entrypoints.is_empty() {
+        entrypoints = owners
+            .iter()
+            .filter(|line| line.contains("[entrypoint]"))
+            .take(4)
+            .cloned()
+            .collect();
+    }
+
+    let mut lines = vec!["Based on `map_project`, the grounded architecture summary is:".to_string()];
+
+    if !entrypoints.is_empty() {
+        lines.push(String::new());
+        lines.push("Likely entrypoints".to_string());
+        lines.extend(entrypoints);
+    }
+
+    if !owners.is_empty() {
+        lines.push(String::new());
+        lines.push("Core owner files".to_string());
+        lines.extend(owners);
+    }
+
+    lines.join("\n")
+}
+
+fn summarize_runtime_trace_output(report: &str) -> String {
+    let mut lines = Vec::new();
+    let mut started = false;
+
+    for line in report.lines() {
+        let trimmed = line.trim_end();
+        if trimmed.is_empty() {
+            if started && !lines.last().map(|s: &String| s.is_empty()).unwrap_or(false) {
+                lines.push(String::new());
+            }
+            continue;
+        }
+
+        if !started {
+            if trimmed.starts_with("Verified runtime trace")
+                || trimmed.starts_with("Verified runtime subsystems")
+                || trimmed.starts_with("Verified startup flow")
+            {
+                started = true;
+                lines.push(trimmed.to_string());
+            }
+            continue;
+        }
+
+        if trimmed == "Possible weak points" {
+            break;
+        }
+
+        if trimmed.starts_with("Visible chat output path")
+            || trimmed.starts_with("Reasoning and specular path")
+            || trimmed.starts_with("Voice path")
+            || trimmed.starts_with("Primary communication paths")
+            || trimmed.starts_with("1.")
+            || trimmed.starts_with("2.")
+            || trimmed.starts_with("3.")
+            || trimmed.starts_with("4.")
+            || trimmed.starts_with("5.")
+            || trimmed.starts_with("6.")
+            || trimmed.starts_with("- ")
+        {
+            lines.push(trimmed.to_string());
+        }
+
+        if lines.len() >= 16 {
+            break;
+        }
+    }
+
+    lines.join("\n")
+}
+
+fn build_architecture_overview_answer(
+    project_map_summary: &str,
+    runtime_trace_summary: &str,
+) -> String {
+    let mut out = String::new();
+    out.push_str("Grounded architecture overview\n\n");
+    out.push_str("Structure and owner files\n");
+    out.push_str(project_map_summary.trim());
+    out.push_str("\n\nRuntime control flow\n");
+    out.push_str(runtime_trace_summary.trim());
+    out.push_str("\n\nStable workflow contracts\n");
+    out.push_str("- Workflow modes live in `src/agent/conversation.rs`: `/ask` is read-only analysis, `/code` allows implementation, `/architect` is plan-first, `/read-only` is hard no-mutation, and `/auto` chooses the narrowest effective path.\n");
+    out.push_str("- Reset semantics split across `src/ui/tui.rs` and `src/agent/conversation.rs`: `/clear` is UI-only cleanup, `/new` is fresh task context, and `/forget` is the hard memory purge path.\n");
+    out.push_str("- Gemma-native formatting is controlled by the Gemma 4 config/runtime path in `src/agent/config.rs`, `src/agent/inference.rs`, `src/agent/conversation.rs`, and `src/ui/tui.rs`.\n");
+    out.push_str("- Prompt budgeting is split between provider preflight in `src/agent/inference.rs` and turn-level trimming/compaction in `src/agent/conversation.rs` plus `src/agent/compaction.rs`.\n");
+    out.push_str("- MCP policy and tool routing are enforced in `src/agent/conversation.rs`: ordinary workspace inspection is pushed toward built-in file tools, MCP filesystem reads are blocked by default for local inspection, and tool execution is partitioned into parallel-safe reads vs serialized mutating calls.\n");
+    out
 }
 
 fn should_answer_reasoning_split_directly(user_input: &str) -> bool {
@@ -1458,6 +1804,13 @@ impl ConversationManager {
             }
         }
 
+        if self.workflow_mode.is_read_only() && name == "auto_pin_context" {
+            return Err(
+                "Action blocked: `auto_pin_context` is disabled in read-only workflows. Use the grounded file evidence you already have, or narrow with `inspect_lines` instead of pinning more files into active context."
+                    .to_string(),
+            );
+        }
+
         if self.workflow_mode.is_read_only() && is_destructive_tool(name) {
             if name == "shell" {
                 let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
@@ -2125,6 +2478,9 @@ impl ConversationManager {
         let grounded_trace_mode = should_enable_grounded_trace_mode(&effective_user_input);
         let capability_mode = should_enable_capability_mode(&effective_user_input);
         let toolchain_mode = should_enable_toolchain_mode(&effective_user_input);
+        let project_map_mode = should_preserve_project_map_output(&effective_user_input);
+        let architecture_overview_mode =
+            should_enable_architecture_overview_mode(&effective_user_input);
         let capability_needs_repo = capability_question_requires_repo_inspection(&effective_user_input);
         let mut system_msg = build_system_with_corrections(
             &base_prompt,
@@ -2172,6 +2528,23 @@ impl ConversationManager {
                  Do not invent helper tools, MCP tool names, synthetic symbols, or example function names.\n\
                  If `describe_toolchain` fully answers the question, preserve its output exactly instead of restyling it.\n\
                  Be explicit about which tools are optional or conditional.\n"
+            );
+        }
+        if project_map_mode {
+            system_msg.push_str(
+                "\n\n# PROJECT MAP DISCIPLINE MODE\n\
+                 For repository structure, entrypoint, owner-file, or architecture-map questions, prefer `map_project` first.\n\
+                 If `map_project` provides likely entrypoints and core owner files, preserve that grounded structure instead of rewriting it into broad prose.\n\
+                 Do not invent new entrypoints or owner files that are not present in the tool output.\n\
+                 Keep the final answer compact and architecture-first.\n"
+            );
+        }
+        if architecture_overview_mode {
+            system_msg.push_str(
+                "\n\n# ARCHITECTURE OVERVIEW DISCIPLINE MODE\n\
+                 For broad runtime or architecture walkthroughs, prefer authoritative tools first: `trace_runtime_flow` for control flow and `map_project` for compact structure.\n\
+                 Do not call `auto_pin_context` or `list_pinned` in read-only analysis. Avoid broad `read_file` calls unless the user explicitly asks for implementation detail in one named file.\n\
+                 Preserve grounded tool output rather than restyling it into a larger answer.\n"
             );
         }
 
@@ -2276,6 +2649,8 @@ impl ConversationManager {
         let mut non_mutating_plan_steps = 0usize;
         let non_mutating_plan_soft_cap = 5usize;
         let non_mutating_plan_hard_cap = 8usize;
+        let mut overview_project_map: Option<String> = None;
+        let mut overview_runtime_trace: Option<String> = None;
 
         // Safety cap – never spin forever on a broken model.
         let max_iters = 25;
@@ -2363,6 +2738,27 @@ impl ConversationManager {
                 .unwrap_or(false);
 
             if let Some(calls) = tool_calls {
+                let (calls, prune_trace_note) =
+                    prune_architecture_trace_batch(calls, architecture_overview_mode);
+                if let Some(note) = prune_trace_note {
+                    let _ = tx.send(InferenceEvent::Thought(note)).await;
+                }
+
+                let (calls, prune_bloat_note) = prune_read_only_context_bloat_batch(
+                    calls,
+                    self.workflow_mode.is_read_only(),
+                    architecture_overview_mode,
+                );
+                if let Some(note) = prune_bloat_note {
+                    let _ = tx.send(InferenceEvent::Thought(note)).await;
+                }
+
+                let (calls, prune_note) =
+                    prune_authoritative_tool_batch(calls, grounded_trace_mode, &effective_user_input);
+                if let Some(note) = prune_note {
+                    let _ = tx.send(InferenceEvent::Thought(note)).await;
+                }
+
                 if let Some(repeated_path) = calls
                     .iter()
                     .filter_map(|c| repeated_read_target(&c.function))
@@ -2538,17 +2934,34 @@ impl ConversationManager {
                         && self.workflow_mode == WorkflowMode::Architect
                     {
                         cap_output(&final_output, 2500)
+                    } else if tool_name == "map_project" {
+                        cap_output(&final_output, 3500)
                     } else {
                         cap_output(&final_output, 8000)
                     };
                     self.history
                         .push(ChatMessage::tool_result(&call_id, &tool_name, &capped));
 
-                    if !is_error
+                    if architecture_overview_mode && !is_error && tool_name == "trace_runtime_flow" {
+                        overview_runtime_trace = Some(summarize_runtime_trace_output(&final_output));
+                    } else if architecture_overview_mode && !is_error && tool_name == "map_project" {
+                        overview_project_map = Some(summarize_project_map_output(&final_output));
+                    }
+
+                    if !architecture_overview_mode
+                        && !is_error
                         && ((grounded_trace_mode && tool_name == "trace_runtime_flow")
                             || (toolchain_mode && tool_name == "describe_toolchain"))
                     {
                         authoritative_tool_output = Some(final_output.clone());
+                    } else if !architecture_overview_mode
+                        && !is_error
+                        && tool_name == "map_project"
+                        && project_map_mode
+                        && authoritative_tool_output.is_none()
+                    {
+                        authoritative_tool_output =
+                            Some(summarize_project_map_output(&final_output));
                     }
 
                     if !is_error && tool_name == "read_file" {
@@ -2650,6 +3063,44 @@ impl ConversationManager {
                         ))
                         .await;
                     continue;
+                }
+
+                if architecture_overview_mode {
+                    match (
+                        overview_project_map.as_deref(),
+                        overview_runtime_trace.as_deref(),
+                    ) {
+                        (Some(project_map), Some(runtime_trace)) => {
+                            let response =
+                                build_architecture_overview_answer(project_map, runtime_trace);
+                            self.history.push(ChatMessage::assistant_text(&response));
+                            self.transcript.log_agent(&response);
+
+                            for chunk in chunk_text(&response, 8) {
+                                if !chunk.is_empty() {
+                                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                                }
+                            }
+
+                            let _ = tx.send(InferenceEvent::Done).await;
+                            break;
+                        }
+                        (Some(_), None) => {
+                            loop_intervention = Some(
+                                "Good. You now have the grounded repository structure. Next, call `trace_runtime_flow` for the runtime/control-flow half of the architecture overview. Prefer topic `user_turn` for the main execution path, or `runtime_subsystems` if that is more direct. Do not call `read_file`, `auto_pin_context`, or LSP tools here."
+                                    .to_string(),
+                            );
+                            continue;
+                        }
+                        (None, Some(_)) => {
+                            loop_intervention = Some(
+                                "Good. You now have the grounded runtime/control-flow trace. Next, call `map_project` once to capture entrypoints and core owner files. Keep it compact and do not call broad file-read tools in this architecture overview."
+                                    .to_string(),
+                            );
+                            continue;
+                        }
+                        (None, None) => {}
+                    }
                 }
 
                 if should_stabilize_session_reset_inspection(&effective_user_input)
@@ -3393,6 +3844,13 @@ impl ConversationManager {
                     .or_insert(Value::Bool(false));
                 obj.entry("max_depth".to_string())
                     .or_insert(Value::Number(2_u64.into()));
+            }
+        } else if call.name == "map_project" && self.workflow_mode.is_read_only() {
+            if let Some(obj) = args.as_object_mut() {
+                obj.entry("include_symbols".to_string())
+                    .or_insert(Value::Bool(false));
+                obj.entry("max_depth".to_string())
+                    .or_insert(Value::Number(3_u64.into()));
             }
         }
 

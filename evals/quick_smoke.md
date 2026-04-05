@@ -414,3 +414,52 @@ Check:
 - does not get stuck repeating `read_file` on `src/agent/conversation.rs`
 - after one grounded inspection step, returns the stable explanation of how direct-answer gates work
 - does not freehand a file-walk narrative once enough evidence has been gathered
+
+## 35. Project Map Preservation
+
+```text
+Read-only mode. Use `map_project` first, then tell me the likely entrypoints and core owner files for this repository without guessing.
+```
+
+Check:
+- uses `map_project` first
+- preserves a compact grounded architecture summary instead of broad restyled prose
+- does not invent extra entrypoints or owner files beyond the map output
+- avoids burning nearly the full context window on the post-`map_project` answer
+- does not treat unrelated `lib.rs` files as entrypoints by default
+
+## 36. Provider Context Preflight
+
+```text
+Drive a deliberately oversized turn after several heavy tool results and confirm Hematite fails fast with a `context_window_blocked` style error instead of silently sending the request and hanging near the context ceiling.
+```
+
+Check:
+- the provider path blocks the request before LM Studio receives an oversized prompt
+- the surfaced error tells the operator to narrow the request, compact the session, or preserve grounded tool output
+- no silent stall at the context ceiling
+
+## 37. Float-Shaped Numeric Tool Args
+
+```text
+You are running on Gemma 4. Use the repository file tools to inspect `src/agent/conversation.rs` for broad architecture behavior, but keep the first file read to a small bounded window before narrowing further.
+```
+
+Check:
+- float-shaped numeric tool args like `100.0` still respect `read_file.limit`, `read_file.offset`, `grep_files.context`, and similar file-tool bounds
+- Hematite does not silently upgrade a bounded inspection into a full-file read when the model emits decimal-shaped integers
+- the next step narrows with `grep_files` or `inspect_lines` instead of repeatedly rereading the whole file
+
+## 38. Runtime Trace Batch Discipline
+
+```text
+Read-only mode. Now give me a full detailed architecture walkthrough of Hematite's runtime, workflow modes, repo map behavior, reset semantics, Gemma-native formatting, prompt budgeting, compaction, MCP policy, and tool routing all in one answer with concrete file ownership and control flow.
+```
+
+Check:
+- gathers both grounded sources for this class of question: `map_project` for structure and `trace_runtime_flow` for runtime/control flow
+- keeps at most one `trace_runtime_flow` topic in the same architecture-overview batch
+- if `trace_runtime_flow` is already in the batch for a broad runtime question, Hematite does not also drag `read_file` or LSP repo-inspection tools into the same tool batch
+- `trace_runtime_flow` stays authoritative over later architecture restyling
+- `map_project` can still contribute compact structure when needed, but broad whole-file reads are pruned from the same runtime-trace batch
+- Hematite does not use `auto_pin_context` to inflate read-only architecture walkthroughs

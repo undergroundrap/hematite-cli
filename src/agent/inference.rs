@@ -247,6 +247,9 @@ struct ResponseMessage {
     tool_calls: Option<Vec<ToolCallResponse>>,
 }
 
+const MIN_RESERVED_OUTPUT_TOKENS: usize = 1024;
+const MAX_RESERVED_OUTPUT_TOKENS: usize = 4096;
+
 // ── Events pushed to the TUI ──────────────────────────────────────────────────
 
 #[derive(Debug)]
@@ -705,6 +708,13 @@ impl InferenceEngine {
         };
 
         // Exponential backoff: retry up to 3× on 5xx / timeout / connect errors.
+        preflight_chat_request(
+            &model,
+            &request.messages,
+            request.tools.as_deref().unwrap_or(&[]),
+            self.context_length,
+        )?;
+
         let mut last_err = String::new();
         let mut response_opt: Option<reqwest::Response> = None;
         for attempt in 0..3u32 {
@@ -820,6 +830,11 @@ impl InferenceEngine {
             stream: true,
             tools: None,
         };
+
+        preflight_chat_request(&self.model, &request.messages, &[], self.context_length)
+            .map_err(|e| -> Box<dyn std::error::Error> {
+                Box::new(std::io::Error::other(e))
+            })?;
 
         let res = self
             .client
@@ -1011,6 +1026,8 @@ impl InferenceEngine {
             tools: None,
         };
 
+        preflight_chat_request(model, &request.messages, &[], self.context_length)?;
+
         let res = self
             .client
             .post(&self.api_url)
@@ -1057,6 +1074,38 @@ impl InferenceEngine {
         }
         snipped
     }
+}
+
+fn estimate_serialized_tokens<T: Serialize + ?Sized>(value: &T) -> usize {
+    serde_json::to_vec(value)
+        .ok()
+        .map_or(0, |bytes| bytes.len() / 4 + 1)
+}
+
+fn reserved_output_tokens(context_length: usize) -> usize {
+    let proportional = (context_length / 8).max(MIN_RESERVED_OUTPUT_TOKENS);
+    proportional.min(MAX_RESERVED_OUTPUT_TOKENS)
+}
+
+fn preflight_chat_request(
+    model: &str,
+    messages: &[ChatMessage],
+    tools: &[ToolDefinition],
+    context_length: usize,
+) -> Result<(), String> {
+    let estimated_input_tokens =
+        estimate_serialized_tokens(messages) + estimate_serialized_tokens(tools) + 32;
+    let reserved_output = reserved_output_tokens(context_length);
+    let estimated_total = estimated_input_tokens.saturating_add(reserved_output);
+
+    if estimated_total > context_length {
+        return Err(format!(
+            "context_window_blocked for {}: estimated input {} + reserved output {} = {} tokens exceeds the {}-token context window; narrow the request, compact the session, or preserve grounded tool output instead of restyling it.",
+            model, estimated_input_tokens, reserved_output, estimated_total, context_length
+        ));
+    }
+
+    Ok(())
 }
 
 /// Walk from CWD up to 4 parent directories and collect instruction files.

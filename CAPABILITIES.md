@@ -38,6 +38,7 @@ Hematite is more than a chat shell around a local model.
 - **Project retrieval**: SQLite FTS-backed memory helps recover relevant local context each turn
 - **Built-in web research**: `research_web` and `fetch_docs` let the harness search for technical information and pull external docs into a readable form when local context is insufficient
 - **Grounded architecture tracing**: `trace_runtime_flow` gives the model a verified read-only path for exact runtime/control-flow questions instead of encouraging confident guessing
+- **Grounded architecture overviews**: broad read-only architecture questions now combine `map_project` structure with one authoritative `trace_runtime_flow` topic instead of drifting into long repo rewrites
 - **Grounded toolchain guidance**: `describe_toolchain` gives the model a verified read-only map of Hematite's actual built-in tools, when to use them, and what investigation order makes sense
 - **Vision support**: screenshot and diagram analysis can flow through `vision_analyze` when a task benefits from visual inspection
 
@@ -48,7 +49,9 @@ Hematite is built for repeated project use, not one-off prompts.
 - **Lightweight session handoff**: Hematite carries forward compact task/project signal instead of replaying full chat residue by default
 - **Architect -> code handoff**: `/architect` can persist a compact implementation brief in `.hematite/PLAN.md` and session memory so `/code` can resume from a structured plan
 - **Safe Gemma 4 native layer**: Gemma 4 runs get narrow argument normalization for malformed tool calls without changing Hematite's broader conversation protocol
+- **Gemma numeric-arg hygiene**: float-shaped tool arguments like `limit: 50.0` or `context: 5.0` are normalized so bounded inspections stay bounded
 - **Opt-in Gemma native formatting**: `.hematite/settings.json` can enable Gemma-native request shaping for Gemma 4 models without changing the default path for other models
+- **Provider-side prompt preflight**: oversized requests can be blocked before they go to LM Studio, reducing silent near-ceiling hangs
 - **Session persistence**: active state is saved under `.hematite/`
 - **Task awareness**: local task and planning files can shape agent behavior
 - **Instruction discovery**: project rules are loaded automatically from workspace instruction files

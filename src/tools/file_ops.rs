@@ -81,8 +81,8 @@ pub fn pop_ghost_ledger() -> Result<String, String> {
 
 pub async fn read_file(args: &Value) -> Result<String, String> {
     let path = require_str(args, "path")?;
-    let offset = args.get("offset").and_then(|v| v.as_u64()).map(|v| v as usize);
-    let limit  = args.get("limit").and_then(|v| v.as_u64()).map(|v| v as usize);
+    let offset = get_usize_arg(args, "offset");
+    let limit  = get_usize_arg(args, "limit");
 
     let abs = safe_path(path)?;
     let raw = fs::read_to_string(&abs)
@@ -111,8 +111,8 @@ pub async fn read_file(args: &Value) -> Result<String, String> {
 
 pub async fn inspect_lines(args: &Value) -> Result<String, String> {
     let path = require_str(args, "path")?;
-    let start_line = args.get("start_line").and_then(|v| v.as_u64()).map(|v| v as usize).unwrap_or(1);
-    let end_line   = args.get("end_line").and_then(|v| v.as_u64()).map(|v| v as usize);
+    let start_line = get_usize_arg(args, "start_line").unwrap_or(1);
+    let end_line   = get_usize_arg(args, "end_line");
 
     let abs = safe_path(path)?;
     let raw = fs::read_to_string(&abs)
@@ -256,8 +256,8 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
 
 pub async fn patch_hunk(args: &Value) -> Result<String, String> {
     let path       = require_str(args, "path")?;
-    let start_line = require_u64(args, "start_line")? as usize;
-    let end_line   = require_u64(args, "end_line")? as usize;
+    let start_line = require_usize(args, "start_line")?;
+    let end_line   = require_usize(args, "end_line")?;
     let replacement = require_str(args, "replacement")?;
 
     let abs = safe_path(path)?;
@@ -438,13 +438,13 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
     let ext_filter       = args.get("extension").and_then(|v| v.as_str());
     let case_insensitive = args.get("case_insensitive").and_then(|v| v.as_bool()).unwrap_or(true);
     let files_only       = args.get("mode").and_then(|v| v.as_str()) == Some("files_only");
-    let head_limit       = args.get("head_limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
-    let offset           = args.get("offset").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+    let head_limit       = get_usize_arg(args, "head_limit").unwrap_or(50);
+    let offset           = get_usize_arg(args, "offset").unwrap_or(0);
 
     // Context lines: `context` sets both before+after; `before`/`after` override individually.
-    let ctx_default      = args.get("context").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-    let before           = args.get("before").and_then(|v| v.as_u64()).map(|v| v as usize).unwrap_or(ctx_default);
-    let after            = args.get("after").and_then(|v| v.as_u64()).map(|v| v as usize).unwrap_or(ctx_default);
+    let ctx_default      = get_usize_arg(args, "context").unwrap_or(0);
+    let before           = get_usize_arg(args, "before").unwrap_or(ctx_default);
+    let after            = get_usize_arg(args, "after").unwrap_or(ctx_default);
 
     let base = safe_path(base_str)?;
 
@@ -587,10 +587,38 @@ fn require_str<'a>(args: &'a Value, key: &str) -> Result<&'a str, String> {
         .ok_or_else(|| format!("Missing required argument: '{key}'"))
 }
 
-fn require_u64(args: &Value, key: &str) -> Result<u64, String> {
-    args.get(key)
-        .and_then(|v| v.as_u64())
+fn get_usize_arg(args: &Value, key: &str) -> Option<usize> {
+    args.get(key).and_then(value_as_usize)
+}
+
+fn require_usize(args: &Value, key: &str) -> Result<usize, String> {
+    get_usize_arg(args, key)
         .ok_or_else(|| format!("Missing required numeric argument: '{key}'"))
+}
+
+fn value_as_usize(value: &Value) -> Option<usize> {
+    if let Some(v) = value.as_u64() {
+        return usize::try_from(v).ok();
+    }
+
+    if let Some(v) = value.as_i64() {
+        return if v >= 0 {
+            usize::try_from(v as u64).ok()
+        } else {
+            None
+        };
+    }
+
+    if let Some(v) = value.as_f64() {
+        if v.is_finite() && v >= 0.0 && v.fract() == 0.0 && v <= (usize::MAX as f64) {
+            return Some(v as usize);
+        }
+        return None;
+    }
+
+    value
+        .as_str()
+        .and_then(|s| s.trim().parse::<usize>().ok())
 }
 
 // ── Path helpers ──────────────────────────────────────────────────────────────

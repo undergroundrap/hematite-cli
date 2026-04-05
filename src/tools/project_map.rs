@@ -20,8 +20,7 @@ pub async fn map_project(args: &Value) -> Result<String, String> {
         .unwrap_or(true);
     let max_depth = args
         .get("max_depth")
-        .and_then(|v| v.as_u64())
-        .map(|v| v as usize)
+        .and_then(value_as_usize)
         .unwrap_or(4)
         .min(6);
     let focus_root = resolve_focus_root(&root, focus)?;
@@ -64,6 +63,12 @@ fn resolve_focus_root(root: &Path, focus: &str) -> Result<PathBuf, String> {
         .map_err(|e| format!("map_project: could not resolve focus '{}': {}", focus, e))?;
     crate::tools::guard::path_is_safe(root, &canonical)
         .map_err(|e| format!("map_project: invalid focus '{}': {}", focus, e))?;
+    if canonical.is_file() {
+        return canonical
+            .parent()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| format!("map_project: focus '{}' has no readable parent directory", focus));
+    }
     Ok(canonical)
 }
 
@@ -229,19 +234,59 @@ fn is_architecture_candidate(path: &Path) -> bool {
 }
 
 fn to_relative_display(root: &Path, path: &Path) -> String {
+    let root_display = normalize_display_path(root);
+    let path_display = normalize_display_path(path);
+
+    if let Some(stripped) = path_display.strip_prefix(&root_display) {
+        return stripped.trim_start_matches('/').to_string();
+    }
+
     path.strip_prefix(root)
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/")
+        .trim_start_matches("//?/")
+        .trim_start_matches("\\\\?\\")
+        .to_string()
+}
+
+fn normalize_display_path(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "/")
+        .trim_start_matches("//?/")
+        .trim_start_matches("\\\\?\\")
+        .trim_end_matches('/')
+        .to_string()
+}
+
+fn value_as_usize(value: &Value) -> Option<usize> {
+    if let Some(v) = value.as_u64() {
+        return usize::try_from(v).ok();
+    }
+
+    if let Some(v) = value.as_f64() {
+        if v.is_finite() && v >= 0.0 && v.fract() == 0.0 && v <= (usize::MAX as f64) {
+            return Some(v as usize);
+        }
+    }
+
+    value
+        .as_str()
+        .and_then(|s| s.trim().parse::<usize>().ok())
+}
+
+fn is_core_library_path(relative_path: &str) -> bool {
+    relative_path.to_lowercase().ends_with("lib.rs")
 }
 
 fn is_entrypoint_path(relative_path: &str) -> bool {
     let lower = relative_path.to_lowercase();
     lower.ends_with("main.rs")
-        || lower.ends_with("lib.rs")
+        || (lower.contains("/bin/") && lower.ends_with(".rs"))
         || lower.ends_with("app.rs")
         || lower.ends_with("server.rs")
         || lower.ends_with("cli.rs")
+        || lower.ends_with("__main__.py")
         || lower.ends_with("main.py")
         || lower.ends_with("index.ts")
         || lower.ends_with("index.js")
@@ -251,6 +296,8 @@ fn classify_file_role(relative_path: &str) -> &'static str {
     let lower = relative_path.to_lowercase();
     if is_entrypoint_path(relative_path) {
         "entrypoint"
+    } else if is_core_library_path(relative_path) {
+        "core library"
     } else if lower.contains("/ui/") || lower.contains("tui") || lower.contains("voice") {
         "ui / operator surface"
     } else if lower.contains("/agent/") || lower.contains("conversation") || lower.contains("inference") {
@@ -275,6 +322,8 @@ fn score_architecture_file(relative_path: &str) -> i32 {
     }
     if is_entrypoint_path(relative_path) {
         score += 12;
+    } else if is_core_library_path(relative_path) {
+        score += 7;
     }
     for needle in [
         "/agent/",
