@@ -122,6 +122,30 @@ That split is intentional. Hematite focuses on being the best local coding harne
 
 ---
 
+## Autonomy Model
+
+Hematite is designed as a high-agency coding partner with bounded autonomous lanes, not as a claim that a 10 GB local model should behave like a frontier cloud worker on every task.
+
+That product direction is deliberate:
+
+- local open models are useful, but they are less reliable under ambiguity, recovery, and long tool sequences
+- single-GPU setups need tighter context discipline, fewer wasted calls, and more deterministic recovery
+- the harness can own repetitive workflow logic more cheaply and more reliably than the model can infer it every turn
+
+So Hematite leans into micro-workflows:
+
+- inspect before edit
+- confirm the local window before mutating
+- verify after code changes
+- clamp recovery when the model starts guessing
+- preserve operator visibility instead of hiding failure
+
+The model still matters. It should provide intent interpretation, code judgment, wording, and local reasoning between steps. But the harness should own the deterministic parts: tool sequencing, recovery ladders, context shaping, verification, and workflow guardrails.
+
+That same pattern can be translated across the tool surface over time. The goal is not "less agent." The goal is better bounded autonomy in the places where local models are actually dependable.
+
+---
+
 ## Requirements
 
 | Platform | Shell | GPU Monitoring |

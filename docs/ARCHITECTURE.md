@@ -8,6 +8,7 @@ The goal is simple:
 - specialized modules should own their own policy or explanation logic
 - the TUI should render runtime truth, not invent it
 - LM Studio should remain the local model runtime, not the product brain
+- recurring workflow structure should live in the harness when local models are not dependable enough to infer it every turn
 
 ## Core Boundaries
 

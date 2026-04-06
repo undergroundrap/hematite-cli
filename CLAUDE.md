@@ -37,6 +37,25 @@ Hematite is not trying to outscale cloud agents. It is trying to make a single l
 - Main engineering constraints: limited local context, open-model inconsistency, and VRAM pressure under long sessions
 - Design response: stronger tooling, grounded traces, compaction, retrieval, and operator workflow instead of pretending the model is smarter than it is
 
+## Product Direction
+
+Hematite should behave like a high-agency coding partner with bounded autonomous lanes.
+
+That means:
+
+- the model handles intent, code judgment, wording, and local reasoning between steps
+- the harness handles deterministic workflow structure, recovery, context control, and verification
+- autonomy is earned per workflow, not assumed globally
+
+In practice, the product should keep leaning into micro-workflows for recurring task classes:
+
+- startup and UI wording changes
+- read-before-edit refactors
+- proof-before-edit debugging
+- verify-after-mutation coding tasks
+
+When a local model gets uncertain, the answer is usually not "give it more freedom." The answer is tighter scaffolding: narrower tools, better owner-file locking, exact-window inspection, explicit recovery ladders, and honest operator-visible failure states.
+
 ## MCP Configuration
 
 Hematite loads stdio MCP servers from:

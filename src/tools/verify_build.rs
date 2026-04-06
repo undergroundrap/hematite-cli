@@ -154,6 +154,9 @@ async fn run_profile_command(
             command,
             output.trim()
         ))
+    } else if should_fallback_to_cargo_check(action, command, &output) {
+        run_windows_self_hosted_check_fallback(profile_name, action, command, timeout_secs, &output)
+            .await
     } else {
         Err(format!(
             "BUILD FAILED [{}:{}]\ncommand: {}\n{}",
@@ -162,5 +165,92 @@ async fn run_profile_command(
             command,
             output.trim()
         ))
+    }
+}
+
+fn should_fallback_to_cargo_check(action: &str, command: &str, output: &str) -> bool {
+    if action != "build" || command.trim() != "cargo build --color never" {
+        return false;
+    }
+
+    if cfg!(windows) {
+        looks_like_windows_self_hosted_build_lock(output)
+    } else {
+        false
+    }
+}
+
+fn looks_like_windows_self_hosted_build_lock(output: &str) -> bool {
+    let lower = output.to_ascii_lowercase();
+    lower.contains("failed to remove file")
+        && lower.contains("target\\debug\\hematite.exe")
+        && (lower.contains("access is denied")
+            || lower.contains("being used by another process")
+            || lower.contains("permission denied"))
+}
+
+async fn run_windows_self_hosted_check_fallback(
+    profile_name: &str,
+    action: &str,
+    original_command: &str,
+    timeout_secs: u64,
+    original_output: &str,
+) -> Result<String, String> {
+    let fallback_command = "cargo check --color never";
+    let fallback_output = crate::tools::shell::execute(&serde_json::json!({
+        "command": fallback_command,
+        "timeout_secs": timeout_secs,
+        "reason": format!("verify_build:{}:{}:self_hosted_windows_fallback", profile_name, action),
+    }))
+    .await?;
+
+    if fallback_output.contains("[exit code: 0]") || !fallback_output.contains("[exit code:") {
+        Ok(format!(
+            "BUILD OK [{}:{}]\ncommand: {}\n\
+             Windows self-hosted note: `cargo build` could not replace the running `target\\\\debug\\\\hematite.exe`, so Hematite fell back to `cargo check` to verify code health without deleting the live binary.\n\
+             original build output:\n{}\n\
+             fallback command: {}\n{}",
+            profile_name,
+            action,
+            original_command,
+            original_output.trim(),
+            fallback_command,
+            fallback_output.trim()
+        ))
+    } else {
+        Err(format!(
+            "BUILD FAILED [{}:{}]\ncommand: {}\n\
+             Windows self-hosted note: `cargo build` could not replace the running `target\\\\debug\\\\hematite.exe`, and the fallback `cargo check` also failed.\n\
+             original build output:\n{}\n\
+             fallback command: {}\n{}",
+            profile_name,
+            action,
+            original_command,
+            original_output.trim(),
+            fallback_command,
+            fallback_output.trim()
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_windows_self_hosted_build_lock_pattern() {
+        let sample = "[stderr] error: failed to remove file `C:\\Users\\ocean\\AntigravityProjects\\Hematite-CLI\\target\\debug\\hematite.exe`\r\nAccess is denied. (os error 5)";
+        assert!(looks_like_windows_self_hosted_build_lock(sample));
+    }
+
+    #[test]
+    fn ignores_unrelated_build_failures() {
+        let sample = "[stderr] error[E0425]: cannot find value `foo` in this scope";
+        assert!(!looks_like_windows_self_hosted_build_lock(sample));
+        assert!(!should_fallback_to_cargo_check(
+            "build",
+            "cargo build --color never",
+            sample
+        ));
     }
 }

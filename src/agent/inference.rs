@@ -1903,8 +1903,9 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
     // Formats supported:
     // <|tool_call|>call:func_name{args}<tool_call|>
     // <|tool_call>call:func_name{args}[END_TOOL_REQUEST]
+    // <|tool_call>call:func_name{args}<tool_call|>
     let re_call = Regex::new(
-        r#"(?s)<\|tool_call\|?>\s*call:([A-Za-z_][A-Za-z0-9_]*)\{(.*?)\}(?:<tool_call\|?>|\[END_TOOL_REQUEST\])"#
+        r#"(?s)<\|?tool_call\|?>\s*call:([A-Za-z_][A-Za-z0-9_]*)\{(.*?)\}(?:<\|?tool_call\|?>|\[END_TOOL_REQUEST\])"#
     ).unwrap();
     // Regex to find arguments inside the braces
     // Handles <|"|> wrappers and plain values
@@ -1924,18 +1925,23 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
                 .or_else(|| arg_cap.get(3).map(|m| m.as_str()))
                 .unwrap_or("")
                 .trim();
+            let normalized_raw = normalize_string_arg(&val_raw.replace("\\\"", "\""));
 
             // Try to parse as JSON types (bool, number), otherwise string
-            let val = if val_raw == "true" {
+            let val = if normalized_raw == "true" {
                 Value::Bool(true)
-            } else if val_raw == "false" {
+            } else if normalized_raw == "false" {
                 Value::Bool(false)
-            } else if let Ok(n) = val_raw.parse::<f64>() {
+            } else if let Ok(n) = normalized_raw.parse::<i64>() {
+                Value::Number(n.into())
+            } else if let Ok(n) = normalized_raw.parse::<u64>() {
+                Value::Number(n.into())
+            } else if let Ok(n) = normalized_raw.parse::<f64>() {
                 serde_json::Number::from_f64(n)
                     .map(Value::Number)
-                    .unwrap_or(Value::String(val_raw.into()))
+                    .unwrap_or(Value::String(normalized_raw.clone()))
             } else {
-                Value::String(val_raw.replace("'\"", "").into())
+                Value::String(normalized_raw)
             };
 
             arguments.insert(key, val);
@@ -2089,10 +2095,66 @@ fn strip_legacy_turn_wrappers(text: &str) -> String {
         .to_string()
 }
 
-fn strip_native_tool_call_text(text: &str) -> String {
+pub fn strip_native_tool_call_text(text: &str) -> String {
     use regex::Regex;
-    let re = Regex::new(
-        r#"(?s)<\|tool_call\|?>\s*call:[A-Za-z_][A-Za-z0-9_]*\{.*?\}(?:<tool_call\|?>|\[END_TOOL_REQUEST\])"#
+    let re_call = Regex::new(
+        r#"(?s)<\|?tool_call\|?>\s*call:[A-Za-z_][A-Za-z0-9_]*\{.*?\}(?:<\|?tool_call\|?>|\[END_TOOL_REQUEST\])"#
     ).unwrap();
-    re.replace_all(text, "").trim().to_string()
+    let re_response = Regex::new(
+        r#"(?s)<\|tool_response\|?>.*?(?:<\|tool_response\|?>|<tool_response\|>)"#
+    ).unwrap();
+    let without_calls = re_call.replace_all(text, "");
+    re_response
+        .replace_all(without_calls.as_ref(), "")
+        .trim()
+        .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_gemma_native_tool_call_with_mixed_tool_call_tags() {
+        let text = r#"<|channel>thought
+Reading the next chunk.<channel|>The startup banner wording is likely defined within the UI drawing logic.
+<|tool_call>call:read_file{limit:100,offset:100,path:\"src/ui/tui.rs\"}<tool_call|>"#;
+
+        let calls = extract_native_tool_calls(text);
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].function.name, "read_file");
+
+        let args: Value = serde_json::from_str(&calls[0].function.arguments).unwrap();
+        assert_eq!(args.get("limit").and_then(|v| v.as_i64()), Some(100));
+        assert_eq!(args.get("offset").and_then(|v| v.as_i64()), Some(100));
+        assert_eq!(
+            args.get("path").and_then(|v| v.as_str()),
+            Some("src/ui/tui.rs")
+        );
+
+        let stripped = strip_native_tool_call_text(text);
+        assert!(!stripped.contains("<|tool_call"));
+        assert!(!stripped.contains("<tool_call|>"));
+    }
+
+    #[test]
+    fn strips_hallucinated_tool_responses_from_native_tool_transcript() {
+        let text = r#"<|channel>thought
+Planning.
+<channel|><|tool_call>call:map_project{focus:<|\"|>src/<|\"|>,include_symbols:true}<tool_call|><|tool_response>thought
+Mapped src.
+<channel|><|tool_call>call:read_file{limit:100,offset:0,path:<|\"|>src/main.rs<|\"|>}<tool_call|><|tool_response>thought
+Read main.
+<channel|>"#;
+
+        let calls = extract_native_tool_calls(text);
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].function.name, "map_project");
+        assert_eq!(calls[1].function.name, "read_file");
+
+        let stripped = strip_native_tool_call_text(text);
+        assert!(!stripped.contains("<|tool_call"));
+        assert!(!stripped.contains("<|tool_response"));
+        assert!(!stripped.contains("<tool_response|>"));
+    }
 }

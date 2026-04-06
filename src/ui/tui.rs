@@ -2279,8 +2279,8 @@ fn draw_splash<B: Backend>(
             area,
         );
 
-        // Total content height: logo(6) + spacer(1) + version(1) + author(1) + spacer(2) + prompt(1) = 12
-        let content_height: u16 = 12;
+        // Total content height: logo(6) + spacer(1) + version(1) + tagline(1) + author(1) + spacer(2) + prompt(1) = 13
+        let content_height: u16 = 13;
         let top_pad = area.height.saturating_sub(content_height) / 2;
 
         let mut lines: Vec<Line<'static>> = Vec::new();
@@ -2309,6 +2309,14 @@ fn draw_splash<B: Backend>(
             ),
         ]));
 
+        // Tagline
+        lines.push(Line::from(vec![
+            Span::styled(
+                "Local AI coding harness",
+                Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM),
+            ),
+        ]));
+
         // Developer credit
         lines.push(Line::from(vec![
             Span::styled(
@@ -2325,7 +2333,7 @@ fn draw_splash<B: Backend>(
         lines.push(Line::from(vec![
             Span::styled("[ ", Style::default().fg(rust_color)),
             Span::styled(
-                "Press ENTER to initialize",
+                "Press ENTER to start",
                 Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
             ),
             Span::styled(" ]", Style::default().fg(rust_color)),
