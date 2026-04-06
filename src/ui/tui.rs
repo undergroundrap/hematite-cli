@@ -129,6 +129,7 @@ pub struct App {
     last_provider_summary: String,
     last_operator_checkpoint_state: OperatorCheckpointState,
     last_operator_checkpoint_summary: String,
+    last_recovery_recipe_summary: String,
     /// Mirrors ConversationManager::think_mode for status bar display.
     /// None = auto, Some(true) = /think, Some(false) = /no_think.
     pub think_mode: Option<bool>,
@@ -169,6 +170,7 @@ impl App {
         self.last_provider_summary.clear();
         self.last_operator_checkpoint_summary.clear();
         self.last_operator_checkpoint_state = OperatorCheckpointState::Idle;
+        self.last_recovery_recipe_summary.clear();
     }
 
     pub fn push_message(&mut self, speaker: &str, content: &str) {
@@ -460,6 +462,7 @@ pub async fn run_app<B: Backend>(
         last_provider_summary: String::new(),
         last_operator_checkpoint_state: OperatorCheckpointState::Idle,
         last_operator_checkpoint_summary: String::new(),
+        last_recovery_recipe_summary: String::new(),
         think_mode: None,
         workflow_mode: "AUTO".into(),
         autocomplete_suggestions: Vec::new(),
@@ -1279,6 +1282,15 @@ pub async fn run_app<B: Backend>(
                             ));
                             trim_vec(&mut app.specular_logs, 20);
                             app.last_operator_checkpoint_summary = summary;
+                        }
+                    }
+                    InferenceEvent::RecoveryRecipe { summary } => {
+                        if !summary.trim().is_empty()
+                            && app.last_recovery_recipe_summary != summary
+                        {
+                            app.specular_logs.push(format!("RECOVERY: {}", summary));
+                            trim_vec(&mut app.specular_logs, 20);
+                            app.last_recovery_recipe_summary = summary;
                         }
                     }
                     InferenceEvent::CompactionPressure {

@@ -19,3 +19,4 @@ pub mod pricing;
 pub mod hooks;
 pub mod lsp;
 pub mod permission_enforcer;
+pub mod recovery_recipes;

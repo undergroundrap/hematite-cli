@@ -441,6 +441,10 @@ pub enum InferenceEvent {
         state: OperatorCheckpointState,
         summary: String,
     },
+    /// Typed recovery recipe summary for operator/debug surfaces.
+    RecoveryRecipe {
+        summary: String,
+    },
     /// Current compaction pressure against the adaptive threshold.
     CompactionPressure {
         estimated_tokens: usize,

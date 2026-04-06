@@ -142,6 +142,17 @@ Check:
 - mentions latest checkpoint, blocker, recovery, verification, or compaction state
 - does not reduce session carry-over to only task text or working-set files
 
+## 7d. Recovery Recipes
+
+```text
+If Hematite hits a blocker or runtime failure, what recovery recipe should it surface to the operator?
+```
+
+Check:
+- explains recovery as named scenarios plus compact next steps, not just vague retry prose
+- mentions examples like `retry_once`, `refresh_runtime_profile`, `reduce_prompt_budget`, `compact_history`, or proof-before-edit recovery steps
+- treats the recovery recipe as part of the operator/session surface rather than only the final user-facing error
+
 ## 8. Vision Awareness
 
 ```text

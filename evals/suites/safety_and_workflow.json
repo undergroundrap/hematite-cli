@@ -503,5 +503,17 @@
       "Does not imply that plain streaming or startup-style text generations can still fail silently",
       "LM Studio context-budget mismatches such as n_keep >= n_ctx are treated as context_window failures instead of generic provider degradation"
     ]
+  },
+  {
+    "id": "local_workflow_21b",
+    "category": "local_workflow",
+    "title": "Typed recovery recipes",
+    "mode": "read_only",
+    "prompt": "If Hematite hits a blocker or runtime failure, what recovery recipe should it surface to the operator?",
+    "success_criteria": [
+      "Explains recovery as named scenarios plus compact next steps instead of only vague retry prose",
+      "Mentions examples like retry_once, refresh_runtime_profile, reduce_prompt_budget, compact_history, or proof-before-edit recovery steps",
+      "Treats the recovery recipe as part of the operator or session surface rather than only the final user-facing error"
+    ]
   }
 ]

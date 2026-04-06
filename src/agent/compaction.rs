@@ -291,6 +291,15 @@ impl SessionMemory {
         });
     }
 
+    pub fn record_recovery(&mut self, state: impl Into<String>, summary: impl Into<String>) {
+        let checkpoint = SessionCheckpoint {
+            state: state.into(),
+            summary: summary.into(),
+        };
+        self.last_recovery = Some(checkpoint.clone());
+        self.last_checkpoint = Some(checkpoint);
+    }
+
     pub fn record_compaction(&mut self, removed_message_count: usize, summary: impl Into<String>) {
         let count = self
             .last_compaction

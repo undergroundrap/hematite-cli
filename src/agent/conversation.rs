@@ -3,6 +3,10 @@ use crate::agent::inference::{
     ProviderRuntimeState,
     ToolCallFn, ToolDefinition, ToolCallResponse, ToolFunction,
 };
+use crate::agent::recovery_recipes::{
+    attempt_recovery, plan_recovery, preview_recovery_decision, RecoveryContext,
+    RecoveryDecision, RecoveryPlan, RecoveryScenario, RecoveryStep,
+};
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
 use crate::agent::compaction::{self, CompactionConfig};
 use crate::ui::gpu_monitor::GpuState;
@@ -229,6 +233,7 @@ enum QueryIntentClass {
 enum DirectAnswerKind {
     LanguageCapability,
     SessionMemory,
+    RecoveryRecipes,
     SessionResetSemantics,
     ProductSurface,
     ReasoningSplit,
@@ -413,6 +418,20 @@ fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Query
         )
     {
         Some(DirectAnswerKind::SessionMemory)
+    } else if contains_any(&lower, &["recovery recipe", "recovery recipes", "recovery step", "recovery steps"])
+        && contains_any(
+            &lower,
+            &[
+                "blocker",
+                "runtime failure",
+                "degrades",
+                "context window",
+                "context-window",
+                "operator",
+            ],
+        )
+    {
+        Some(DirectAnswerKind::RecoveryRecipes)
     } else if (lower.contains("other coding languages")
         || lower.contains("what languages")
         || lower.contains("know other languages"))
@@ -511,6 +530,10 @@ fn build_language_capability_answer() -> String {
 
 fn build_session_memory_answer() -> String {
     "By default, Hematite should carry forward lightweight project and task signal, not full conversational residue.\n\nCarry forward: Vein-backed project memory, compact session summary, current task memory, working-set files, explicit pinned context when it is still relevant, and the latest typed session ledger entries such as the most recent checkpoint, blocker, recovery step, verification result, and compaction note.\n\nAvoid carrying forward: full chat history, stale reasoning chains, one-off conversational residue, and transient in-flight state from the previous turn.\n\nFor a local model, the right split is to save the project, active task signal, and recent runtime state, not replay old dialogue unless you explicitly want to continue the same thread.".to_string()
+}
+
+fn build_recovery_recipes_answer() -> String {
+    "Hematite now treats recovery as typed runtime policy rather than loose prose.\n\nWhen a turn degrades or hits a blocker, it maps the situation to a named recovery scenario and a compact recipe of next steps. Typical recipes include `retry_once` for degraded or empty provider turns, `refresh_runtime_profile -> reduce_prompt_budget -> compact_history -> narrow_request` for context-window failures, `use_builtin_workspace_tools` for blocked MCP workspace reads, and `inspect_target_file` or `inspect_exact_line_window` for proof-before-edit blockers.\n\nThose recovery recipes are surfaced to the operator as compact runtime state, recorded in the session ledger, and kept distinct from the final user-facing error message. The point is to make Hematite's next move explicit instead of hiding it inside ad hoc retry code or long diagnostics.".to_string()
 }
 
 fn build_session_reset_semantics_answer() -> String {
@@ -1007,6 +1030,39 @@ fn should_retry_runtime_failure(class: RuntimeFailureClass) -> bool {
         class,
         RuntimeFailureClass::ProviderDegraded | RuntimeFailureClass::EmptyModelResponse
     )
+}
+
+fn recovery_scenario_for_runtime_failure(class: RuntimeFailureClass) -> Option<RecoveryScenario> {
+    match class {
+        RuntimeFailureClass::ContextWindow => Some(RecoveryScenario::ContextWindow),
+        RuntimeFailureClass::ProviderDegraded => Some(RecoveryScenario::ProviderDegraded),
+        RuntimeFailureClass::EmptyModelResponse => Some(RecoveryScenario::EmptyModelResponse),
+        RuntimeFailureClass::ToolPolicyBlocked => Some(RecoveryScenario::McpWorkspaceReadBlocked),
+        RuntimeFailureClass::ToolLoop => Some(RecoveryScenario::ToolLoop),
+        RuntimeFailureClass::VerificationFailed => Some(RecoveryScenario::VerificationFailed),
+        RuntimeFailureClass::ToolArgMalformed | RuntimeFailureClass::Unknown => None,
+    }
+}
+
+fn compact_recovery_plan_summary(plan: &RecoveryPlan) -> String {
+    format!("{} [{}]", plan.recipe.scenario.label(), plan.recipe.steps_summary())
+}
+
+fn compact_recovery_decision_summary(decision: &RecoveryDecision) -> String {
+    match decision {
+        RecoveryDecision::Attempt(plan) => compact_recovery_plan_summary(plan),
+        RecoveryDecision::Escalate {
+            recipe,
+            attempts_made,
+            ..
+        } => format!(
+            "{} escalated after {} / {} [{}]",
+            recipe.scenario.label(),
+            attempts_made,
+            recipe.max_attempts.max(1),
+            recipe.steps_summary()
+        ),
+    }
 }
 
 fn build_identity_answer() -> String {
@@ -1821,6 +1877,8 @@ pub struct ConversationManager {
     action_grounding: Arc<Mutex<ActionGroundingState>>,
     /// True only during `/code Implement the current plan.` style execution turns.
     plan_execution_active: Arc<std::sync::atomic::AtomicBool>,
+    /// Typed per-turn recovery attempt tracking.
+    recovery_context: RecoveryContext,
 }
 
 impl ConversationManager {
@@ -1860,6 +1918,21 @@ impl ConversationManager {
                 state,
                 summary,
             })
+            .await;
+    }
+
+    async fn emit_recovery_recipe_summary(
+        &mut self,
+        tx: &mpsc::Sender<InferenceEvent>,
+        state: impl Into<String>,
+        summary: impl Into<String>,
+    ) {
+        let state = state.into();
+        let summary = summary.into();
+        self.session_memory
+            .record_recovery(state, summary.clone());
+        let _ = tx
+            .send(InferenceEvent::RecoveryRecipe { summary })
             .await;
     }
 
@@ -2021,6 +2094,7 @@ impl ConversationManager {
             pinned_files: Arc::new(Mutex::new(std::collections::HashMap::new())),
             action_grounding: Arc::new(Mutex::new(ActionGroundingState::default())),
             plan_execution_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            recovery_context: RecoveryContext::default(),
         }
     }
 
@@ -2438,6 +2512,7 @@ impl ConversationManager {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Reload config every turn (edits apply immediately, no restart needed).
         let config = crate::agent::config::load_config();
+        self.recovery_context.clear();
         let manual_runtime_refresh = user_input.trim() == "/runtime-refresh";
         if !manual_runtime_refresh {
             if let Some((model_id, context_length, changed)) = self
@@ -2678,6 +2753,12 @@ impl ConversationManager {
                 }
                 DirectAnswerKind::SessionMemory => {
                     let response = build_session_memory_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::RecoveryRecipes => {
+                    let response = build_recovery_recipes_answer();
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
                         .await;
                     return Ok(());
@@ -3069,7 +3150,6 @@ impl ConversationManager {
         let non_mutating_plan_hard_cap = 8usize;
         let mut overview_project_map: Option<String> = None;
         let mut overview_runtime_trace: Option<String> = None;
-        let mut provider_recovery_attempted = false;
 
         // Safety cap – never spin forever on a broken model.
         let max_iters = 25;
@@ -3140,6 +3220,13 @@ impl ConversationManager {
                     budget_note,
                 )
                 .await;
+                let recipe = plan_recovery(RecoveryScenario::PromptBudgetPressure, &self.recovery_context);
+                self.emit_recovery_recipe_summary(
+                    &tx,
+                    recipe.recipe.scenario.label(),
+                    compact_recovery_plan_summary(&recipe),
+                )
+                .await;
             }
             self.emit_prompt_pressure_for_messages(&tx, &prompt_msgs).await;
 
@@ -3151,25 +3238,36 @@ impl ConversationManager {
                 Ok(result) => result,
                 Err(e) => {
                     let class = classify_runtime_failure(&e);
-                    if should_retry_runtime_failure(class) && !provider_recovery_attempted {
-                        provider_recovery_attempted = true;
-                        self.transcript.log_system(&format!(
-                            "Automatic provider recovery triggered: {}",
-                            e.trim()
-                        ));
-                        let _ = tx
-                            .send(InferenceEvent::ProviderStatus {
-                                state: ProviderRuntimeState::Recovering,
-                                summary: compact_runtime_recovery_summary(class).into(),
-                            })
-                            .await;
-                        self.emit_operator_checkpoint(
-                            &tx,
-                            OperatorCheckpointState::RecoveringProvider,
-                            compact_runtime_recovery_summary(class),
-                        )
-                        .await;
-                        continue;
+                    if should_retry_runtime_failure(class) {
+                        if let Some(scenario) = recovery_scenario_for_runtime_failure(class) {
+                            if let RecoveryDecision::Attempt(plan) =
+                                attempt_recovery(scenario, &mut self.recovery_context)
+                            {
+                                self.transcript.log_system(&format!(
+                                    "Automatic provider recovery triggered: {}",
+                                    e.trim()
+                                ));
+                                self.emit_recovery_recipe_summary(
+                                    &tx,
+                                    plan.recipe.scenario.label(),
+                                    compact_recovery_plan_summary(&plan),
+                                )
+                                .await;
+                                let _ = tx
+                                    .send(InferenceEvent::ProviderStatus {
+                                        state: ProviderRuntimeState::Recovering,
+                                        summary: compact_runtime_recovery_summary(class).into(),
+                                    })
+                                    .await;
+                                self.emit_operator_checkpoint(
+                                    &tx,
+                                    OperatorCheckpointState::RecoveringProvider,
+                                    compact_runtime_recovery_summary(class),
+                                )
+                                .await;
+                                continue;
+                            }
+                        }
                     }
 
                     self.emit_runtime_failure(&tx, class, &e).await;
@@ -3319,6 +3417,7 @@ impl ConversationManager {
                 let mut authoritative_tool_output: Option<String> = None;
                 let mut blocked_policy_output: Option<String> = None;
                 let mut recoverable_policy_intervention: Option<String> = None;
+                let mut recoverable_policy_recipe: Option<RecoveryScenario> = None;
                 let mut recoverable_policy_checkpoint: Option<(
                     OperatorCheckpointState,
                     String,
@@ -3472,6 +3571,7 @@ impl ConversationManager {
                         recoverable_policy_intervention = Some(
                             "STOP. The MCP filesystem read path is blocked for ordinary workspace inspection. Retry with Hematite's built-in read tools only. Use `read_file`, `inspect_lines`, `list_files`, or `grep_files` against the files already implied by the current plan. Do not call any `mcp__filesystem__*` tool again this turn.".to_string(),
                         );
+                        recoverable_policy_recipe = Some(RecoveryScenario::McpWorkspaceReadBlocked);
                         recoverable_policy_checkpoint = Some((
                             OperatorCheckpointState::BlockedPolicy,
                             "MCP workspace read blocked; rerouting to built-in file tools."
@@ -3485,6 +3585,7 @@ impl ConversationManager {
                         recoverable_policy_intervention = Some(
                             "STOP. `map_project` is too broad for current-plan execution. Use the saved plan's target files directly. Read only the exact planned files you need, then start editing. Do not call `map_project` again this turn.".to_string(),
                         );
+                        recoverable_policy_recipe = Some(RecoveryScenario::CurrentPlanScopeBlocked);
                         recoverable_policy_checkpoint = Some((
                             OperatorCheckpointState::BlockedPolicy,
                             "`map_project` blocked for current-plan execution."
@@ -3499,6 +3600,7 @@ impl ConversationManager {
                             "STOP. `{}` is not part of current-plan execution. Stay on the saved target files only. Use `grep_files` with an explicit `path` or `inspect_lines` on one planned file, then make the edit. Do not call unrelated analysis tools again this turn.",
                             tool_name
                         ));
+                        recoverable_policy_recipe = Some(RecoveryScenario::CurrentPlanScopeBlocked);
                         recoverable_policy_checkpoint = Some((
                             OperatorCheckpointState::BlockedPolicy,
                             format!(
@@ -3516,6 +3618,8 @@ impl ConversationManager {
                         recoverable_policy_intervention = Some(format!(
                             "STOP. The edit was blocked because `{target}` lacks recent file evidence. Read that file now with built-in tools only, preferably `inspect_lines` around the exact area you want to change or `read_file` if you do not know the window yet. After that, retry the edit and continue implementing the current plan. Do not summarize the blockage to the user."
                         ));
+                        recoverable_policy_recipe =
+                            Some(RecoveryScenario::RecentFileEvidenceMissing);
                         recoverable_policy_checkpoint = Some((
                             OperatorCheckpointState::BlockedRecentFileEvidence,
                             format!("Edit blocked on `{target}`; recent file evidence missing."),
@@ -3530,6 +3634,8 @@ impl ConversationManager {
                         recoverable_policy_intervention = Some(format!(
                             "STOP. The edit was blocked because `{target}` needs an exact inspected window first. Use `inspect_lines` on that file around the intended edit region, then retry the mutation. Do not answer the user yet."
                         ));
+                        recoverable_policy_recipe =
+                            Some(RecoveryScenario::ExactLineWindowRequired);
                         recoverable_policy_checkpoint = Some((
                             OperatorCheckpointState::BlockedExactLineWindow,
                             format!("Edit blocked on `{target}`; exact line window required."),
@@ -3555,6 +3661,15 @@ impl ConversationManager {
                 if let Some(intervention) = recoverable_policy_intervention {
                     if let Some((state, summary)) = recoverable_policy_checkpoint.take() {
                         self.emit_operator_checkpoint(&tx, state, summary).await;
+                    }
+                    if let Some(scenario) = recoverable_policy_recipe.take() {
+                        let recipe = plan_recovery(scenario, &self.recovery_context);
+                        self.emit_recovery_recipe_summary(
+                            &tx,
+                            recipe.recipe.scenario.label(),
+                            compact_recovery_plan_summary(&recipe),
+                        )
+                        .await;
                     }
                     loop_intervention = Some(intervention);
                     let _ = tx
@@ -3821,24 +3936,35 @@ impl ConversationManager {
             } else {
                 let detail = "Model returned an empty response.";
                 let class = classify_runtime_failure(detail);
-                if should_retry_runtime_failure(class) && !provider_recovery_attempted {
-                    provider_recovery_attempted = true;
-                    self.transcript.log_system(
-                        "Automatic provider recovery triggered: model returned an empty response.",
-                    );
-                    let _ = tx
-                        .send(InferenceEvent::ProviderStatus {
-                            state: ProviderRuntimeState::Recovering,
-                            summary: compact_runtime_recovery_summary(class).into(),
-                        })
-                        .await;
-                    self.emit_operator_checkpoint(
-                        &tx,
-                        OperatorCheckpointState::RecoveringProvider,
-                        compact_runtime_recovery_summary(class),
-                    )
-                    .await;
-                    continue;
+                if should_retry_runtime_failure(class) {
+                    if let Some(scenario) = recovery_scenario_for_runtime_failure(class) {
+                        if let RecoveryDecision::Attempt(plan) =
+                            attempt_recovery(scenario, &mut self.recovery_context)
+                        {
+                            self.transcript.log_system(
+                                "Automatic provider recovery triggered: model returned an empty response.",
+                            );
+                            self.emit_recovery_recipe_summary(
+                                &tx,
+                                plan.recipe.scenario.label(),
+                                compact_recovery_plan_summary(&plan),
+                            )
+                            .await;
+                            let _ = tx
+                                .send(InferenceEvent::ProviderStatus {
+                                    state: ProviderRuntimeState::Recovering,
+                                    summary: compact_runtime_recovery_summary(class).into(),
+                                })
+                                .await;
+                            self.emit_operator_checkpoint(
+                                &tx,
+                                OperatorCheckpointState::RecoveringProvider,
+                                compact_runtime_recovery_summary(class),
+                            )
+                            .await;
+                            continue;
+                        }
+                    }
                 }
 
                 self.emit_runtime_failure(&tx, class, detail).await;
@@ -3859,23 +3985,41 @@ impl ConversationManager {
         class: RuntimeFailureClass,
         detail: &str,
     ) {
-        if class == RuntimeFailureClass::ContextWindow {
-            if let Some((model_id, context_length, changed)) = self
-                .refresh_runtime_profile_and_report(tx, "context_window_failure")
-                .await
-            {
-                let note = if changed {
-                    format!(
-                        "Runtime refresh after context-window failure: model {} | CTX {}",
-                        model_id, context_length
-                    )
-                } else {
-                    format!(
-                        "Runtime refresh after context-window failure confirms model {} | CTX {}",
-                        model_id, context_length
-                    )
-                };
-                let _ = tx.send(InferenceEvent::Thought(note)).await;
+        if let Some(scenario) = recovery_scenario_for_runtime_failure(class) {
+            let decision = preview_recovery_decision(scenario, &self.recovery_context);
+            self.emit_recovery_recipe_summary(
+                tx,
+                scenario.label(),
+                compact_recovery_decision_summary(&decision),
+            )
+            .await;
+            let needs_refresh = match &decision {
+                RecoveryDecision::Attempt(plan) => plan
+                    .recipe
+                    .steps
+                    .contains(&RecoveryStep::RefreshRuntimeProfile),
+                RecoveryDecision::Escalate { recipe, .. } => recipe
+                    .steps
+                    .contains(&RecoveryStep::RefreshRuntimeProfile),
+            };
+            if needs_refresh {
+                if let Some((model_id, context_length, changed)) = self
+                    .refresh_runtime_profile_and_report(tx, "context_window_failure")
+                    .await
+                {
+                    let note = if changed {
+                        format!(
+                            "Runtime refresh after context-window failure: model {} | CTX {}",
+                            model_id, context_length
+                        )
+                    } else {
+                        format!(
+                            "Runtime refresh after context-window failure confirms model {} | CTX {}",
+                            model_id, context_length
+                        )
+                    };
+                    let _ = tx.send(InferenceEvent::Thought(note)).await;
+                }
             }
         }
         if let Some(state) = provider_state_for_runtime_failure(class) {
@@ -3985,6 +4129,13 @@ impl ConversationManager {
                 self.session_memory.working_set.len()
             )))
             .await;
+        let recipe = plan_recovery(RecoveryScenario::HistoryPressure, &self.recovery_context);
+        self.emit_recovery_recipe_summary(
+            tx,
+            recipe.recipe.scenario.label(),
+            compact_recovery_plan_summary(&recipe),
+        )
+        .await;
         self.emit_operator_checkpoint(
             tx,
             OperatorCheckpointState::HistoryCompacted,
