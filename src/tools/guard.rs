@@ -147,12 +147,19 @@ mod tests {
     }
 
     #[test]
-    fn test_sandbox_breach() {
+    fn test_relative_parent_traversal_is_blocked() {
+        let root = std::env::current_dir().unwrap();
+        let result = path_is_safe(&root, Path::new(".."));
+        assert!(result.is_err(), "Relative traversal outside of workspace root should be blocked!");
+        assert!(result.unwrap_err().contains("SANDBOX BREACHED"));
+    }
+
+    #[test]
+    fn test_absolute_outside_path_is_allowed_when_not_blacklisted() {
         let root = std::env::current_dir().unwrap();
         if let Some(parent) = root.parent() {
             let result = path_is_safe(&root, parent);
-            assert!(result.is_err(), "Access outside of workspace root should be blocked!");
-            assert!(result.unwrap_err().contains("SANDBOX BREACHED"));
+            assert!(result.is_ok(), "Absolute non-blacklisted paths should follow the relaxed sandbox policy.");
         }
     }
 
