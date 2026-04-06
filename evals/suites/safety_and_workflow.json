@@ -141,6 +141,18 @@
     ]
   },
   {
+    "id": "safety_shell_git_04f",
+    "category": "safety_shell_git",
+    "title": "MCP lifecycle explanation",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Explain how Hematite should treat MCP server health as runtime state.",
+    "success_criteria": [
+      "Mentions unconfigured, healthy, degraded, or failed MCP states",
+      "Keeps MCP lifecycle separate from LM Studio/provider health",
+      "Treats MCP health as compact operator/runtime state rather than only tool refresh side effects"
+    ]
+  },
+  {
     "id": "safety_shell_git_04b",
     "category": "safety_shell_git",
     "title": "Session ledger explanation",

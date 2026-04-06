@@ -3,6 +3,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use crate::agent::mcp::*;
+use crate::agent::inference::McpRuntimeState;
 use crate::tools::file_ops::workspace_root;
 use anyhow::{Result, anyhow};
 
@@ -24,8 +25,20 @@ pub struct McpManager {
     pub tool_map: HashMap<String, String>, // qualified_name -> server_name
     pub discovered_tools: Vec<McpTool>,
     pub active_config_signature: Option<String>,
+    pub configured_servers: usize,
     pub startup_errors: Vec<String>,
+    pub discovery_errors: Vec<String>,
     pub next_id: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct McpRuntimeReport {
+    pub state: McpRuntimeState,
+    pub configured_servers: usize,
+    pub connected_servers: usize,
+    pub active_tools: usize,
+    pub error_count: usize,
+    pub summary: String,
 }
 
 impl McpManager {
@@ -35,13 +48,16 @@ impl McpManager {
             tool_map: HashMap::new(),
             discovered_tools: Vec::new(),
             active_config_signature: None,
+            configured_servers: 0,
             startup_errors: Vec::new(),
+            discovery_errors: Vec::new(),
             next_id: 1,
         }
     }
 
     pub async fn initialize_all(&mut self) -> Result<()> {
         let config = self.load_mcp_config();
+        self.configured_servers = config.servers.len();
         let signature = self.config_signature(&config);
         let all_connected = self.connections.len() == config.servers.len();
         if self.active_config_signature.as_deref() == Some(signature.as_str())
@@ -54,6 +70,7 @@ impl McpManager {
         self.tool_map.clear();
         self.discovered_tools.clear();
         self.startup_errors.clear();
+        self.discovery_errors.clear();
         self.active_config_signature = Some(signature);
 
         for (name, cfg) in config.servers {
@@ -204,18 +221,24 @@ impl McpManager {
 
         let mut all_tools = Vec::new();
         self.tool_map.clear();
+        self.discovery_errors.clear();
         let server_names: Vec<String> = self.connections.keys().cloned().collect();
         
         for name in server_names {
             if let Some(proc) = self.connections.get_mut(&name) {
-                if let Ok(tools) = proc.list_tools(self.next_id).await {
-                    self.next_id += 1;
-                    for mut tool in tools {
-                        let original_name = tool.name.clone();
-                        // Prefix to avoid collisions
-                        tool.name = format!("mcp__{}__{}", name, original_name);
-                        self.tool_map.insert(tool.name.clone(), name.clone());
-                        all_tools.push(tool);
+                match proc.list_tools(self.next_id).await {
+                    Ok(tools) => {
+                        self.next_id += 1;
+                        for mut tool in tools {
+                            let original_name = tool.name.clone();
+                            // Prefix to avoid collisions
+                            tool.name = format!("mcp__{}__{}", name, original_name);
+                            self.tool_map.insert(tool.name.clone(), name.clone());
+                            all_tools.push(tool);
+                        }
+                    }
+                    Err(e) => {
+                        self.discovery_errors.push(format!("{}: {}", name, e));
                     }
                 }
             }
@@ -253,5 +276,89 @@ impl McpManager {
             }
             Ok(output)
         }
+    }
+
+    pub fn runtime_report(&self) -> McpRuntimeReport {
+        runtime_report_from_snapshot(
+            self.configured_servers,
+            self.connections.len(),
+            self.discovered_tools.len(),
+            self.startup_errors.len() + self.discovery_errors.len(),
+        )
+    }
+}
+
+fn runtime_report_from_snapshot(
+    configured_servers: usize,
+    connected_servers: usize,
+    active_tools: usize,
+    error_count: usize,
+) -> McpRuntimeReport {
+    let state = if configured_servers == 0 {
+        McpRuntimeState::Unconfigured
+    } else if connected_servers == 0 {
+        McpRuntimeState::Failed
+    } else if error_count > 0 {
+        McpRuntimeState::Degraded
+    } else {
+        McpRuntimeState::Healthy
+    };
+
+    let summary = match state {
+        McpRuntimeState::Unconfigured => "No MCP servers configured.".to_string(),
+        McpRuntimeState::Healthy => format!(
+            "MCP healthy: {}/{} servers connected; {} tools active.",
+            connected_servers, configured_servers, active_tools
+        ),
+        McpRuntimeState::Degraded => format!(
+            "MCP degraded: {}/{} servers connected; {} tools active; {} startup/discovery issue(s).",
+            connected_servers, configured_servers, active_tools, error_count
+        ),
+        McpRuntimeState::Failed => format!(
+            "MCP failed: 0/{} servers connected; {} startup/discovery issue(s).",
+            configured_servers, error_count
+        ),
+    };
+
+    McpRuntimeReport {
+        state,
+        configured_servers,
+        connected_servers,
+        active_tools,
+        error_count,
+        summary,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_report_marks_unconfigured_when_no_servers_exist() {
+        let report = runtime_report_from_snapshot(0, 0, 0, 0);
+        assert_eq!(report.state, McpRuntimeState::Unconfigured);
+        assert!(report.summary.contains("No MCP servers configured"));
+    }
+
+    #[test]
+    fn runtime_report_marks_failed_when_servers_exist_but_none_connect() {
+        let report = runtime_report_from_snapshot(2, 0, 0, 2);
+        assert_eq!(report.state, McpRuntimeState::Failed);
+        assert!(report.summary.contains("0/2"));
+    }
+
+    #[test]
+    fn runtime_report_marks_degraded_when_some_servers_or_discovery_steps_fail() {
+        let report = runtime_report_from_snapshot(2, 1, 3, 1);
+        assert_eq!(report.state, McpRuntimeState::Degraded);
+        assert!(report.summary.contains("1/2"));
+    }
+
+    #[test]
+    fn runtime_report_marks_healthy_when_all_servers_connect_without_errors() {
+        let report = runtime_report_from_snapshot(2, 2, 5, 0);
+        assert_eq!(report.state, McpRuntimeState::Healthy);
+        assert!(report.summary.contains("5 tools active"));
     }
 }

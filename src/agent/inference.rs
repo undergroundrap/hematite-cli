@@ -490,6 +490,14 @@ pub enum ProviderRuntimeState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum McpRuntimeState {
+    Unconfigured,
+    Healthy,
+    Degraded,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperatorCheckpointState {
     Idle,
     RecoveringProvider,
@@ -613,6 +621,11 @@ pub enum InferenceEvent {
     },
     /// Typed recovery recipe summary for operator/debug surfaces.
     RecoveryRecipe {
+        summary: String,
+    },
+    /// Compact MCP/runtime server health for the operator surface.
+    McpStatus {
+        state: McpRuntimeState,
         summary: String,
     },
     /// Current compaction pressure against the adaptive threshold.

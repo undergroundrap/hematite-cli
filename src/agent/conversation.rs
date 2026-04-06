@@ -235,6 +235,7 @@ enum DirectAnswerKind {
     LanguageCapability,
     SessionMemory,
     RecoveryRecipes,
+    McpLifecycle,
     AuthorizationPolicy,
     ToolClasses,
     ToolRegistryOwnership,
@@ -439,6 +440,19 @@ fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Query
     } else if contains_any(
         &lower,
         &[
+            "mcp server health",
+            "mcp runtime state",
+            "mcp lifecycle",
+            "mcp state",
+            "mcp healthy",
+            "mcp degraded",
+            "mcp failed",
+        ],
+    ) {
+        Some(DirectAnswerKind::McpLifecycle)
+    } else if contains_any(
+        &lower,
+        &[
             "allowed, denied, or require approval",
             "allowed denied or require approval",
             "allow, ask, or deny",
@@ -594,6 +608,10 @@ fn build_session_memory_answer() -> String {
 
 fn build_recovery_recipes_answer() -> String {
     "Hematite now treats recovery as typed runtime policy rather than loose prose.\n\nWhen a turn degrades or hits a blocker, it maps the situation to a named recovery scenario and a compact recipe of next steps. Typical recipes include `retry_once` for degraded or empty provider turns, `refresh_runtime_profile -> reduce_prompt_budget -> compact_history -> narrow_request` for context-window failures, `use_builtin_workspace_tools` for blocked MCP workspace reads, and `inspect_target_file` or `inspect_exact_line_window` for proof-before-edit blockers.\n\nThose recovery recipes are surfaced to the operator as compact runtime state, recorded in the session ledger, and kept distinct from the final user-facing error message. The point is to make Hematite's next move explicit instead of hiding it inside ad hoc retry code or long diagnostics.".to_string()
+}
+
+fn build_mcp_lifecycle_answer() -> String {
+    "Hematite should treat MCP server health as typed runtime state, not just a side effect of tool discovery.\n\nThe useful operator states are: unconfigured when no MCP servers are present, healthy when configured servers connect cleanly, degraded when some servers or tool discovery steps fail but some MCP capacity remains, and failed when MCP is configured but nothing connects. That state should stay compact and operator-facing so MCP health is visible without spamming the main chat.\n\nThe practical point is to keep MCP lifecycle separate from the generic provider path: MCP availability changes which external tools exist this turn, but it should not be confused with LM Studio model health or with ordinary built-in workspace tools.".to_string()
 }
 
 fn build_authorization_policy_answer() -> String {
@@ -2518,8 +2536,22 @@ impl ConversationManager {
             }));
     }
 
+    async fn emit_mcp_runtime_status(&self, tx: &mpsc::Sender<InferenceEvent>) {
+        let summary = {
+            let mcp = self.mcp_manager.lock().await;
+            mcp.runtime_report()
+        };
+        let _ = tx
+            .send(InferenceEvent::McpStatus {
+                state: summary.state,
+                summary: summary.summary,
+            })
+            .await;
+    }
+
     async fn refresh_mcp_tools(
         &mut self,
+        tx: &mpsc::Sender<InferenceEvent>,
     ) -> Result<Vec<crate::agent::mcp::McpTool>, Box<dyn std::error::Error + Send + Sync>> {
         let mcp_tools = {
             let mut mcp = self.mcp_manager.lock().await;
@@ -2528,18 +2560,21 @@ impl ConversationManager {
                 Err(e) => {
                     drop(mcp);
                     self.replace_mcp_tool_definitions(&[]);
+                    self.emit_mcp_runtime_status(tx).await;
                     return Err(e.into());
                 }
             }
         };
 
         self.replace_mcp_tool_definitions(&mcp_tools);
+        self.emit_mcp_runtime_status(tx).await;
         Ok(mcp_tools)
     }
 
     /// Spawns and initializes all configured MCP servers, discovering their tools.
     pub async fn initialize_mcp(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _ = self.refresh_mcp_tools().await?;
+        let (tx, _rx) = mpsc::channel(1);
+        let _ = self.refresh_mcp_tools(&tx).await?;
         Ok(())
     }
 
@@ -2582,7 +2617,7 @@ impl ConversationManager {
             ));
         let _turn_id = self.begin_grounded_turn().await;
         let _hook_runner = crate::agent::hooks::HookRunner::new(config.hooks.clone());
-        let mcp_tools = match self.refresh_mcp_tools().await {
+        let mcp_tools = match self.refresh_mcp_tools(&tx).await {
             Ok(tools) => tools,
             Err(e) => {
                 let _ = tx
@@ -2803,6 +2838,12 @@ impl ConversationManager {
                 }
                 DirectAnswerKind::RecoveryRecipes => {
                     let response = build_recovery_recipes_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::McpLifecycle => {
+                    let response = build_mcp_lifecycle_answer();
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
                         .await;
                     return Ok(());
@@ -5570,5 +5611,15 @@ mod tests {
         assert!(answer.contains("src/agent/tool_registry.rs"));
         assert!(answer.contains("builtin dispatch path"));
         assert!(answer.contains("src/agent/conversation.rs"));
+    }
+
+    #[test]
+    fn intent_router_treats_mcp_lifecycle_as_product_truth() {
+        let intent = classify_query_intent(
+            WorkflowMode::ReadOnly,
+            "Read-only mode. Explain how Hematite should treat MCP server health as runtime state.",
+        );
+        assert_eq!(intent.primary_class, QueryIntentClass::ProductTruth);
+        assert_eq!(intent.direct_answer, Some(DirectAnswerKind::McpLifecycle));
     }
 }

@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use crate::ui::gpu_monitor::GpuState;
 use std::time::Instant;
 use tokio::sync::mpsc::Receiver;
-use crate::agent::inference::{OperatorCheckpointState, ProviderRuntimeState};
+use crate::agent::inference::{McpRuntimeState, OperatorCheckpointState, ProviderRuntimeState};
 use crate::agent::specular::SpecularEvent;
 use crate::agent::swarm::{SwarmMessage, ReviewResponse};
 use super::modal_review::{ActiveReview, draw_diff_review};
@@ -127,6 +127,8 @@ pub struct App {
     last_runtime_profile_time: Instant,
     provider_state: ProviderRuntimeState,
     last_provider_summary: String,
+    mcp_state: McpRuntimeState,
+    last_mcp_summary: String,
     last_operator_checkpoint_state: OperatorCheckpointState,
     last_operator_checkpoint_summary: String,
     last_recovery_recipe_summary: String,
@@ -168,6 +170,7 @@ impl App {
 
     pub fn reset_runtime_status_memory(&mut self) {
         self.last_provider_summary.clear();
+        self.last_mcp_summary.clear();
         self.last_operator_checkpoint_summary.clear();
         self.last_operator_checkpoint_state = OperatorCheckpointState::Idle;
         self.last_recovery_recipe_summary.clear();
@@ -460,6 +463,8 @@ pub async fn run_app<B: Backend>(
         last_runtime_profile_time: Instant::now(),
         provider_state: ProviderRuntimeState::Booting,
         last_provider_summary: String::new(),
+        mcp_state: McpRuntimeState::Unconfigured,
+        last_mcp_summary: String::new(),
         last_operator_checkpoint_state: OperatorCheckpointState::Idle,
         last_operator_checkpoint_summary: String::new(),
         last_recovery_recipe_summary: String::new(),
@@ -1266,6 +1271,14 @@ pub async fn run_app<B: Backend>(
                             app.specular_logs.push(format!("PROVIDER: {}", summary));
                             trim_vec(&mut app.specular_logs, 20);
                             app.last_provider_summary = summary;
+                        }
+                    }
+                    InferenceEvent::McpStatus { state, summary } => {
+                        app.mcp_state = state;
+                        if !summary.trim().is_empty() && app.last_mcp_summary != summary {
+                            app.specular_logs.push(format!("MCP: {}", summary));
+                            trim_vec(&mut app.specular_logs, 20);
+                            app.last_mcp_summary = summary;
                         }
                     }
                     InferenceEvent::OperatorCheckpoint { state, summary } => {

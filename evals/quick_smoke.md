@@ -165,6 +165,17 @@ Check:
 - makes clear that the conversation loop is no longer the primary owner of built-in tool definitions and builtin dispatch
 - does not describe tool ownership as living only in `src/agent/conversation.rs`
 
+Also try:
+
+```text
+Read-only mode. Explain how Hematite should treat MCP server health as runtime state.
+```
+
+Check:
+- mentions unconfigured, healthy, degraded, or failed MCP states
+- keeps MCP lifecycle separate from LM Studio/provider health
+- treats MCP health as compact operator/runtime state rather than only tool refresh side effects
+
 ## 7c. Session Ledger
 
 ```text
