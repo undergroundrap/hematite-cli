@@ -197,6 +197,17 @@ Check:
 - mentions examples like `retry_once`, `refresh_runtime_profile`, `reduce_prompt_budget`, `compact_history`, or proof-before-edit recovery steps
 - treats the recovery recipe as part of the operator/session surface rather than only the final user-facing error
 
+Also try:
+
+```text
+Read-only mode. Explain why Hematite can show a high BUD percentage while CMP stays low, especially on a small LM Studio context window.
+```
+
+Check:
+- distinguishes full prompt-budget pressure from compactable history pressure
+- explains that `BUD` can spike from system prompt, runtime scaffolding, or reserved output even when `CMP` is still modest
+- does not collapse the two metrics into the same thing
+
 ## 8. Vision Awareness
 
 ```text
@@ -251,6 +262,17 @@ Also watch for:
 - no raw `LM Studio: 500` style provider text leaking straight to the operator
 - LM Studio `n_keep >= n_ctx` or similar context-budget rejections are described as `context_window`, not generic `provider_degraded`
 
+Also try:
+
+```text
+Read-only mode. If LM Studio is running with a 4096-token context and Hematite hits a context-window failure, what should the operator surface show?
+```
+
+Check:
+- mentions a classified `context_window` or context ceiling state rather than vague provider prose
+- mentions compact operator/runtime surfaces like LM status, provider state, recovery recipe, or checkpoint state
+- keeps context-window recovery separate from generic degraded-provider handling
+
 ## 12. Product Framing
 
 ```text
@@ -258,6 +280,28 @@ What is Hematite, and what is LM Studio, in one clear paragraph?
 ```
 
 ## 13. Capability Honesty
+
+## 14. Stable Truth Under Pressure
+
+```text
+Read-only mode. After a long or stale session, if the user asks a stable product-surface question, what should Hematite prefer before reaching for broad repo inspection?
+```
+
+Check:
+- prefers stable direct answers before broad repo/tool exploration
+- treats repo inspection as the follow-up path for implementation questions rather than the default for product truth
+- does not overtool just because the session is old
+
+## 15. MCP Degraded State
+
+```text
+Read-only mode. If some MCP servers connect and others fail, how should Hematite surface that to the operator?
+```
+
+Check:
+- uses degraded MCP lifecycle language rather than generic provider failure language
+- keeps MCP health separate from LM Studio model health
+- frames it as compact operator/runtime state instead of chat spam
 
 ```text
 Do you know other coding languages, and are you capable of making projects too?

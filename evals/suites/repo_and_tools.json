@@ -134,5 +134,17 @@
       "Mentions likely entrypoints or core owner files from the repo map output",
       "Preserves real file paths and extracted symbols"
     ]
+  },
+  {
+    "id": "tool_discipline_08",
+    "category": "tool_discipline",
+    "title": "Stable truth versus repo inspection boundary",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Without guessing, explain how Hematite decides whether a question should be answered as stable product truth or by inspecting repository implementation.",
+    "success_criteria": [
+      "Answers directly as product-surface routing policy",
+      "Explains stable product truth first and repo inspection second",
+      "Does not call describe_toolchain, grep_files, or read_file for this prompt"
+    ]
   }
 ]

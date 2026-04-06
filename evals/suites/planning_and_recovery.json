@@ -86,5 +86,41 @@
       "Prefers trace_runtime_flow or real tools over memory",
       "Explicitly avoids bluffing"
     ]
+  },
+  {
+    "id": "long_context_recovery_05",
+    "category": "long_context_recovery",
+    "title": "Tiny-context context-window operator surface",
+    "mode": "read_only",
+    "prompt": "Read-only mode. If LM Studio is running with a 4096-token context and Hematite hits a context-window failure, what should the operator surface show?",
+    "success_criteria": [
+      "Mentions a classified context_window or context ceiling state rather than vague provider prose",
+      "Mentions compact operator/runtime surfaces like LM status, provider state, recovery recipe, or checkpoint state",
+      "Keeps context-window recovery separate from generic degraded-provider handling"
+    ]
+  },
+  {
+    "id": "long_context_recovery_06",
+    "category": "long_context_recovery",
+    "title": "Prompt budget versus compaction pressure",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Explain why Hematite can show a high BUD percentage while CMP stays low, especially on a small LM Studio context window.",
+    "success_criteria": [
+      "Distinguishes full prompt-budget pressure from compactable history pressure",
+      "Explains that BUD can spike from system prompt, runtime scaffolding, or reserved output even when CMP is modest",
+      "Does not collapse BUD and CMP into the same signal"
+    ]
+  },
+  {
+    "id": "long_context_recovery_07",
+    "category": "long_context_recovery",
+    "title": "Stable truth under long-session pressure",
+    "mode": "read_only",
+    "prompt": "Read-only mode. After a long or stale session, if the user asks a stable product-surface question, what should Hematite prefer before reaching for broad repo inspection?",
+    "success_criteria": [
+      "Prefers stable direct answers before broad repo/tool exploration",
+      "Treats repo inspection as the follow-up path for implementation questions rather than the default for product truth",
+      "Avoids framing long-session recovery as a reason to overtool a stable product-surface question"
+    ]
   }
 ]

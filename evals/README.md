@@ -11,6 +11,14 @@ It is designed for the actual target machine class of this project:
 
 The goal is not to prove cloud parity. The goal is to measure whether Hematite is making local open models more reliable, grounded, and useful over time.
 
+The most important eval pressure areas for Hematite now are:
+
+- direct answer versus tool-use restraint
+- tiny-context survival and context-window recovery
+- trust and approval discipline
+- MCP lifecycle honesty under partial failure
+- long-session behavior on consumer-GPU budgets
+
 ## Files
 
 - `prompt_suite.json`: the full categorized eval corpus
@@ -82,6 +90,8 @@ Also ask:
 - Did it preserve exact identifiers when required?
 - Did it avoid cloud-brain behavior it cannot support locally?
 - Did it stay useful under 4070-class hardware constraints?
+- Did it keep stable product truth separate from repo-inspection questions?
+- Did it expose the right operator state under budget or lifecycle pressure?
 
 ## Recommended Workflow
 

@@ -7,27 +7,27 @@
     {
       "path": "evals/suites/core_identity_runtime.json",
       "categories": ["identity_meta", "runtime_grounding"],
-      "count": 10
+      "count": 11
     },
     {
       "path": "evals/suites/repo_and_tools.json",
       "categories": ["repo_read_only", "tool_discipline"],
-      "count": 9
+      "count": 13
     },
     {
       "path": "evals/suites/safety_and_workflow.json",
       "categories": ["safety_shell_git", "local_workflow"],
-      "count": 8
+      "count": 46
     },
     {
       "path": "evals/suites/research_mcp_vision.json",
       "categories": ["web_research", "mcp_lsp_vision"],
-      "count": 7
+      "count": 8
     },
     {
       "path": "evals/suites/planning_and_recovery.json",
       "categories": ["editing_planning", "long_context_recovery"],
-      "count": 8
+      "count": 11
     }
   ]
 }

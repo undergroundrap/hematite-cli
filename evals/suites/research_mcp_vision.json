@@ -75,5 +75,17 @@
       "Mentions global and workspace config locations",
       "Does not invent additional config files"
     ]
+  },
+  {
+    "id": "mcp_lsp_vision_05",
+    "category": "mcp_lsp_vision",
+    "title": "MCP degraded operator state",
+    "mode": "read_only",
+    "prompt": "Read-only mode. If some MCP servers connect and others fail, how should Hematite surface that to the operator?",
+    "success_criteria": [
+      "Uses degraded MCP lifecycle language rather than generic provider failure language",
+      "Keeps MCP health separate from LM Studio model health",
+      "Frames it as compact operator/runtime state instead of chat spam"
+    ]
   }
 ]
