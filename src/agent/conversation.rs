@@ -2504,7 +2504,43 @@ impl ConversationManager {
                             {
                                 reset_inspection_evidence = true;
                             }
-                            successful_read_targets.insert(normalized);
+                            successful_read_targets.insert(normalized.clone());
+
+                            if startup_ui_work_turn && loop_intervention.is_none() {
+                                let offset = res
+                                    .args
+                                    .get("offset")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0);
+                                let limit = res
+                                    .args
+                                    .get("limit")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(u64::MAX);
+                                // Parse "lines X-Y of Z" from tool output to detect shallow reads
+                                let total_lines = final_output
+                                    .split_once(" of ")
+                                    .and_then(|(_, rest)| rest.split(']').next())
+                                    .and_then(|s| s.trim().parse::<u64>().ok());
+                                if let Some(total) = total_lines {
+                                    let read_end = offset + limit;
+                                    // Shallow read: covered less than 20% of a file with 200+ lines
+                                    if total >= 200 && read_end < total / 5 {
+                                        loop_intervention = Some(format!(
+                                            "STOP. `read_file` on `{}` only covered lines {}-{} of {}. \
+                                             Do not paginate — the file is too large to scan page by page. \
+                                             Use `inspect_lines` on the approximate banner or splash region directly \
+                                             (the startup splash in tui.rs is near the bottom of the file, roughly the last 200 lines), \
+                                             then make one focused edit and run `verify_build`.",
+                                            path,
+                                            offset + 1,
+                                            read_end.min(total),
+                                            total,
+                                        ));
+                                        *repeat_count = 0;
+                                    }
+                                }
+                            }
                         }
                     }
 
