@@ -22,5 +22,6 @@ pub mod permission_enforcer;
 pub mod policy;
 pub mod recovery_recipes;
 pub mod routing;
+pub mod architecture_summary;
 pub mod tool_registry;
 pub mod trust_resolver;
