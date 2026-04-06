@@ -1,4 +1,5 @@
 use crate::agent::inference::ChatMessage;
+use std::collections::{BTreeSet, HashSet};
 
 /// Professional Compaction Configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +39,100 @@ impl CompactionConfig {
 pub struct CompactionResult {
     pub messages: Vec<ChatMessage>,
     pub summary: Option<String>,
+}
+
+const DEFAULT_MAX_SUMMARY_CHARS: usize = 1_400;
+const DEFAULT_MAX_SUMMARY_LINES: usize = 28;
+const DEFAULT_MAX_SUMMARY_LINE_CHARS: usize = 180;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SummaryCompressionBudget {
+    pub max_chars: usize,
+    pub max_lines: usize,
+    pub max_line_chars: usize,
+}
+
+impl Default for SummaryCompressionBudget {
+    fn default() -> Self {
+        Self {
+            max_chars: DEFAULT_MAX_SUMMARY_CHARS,
+            max_lines: DEFAULT_MAX_SUMMARY_LINES,
+            max_line_chars: DEFAULT_MAX_SUMMARY_LINE_CHARS,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SummaryCompressionResult {
+    pub summary: String,
+    pub original_chars: usize,
+    pub compressed_chars: usize,
+    pub original_lines: usize,
+    pub compressed_lines: usize,
+    pub removed_duplicate_lines: usize,
+    pub omitted_lines: usize,
+    pub truncated: bool,
+}
+
+pub fn compress_summary(
+    summary: &str,
+    budget: SummaryCompressionBudget,
+) -> SummaryCompressionResult {
+    let original_chars = summary.chars().count();
+    let original_lines = summary.lines().count();
+    let normalized = normalize_summary_lines(summary, budget.max_line_chars);
+
+    if normalized.lines.is_empty() || budget.max_chars == 0 || budget.max_lines == 0 {
+        return SummaryCompressionResult {
+            summary: String::new(),
+            original_chars,
+            compressed_chars: 0,
+            original_lines,
+            compressed_lines: 0,
+            removed_duplicate_lines: normalized.removed_duplicate_lines,
+            omitted_lines: normalized.lines.len(),
+            truncated: original_chars > 0,
+        };
+    }
+
+    let selected = select_summary_line_indexes(&normalized.lines, budget);
+    let mut compressed_lines = selected
+        .iter()
+        .map(|index| normalized.lines[*index].clone())
+        .collect::<Vec<_>>();
+    if compressed_lines.is_empty() {
+        compressed_lines.push(truncate_summary_line(
+            &normalized.lines[0],
+            budget.max_chars,
+        ));
+    }
+    let omitted_lines = normalized
+        .lines
+        .len()
+        .saturating_sub(compressed_lines.len());
+    if omitted_lines > 0 {
+        push_summary_line_with_budget(
+            &mut compressed_lines,
+            format!("- ... {omitted_lines} additional line(s) omitted."),
+            budget,
+        );
+    }
+
+    let compressed_summary = compressed_lines.join("\n");
+    SummaryCompressionResult {
+        summary: compressed_summary.clone(),
+        original_chars,
+        compressed_chars: compressed_summary.chars().count(),
+        original_lines,
+        compressed_lines: compressed_lines.len(),
+        removed_duplicate_lines: normalized.removed_duplicate_lines,
+        omitted_lines,
+        truncated: compressed_summary != summary.trim(),
+    }
+}
+
+pub fn compress_summary_text(summary: &str) -> String {
+    compress_summary(summary, SummaryCompressionBudget::default()).summary
 }
 
 const COMPACT_PREAMBLE: &str = "## CONTEXT SUMMARY (RECURSIVE CHAIN)\n\
@@ -101,8 +196,8 @@ impl SessionMemory {
 /// Pass the model's context_length and current vram_ratio for adaptive thresholds.
 pub fn should_compact(history: &[ChatMessage], context_length: usize, vram_ratio: f64) -> bool {
     let config = CompactionConfig::adaptive(context_length, vram_ratio);
-    history.len() > config.preserve_recent_messages + 5
-        || estimate_tokens(history) > config.max_estimated_tokens
+    history.len().saturating_sub(1) > config.preserve_recent_messages + 5
+        || estimate_compactable_tokens(history) > config.max_estimated_tokens
 }
 
 pub fn compact_history(
@@ -224,13 +319,24 @@ pub fn estimate_tokens(messages: &[ChatMessage]) -> usize {
     messages.iter().map(|m| m.content.as_str().len() / 4 + 1).sum()
 }
 
+pub fn estimate_compactable_tokens(history: &[ChatMessage]) -> usize {
+    if history.len() <= 1 {
+        0
+    } else {
+        estimate_tokens(&history[1..])
+    }
+}
+
 fn build_technical_summary(messages: &[ChatMessage]) -> String {
     let mut lines = vec![
         format!("- Scope: {} earlier turns compacted.", messages.len()),
     ];
 
     // 1. Extract Key Files
-    let mut files = std::collections::HashSet::new();
+    let mut files = HashSet::new();
+    let mut tools = HashSet::new();
+    let mut requests = Vec::new();
+
     for m in messages {
         for word in m.content.as_str().split_whitespace() {
             let clean = word.trim_matches(|c: char| matches!(c, ',' | '.' | ':' | ';' | ')' | '(' | '"' | '\'' | '`'));
@@ -238,14 +344,33 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
                 files.insert(clean.to_string());
             }
         }
+        if m.role == "user" && !m.content.as_str().trim().is_empty() && requests.len() < 3 {
+            requests.push(truncate_summary_line(
+                &collapse_inline_whitespace(m.content.as_str()),
+                120,
+            ));
+        }
+        for call in &m.tool_calls {
+            tools.insert(call.function.name.clone());
+        }
     }
     if !files.is_empty() {
         let list: Vec<String> = files.into_iter().take(8).collect();
-        lines.push(format!("- Files Active: {}.", list.join(", ")));
+        lines.push(format!("- Key files referenced: {}.", list.join(", ")));
+    }
+    if !tools.is_empty() {
+        let list: Vec<String> = tools.into_iter().take(8).collect();
+        lines.push(format!("- Tools mentioned: {}.", list.join(", ")));
+    }
+    if !requests.is_empty() {
+        lines.push("- Recent user requests:".to_string());
+        for request in requests.into_iter().rev() {
+            lines.push(format!("  - {}", request));
+        }
     }
 
     // 2. Extract Timeline
-    lines.push("- Technical Timeline:".to_string());
+    lines.push("- Newly compacted context:".to_string());
     for m in messages.iter().rev().take(6).rev() {
         let content_str = m.content.as_str();
         let preview = if content_str.len() > 100 {
@@ -260,13 +385,133 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
         lines.push(format!("  - {}: {}", m.role, preview.replace('\n', " ").trim()));
     }
 
-    lines.join("\n")
+    compress_summary_text(&lines.join("\n"))
 }
 
 fn merge_summaries(existing: &str, new: &str) -> String {
-    format!(
-        "### Previously Compacted Context\n{}\n\n### Newly Compacted Context\n{}",
-        existing,
-        new
-    )
+    compress_summary_text(&format!(
+        "Conversation summary:\n- Previously compacted context:\n{}\n- Newly compacted context:\n{}",
+        existing.trim(),
+        new.trim()
+    ))
+}
+
+#[derive(Debug, Default)]
+struct NormalizedSummary {
+    lines: Vec<String>,
+    removed_duplicate_lines: usize,
+}
+
+fn normalize_summary_lines(summary: &str, max_line_chars: usize) -> NormalizedSummary {
+    let mut seen = BTreeSet::new();
+    let mut lines = Vec::new();
+    let mut removed_duplicate_lines = 0;
+
+    for raw_line in summary.lines() {
+        let normalized = collapse_inline_whitespace(raw_line);
+        if normalized.is_empty() {
+            continue;
+        }
+        let truncated = truncate_summary_line(&normalized, max_line_chars);
+        let dedupe_key = truncated.to_ascii_lowercase();
+        if !seen.insert(dedupe_key) {
+            removed_duplicate_lines += 1;
+            continue;
+        }
+        lines.push(truncated);
+    }
+
+    NormalizedSummary {
+        lines,
+        removed_duplicate_lines,
+    }
+}
+
+fn select_summary_line_indexes(lines: &[String], budget: SummaryCompressionBudget) -> Vec<usize> {
+    let mut selected = BTreeSet::<usize>::new();
+
+    for priority in 0..=3 {
+        for (index, line) in lines.iter().enumerate() {
+            if selected.contains(&index) || summary_line_priority(line) != priority {
+                continue;
+            }
+            let candidate = selected
+                .iter()
+                .map(|selected_index| lines[*selected_index].as_str())
+                .chain(std::iter::once(line.as_str()))
+                .collect::<Vec<_>>();
+            if candidate.len() > budget.max_lines {
+                continue;
+            }
+            if joined_summary_char_count(&candidate) > budget.max_chars {
+                continue;
+            }
+            selected.insert(index);
+        }
+    }
+
+    selected.into_iter().collect()
+}
+
+fn push_summary_line_with_budget(
+    lines: &mut Vec<String>,
+    line: String,
+    budget: SummaryCompressionBudget,
+) {
+    let candidate = lines
+        .iter()
+        .map(String::as_str)
+        .chain(std::iter::once(line.as_str()))
+        .collect::<Vec<_>>();
+    if candidate.len() <= budget.max_lines && joined_summary_char_count(&candidate) <= budget.max_chars {
+        lines.push(line);
+    }
+}
+
+fn joined_summary_char_count(lines: &[&str]) -> usize {
+    lines.iter().map(|line| line.chars().count()).sum::<usize>() + lines.len().saturating_sub(1)
+}
+
+fn summary_line_priority(line: &str) -> usize {
+    if line == "Conversation summary:" || is_core_summary_detail(line) {
+        0
+    } else if line.ends_with(':') {
+        1
+    } else if line.starts_with("- ") || line.starts_with("  - ") {
+        2
+    } else {
+        3
+    }
+}
+
+fn is_core_summary_detail(line: &str) -> bool {
+    [
+        "- Scope:",
+        "- Key files referenced:",
+        "- Tools mentioned:",
+        "- Recent user requests:",
+        "- Previously compacted context:",
+        "- Newly compacted context:",
+    ]
+    .iter()
+    .any(|prefix| line.starts_with(prefix))
+}
+
+fn collapse_inline_whitespace(line: &str) -> String {
+    line.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn truncate_summary_line(line: &str, max_chars: usize) -> String {
+    if max_chars == 0 || line.chars().count() <= max_chars {
+        return line.to_string();
+    }
+    if max_chars == 1 {
+        return ".".to_string();
+    }
+    let mut truncated = line
+        .chars()
+        .take(max_chars.saturating_sub(3))
+        .collect::<String>();
+    truncated.push_str("...");
+    truncated
 }

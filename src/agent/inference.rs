@@ -319,6 +319,39 @@ pub enum ProviderRuntimeState {
     EmptyResponse,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperatorCheckpointState {
+    Idle,
+    RecoveringProvider,
+    BudgetReduced,
+    HistoryCompacted,
+    BlockedContextWindow,
+    BlockedPolicy,
+    BlockedRecentFileEvidence,
+    BlockedExactLineWindow,
+    BlockedToolLoop,
+    BlockedVerification,
+}
+
+impl OperatorCheckpointState {
+    pub fn label(self) -> &'static str {
+        match self {
+            OperatorCheckpointState::Idle => "idle",
+            OperatorCheckpointState::RecoveringProvider => "recovering_provider",
+            OperatorCheckpointState::BudgetReduced => "budget_reduced",
+            OperatorCheckpointState::HistoryCompacted => "history_compacted",
+            OperatorCheckpointState::BlockedContextWindow => "blocked_context_window",
+            OperatorCheckpointState::BlockedPolicy => "blocked_policy",
+            OperatorCheckpointState::BlockedRecentFileEvidence => {
+                "blocked_recent_file_evidence"
+            }
+            OperatorCheckpointState::BlockedExactLineWindow => "blocked_exact_line_window",
+            OperatorCheckpointState::BlockedToolLoop => "blocked_tool_loop",
+            OperatorCheckpointState::BlockedVerification => "blocked_verification",
+        }
+    }
+}
+
 fn provider_state_for_failure_tag(tag: &str) -> ProviderRuntimeState {
     match tag {
         "context_window" => ProviderRuntimeState::ContextWindow,
@@ -401,6 +434,11 @@ pub enum InferenceEvent {
     /// Compact provider/runtime state for the operator surface.
     ProviderStatus {
         state: ProviderRuntimeState,
+        summary: String,
+    },
+    /// Typed operator checkpoint/blocker state for SPECULAR and recovery UIs.
+    OperatorCheckpoint {
+        state: OperatorCheckpointState,
         summary: String,
     },
     /// Current compaction pressure against the adaptive threshold.

@@ -151,6 +151,7 @@ Also watch for:
 - the bottom bar also exposes a separate prompt-budget badge like `BUD:74%`
 - the percentage rises as session history grows and resets after `/new` or `/forget`
 - `CMP` and `BUD` can diverge; on tiny contexts `BUD` may spike even when `CMP` is still modest
+- SPECULAR can surface typed checkpoint lines like `STATE: budget_reduced ...` or `STATE: history_compacted ...` instead of only loose prose thoughts
 
 ## 11b. Structured Failure Recovery
 
@@ -168,6 +169,7 @@ Check:
 - mentions one automatic retry for degraded or empty provider turns before surfacing the failure
 - the LM badge or SPECULAR surface reflects compact provider states like recovery, degraded runtime, or context ceiling instead of only raw error prose
 - a runtime-profile refresh does not immediately wipe a real `LM:CEIL` or `LM:WARN` state before a successful turn clears it
+- SPECULAR can surface typed blocker/checkpoint states such as `recovering_provider`, `blocked_policy`, or `blocked_recent_file_evidence`
 
 Also watch for:
 - no silent empty completion on plain streaming or startup-style text generations
@@ -473,7 +475,7 @@ Read-only mode. Explain the exact difference between /clear, /new, and /forget i
 
 Check:
 - does not silently stall at the context ceiling after a large file read
-- emits a prompt-budget/compaction style recovery thought if it had to trim context
+- emits a prompt-budget or compaction checkpoint such as `STATE: budget_reduced ...` or `STATE: history_compacted ...` if it had to trim context
 - continues with a real answer or a grounded follow-up inspection instead of hanging
 - does not repeat `read_file` on the same file when `grep_files` or `inspect_lines` should narrow next
 

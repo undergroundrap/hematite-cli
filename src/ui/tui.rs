@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use crate::ui::gpu_monitor::GpuState;
 use std::time::Instant;
 use tokio::sync::mpsc::Receiver;
-use crate::agent::inference::ProviderRuntimeState;
+use crate::agent::inference::{OperatorCheckpointState, ProviderRuntimeState};
 use crate::agent::specular::SpecularEvent;
 use crate::agent::swarm::{SwarmMessage, ReviewResponse};
 use super::modal_review::{ActiveReview, draw_diff_review};
@@ -127,6 +127,8 @@ pub struct App {
     last_runtime_profile_time: Instant,
     provider_state: ProviderRuntimeState,
     last_provider_summary: String,
+    last_operator_checkpoint_state: OperatorCheckpointState,
+    last_operator_checkpoint_summary: String,
     /// Mirrors ConversationManager::think_mode for status bar display.
     /// None = auto, Some(true) = /think, Some(false) = /no_think.
     pub think_mode: Option<bool>,
@@ -161,6 +163,12 @@ impl App {
 
     pub fn reset_error_count(&mut self) {
         self.stats.debugging = 0;
+    }
+
+    pub fn reset_runtime_status_memory(&mut self) {
+        self.last_provider_summary.clear();
+        self.last_operator_checkpoint_summary.clear();
+        self.last_operator_checkpoint_state = OperatorCheckpointState::Idle;
     }
 
     pub fn push_message(&mut self, speaker: &str, content: &str) {
@@ -450,6 +458,8 @@ pub async fn run_app<B: Backend>(
         last_runtime_profile_time: Instant::now(),
         provider_state: ProviderRuntimeState::Booting,
         last_provider_summary: String::new(),
+        last_operator_checkpoint_state: OperatorCheckpointState::Idle,
+        last_operator_checkpoint_summary: String::new(),
         think_mode: None,
         workflow_mode: "AUTO".into(),
         autocomplete_suggestions: Vec::new(),
@@ -783,6 +793,7 @@ pub async fn run_app<B: Backend>(
                                                 app.current_thought.clear();
                                                 app.specular_logs.clear();
                                                 app.reset_error_count();
+                                                app.reset_runtime_status_memory();
                                                 app.reset_active_context();
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("System", "Dialogue buffer cleared.");
@@ -820,6 +831,7 @@ pub async fn run_app<B: Backend>(
                                                 app.current_thought.clear();
                                                 app.specular_logs.clear();
                                                 app.reset_error_count();
+                                                app.reset_runtime_status_memory();
                                                 app.reset_active_context();
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("You", "/new");
@@ -835,6 +847,7 @@ pub async fn run_app<B: Backend>(
                                                 app.current_thought.clear();
                                                 app.specular_logs.clear();
                                                 app.reset_error_count();
+                                                app.reset_runtime_status_memory();
                                                 app.reset_active_context();
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("You", "/forget");
@@ -1250,6 +1263,22 @@ pub async fn run_app<B: Backend>(
                             app.specular_logs.push(format!("PROVIDER: {}", summary));
                             trim_vec(&mut app.specular_logs, 20);
                             app.last_provider_summary = summary;
+                        }
+                    }
+                    InferenceEvent::OperatorCheckpoint { state, summary } => {
+                        app.last_operator_checkpoint_state = state;
+                        if state == OperatorCheckpointState::Idle {
+                            app.last_operator_checkpoint_summary.clear();
+                        } else if !summary.trim().is_empty()
+                            && app.last_operator_checkpoint_summary != summary
+                        {
+                            app.specular_logs.push(format!(
+                                "STATE: {} - {}",
+                                state.label(),
+                                summary
+                            ));
+                            trim_vec(&mut app.specular_logs, 20);
+                            app.last_operator_checkpoint_summary = summary;
                         }
                     }
                     InferenceEvent::CompactionPressure {

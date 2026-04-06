@@ -36,6 +36,7 @@ Hematite continuously adapts to the machine it is running on.
 - **Prompt-budget meter**: the operator surface now exposes a separate `BUD:NN%` badge for total turn payload pressure against the live LM Studio context window, which catches small-context prompt blowups that are not visible from history compaction pressure alone
 - **Tighter operator footer**: the input/status surface now prioritizes real controls and real signals, including a live session error count, instead of spending width on dead counters or unreliable terminal hints
 - **Runtime-owned provider state**: recovery, degraded, live, and context-ceiling transitions are now emitted by the runtime layer itself instead of being guessed by the TUI from rendered tokens or error strings
+- **Typed operator checkpoints**: SPECULAR now receives explicit runtime checkpoint states for provider recovery, prompt-budget reduction, history compaction, blocked policy paths, blocked recent-file-evidence edits, blocked exact-line-window edits, and other recovery/blocker transitions
 - **Tiny-context fallback profile**: when LM Studio serves a very small active context window, Hematite can switch to a slimmer system prompt so simple prompts still fit instead of immediately exhausting the budget
 - **Manual runtime refresh**: `/runtime-refresh` lets the operator force an LM Studio profile resync on demand, and context-window failures trigger the same refresh path automatically
 
@@ -68,6 +69,7 @@ Hematite is built for repeated project use, not one-off prompts.
 - **One-shot provider recovery**: empty or degraded LM Studio turns get one automatic retry before Hematite escalates the structured failure
 - **Streaming-path failure discipline**: plain text generations and startup flows now surface structured provider failures instead of raw stream errors or silent empty completions
 - **LM Studio context-mismatch detection**: provider errors like `n_keep >= n_ctx` are classified as `context_window` failures so Hematite points at the real budget mismatch instead of mislabeling them as generic provider degradation
+- **Budgeted recursive summaries**: compaction summaries are normalized, deduplicated, and clamped to a real line/character budget so recursive context carry-forward stays cheaper and more stable on small local contexts
 - **Session persistence**: active state is saved under `.hematite/`
 - **Task awareness**: local task and planning files can shape agent behavior
 - **Instruction discovery**: project rules are loaded automatically from workspace instruction files

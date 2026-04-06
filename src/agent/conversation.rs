@@ -1,5 +1,6 @@
 use crate::agent::inference::{
-    ChatMessage, InferenceEngine, InferenceEvent, MessageContent, ProviderRuntimeState,
+    ChatMessage, InferenceEngine, InferenceEvent, MessageContent, OperatorCheckpointState,
+    ProviderRuntimeState,
     ToolCallFn, ToolDefinition, ToolCallResponse, ToolFunction,
 };
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
@@ -721,6 +722,16 @@ fn provider_state_for_runtime_failure(class: RuntimeFailureClass) -> Option<Prov
     }
 }
 
+fn checkpoint_state_for_runtime_failure(class: RuntimeFailureClass) -> Option<OperatorCheckpointState> {
+    match class {
+        RuntimeFailureClass::ContextWindow => Some(OperatorCheckpointState::BlockedContextWindow),
+        RuntimeFailureClass::ToolPolicyBlocked => Some(OperatorCheckpointState::BlockedPolicy),
+        RuntimeFailureClass::ToolLoop => Some(OperatorCheckpointState::BlockedToolLoop),
+        RuntimeFailureClass::VerificationFailed => Some(OperatorCheckpointState::BlockedVerification),
+        _ => None,
+    }
+}
+
 fn compact_runtime_recovery_summary(class: RuntimeFailureClass) -> &'static str {
     match class {
         RuntimeFailureClass::ProviderDegraded => {
@@ -733,11 +744,19 @@ fn compact_runtime_recovery_summary(class: RuntimeFailureClass) -> &'static str 
     }
 }
 
+fn checkpoint_summary_for_runtime_failure(class: RuntimeFailureClass) -> &'static str {
+    match class {
+        RuntimeFailureClass::ContextWindow => "Provider context ceiling confirmed.",
+        RuntimeFailureClass::ToolPolicyBlocked => "Policy blocked the current action.",
+        RuntimeFailureClass::ToolLoop => "Repeated failing tool pattern stopped.",
+        RuntimeFailureClass::VerificationFailed => "Verification failed; fix before continuing.",
+        _ => "Operator checkpoint updated.",
+    }
+}
+
 fn compact_runtime_failure_summary(class: RuntimeFailureClass) -> &'static str {
     match class {
-        RuntimeFailureClass::ContextWindow => {
-            "LM Studio context ceiling hit; narrow the turn or refresh the live runtime budget."
-        }
+        RuntimeFailureClass::ContextWindow => "LM context ceiling hit.",
         RuntimeFailureClass::ProviderDegraded => {
             "LM Studio degraded and did not recover cleanly; operator action is now required."
         }
@@ -1666,12 +1685,28 @@ pub struct ConversationManager {
 }
 
 impl ConversationManager {
+    async fn emit_operator_checkpoint(
+        &self,
+        tx: &mpsc::Sender<InferenceEvent>,
+        state: OperatorCheckpointState,
+        summary: impl Into<String>,
+    ) {
+        let _ = tx
+            .send(InferenceEvent::OperatorCheckpoint {
+                state,
+                summary: summary.into(),
+            })
+            .await;
+    }
+
     async fn emit_provider_live(&self, tx: &mpsc::Sender<InferenceEvent>) {
         let _ = tx
             .send(InferenceEvent::ProviderStatus {
                 state: ProviderRuntimeState::Live,
                 summary: String::new(),
             })
+            .await;
+        self.emit_operator_checkpoint(tx, OperatorCheckpointState::Idle, "")
             .await;
     }
 
@@ -1715,7 +1750,7 @@ impl ConversationManager {
         let context_length = self.engine.current_context_length();
         let vram_ratio = self.gpu_state.ratio();
         let config = CompactionConfig::adaptive(context_length, vram_ratio);
-        let estimated_tokens = compaction::estimate_tokens(&self.history);
+        let estimated_tokens = compaction::estimate_compactable_tokens(&self.history);
         let percent = if config.max_estimated_tokens == 0 {
             0
         } else {
@@ -3065,7 +3100,12 @@ impl ConversationManager {
             if let Some(budget_note) =
                 enforce_prompt_budget(&mut prompt_msgs, self.engine.current_context_length())
             {
-                let _ = tx.send(InferenceEvent::Thought(budget_note)).await;
+                self.emit_operator_checkpoint(
+                    &tx,
+                    OperatorCheckpointState::BudgetReduced,
+                    budget_note,
+                )
+                .await;
             }
             self.emit_prompt_pressure_for_messages(&tx, &prompt_msgs).await;
 
@@ -3089,6 +3129,12 @@ impl ConversationManager {
                                 summary: compact_runtime_recovery_summary(class).into(),
                             })
                             .await;
+                        self.emit_operator_checkpoint(
+                            &tx,
+                            OperatorCheckpointState::RecoveringProvider,
+                            compact_runtime_recovery_summary(class),
+                        )
+                        .await;
                         continue;
                     }
 
@@ -3239,6 +3285,10 @@ impl ConversationManager {
                 let mut authoritative_tool_output: Option<String> = None;
                 let mut blocked_policy_output: Option<String> = None;
                 let mut recoverable_policy_intervention: Option<String> = None;
+                let mut recoverable_policy_checkpoint: Option<(
+                    OperatorCheckpointState,
+                    String,
+                )> = None;
                 let mut reset_inspection_evidence = false;
                 for res in results {
                     let call_id = res.call_id.clone();
@@ -3374,6 +3424,11 @@ impl ConversationManager {
                         recoverable_policy_intervention = Some(
                             "STOP. The MCP filesystem read path is blocked for ordinary workspace inspection. Retry with Hematite's built-in read tools only. Use `read_file`, `inspect_lines`, `list_files`, or `grep_files` against the files already implied by the current plan. Do not call any `mcp__filesystem__*` tool again this turn.".to_string(),
                         );
+                        recoverable_policy_checkpoint = Some((
+                            OperatorCheckpointState::BlockedPolicy,
+                            "MCP workspace read blocked; rerouting to built-in file tools."
+                                .to_string(),
+                        ));
                     } else if res.blocked_by_policy
                         && implement_current_plan
                         && tool_name == "map_project"
@@ -3382,6 +3437,11 @@ impl ConversationManager {
                         recoverable_policy_intervention = Some(
                             "STOP. `map_project` is too broad for current-plan execution. Use the saved plan's target files directly. Read only the exact planned files you need, then start editing. Do not call `map_project` again this turn.".to_string(),
                         );
+                        recoverable_policy_checkpoint = Some((
+                            OperatorCheckpointState::BlockedPolicy,
+                            "`map_project` blocked for current-plan execution."
+                                .to_string(),
+                        ));
                     } else if res.blocked_by_policy
                         && implement_current_plan
                         && is_current_plan_irrelevant_tool(&tool_name)
@@ -3390,6 +3450,13 @@ impl ConversationManager {
                         recoverable_policy_intervention = Some(format!(
                             "STOP. `{}` is not part of current-plan execution. Stay on the saved target files only. Use `grep_files` with an explicit `path` or `inspect_lines` on one planned file, then make the edit. Do not call unrelated analysis tools again this turn.",
                             tool_name
+                        ));
+                        recoverable_policy_checkpoint = Some((
+                            OperatorCheckpointState::BlockedPolicy,
+                            format!(
+                                "Current-plan execution blocked unrelated tool `{}`.",
+                                tool_name
+                            ),
                         ));
                     } else if res.blocked_by_policy
                         && implement_current_plan
@@ -3401,6 +3468,10 @@ impl ConversationManager {
                         recoverable_policy_intervention = Some(format!(
                             "STOP. The edit was blocked because `{target}` lacks recent file evidence. Read that file now with built-in tools only, preferably `inspect_lines` around the exact area you want to change or `read_file` if you do not know the window yet. After that, retry the edit and continue implementing the current plan. Do not summarize the blockage to the user."
                         ));
+                        recoverable_policy_checkpoint = Some((
+                            OperatorCheckpointState::BlockedRecentFileEvidence,
+                            format!("Edit blocked on `{target}`; recent file evidence missing."),
+                        ));
                     } else if res.blocked_by_policy
                         && implement_current_plan
                         && final_output.contains("requires an exact local line window first")
@@ -3410,6 +3481,10 @@ impl ConversationManager {
                             .unwrap_or_else(|| "the target file".to_string());
                         recoverable_policy_intervention = Some(format!(
                             "STOP. The edit was blocked because `{target}` needs an exact inspected window first. Use `inspect_lines` on that file around the intended edit region, then retry the mutation. Do not answer the user yet."
+                        ));
+                        recoverable_policy_checkpoint = Some((
+                            OperatorCheckpointState::BlockedExactLineWindow,
+                            format!("Edit blocked on `{target}`; exact line window required."),
                         ));
                     } else if res.blocked_by_policy && blocked_policy_output.is_none() {
                         blocked_policy_output = Some(final_output.clone());
@@ -3430,6 +3505,9 @@ impl ConversationManager {
                 }
 
                 if let Some(intervention) = recoverable_policy_intervention {
+                    if let Some((state, summary)) = recoverable_policy_checkpoint.take() {
+                        self.emit_operator_checkpoint(&tx, state, summary).await;
+                    }
                     loop_intervention = Some(intervention);
                     let _ = tx
                         .send(InferenceEvent::Thought(
@@ -3531,6 +3609,12 @@ impl ConversationManager {
                 }
 
                 if let Some(blocked_output) = blocked_policy_output {
+                    self.emit_operator_checkpoint(
+                        &tx,
+                        OperatorCheckpointState::BlockedPolicy,
+                        "A blocked tool path was surfaced directly to the operator.",
+                    )
+                    .await;
                     self.history.push(ChatMessage::assistant_text(&blocked_output));
                     self.transcript.log_agent(&blocked_output);
 
@@ -3695,6 +3779,12 @@ impl ConversationManager {
                             summary: compact_runtime_recovery_summary(class).into(),
                         })
                         .await;
+                    self.emit_operator_checkpoint(
+                        &tx,
+                        OperatorCheckpointState::RecoveringProvider,
+                        compact_runtime_recovery_summary(class),
+                    )
+                    .await;
                     continue;
                 }
 
@@ -3741,6 +3831,10 @@ impl ConversationManager {
                     state,
                     summary: compact_runtime_failure_summary(class).into(),
                 })
+                .await;
+        }
+        if let Some(state) = checkpoint_state_for_runtime_failure(class) {
+            self.emit_operator_checkpoint(tx, state, checkpoint_summary_for_runtime_failure(class))
                 .await;
         }
         let formatted = format_runtime_failure(class, detail);
@@ -3827,6 +3921,16 @@ impl ConversationManager {
                 self.session_memory.working_set.len()
             )))
             .await;
+        self.emit_operator_checkpoint(
+            tx,
+            OperatorCheckpointState::HistoryCompacted,
+            format!(
+                "History compacted into a recursive summary; active task '{}' with {} working-set file(s) carried forward.",
+                self.session_memory.current_task,
+                self.session_memory.working_set.len()
+            ),
+        )
+        .await;
 
         Ok(true)
     }
@@ -4886,14 +4990,16 @@ fn estimate_prompt_tokens(messages: &[ChatMessage]) -> usize {
 }
 
 fn summarize_prompt_blob(text: &str, max_chars: usize) -> String {
-    let cleaned = text.replace('\r', " ").replace('\n', " ");
-    let compact = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
-    if compact.chars().count() <= max_chars {
-        compact
+    let budget = compaction::SummaryCompressionBudget {
+        max_chars,
+        max_lines: 3,
+        max_line_chars: max_chars.clamp(80, 240),
+    };
+    let compressed = compaction::compress_summary(text, budget).summary;
+    if compressed.is_empty() {
+        String::new()
     } else {
-        let mut out: String = compact.chars().take(max_chars.saturating_sub(12)).collect();
-        out.push_str("... [snip]");
-        out
+        compressed
     }
 }
 

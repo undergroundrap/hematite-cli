@@ -354,7 +354,7 @@
     "prompt": "You are running on Gemma 4. Use the repository file tools to inspect `src/ui/tui.rs` for `/clear`, `/new`, and `/forget`, then continue.\n\nRead-only mode. Explain the exact difference between /clear, /new, and /forget in Hematite. Do not guess. If you need more than one file, inspect them.",
     "success_criteria": [
       "Does not silently stall at the context ceiling after a large file read",
-      "Emits a prompt-budget or compaction style recovery thought if it had to trim context",
+      "Emits a prompt-budget or compaction checkpoint if it had to trim context",
       "Continues with a real answer or grounded follow-up inspection instead of hanging",
       "Does not repeat read_file on the same file when grep_files or inspect_lines should narrow next"
     ]
@@ -457,7 +457,8 @@
     "success_criteria": [
       "The operator surface reflects provider state from explicit runtime events",
       "A runtime profile refresh alone does not clear a real warning or context-ceiling state",
-      "A successful model response can clear a degraded or recovering state back to live"
+      "A successful model response can clear a degraded or recovering state back to live",
+      "SPECULAR can receive typed checkpoint or blocker states from the runtime instead of inferring them from prose"
     ]
   },
   {
@@ -472,6 +473,7 @@
       "Mentions context_window or equivalent context-ceiling classification",
       "Mentions one automatic retry for degraded or empty provider turns before surfacing the final failure",
       "Treats compact provider state or recovery status as part of the operator surface",
+      "Treats typed blocker or checkpoint states as part of the operator surface",
       "Runtime refresh does not immediately clear a real failure state before a successful turn proves recovery",
       "Does not imply that plain streaming or startup-style text generations can still fail silently",
       "LM Studio context-budget mismatches such as n_keep >= n_ctx are treated as context_window failures instead of generic provider degradation"
