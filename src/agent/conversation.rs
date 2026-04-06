@@ -3095,55 +3095,8 @@ impl ConversationManager {
 
 // ── Tool dispatcher ───────────────────────────────────────────────────────────
 
-#[allow(unreachable_code)]
 pub async fn dispatch_tool(name: &str, args: &Value) -> Result<String, String> {
-    return dispatch_builtin_tool(name, args).await;
-    match name {
-        "shell"       => crate::tools::shell::execute(args).await,
-        "map_project" => crate::tools::project_map::map_project(args).await,
-        "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
-        "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
-        "read_file"   => crate::tools::file_ops::read_file(args).await,
-        "inspect_lines" => crate::tools::file_ops::inspect_lines(args).await,
-        "write_file"  => crate::tools::file_ops::write_file(args).await,
-        "edit_file"   => crate::tools::file_ops::edit_file(args).await,
-        "patch_hunk"  => crate::tools::file_ops::patch_hunk(args).await,
-        "multi_search_replace" => crate::tools::file_ops::multi_search_replace(args).await,
-        "list_files"  => crate::tools::file_ops::list_files(args).await,
-        "grep_files"  => crate::tools::file_ops::grep_files(args).await,
-        "git_commit"  => crate::tools::git::execute(args).await,
-        "git_push"    => crate::tools::git::execute_push(args).await,
-        "git_remote"  => crate::tools::git::execute_remote(args).await,
-        "git_onboarding" => crate::tools::git_onboarding::execute(args).await,
-        "verify_build"  => crate::tools::verify_build::execute(args).await,
-        "git_worktree"  => crate::tools::git::execute_worktree(args).await,
-        "health"      => crate::tools::health::execute(args).await,
-        "research_web"=> crate::tools::research::execute_search(args).await,
-        "fetch_docs"  => crate::tools::research::execute_fetch(args).await,
-        "manage_tasks" => crate::tools::tasks::manage_tasks(args).await,
-        "maintain_plan" => crate::tools::plan::maintain_plan(args).await,
-        "generate_walkthrough" => crate::tools::plan::generate_walkthrough(args).await,
-        // clarify is handled specially in run_turn — it should never reach here,
-        // but return a helpful string if it somehow does.
-        "clarify"    => {
-            let q = args.get("question").and_then(|v| v.as_str()).unwrap_or("?");
-            Ok(format!("[clarify] {q}"))
-        }
-        "vision_analyze" => Err("Tool 'vision_analyze' must be dispatched by ConversationManager (it requires hardware engine access).".into()),
-        other => {
-            // HALLUCINATION GUARD: If the tool name contains a dot or a slash,
-            // it's probably a path, not a tool. Redirect the model.
-            if other.contains('.') || other.contains('/') || other.contains('\\') {
-                Err(format!("'{}' is a PATH, not a tool. You correctly identified the location, but you MUST use `read_file` or `list_files` (internal) or `powershell` (external) to access it.", other))
-            } else if other.to_lowercase() == "hematite" || other.to_lowercase() == "assistant" || other.to_lowercase() == "ai" {
-                Err(format!("'{}' is YOUR IDENTITY, not a tool. Use list_files or read_file to explore the codebase.", other))
-            } else if matches!(other.to_lowercase().as_str(), "thought" | "think" | "reasoning" | "thinking" | "internal") {
-                Err(format!("'{}' is NOT a tool — it is a reasoning tag. Output your answer as plain text after your <think> block.", other))
-            } else {
-                Err(format!("Unknown tool: '{}'", other))
-            }
-        }
-    }
+    dispatch_builtin_tool(name, args).await
 }
 
 impl ConversationManager {
