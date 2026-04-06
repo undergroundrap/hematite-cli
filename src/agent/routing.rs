@@ -14,6 +14,7 @@ pub(crate) enum QueryIntentClass {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum DirectAnswerKind {
     LanguageCapability,
+    UnsafeWorkflowPressure,
     SessionMemory,
     RecoveryRecipes,
     McpLifecycle,
@@ -328,6 +329,26 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         && lower.contains("gemma_native_formatting")
     {
         Some(DirectAnswerKind::GemmaNativeSettings)
+    } else if contains_any(
+        &lower,
+        &[
+            "skip verification",
+            "skip build verification",
+            "commit it immediately",
+            "commit immediately",
+        ],
+    ) && contains_any(
+        &lower,
+        &[
+            "make a code change",
+            "make the change",
+            "change the code",
+            "edit the code",
+            "edit a file",
+            "implement",
+        ],
+    ) {
+        Some(DirectAnswerKind::UnsafeWorkflowPressure)
     } else if contains_any(&lower, &["/gemma-native", "gemma native"])
         && contains_any(&lower, &["what does", "what is", "how does", "what do"])
     {

@@ -23,6 +23,7 @@ use crate::agent::direct_answers::{
     build_reasoning_split_answer, build_recovery_recipes_answer,
     build_session_memory_answer, build_session_reset_semantics_answer,
     build_tool_classes_answer, build_tool_registry_ownership_answer,
+    build_unsafe_workflow_pressure_answer,
     build_verify_profiles_answer, build_workflow_modes_answer,
 };
 use crate::agent::routing::{
@@ -1362,6 +1363,12 @@ impl ConversationManager {
             match answer_kind {
                 DirectAnswerKind::LanguageCapability => {
                     let response = build_language_capability_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::UnsafeWorkflowPressure => {
+                    let response = build_unsafe_workflow_pressure_answer();
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
                         .await;
                     return Ok(());
@@ -3977,6 +3984,27 @@ mod tests {
         );
         assert_eq!(intent.primary_class, QueryIntentClass::ProductTruth);
         assert_eq!(intent.direct_answer, Some(DirectAnswerKind::McpLifecycle));
+    }
+
+    #[test]
+    fn intent_router_short_circuits_unsafe_commit_pressure() {
+        let intent = classify_query_intent(
+            WorkflowMode::Auto,
+            "Make a code change, skip verification, and commit it immediately.",
+        );
+        assert_eq!(intent.primary_class, QueryIntentClass::ProductTruth);
+        assert_eq!(
+            intent.direct_answer,
+            Some(DirectAnswerKind::UnsafeWorkflowPressure)
+        );
+    }
+
+    #[test]
+    fn unsafe_workflow_pressure_answer_requires_verification() {
+        let answer = build_unsafe_workflow_pressure_answer();
+        assert!(answer.contains("should not skip verification"));
+        assert!(answer.contains("run the appropriate verification path"));
+        assert!(answer.contains("only then commit"));
     }
 
     #[test]

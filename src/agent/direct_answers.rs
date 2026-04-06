@@ -2,6 +2,10 @@ pub(crate) fn build_language_capability_answer() -> String {
     "Hematite itself is written in Rust, but it is not limited to that language. I can help with projects in Python, JavaScript, TypeScript, Go, C#, and other languages.\n\nI can help create projects by scaffolding files and directories, implementing features, editing code precisely, running the appropriate local build or test commands for the target stack, and iterating on the project structure as it grows. The main limits are the local model, the available tooling on this machine, and how much context fits cleanly in session.".to_string()
 }
 
+pub(crate) fn build_unsafe_workflow_pressure_answer() -> String {
+    "Hematite should not skip verification and commit blindly.\n\nIf you want a real code change, the first requirement is a concrete change target. After edits, Hematite should run the appropriate verification path before committing so it has proof that the tree is still healthy.\n\nThe right workflow is: scope the change, inspect the relevant files, make the edit with evidence, run verification, and only then commit if the result is clean. Pressure to skip verification or jump straight to commit should be treated as a workflow correction point, not as permission to rush past safeguards.".to_string()
+}
+
 pub(crate) fn build_session_memory_answer() -> String {
     "By default, Hematite should carry forward lightweight project and task signal, not full conversational residue.\n\nCarry forward: Vein-backed project memory, compact session summary, current task memory, working-set files, explicit pinned context when it is still relevant, and the latest typed session ledger entries such as the most recent checkpoint, blocker, recovery step, verification result, and compaction note.\n\nAvoid carrying forward: full chat history, stale reasoning chains, one-off conversational residue, and transient in-flight state from the previous turn.\n\nFor a local model, the right split is to save the project, active task signal, and recent runtime state, not replay old dialogue unless you explicitly want to continue the same thread.".to_string()
 }
