@@ -187,37 +187,7 @@ pub fn authorize_tool_call(
 }
 
 fn is_destructive_tool(name: &str) -> bool {
-    matches!(
-        name,
-        "write_file"
-            | "edit_file"
-            | "patch_hunk"
-            | "shell"
-            | "git_commit"
-            | "git_push"
-            | "git_remote"
-            | "git_onboarding"
-    ) || is_mcp_mutating_tool(name)
-}
-
-fn is_mcp_mutating_tool(name: &str) -> bool {
-    if !name.starts_with("mcp__") {
-        return false;
-    }
-    let lower = name.to_ascii_lowercase();
-    [
-        "__edit",
-        "__write",
-        "__create",
-        "__move",
-        "__delete",
-        "__remove",
-        "__rename",
-        "__replace",
-        "__patch",
-    ]
-    .iter()
-    .any(|needle| lower.contains(needle))
+    crate::agent::inference::tool_metadata_for_name(name).mutates_workspace
 }
 
 pub(crate) fn is_path_safe(path: &str) -> bool {
@@ -226,5 +196,5 @@ pub(crate) fn is_path_safe(path: &str) -> bool {
 }
 
 fn trust_sensitive_tool(name: &str) -> bool {
-    is_destructive_tool(name) || name.starts_with("mcp__")
+    crate::agent::inference::tool_metadata_for_name(name).trust_sensitive
 }

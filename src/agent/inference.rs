@@ -44,6 +44,8 @@ pub struct ToolDefinition {
     #[serde(rename = "type")]
     pub tool_type: String,
     pub function: ToolFunction,
+    #[serde(skip_serializing, skip_deserializing)]
+    pub metadata: ToolMetadata,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -51,6 +53,174 @@ pub struct ToolFunction {
     pub name: String,
     pub description: String,
     pub parameters: Value,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ToolCategory {
+    RepoRead,
+    RepoWrite,
+    Runtime,
+    Architecture,
+    Toolchain,
+    Verification,
+    Git,
+    Research,
+    Vision,
+    Lsp,
+    Workflow,
+    External,
+    Other,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ToolMetadata {
+    pub category: ToolCategory,
+    pub mutates_workspace: bool,
+    pub external_surface: bool,
+    pub trust_sensitive: bool,
+    pub read_only_friendly: bool,
+    pub plan_scope: bool,
+}
+
+pub fn tool_metadata_for_name(name: &str) -> ToolMetadata {
+    if name.starts_with("mcp__") {
+        let lower = name.to_ascii_lowercase();
+        let mutates_workspace = [
+            "__edit",
+            "__write",
+            "__create",
+            "__move",
+            "__delete",
+            "__remove",
+            "__rename",
+            "__replace",
+            "__patch",
+        ]
+        .iter()
+        .any(|needle| lower.contains(needle));
+        return ToolMetadata {
+            category: ToolCategory::External,
+            mutates_workspace,
+            external_surface: true,
+            trust_sensitive: true,
+            read_only_friendly: !mutates_workspace,
+            plan_scope: false,
+        };
+    }
+
+    match name {
+        "read_file" | "inspect_lines" | "grep_files" | "list_files" => ToolMetadata {
+            category: ToolCategory::RepoRead,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: true,
+        },
+        "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace" => ToolMetadata {
+            category: ToolCategory::RepoWrite,
+            mutates_workspace: true,
+            external_surface: false,
+            trust_sensitive: true,
+            read_only_friendly: false,
+            plan_scope: true,
+        },
+        "map_project" | "trace_runtime_flow" => ToolMetadata {
+            category: ToolCategory::Architecture,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: false,
+        },
+        "describe_toolchain" => ToolMetadata {
+            category: ToolCategory::Toolchain,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: false,
+        },
+        "shell" => ToolMetadata {
+            category: ToolCategory::Runtime,
+            mutates_workspace: true,
+            external_surface: false,
+            trust_sensitive: true,
+            read_only_friendly: false,
+            plan_scope: false,
+        },
+        "verify_build" => ToolMetadata {
+            category: ToolCategory::Verification,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: false,
+        },
+        "git_commit" | "git_push" | "git_remote" | "git_onboarding" | "git_worktree" => {
+            ToolMetadata {
+                category: ToolCategory::Git,
+                mutates_workspace: true,
+                external_surface: false,
+                trust_sensitive: true,
+                read_only_friendly: false,
+                plan_scope: false,
+            }
+        }
+        "research_web" | "fetch_docs" => ToolMetadata {
+            category: ToolCategory::Research,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: false,
+        },
+        "vision_analyze" => ToolMetadata {
+            category: ToolCategory::Vision,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: false,
+        },
+        "lsp_definitions"
+        | "lsp_references"
+        | "lsp_hover"
+        | "lsp_rename_symbol"
+        | "lsp_get_diagnostics"
+        | "lsp_search_symbol" => ToolMetadata {
+            category: ToolCategory::Lsp,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: false,
+        },
+        "auto_pin_context" | "list_pinned" | "clarify" => ToolMetadata {
+            category: ToolCategory::Workflow,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: true,
+        },
+        "manage_tasks" => ToolMetadata {
+            category: ToolCategory::Workflow,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: false,
+        },
+        _ => ToolMetadata {
+            category: ToolCategory::Other,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: false,
+        },
+    }
 }
 
 // ── Message types ─────────────────────────────────────────────────────────────

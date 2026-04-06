@@ -143,6 +143,17 @@ Check:
 - treats workspace trust as part of runtime policy rather than a vague convention
 - keeps workspace trust focused on destructive or external actions, not ordinary repo reads
 
+Also try:
+
+```text
+Read-only mode. Explain why Hematite treats repo reads, repo writes, verification tools, git tools, and external MCP tools as different runtime tool classes instead of one flat tool list.
+```
+
+Check:
+- mentions explicit tool classes or categories
+- ties those classes to mutability, trust sensitivity, plan fit, or parallel-safe execution
+- does not describe the tool surface as one undifferentiated list
+
 ## 7c. Session Ledger
 
 ```text

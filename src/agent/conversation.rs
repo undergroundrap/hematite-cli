@@ -235,6 +235,7 @@ enum DirectAnswerKind {
     SessionMemory,
     RecoveryRecipes,
     AuthorizationPolicy,
+    ToolClasses,
     SessionResetSemantics,
     ProductSurface,
     ReasoningSplit,
@@ -446,6 +447,28 @@ fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Query
         ],
     ) {
         Some(DirectAnswerKind::AuthorizationPolicy)
+    } else if contains_any(
+        &lower,
+        &[
+            "tool classes",
+            "tool class",
+            "flat tool list",
+            "runtime tool classes",
+            "different runtime tool classes",
+        ],
+    ) || (lower.contains("repo reads")
+        && lower.contains("repo writes")
+        && contains_any(
+            &lower,
+            &[
+                "verification tools",
+                "git tools",
+                "external mcp tools",
+                "different runtime",
+            ],
+        ))
+    {
+        Some(DirectAnswerKind::ToolClasses)
     } else if (lower.contains("other coding languages")
         || lower.contains("what languages")
         || lower.contains("know other languages"))
@@ -552,6 +575,10 @@ fn build_recovery_recipes_answer() -> String {
 
 fn build_authorization_policy_answer() -> String {
     "Hematite routes authorization through one typed runtime decision: allow, ask, or deny.\n\nThat decision is shaped by several inputs in order: permission mode, workspace trust state, MCP default approval, safe-path write bypasses, shell rules from `.hematite/settings.json`, and shell risk classification. In practice that means a tool call can be denied because the workflow is read-only, asked because the workspace is not trust-allowlisted or the command is risky, or allowed because it is inside a trusted workspace and passes the normal policy checks.\n\nWorkspace trust is part of that policy now. A trusted repo root can continue through normal approval logic, an unknown root can require approval for destructive or external actions, and a denied root can block them outright. The goal is to keep repo safety explicit instead of hiding it inside scattered heuristics.".to_string()
+}
+
+fn build_tool_classes_answer() -> String {
+    "Hematite does not treat its tools as one flat list because runtime policy depends on what kind of tool is being used.\n\nRepo reads, repo writes, verification tools, git tools, architecture tools, workflow helpers, and external MCP tools carry different metadata for mutability, trust sensitivity, read-only fit, plan fit, and parallel-safe execution. That lets Hematite treat a `read_file` call differently from a `write_file`, a `verify_build`, a `git_push`, or an external `mcp__*` tool even if they all look like just \"tools\" at the model layer.\n\nThe practical benefit is cleaner orchestration: read-only analysis can prefer safe repo-read and architecture tools, current-plan execution can stay scoped to plan-fit tools, destructive or external actions can flow through trust and approval policy, and parallel execution can stay limited to tools that are actually safe to batch. The point is to keep runtime behavior explicit instead of hiding it inside one undifferentiated tool list.".to_string()
 }
 
 fn build_session_reset_semantics_answer() -> String {
@@ -1187,43 +1214,16 @@ fn is_current_plan_execution_request(user_input: &str) -> bool {
 }
 
 fn is_plan_scoped_tool(name: &str) -> bool {
-    matches!(
-        name,
-        "read_file"
-            | "inspect_lines"
-            | "grep_files"
-            | "list_files"
-            | "edit_file"
-            | "write_file"
-            | "patch_hunk"
-            | "multi_search_replace"
-            | "auto_pin_context"
-    )
+    crate::agent::inference::tool_metadata_for_name(name).plan_scope
 }
 
 fn is_current_plan_irrelevant_tool(name: &str) -> bool {
-    matches!(
-        name,
-        "map_project"
-            | "trace_runtime_flow"
-            | "describe_toolchain"
-            | "research_web"
-            | "fetch_docs"
-            | "vision_analyze"
-            | "lsp_search_symbol"
-            | "lsp_definitions"
-            | "lsp_references"
-            | "lsp_hover"
-            | "lsp_get_diagnostics"
-            | "shell"
-    )
+    !crate::agent::inference::tool_metadata_for_name(name).plan_scope
 }
 
 fn is_non_mutating_plan_step_tool(name: &str) -> bool {
-    matches!(
-        name,
-        "read_file" | "inspect_lines" | "grep_files" | "list_files" | "auto_pin_context"
-    )
+    let metadata = crate::agent::inference::tool_metadata_for_name(name);
+    metadata.plan_scope && !metadata.mutates_workspace
 }
 
 fn parse_inline_workflow_prompt(user_input: &str) -> Option<(WorkflowMode, &str)> {
@@ -1817,13 +1817,15 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     for def in lsp_defs {
+        let name = def["name"].as_str().unwrap();
         tools.push(ToolDefinition {
             tool_type: "function".into(),
             function: ToolFunction {
-                name: def["name"].as_str().unwrap().into(),
+                name: name.into(),
                 description: def["description"].as_str().unwrap().into(),
                 parameters: def["parameters"].clone(),
             },
+            metadata: crate::agent::inference::tool_metadata_for_name(name),
         });
     }
 
@@ -1838,6 +1840,7 @@ fn make_tool(name: &str, description: &str, parameters: Value) -> ToolDefinition
             description: description.into(),
             parameters,
         },
+        metadata: crate::agent::inference::tool_metadata_for_name(name),
     }
 }
 
@@ -2482,6 +2485,7 @@ impl ConversationManager {
                     description: tool.description.clone().unwrap_or_default(),
                     parameters: tool.input_schema.clone(),
                 },
+                metadata: crate::agent::inference::tool_metadata_for_name(&tool.name),
             }));
     }
 
@@ -2776,6 +2780,12 @@ impl ConversationManager {
                 }
                 DirectAnswerKind::AuthorizationPolicy => {
                     let response = build_authorization_policy_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::ToolClasses => {
+                    let response = build_tool_classes_answer();
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
                         .await;
                     return Ok(());
@@ -4954,17 +4964,7 @@ struct ToolExecutionOutcome {
 
 /// Returns true if the tool can modify files or execute arbitrary shell commands.
 fn is_destructive_tool(name: &str) -> bool {
-    matches!(
-        name,
-        "write_file"
-            | "edit_file"
-            | "patch_hunk"
-            | "shell"
-            | "git_commit"
-            | "git_push"
-            | "git_remote"
-            | "git_onboarding"
-    ) || is_mcp_mutating_tool(name)
+    crate::agent::inference::tool_metadata_for_name(name).mutates_workspace
 }
 
 /// Returns true if the path is inside a "Safe Zone" (.hematite/ or tmp/)
@@ -5467,21 +5467,6 @@ fn route_model<'a>(
 }
 
 fn is_parallel_safe(name: &str) -> bool {
-    matches!(
-        name,
-        "read_file"
-            | "inspect_lines"
-            | "list_files"
-            | "grep_files"
-            | "map_project"
-            | "trace_runtime_flow"
-            | "describe_toolchain"
-            | "lsp_definitions"
-            | "lsp_references"
-            | "lsp_hover"
-            | "vision_analyze"
-            | "manage_tasks"
-            | "research_web"
-            | "fetch_docs"
-    )
+    let metadata = crate::agent::inference::tool_metadata_for_name(name);
+    !metadata.mutates_workspace && !metadata.external_surface
 }
