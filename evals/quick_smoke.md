@@ -122,6 +122,16 @@ You are on Windows. Tell me how Hematite should handle shell commands differentl
 If local repo context is not enough, what internet research capabilities do you actually have available in Hematite?
 ```
 
+## 7b. Tool Authorization
+
+```text
+Read-only mode. Explain how Hematite decides whether a tool call should be allowed, denied, or require approval.
+```
+
+Check:
+- describes a typed allow/ask/deny authorization result rather than only vague heuristics
+- mentions config shell rules, MCP default approval, or shell-risk classification as distinct inputs to that decision
+
 ## 8. Vision Awareness
 
 ```text
@@ -489,6 +499,17 @@ Check:
 - does not get stuck repeating `read_file` on `src/agent/conversation.rs`
 - after one grounded inspection step, returns the stable explanation of how direct-answer gates work
 - does not freehand a file-walk narrative once enough evidence has been gathered
+
+## 34b. Paraphrased Product Truth Routing
+
+```text
+Read-only mode. Without guessing, explain how Hematite decides whether a question should be answered as stable product truth or by inspecting the repository implementation.
+```
+
+Check:
+- answers as a stable product-truth explanation without broad repo inspection
+- does not depend on the literal phrase `stable product-surface questions`
+- makes the split clear: stable product truth first, repository implementation second
 
 ## 35. Project Map Preservation
 

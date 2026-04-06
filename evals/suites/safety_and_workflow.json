@@ -99,7 +99,9 @@
     "mode": "read_only",
     "prompt": "Read-only mode. Explain how Hematite decides whether a tool call should be allowed, denied, or require approval.",
     "success_criteria": [
-      "Mentions permission modes and authorization logic"
+      "Mentions permission modes and authorization logic",
+      "Describes a typed allow, ask, or deny result rather than only vague heuristics",
+      "Mentions config shell rules, MCP default approval, or shell-risk classification as distinct inputs to the authorization decision"
     ]
   },
   {
@@ -369,6 +371,18 @@
       "Does not get stuck repeating read_file on src/agent/conversation.rs",
       "After one grounded inspection step, returns the stable explanation of how direct-answer gates work",
       "Does not freehand a file-walk narrative once enough evidence has been gathered"
+    ]
+  },
+  {
+    "id": "local_workflow_16b",
+    "category": "local_workflow",
+    "title": "Paraphrased product-truth routing",
+    "mode": "read_only",
+    "prompt": "Read-only mode. Without guessing, explain how Hematite decides whether a question should be answered as stable product truth or by inspecting the repository implementation.",
+    "success_criteria": [
+      "Answers as a stable product-truth explanation without broad repo inspection",
+      "Does not depend on the literal phrase stable product-surface questions",
+      "Makes the split clear: stable product truth first, repository implementation second"
     ]
   },
   {

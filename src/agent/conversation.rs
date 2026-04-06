@@ -118,44 +118,352 @@ fn purge_task_files() {
     }
 }
 
-fn should_enable_grounded_trace_mode(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    let asks_trace = lower.contains("trace")
-        || lower.contains("how does")
-        || lower.contains("what are the main runtime subsystems")
-        || lower.contains("how does a user message move")
-        || lower.contains("separate normal assistant output")
-        || lower.contains("session reset behavior")
-        || lower.contains("file references")
-        || lower.contains("event types")
-        || lower.contains("channels");
-    let read_only = lower.contains("read-only");
-    let anti_guess = lower.contains("do not guess") || lower.contains("if you are unsure");
-    asks_trace || read_only || anti_guess
+fn contains_any(haystack: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| haystack.contains(needle))
 }
 
-fn should_enable_capability_mode(user_input: &str) -> bool {
+fn contains_all(haystack: &str, needles: &[&str]) -> bool {
+    needles.iter().all(|needle| haystack.contains(needle))
+}
+
+fn mentions_reset_commands(lower: &str) -> bool {
+    contains_all(lower, &["/clear", "/new", "/forget"])
+}
+
+fn mentions_repo_inspection_request(lower: &str) -> bool {
+    contains_any(
+        lower,
+        &[
+            "inspect",
+            "repository file tools",
+            "then continue",
+            "src/agent/conversation.rs",
+            "src/ui/tui.rs",
+        ],
+    )
+}
+
+fn mentions_stable_product_surface(lower: &str) -> bool {
+    contains_any(
+        lower,
+        &[
+            "stable product-surface question",
+            "stable product surface question",
+            "stable product-surface questions",
+            "stable product surface questions",
+        ],
+    )
+}
+
+fn mentions_product_truth_routing(lower: &str) -> bool {
+    let asks_decision_policy = contains_any(
+        lower,
+        &[
+            "how hematite decides",
+            "how does hematite decide",
+            "decides whether",
+            "decide whether",
+        ],
+    );
+    let asks_direct_vs_inspect_split = contains_any(
+        lower,
+        &[
+            "answered as stable product truth",
+            "stable product truth",
+            "stable product behavior",
+            "answer directly",
+            "direct answer",
+            "inspect the repository",
+            "inspect repository",
+            "repository implementation",
+            "repo implementation",
+        ],
+    );
+    asks_decision_policy && asks_direct_vs_inspect_split
+}
+
+fn mentions_capability_question(lower: &str) -> bool {
+    contains_any(
+        lower,
+        &[
+            "what can you do",
+            "what are you capable",
+            "can you make projects",
+            "can you build projects",
+            "do you know other coding languages",
+            "other coding languages",
+            "what languages",
+            "can you use the internet",
+            "internet research capabilities",
+            "what tools do you have",
+        ],
+    )
+}
+
+fn capability_question_requires_repo_inspection(lower: &str) -> bool {
+    contains_any(
+        lower,
+        &[
+            "this repo",
+            "this repository",
+            "codebase",
+            "which files",
+            "implementation",
+            "in this project",
+        ],
+    )
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum QueryIntentClass {
+    ProductTruth,
+    RuntimeDiagnosis,
+    RepoArchitecture,
+    Toolchain,
+    Capability,
+    Implementation,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DirectAnswerKind {
+    LanguageCapability,
+    SessionMemory,
+    SessionResetSemantics,
+    ProductSurface,
+    ReasoningSplit,
+    Identity,
+    WorkflowModes,
+    GemmaNative,
+    GemmaNativeSettings,
+    VerifyProfiles,
+    Toolchain,
+    ArchitectSessionResetPlan,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct QueryIntent {
+    primary_class: QueryIntentClass,
+    direct_answer: Option<DirectAnswerKind>,
+    stabilize_session_reset_inspection: bool,
+    stabilize_product_surface_inspection: bool,
+    grounded_trace_mode: bool,
+    capability_mode: bool,
+    capability_needs_repo: bool,
+    toolchain_mode: bool,
+    preserve_project_map_output: bool,
+    architecture_overview_mode: bool,
+}
+
+fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> QueryIntent {
     let lower = user_input.to_lowercase();
-    lower.contains("what can you do")
-        || lower.contains("what are you capable")
-        || lower.contains("can you make projects")
-        || lower.contains("can you build projects")
-        || lower.contains("do you know other coding languages")
-        || lower.contains("other coding languages")
+    let trimmed = user_input.trim().to_ascii_lowercase();
+
+    let mentions_runtime_trace = contains_any(
+        &lower,
+        &[
+            "trace",
+            "how does",
+            "what are the main runtime subsystems",
+            "how does a user message move",
+            "separate normal assistant output",
+            "session reset behavior",
+            "file references",
+            "event types",
+            "channels",
+        ],
+    );
+    let anti_guess = contains_any(&lower, &["do not guess", "if you are unsure"]);
+    let capability_mode = mentions_capability_question(&lower);
+    let capability_needs_repo = capability_mode && capability_question_requires_repo_inspection(&lower);
+    let toolchain_mode = contains_any(
+        &lower,
+        &[
+            "tooling discipline",
+            "best read-only toolchain",
+            "identify the best tools you actually have",
+            "concrete read-only investigation plan",
+            "do not execute the plan",
+            "available repo-inspection tools",
+            "tool choice discipline",
+            "what tools would you choose first",
+        ],
+    ) || (lower.contains("which tools") && lower.contains("why"))
+        || (lower.contains("when would you choose") && lower.contains("tool"));
+    let preserve_project_map_output = lower.contains("map_project")
+        || lower.contains("entrypoint")
+        || lower.contains("owner file")
+        || lower.contains("owner files")
+        || lower.contains("project structure")
+        || lower.contains("repository structure")
+        || (lower.contains("architecture") && (lower.contains("repo") || lower.contains("repository")));
+    let architecture_overview_mode = {
+        let architecture_signals = contains_any(
+            &lower,
+            &[
+                "architecture walkthrough",
+                "full architecture",
+                "runtime walkthrough",
+                "control flow",
+                "tool routing",
+                "workflow modes",
+                "repo map behavior",
+                "mcp policy",
+                "prompt budgeting",
+                "compaction",
+                "file ownership",
+                "owner files",
+            ],
+        );
+        let broad = contains_any(
+            &lower,
+            &["full detailed", "all in one answer", "concrete file ownership"],
+        );
+        (architecture_signals && broad)
+            || (lower.contains("runtime")
+                && lower.contains("workflow")
+                && (lower.contains("architecture") || lower.contains("tool routing")))
+    };
+
+    let direct_answer = if matches!(
+        trimmed.as_str(),
+        "who are you" | "who are you?" | "what are you" | "what are you?"
+    ) || (lower.contains("what is hematite") && !lower.contains("lm studio"))
+    {
+        Some(DirectAnswerKind::Identity)
+    } else if (mentions_stable_product_surface(&lower) || mentions_product_truth_routing(&lower))
+        && contains_any(
+            &lower,
+            &[
+                "how hematite answers",
+                "how does hematite answer",
+                "how hematite handles",
+                "how does hematite handle",
+                "how hematite decides",
+                "how does hematite decide",
+                "decides whether",
+                "decide whether",
+            ],
+        )
+    {
+        Some(DirectAnswerKind::ProductSurface)
+    } else if mentions_reset_commands(&lower)
+        && contains_any(
+            &lower,
+            &[
+                "exact difference",
+                "difference between",
+                "explain the exact difference",
+                "what is the difference",
+            ],
+        )
+    {
+        Some(DirectAnswerKind::SessionResetSemantics)
+    } else if (lower.contains("reasoning output") || lower.contains("reasoning"))
+        && contains_any(&lower, &["visible chat output", "visible chat", "chat output"])
+    {
+        Some(DirectAnswerKind::ReasoningSplit)
+    } else if lower.contains("/ask")
+        && lower.contains("/code")
+        && lower.contains("/architect")
+        && lower.contains("/read-only")
+        && lower.contains("/auto")
+        && contains_any(&lower, &["difference", "differences", "what are"])
+    {
+        Some(DirectAnswerKind::WorkflowModes)
+    } else if lower.contains(".hematite/settings.json")
+        && lower.contains("gemma_native_auto")
+        && lower.contains("gemma_native_formatting")
+    {
+        Some(DirectAnswerKind::GemmaNativeSettings)
+    } else if contains_any(&lower, &["/gemma-native", "gemma native"])
+        && contains_any(&lower, &["what does", "what is", "how does", "what do"])
+    {
+        Some(DirectAnswerKind::GemmaNative)
+    } else if lower.contains("verify_build")
+        && lower.contains(".hematite/settings.json")
+        && contains_any(&lower, &["build", "test", "lint", "fix", "verification commands"])
+    {
+        Some(DirectAnswerKind::VerifyProfiles)
+    } else if (lower.contains("carry forward by default")
+        || lower.contains("session memory should you carry forward"))
+        && contains_any(
+            &lower,
+            &["restarted hematite", "restarted", "avoid carrying forward"],
+        )
+    {
+        Some(DirectAnswerKind::SessionMemory)
+    } else if (lower.contains("other coding languages")
         || lower.contains("what languages")
-        || lower.contains("can you use the internet")
-        || lower.contains("internet research capabilities")
-        || lower.contains("what tools do you have")
-}
+        || lower.contains("know other languages"))
+        && contains_any(
+            &lower,
+            &[
+                "capable of making projects",
+                "can you make projects",
+                "can you build projects",
+            ],
+        )
+    {
+        Some(DirectAnswerKind::LanguageCapability)
+    } else if workflow_mode == WorkflowMode::Architect
+        && (lower.contains("session reset")
+            || (lower.contains("/clear") && lower.contains("/new") && lower.contains("/forget")))
+        && contains_any(&lower, &["redesign", "clearer", "easier", "understand"])
+    {
+        Some(DirectAnswerKind::ArchitectSessionResetPlan)
+    } else if toolchain_mode
+        && lower.contains("read-only")
+        && contains_any(
+            &lower,
+            &[
+                "tooling discipline",
+                "investigation plan",
+                "best read-only toolchain",
+                "tool choice discipline",
+                "what tools would you choose first",
+            ],
+        )
+    {
+        Some(DirectAnswerKind::Toolchain)
+    } else {
+        None
+    };
 
-fn capability_question_requires_repo_inspection(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    lower.contains("this repo")
-        || lower.contains("this repository")
-        || lower.contains("codebase")
-        || lower.contains("which files")
-        || lower.contains("implementation")
-        || lower.contains("in this project")
+    let primary_class = if direct_answer.is_some()
+        || mentions_stable_product_surface(&lower)
+        || mentions_product_truth_routing(&lower)
+    {
+        QueryIntentClass::ProductTruth
+    } else if architecture_overview_mode || preserve_project_map_output {
+        QueryIntentClass::RepoArchitecture
+    } else if toolchain_mode {
+        QueryIntentClass::Toolchain
+    } else if capability_mode {
+        QueryIntentClass::Capability
+    } else if mentions_runtime_trace || anti_guess || lower.contains("read-only") {
+        QueryIntentClass::RuntimeDiagnosis
+    } else if looks_like_mutation_request(user_input) {
+        QueryIntentClass::Implementation
+    } else {
+        QueryIntentClass::Unknown
+    };
+
+    QueryIntent {
+        primary_class,
+        direct_answer,
+        stabilize_session_reset_inspection: mentions_reset_commands(&lower)
+            && mentions_repo_inspection_request(&lower),
+        stabilize_product_surface_inspection: (mentions_stable_product_surface(&lower)
+            || mentions_product_truth_routing(&lower))
+            && mentions_repo_inspection_request(&lower),
+        grounded_trace_mode: mentions_runtime_trace || lower.contains("read-only") || anti_guess,
+        capability_mode,
+        capability_needs_repo,
+        toolchain_mode,
+        preserve_project_map_output,
+        architecture_overview_mode,
+    }
 }
 
 fn is_capability_probe_tool(name: &str) -> bool {
@@ -177,116 +485,20 @@ fn is_capability_probe_tool(name: &str) -> bool {
     )
 }
 
-fn should_answer_language_capability_directly(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    let asks_languages = lower.contains("other coding languages")
-        || lower.contains("what languages")
-        || lower.contains("know other languages");
-    let asks_projects = lower.contains("capable of making projects")
-        || lower.contains("can you make projects")
-        || lower.contains("can you build projects");
-    asks_languages && asks_projects
-}
-
 fn build_language_capability_answer() -> String {
     "Hematite itself is written in Rust, but it is not limited to that language. I can help with projects in Python, JavaScript, TypeScript, Go, C#, and other languages.\n\nI can help create projects by scaffolding files and directories, implementing features, editing code precisely, running the appropriate local build or test commands for the target stack, and iterating on the project structure as it grows. The main limits are the local model, the available tooling on this machine, and how much context fits cleanly in session.".to_string()
-}
-
-fn should_answer_session_memory_directly(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    (lower.contains("carry forward by default") || lower.contains("session memory should you carry forward"))
-        && (lower.contains("restarted hematite")
-            || lower.contains("restarted")
-            || lower.contains("avoid carrying forward"))
 }
 
 fn build_session_memory_answer() -> String {
     "By default, Hematite should carry forward lightweight project and task signal, not full conversational residue.\n\nCarry forward: Vein-backed project memory, compact session summary, current task memory, working-set files, and explicit pinned context when it is still relevant.\n\nAvoid carrying forward: full chat history, stale reasoning chains, one-off conversational residue, and transient in-flight state from the previous turn.\n\nFor a local model, the right split is to save the project and the active task signal, not replay old dialogue unless you explicitly want to continue the same thread.".to_string()
 }
 
-fn should_answer_session_reset_semantics_directly(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    (lower.contains("/clear") && lower.contains("/new") && lower.contains("/forget"))
-        && (lower.contains("exact difference")
-            || lower.contains("difference between")
-            || lower.contains("explain the exact difference")
-            || lower.contains("what is the difference"))
-}
-
-fn should_stabilize_session_reset_inspection(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    (lower.contains("/clear") && lower.contains("/new") && lower.contains("/forget"))
-        && (lower.contains("inspect")
-            || lower.contains("repository file tools")
-            || lower.contains("src/ui/tui.rs")
-            || lower.contains("then continue"))
-}
-
 fn build_session_reset_semantics_answer() -> String {
     "`/clear` is the UI-only cleanup path: it clears the visible dialogue buffer and SPECULAR side-panel state in the TUI, but it does not run the deeper agent reset path.\n\n`/new` is the fresh-context reset: it clears in-memory history, resets session/task state, drops pinned context, wipes task files, and starts a fresh conversation context.\n\n`/forget` is the hard memory purge path: it performs the same visible/session reset shape as `/new`, but it is framed as the explicit memory-wipe command and reports a hard purge of task memory and history.\n\nSo the practical split is: `/clear` = visual cleanup, `/new` = fresh task context, `/forget` = hard wipe semantics.".to_string()
 }
 
-fn should_answer_product_surface_directly(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    (lower.contains("stable product-surface question")
-        || lower.contains("stable product surface question")
-        || lower.contains("stable product-surface questions")
-        || lower.contains("stable product surface questions"))
-        && (lower.contains("how hematite answers")
-            || lower.contains("how does hematite answer")
-            || lower.contains("how hematite handles")
-            || lower.contains("how does hematite handle"))
-}
-
-fn should_stabilize_product_surface_inspection(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    (lower.contains("stable product-surface question")
-        || lower.contains("stable product surface question")
-        || lower.contains("stable product-surface questions")
-        || lower.contains("stable product surface questions"))
-        && (lower.contains("inspect")
-            || lower.contains("repository file tools")
-            || lower.contains("src/agent/conversation.rs")
-            || lower.contains("then continue"))
-}
-
 fn build_product_surface_answer() -> String {
     "Hematite answers stable product-surface questions in the conversation loop with direct classifiers before it falls back to the normal model-and-tools path.\n\nFor stable command/config behavior like `/gemma-native`, reset semantics, workflow modes, verify profiles, and session-memory policy, it matches the prompt against dedicated direct-answer gates, returns a prebuilt verified answer, logs it into history, and skips repository inspection entirely.\n\nOnly when the prompt is asking about repository implementation details rather than stable product behavior should Hematite inspect files like `src/agent/conversation.rs` or call other tools. The practical rule is: stable product truth first, repo implementation second.".to_string()
-}
-
-fn should_preserve_project_map_output(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    lower.contains("map_project")
-        || lower.contains("entrypoint")
-        || lower.contains("owner file")
-        || lower.contains("owner files")
-        || lower.contains("project structure")
-        || lower.contains("repository structure")
-        || (lower.contains("architecture")
-            && (lower.contains("repo") || lower.contains("repository")))
-}
-
-fn should_enable_architecture_overview_mode(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    let architecture_signals = lower.contains("architecture walkthrough")
-        || lower.contains("full architecture")
-        || lower.contains("runtime walkthrough")
-        || lower.contains("control flow")
-        || lower.contains("tool routing")
-        || lower.contains("workflow modes")
-        || lower.contains("repo map behavior")
-        || lower.contains("mcp policy")
-        || lower.contains("prompt budgeting")
-        || lower.contains("compaction")
-        || lower.contains("file ownership")
-        || lower.contains("owner files");
-    let broad = lower.contains("full detailed")
-        || lower.contains("all in one answer")
-        || lower.contains("concrete file ownership");
-    (architecture_signals && broad)
-        || (lower.contains("runtime")
-            && lower.contains("workflow")
-            && (lower.contains("architecture") || lower.contains("tool routing")))
 }
 
 fn prompt_mentions_specific_repo_path(user_input: &str) -> bool {
@@ -777,22 +989,6 @@ fn should_retry_runtime_failure(class: RuntimeFailureClass) -> bool {
     )
 }
 
-fn should_answer_reasoning_split_directly(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    (lower.contains("reasoning output") || lower.contains("reasoning"))
-        && (lower.contains("visible chat output")
-            || lower.contains("visible chat")
-            || lower.contains("chat output"))
-}
-
-fn should_answer_identity_directly(user_input: &str) -> bool {
-    let lower = user_input.trim().to_ascii_lowercase();
-    matches!(
-        lower.as_str(),
-        "who are you" | "who are you?" | "what are you" | "what are you?"
-    ) || (lower.contains("what is hematite") && !lower.contains("lm studio"))
-}
-
 fn build_identity_answer() -> String {
     "Hematite is the local coding harness and agent running on your machine. It owns the TUI, tool use, file editing, workflow control, and local context management while LM Studio serves the model runtime underneath it.".to_string()
 }
@@ -801,73 +997,20 @@ fn build_reasoning_split_answer() -> String {
     "Hematite separates reasoning output from visible chat output so the operator sees a clean final answer while the system can still expose its internal reasoning state separately.\n\nVisible chat output is the user-facing reply that belongs in the main transcript. Reasoning output is routed to the SPECULAR side panel and related internal state so Hematite can show its thought process without polluting the main conversation.\n\nThat separation matters for three reasons: cleaner chat logs, easier debugging of agent behavior, and better control over modes like `/ask`, `/architect`, and read-only analysis where internal thinking should not be confused with the final reply.".to_string()
 }
 
-fn should_answer_workflow_modes_directly(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    lower.contains("/ask")
-        && lower.contains("/code")
-        && lower.contains("/architect")
-        && lower.contains("/read-only")
-        && lower.contains("/auto")
-        && (lower.contains("difference") || lower.contains("differences") || lower.contains("what are"))
-}
-
 fn build_workflow_modes_answer() -> String {
     "/ask is sticky read-only analysis mode: inspect, explain, and answer without making changes.\n\n/code is sticky implementation mode: Hematite can edit, verify, and carry out coding work with the normal proof-before-action safeguards.\n\n/architect is sticky plan-first mode: inspect the repo, shape the solution, and produce the implementation approach before editing. It should not mutate code unless you explicitly ask to implement.\n\n/read-only is the hard no-mutation workflow: analysis only, no file edits, no mutating shell commands, and no commits.\n\n/auto returns Hematite to the default behavior where it chooses the narrowest effective path for the request.".to_string()
-}
-
-fn should_answer_gemma_native_directly(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    (lower.contains("/gemma-native") || lower.contains("gemma native"))
-        && (lower.contains("what does")
-            || lower.contains("what is")
-            || lower.contains("how does")
-            || lower.contains("what do"))
 }
 
 fn build_gemma_native_answer() -> String {
     "`/gemma-native` controls Hematite's Gemma 4 native-formatting mode from inside the TUI.\n\n`/gemma-native auto` restores the default behavior: if the loaded model is Gemma 4, Hematite enables the safer native-formatting path automatically at startup and on new turns.\n\n`/gemma-native on` force-enables that path for Gemma 4, `/gemma-native off` disables it, and `/gemma-native status` reports the current mode.\n\nThis setting matters only for Gemma 4 models. It does not change other model families.".to_string()
 }
 
-fn should_answer_gemma_native_settings_directly(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    lower.contains(".hematite/settings.json")
-        && lower.contains("gemma_native_auto")
-        && lower.contains("gemma_native_formatting")
-}
-
 fn build_gemma_native_settings_answer() -> String {
     "For a Gemma 4 model, `gemma_native_auto` is the default startup behavior and `gemma_native_formatting` is the explicit forced-on override.\n\nIf `gemma_native_auto` is `true` and the loaded model is Gemma 4, Hematite enables the Gemma-native formatting path automatically at startup and on new turns.\n\nIf `gemma_native_formatting` is `true`, Hematite force-enables that path for Gemma 4 even if you are not relying on the automatic mode.\n\nIf both are `false`, Gemma-native formatting stays off. These settings do not activate for non-Gemma-4 models.".to_string()
 }
 
-fn should_answer_verify_profiles_directly(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    lower.contains("verify_build")
-        && lower.contains(".hematite/settings.json")
-        && (lower.contains("build")
-            || lower.contains("test")
-            || lower.contains("lint")
-            || lower.contains("fix")
-            || lower.contains("verification commands"))
-}
-
 fn build_verify_profiles_answer() -> String {
     "When a project defines verify profiles in `.hematite/settings.json`, `verify_build` should treat those profile commands as the first source of truth.\n\nEach action stays separate: `build` runs the profile's build command, `test` runs the test command, `lint` runs the lint command, and `fix` runs the fix command. `verify_build` should not run all of them at once unless you call those actions separately.\n\nIf you pass an explicit profile, Hematite should use that profile or fail clearly if it does not exist. If the project defines a default profile, Hematite should use it when no explicit profile is given. Only when no profile is configured should Hematite fall back to stack-aware auto-detection.".to_string()
-}
-
-fn should_answer_architect_session_reset_directly(
-    workflow_mode: WorkflowMode,
-    user_input: &str,
-) -> bool {
-    if workflow_mode != WorkflowMode::Architect {
-        return false;
-    }
-    let lower = user_input.to_lowercase();
-    (lower.contains("session reset")
-        || (lower.contains("/clear") && lower.contains("/new") && lower.contains("/forget")))
-        && (lower.contains("redesign")
-            || lower.contains("clearer")
-            || lower.contains("easier")
-            || lower.contains("understand"))
 }
 
 fn build_architect_session_reset_plan() -> crate::tools::plan::PlanHandoff {
@@ -1015,30 +1158,6 @@ fn parse_inline_workflow_prompt(user_input: &str) -> Option<(WorkflowMode, &str)
     None
 }
 
-fn should_enable_toolchain_mode(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    lower.contains("tooling discipline")
-        || lower.contains("best read-only toolchain")
-        || lower.contains("identify the best tools you actually have")
-        || lower.contains("concrete read-only investigation plan")
-        || lower.contains("do not execute the plan")
-        || (lower.contains("which tools") && lower.contains("why"))
-        || (lower.contains("available repo-inspection tools"))
-        || (lower.contains("tool choice discipline"))
-        || (lower.contains("what tools would you choose first"))
-        || (lower.contains("when would you choose") && lower.contains("tool"))
-}
-
-fn should_answer_toolchain_directly(user_input: &str) -> bool {
-    let lower = user_input.to_lowercase();
-    should_enable_toolchain_mode(user_input)
-        && lower.contains("read-only")
-        && (lower.contains("tooling discipline")
-            || lower.contains("investigation plan")
-            || lower.contains("best read-only toolchain")
-            || lower.contains("tool choice discipline")
-            || lower.contains("what tools would you choose first"))
-}
 
 // ── Tool catalogue ────────────────────────────────────────────────────────────
 
@@ -1685,6 +1804,28 @@ pub struct ConversationManager {
 }
 
 impl ConversationManager {
+    async fn emit_direct_response(
+        &mut self,
+        tx: &mpsc::Sender<InferenceEvent>,
+        raw_user_input: &str,
+        effective_user_input: &str,
+        response: &str,
+    ) {
+        self.history.push(ChatMessage::user(effective_user_input));
+        self.history.push(ChatMessage::assistant_text(response));
+        self.transcript.log_user(raw_user_input);
+        self.transcript.log_agent(response);
+        for chunk in chunk_text(response, 8) {
+            if !chunk.is_empty() {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+        }
+        let _ = tx.send(InferenceEvent::Done).await;
+        self.trim_history(80);
+        self.refresh_session_memory();
+        self.save_session();
+    }
+
     async fn emit_operator_checkpoint(
         &self,
         tx: &mpsc::Sender<InferenceEvent>,
@@ -2495,247 +2636,108 @@ impl ConversationManager {
         let _plan_execution_guard = PlanExecutionGuard {
             flag: self.plan_execution_active.clone(),
         };
+        let intent = classify_query_intent(self.workflow_mode, &effective_user_input);
 
         // ── /think / /no_think: reasoning budget toggle ──────────────────────
-        if should_answer_language_capability_directly(&effective_user_input) {
-            let response = build_language_capability_answer();
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+        if let Some(answer_kind) = intent.direct_answer {
+            match answer_kind {
+                DirectAnswerKind::LanguageCapability => {
+                    let response = build_language_capability_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::SessionMemory => {
+                    let response = build_session_memory_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::SessionResetSemantics => {
+                    let response = build_session_reset_semantics_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::ProductSurface => {
+                    let response = build_product_surface_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::ReasoningSplit => {
+                    let response = build_reasoning_split_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::Identity => {
+                    let response = build_identity_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::WorkflowModes => {
+                    let response = build_workflow_modes_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::GemmaNative => {
+                    let response = build_gemma_native_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::GemmaNativeSettings => {
+                    let response = build_gemma_native_settings_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::VerifyProfiles => {
+                    let response = build_verify_profiles_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::Toolchain => {
+                    let lower = effective_user_input.to_lowercase();
+                    let topic = if (lower.contains("voice output") || lower.contains("voice"))
+                        && (lower.contains("lag")
+                            || lower.contains("behind visible text")
+                            || lower.contains("latency"))
+                    {
+                        "voice_latency_plan"
+                    } else {
+                        "all"
+                    };
+                    let response = crate::tools::toolchain::describe_toolchain(&serde_json::json!({
+                        "topic": topic,
+                        "question": effective_user_input,
+                    }))
+                    .await
+                    .unwrap_or_else(|e| format!("Error: {}", e));
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::ArchitectSessionResetPlan => {
+                    let plan = build_architect_session_reset_plan();
+                    let response = plan.to_markdown();
+                    let _ = crate::tools::plan::save_plan_handoff(&plan);
+                    self.session_memory.current_plan = Some(plan);
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
                 }
             }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_session_memory_directly(&effective_user_input) {
-            let response = build_session_memory_answer();
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_session_reset_semantics_directly(&effective_user_input) {
-            let response = build_session_reset_semantics_answer();
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_product_surface_directly(&effective_user_input) {
-            let response = build_product_surface_answer();
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_reasoning_split_directly(&effective_user_input) {
-            let response = build_reasoning_split_answer();
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_identity_directly(&effective_user_input) {
-            let response = build_identity_answer();
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_workflow_modes_directly(&effective_user_input) {
-            let response = build_workflow_modes_answer();
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_gemma_native_directly(&effective_user_input) {
-            let response = build_gemma_native_answer();
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_gemma_native_settings_directly(&effective_user_input) {
-            let response = build_gemma_native_settings_answer();
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_verify_profiles_directly(&effective_user_input) {
-            let response = build_verify_profiles_answer();
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_architect_session_reset_directly(self.workflow_mode, &effective_user_input)
-        {
-            let plan = build_architect_session_reset_plan();
-            let response = plan.to_markdown();
-            let _ = crate::tools::plan::save_plan_handoff(&plan);
-            self.session_memory.current_plan = Some(plan);
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
         }
 
         if matches!(self.workflow_mode, WorkflowMode::Ask | WorkflowMode::ReadOnly)
             && looks_like_mutation_request(&effective_user_input)
         {
             let response = build_mode_redirect_answer(self.workflow_mode);
-            self.history.push(ChatMessage::user(&effective_user_input));
-            self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
-            self.transcript.log_agent(&response);
-            for chunk in chunk_text(&response, 8) {
-                if !chunk.is_empty() {
-                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            self.trim_history(80);
-            self.refresh_session_memory();
-            self.save_session();
-            return Ok(());
-        }
-
-        if should_answer_toolchain_directly(&effective_user_input) {
-            let lower = effective_user_input.to_lowercase();
-            let topic = if (lower.contains("voice output") || lower.contains("voice"))
-                && (lower.contains("lag")
-                    || lower.contains("behind visible text")
-                    || lower.contains("latency"))
-            {
-                "voice_latency_plan"
-            } else {
-                "all"
-            };
-            let response = crate::tools::toolchain::describe_toolchain(&serde_json::json!({
-                "topic": topic,
-                "question": effective_user_input,
-            }))
-            .await
-            .unwrap_or_else(|e| format!("Error: {}", e));
             self.history.push(ChatMessage::user(&effective_user_input));
             self.history.push(ChatMessage::assistant_text(&response));
             self.transcript.log_user(user_input);
@@ -2845,13 +2847,16 @@ impl ConversationManager {
                 }
             }
         }
-        let grounded_trace_mode = should_enable_grounded_trace_mode(&effective_user_input);
-        let capability_mode = should_enable_capability_mode(&effective_user_input);
-        let toolchain_mode = should_enable_toolchain_mode(&effective_user_input);
-        let project_map_mode = should_preserve_project_map_output(&effective_user_input);
-        let architecture_overview_mode =
-            should_enable_architecture_overview_mode(&effective_user_input);
-        let capability_needs_repo = capability_question_requires_repo_inspection(&effective_user_input);
+        let grounded_trace_mode =
+            intent.grounded_trace_mode || intent.primary_class == QueryIntentClass::RuntimeDiagnosis;
+        let capability_mode =
+            intent.capability_mode || intent.primary_class == QueryIntentClass::Capability;
+        let toolchain_mode =
+            intent.toolchain_mode || intent.primary_class == QueryIntentClass::Toolchain;
+        let project_map_mode = intent.preserve_project_map_output
+            || intent.primary_class == QueryIntentClass::RepoArchitecture;
+        let architecture_overview_mode = intent.architecture_overview_mode;
+        let capability_needs_repo = intent.capability_needs_repo;
         let mut system_msg = build_system_with_corrections(
             &base_prompt,
             &self.correction_hints,
@@ -3556,9 +3561,7 @@ impl ConversationManager {
                     }
                 }
 
-                if should_stabilize_session_reset_inspection(&effective_user_input)
-                    && reset_inspection_evidence
-                {
+                if intent.stabilize_session_reset_inspection && reset_inspection_evidence {
                     let response = build_session_reset_semantics_answer();
                     self.history.push(ChatMessage::assistant_text(&response));
                     self.transcript.log_agent(&response);
@@ -3573,9 +3576,7 @@ impl ConversationManager {
                     break;
                 }
 
-                if should_stabilize_product_surface_inspection(&effective_user_input)
-                    && reset_inspection_evidence
-                {
+                if intent.stabilize_product_surface_inspection && reset_inspection_evidence {
                     let response = build_product_surface_answer();
                     self.history.push(ChatMessage::assistant_text(&response));
                     self.transcript.log_agent(&response);
@@ -3685,7 +3686,7 @@ impl ConversationManager {
                 continue;
             } else if let Some(response_text) = text {
                 if finish_reason.as_deref() == Some("length") && near_context_ceiling {
-                    if should_answer_session_reset_semantics_directly(&effective_user_input) {
+                    if intent.direct_answer == Some(DirectAnswerKind::SessionResetSemantics) {
                         let cleaned = build_session_reset_semantics_answer();
                         self.history.push(ChatMessage::assistant_text(&cleaned));
                         self.transcript.log_agent(&cleaned);
@@ -4298,42 +4299,8 @@ impl ConversationManager {
         args: &serde_json::Value,
         config: &crate::agent::config::HematiteConfig,
         yolo_flag: bool,
-    ) -> crate::agent::config::PermissionDecision {
-        use crate::agent::config::{PermissionDecision, PermissionMode};
-
-        // 1. System Admin Mode: Absolute Authority.
-        if config.mode == PermissionMode::SystemAdmin {
-            return PermissionDecision::Allow;
-        }
-
-        // 2. Read-Only Mode: Strict verification.
-        if config.mode == PermissionMode::ReadOnly {
-            if is_destructive_tool(name) {
-                // Check if there's an explicit 'allow' override for this specific call (e.g. "git branch").
-                if name == "shell" {
-                    let cmd = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
-                    if matches!(
-                        crate::agent::config::permission_for_shell(cmd, config),
-                        PermissionDecision::Allow
-                    ) {
-                        return PermissionDecision::Allow;
-                    }
-                }
-                return PermissionDecision::Deny;
-            }
-            return PermissionDecision::Allow;
-        }
-
-        // 3. Developer Mode (Default): Interactive safety.
-        if yolo_flag {
-            return PermissionDecision::Allow;
-        }
-
-        if requires_approval(name, args, config) {
-            PermissionDecision::Ask
-        } else {
-            PermissionDecision::Allow
-        }
+    ) -> crate::agent::permission_enforcer::AuthorizationDecision {
+        crate::agent::permission_enforcer::authorize_tool_call(name, args, config, yolo_flag)
     }
 
     /// Layer 4: Isolated tool execution logic. Does not mutate 'self' to allow parallelism.
@@ -4400,14 +4367,14 @@ impl ConversationManager {
         let decision_result = match precondition_result {
             Err(e) => Err(e),
             Ok(_) => match auth {
-            crate::agent::config::PermissionDecision::Allow => Ok(()),
-            crate::agent::config::PermissionDecision::Ask => {
+            crate::agent::permission_enforcer::AuthorizationDecision::Allow { .. } => Ok(()),
+            crate::agent::permission_enforcer::AuthorizationDecision::Ask { reason, source: _ } => {
                 let (approve_tx, approve_rx) = tokio::sync::oneshot::channel::<bool>();
                 let _ = tx
                     .send(InferenceEvent::ApprovalRequired {
                         id: real_id.clone(),
                         name: call.name.clone(),
-                        display: display.clone(),
+                        display: format!("{}\nWhy: {}", display, reason),
                         responder: approve_tx,
                     })
                     .await;
@@ -4417,11 +4384,7 @@ impl ConversationManager {
                     _ => Err("Declined by user".into()),
                 }
             }
-            crate::agent::config::PermissionDecision::Deny => Err(format!(
-                "Access Denied: Tool '{}' is forbidden in current Permission Mode.",
-                call.name
-            )),
-            _ => Err("Unauthorized".into()),
+            crate::agent::permission_enforcer::AuthorizationDecision::Deny { reason, .. } => Err(reason),
         }};
         let blocked_by_policy = matches!(&decision_result, Err(e) if e.starts_with("Action blocked:"));
 
@@ -4775,12 +4738,9 @@ fn is_destructive_tool(name: &str) -> bool {
 
 /// Returns true if the path is inside a "Safe Zone" (.hematite/ or tmp/)
 /// where permission prompts are bypassed for internal bookkeeping.
+#[allow(dead_code)]
 fn is_path_safe(path: &str) -> bool {
-    let p = path.to_lowercase();
-    p.contains(".hematite/")
-        || p.contains(".hematite\\")
-        || p.contains("tmp/")
-        || p.contains("tmp\\")
+    crate::agent::permission_enforcer::is_path_safe(path)
 }
 
 fn normalize_workspace_path(path: &str) -> String {
@@ -4869,6 +4829,7 @@ fn is_code_like_path(path: &str) -> bool {
 }
 
 /// Returns true if this tool call should require explicit user approval in Developer mode.
+#[allow(dead_code)]
 fn requires_approval(
     name: &str,
     args: &Value,

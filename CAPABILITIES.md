@@ -37,6 +37,8 @@ Hematite continuously adapts to the machine it is running on.
 - **Tighter operator footer**: the input/status surface now prioritizes real controls and real signals, including a live session error count, instead of spending width on dead counters or unreliable terminal hints
 - **Runtime-owned provider state**: recovery, degraded, live, and context-ceiling transitions are now emitted by the runtime layer itself instead of being guessed by the TUI from rendered tokens or error strings
 - **Typed operator checkpoints**: SPECULAR now receives explicit runtime checkpoint states for provider recovery, prompt-budget reduction, history compaction, blocked policy paths, blocked recent-file-evidence edits, blocked exact-line-window edits, and other recovery/blocker transitions
+- **Typed permission enforcement**: tool authorization now converges through one runtime decision layer for allow, ask, or deny outcomes instead of splitting shell rules, MCP approval defaults, safe-path bypasses, and shell-risk classification across ad hoc branches
+- **Intent-class routing**: stable product truth, runtime diagnosis, repository architecture, toolchain guidance, and capability questions now flow through one shared intent classifier instead of a long stack of isolated phrase gates
 - **Tiny-context fallback profile**: when LM Studio serves a very small active context window, Hematite can switch to a slimmer system prompt so simple prompts still fit instead of immediately exhausting the budget
 - **Manual runtime refresh**: `/runtime-refresh` lets the operator force an LM Studio profile resync on demand, and context-window failures trigger the same refresh path automatically
 
