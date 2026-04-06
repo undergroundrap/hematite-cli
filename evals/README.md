@@ -23,6 +23,7 @@ The most important eval pressure areas for Hematite now are:
 
 - `prompt_suite.json`: the full categorized eval corpus
 - `quick_smoke.md`: the fastest high-signal prompts to run after changes
+- `real_usage_gauntlet.md`: natural conversation and workflow checks that pressure the harness like a real user would
 - `score_template.csv`: a simple manual scoring sheet
 
 ## How To Use
@@ -46,6 +47,14 @@ Use `prompt_suite.json` before:
 - model-routing changes
 - context/compaction changes
 - tool-surface changes
+
+### Real usage loop
+
+Use `real_usage_gauntlet.md` when:
+
+- you want to test Hematite like a real operator instead of a benchmark runner
+- you are deciding whether a change made the harness feel better, not just score better
+- you want to validate direct-vs-tool restraint, operator surfaces, and task flow on natural prompts
 
 ## Suggested Scoring
 
@@ -98,7 +107,8 @@ Also ask:
 1. Run `quick_smoke.md`.
 2. Fix any obvious regressions.
 3. Run the full category set touched by your change from `prompt_suite.json`.
-4. Record scores in `score_template.csv`.
-5. Compare against earlier runs before declaring an improvement.
+4. Run `real_usage_gauntlet.md` for at least one natural task or conversation.
+5. Record scores in `score_template.csv`.
+6. Compare against earlier runs before declaring an improvement.
 
 Over time, this should become your real benchmark history for Hematite, not just your memory of whether a reply “felt better.”
