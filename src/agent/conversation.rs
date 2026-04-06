@@ -2230,6 +2230,20 @@ impl ConversationManager {
 
                 if let Some(repeated_path) = calls
                     .iter()
+                    .filter(|c| {
+                        // Allow through if the offset is materially different — the model is
+                        // targeting a specific region, not blindly re-reading from the top.
+                        let offset = serde_json::from_str::<Value>(
+                            &crate::agent::inference::normalize_tool_argument_string(
+                                &c.function.name,
+                                &c.function.arguments,
+                            ),
+                        )
+                        .ok()
+                        .and_then(|args| args.get("offset").and_then(|v| v.as_u64()))
+                        .unwrap_or(0);
+                        offset < 200
+                    })
                     .filter_map(|c| repeated_read_target(&c.function))
                     .find(|path| successful_read_targets.contains(path))
                 {
@@ -2241,12 +2255,12 @@ impl ConversationManager {
                             .unwrap_or(false)
                     {
                         format!(
-                            "STOP. You already read `{}` for this startup/UI copy task. Do not call `read_file` on it again. Narrow now with `inspect_lines` on the exact local window you want to edit, or use one path-scoped `grep_files` call on that same file to locate the banner text. After that, make one focused edit, then run `verify_build`.",
+                            "STOP. Already read `{}`. Call `inspect_lines` on the banner region next, then edit.",
                             repeated_path
                         )
                     } else {
                         format!(
-                            "STOP. You already read `{}` in this turn. Do not call `read_file` on the same path again unless the offset materially changes. Narrow now with `grep_files` on that path for the exact symbols or `inspect_lines` on the relevant local window, then answer or continue.",
+                            "STOP. Already read `{}` this turn. Use `inspect_lines` on the relevant window or a specific `grep_files`, then continue.",
                             repeated_path
                         )
                     });
@@ -2506,7 +2520,7 @@ impl ConversationManager {
                             }
                             successful_read_targets.insert(normalized.clone());
 
-                            if startup_ui_work_turn && loop_intervention.is_none() {
+                            if startup_ui_work_turn {
                                 let offset = res
                                     .args
                                     .get("offset")
@@ -2524,18 +2538,20 @@ impl ConversationManager {
                                     .and_then(|s| s.trim().parse::<u64>().ok());
                                 if let Some(total) = total_lines {
                                     let read_end = offset + limit;
-                                    // Shallow read: covered less than 20% of a file with 200+ lines
-                                    if total >= 200 && read_end < total / 5 {
+                                    // Deep read: covered the bottom quarter of the file.
+                                    // Treat this as a window inspection so the edit gate opens.
+                                    if total >= 200 && offset >= total * 3 / 4 {
+                                        self.record_line_inspection(path).await;
+                                    } else if loop_intervention.is_none() && total >= 200 && read_end < total / 5 {
+                                        // Shallow read: covered less than 20% — redirect to the splash region.
                                         loop_intervention = Some(format!(
-                                            "STOP. `read_file` on `{}` only covered lines {}-{} of {}. \
-                                             Do not paginate — the file is too large to scan page by page. \
-                                             Use `inspect_lines` on the approximate banner or splash region directly \
-                                             (the startup splash in tui.rs is near the bottom of the file, roughly the last 200 lines), \
-                                             then make one focused edit and run `verify_build`.",
+                                            "STOP. `read_file` on `{}` covered lines {}-{} of {} — too shallow. \
+                                             Use `inspect_lines` with start_line around {} (splash renderers are near the end of UI files).",
                                             path,
                                             offset + 1,
                                             read_end.min(total),
                                             total,
+                                            total.saturating_sub(200),
                                         ));
                                         *repeat_count = 0;
                                     }
@@ -2578,7 +2594,7 @@ impl ConversationManager {
                                 startup_ui_lane_failures = startup_ui_lane_failures.saturating_add(1);
                                 if startup_ui_work && loop_intervention.is_none() {
                                     loop_intervention = Some(format!(
-                                        "STOP. `grep_files` on `{}` returned no matches. Stay on that same file and stop guessing new patterns. Use `inspect_lines` on the likely banner block next, then make one focused edit, then run `verify_build`.",
+                                        "STOP. `grep_files` on `{}` returned no matches. Use `inspect_lines` on the banner region next, then edit.",
                                         path
                                     ));
                                     *repeat_count = 0;
@@ -2588,7 +2604,7 @@ impl ConversationManager {
                                 startup_ui_lane_failures = startup_ui_lane_failures.saturating_add(1);
                                 if startup_ui_work && loop_intervention.is_none() {
                                     loop_intervention = Some(format!(
-                                        "STOP. `grep_files` on `{}` returned too many matches. Do not grep that file again this turn. Use `inspect_lines` on the likely banner block next, then make one focused edit, then run `verify_build`.",
+                                        "STOP. `grep_files` on `{}` returned too many matches. Use `inspect_lines` on the banner region next, then edit.",
                                         path
                                     ));
                                     *repeat_count = 0;
@@ -2608,7 +2624,7 @@ impl ConversationManager {
                             startup_ui_anchor_miss_targets.insert(target.clone());
                             startup_ui_lane_failures = startup_ui_lane_failures.saturating_add(1);
                             loop_intervention = Some(format!(
-                                "STOP. The previous `edit_file` on `{}` missed its anchor text. Stay on that same file. Use `inspect_lines` on the local banner block you intend to change, then retry with one focused mutation. Do not repeat the same `edit_file` search string, and do not switch to MCP, LSP, or directory discovery tools.",
+                                "STOP. `edit_file` on `{}` missed its anchor. Use `inspect_lines` to confirm the exact text, then retry with the correct string.",
                                 target
                             ));
                             *repeat_count = 0;
@@ -2620,7 +2636,7 @@ impl ConversationManager {
                         && recoverable_policy_intervention.is_none()
                     {
                         recoverable_policy_intervention = Some(
-                            "STOP. The MCP filesystem read path is blocked for ordinary workspace inspection. Retry with Hematite's built-in read tools only. Use `read_file`, `inspect_lines`, `list_files`, or `grep_files` against the files already implied by the current plan. Do not call any `mcp__filesystem__*` tool again this turn.".to_string(),
+                            "STOP. MCP filesystem reads are blocked. Use `read_file` or `inspect_lines` instead.".to_string(),
                         );
                         recoverable_policy_recipe = Some(RecoveryScenario::McpWorkspaceReadBlocked);
                         recoverable_policy_checkpoint = Some((
@@ -2634,7 +2650,7 @@ impl ConversationManager {
                         && recoverable_policy_intervention.is_none()
                     {
                         recoverable_policy_intervention = Some(
-                            "STOP. `map_project` is too broad for current-plan execution. Use the saved plan's target files directly. Read only the exact planned files you need, then start editing. Do not call `map_project` again this turn.".to_string(),
+                            "STOP. `map_project` is blocked during plan execution. Read your planned target files directly, then edit.".to_string(),
                         );
                         recoverable_policy_recipe = Some(RecoveryScenario::CurrentPlanScopeBlocked);
                         recoverable_policy_checkpoint = Some((
@@ -2648,7 +2664,7 @@ impl ConversationManager {
                         && recoverable_policy_intervention.is_none()
                     {
                         recoverable_policy_intervention = Some(format!(
-                            "STOP. `{}` is not part of current-plan execution. Stay on the saved target files only. Use `grep_files` with an explicit `path` or `inspect_lines` on one planned file, then make the edit. Do not call unrelated analysis tools again this turn.",
+                            "STOP. `{}` is not a planned target. Use `inspect_lines` on a planned file, then edit.",
                             tool_name
                         ));
                         recoverable_policy_recipe = Some(RecoveryScenario::CurrentPlanScopeBlocked);
@@ -2667,7 +2683,7 @@ impl ConversationManager {
                         let target = action_target_path(&tool_name, &res.args)
                             .unwrap_or_else(|| "the target file".to_string());
                         recoverable_policy_intervention = Some(format!(
-                            "STOP. The edit was blocked because `{target}` lacks recent file evidence. Read that file now with built-in tools only, preferably `inspect_lines` around the exact area you want to change or `read_file` if you do not know the window yet. After that, retry the edit and continue implementing the current plan. Do not summarize the blockage to the user."
+                            "STOP. Edit blocked — `{target}` has no recent read. Use `inspect_lines` or `read_file` on it first, then retry."
                         ));
                         recoverable_policy_recipe =
                             Some(RecoveryScenario::RecentFileEvidenceMissing);
@@ -2683,7 +2699,7 @@ impl ConversationManager {
                         let target = action_target_path(&tool_name, &res.args)
                             .unwrap_or_else(|| "the target file".to_string());
                         recoverable_policy_intervention = Some(format!(
-                            "STOP. The edit was blocked because `{target}` needs an exact inspected window first. Use `inspect_lines` on that file around the intended edit region, then retry the mutation. Do not answer the user yet."
+                            "STOP. Edit blocked — `{target}` needs an inspected window. Use `inspect_lines` around the edit region, then retry."
                         ));
                         recoverable_policy_recipe =
                             Some(RecoveryScenario::ExactLineWindowRequired);
@@ -2727,7 +2743,7 @@ impl ConversationManager {
                             )
                         };
                         recoverable_policy_intervention = Some(format!(
-                            "STOP. This task is startup or splash UI copy work. {} Use exactly one `read_file` or `inspect_lines` call on that owner file, then make one focused edit, then run `verify_build`. Do not call `map_project`, `auto_pin_context`, broad `grep_files`, or LSP diagnostics here.",
+                            "STOP. Startup/UI copy task. {} Read the owner file with `read_file` or `inspect_lines`, make one edit, then run `verify_build`.",
                             owner_guidance
                         ));
                         recoverable_policy_recipe =
@@ -2755,7 +2771,7 @@ impl ConversationManager {
                             )
                         };
                         recoverable_policy_intervention = Some(format!(
-                            "STOP. This task sounds like startup or splash UI copy. {} Prefer `read_file` or `inspect_lines` on one likely owner file, then make one focused edit and call `verify_build` only after the edit. Do not call `auto_pin_context`, broad `grep_files`, `map_project`, or LSP diagnostics for this task. Do not edit docs or unrelated runtime entrypoints unless the user explicitly names them.",
+                            "STOP. Startup/UI copy task. {} Read the owner file with `read_file` or `inspect_lines`, make one focused edit, then run `verify_build`.",
                             owner_guidance
                         ));
                         recoverable_policy_recipe =
@@ -4408,8 +4424,8 @@ fn select_startup_ui_tool_batch(
                 Vec::new(),
                 None,
                 Some(format!(
-                    "STOP. Startup/UI recovery is now in hard-clamp mode on `{}` after repeated misses. Stay on that one file. Use built-in tools only. Allowed next steps are: `inspect_lines` on `{}`, then one focused mutation there, then `verify_build`. Do not call `grep_files`, `map_project`, docs reads, MCP filesystem tools, or switch files.",
-                    owner, owner
+                    "STOP. Hard-clamp on `{}`. Only allowed: `inspect_lines` on that file, one mutation, then `verify_build`.",
+                    owner
                 )),
             );
         }
@@ -5015,9 +5031,8 @@ mod tests {
         assert!(selected.is_empty());
         assert!(note.is_none());
         let intervention = intervention.expect("expected hard clamp intervention");
-        assert!(intervention.contains("hard-clamp mode"));
+        assert!(intervention.contains("Hard-clamp") || intervention.contains("hard-clamp"));
         assert!(intervention.contains("inspect_lines"));
-        assert!(intervention.contains("Do not call `grep_files`"));
     }
 
 }
