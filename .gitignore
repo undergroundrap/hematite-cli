@@ -16,6 +16,7 @@ dist/
 # Runtime / temp artifacts
 .hematite/ghost/*.bak
 .hematite/ghost/ledger.txt
+.hematite/last_request.json
 .hematite/scratch/
 .hematite/session.json
 .hematite_scratch/

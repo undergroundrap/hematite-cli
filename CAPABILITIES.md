@@ -2,6 +2,23 @@
 
 This document summarizes the technical strengths of **Hematite-CLI** as a local GPU-aware coding harness for LM Studio and Gemma-family models, with the strongest optimization focus on single-GPU consumer hardware such as the RTX 4070 class.
 
+Hematite is not trying to be a generic cloud-agent platform in a terminal skin. Its product thesis is narrower and stronger:
+
+- be the best **local coding harness for LM Studio**
+- be honest about **consumer GPU limits**
+- make **runtime truth, recovery, and repo grounding** visible to the operator
+- turn open local models into a serious project-work tool instead of a chat wrapper
+
+That is the lens for the capabilities below.
+
+## What Makes It Distinct
+
+- **Local runtime truth**: live model/context sync, prompt-budget pressure, compaction pressure, typed provider states, and recovery recipes are surfaced directly in the operator UI
+- **Repo-grounded behavior**: Hematite prefers architecture tracing, repo mapping, tool discipline, and bounded inspection over freeform model improvisation
+- **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
+- **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
+- **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
+
 ## 1. Model-Native Reasoning Flow
 
 Hematite is built to preserve a separation between internal reasoning and user-facing output.

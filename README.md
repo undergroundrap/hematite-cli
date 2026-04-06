@@ -1,8 +1,8 @@
 # hematite
 
-**A local GPU coding agent harness and terminal CLI for LM Studio. Windows-first. Built for single-GPU consumer hardware, especially RTX 4070-class machines. Optimized for Gemma-4, compatible with Gemma-family models. No API key. No cloud. No per-token cost.**
+**The local coding agent harness for LM Studio. Windows-first. Built for single-GPU consumer hardware, especially RTX 4070-class machines. Optimized for Gemma-4 and other Gemma-family local models. No API key. No cloud. No per-token billing.**
 
-`hematite` is a high-performance local coding harness that turns LM Studio into a serious agentic CLI. Hematite owns the TUI, tool execution, file editing, git workflows, retrieval, voice, and orchestration layer. LM Studio handles model loading, swapping, and serving. Hematite is tuned around Gemma-4 behavior, but it can work with other Gemma-family models and custom Gemma variants you load through LM Studio.
+`hematite` turns LM Studio into a serious local coding agent. It is not a generic chat wrapper and it is not trying to imitate a cloud fleet product on your desktop. Hematite owns the operator experience, tool execution, file editing, git workflows, retrieval, compaction, recovery, voice, and runtime orchestration layer. LM Studio handles model loading, swapping, and serving. Hematite is tuned around Gemma-4 behavior, but it can work with other Gemma-family models and custom Gemma variants you load through LM Studio.
 
 [![Capabilities](https://img.shields.io/badge/HEM-CAPABILITIES-blueviolet)](CAPABILITIES.md)
 [![Gemma-4](https://img.shields.io/badge/MODEL-GEMMA--4--E4B-blue)](https://hf.co/google/gemma-4-e4b-it)
@@ -13,20 +13,91 @@
 
 ---
 
-## Why Hematite
+## Why Hematite Wins Its Lane
 
-Most local AI coding tools are Linux-first afterthoughts that quietly fall apart on Windows. Hematite is built around the opposite assumption: the local coding agent should feel native on the machine you actually use.
+Most local AI coding tools are either:
 
+- cloud products with a local mode bolted on later
+- generic local chat shells with weak repo grounding
+- Linux-first tools that quietly fall apart on Windows
+
+Hematite is built around the opposite assumption: the best local coding agent should feel native on the machine you actually use, tell the truth about its runtime state, and survive the constraints of real consumer GPUs instead of pretending they do not exist.
+
+- **LM Studio native** - model swaps, live context refresh, and runtime-profile sync are first-class, not afterthoughts
+- **Built for open local models** - Gemma-4 tuned, tiny-context aware, and engineered around the actual failure modes of local inference
+- **Grounded repo work** - architecture tracing, repo mapping, tool discipline, session ledger, and recovery recipes are built for real project work
+- **Windows-first** - PowerShell, path handling, shell safety, and TUI behavior are treated as core product quality
+- **Single-GPU practical** - shaped around 8-12 GB VRAM reality, especially RTX 4070-class machines
+- **Operator-visible runtime truth** - live LM state, prompt-budget pressure, compaction pressure, typed checkpoints, and recovery notes are surfaced directly in the TUI
 - **Zero ongoing cost** - no API key, no subscription, no per-token billing
-- **Complete privacy** - nothing leaves your machine
-- **LM Studio native workflow** - easy local model loading, swapping, and updating
-- **Gemma-tuned prompting** - built around Gemma-4 E4B control tokens and reasoning flow, while remaining usable with other Gemma-family checkpoints
-- **Cross-platform shell correctness** - PowerShell on Windows, bash on Linux/macOS
-- **4070-class local target** - designed around what a single consumer GPU can realistically sustain
-- **GPU-aware harness** - reads VRAM live and adapts agent behavior
-- **Offline after setup** - no cloud dependency once your local stack is in place
+- **Private and local** - nothing leaves your machine unless you deliberately enable external research paths
 
 **Windows is the primary development target.** PowerShell integration, path handling, shell behavior, and sandbox isolation receive the most polish there. Linux and macOS are supported.
+
+---
+
+## Why People Actually Use It
+
+Hematite is for developers who want a **local coding CLI that behaves like a serious tool**, not a toy shell around a model server.
+
+- You want a **local coding agent for LM Studio** that can read, edit, search, verify, and reason about a real repository.
+- You want a **Windows local AI coding assistant** that does not treat PowerShell or local pathing as second-class.
+- You want a **Gemma-4 coding harness** that survives tight context budgets instead of silently melting down near the ceiling.
+- You want a **local coding CLI for RTX 4070-class hardware** that admits hardware limits and engineers around them.
+- You want a harness that exposes **runtime truth**: live model context, budget pressure, recovery steps, blocker states, and session carry-forward.
+
+If your goal is cloud-scale autonomous orchestration, Hematite is not trying to win that game. If your goal is the best practical local harness for repo work on consumer hardware, that is exactly the category it is trying to own.
+
+---
+
+## Hematite vs The Usual Alternatives
+
+**Compared with cloud coding agents**
+
+- Hematite is local-first, cost-stable, and designed for one machine instead of a managed worker fleet.
+- It spends more effort on context discipline, recovery, and runtime truth because local open models need that engineering.
+
+**Compared with generic local chat wrappers**
+
+- Hematite is not just chat plus a shell command.
+- It has grounded repo tools, project mapping, runtime tracing, typed permission enforcement, typed recovery recipes, and a persistent session ledger.
+
+**Compared with "just use LM Studio directly"**
+
+- LM Studio is the model runtime.
+- Hematite is the agent harness: TUI, tools, editing, workflow modes, retrieval, compaction, safety, and orchestration.
+
+---
+
+## Why Local?
+
+If you are searching for a **local coding agent**, **Windows local AI coding assistant**, or **LM Studio coding CLI**, the answer is not just "privacy."
+
+Local matters because it changes the workflow:
+
+- **No per-turn billing pressure** - you can iterate on repo work without thinking in API spend.
+- **Direct runtime visibility** - you can see the live model, context window, budget pressure, and recovery state instead of guessing what a remote service is doing.
+- **Hardware-aware behavior** - Hematite is designed around real consumer GPU limits, especially 8-12 GB VRAM machines.
+- **Project-native control** - the harness lives with your repo, your rules, your task files, and your local verification commands.
+- **More honest failure handling** - when a local model degrades or hits a context ceiling, Hematite can surface the real blocker and recovery path instead of hiding it behind a hosted black box.
+
+Cloud tools still win on raw frontier-model power. Hematite is built for the other side of the trade: better local control, better local visibility, and a stronger repo workflow on the machine you already own.
+
+---
+
+## Comparison Table
+
+| Category | Hematite | Cloud Coding Agents | Generic Local Chat Wrappers |
+|---|---|---|---|
+| Primary goal | Best local coding harness for LM Studio | Managed remote coding workflow | Basic local model chat shell |
+| Runtime model | Local LM Studio models | Hosted frontier/cloud models | Local models |
+| Cost model | No per-token billing | Ongoing usage cost | Usually local/no per-token billing |
+| Windows-first polish | Yes | Usually secondary | Often inconsistent |
+| Repo grounding | Strong: `map_project`, `trace_runtime_flow`, tool discipline, retrieval | Usually strong, but cloud-shaped | Usually weak |
+| Local runtime truth | Strong: live CTX sync, `LM`, `BUD`, `CMP`, recovery states | Often opaque | Usually minimal |
+| Small-context survival | Explicitly engineered | Less important in hosted setups | Usually weak |
+| Recovery model | Typed failures, checkpoints, session ledger, recovery recipes | Usually hidden behind product UX | Usually ad hoc |
+| Best fit | Serious repo work on consumer GPUs | Highest raw capability with cloud spend | Simple local chat or light scripting |
 
 ---
 
@@ -70,6 +141,13 @@ That split is intentional. Hematite focuses on being the best local coding harne
 ---
 
 ## Quick Start
+
+### Fastest Summary
+
+1. Install [LM Studio](https://lmstudio.ai).
+2. Load a Gemma-family model and start the local server on port `1234`.
+3. Launch `hematite` inside your project folder.
+4. Let Hematite handle the local agent layer: tools, editing, repo mapping, verification, TUI, and recovery.
 
 ### Recommended User Path
 
@@ -155,7 +233,7 @@ Updating is as simple as replacing `hematite.exe` or installing a newer packaged
 
 ## What It Can Do
 
-Hematite gives the loaded model a real local tool suite for coding work:
+Hematite gives the loaded model a real local tool suite for coding work. This is the core difference between Hematite and a plain local chat shell:
 
 | Tool | Description |
 |---|---|

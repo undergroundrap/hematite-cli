@@ -7,6 +7,73 @@ use walkdir::WalkDir;
 
 // ── Ghost Ledger ──────────────────────────────────────────────────────────────
 
+const MAX_GHOST_BACKUPS: usize = 8;
+
+fn prune_ghost_backups(ghost_dir: &Path) {
+    let Ok(entries) = fs::read_dir(ghost_dir) else {
+        return;
+    };
+
+    let mut backups: Vec<_> = entries
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .path()
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("bak"))
+                .unwrap_or(false)
+        })
+        .collect();
+
+    backups.sort_by_key(|entry| {
+        entry
+            .metadata()
+            .and_then(|meta| meta.modified())
+            .ok()
+    });
+    backups.reverse();
+
+    let retained: std::collections::HashSet<String> = backups
+        .iter()
+        .take(MAX_GHOST_BACKUPS)
+        .map(|entry| entry.path().to_string_lossy().replace('\\', "/"))
+        .collect();
+
+    for entry in backups.into_iter().skip(MAX_GHOST_BACKUPS) {
+        let _ = fs::remove_file(entry.path());
+    }
+
+    let ledger_path = ghost_dir.join("ledger.txt");
+    let Ok(content) = fs::read_to_string(&ledger_path) else {
+        return;
+    };
+
+    let filtered_lines: Vec<String> = content
+        .lines()
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.splitn(2, '|').collect();
+            if parts.len() != 2 {
+                return None;
+            }
+
+            let backup_path = parts[1].replace('\\', "/");
+            if retained.contains(&backup_path) {
+                Some(line.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let rewritten = if filtered_lines.is_empty() {
+        String::new()
+    } else {
+        filtered_lines.join("\n") + "\n"
+    };
+    let _ = fs::write(ledger_path, rewritten);
+}
+
 fn save_ghost_backup(target_path: &str, content: &str) {
     let ws = workspace_root();
     
@@ -27,6 +94,7 @@ fn save_ghost_backup(target_path: &str, content: &str) {
         if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(ghost_dir.join("ledger.txt")) {
             let _ = writeln!(f, "{}|{}", target_path, backup_file.display());
         }
+        prune_ghost_backups(&ghost_dir);
     }
 }
 
