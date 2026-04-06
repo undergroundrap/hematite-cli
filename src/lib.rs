@@ -3,6 +3,7 @@ pub mod tools;
 pub mod memory;
 pub mod ui;
 pub mod telemetry;
+pub mod runtime;
 
 // Standard imports for library users
 pub use agent::conversation::ConversationManager;

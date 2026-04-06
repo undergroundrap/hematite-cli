@@ -788,6 +788,7 @@ fn summarize_project_map_output(report: &str) -> String {
 fn summarize_runtime_trace_output(report: &str) -> String {
     let mut lines = Vec::new();
     let mut started = false;
+    let mut kept = 0usize;
 
     for line in report.lines() {
         let trimmed = line.trim_end();
@@ -813,22 +814,14 @@ fn summarize_runtime_trace_output(report: &str) -> String {
             break;
         }
 
-        if trimmed.starts_with("Visible chat output path")
-            || trimmed.starts_with("Reasoning and specular path")
-            || trimmed.starts_with("Voice path")
-            || trimmed.starts_with("Primary communication paths")
-            || trimmed.starts_with("1.")
-            || trimmed.starts_with("2.")
-            || trimmed.starts_with("3.")
-            || trimmed.starts_with("4.")
-            || trimmed.starts_with("5.")
-            || trimmed.starts_with("6.")
-            || trimmed.starts_with("- ")
-        {
-            lines.push(trimmed.to_string());
+        if trimmed.trim_start().starts_with("File refs:") {
+            continue;
         }
 
-        if lines.len() >= 16 {
+        lines.push(trimmed.to_string());
+        kept += 1;
+
+        if kept >= 24 {
             break;
         }
     }

@@ -30,10 +30,10 @@ fn trace_user_turn(args: &Value) -> String {
 Visible chat output path\n\
 1. Keyboard input is collected inside `run_app` in `src/ui/tui.rs`. When Enter is pressed on a non-slash command, the TUI drains `app.input`, pushes `You`, marks `app.agent_running = true`, and sends the text through `app.user_input_tx`.\n\
    File refs: `src/ui/tui.rs` -> `run_app`, `App::push_message`\n\
-2. `app.user_input_tx` is the `user_input_tx` side of `tokio::sync::mpsc::channel::<String>(32)` created in `src/main.rs`. The receiver side is `user_input_rx`.\n\
-   File refs: `src/main.rs` -> `main`, `user_input_tx`, `user_input_rx`\n\
-3. `main` spawns `run_agent_task(user_input_rx, agent_tx.clone(), ...)`. That task waits on `user_input_rx.recv()` and forwards each turn into `ConversationManager::run_turn(&input, agent_tx.clone(), yolo)`.\n\
-   File refs: `src/main.rs` -> `run_agent_task`, `main`; `src/agent/conversation.rs` -> `ConversationManager::run_turn`\n\
+2. `app.user_input_tx` is the `user_input_tx` side of `tokio::sync::mpsc::channel::<String>(32)` assembled inside `build_runtime_bundle` in `src/runtime.rs`. The receiver side is `user_input_rx`.\n\
+   File refs: `src/runtime.rs` -> `build_runtime_bundle`; `src/main.rs` -> `main`\n\
+3. `main` spawns `run_agent_loop(AgentLoopRuntime {{ user_input_rx, agent_tx, ... }}, AgentLoopConfig {{ ... }})`. That loop waits on `user_input_rx.recv()` and forwards each turn into `ConversationManager::run_turn(&input, agent_tx.clone(), yolo)`.\n\
+   File refs: `src/runtime.rs` -> `run_agent_loop`, `AgentLoopRuntime`, `AgentLoopConfig`; `src/agent/conversation.rs` -> `ConversationManager::run_turn`\n\
 4. `ConversationManager::run_turn` handles slash-command short circuits first. For a normal prompt like {:?}, it builds the system prompt, updates `self.history`, queries Vein context, and calls `InferenceEngine::call_with_tools(&prompt_msgs, &self.tools, ...)`.\n\
    File refs: `src/agent/conversation.rs` -> `ConversationManager::run_turn`; `src/agent/inference.rs` -> `InferenceEngine::call_with_tools`\n\
 5. If the model returns final text and no tool calls, `run_turn` strips think blocks with `strip_think_blocks`, records `ChatMessage::assistant_text(&cleaned)`, then streams the visible reply out as `InferenceEvent::Token(chunk)` values followed by `InferenceEvent::Done`.\n\
@@ -45,11 +45,11 @@ Reasoning and specular path\n\
    File refs: `src/agent/conversation.rs` -> `ConversationManager::run_turn`; `src/agent/inference.rs` -> `extract_think_block`, `InferenceEvent::Thought`\n\
 2. `run_app` handles `InferenceEvent::Thought` separately from visible chat text by setting `app.thinking = true` and appending the payload into `app.current_thought`.\n\
    File refs: `src/ui/tui.rs` -> `run_app`, `InferenceEvent::Thought`\n\
-3. File-watcher diagnostics travel on a different channel. `main` creates `specular_tx` / `specular_rx`, `spawn_watcher(specular_tx)` starts the watcher, and `run_app` handles `SpecularEvent::FileChanged` and `SpecularEvent::SyntaxError` in a separate branch from `agent_rx`.\n\
-   File refs: `src/main.rs` -> `main`, `specular_tx`, `specular_rx`; `src/agent/specular.rs` -> `spawn_watcher`, `SpecularEvent`; `src/ui/tui.rs` -> `run_app`\n\n\
+3. File-watcher diagnostics travel on a different channel. `build_runtime_bundle` creates `specular_tx` / `specular_rx`, `spawn_watcher(specular_tx)` starts the watcher, and `run_app` handles `SpecularEvent::FileChanged` and `SpecularEvent::SyntaxError` in a separate branch from `agent_rx`.\n\
+   File refs: `src/runtime.rs` -> `build_runtime_bundle`; `src/agent/specular.rs` -> `spawn_watcher`, `SpecularEvent`; `src/ui/tui.rs` -> `run_app`\n\n\
 Voice path\n\
-1. `main` constructs `VoiceManager::new(agent_tx.clone())`, so the voice subsystem can emit `InferenceEvent::VoiceStatus` messages back into the same `agent_tx` channel used for model events.\n\
-   File refs: `src/main.rs` -> `main`; `src/ui/voice.rs` -> `VoiceManager::new`\n\
+1. `build_runtime_bundle` constructs `VoiceManager::new(agent_tx.clone())`, so the voice subsystem can emit `InferenceEvent::VoiceStatus` messages back into the same `agent_tx` channel used for model events.\n\
+   File refs: `src/runtime.rs` -> `build_runtime_bundle`; `src/ui/voice.rs` -> `VoiceManager::new`\n\
 2. In `run_app`, only `InferenceEvent::Token` triggers speech. `InferenceEvent::MutedToken` is displayed but not spoken. When speech is allowed, the TUI calls `app.voice_manager.speak(token.clone())`.\n\
    File refs: `src/ui/tui.rs` -> `run_app`, `InferenceEvent::Token`, `InferenceEvent::MutedToken`\n\
 3. `VoiceManager::speak` pushes text into its internal sync channel. Background threads in `VoiceManager::new` assemble sentence chunks, synthesize them through `TTSKoko::tts_raw_audio_streaming`, and append PCM chunks into the active `rodio::Sink`.\n\
@@ -58,7 +58,7 @@ Voice path\n\
    File refs: `src/ui/tui.rs` -> `run_app`, `InferenceEvent::Done`\n\n\
 Possible weak points\n\
 - `ConversationManager::run_turn` in `src/agent/conversation.rs` is a very large control hub. It owns command handling, prompt assembly, tool orchestration, verification, and session persistence in one place.\n\
-- `run_agent_task` in `src/main.rs` is the single consumer of `user_input_rx`. If inference or tool work stalls inside one turn, the next user turn waits behind it.\n\
+- `run_agent_loop` in `src/runtime.rs` is the single consumer of `user_input_rx`. If inference or tool work stalls inside one turn, the next user turn waits behind it.\n\
 - `spawn_watcher` in `src/agent/specular.rs` runs `cargo check` after `.rs` file modifications and `run_app` can auto-inject a repair prompt from `SpecularEvent::SyntaxError` when the user is idle. That can be noisy or surprising during rapid edits."
         ,
         input,
@@ -97,8 +97,8 @@ fn trace_session_reset(args: &Value) -> String {
             "/new\n\
 1. `run_app` clears the visible TUI state, pushes `You: /new`, marks `app.agent_running = true`, and sends the literal string `/new` through `app.user_input_tx`.\n\
    File refs: `src/ui/tui.rs` -> `run_app`, `/new` branch\n\
-2. `run_agent_task` receives `/new` from `user_input_rx` and forwards it into `ConversationManager::run_turn(&input, agent_tx.clone(), yolo)`.\n\
-   File refs: `src/main.rs` -> `run_agent_task`, `user_input_rx`\n\
+2. `run_agent_loop` receives `/new` from `user_input_rx` and forwards it into `ConversationManager::run_turn(&input, agent_tx.clone(), yolo)`.\n\
+   File refs: `src/runtime.rs` -> `run_agent_loop`, `user_input_rx`\n\
 3. `ConversationManager::run_turn` matches `user_input.trim() == \"/new\"`, then clears `history`, `reasoning_history`, `session_memory`, `running_summary`, `correction_hints`, and `pinned_files`, calls `purge_task_files()`, removes `session.json`, rewrites the empty session file, streams `InferenceEvent::Token` chunks for `Session cleared. Fresh context.`, then emits `InferenceEvent::Done`.\n\
    File refs: `src/agent/conversation.rs` -> `ConversationManager::run_turn`, `purge_task_files`, `session_path`\n\n"
         );
@@ -109,8 +109,8 @@ fn trace_session_reset(args: &Value) -> String {
             "/forget\n\
 1. `run_app` clears the same visible TUI state as `/new`, pushes `You: /forget`, marks `app.agent_running = true`, and sends `/forget` through `app.user_input_tx`.\n\
    File refs: `src/ui/tui.rs` -> `run_app`, `/forget` branch\n\
-2. `run_agent_task` forwards that string into `ConversationManager::run_turn`.\n\
-   File refs: `src/main.rs` -> `run_agent_task`\n\
+2. `run_agent_loop` forwards that string into `ConversationManager::run_turn`.\n\
+   File refs: `src/runtime.rs` -> `run_agent_loop`\n\
 3. `ConversationManager::run_turn` matches `user_input.trim() == \"/forget\"`, clears `history`, `reasoning_history`, `session_memory`, `running_summary`, `correction_hints`, `pinned_files`, calls `purge_task_files()`, removes and rewrites `session.json`, streams `InferenceEvent::Token` chunks for `Task Memory & History purged. Clean slate achieved.`, then emits `InferenceEvent::Done`.\n\
    File refs: `src/agent/conversation.rs` -> `ConversationManager::run_turn`, `purge_task_files`, `session_path`\n\n"
         );
@@ -135,7 +135,7 @@ fn trace_reasoning_split() -> String {
 4. Visible assistant text is carried on `InferenceEvent::Token` and `InferenceEvent::MutedToken`, then appended into the `Hematite` chat message via `app.update_last_message(token)`.\n\
    File refs: `src/ui/tui.rs` -> `run_app`, `InferenceEvent::Token`, `InferenceEvent::MutedToken`\n\
 5. Watcher-driven specular events are separate from model reasoning. `SpecularEvent::FileChanged` and `SpecularEvent::SyntaxError` come from `spawn_watcher` in `src/agent/specular.rs` over `specular_rx`, not over `agent_rx`.\n\
-   File refs: `src/main.rs` -> `specular_tx`, `specular_rx`; `src/agent/specular.rs` -> `spawn_watcher`, `SpecularEvent`; `src/ui/tui.rs` -> `run_app`\n\n\
+   File refs: `src/runtime.rs` -> `build_runtime_bundle`; `src/agent/specular.rs` -> `spawn_watcher`, `SpecularEvent`; `src/ui/tui.rs` -> `run_app`\n\n\
 Possible weak points\n\
 - The SPECULAR panel currently mixes watcher events and model reasoning in one UI area, even though they arrive from different event sources.\n\
 - `current_thought` and `last_reasoning` are TUI-managed buffers, so UI reset bugs can make the panel look stale even when the model state is clean."
@@ -147,7 +147,7 @@ fn trace_runtime_subsystems() -> String {
 - UI and input surface: `src/ui/tui.rs` -> `run_app`, `App`\n\
 - Agent turn loop and tool orchestration: `src/agent/conversation.rs` -> `ConversationManager`, `ConversationManager::run_turn`\n\
 - Model transport and event schema: `src/agent/inference.rs` -> `InferenceEngine`, `InferenceEvent`\n\
-- Startup wiring and channels: `src/main.rs` -> `main`, `run_agent_task`, `user_input_tx`, `user_input_rx`, `agent_tx`, `agent_rx`, `specular_tx`, `specular_rx`\n\
+- Runtime bundle assembly and channels: `src/runtime.rs` -> `build_runtime_bundle`, `run_agent_loop`, `user_input_tx`, `user_input_rx`, `agent_tx`, `agent_rx`, `specular_rx`\n\
 - Voice subsystem: `src/ui/voice.rs` -> `VoiceManager`\n\
 - File watcher / specular subsystem: `src/agent/specular.rs` -> `spawn_watcher`, `SpecularEvent`\n\
 - Memory and project indexing: `src/agent/conversation.rs` -> `initialize_vein`, `build_vein_context`; `src/memory/vein.rs`\n\
@@ -156,28 +156,26 @@ fn trace_runtime_subsystems() -> String {
 Primary communication paths\n\
 - TUI to agent turn loop: `user_input_tx` -> `user_input_rx`\n\
 - Agent turn loop to TUI: `agent_tx` -> `agent_rx` carrying `InferenceEvent`\n\
-- File watcher to TUI: `specular_tx` -> `specular_rx` carrying `SpecularEvent`\n\
+- File watcher to TUI: `specular_rx` carrying `SpecularEvent`\n\
 - Swarm worker progress to TUI: `swarm_tx` -> `swarm_rx` carrying `SwarmMessage`\n\n\
 Possible weak points\n\
-- Runtime flow is distributed across `src/main.rs`, `src/ui/tui.rs`, and `src/agent/conversation.rs`, so architectural questions are easy for the model to blur without a grounded helper.\n\
+- Runtime flow is distributed across `src/runtime.rs`, `src/main.rs`, `src/ui/tui.rs`, and `src/agent/conversation.rs`, so architectural questions are easy for the model to blur without a grounded helper.\n\
 - `ConversationManager::run_turn` is still the highest-complexity subsystem and the main maintenance hotspot."
         .to_string()
 }
 
 fn trace_startup() -> String {
     "Verified startup flow\n\n\
-1. `main` parses CLI args, builds `InferenceEngine`, starts GPU and git monitors, runs the LM Studio health check, then detects the loaded model and context length.\n\
-   File refs: `src/main.rs` -> `main`; `src/agent/inference.rs` -> `InferenceEngine::new`, `health_check`, `get_loaded_model`, `detect_context_length`\n\
-2. `main` creates the event channels: `specular_tx/specular_rx`, `agent_tx/agent_rx`, `swarm_tx/swarm_rx`, and `user_input_tx/user_input_rx`.\n\
-   File refs: `src/main.rs` -> `main`\n\
-3. `main` starts the file watcher with `spawn_watcher(specular_tx)` and the voice subsystem with `VoiceManager::new(agent_tx.clone())`.\n\
-   File refs: `src/main.rs`; `src/agent/specular.rs`; `src/ui/voice.rs`\n\
-4. `main` spawns `run_agent_task(...)`, then enters alternate-screen TUI mode and awaits `run_app(...)`.\n\
-   File refs: `src/main.rs` -> `run_agent_task`, `run_app`; `src/ui/tui.rs` -> `run_app`\n\
-5. Inside `run_agent_task`, Hematite constructs `ConversationManager`, emits `InferenceEvent::ModelDetected`, initializes MCP and Vein, emits startup `InferenceEvent::Thought` / `InferenceEvent::Done`, then sends the boot greeting as `InferenceEvent::MutedToken`.\n\
-   File refs: `src/main.rs` -> `run_agent_task`; `src/agent/conversation.rs` -> `ConversationManager::new`, `initialize_mcp`, `initialize_vein`\n\n\
+1. `main` parses CLI args, then calls `build_runtime_bundle(...)` to assemble the runtime. That function builds `InferenceEngine`, starts GPU and git monitors, runs the LM Studio health check, detects the loaded model and context length, creates channels, starts the watcher, and constructs the voice/swarm services.\n\
+   File refs: `src/main.rs` -> `main`; `src/runtime.rs` -> `build_runtime_bundle`; `src/agent/inference.rs` -> `InferenceEngine::new`, `health_check`, `get_loaded_model`, `detect_context_length`\n\
+2. `main` spawns `run_agent_loop(...)` for steady-state turn handling and `spawn_runtime_profile_sync(...)` for background LM Studio profile refresh.\n\
+   File refs: `src/main.rs` -> `main`; `src/runtime.rs` -> `run_agent_loop`, `spawn_runtime_profile_sync`\n\
+3. `main` enters alternate-screen TUI mode and awaits `run_app(...)` with the already-assembled receivers, senders, and runtime services.\n\
+   File refs: `src/main.rs` -> `main`; `src/ui/tui.rs` -> `run_app`\n\
+4. Inside `run_agent_loop`, Hematite constructs `ConversationManager`, emits `InferenceEvent::RuntimeProfile`, initializes MCP and Vein, emits startup `InferenceEvent::Thought` / `InferenceEvent::Done`, then sends the boot greeting as `InferenceEvent::MutedToken`.\n\
+   File refs: `src/runtime.rs` -> `run_agent_loop`; `src/agent/conversation.rs` -> `ConversationManager::new`, `initialize_mcp`, `initialize_vein`\n\n\
 Possible weak points\n\
 - Startup depends on LM Studio being available before the TUI fully launches.\n\
-- `run_agent_task` mixes boot diagnostics and steady-state turn handling in one task."
+- `run_agent_loop` still mixes boot diagnostics and steady-state turn handling in one task, even though runtime assembly is cleaner now."
         .to_string()
 }

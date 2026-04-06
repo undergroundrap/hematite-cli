@@ -298,6 +298,8 @@ fn classify_file_role(relative_path: &str) -> &'static str {
         "entrypoint"
     } else if is_core_library_path(relative_path) {
         "core library"
+    } else if lower.ends_with("src/runtime.rs") || lower.contains("/runtime/") {
+        "runtime assembly"
     } else if lower.contains("/ui/") || lower.contains("tui") || lower.contains("voice") {
         "ui / operator surface"
     } else if lower.contains("/agent/") || lower.contains("conversation") || lower.contains("inference") {
@@ -325,15 +327,20 @@ fn score_architecture_file(relative_path: &str) -> i32 {
     } else if is_core_library_path(relative_path) {
         score += 7;
     }
+    if lower.ends_with("src/runtime.rs") {
+        score += 14;
+    }
     for needle in [
         "/agent/",
         "/ui/",
+        "/runtime/",
         "/tools/",
         "/memory/",
         "/lsp/",
         "conversation",
         "inference",
         "prompt",
+        "runtime",
         "voice",
         "tui",
         "main",
