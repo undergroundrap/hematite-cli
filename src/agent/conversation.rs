@@ -5067,40 +5067,15 @@ fn normalize_workspace_path(path: &str) -> String {
 }
 
 fn is_mcp_mutating_tool(name: &str) -> bool {
-    if !name.starts_with("mcp__") {
-        return false;
-    }
-    let lower = name.to_ascii_lowercase();
-    [
-        "__edit",
-        "__write",
-        "__create",
-        "__move",
-        "__delete",
-        "__remove",
-        "__rename",
-        "__replace",
-        "__patch",
-    ]
-    .iter()
-    .any(|needle| lower.contains(needle))
+    let metadata = crate::agent::inference::tool_metadata_for_name(name);
+    metadata.external_surface && metadata.mutates_workspace
 }
 
 fn is_mcp_workspace_read_tool(name: &str) -> bool {
-    if !name.starts_with("mcp__filesystem__") {
-        return false;
-    }
-    let lower = name.to_ascii_lowercase();
-    [
-        "__read",
-        "__list",
-        "__search",
-        "__get_file_info",
-        "__stat",
-        "__metadata",
-    ]
-    .iter()
-    .any(|needle| lower.contains(needle))
+    let metadata = crate::agent::inference::tool_metadata_for_name(name);
+    metadata.external_surface
+        && !metadata.mutates_workspace
+        && name.starts_with("mcp__filesystem__")
 }
 
 fn action_target_path(name: &str, args: &Value) -> Option<String> {
@@ -5621,5 +5596,22 @@ mod tests {
         );
         assert_eq!(intent.primary_class, QueryIntentClass::ProductTruth);
         assert_eq!(intent.direct_answer, Some(DirectAnswerKind::McpLifecycle));
+    }
+
+    #[test]
+    fn mcp_mutation_helper_uses_registry_metadata() {
+        assert!(is_mcp_mutating_tool("mcp__filesystem__write_file"));
+        assert!(is_mcp_mutating_tool("mcp__custom__rename_record"));
+        assert!(!is_mcp_mutating_tool("read_file"));
+        assert!(!is_mcp_mutating_tool("mcp__filesystem__read_file"));
+    }
+
+    #[test]
+    fn mcp_workspace_read_helper_stays_filesystem_scoped_and_non_mutating() {
+        assert!(is_mcp_workspace_read_tool("mcp__filesystem__read_file"));
+        assert!(is_mcp_workspace_read_tool("mcp__filesystem__list_directory"));
+        assert!(!is_mcp_workspace_read_tool("mcp__filesystem__write_file"));
+        assert!(!is_mcp_workspace_read_tool("mcp__custom__read_record"));
+        assert!(!is_mcp_workspace_read_tool("grep_files"));
     }
 }
