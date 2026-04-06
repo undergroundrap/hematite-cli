@@ -33,7 +33,9 @@ Hematite continuously adapts to the machine it is running on.
 - **Provider-state machine**: retries and runtime failures emit compact provider states such as recovering, degraded, or context-ceiling so the operator can see what Hematite is doing without parsing long failure prose
 - **Failure-state persistence**: a runtime refresh can update model and CTX without immediately clearing a real `LM:CEIL` or `LM:WARN` condition; those states persist until successful output proves recovery
 - **Compaction-pressure meter**: the bottom bar now shows a compact percentage badge tied to Hematite's real adaptive compaction threshold so the operator can see when conversation history is approaching summary-chaining pressure
+- **Prompt-budget meter**: the operator surface now exposes a separate `BUD:NN%` badge for total turn payload pressure against the live LM Studio context window, which catches small-context prompt blowups that are not visible from history compaction pressure alone
 - **Tighter operator footer**: the input/status surface now prioritizes real controls and real signals, including a live session error count, instead of spending width on dead counters or unreliable terminal hints
+- **Runtime-owned provider state**: recovery, degraded, live, and context-ceiling transitions are now emitted by the runtime layer itself instead of being guessed by the TUI from rendered tokens or error strings
 - **Tiny-context fallback profile**: when LM Studio serves a very small active context window, Hematite can switch to a slimmer system prompt so simple prompts still fit instead of immediately exhausting the budget
 - **Manual runtime refresh**: `/runtime-refresh` lets the operator force an LM Studio profile resync on demand, and context-window failures trigger the same refresh path automatically
 

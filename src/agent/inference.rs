@@ -409,6 +409,14 @@ pub enum InferenceEvent {
         threshold_tokens: usize,
         percent: u8,
     },
+    /// Current total prompt-budget pressure against the live context window.
+    PromptPressure {
+        estimated_input_tokens: usize,
+        reserved_output_tokens: usize,
+        estimated_total_tokens: usize,
+        context_length: usize,
+        percent: u8,
+    },
     /// A generic task progress update (e.g. for single-agent tool execution).
     TaskProgress {
         id: String,
@@ -1192,6 +1200,7 @@ impl InferenceEngine {
         let mut content_buffer = String::new();
         let mut past_think = false;
         let mut emitted_any_content = false;
+        let mut emitted_live_status = false;
 
         while let Some(item) = byte_stream.next().await {
             // Rapid hardware interrupt check
@@ -1283,6 +1292,15 @@ impl InferenceEngine {
                                 || content.contains('?');
 
                             if content_buffer.len() > 10 && is_boundary {
+                                if !emitted_live_status {
+                                    let _ = tx
+                                        .send(InferenceEvent::ProviderStatus {
+                                            state: ProviderRuntimeState::Live,
+                                            summary: String::new(),
+                                        })
+                                        .await;
+                                    emitted_live_status = true;
+                                }
                                 let _ =
                                     tx.send(InferenceEvent::Token(content_buffer.clone())).await;
                                 emitted_any_content = true;
@@ -1297,6 +1315,14 @@ impl InferenceEngine {
         // Final Flush
         if !content_buffer.is_empty() {
             if past_think {
+                if !emitted_live_status {
+                    let _ = tx
+                        .send(InferenceEvent::ProviderStatus {
+                            state: ProviderRuntimeState::Live,
+                            summary: String::new(),
+                        })
+                        .await;
+                }
                 let _ = tx.send(InferenceEvent::Token(content_buffer)).await;
             } else {
                 let _ = tx.send(InferenceEvent::Thought(content_buffer)).await;
@@ -1460,16 +1486,36 @@ fn reserved_output_tokens(context_length: usize) -> usize {
     proportional.min(MAX_RESERVED_OUTPUT_TOKENS)
 }
 
+pub fn estimate_prompt_pressure(
+    messages: &[ChatMessage],
+    tools: &[ToolDefinition],
+    context_length: usize,
+) -> (usize, usize, usize, u8) {
+    let estimated_input_tokens =
+        estimate_serialized_tokens(messages) + estimate_serialized_tokens(tools) + 32;
+    let reserved_output = reserved_output_tokens(context_length);
+    let estimated_total = estimated_input_tokens.saturating_add(reserved_output);
+    let percent = if context_length == 0 {
+        0
+    } else {
+        ((estimated_total.saturating_mul(100)) / context_length).min(100) as u8
+    };
+    (
+        estimated_input_tokens,
+        reserved_output,
+        estimated_total,
+        percent,
+    )
+}
+
 fn preflight_chat_request(
     model: &str,
     messages: &[ChatMessage],
     tools: &[ToolDefinition],
     context_length: usize,
 ) -> Result<(), String> {
-    let estimated_input_tokens =
-        estimate_serialized_tokens(messages) + estimate_serialized_tokens(tools) + 32;
-    let reserved_output = reserved_output_tokens(context_length);
-    let estimated_total = estimated_input_tokens.saturating_add(reserved_output);
+    let (estimated_input_tokens, reserved_output, estimated_total, _) =
+        estimate_prompt_pressure(messages, tools, context_length);
 
     if estimated_total > context_length {
         return Err(format!(

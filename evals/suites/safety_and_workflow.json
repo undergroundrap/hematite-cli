@@ -437,6 +437,30 @@
     ]
   },
   {
+    "id": "local_workflow_20c",
+    "category": "local_workflow",
+    "title": "Prompt budget badge",
+    "mode": "normal",
+    "prompt": "The bottom bar should expose a separate prompt-budget percentage that tracks total turn payload pressure against the live LM Studio context window.",
+    "success_criteria": [
+      "The operator can see a prompt-budget percentage distinct from compaction pressure",
+      "The badge reflects full prompt pressure against the live context window rather than only session history size",
+      "The operator can distinguish small-context prompt blowups from ordinary compaction pressure"
+    ]
+  },
+  {
+    "id": "local_workflow_20d",
+    "category": "local_workflow",
+    "title": "Runtime-owned provider state",
+    "mode": "normal",
+    "prompt": "Provider health transitions should be emitted by the runtime layer rather than guessed by the TUI from rendered tokens or error strings.",
+    "success_criteria": [
+      "The operator surface reflects provider state from explicit runtime events",
+      "A runtime profile refresh alone does not clear a real warning or context-ceiling state",
+      "A successful model response can clear a degraded or recovering state back to live"
+    ]
+  },
+  {
     "id": "local_workflow_21",
     "category": "local_workflow",
     "title": "Structured failure recovery",

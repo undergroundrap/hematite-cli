@@ -148,13 +148,19 @@ After multiple turns of stale context, what commands or mechanisms does Hematite
 
 Also watch for:
 - the bottom bar exposes a compact compaction-pressure badge like `CMP:61%`
+- the bottom bar also exposes a separate prompt-budget badge like `BUD:74%`
 - the percentage rises as session history grows and resets after `/new` or `/forget`
+- `CMP` and `BUD` can diverge; on tiny contexts `BUD` may spike even when `CMP` is still modest
 
 ## 11b. Structured Failure Recovery
 
 ```text
 If LM Studio degrades, returns an empty reply, or the turn hits a hard runtime failure, how should Hematite surface that to the operator?
 ```
+
+Also watch for:
+- provider-state transitions are runtime-owned rather than guessed by the TUI
+- a successful runtime refresh alone should not wipe out a real `LM:CEIL` or `LM:WARN`
 
 Check:
 - describes classified runtime failures instead of vague raw provider prose

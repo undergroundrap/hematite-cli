@@ -1666,6 +1666,51 @@ pub struct ConversationManager {
 }
 
 impl ConversationManager {
+    async fn emit_provider_live(&self, tx: &mpsc::Sender<InferenceEvent>) {
+        let _ = tx
+            .send(InferenceEvent::ProviderStatus {
+                state: ProviderRuntimeState::Live,
+                summary: String::new(),
+            })
+            .await;
+    }
+
+    async fn emit_prompt_pressure_for_messages(
+        &self,
+        tx: &mpsc::Sender<InferenceEvent>,
+        messages: &[ChatMessage],
+    ) {
+        let context_length = self.engine.current_context_length();
+        let (estimated_input_tokens, reserved_output_tokens, estimated_total_tokens, percent) =
+            crate::agent::inference::estimate_prompt_pressure(
+                messages,
+                &self.tools,
+                context_length,
+            );
+        let _ = tx
+            .send(InferenceEvent::PromptPressure {
+                estimated_input_tokens,
+                reserved_output_tokens,
+                estimated_total_tokens,
+                context_length,
+                percent,
+            })
+            .await;
+    }
+
+    async fn emit_prompt_pressure_idle(&self, tx: &mpsc::Sender<InferenceEvent>) {
+        let context_length = self.engine.current_context_length();
+        let _ = tx
+            .send(InferenceEvent::PromptPressure {
+                estimated_input_tokens: 0,
+                reserved_output_tokens: 0,
+                estimated_total_tokens: 0,
+                context_length,
+                percent: 0,
+            })
+            .await;
+    }
+
     async fn emit_compaction_pressure(&self, tx: &mpsc::Sender<InferenceEvent>) {
         let context_length = self.engine.current_context_length();
         let vram_ratio = self.gpu_state.ratio();
@@ -2246,6 +2291,7 @@ impl ConversationManager {
             let _ = std::fs::remove_file(session_path());
             self.save_empty_session();
             self.emit_compaction_pressure(&tx).await;
+            self.emit_prompt_pressure_idle(&tx).await;
             for chunk in chunk_text("Session cleared. Fresh context.", 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
@@ -2324,6 +2370,7 @@ impl ConversationManager {
             let _ = std::fs::remove_file(session_path());
             self.save_empty_session();
             self.emit_compaction_pressure(&tx).await;
+            self.emit_prompt_pressure_idle(&tx).await;
             for chunk in chunk_text("Task Memory & History purged. Clean slate achieved.", 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
@@ -3020,6 +3067,7 @@ impl ConversationManager {
             {
                 let _ = tx.send(InferenceEvent::Thought(budget_note)).await;
             }
+            self.emit_prompt_pressure_for_messages(&tx, &prompt_msgs).await;
 
             let (text, tool_calls, usage, finish_reason) = match self
                 .engine
@@ -3048,6 +3096,7 @@ impl ConversationManager {
                     break;
                 }
             };
+            self.emit_provider_live(&tx).await;
 
             // Update TUI token counter with actual usage from LM Studio.
             if let Some(ref u) = usage {

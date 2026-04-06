@@ -117,6 +117,10 @@ pub struct App {
     pub current_session_cost: f64,
     pub model_id: String,
     pub context_length: usize,
+    prompt_pressure_percent: u8,
+    prompt_estimated_input_tokens: usize,
+    prompt_reserved_output_tokens: usize,
+    prompt_estimated_total_tokens: usize,
     compaction_percent: u8,
     compaction_estimated_tokens: usize,
     compaction_threshold_tokens: usize,
@@ -436,6 +440,10 @@ pub async fn run_app<B: Backend>(
         current_session_cost: 0.0,
         model_id: "detecting...".to_string(),
         context_length: 0,
+        prompt_pressure_percent: 0,
+        prompt_estimated_input_tokens: 0,
+        prompt_reserved_output_tokens: 0,
+        prompt_estimated_total_tokens: 0,
         compaction_percent: 0,
         compaction_estimated_tokens: 0,
         compaction_threshold_tokens: 0,
@@ -1022,6 +1030,13 @@ pub async fn run_app<B: Backend>(
                                                      Ctrl+Z — Undo last edit\n\
                                                      Ctrl+Q/C — Quit session\n\
                                                      ESC    — Silence current playback\n\
+                                                     \nStatus Legend:\n\
+                                                     LM    â€” LM Studio runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
+                                                     BUD   â€” Total prompt-budget pressure against the live context window\n\
+                                                     CMP   â€” History compaction pressure against Hematite's adaptive threshold\n\
+                                                     ERR   â€” Session error count (runtime, tool, or SPECULAR failures)\n\
+                                                     CTX   â€” Live context window currently reported by LM Studio\n\
+                                                     VOICE â€” Local speech output state\n\
                                                      \nAssistant: Semantic Pathing (LSP), Vision Pass, Web Research, Swarm Synthesis"
                                                 );
                                                 app.history_idx = None;
@@ -1151,9 +1166,6 @@ pub async fn run_app<B: Backend>(
                     InferenceEvent::Token(ref token) | InferenceEvent::MutedToken(ref token) => {
                         let is_muted = matches!(event, InferenceEvent::MutedToken(_));
                         app.thinking = false;
-                        if app.provider_state != ProviderRuntimeState::Booting {
-                            app.provider_state = ProviderRuntimeState::Live;
-                        }
                         if app.messages_raw.last().map(|(s, _)| s.as_str()) != Some("Hematite") {
                             app.push_message("Hematite", "");
                         }
@@ -1181,9 +1193,6 @@ pub async fn run_app<B: Backend>(
                         let icon = if is_error { "[x]" } else { "[v]" };
                         if is_error {
                             app.record_error();
-                        }
-                        if !is_error && app.provider_state != ProviderRuntimeState::Booting {
-                            app.provider_state = ProviderRuntimeState::Live;
                         }
                         // Previews should ALWAYS be sanitized single-line summaries in the chat window.
                         let preview = first_n_chars(&output, 100);
@@ -1214,9 +1223,6 @@ pub async fn run_app<B: Backend>(
                     InferenceEvent::Done => {
                         app.thinking = false;
                         app.agent_running = false;
-                        if app.provider_state == ProviderRuntimeState::Recovering {
-                            app.provider_state = ProviderRuntimeState::Live;
-                        }
                         if app.voice_manager.is_enabled() {
                             app.voice_manager.flush();
                         }
@@ -1233,18 +1239,6 @@ pub async fn run_app<B: Backend>(
                         app.record_error();
                         app.thinking = false;
                         app.agent_running = false;
-                        let lower = e.to_lowercase();
-                        app.provider_state = if lower.contains("[failure:context_window]") {
-                            ProviderRuntimeState::ContextWindow
-                        } else if lower.contains("[failure:provider_degraded]")
-                            || lower.contains("[failure:empty_model_response]")
-                            || lower.contains("lm studio unreachable")
-                            || lower.contains("runtime refresh failed")
-                        {
-                            ProviderRuntimeState::Degraded
-                        } else {
-                            app.provider_state
-                        };
                         if app.voice_manager.is_enabled() {
                             app.voice_manager.flush();
                         }
@@ -1266,6 +1260,18 @@ pub async fn run_app<B: Backend>(
                         app.compaction_estimated_tokens = estimated_tokens;
                         app.compaction_threshold_tokens = threshold_tokens;
                         app.compaction_percent = percent;
+                    }
+                    InferenceEvent::PromptPressure {
+                        estimated_input_tokens,
+                        reserved_output_tokens,
+                        estimated_total_tokens,
+                        context_length: _,
+                        percent,
+                    } => {
+                        app.prompt_estimated_input_tokens = estimated_input_tokens;
+                        app.prompt_reserved_output_tokens = reserved_output_tokens;
+                        app.prompt_estimated_total_tokens = estimated_total_tokens;
+                        app.prompt_pressure_percent = percent;
                     }
                     InferenceEvent::TaskProgress { id, label, progress } => {
                         let nid = normalize_id(&id);
@@ -1676,20 +1682,22 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         vec![
             Constraint::Min(0),       // MODE
             Constraint::Length(12),   // LM
+            Constraint::Length(12),   // BUD
             Constraint::Length(12),   // CMP
             Constraint::Length(16),   // REMOTE
-            Constraint::Length(30),   // TOKENS
-            Constraint::Length(30),   // VRAM
+            Constraint::Length(28),   // TOKENS
+            Constraint::Length(28),   // VRAM
         ]
     } else {
         vec![
             Constraint::Length(12),   // NAME
             Constraint::Min(0),       // MODE
             Constraint::Length(12),   // LM
+            Constraint::Length(12),   // BUD
             Constraint::Length(12),   // CMP
             Constraint::Length(16),   // REMOTE
-            Constraint::Length(30),   // TOKENS
-            Constraint::Length(30),   // VRAM
+            Constraint::Length(28),   // TOKENS
+            Constraint::Length(28),   // VRAM
         ]
     };
     let bar_chunks = Layout::default()
@@ -1720,7 +1728,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     };
     let compaction_percent = app.compaction_percent.min(100);
     let compaction_label = if app.compaction_threshold_tokens == 0 {
-        "CMP:--".to_string()
+        " CMP:  0%".to_string()
     } else {
         format!(" CMP:{:>3}%", compaction_percent)
     };
@@ -1733,6 +1741,21 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         Color::Green
     };
+    let prompt_percent = app.prompt_pressure_percent.min(100);
+    let prompt_label = if app.prompt_estimated_total_tokens == 0 {
+        " BUD:  0%".to_string()
+    } else {
+        format!(" BUD:{:>3}%", prompt_percent)
+    };
+    let prompt_color = if app.prompt_estimated_total_tokens == 0 {
+        Color::DarkGray
+    } else if prompt_percent >= 85 {
+        Color::Red
+    } else if prompt_percent >= 60 {
+        Color::Yellow
+    } else {
+        Color::Green
+    };
 
     let think_badge = match app.think_mode {
         Some(true)  => " [THINK]",
@@ -1740,10 +1763,10 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         None        => "",
     };
 
-    let (status_idx, lm_idx, cmp_idx, remote_idx, tokens_idx, vram_idx) = if app.professional {
-        (0usize, 1usize, 2usize, 3usize, 4usize, 5usize)
+    let (status_idx, lm_idx, bud_idx, cmp_idx, remote_idx, tokens_idx, vram_idx) = if app.professional {
+        (0usize, 1usize, 2usize, 3usize, 4usize, 5usize, 6usize)
     } else {
-        (1usize, 2usize, 3usize, 4usize, 5usize, 6usize)
+        (1usize, 2usize, 3usize, 4usize, 5usize, 6usize, 7usize)
     };
 
     if app.professional {
@@ -1794,6 +1817,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(lm_color)))
             .fg(lm_color),
         bar_chunks[lm_idx],
+    );
+
+    f.render_widget(Clear, bar_chunks[bud_idx]);
+    f.render_widget(
+        Paragraph::new(prompt_label)
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(prompt_color)))
+            .fg(prompt_color),
+        bar_chunks[bud_idx],
     );
 
     f.render_widget(Clear, bar_chunks[cmp_idx]);
