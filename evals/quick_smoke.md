@@ -154,6 +154,17 @@ Check:
 - ties those classes to mutability, trust sensitivity, plan fit, or parallel-safe execution
 - does not describe the tool surface as one undifferentiated list
 
+Also try:
+
+```text
+Read-only mode. Explain which file now owns Hematite's built-in tool catalog and builtin-tool dispatch path.
+```
+
+Check:
+- mentions `src/agent/tool_registry.rs`
+- makes clear that the conversation loop is no longer the primary owner of built-in tool definitions and builtin dispatch
+- does not describe tool ownership as living only in `src/agent/conversation.rs`
+
 ## 7c. Session Ledger
 
 ```text

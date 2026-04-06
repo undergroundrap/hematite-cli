@@ -7,6 +7,7 @@ use crate::agent::recovery_recipes::{
     attempt_recovery, plan_recovery, preview_recovery_decision, RecoveryContext,
     RecoveryDecision, RecoveryPlan, RecoveryScenario, RecoveryStep,
 };
+use crate::agent::tool_registry::dispatch_builtin_tool;
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
 use crate::agent::compaction::{self, CompactionConfig};
 use crate::ui::gpu_monitor::GpuState;
@@ -236,6 +237,7 @@ enum DirectAnswerKind {
     RecoveryRecipes,
     AuthorizationPolicy,
     ToolClasses,
+    ToolRegistryOwnership,
     SessionResetSemantics,
     ProductSurface,
     ReasoningSplit,
@@ -469,6 +471,27 @@ fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Query
         ))
     {
         Some(DirectAnswerKind::ToolClasses)
+    } else if contains_any(
+        &lower,
+        &[
+            "built-in tool catalog",
+            "builtin tool catalog",
+            "builtin-tool dispatch",
+            "built-in tool dispatch",
+            "tool registry ownership",
+            "which file now owns",
+        ],
+    ) && contains_any(
+        &lower,
+        &[
+            "tool catalog",
+            "dispatch path",
+            "dispatch",
+            "tool registry",
+            "owns",
+        ],
+    ) {
+        Some(DirectAnswerKind::ToolRegistryOwnership)
     } else if (lower.contains("other coding languages")
         || lower.contains("what languages")
         || lower.contains("know other languages"))
@@ -579,6 +602,10 @@ fn build_authorization_policy_answer() -> String {
 
 fn build_tool_classes_answer() -> String {
     "Hematite does not treat its tools as one flat list because runtime policy depends on what kind of tool is being used.\n\nRepo reads, repo writes, verification tools, git tools, architecture tools, workflow helpers, and external MCP tools carry different metadata for mutability, trust sensitivity, read-only fit, plan fit, and parallel-safe execution. That lets Hematite treat a `read_file` call differently from a `write_file`, a `verify_build`, a `git_push`, or an external `mcp__*` tool even if they all look like just \"tools\" at the model layer.\n\nThe practical benefit is cleaner orchestration: read-only analysis can prefer safe repo-read and architecture tools, current-plan execution can stay scoped to plan-fit tools, destructive or external actions can flow through trust and approval policy, and parallel execution can stay limited to tools that are actually safe to batch. The point is to keep runtime behavior explicit instead of hiding it inside one undifferentiated tool list.".to_string()
+}
+
+fn build_tool_registry_ownership_answer() -> String {
+    "Hematite's built-in tool catalog and builtin-tool dispatch path now live in `src/agent/tool_registry.rs`.\n\nThat file owns the built-in tool definitions and builtin dispatch path, while `src/agent/conversation.rs` consumes the registry during turn orchestration instead of acting as the primary owner of the tool surface. The point is to keep tool ownership, metadata, and builtin dispatch behind a cleaner runtime boundary instead of leaving more catalog glue in the conversation loop.".to_string()
 }
 
 fn build_session_reset_semantics_answer() -> String {
@@ -1249,7 +1276,9 @@ fn parse_inline_workflow_prompt(user_input: &str) -> Option<(WorkflowMode, &str)
 // ── Tool catalogue ────────────────────────────────────────────────────────────
 
 /// Returns the full set of tools exposed to the model.
+#[allow(unreachable_code)]
 pub fn get_tools() -> Vec<ToolDefinition> {
+    return crate::agent::tool_registry::get_tools();
     let os = std::env::consts::OS;
     let mut tools = vec![
         make_tool(
@@ -2786,6 +2815,12 @@ impl ConversationManager {
                 }
                 DirectAnswerKind::ToolClasses => {
                     let response = build_tool_classes_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::ToolRegistryOwnership => {
+                    let response = build_tool_registry_ownership_answer();
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
                         .await;
                     return Ok(());
@@ -4483,7 +4518,9 @@ impl ConversationManager {
 
 // ── Tool dispatcher ───────────────────────────────────────────────────────────
 
+#[allow(unreachable_code)]
 pub async fn dispatch_tool(name: &str, args: &Value) -> Result<String, String> {
+    return dispatch_builtin_tool(name, args).await;
     match name {
         "shell"       => crate::tools::shell::execute(args).await,
         "map_project" => crate::tools::project_map::map_project(args).await,
