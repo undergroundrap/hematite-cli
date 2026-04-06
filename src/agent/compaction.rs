@@ -142,12 +142,41 @@ const COMPACT_INSTRUCTION: &str = "\n\nIMPORTANT: Resume directly from the last 
 /// Layer 6: Structured Session Memory.
 /// Preserves the "Mission Context" across compactions.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct SessionCheckpoint {
+    pub state: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct SessionVerification {
+    pub successful: bool,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct SessionCompactionLedger {
+    pub count: u32,
+    pub removed_message_count: usize,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct SessionMemory {
     pub current_task: String,
     pub working_set: std::collections::HashSet<String>,
     pub learnings: Vec<String>,
     #[serde(default)]
     pub current_plan: Option<crate::tools::plan::PlanHandoff>,
+    #[serde(default)]
+    pub last_checkpoint: Option<SessionCheckpoint>,
+    #[serde(default)]
+    pub last_blocker: Option<SessionCheckpoint>,
+    #[serde(default)]
+    pub last_recovery: Option<SessionCheckpoint>,
+    #[serde(default)]
+    pub last_verification: Option<SessionVerification>,
+    #[serde(default)]
+    pub last_compaction: Option<SessionCompactionLedger>,
 }
 
 impl SessionMemory {
@@ -156,6 +185,11 @@ impl SessionMemory {
         (!task.is_empty() && task != "Ready for new mission.")
             || !self.working_set.is_empty()
             || !self.learnings.is_empty()
+            || self.last_checkpoint.is_some()
+            || self.last_blocker.is_some()
+            || self.last_recovery.is_some()
+            || self.last_verification.is_some()
+            || self.last_compaction.is_some()
             || self
                 .current_plan
                 .as_ref()
@@ -181,7 +215,92 @@ impl SessionMemory {
                 s.push_str(&format!("  - {l}\n"));
             }
         }
+        if let Some(checkpoint) = &self.last_checkpoint {
+            if checkpoint.summary.trim().is_empty() {
+                s.push_str(&format!("- **Latest Checkpoint**: {}\n", checkpoint.state));
+            } else {
+                s.push_str(&format!(
+                    "- **Latest Checkpoint**: {} - {}\n",
+                    checkpoint.state, checkpoint.summary
+                ));
+            }
+        }
+        if let Some(blocker) = &self.last_blocker {
+            if blocker.summary.trim().is_empty() {
+                s.push_str(&format!("- **Latest Blocker**: {}\n", blocker.state));
+            } else {
+                s.push_str(&format!(
+                    "- **Latest Blocker**: {} - {}\n",
+                    blocker.state, blocker.summary
+                ));
+            }
+        }
+        if let Some(recovery) = &self.last_recovery {
+            if recovery.summary.trim().is_empty() {
+                s.push_str(&format!("- **Latest Recovery**: {}\n", recovery.state));
+            } else {
+                s.push_str(&format!(
+                    "- **Latest Recovery**: {} - {}\n",
+                    recovery.state, recovery.summary
+                ));
+            }
+        }
+        if let Some(verification) = &self.last_verification {
+            let status = if verification.successful { "passed" } else { "failed" };
+            s.push_str(&format!(
+                "- **Latest Verification**: {} - {}\n",
+                status, verification.summary
+            ));
+        }
+        if let Some(compaction) = &self.last_compaction {
+            s.push_str(&format!(
+                "- **Latest Compaction**: pass {} removed {} message(s) - {}\n",
+                compaction.count, compaction.removed_message_count, compaction.summary
+            ));
+        }
         s
+    }
+
+    pub fn inherit_runtime_ledger_from(&mut self, other: &Self) {
+        self.last_checkpoint = other.last_checkpoint.clone();
+        self.last_blocker = other.last_blocker.clone();
+        self.last_recovery = other.last_recovery.clone();
+        self.last_verification = other.last_verification.clone();
+        self.last_compaction = other.last_compaction.clone();
+    }
+
+    pub fn record_checkpoint(&mut self, state: impl Into<String>, summary: impl Into<String>) {
+        let checkpoint = SessionCheckpoint {
+            state: state.into(),
+            summary: summary.into(),
+        };
+        let state_name = checkpoint.state.as_str();
+        if state_name == "recovering_provider" {
+            self.last_recovery = Some(checkpoint.clone());
+        }
+        if state_name.starts_with("blocked_") {
+            self.last_blocker = Some(checkpoint.clone());
+        }
+        self.last_checkpoint = Some(checkpoint);
+    }
+
+    pub fn record_verification(&mut self, successful: bool, summary: impl Into<String>) {
+        self.last_verification = Some(SessionVerification {
+            successful,
+            summary: summary.into(),
+        });
+    }
+
+    pub fn record_compaction(&mut self, removed_message_count: usize, summary: impl Into<String>) {
+        let count = self
+            .last_compaction
+            .as_ref()
+            .map_or(1, |entry| entry.count.saturating_add(1));
+        self.last_compaction = Some(SessionCompactionLedger {
+            count,
+            removed_message_count,
+            summary: summary.into(),
+        });
     }
 
     pub fn clear(&mut self) {
@@ -189,6 +308,11 @@ impl SessionMemory {
         self.working_set.clear();
         self.learnings.clear();
         self.current_plan = None;
+        self.last_checkpoint = None;
+        self.last_blocker = None;
+        self.last_recovery = None;
+        self.last_verification = None;
+        self.last_compaction = None;
     }
 }
 

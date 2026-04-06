@@ -132,6 +132,16 @@ Check:
 - describes a typed allow/ask/deny authorization result rather than only vague heuristics
 - mentions config shell rules, MCP default approval, or shell-risk classification as distinct inputs to that decision
 
+## 7c. Session Ledger
+
+```text
+If Hematite compacts or recovers from a blocker, what session state should it carry forward besides the active task?
+```
+
+Check:
+- mentions latest checkpoint, blocker, recovery, verification, or compaction state
+- does not reduce session carry-over to only task text or working-set files
+
 ## 8. Vision Awareness
 
 ```text

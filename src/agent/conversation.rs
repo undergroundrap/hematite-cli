@@ -386,10 +386,30 @@ fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Query
     {
         Some(DirectAnswerKind::VerifyProfiles)
     } else if (lower.contains("carry forward by default")
-        || lower.contains("session memory should you carry forward"))
+        || lower.contains("session memory should you carry forward")
+        || (lower.contains("carry forward")
+            && contains_any(
+                &lower,
+                &[
+                    "besides the active task",
+                    "blocker",
+                    "compacts",
+                    "recovers from a blocker",
+                    "session state",
+                ],
+            )))
         && contains_any(
             &lower,
-            &["restarted hematite", "restarted", "avoid carrying forward"],
+            &[
+                "restarted hematite",
+                "restarted",
+                "avoid carrying forward",
+                "session state",
+                "active task",
+                "blocker",
+                "compacts",
+                "recovers from a blocker",
+            ],
         )
     {
         Some(DirectAnswerKind::SessionMemory)
@@ -490,7 +510,7 @@ fn build_language_capability_answer() -> String {
 }
 
 fn build_session_memory_answer() -> String {
-    "By default, Hematite should carry forward lightweight project and task signal, not full conversational residue.\n\nCarry forward: Vein-backed project memory, compact session summary, current task memory, working-set files, and explicit pinned context when it is still relevant.\n\nAvoid carrying forward: full chat history, stale reasoning chains, one-off conversational residue, and transient in-flight state from the previous turn.\n\nFor a local model, the right split is to save the project and the active task signal, not replay old dialogue unless you explicitly want to continue the same thread.".to_string()
+    "By default, Hematite should carry forward lightweight project and task signal, not full conversational residue.\n\nCarry forward: Vein-backed project memory, compact session summary, current task memory, working-set files, explicit pinned context when it is still relevant, and the latest typed session ledger entries such as the most recent checkpoint, blocker, recovery step, verification result, and compaction note.\n\nAvoid carrying forward: full chat history, stale reasoning chains, one-off conversational residue, and transient in-flight state from the previous turn.\n\nFor a local model, the right split is to save the project, active task signal, and recent runtime state, not replay old dialogue unless you explicitly want to continue the same thread.".to_string()
 }
 
 fn build_session_reset_semantics_answer() -> String {
@@ -1827,20 +1847,23 @@ impl ConversationManager {
     }
 
     async fn emit_operator_checkpoint(
-        &self,
+        &mut self,
         tx: &mpsc::Sender<InferenceEvent>,
         state: OperatorCheckpointState,
         summary: impl Into<String>,
     ) {
+        let summary = summary.into();
+        self.session_memory
+            .record_checkpoint(state.label(), summary.clone());
         let _ = tx
             .send(InferenceEvent::OperatorCheckpoint {
                 state,
-                summary: summary.into(),
+                summary,
             })
             .await;
     }
 
-    async fn emit_provider_live(&self, tx: &mpsc::Sender<InferenceEvent>) {
+    async fn emit_provider_live(&mut self, tx: &mpsc::Sender<InferenceEvent>) {
         let _ = tx
             .send(InferenceEvent::ProviderStatus {
                 state: ProviderRuntimeState::Live,
@@ -2037,8 +2060,10 @@ impl ConversationManager {
 
     fn refresh_session_memory(&mut self) {
         let current_plan = self.session_memory.current_plan.clone();
+        let previous_memory = self.session_memory.clone();
         self.session_memory = compaction::extract_memory(&self.history);
         self.session_memory.current_plan = current_plan;
+        self.session_memory.inherit_runtime_ledger_from(&previous_memory);
     }
 
     fn append_session_handoff(&self, system_msg: &mut String) {
@@ -2144,6 +2169,10 @@ impl ConversationManager {
         if ok {
             state.code_changed_since_verify = false;
         }
+    }
+
+    fn record_session_verification(&mut self, ok: bool, summary: impl Into<String>) {
+        self.session_memory.record_verification(ok, summary);
     }
 
     async fn record_successful_mutation(&self, path: Option<&str>) {
@@ -3314,6 +3343,20 @@ impl ConversationManager {
                         implementation_started = true;
                     }
 
+                    if tool_name == "verify_build" {
+                        self.record_session_verification(
+                            !is_error
+                                && (final_output.contains("BUILD OK")
+                                    || final_output.contains("BUILD SUCCESS")
+                                    || final_output.contains("BUILD OKAY")),
+                            if is_error {
+                                "Explicit verify_build failed."
+                            } else {
+                                "Explicit verify_build passed."
+                            },
+                        );
+                    }
+
                     // Update Repeat Guard
                     let call_key = format!(
                         "{}:{}",
@@ -3671,7 +3714,16 @@ impl ConversationManager {
                         ))
                         .await;
                     let verify_res = self.auto_verify_build().await;
-                    self.record_verify_build_result(verify_res.contains("BUILD SUCCESS")).await;
+                    let verify_ok = verify_res.contains("BUILD SUCCESS");
+                    self.record_verify_build_result(verify_ok).await;
+                    self.record_session_verification(
+                        verify_ok,
+                        if verify_ok {
+                            "Automatic build verification passed."
+                        } else {
+                            "Automatic build verification failed."
+                        },
+                    );
                     self.history.push(ChatMessage::system(&format!(
                         "\n# SYSTEM VERIFICATION\n{verify_res}"
                     )));
@@ -3889,11 +3941,22 @@ impl ConversationManager {
             anchor_index,
         );
 
+        let removed_message_count = self.history.len().saturating_sub(result.messages.len());
         self.history = result.messages;
         self.running_summary = result.summary;
 
         // Layer 6: Memory Synthesis (Task Context Persistence)
+        let previous_memory = self.session_memory.clone();
         self.session_memory = compaction::extract_memory(&self.history);
+        self.session_memory.inherit_runtime_ledger_from(&previous_memory);
+        self.session_memory.record_compaction(
+            removed_message_count,
+            format!(
+                "Compacted history around active task '{}' and preserved {} working-set file(s).",
+                self.session_memory.current_task,
+                self.session_memory.working_set.len()
+            ),
+        );
         self.emit_compaction_pressure(tx).await;
 
         // Jinja alignment: preserved slice may start with assistant/tool messages.
