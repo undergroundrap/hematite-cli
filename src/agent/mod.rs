@@ -23,5 +23,6 @@ pub mod policy;
 pub mod recovery_recipes;
 pub mod routing;
 pub mod architecture_summary;
+pub mod direct_answers;
 pub mod tool_registry;
 pub mod trust_resolver;
