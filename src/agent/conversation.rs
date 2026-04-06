@@ -7,6 +7,10 @@ use crate::agent::recovery_recipes::{
     attempt_recovery, plan_recovery, preview_recovery_decision, RecoveryContext,
     RecoveryDecision, RecoveryPlan, RecoveryScenario, RecoveryStep,
 };
+use crate::agent::policy::{
+    action_target_path, is_destructive_tool, is_mcp_mutating_tool, is_mcp_workspace_read_tool,
+    normalize_workspace_path,
+};
 use crate::agent::routing::{
     classify_query_intent, is_capability_probe_tool, looks_like_mutation_request,
     DirectAnswerKind, QueryIntentClass,
@@ -4545,65 +4549,6 @@ struct ToolExecutionOutcome {
     msg_results: Vec<ChatMessage>,
 }
 
-/// Returns true if the tool can modify files or execute arbitrary shell commands.
-fn is_destructive_tool(name: &str) -> bool {
-    crate::agent::inference::tool_metadata_for_name(name).mutates_workspace
-}
-
-/// Returns true if the path is inside a "Safe Zone" (.hematite/ or tmp/)
-/// where permission prompts are bypassed for internal bookkeeping.
-#[allow(dead_code)]
-fn is_path_safe(path: &str) -> bool {
-    crate::agent::permission_enforcer::is_path_safe(path)
-}
-
-fn normalize_workspace_path(path: &str) -> String {
-    let root = crate::tools::file_ops::workspace_root();
-    let candidate = std::path::Path::new(path);
-    let joined = if candidate.is_absolute() {
-        candidate.to_path_buf()
-    } else {
-        root.join(candidate)
-    };
-    joined
-        .to_string_lossy()
-        .replace('\\', "/")
-        .to_lowercase()
-}
-
-fn is_mcp_mutating_tool(name: &str) -> bool {
-    let metadata = crate::agent::inference::tool_metadata_for_name(name);
-    metadata.external_surface && metadata.mutates_workspace
-}
-
-fn is_mcp_workspace_read_tool(name: &str) -> bool {
-    let metadata = crate::agent::inference::tool_metadata_for_name(name);
-    metadata.external_surface
-        && !metadata.mutates_workspace
-        && name.starts_with("mcp__filesystem__")
-}
-
-fn action_target_path(name: &str, args: &Value) -> Option<String> {
-    match name {
-        "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace" => args
-            .get("path")
-            .and_then(|v| v.as_str())
-            .map(normalize_workspace_path),
-        _ if is_mcp_mutating_tool(name) => args
-            .get("path")
-            .or_else(|| args.get("target"))
-            .or_else(|| args.get("target_path"))
-            .or_else(|| args.get("destination"))
-            .or_else(|| args.get("destination_path"))
-            .or_else(|| args.get("source"))
-            .or_else(|| args.get("source_path"))
-            .or_else(|| args.get("from"))
-            .and_then(|v| v.as_str())
-            .map(normalize_workspace_path),
-        _ => None,
-    }
-}
-
 fn is_code_like_path(path: &str) -> bool {
     let ext = std::path::Path::new(path)
         .extension()
@@ -4615,55 +4560,6 @@ fn is_code_like_path(path: &str) -> bool {
         "rs" | "js" | "ts" | "tsx" | "jsx" | "py" | "go" | "java" | "c" | "cpp" | "cc" | "h"
             | "hpp" | "cs" | "swift" | "kt" | "kts" | "rb" | "php"
     )
-}
-
-/// Returns true if this tool call should require explicit user approval in Developer mode.
-#[allow(dead_code)]
-fn requires_approval(
-    name: &str,
-    args: &Value,
-    config: &crate::agent::config::HematiteConfig,
-) -> bool {
-    use crate::agent::config::{permission_for_shell, PermissionDecision};
-    use crate::tools::RiskLevel;
-
-    // MCP tools always ask — external servers are untrusted by default.
-    if name.starts_with("mcp__") {
-        return true;
-    }
-
-    // Layer 5: Safe Zone Bypass (Internal logs, memory, temp files)
-    if name == "write_file" || name == "edit_file" {
-        if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
-            if is_path_safe(path) {
-                return false;
-            }
-        }
-    }
-
-    if name == "shell" {
-        let cmd = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
-
-        // Config rules take priority over the risk classifier.
-        match permission_for_shell(cmd, config) {
-            PermissionDecision::Allow => return false,
-            PermissionDecision::Deny | PermissionDecision::Ask => return true,
-            PermissionDecision::UseRiskClassifier => {}
-        }
-
-        // Hard safety check (blacklisted paths/system dirs).
-        if crate::tools::guard::bash_is_safe(cmd).is_err() {
-            return true;
-        }
-
-        return match crate::tools::guard::classify_bash_risk(cmd) {
-            RiskLevel::High => true,
-            RiskLevel::Moderate => true, // We removed auto_approve_moderate for now to simplify
-            RiskLevel::Safe => false,
-        };
-    }
-
-    false
 }
 
 // ── Display helpers ───────────────────────────────────────────────────────────
@@ -5103,20 +4999,4 @@ mod tests {
         assert_eq!(intent.direct_answer, Some(DirectAnswerKind::McpLifecycle));
     }
 
-    #[test]
-    fn mcp_mutation_helper_uses_registry_metadata() {
-        assert!(is_mcp_mutating_tool("mcp__filesystem__write_file"));
-        assert!(is_mcp_mutating_tool("mcp__custom__rename_record"));
-        assert!(!is_mcp_mutating_tool("read_file"));
-        assert!(!is_mcp_mutating_tool("mcp__filesystem__read_file"));
-    }
-
-    #[test]
-    fn mcp_workspace_read_helper_stays_filesystem_scoped_and_non_mutating() {
-        assert!(is_mcp_workspace_read_tool("mcp__filesystem__read_file"));
-        assert!(is_mcp_workspace_read_tool("mcp__filesystem__list_directory"));
-        assert!(!is_mcp_workspace_read_tool("mcp__filesystem__write_file"));
-        assert!(!is_mcp_workspace_read_tool("mcp__custom__read_record"));
-        assert!(!is_mcp_workspace_read_tool("grep_files"));
-    }
 }
