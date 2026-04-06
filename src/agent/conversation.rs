@@ -5507,3 +5507,68 @@ fn is_parallel_safe(name: &str) -> bool {
     let metadata = crate::agent::inference::tool_metadata_for_name(name);
     !metadata.mutates_workspace && !metadata.external_surface
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classifies_lm_studio_context_budget_mismatch_as_context_window() {
+        let detail = r#"LM Studio error 400 Bad Request: {"error":"The number of tokens to keep from the initial prompt is greater than the context length (n_keep: 28768>= n_ctx: 4096). Try to load the model with a larger context length, or provide a shorter input."}"#;
+        let class = classify_runtime_failure(detail);
+        assert_eq!(class, RuntimeFailureClass::ContextWindow);
+        assert_eq!(class.tag(), "context_window");
+        assert!(format_runtime_failure(class, detail).contains("[failure:context_window]"));
+    }
+
+    #[test]
+    fn runtime_failure_maps_to_provider_and_checkpoint_state() {
+        assert_eq!(
+            provider_state_for_runtime_failure(RuntimeFailureClass::ContextWindow),
+            Some(ProviderRuntimeState::ContextWindow)
+        );
+        assert_eq!(
+            checkpoint_state_for_runtime_failure(RuntimeFailureClass::ContextWindow),
+            Some(OperatorCheckpointState::BlockedContextWindow)
+        );
+        assert_eq!(
+            provider_state_for_runtime_failure(RuntimeFailureClass::ProviderDegraded),
+            Some(ProviderRuntimeState::Degraded)
+        );
+        assert_eq!(
+            checkpoint_state_for_runtime_failure(RuntimeFailureClass::ProviderDegraded),
+            None
+        );
+    }
+
+    #[test]
+    fn intent_router_treats_tool_registry_ownership_as_product_truth() {
+        let intent = classify_query_intent(
+            WorkflowMode::ReadOnly,
+            "Read-only mode. Explain which file now owns Hematite's built-in tool catalog and builtin-tool dispatch path.",
+        );
+        assert_eq!(intent.primary_class, QueryIntentClass::ProductTruth);
+        assert_eq!(
+            intent.direct_answer,
+            Some(DirectAnswerKind::ToolRegistryOwnership)
+        );
+    }
+
+    #[test]
+    fn intent_router_treats_tool_classes_as_product_truth() {
+        let intent = classify_query_intent(
+            WorkflowMode::ReadOnly,
+            "Read-only mode. Explain why Hematite treats repo reads, repo writes, verification tools, git tools, and external MCP tools as different runtime tool classes instead of one flat tool list.",
+        );
+        assert_eq!(intent.primary_class, QueryIntentClass::ProductTruth);
+        assert_eq!(intent.direct_answer, Some(DirectAnswerKind::ToolClasses));
+    }
+
+    #[test]
+    fn tool_registry_ownership_answer_mentions_new_owner_file() {
+        let answer = build_tool_registry_ownership_answer();
+        assert!(answer.contains("src/agent/tool_registry.rs"));
+        assert!(answer.contains("builtin dispatch path"));
+        assert!(answer.contains("src/agent/conversation.rs"));
+    }
+}

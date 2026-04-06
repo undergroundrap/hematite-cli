@@ -262,3 +262,67 @@ pub fn attempt_recovery(
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn context_window_recipe_matches_expected_local_recovery_flow() {
+        let recipe = recipe_for(RecoveryScenario::ContextWindow);
+        assert_eq!(recipe.max_attempts, 1);
+        assert_eq!(
+            recipe.steps,
+            vec![
+                RecoveryStep::RefreshRuntimeProfile,
+                RecoveryStep::ReducePromptBudget,
+                RecoveryStep::CompactHistory,
+                RecoveryStep::NarrowRequest,
+            ]
+        );
+        assert_eq!(
+            recipe.steps_summary(),
+            "refresh_runtime_profile -> reduce_prompt_budget -> compact_history -> narrow_request"
+        );
+    }
+
+    #[test]
+    fn provider_degraded_attempts_once_then_escalates() {
+        let mut ctx = RecoveryContext::default();
+
+        let first = attempt_recovery(RecoveryScenario::ProviderDegraded, &mut ctx);
+        match first {
+            RecoveryDecision::Attempt(plan) => {
+                assert_eq!(plan.recipe.scenario, RecoveryScenario::ProviderDegraded);
+                assert_eq!(plan.next_attempt, 1);
+            }
+            other => panic!("expected attempt, got {:?}", other),
+        }
+
+        let second = attempt_recovery(RecoveryScenario::ProviderDegraded, &mut ctx);
+        match second {
+            RecoveryDecision::Escalate {
+                recipe,
+                attempts_made,
+                reason,
+            } => {
+                assert_eq!(recipe.scenario, RecoveryScenario::ProviderDegraded);
+                assert_eq!(attempts_made, 1);
+                assert!(reason.contains("max recovery attempts"));
+            }
+            other => panic!("expected escalate, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn tool_loop_recipe_stops_repetition_before_narrowing() {
+        let recipe = recipe_for(RecoveryScenario::ToolLoop);
+        assert_eq!(
+            recipe.steps,
+            vec![
+                RecoveryStep::StopRepeatingToolPattern,
+                RecoveryStep::NarrowRequest,
+            ]
+        );
+    }
+}
