@@ -110,6 +110,36 @@ fn mentions_product_truth_routing(lower: &str) -> bool {
     asks_decision_policy && asks_direct_vs_inspect_split
 }
 
+fn mentions_broad_system_walkthrough(lower: &str) -> bool {
+    let asks_walkthrough = contains_any(
+        lower,
+        &[
+            "walk me through",
+            "walk through",
+            "how hematite is wired",
+            "understand how hematite is wired",
+            "major runtime pieces",
+            "normal message moves",
+            "moves from the tui to the model and back",
+        ],
+    );
+    let asks_multiple_runtime_areas = contains_any(
+        lower,
+        &[
+            "session recovery",
+            "tool policy",
+            "mcp state",
+            "mcp policy",
+            "files own the major runtime pieces",
+            "which files own",
+            "where session recovery",
+            "where tool policy",
+            "where mcp state",
+        ],
+    );
+    asks_walkthrough && asks_multiple_runtime_areas
+}
+
 fn mentions_capability_question(lower: &str) -> bool {
     contains_any(
         lower,
@@ -230,12 +260,20 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         );
         let broad = contains_any(
             &lower,
-            &["full detailed", "all in one answer", "concrete file ownership"],
+            &[
+                "full detailed",
+                "all in one answer",
+                "concrete file ownership",
+                "walk me through",
+                "major runtime pieces",
+                "which files own",
+            ],
         );
         (architecture_signals && broad)
             || (lower.contains("runtime")
                 && lower.contains("workflow")
                 && (lower.contains("architecture") || lower.contains("tool routing")))
+            || mentions_broad_system_walkthrough(&lower)
     };
 
     let direct_answer = if matches!(
@@ -347,7 +385,7 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         ],
     ) {
         Some(DirectAnswerKind::RecoveryRecipes)
-    } else if contains_any(
+    } else if !architecture_overview_mode && contains_any(
         &lower,
         &[
             "mcp server health",

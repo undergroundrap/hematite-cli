@@ -3979,6 +3979,17 @@ mod tests {
         assert_eq!(intent.direct_answer, Some(DirectAnswerKind::McpLifecycle));
     }
 
+    #[test]
+    fn intent_router_prefers_architecture_walkthrough_over_narrow_mcp_answer() {
+        let intent = classify_query_intent(
+            WorkflowMode::ReadOnly,
+            "I want to understand how Hematite is wired without any guessing. Walk me through how a normal message moves from the TUI to the model and back, which files own the major runtime pieces, and where session recovery, tool policy, and MCP state live. Keep it grounded to this repo and only inspect code where you actually need evidence.",
+        );
+        assert_eq!(intent.primary_class, QueryIntentClass::RepoArchitecture);
+        assert!(intent.architecture_overview_mode);
+        assert_eq!(intent.direct_answer, None);
+    }
+
 }
 
 
