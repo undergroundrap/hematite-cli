@@ -132,6 +132,17 @@ Check:
 - describes a typed allow/ask/deny authorization result rather than only vague heuristics
 - mentions config shell rules, MCP default approval, or shell-risk classification as distinct inputs to that decision
 
+Also try:
+
+```text
+Read-only mode. Explain how workspace trust should affect destructive or external tool actions in Hematite.
+```
+
+Check:
+- mentions trusted, unknown, or denied workspace roots
+- treats workspace trust as part of runtime policy rather than a vague convention
+- keeps workspace trust focused on destructive or external actions, not ordinary repo reads
+
 ## 7c. Session Ledger
 
 ```text

@@ -1,6 +1,7 @@
 use serde_json::Value;
 
 use crate::agent::config::{permission_for_shell, HematiteConfig, PermissionDecision, PermissionMode};
+use crate::agent::trust_resolver::{resolve_workspace_trust, WorkspaceTrustPolicy};
 use crate::tools::RiskLevel;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8,6 +9,9 @@ pub enum AuthorizationSource {
     SystemAdminMode,
     ReadOnlyMode,
     YoloMode,
+    WorkspaceTrusted,
+    WorkspaceApprovalRequired,
+    WorkspaceDenied,
     McpExternal,
     SafePathBypass,
     ConfigAllow,
@@ -71,6 +75,37 @@ pub fn authorize_tool_call(
         return AuthorizationDecision::Allow {
             source: AuthorizationSource::YoloMode,
         };
+    }
+
+    let workspace_root = crate::tools::file_ops::workspace_root();
+    let trust = resolve_workspace_trust(&workspace_root, &config.trust);
+    if trust_sensitive_tool(name) {
+        match trust.policy {
+            WorkspaceTrustPolicy::Denied => {
+                return AuthorizationDecision::Deny {
+                    source: AuthorizationSource::WorkspaceDenied,
+                    reason: format!(
+                        "Action blocked: workspace `{}` is denied by trust policy{}.",
+                        trust.workspace_display,
+                        trust
+                            .matched_root
+                            .as_ref()
+                            .map(|root| format!(" ({})", root))
+                            .unwrap_or_default()
+                    ),
+                };
+            }
+            WorkspaceTrustPolicy::RequireApproval => {
+                return AuthorizationDecision::Ask {
+                    source: AuthorizationSource::WorkspaceApprovalRequired,
+                    reason: format!(
+                        "Workspace `{}` is not trust-allowlisted, so `{}` requires approval before Hematite performs destructive or external actions there.",
+                        trust.workspace_display, name
+                    ),
+                };
+            }
+            WorkspaceTrustPolicy::Trusted => {}
+        }
     }
 
     if name.starts_with("mcp__") {
@@ -143,7 +178,11 @@ pub fn authorize_tool_call(
     }
 
     AuthorizationDecision::Allow {
-        source: AuthorizationSource::DefaultToolPolicy,
+        source: if trust_sensitive_tool(name) {
+            AuthorizationSource::WorkspaceTrusted
+        } else {
+            AuthorizationSource::DefaultToolPolicy
+        },
     }
 }
 
@@ -184,4 +223,8 @@ fn is_mcp_mutating_tool(name: &str) -> bool {
 pub(crate) fn is_path_safe(path: &str) -> bool {
     let p = path.to_lowercase();
     p.contains(".hematite/") || p.contains(".hematite\\") || p.contains("tmp/") || p.contains("tmp\\")
+}
+
+fn trust_sensitive_tool(name: &str) -> bool {
+    is_destructive_tool(name) || name.starts_with("mcp__")
 }

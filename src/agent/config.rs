@@ -22,6 +22,9 @@ pub struct HematiteConfig {
     pub mode: PermissionMode,
     /// Pattern-based permission overrides.
     pub permissions: Option<PermissionRules>,
+    /// Workspace trust policy for the current project root.
+    #[serde(default)]
+    pub trust: WorkspaceTrustConfig,
     /// Override the primary model ID (e.g. "gemma-4-e4b").
     pub model: Option<String>,
     /// Override the fast model ID used for read-only tasks.
@@ -42,6 +45,29 @@ pub struct HematiteConfig {
     /// Tool Lifecycle Hooks for automated pre/post scripts.
     #[serde(default)]
     pub hooks: crate::agent::hooks::RuntimeHookConfig,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct WorkspaceTrustConfig {
+    /// Workspace roots trusted for normal destructive and external tool posture.
+    #[serde(default = "default_trusted_workspace_roots")]
+    pub allow: Vec<String>,
+    /// Workspace roots explicitly denied for destructive and external tool posture.
+    #[serde(default)]
+    pub deny: Vec<String>,
+}
+
+impl Default for WorkspaceTrustConfig {
+    fn default() -> Self {
+        Self {
+            allow: default_trusted_workspace_roots(),
+            deny: Vec::new(),
+        }
+    }
+}
+
+fn default_trusted_workspace_roots() -> Vec<String> {
+    vec![".".to_string()]
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
@@ -172,6 +198,11 @@ fn write_default_config(path: &std::path::Path) {
       "git branch *"
     ],
     "ask": [],
+    "deny": []
+  },
+
+  "trust": {
+    "allow": ["."],
     "deny": []
   },
 

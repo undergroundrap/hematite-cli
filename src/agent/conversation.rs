@@ -234,6 +234,7 @@ enum DirectAnswerKind {
     LanguageCapability,
     SessionMemory,
     RecoveryRecipes,
+    AuthorizationPolicy,
     SessionResetSemantics,
     ProductSurface,
     ReasoningSplit,
@@ -432,6 +433,19 @@ fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Query
         )
     {
         Some(DirectAnswerKind::RecoveryRecipes)
+    } else if contains_any(
+        &lower,
+        &[
+            "allowed, denied, or require approval",
+            "allowed denied or require approval",
+            "allow, ask, or deny",
+            "tool call should be allowed",
+            "authorization logic",
+            "workspace trust",
+            "trust-allowlisted",
+        ],
+    ) {
+        Some(DirectAnswerKind::AuthorizationPolicy)
     } else if (lower.contains("other coding languages")
         || lower.contains("what languages")
         || lower.contains("know other languages"))
@@ -534,6 +548,10 @@ fn build_session_memory_answer() -> String {
 
 fn build_recovery_recipes_answer() -> String {
     "Hematite now treats recovery as typed runtime policy rather than loose prose.\n\nWhen a turn degrades or hits a blocker, it maps the situation to a named recovery scenario and a compact recipe of next steps. Typical recipes include `retry_once` for degraded or empty provider turns, `refresh_runtime_profile -> reduce_prompt_budget -> compact_history -> narrow_request` for context-window failures, `use_builtin_workspace_tools` for blocked MCP workspace reads, and `inspect_target_file` or `inspect_exact_line_window` for proof-before-edit blockers.\n\nThose recovery recipes are surfaced to the operator as compact runtime state, recorded in the session ledger, and kept distinct from the final user-facing error message. The point is to make Hematite's next move explicit instead of hiding it inside ad hoc retry code or long diagnostics.".to_string()
+}
+
+fn build_authorization_policy_answer() -> String {
+    "Hematite routes authorization through one typed runtime decision: allow, ask, or deny.\n\nThat decision is shaped by several inputs in order: permission mode, workspace trust state, MCP default approval, safe-path write bypasses, shell rules from `.hematite/settings.json`, and shell risk classification. In practice that means a tool call can be denied because the workflow is read-only, asked because the workspace is not trust-allowlisted or the command is risky, or allowed because it is inside a trusted workspace and passes the normal policy checks.\n\nWorkspace trust is part of that policy now. A trusted repo root can continue through normal approval logic, an unknown root can require approval for destructive or external actions, and a denied root can block them outright. The goal is to keep repo safety explicit instead of hiding it inside scattered heuristics.".to_string()
 }
 
 fn build_session_reset_semantics_answer() -> String {
@@ -2752,6 +2770,12 @@ impl ConversationManager {
                 }
                 DirectAnswerKind::RecoveryRecipes => {
                     let response = build_recovery_recipes_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::AuthorizationPolicy => {
+                    let response = build_authorization_policy_answer();
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
                         .await;
                     return Ok(());

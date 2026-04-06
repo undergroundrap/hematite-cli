@@ -364,6 +364,8 @@ If LM Studio rejects a turn with a live context-budget mismatch such as `n_keep 
 
 Tool authorization is now routed through a typed enforcement layer instead of a loose mix of config checks and ad hoc approval heuristics. That means shell rule overrides, MCP approval defaults, safe-path write bypasses, read-only denials, and shell risk classification all converge into one explicit runtime decision: allow, ask, or deny, each with a concrete source and reason.
 
+Workspace trust is now part of that same runtime policy. Hematite resolves the current repo root as trusted, unknown, or denied instead of assuming every workspace deserves the same destructive-tool posture. A trusted workspace continues through normal policy checks, an unknown workspace can require approval for destructive or external actions, and a denied workspace can block them outright.
+
 Stable operator-help and product-truth questions now route through a small intent classifier instead of a long stack of unrelated prompt gates. In practice that means Hematite is less dependent on one exact wording when deciding whether a question is asking for stable product truth, runtime diagnosis, toolchain guidance, or repository architecture.
 
 Session carry-over is also more explicit now. Hematite no longer preserves only the active task and working-set hints; it also carries typed session ledger entries for the latest checkpoint, latest blocker, latest recovery step, latest verification result, and latest compaction pass. That gives local-model sessions a better recovery spine after compaction instead of relying only on loose transcript residue.
@@ -450,6 +452,10 @@ Hematite reads `.hematite/settings.json` from your project root:
 ```json
 {
   "mode": "developer",
+  "trust": {
+    "allow": ["."],
+    "deny": []
+  },
   "context_hint": "This is a Rust project using Axum and SQLx.",
   "fast_model": "gemma-4-9b",
   "think_model": "gemma-4-27b",
@@ -472,9 +478,13 @@ Hematite reads `.hematite/settings.json` from your project root:
 
 Permission modes: `read-only`, `developer`, `system-admin`
 
+Workspace trust roots: `trust.allow` and `trust.deny`
+
 `verify_build` prefers these per-project profiles for `build`, `test`, `lint`, and `fix`. If no profile is configured, Hematite falls back to stack-aware defaults where it can and tells you when a profile is needed for a less-standard action.
 
 For Gemma 4 models, `gemma_native_auto: true` lets Hematite switch into the safer native-formatting path automatically at startup. Use `gemma_native_formatting: true` only when you want to force that path on explicitly, and use `/gemma-native off` if you need to disable it for troubleshooting.
+
+By default, Hematite trusts the current workspace root (`"."`) for normal destructive-tool posture. You can add extra allowlisted roots or explicitly denied roots in `.hematite/settings.json` when you want workspace trust to be broader or stricter.
 
 ---
 
