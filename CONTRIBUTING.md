@@ -33,6 +33,8 @@ Requirements:
 - `src/memory/`: local retrieval and session memory systems
 - `libs/kokoros/`: vendored voice synthesis library
 
+For the current module boundaries inside `src/agent/`, read [docs/ARCHITECTURE.md](/c:/Users/ocean/AntigravityProjects/Hematite-CLI/docs/ARCHITECTURE.md).
+
 ## Adding a New Tool
 
 1. Add the implementation under `src/tools/`.
