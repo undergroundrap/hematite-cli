@@ -287,8 +287,18 @@ impl App {
                     Span::styled(label, style),
                 ];
                 // Render inline markdown for Hematite responses; plain text for others.
+                // Code fence lines (``` or ```rust etc.) are rendered as plain dim text
+                // rather than passed through inline_markdown_core, which would misparse
+                // the backticks as inline code spans and garble the layout.
                 if speaker == "Hematite" {
-                    spans.extend(inline_markdown_core(raw_line));
+                    if raw_line.trim_start().starts_with("```") {
+                        spans.push(Span::styled(
+                            raw_line.to_string(),
+                            Style::default().fg(Color::DarkGray),
+                        ));
+                    } else {
+                        spans.extend(inline_markdown_core(raw_line));
+                    }
                 } else {
                     spans.push(Span::raw(raw_line.to_string()));
                 }

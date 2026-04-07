@@ -2333,7 +2333,9 @@ impl ConversationManager {
                     let repeat_count = repeat_counts.entry(call_key.clone()).or_insert(0);
                     *repeat_count += 1;
 
-                    if *repeat_count >= 3 {
+                    // verify_build is legitimately called multiple times in fix-verify loops.
+                    let repeat_guard_exempt = matches!(tool_name.as_str(), "verify_build" | "git_commit" | "git_push");
+                    if *repeat_count >= 3 && !repeat_guard_exempt {
                         loop_intervention = Some(format!(
                             "STOP. You have called `{}` with identical arguments {} times and keep getting the same result. \
                              Do not call it again. Either answer directly from what you already know, \

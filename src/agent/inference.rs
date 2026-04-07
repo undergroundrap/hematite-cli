@@ -2051,6 +2051,8 @@ fn strip_xml_tool_call_artifacts(text: &str) -> String {
         "</arguments>", "<arguments>",
         "</tool_use>",  "<tool_use>",
         "</invoke>",    "<invoke>",
+        // Stray think/reasoning closing tags that leak after block extraction.
+        "</think>", "</thought>", "</thinking>",
     ];
     let mut out = text.to_string();
     for tag in XML_ARTIFACTS {
