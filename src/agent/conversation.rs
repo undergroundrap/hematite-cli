@@ -2061,13 +2061,7 @@ impl ConversationManager {
             )
             .map(|s| s.to_string());
 
-        let startup_ui_work_turn =
-            !implement_current_plan && looks_like_startup_ui_copy_request(&effective_user_input);
-        let mut loop_intervention: Option<String> = if startup_ui_work_turn {
-            Some(build_startup_ui_first_step_intervention())
-        } else {
-            None
-        };
+        let mut loop_intervention: Option<String> = None;
         let mut implementation_started = false;
         let mut non_mutating_plan_steps = 0usize;
         let non_mutating_plan_soft_cap = 5usize;
@@ -2097,9 +2091,6 @@ impl ConversationManager {
             std::collections::HashSet::new();
         let mut broad_grep_targets: std::collections::HashSet<String> =
             std::collections::HashSet::new();
-        let mut startup_ui_anchor_miss_targets: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
-        let mut startup_ui_lane_failures = 0usize;
 
         // Track the index of the message that started THIS turn, so compaction doesn't summarize it.
         let mut turn_anchor = self.history.len().saturating_sub(1);
@@ -2258,35 +2249,6 @@ impl ConversationManager {
                 .as_ref()
                 .map(|u| u.prompt_tokens >= (self.engine.current_context_length() * 82 / 100))
                 .unwrap_or(false);
-            let startup_ui_state = if startup_ui_work_turn {
-                let state = self.action_grounding.lock().await;
-                let locked_owner = state
-                    .observed_paths
-                    .iter()
-                    .filter(|(path, turn)| {
-                        state.turn_index.saturating_sub(**turn) <= 3
-                            && is_startup_ui_owner_path(path.as_str())
-                    })
-                    .max_by_key(|(_, turn)| **turn)
-                    .map(|(path, _)| path.clone());
-                let exact_window_known = locked_owner
-                    .as_ref()
-                    .map(|path| {
-                        state
-                            .inspected_paths
-                            .get(path)
-                            .map(|turn| state.turn_index.saturating_sub(*turn) <= 3)
-                            .unwrap_or(false)
-                    })
-                    .unwrap_or(false);
-                Some(StartupUiWorkflowState {
-                    locked_owner,
-                    exact_window_known,
-                    code_changed_since_verify: state.code_changed_since_verify,
-                })
-            } else {
-                None
-            };
 
             if let Some(calls) = tool_calls {
                 let (calls, prune_trace_note) =
@@ -2310,29 +2272,10 @@ impl ConversationManager {
                     let _ = tx.send(InferenceEvent::Thought(note)).await;
                 }
 
-                let calls = if let Some(state) = startup_ui_state.as_ref() {
-                    let (selected_calls, note, intervention) =
-                        select_startup_ui_tool_batch(
-                            calls,
-                            state,
-                            &successful_read_targets,
-                            &successful_grep_targets,
-                            &no_match_grep_targets,
-                            &broad_grep_targets,
-                            &startup_ui_anchor_miss_targets,
-                            startup_ui_lane_failures,
-                        );
-                    if let Some(note) = note {
-                        let _ = tx.send(InferenceEvent::Thought(note)).await;
-                    }
-                    if let Some(intervention) = intervention {
-                        loop_intervention = Some(intervention);
-                        continue;
-                    }
-                    selected_calls
-                } else {
-                    calls
-                };
+                let (calls, batch_note) = order_batch_reads_first(calls);
+                if let Some(note) = batch_note {
+                    let _ = tx.send(InferenceEvent::Thought(note)).await;
+                }
 
                 if let Some(repeated_path) = calls
                     .iter()
@@ -2365,23 +2308,10 @@ impl ConversationManager {
                     .filter_map(|c| repeated_read_target(&c.function))
                     .find(|path| successful_read_targets.contains(path))
                 {
-                    loop_intervention = Some(if startup_ui_work_turn
-                        && startup_ui_state
-                            .as_ref()
-                            .and_then(|state| state.locked_owner.as_deref())
-                            .map(|owner| owner == repeated_path)
-                            .unwrap_or(false)
-                    {
-                        format!(
-                            "STOP. Already read `{}`. Call `inspect_lines` on the banner region next, then edit.",
-                            repeated_path
-                        )
-                    } else {
-                        format!(
-                            "STOP. Already read `{}` this turn. Use `inspect_lines` on the relevant window or a specific `grep_files`, then continue.",
-                            repeated_path
-                        )
-                    });
+                    loop_intervention = Some(format!(
+                        "STOP. Already read `{}` this turn. Use `inspect_lines` on the relevant window or a specific `grep_files`, then continue.",
+                        repeated_path
+                    ));
                     let _ = tx
                         .send(InferenceEvent::Thought(
                             "Read discipline: preventing repeated full-file reads on the same path."
@@ -2485,33 +2415,11 @@ impl ConversationManager {
                     String,
                 )> = None;
                 let mut reset_inspection_evidence = false;
-                let startup_ui_work = self
-                    .latest_user_prompt()
-                    .map(looks_like_startup_ui_copy_request)
-                    .unwrap_or(false);
                 for res in results {
                     let call_id = res.call_id.clone();
                     let tool_name = res.tool_name.clone();
                     let final_output = res.output.clone();
                     let is_error = res.is_error;
-                    let startup_ui_recoverable_block = startup_ui_work
-                        && res.blocked_by_policy
-                        && (matches!(
-                            tool_name.as_str(),
-                            "map_project"
-                                | "auto_pin_context"
-                                | "verify_build"
-                                | "grep_files"
-                                | "read_file"
-                                | "inspect_lines"
-                                | "lsp_get_diagnostics"
-                                | "lsp_hover"
-                                | "lsp_definitions"
-                                | "lsp_references"
-                                | "lsp_search_symbol"
-                        ) || final_output.contains("startup/UI copy")
-                            || final_output.contains("startup or splash UI copy"));
-
                     for msg in res.msg_results {
                         self.history.push(msg);
                     }
@@ -2549,11 +2457,7 @@ impl ConversationManager {
                     *repeat_count += 1;
 
                     if is_error {
-                        if startup_ui_recoverable_block {
-                            consecutive_errors = 0;
-                        } else {
-                            consecutive_errors += 1;
-                        }
+                        consecutive_errors += 1;
                     } else {
                         consecutive_errors = 0;
                     }
@@ -2592,11 +2496,6 @@ impl ConversationManager {
                     );
                     let capped = if implement_current_plan {
                         cap_output(&final_output, 1200)
-                    } else if startup_ui_work_turn
-                        && tool_name == "grep_files"
-                        && grep_output_is_high_fanout(&final_output)
-                    {
-                        summarize_startup_ui_grep_output_for_history(&final_output)
                     } else if tool_name == "map_project"
                         && self.workflow_mode == WorkflowMode::Architect
                     {
@@ -2668,40 +2567,6 @@ impl ConversationManager {
                                 .unwrap_or(0);
                             successful_read_targets.insert(normalized.clone());
                             successful_read_regions.insert((normalized.clone(), read_offset));
-
-                            if startup_ui_work_turn {
-                                let offset = read_offset;
-                                let limit = res
-                                    .args
-                                    .get("limit")
-                                    .and_then(|v| v.as_u64())
-                                    .unwrap_or(u64::MAX);
-                                // Parse "lines X-Y of Z" from tool output to detect shallow reads
-                                let total_lines = final_output
-                                    .split_once(" of ")
-                                    .and_then(|(_, rest)| rest.split(']').next())
-                                    .and_then(|s| s.trim().parse::<u64>().ok());
-                                if let Some(total) = total_lines {
-                                    let read_end = offset + limit;
-                                    // Deep read: covered the bottom quarter of the file.
-                                    // Treat this as a window inspection so the edit gate opens.
-                                    if total >= 200 && offset >= total * 3 / 4 {
-                                        self.record_line_inspection(path).await;
-                                    } else if loop_intervention.is_none() && total >= 200 && read_end < total / 5 {
-                                        // Shallow read: covered less than 20% — redirect to the splash region.
-                                        loop_intervention = Some(format!(
-                                            "STOP. `read_file` on `{}` covered lines {}-{} of {} — too shallow. \
-                                             Use `inspect_lines` with start_line around {} (splash renderers are near the end of UI files).",
-                                            path,
-                                            offset + 1,
-                                            read_end.min(total),
-                                            total,
-                                            total.saturating_sub(200),
-                                        ));
-                                        *repeat_count = 0;
-                                    }
-                                }
-                            }
                         }
                     }
 
@@ -2721,39 +2586,13 @@ impl ConversationManager {
                         reset_inspection_evidence = true;
                     }
 
-                    if !is_error && tool_name == "inspect_lines" {
-                        if let Some(path) = res.args.get("path").and_then(|v| v.as_str()) {
-                            startup_ui_anchor_miss_targets
-                                .remove(&normalize_workspace_path(path));
-                        }
-                        if startup_ui_work {
-                            startup_ui_lane_failures = 0;
-                        }
-                    }
-
                     if !is_error && tool_name == "grep_files" {
                         if let Some(path) = res.args.get("path").and_then(|v| v.as_str()) {
                             let normalized = normalize_workspace_path(path);
                             if final_output.starts_with("No matches for ") {
                                 no_match_grep_targets.insert(normalized);
-                                startup_ui_lane_failures = startup_ui_lane_failures.saturating_add(1);
-                                if startup_ui_work && loop_intervention.is_none() {
-                                    loop_intervention = Some(format!(
-                                        "STOP. `grep_files` on `{}` returned no matches. Do not keep guessing patterns. Use `inspect_lines` to page through the file and find the banner text visually, then edit.",
-                                        path
-                                    ));
-                                    *repeat_count = 0;
-                                }
                             } else if grep_output_is_high_fanout(&final_output) {
                                 broad_grep_targets.insert(normalized);
-                                startup_ui_lane_failures = startup_ui_lane_failures.saturating_add(1);
-                                if startup_ui_work && loop_intervention.is_none() {
-                                    loop_intervention = Some(format!(
-                                        "STOP. `grep_files` on `{}` returned too many matches. Use `inspect_lines` on the banner region next, then edit.",
-                                        path
-                                    ));
-                                    *repeat_count = 0;
-                                }
                             } else {
                                 successful_grep_targets.insert(normalized);
                             }
@@ -2767,8 +2606,6 @@ impl ConversationManager {
                             || final_output.contains("search string matched"))
                     {
                         if let Some(target) = action_target_path(&tool_name, &res.args) {
-                            startup_ui_anchor_miss_targets.insert(target.clone());
-                            startup_ui_lane_failures = startup_ui_lane_failures.saturating_add(1);
                             let guidance = if final_output.contains("matched") {
                                 format!(
                                     "STOP. `{}` on `{}` — search string matched multiple times. Use `inspect_lines` on the exact region to get a unique anchor, then retry.",
@@ -2861,84 +2698,11 @@ impl ConversationManager {
                             OperatorCheckpointState::BlockedExactLineWindow,
                             format!("Edit blocked on `{target}`; exact line window required."),
                         ));
-                    } else if res.blocked_by_policy
-                        && startup_ui_work
-                        && startup_ui_recoverable_block
-                        && recoverable_policy_intervention.is_none()
-                    {
-                        let locked_owner = {
-                            let state = self.action_grounding.lock().await;
-                            state
-                                .observed_paths
-                                .iter()
-                                .filter(|(path, turn)| {
-                                    state.turn_index.saturating_sub(**turn) <= 3
-                                        && is_startup_ui_owner_path(path.as_str())
-                                })
-                                .max_by_key(|(_, turn)| **turn)
-                                .map(|(path, _)| path.clone())
-                        };
-                        let owners = startup_ui_owner_paths()
-                            .into_iter()
-                            .map(|p| format!("`{}`", p))
-                            .collect::<Vec<_>>()
-                            .join(", ");
-                        let owner_guidance = if let Some(owner) = locked_owner.as_deref() {
-                            format!(
-                                "You already have a likely owner file: `{}`. Stay on that file.",
-                                owner
-                            )
-                        } else if owners.is_empty() {
-                            "Inspect one likely UI or front-end owner file first.".to_string()
-                        } else {
-                            format!(
-                                "Inspect one likely UI or front-end owner file first with built-in tools only: {}.",
-                                owners
-                            )
-                        };
-                        recoverable_policy_intervention = Some(format!(
-                            "STOP. Startup/UI copy task. {} Read the owner file with `read_file` or `inspect_lines`, make one edit, then run `verify_build`.",
-                            owner_guidance
-                        ));
-                        recoverable_policy_recipe =
-                            Some(RecoveryScenario::RecentFileEvidenceMissing);
-                        recoverable_policy_checkpoint = Some((
-                            OperatorCheckpointState::BlockedPolicy,
-                            format!("Startup UI task rerouted after blocked `{}`.", tool_name),
-                        ));
-                        *repeat_count = 0;
-                    } else if res.blocked_by_policy
-                        && final_output.contains("startup/UI copy work")
-                        && recoverable_policy_intervention.is_none()
-                    {
-                        let owners = startup_ui_owner_paths()
-                            .into_iter()
-                            .map(|p| format!("`{}`", p))
-                            .collect::<Vec<_>>()
-                            .join(", ");
-                        let owner_guidance = if owners.is_empty() {
-                            "Inspect the repo's likely UI or front-end surface files first.".to_string()
-                        } else {
-                            format!(
-                                "Inspect the likely UI or front-end owner files first with built-in tools only: {}.",
-                                owners
-                            )
-                        };
-                        recoverable_policy_intervention = Some(format!(
-                            "STOP. Startup/UI copy task. {} Read the owner file with `read_file` or `inspect_lines`, make one focused edit, then run `verify_build`.",
-                            owner_guidance
-                        ));
-                        recoverable_policy_recipe =
-                            Some(RecoveryScenario::RecentFileEvidenceMissing);
-                        recoverable_policy_checkpoint = Some((
-                            OperatorCheckpointState::BlockedPolicy,
-                            "Startup UI edit blocked pending owner-file discovery.".to_string(),
-                        ));
                     } else if res.blocked_by_policy && blocked_policy_output.is_none() {
                         blocked_policy_output = Some(final_output.clone());
                     }
 
-                    if *repeat_count >= 5 && !startup_ui_recoverable_block {
+                    if *repeat_count >= 5 {
                         let _ = tx.send(InferenceEvent::Done).await;
                         return Ok(());
                     }
@@ -4451,301 +4215,38 @@ fn repeated_read_target(call: &crate::agent::inference::ToolCallFn) -> Option<St
     Some(normalize_workspace_path(path))
 }
 
-#[derive(Clone, Debug)]
-struct StartupUiWorkflowState {
-    locked_owner: Option<String>,
-    exact_window_known: bool,
-    code_changed_since_verify: bool,
-}
 
-fn tool_call_path(call: &crate::agent::inference::ToolCallResponse) -> Option<String> {
-    let normalized_arguments = crate::agent::inference::normalize_tool_argument_string(
-        &call.function.name,
-        &call.function.arguments,
-    );
-    let args: Value = serde_json::from_str(&normalized_arguments).ok()?;
-    tool_path_argument(&call.function.name, &args)
-}
 
-fn startup_ui_step_label(call: &crate::agent::inference::ToolCallResponse) -> &'static str {
-    match call.function.name.as_str() {
-        "read_file" => "owner-file inspection",
-        "inspect_lines" => "local line-window inspection",
-        "grep_files" => "path-scoped banner search",
-        "edit_file" | "patch_hunk" | "multi_search_replace" => "focused UI-copy edit",
-        "verify_build" => "post-edit verification",
-        _ => "focused startup/UI step",
-    }
-}
-
-fn select_startup_ui_tool_batch(
+fn order_batch_reads_first(
     calls: Vec<crate::agent::inference::ToolCallResponse>,
-    state: &StartupUiWorkflowState,
-    successful_read_targets: &std::collections::HashSet<String>,
-    successful_grep_targets: &std::collections::HashSet<String>,
-    no_match_grep_targets: &std::collections::HashSet<String>,
-    broad_grep_targets: &std::collections::HashSet<String>,
-    anchor_miss_targets: &std::collections::HashSet<String>,
-    lane_failures: usize,
-) -> (
-    Vec<crate::agent::inference::ToolCallResponse>,
-    Option<String>,
-    Option<String>,
-) {
-    let owner_candidates = startup_ui_owner_paths();
-    let owner = state.locked_owner.as_deref();
-    let owner_read = owner
-        .map(|path| successful_read_targets.contains(path))
-        .unwrap_or(false);
-    let owner_greped = owner
-        .map(|path| successful_grep_targets.contains(path))
-        .unwrap_or(false);
-    let owner_grep_no_match = owner
-        .map(|path| no_match_grep_targets.contains(path))
-        .unwrap_or(false);
-    let owner_grep_broad = owner
-        .map(|path| broad_grep_targets.contains(path))
-        .unwrap_or(false);
-    let owner_anchor_miss = owner
-        .map(|path| anchor_miss_targets.contains(path))
-        .unwrap_or(false);
-    let hard_clamp = lane_failures >= 2;
-
-    let select = |predicate: &dyn Fn(&crate::agent::inference::ToolCallResponse) -> bool| {
-        calls.iter().find(|call| predicate(call)).cloned()
-    };
-
-    let choose_single = |call: crate::agent::inference::ToolCallResponse| {
-        let note = if calls.len() > 1 {
-            Some(format!(
-                "Startup/UI workflow: keeping one {} and dropping broader tool calls.",
-                startup_ui_step_label(&call)
-            ))
-        } else {
-            None
-        };
-        (vec![call], note, None)
-    };
-
-    if state.code_changed_since_verify {
-        if let Some(call) = select(&|call| call.function.name == "verify_build") {
-            return choose_single(call);
-        }
-        return (
-            Vec::new(),
-            None,
-            Some(
-                "STOP. The startup/UI copy edit is already done. Run `verify_build` now and do not inspect more files first."
-                    .to_string(),
-            ),
-        );
-    }
-
-    if let Some(owner) = owner {
-        if hard_clamp {
-            if state.code_changed_since_verify {
-                if let Some(call) = select(&|call| {
-                    call.function.name == "verify_build"
-                }) {
-                    return choose_single(call);
-                }
-                return (
-                    Vec::new(),
-                    None,
-                    Some(format!(
-                        "STOP. Startup/UI recovery is now in hard-clamp mode on `{}`. Run `verify_build` now and do not inspect or switch files first.",
-                        owner
-                    )),
-                );
-            }
-            if let Some(call) = select(&|call| {
-                call.function.name == "inspect_lines"
-                    && tool_call_path(call).as_deref() == Some(owner)
-            }) {
-                return choose_single(call);
-            }
-            if state.exact_window_known {
-                if let Some(call) = select(&|call| {
-                    matches!(
-                        call.function.name.as_str(),
-                        "edit_file" | "patch_hunk" | "multi_search_replace"
-                    ) && tool_call_path(call).as_deref() == Some(owner)
-                }) {
-                    return choose_single(call);
-                }
-            }
-            return (
-                Vec::new(),
-                None,
-                Some(format!(
-                    "STOP. Hard-clamp on `{}`. Only allowed: `inspect_lines` on that file, one mutation, then `verify_build`.",
-                    owner
-                )),
-            );
-        }
-
-        if state.exact_window_known {
-            if owner_anchor_miss {
-                if let Some(call) = select(&|call| {
-                    call.function.name == "inspect_lines"
-                        && tool_call_path(call).as_deref() == Some(owner)
-                }) {
-                    return choose_single(call);
-                }
-                return (
-                    Vec::new(),
-                    None,
-                    Some(format!(
-                        "STOP. The previous edit anchor on `{}` missed. Refresh the exact local banner window with `inspect_lines` now, then retry with one focused mutation.",
-                        owner
-                    )),
-                );
-            }
-            if let Some(call) = select(&|call| {
-                matches!(
-                    call.function.name.as_str(),
-                    "edit_file" | "patch_hunk" | "multi_search_replace"
-                ) && tool_call_path(call).as_deref() == Some(owner)
-            }) {
-                return choose_single(call);
-            }
-            if let Some(call) = select(&|call| {
-                call.function.name == "inspect_lines" && tool_call_path(call).as_deref() == Some(owner)
-            }) {
-                return choose_single(call);
-            }
-            return (
-                Vec::new(),
-                None,
-                Some(format!(
-                    "STOP. You already have the startup/UI owner file and an inspected local window: `{}`. Make one focused edit there next, then run `verify_build`.",
-                    owner
-                )),
-            );
-        }
-
-        if owner_read {
-            if let Some(call) = select(&|call| {
-                call.function.name == "inspect_lines" && tool_call_path(call).as_deref() == Some(owner)
-            }) {
-                return choose_single(call);
-            }
-            if !owner_greped && !owner_grep_no_match && !owner_grep_broad {
-                if let Some(call) = select(&|call| {
-                    call.function.name == "grep_files" && tool_call_path(call).as_deref() == Some(owner)
-                }) {
-                    return choose_single(call);
-                }
-            }
-            let guessed_mutation = select(&|call| {
-                matches!(
-                    call.function.name.as_str(),
-                    "edit_file" | "patch_hunk" | "multi_search_replace"
-                ) && tool_call_path(call).as_deref() == Some(owner)
-            })
-            .is_some();
-            return (
-                Vec::new(),
-                None,
-                Some(if guessed_mutation {
-                    format!(
-                        "STOP. Do not mutate `{}` yet. Startup/UI copy work needs an exact inspected window first. Use `inspect_lines` on the local banner block next, then make one focused edit, then run `verify_build`.",
-                        owner
-                    )
-                } else if owner_grep_broad {
-                    format!(
-                        "STOP. The last path-scoped `grep_files` on `{}` returned too many matches. Do not grep it again. Use `inspect_lines` on the likely banner block next, then make one focused edit.",
-                        owner
-                    )
-                } else if owner_grep_no_match {
-                    format!(
-                        "STOP. The last path-scoped `grep_files` on `{}` returned no matches. Do not keep guessing patterns. Use `inspect_lines` on the likely banner block next, then make one focused edit.",
-                        owner
-                    )
-                } else if owner_greped {
-                    format!(
-                        "STOP. You already identified, read, and searched the startup/UI owner file: `{}`. Do not run `grep_files` on it again. Use `inspect_lines` on the matching local window next, then make one focused edit.",
-                        owner
-                    )
-                } else {
-                    format!(
-                        "STOP. You already identified and read the startup/UI owner file: `{}`. Do not read it again. Narrow to the exact banner text with `inspect_lines` or one path-scoped `grep_files`, then edit.",
-                        owner
-                    )
-                }),
-            );
-        }
-
-        if let Some(call) = select(&|call| {
-            call.function.name == "read_file" && tool_call_path(call).as_deref() == Some(owner)
-        }) {
-            return choose_single(call);
-        }
-        if let Some(call) = select(&|call| {
-            call.function.name == "inspect_lines" && tool_call_path(call).as_deref() == Some(owner)
-        }) {
-            return choose_single(call);
-        }
-        if let Some(call) = select(&|call| {
-            call.function.name == "grep_files" && tool_call_path(call).as_deref() == Some(owner)
-        }) {
-            return choose_single(call);
-        }
-        return (
-            Vec::new(),
-            None,
-            Some(format!(
-                "STOP. Stay on the startup/UI owner file `{}`. Inspect that file first with `read_file` or `inspect_lines`, then edit.",
-                owner
-            )),
-        );
-    }
-
-    // Allow any read/inspect/grep through — the model may legitimately need to
-    // read a file that isn't in the scored owner candidate list (e.g. runtime.rs).
-    // Only hard-veto mutation without prior evidence; reads always accumulate context.
-    if let Some(call) = select(&|call| {
+) -> (Vec<crate::agent::inference::ToolCallResponse>, Option<String>) {
+    let has_reads = calls.iter().any(|c| {
         matches!(
-            call.function.name.as_str(),
-            "read_file" | "inspect_lines" | "grep_files"
+            c.function.name.as_str(),
+            "read_file" | "inspect_lines" | "grep_files" | "list_files"
         )
-    }) {
-        return choose_single(call);
+    });
+    let has_edits = calls.iter().any(|c| {
+        matches!(
+            c.function.name.as_str(),
+            "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace"
+        )
+    });
+    if has_reads && has_edits {
+        let reads: Vec<_> = calls
+            .into_iter()
+            .filter(|c| {
+                !matches!(
+                    c.function.name.as_str(),
+                    "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace"
+                )
+            })
+            .collect();
+        let note = Some("Batch ordering: deferring edits until reads complete.".to_string());
+        (reads, note)
+    } else {
+        (calls, None)
     }
-
-    let guidance = if owner_candidates.is_empty() {
-        "Pick one likely UI or front-end owner file and inspect it first.".to_string()
-    } else {
-        format!(
-            "Pick one likely UI or front-end owner file and inspect it first: {}.",
-            owner_candidates
-                .into_iter()
-                .map(|path| format!("`{}`", path))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    };
-    (Vec::new(), None, Some(format!("STOP. {}", guidance)))
-}
-
-fn build_startup_ui_first_step_intervention() -> String {
-    let owner_candidates = startup_ui_owner_paths();
-    let owner_guidance = if owner_candidates.is_empty() {
-        "Pick one likely UI or front-end owner file first.".to_string()
-    } else {
-        format!(
-            "Pick exactly one likely UI or front-end owner file first: {}.",
-            owner_candidates
-                .into_iter()
-                .map(|path| format!("`{}`", path))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    };
-    format!(
-        "STARTUP/UI MICRO-WORKFLOW: {} Your first tool call must be `read_file` or `inspect_lines` on that one file. Do not call `map_project`, `auto_pin_context`, broad `grep_files`, LSP diagnostics, or MCP filesystem tools first. After the first inspection, narrow once, make one focused edit, then run `verify_build`.",
-        owner_guidance
-    )
 }
 
 fn grep_output_is_high_fanout(output: &str) -> bool {
@@ -4765,14 +4266,6 @@ fn grep_output_is_high_fanout(output: &str) -> bool {
         .and_then(|value| value.parse::<usize>().ok())
         .unwrap_or(0);
     hunk_count >= 8 || match_count >= 12
-}
-
-fn summarize_startup_ui_grep_output_for_history(output: &str) -> String {
-    let summary = output.lines().next().unwrap_or("grep_files returned matches");
-    format!(
-        "{}\nBroad startup/UI grep result summarized. Do not run `grep_files` on this owner again; use `inspect_lines` on the likely banner block next.",
-        summary
-    )
 }
 
 fn build_system_with_corrections(
@@ -5005,190 +4498,6 @@ mod tests {
         assert_eq!(intent.direct_answer, None);
     }
 
-    #[test]
-    fn startup_ui_selector_blocks_mutation_before_exact_window() {
-        let owner = normalize_workspace_path("src/ui/tui.rs");
-        let calls = vec![tool_call(
-            "patch_hunk",
-            r#"{"path":"src/ui/tui.rs","start_line":10,"end_line":25,"replacement":"const BANNER_TEXT: &str = \"...\";"}"#,
-        )];
-        let state = StartupUiWorkflowState {
-            locked_owner: Some(owner.clone()),
-            exact_window_known: false,
-            code_changed_since_verify: false,
-        };
-        let successful_reads = std::collections::HashSet::from([owner.clone()]);
-        let successful_greps = std::collections::HashSet::new();
-
-        let (selected, note, intervention) =
-            select_startup_ui_tool_batch(
-                calls,
-                &state,
-                &successful_reads,
-                &successful_greps,
-                &std::collections::HashSet::new(),
-                &std::collections::HashSet::new(),
-                &std::collections::HashSet::new(),
-                0,
-            );
-
-        assert!(selected.is_empty());
-        assert!(note.is_none());
-        let intervention = intervention.expect("expected startup/UI intervention");
-        assert!(intervention.contains("Do not mutate"));
-        assert!(intervention.contains("inspect_lines"));
-    }
-
-    #[test]
-    fn startup_ui_selector_forces_inspect_lines_after_no_match_grep() {
-        let owner = normalize_workspace_path("src/ui/tui.rs");
-        let calls = vec![tool_call(
-            "grep_files",
-            r#"{"context":3,"extension":"rs","head_limit":1,"mode":"content","path":"src/ui/tui.rs","pattern":"Hematite CLI"}"#,
-        )];
-        let state = StartupUiWorkflowState {
-            locked_owner: Some(owner.clone()),
-            exact_window_known: false,
-            code_changed_since_verify: false,
-        };
-        let successful_reads = std::collections::HashSet::from([owner.clone()]);
-        let successful_greps = std::collections::HashSet::new();
-        let no_match_greps = std::collections::HashSet::from([owner.clone()]);
-
-        let (selected, note, intervention) = select_startup_ui_tool_batch(
-            calls,
-            &state,
-            &successful_reads,
-            &successful_greps,
-            &no_match_greps,
-            &std::collections::HashSet::new(),
-            &std::collections::HashSet::new(),
-            0,
-        );
-
-        assert!(selected.is_empty());
-        assert!(note.is_none());
-        let intervention = intervention.expect("expected startup/UI intervention");
-        assert!(intervention.contains("returned no matches"));
-        assert!(intervention.contains("inspect_lines"));
-    }
-
-    #[test]
-    fn startup_ui_selector_forces_inspect_lines_after_broad_grep() {
-        let owner = normalize_workspace_path("src/ui/tui.rs");
-        let calls = vec![tool_call(
-            "grep_files",
-            r#"{"context":3,"extension":"rs","path":"src/ui/tui.rs","pattern":"Hematite"}"#,
-        )];
-        let state = StartupUiWorkflowState {
-            locked_owner: Some(owner.clone()),
-            exact_window_known: false,
-            code_changed_since_verify: false,
-        };
-        let successful_reads = std::collections::HashSet::from([owner.clone()]);
-        let successful_greps = std::collections::HashSet::new();
-        let broad_greps = std::collections::HashSet::from([owner.clone()]);
-
-        let (selected, note, intervention) = select_startup_ui_tool_batch(
-            calls,
-            &state,
-            &successful_reads,
-            &successful_greps,
-            &std::collections::HashSet::new(),
-            &broad_greps,
-            &std::collections::HashSet::new(),
-            0,
-        );
-
-        assert!(selected.is_empty());
-        assert!(note.is_none());
-        let intervention = intervention.expect("expected startup/UI intervention");
-        assert!(intervention.contains("too many matches"));
-        assert!(intervention.contains("inspect_lines"));
-    }
-
-    #[test]
-    fn summarizes_broad_startup_ui_grep_history() {
-        let raw = "25 match(es) across 1 file(s), 19 hunk(s)\npath:10:Hematite";
-        assert!(grep_output_is_high_fanout(raw));
-        let summarized = summarize_startup_ui_grep_output_for_history(raw);
-        assert!(summarized.contains("25 match(es) across 1 file(s), 19 hunk(s)"));
-        assert!(summarized.contains("Do not run `grep_files` on this owner again"));
-    }
-
-    #[test]
-    fn startup_ui_first_step_intervention_forbids_broad_scoping() {
-        let intervention = build_startup_ui_first_step_intervention();
-        assert!(intervention.contains("first tool call must be `read_file` or `inspect_lines`"));
-        assert!(intervention.contains("Do not call `map_project`"));
-        assert!(intervention.contains("make one focused edit"));
-        assert!(intervention.contains("run `verify_build`"));
-    }
-
-    #[test]
-    fn startup_ui_selector_forces_inspect_lines_after_edit_anchor_miss() {
-        let owner = normalize_workspace_path("src/ui/tui.rs");
-        let calls = vec![tool_call(
-            "edit_file",
-            r#"{"path":"src/ui/tui.rs","search":"wrong anchor","replace":"new text"}"#,
-        )];
-        let state = StartupUiWorkflowState {
-            locked_owner: Some(owner.clone()),
-            exact_window_known: true,
-            code_changed_since_verify: false,
-        };
-        let successful_reads = std::collections::HashSet::from([owner.clone()]);
-        let anchor_misses = std::collections::HashSet::from([owner.clone()]);
-
-        let (selected, note, intervention) = select_startup_ui_tool_batch(
-            calls,
-            &state,
-            &successful_reads,
-            &std::collections::HashSet::new(),
-            &std::collections::HashSet::new(),
-            &std::collections::HashSet::new(),
-            &anchor_misses,
-            0,
-        );
-
-        assert!(selected.is_empty());
-        assert!(note.is_none());
-        let intervention = intervention.expect("expected startup/UI intervention");
-        assert!(intervention.contains("previous edit anchor"));
-        assert!(intervention.contains("inspect_lines"));
-    }
-
-    #[test]
-    fn startup_ui_selector_enters_hard_clamp_after_repeated_failures() {
-        let owner = normalize_workspace_path("src/ui/tui.rs");
-        let calls = vec![tool_call(
-            "grep_files",
-            r#"{"context":3,"extension":"rs","path":"src/ui/tui.rs","pattern":"Welcome"}"#,
-        )];
-        let state = StartupUiWorkflowState {
-            locked_owner: Some(owner.clone()),
-            exact_window_known: false,
-            code_changed_since_verify: false,
-        };
-        let successful_reads = std::collections::HashSet::from([owner.clone()]);
-
-        let (selected, note, intervention) = select_startup_ui_tool_batch(
-            calls,
-            &state,
-            &successful_reads,
-            &std::collections::HashSet::new(),
-            &std::collections::HashSet::new(),
-            &std::collections::HashSet::new(),
-            &std::collections::HashSet::new(),
-            2,
-        );
-
-        assert!(selected.is_empty());
-        assert!(note.is_none());
-        let intervention = intervention.expect("expected hard clamp intervention");
-        assert!(intervention.contains("Hard-clamp") || intervention.contains("hard-clamp"));
-        assert!(intervention.contains("inspect_lines"));
-    }
 
     #[test]
     fn failing_path_parser_extracts_cargo_error_locations() {
