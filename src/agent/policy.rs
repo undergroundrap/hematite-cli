@@ -90,8 +90,6 @@ fn prompt_explicitly_targets_path(prompt: &str) -> bool {
         || lower.contains(".html")
         || lower.contains(".css")
         || lower.contains("main.rs")
-        || lower.contains("tui.rs")
-        || lower.contains("hatch.rs")
 }
 
 fn startup_ui_path_score(normalized_target: &str) -> i32 {
@@ -123,8 +121,6 @@ fn startup_ui_path_score(normalized_target: &str) -> i32 {
         || lower.contains("landing")
         || lower.contains("intro")
         || lower.contains("home")
-        || lower.contains("tui")
-        || lower.contains("hatch")
     {
         score += 4;
     }
