@@ -10,7 +10,7 @@ use crate::agent::recovery_recipes::{
 use crate::agent::policy::{
     action_target_path, is_destructive_tool, is_mcp_mutating_tool, is_mcp_workspace_read_tool,
     is_startup_ui_owner_path,
-    normalize_workspace_path, docs_edit_without_explicit_request,
+    normalize_workspace_path, docs_target_conflicts_with_startup_ui_request,
     looks_like_startup_ui_copy_request, startup_ui_owner_paths,
     startup_ui_target_conflicts_with_owner_discovery, tool_path_argument,
 };
@@ -1161,9 +1161,9 @@ impl ConversationManager {
             if matches!(name, "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace")
             {
                 if let Some(prompt) = self.latest_user_prompt() {
-                    if docs_edit_without_explicit_request(prompt, target) {
+                    if docs_target_conflicts_with_startup_ui_request(prompt, target) {
                         return Err(format!(
-                            "Action blocked: '{}' is a docs file but the current request did not explicitly ask for documentation changes. Finish the code task first. If docs need updating, the user will ask.",
+                            "Action blocked: this request sounds like runtime/UI startup copy, but '{}' is a docs file. Identify the real runtime or TUI owner first before mutating docs. Only edit docs here if the user explicitly asked for documentation text.",
                             target
                         ));
                     }
@@ -1192,42 +1192,16 @@ impl ConversationManager {
             if path_exists {
                 let state = self.action_grounding.lock().await;
                 let pinned = self.pinned_files.lock().await;
-                let pinned_match = pinned
-                    .keys()
-                    .any(|p| normalize_workspace_path(p) == target);
-                drop(pinned);
-
-                // edit_file and multi_search_replace match text exactly, so they need a
-                // tighter evidence bar than a plain read. Require inspect_lines on the
-                // target within the last 3 turns. A read_file in the *same* turn is also
-                // accepted (the model just loaded the file and is making an immediate edit).
-                let needs_exact_window = matches!(name, "edit_file" | "multi_search_replace");
-                let recently_inspected = state
-                    .inspected_paths
-                    .get(target)
-                    .map(|turn| state.turn_index.saturating_sub(*turn) <= 3)
-                    .unwrap_or(false);
-                let same_turn_read = state
-                    .observed_paths
-                    .get(target)
-                    .map(|turn| state.turn_index.saturating_sub(*turn) == 0)
-                    .unwrap_or(false);
                 let recent_observed = state
                     .observed_paths
                     .get(target)
                     .map(|turn| state.turn_index.saturating_sub(*turn) <= 3)
                     .unwrap_or(false);
-
-                if needs_exact_window {
-                    if !recently_inspected && !same_turn_read && !pinned_match {
-                        return Err(format!(
-                            "Action blocked: `{}` on '{}' requires a line-level inspection first. \
-                             Use `inspect_lines` on the target region to get the exact current text \
-                             (whitespace and indentation included), then retry the edit.",
-                            name, target
-                        ));
-                    }
-                } else if !recent_observed && !pinned_match {
+                let pinned_match = pinned
+                    .keys()
+                    .any(|p| normalize_workspace_path(p) == target);
+                drop(pinned);
+                if !recent_observed && !pinned_match {
                     return Err(format!(
                         "Action blocked: `{}` on '{}' requires recent file evidence. Use `read_file` or `inspect_lines` on that path first, or pin the file into active context.",
                         name, target
@@ -2088,9 +2062,6 @@ impl ConversationManager {
             std::collections::HashMap::new();
         let mut successful_read_targets: std::collections::HashSet<String> =
             std::collections::HashSet::new();
-        // (path, offset) pairs — catches repeated reads at the same non-zero offset.
-        let mut successful_read_regions: std::collections::HashSet<(String, u64)> =
-            std::collections::HashSet::new();
         let mut successful_grep_targets: std::collections::HashSet<String> =
             std::collections::HashSet::new();
         let mut no_match_grep_targets: std::collections::HashSet<String> =
@@ -2337,30 +2308,18 @@ impl ConversationManager {
                 if let Some(repeated_path) = calls
                     .iter()
                     .filter(|c| {
-                        let parsed = serde_json::from_str::<Value>(
+                        // Allow through if the offset is materially different — the model is
+                        // targeting a specific region, not blindly re-reading from the top.
+                        let offset = serde_json::from_str::<Value>(
                             &crate::agent::inference::normalize_tool_argument_string(
                                 &c.function.name,
                                 &c.function.arguments,
                             ),
                         )
-                        .ok();
-                        let offset = parsed
-                            .as_ref()
-                            .and_then(|args| args.get("offset").and_then(|v| v.as_u64()))
-                            .unwrap_or(0);
-                        // Catch re-reads from the top of the file (original behaviour)
-                        // AND repeated reads at the exact same non-zero offset.
-                        if offset < 200 {
-                            return true;
-                        }
-                        if let Some(path) = parsed
-                            .as_ref()
-                            .and_then(|args| args.get("path").and_then(|v| v.as_str()))
-                        {
-                            let normalized = normalize_workspace_path(path);
-                            return successful_read_regions.contains(&(normalized, offset));
-                        }
-                        false
+                        .ok()
+                        .and_then(|args| args.get("offset").and_then(|v| v.as_u64()))
+                        .unwrap_or(0);
+                        offset < 200
                     })
                     .filter_map(|c| repeated_read_target(&c.function))
                     .find(|path| successful_read_targets.contains(path))
@@ -2661,13 +2620,7 @@ impl ConversationManager {
                             {
                                 reset_inspection_evidence = true;
                             }
-                            let read_offset = res
-                                .args
-                                .get("offset")
-                                .and_then(|v| v.as_u64())
-                                .unwrap_or(0);
                             successful_read_targets.insert(normalized.clone());
-                            successful_read_regions.insert((normalized.clone(), read_offset));
 
                             if startup_ui_work_turn {
                                 let offset = res
