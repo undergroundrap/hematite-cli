@@ -167,7 +167,7 @@ This is the setup Hematite is actively developed and tested against:
 | Role | Model | Size | VRAM |
 |---|---|---|---|
 | Coding agent | `Qwen/Qwen3.5-9B` (Q4_K_M quant) | ~5–6 GB | primary |
-| Semantic search | `text-embedding-nomic-embed-text-v1.5` | ~270 MB | secondary |
+| Semantic search | `nomic-embed-text-v2` Q8_0 | ~512 MB | secondary |
 
 Load both in LM Studio at the same time. The embedding model stays resident but is idle between turns — it doesn't compete with the coding model during inference.
 
@@ -183,14 +183,14 @@ Load both in LM Studio at the same time. The embedding model stays resident but 
 
 1. Install [LM Studio](https://lmstudio.ai).
 2. Load `Qwen/Qwen3.5-9B` Q4_K_M (or any compatible model) and start the local server on port `1234`.
-3. Optionally load `text-embedding-nomic-embed-text-v1.5` alongside it for semantic file search.
+3. Optionally load `nomic-embed-text-v2` alongside it for semantic file search.
 4. Launch `hematite` inside your project folder.
 
 ### Recommended User Path
 
 1. Install LM Studio.
 2. In LM Studio, download and load your coding model (tested: `Qwen/Qwen3.5-9B` Q4_K_M).
-3. Also load `text-embedding-nomic-embed-text-v1.5` — this enables The Vein's semantic search and costs only ~270 MB VRAM. On a 12 GB card both models fit together.
+3. Also load `nomic-embed-text-v2` — this enables The Vein's semantic search and costs only ~512 MB VRAM. On a 12 GB card both models fit together.
 4. Start the LM Studio local server on port `1234`.
 5. Download a Hematite release bundle, or build from source with `cargo build`.
 6. Launch `hematite` from inside your project folder.
@@ -370,7 +370,7 @@ The Vein is Hematite's retrieval layer. At the start of every turn it re-indexes
 - **BM25 keyword search** (always on) — SQLite FTS5 with Porter stemming. Zero extra GPU cost, works with any LM Studio setup.
 - **Semantic vector search** (optional, better) — Calls LM Studio's `/v1/embeddings` endpoint using `nomic-embed-text-v1.5`. Understands concept-level queries: "what renders the startup screen" finds the right function even if no file uses the word "banner". Vectors are stored in SQLite and reused across sessions so files are only re-embedded when they actually change.
 
-**To enable semantic search:** load `text-embedding-nomic-embed-text-v1.5` in LM Studio alongside your main coding model. On an RTX 4070 the embedding model costs roughly 270 MB VRAM — both fit with room to spare.
+**To enable semantic search:** load `nomic-embed-text-v2` in LM Studio alongside your main coding model. On an RTX 4070 the embedding model costs roughly 270 MB VRAM — both fit with room to spare.
 
 Hybrid results are merged and ranked: semantic hits score higher when the embedding model is available; BM25 fills the gap when it isn't. Results are deduplicated by file path and capped so they don't crowd out the model's working context.
 

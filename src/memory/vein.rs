@@ -183,7 +183,7 @@ impl Vein {
     /// Semantic search: embed the query, cosine-similarity against all stored vectors.
     /// Returns empty if the embedding model isn't loaded.
     pub fn search_semantic(&self, query: &str, limit: usize) -> Vec<SearchResult> {
-        let query_vec = match embed_text_blocking(query) {
+        let query_vec = match embed_query_blocking(query) {
             Some(v) => v,
             None => return Vec::new(),
         };
@@ -372,9 +372,10 @@ impl Vein {
 
 /// Call LM Studio's `/v1/embeddings` endpoint synchronously.
 ///
-/// Uses the model string `"nomic-embed-text-v1.5"` — LM Studio matches loaded
-/// models by substring, so the exact loaded model name doesn't need to match
-/// exactly as long as a compatible embedding model is loaded.
+/// Uses nomic-embed-text-v2 MoE. Nomic v2 requires task instruction prefixes:
+/// - Chunks stored in the index use `"search_document: "` prefix
+/// - Queries at search time use `"search_query: "` prefix
+/// LM Studio matches loaded models by substring so the quant suffix doesn't matter.
 ///
 /// Returns `None` if:
 /// - No embedding model is loaded in LM Studio
@@ -383,8 +384,18 @@ impl Vein {
 ///
 /// Callers must tolerate `None` and fall back to BM25-only search.
 fn embed_text_blocking(text: &str) -> Option<Vec<f32>> {
+    embed_text_with_prefix(text, "search_document")
+}
+
+fn embed_query_blocking(text: &str) -> Option<Vec<f32>> {
+    embed_text_with_prefix(text, "search_query")
+}
+
+fn embed_text_with_prefix(text: &str, task: &str) -> Option<Vec<f32>> {
+    // Nomic v2 task instruction prefix format: "<task>: <text>"
+    let prefixed = format!("{}: {}", task, text);
     // Truncate to ~8000 chars to stay within typical embedding model limits.
-    let text = if text.len() > 8000 { &text[..8000] } else { text };
+    let input = if prefixed.len() > 8000 { &prefixed[..8000] } else { &prefixed };
 
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -392,8 +403,8 @@ fn embed_text_blocking(text: &str) -> Option<Vec<f32>> {
         .ok()?;
 
     let body = serde_json::json!({
-        "model": "nomic-embed-text-v1.5",
-        "input": text
+        "model": "nomic-embed-text-v2",
+        "input": input
     });
 
     let resp = client

@@ -138,11 +138,11 @@ the system prompt so the model starts with the right code already in view, reduc
 - **BM25** (always available) — SQLite FTS5 full-text search with Porter stemming. Fast, zero GPU
   cost, works even when LM Studio has no embedding model loaded.
 - **Semantic** (optional, higher quality) — Calls `/v1/embeddings` on LM Studio to embed each chunk
-  using `nomic-embed-text-v1.5`. Understands synonyms and concept-level matches; finds "what renders
+  using `nomic-embed-text-v2`. Understands synonyms and concept-level matches; finds "what renders
   on startup" even when no file uses the word "banner". Vectors are stored in SQLite so they survive
   restarts without re-embedding.
 
-**To enable semantic search:** load `text-embedding-nomic-embed-text-v1.5` in LM Studio alongside
+**To enable semantic search:** load `text-embedding-nomic-embed-text-v2` in LM Studio alongside
 your main coding model. On an RTX 4070 this costs ~270 MB VRAM — both models fit comfortably.
 
 **How hybrid ranking works:** semantic hits score 1.0–2.0 (preferred), BM25 fills to 0.0–1.0 for
