@@ -612,15 +612,21 @@ Hematite reads `.hematite/settings.json` from your project root:
 
 This overrides the `--url` CLI flag. The value is the `/v1` base path — Hematite appends `/chat/completions`, `/models`, and `/embeddings` automatically.
 
-**`context_hint`** — an optional one-liner injected into the system prompt every turn. Use it to point Hematite at something it would otherwise have to rediscover. Examples:
+**`context_hint`** — an optional string injected into the system prompt every turn. Use it to give Hematite a permanent shortcut to the parts of your project it would otherwise have to rediscover by reading files.
+
+The best hints tell the model **where things live** — large files with non-obvious structure, key entry points, or the pattern it needs to find a specific type of change:
 
 ```json
 "context_hint": "Entry point is src/main.rs. Config loading is in src/config.rs."
-"context_hint": "This is a Next.js 14 app using the App Router. Pages are in src/app/."
+"context_hint": "This is a Next.js 14 app using the App Router. Pages live in src/app/."
 "context_hint": "Database schema is in db/schema.sql. ORM models are in src/models/."
+"context_hint": "UI commands are handled in src/ui/tui.rs around line 950 — grep for '/copy' to find the insertion point."
+"context_hint": "API routes are in src/routes/. Middleware is in src/middleware/auth.rs."
 ```
 
-Keep it short — one or two sentences. It's injected on every turn so it costs tokens each time. Leave it `null` if your project structure is self-evident from the file tree.
+**When it pays off:** large files (500+ lines) where the model would otherwise read top-to-bottom to find a target. One good hint on a big file can save 3-5 wasted read_file calls per turn.
+
+**Keep it short.** It's injected on every turn, so every token here costs on every request. One or two sentences is ideal. Leave it `null` if your project structure is self-evident from the file tree — Hematite's Vein RAG will handle most discovery on its own.
 
 Permission modes: `read-only`, `developer`, `system-admin`
 
