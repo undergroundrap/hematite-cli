@@ -7,7 +7,7 @@ Hematite is a local AI coding harness built in Rust. It runs on your machine, us
 Hematite supports two model protocol paths:
 
 - **Gemma 4 native** — Gemma 4 family models; native tool markup auto-enabled by model name (`gemma_native_auto: true` by default)
-- **Standard OpenAI-compatible** — all other models; plain tool format; tested primary target is Qwen 3.5 9B Q4_K_M
+- **Standard OpenAI-compatible** — all other models; plain tool format; tested primary target is Qwen/Qwen3.5-9B Q4_K_M
 
 ## Build and Run
 

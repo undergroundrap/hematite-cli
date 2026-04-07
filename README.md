@@ -158,9 +158,22 @@ That same pattern can be translated across the tool surface over time. The goal 
 - NVIDIA GPU with 8 GB+ VRAM recommended; 12 GB VRAM is the sweet spot Hematite is most actively shaped around
 - Rust toolchain if building from source
 
-**Recommended models:** Gemma 4 family (native protocol, auto-detected by model name) or any standard OpenAI-compatible model such as Qwen 3.5 9B Q4_K_M. Both paths are tested on RTX 4070-class hardware.
-
 **Primary hardware target:** a single RTX 4070-class GPU on a normal desktop Windows machine. Hematite is engineered around that constraint: limited local VRAM, one active consumer GPU, LM Studio as the serving layer, and open models that need strong tooling and context discipline instead of cloud-scale brute force.
+
+### Tested Model Configuration
+
+This is the setup Hematite is actively developed and tested against:
+
+| Role | Model | Size | VRAM |
+|---|---|---|---|
+| Coding agent | `Qwen/Qwen3.5-9B` (Q4_K_M quant) | ~5–6 GB | primary |
+| Semantic search | `text-embedding-nomic-embed-text-v1.5` | ~270 MB | secondary |
+
+Load both in LM Studio at the same time. The embedding model stays resident but is idle between turns — it doesn't compete with the coding model during inference.
+
+**Why these two?** Qwen/Qwen3.5-9B Q4_K_M completed a full coding workflow (read → inspect → edit → verify → commit) in under 6000 tokens on RTX 4070 hardware. The nomic embedding model is small enough that both fit in 12 GB VRAM with room to spare, and it enables semantic retrieval in The Vein so Hematite can find the right file before the model even asks.
+
+**Gemma 4 is also supported** with a native protocol path (auto-detected by model name). The standard OpenAI-compatible path (Qwen and others) is the primary tested configuration.
 
 ---
 
@@ -169,16 +182,18 @@ That same pattern can be translated across the tool surface over time. The goal 
 ### Fastest Summary
 
 1. Install [LM Studio](https://lmstudio.ai).
-2. Load a Gemma-family model and start the local server on port `1234`.
-3. Launch `hematite` inside your project folder.
-4. Let Hematite handle the local agent layer: tools, editing, repo mapping, verification, TUI, and recovery.
+2. Load `Qwen/Qwen3.5-9B` Q4_K_M (or any compatible model) and start the local server on port `1234`.
+3. Optionally load `text-embedding-nomic-embed-text-v1.5` alongside it for semantic file search.
+4. Launch `hematite` inside your project folder.
 
 ### Recommended User Path
 
 1. Install LM Studio.
-2. Load a model and start the local server on port `1234`.
-3. Download a Hematite release bundle, or build Hematite from source.
-4. Launch `hematite` from inside your project folder.
+2. In LM Studio, download and load your coding model (tested: `Qwen/Qwen3.5-9B` Q4_K_M).
+3. Also load `text-embedding-nomic-embed-text-v1.5` — this enables The Vein's semantic search and costs only ~270 MB VRAM. On a 12 GB card both models fit together.
+4. Start the LM Studio local server on port `1234`.
+5. Download a Hematite release bundle, or build from source with `cargo build`.
+6. Launch `hematite` from inside your project folder.
 
 ### Developer Mode
 
