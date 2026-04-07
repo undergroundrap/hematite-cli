@@ -225,11 +225,12 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     };
 
     let greeting = format!(
-        "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\n{}",
+        "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\n{}",
         manager.engine.current_model(),
         manager.engine.current_context_length(),
         gpu_name,
         vram,
+        manager.engine.base_url,
         embed_status
     );
 
