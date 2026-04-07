@@ -2333,6 +2333,21 @@ impl ConversationManager {
                     let repeat_count = repeat_counts.entry(call_key.clone()).or_insert(0);
                     *repeat_count += 1;
 
+                    if *repeat_count >= 3 {
+                        loop_intervention = Some(format!(
+                            "STOP. You have called `{}` with identical arguments {} times and keep getting the same result. \
+                             Do not call it again. Either answer directly from what you already know, \
+                             use a different tool or approach, or ask the user for clarification.",
+                            tool_name, *repeat_count
+                        ));
+                        let _ = tx
+                            .send(InferenceEvent::Thought(format!(
+                                "Repeat guard: `{}` called {} times with same args — injecting stop intervention.",
+                                tool_name, *repeat_count
+                            )))
+                            .await;
+                    }
+
                     if is_error {
                         consecutive_errors += 1;
                     } else {
