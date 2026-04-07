@@ -11,8 +11,9 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 - Ghost-snapshots every edit so `Ctrl+Z` restores the previous state instantly
 - Indexes your codebase with hybrid BM25 + semantic search so the model starts each turn with the right code already in view
 - Speaks every response through a built-in 54-voice TTS engine — statically linked, zero install, works offline
+- Clean conversational chat mode alongside the full agent mode — terminal-native, no Electron, no browser
 
-`hematite` is not a chat wrapper. It owns the full operator loop: tool execution, file editing, git workflows, retrieval, context compaction, recovery, voice, and runtime orchestration. LM Studio handles model serving. Hematite handles everything else.
+`hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding agent when you need it, clean conversation when you don't. LM Studio handles model serving. Hematite handles everything else.
 
 [![Capabilities](https://img.shields.io/badge/HEM-CAPABILITIES-blueviolet)](CAPABILITIES.md)
 [![Gemma-4](https://img.shields.io/badge/MODEL-GEMMA--4--E4B-blue)](https://hf.co/google/gemma-4-e4b-it)
@@ -56,6 +57,50 @@ Hematite is for developers who want a **local coding CLI that behaves like a ser
 - You want a harness that exposes **runtime truth**: live model context, budget pressure, recovery steps, blocker states, and session carry-forward.
 
 If your goal is cloud-scale autonomous orchestration, Hematite is not trying to win that game. If your goal is the best practical local harness for repo work on consumer hardware, that is exactly the category it is trying to own.
+
+---
+
+## One Binary. No Runtime. No Drama.
+
+Most local AI tools make you pay an installation tax before you get anything useful:
+
+- **AnythingLLM / Jan / Open WebUI** — Electron apps. 200–400 MB installers, a browser engine running in the background, Node.js or Python under the hood. They look like apps because they are apps — with all the RAM overhead and startup lag that comes with it.
+- **Python-based tools** — require a matching Python version, a virtual environment, pip dependencies that break across OS updates, and often a separate CUDA toolkit install.
+- **Docker-wrapped tools** — need Docker Desktop running, eat RAM on idle, and add a layer of indirection between you and your GPU.
+
+Hematite is a single native binary written in Rust.
+
+**What that means for you, even if you've never heard of Rust:**
+
+- **No runtime to install.** Drop the `.exe` in a folder and run it. That's the whole install.
+- **Boots in under a second.** No VM warmup, no Electron splash screen, no Node module loading.
+- **Uses ~30 MB of RAM at idle** instead of 300–600 MB for an Electron app doing the same job.
+- **Won't break on Windows updates.** There's no Python interpreter to conflict, no Node version to mismatch, no DLL hell. The binary carries everything it needs except `DirectML.dll`, which Windows ships by default.
+- **The voice engine is inside the binary.** 311 MB ONNX model, 54 voices, ONNX Runtime 1.24.2 — all compiled in at build time. No model download on first run, no version mismatch, no separate TTS service.
+- **Smaller than most app installers.** The entire Hematite portable — binary + voice model + DirectML — is ~336 MB as a zip. AnythingLLM's installer alone is larger than that.
+
+Rust produces machine code that runs directly on your CPU, the same as C or C++, with no interpreter in between. You get the startup speed of a native app, the memory footprint of a CLI tool, and the reliability of software that can't silently crash a garbage collector mid-turn.
+
+---
+
+## Terminal-Native Chat — Better Than a Browser UI
+
+Hematite runs in your terminal. That's not a limitation — it's a feature.
+
+Tools like AnythingLLM and Jan give you a browser UI because that's the fastest way to ship something that looks polished. But a browser UI means:
+
+- Electron eating 200–500 MB RAM before the model even loads
+- No keyboard-first workflow
+- Copy-paste friction between your editor and the AI
+- A separate window you're constantly Alt-Tabbing to
+
+Hematite lives where your code lives — in the terminal, inside your project folder. You open it, talk to it, and close it. No context switching, no separate app window, no mouse required.
+
+**Agent mode** — full coding harness: reads files, edits with precision, runs builds, recovers from errors, indexes your repo with RAG.
+
+**Chat mode** — clean conversational surface: no tool noise, no agent scaffolding, just a fast response loop with voice. The same Vein RAG runs underneath so the model still knows your codebase.
+
+Both modes. One binary. Voice in both. Switch with a command.
 
 ---
 
