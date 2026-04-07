@@ -106,8 +106,9 @@ Hematite is built for repeated project use, not one-off prompts.
 Hematite includes built-in operator experience features that are part of the product, not bolted on later.
 
 - **Integrated TUI**: dedicated chat, reasoning, status, and input surfaces
-- **Embedded TTS path**: Kokoro-based voice runs locally with background loading
+- **Self-contained TTS**: Kokoro voice engine (311 MB model, 54 voices, ONNX Runtime 1.24.2) is statically linked into the binary — no install, no Python, no system DLL dependency; `Ctrl+T` to toggle, `/voice` to switch voices, speed/volume configurable in `settings.json`
 - **Live diagnostics**: runtime state, GPU load, and tool activity are surfaced during use
+- **Hybrid thinking**: non-Gemma models (Qwen etc.) automatically use `/think` mode so the model decides how much reasoning each turn needs without user intervention
 
 ## 7. MCP Interoperability
 
