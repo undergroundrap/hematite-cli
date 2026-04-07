@@ -373,6 +373,43 @@ impl App {
     }
 
     /// [Auto-Diagnostic] Copy full session transcript to clipboard.
+    pub fn copy_specular_to_clipboard(&self) {
+        let mut out = String::from("=== SPECULAR LOG ===\n\n");
+
+        if !self.last_reasoning.is_empty() {
+            out.push_str("--- Last Reasoning Block ---\n");
+            out.push_str(&self.last_reasoning);
+            out.push_str("\n\n");
+        }
+
+        if !self.current_thought.is_empty() {
+            out.push_str("--- In-Progress Reasoning ---\n");
+            out.push_str(&self.current_thought);
+            out.push_str("\n\n");
+        }
+
+        if !self.specular_logs.is_empty() {
+            out.push_str("--- Specular Events ---\n");
+            for entry in &self.specular_logs {
+                out.push_str(entry);
+                out.push('\n');
+            }
+            out.push('\n');
+        }
+
+        out.push_str(&format!("Tokens: {} | Cost: ${:.4}\n", self.total_tokens, self.current_session_cost));
+
+        let mut child = std::process::Command::new("clip.exe")
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn clip.exe");
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            let _ = stdin.write_all(out.as_bytes());
+        }
+        let _ = child.wait();
+    }
+
     pub fn copy_transcript_to_clipboard(&self) {
         let mut history = self.messages_raw.iter()
             .map(|m| format!("[{}] {}\n", m.0, m.1))
@@ -836,6 +873,12 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/copy2" => {
+                                                app.copy_specular_to_clipboard();
+                                                app.push_message("System", "SPECULAR log copied to clipboard (reasoning + events).");
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/new" => {
                                                 app.messages.clear();
                                                 app.messages_raw.clear();
@@ -1047,6 +1090,8 @@ pub async fn run_app<B: Backend>(
                                                      /worktree <cmd>   — (Isolated) Manage git worktrees (list|add|remove|prune)\n\
                                                      /think            — (Brain) Enable deep reasoning mode\n\
                                                      /no_think         — (Speed) Disable reasoning (3-5x faster responses)\n\
+                                                     /copy             — (Debug) Copy session transcript to clipboard\n\
+                                                     /copy2            — (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
                                                      \nHotkeys:\n\
                                                      Ctrl+B — Toggle Brief Mode (minimal output)\n\
                                                      Ctrl+P — Toggle Professional Mode (strip personality)\n\
@@ -1056,7 +1101,8 @@ pub async fn run_app<B: Backend>(
                                                      Ctrl+Q/C — Quit session\n\
                                                      ESC    — Silence current playback\n\
                                                      \nStatus Legend:\n\
-                                                     LM    â€” LM Studio runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
+                                                     LM    — LM Studio runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
+                                                     VN    — Vein RAG status (`SEM`=semantic active, `FTS`=BM25 only, `--`=not indexed)\n\
                                                      BUD   â€” Total prompt-budget pressure against the live context window\n\
                                                      CMP   â€” History compaction pressure against Hematite's adaptive threshold\n\
                                                      ERR   â€” Session error count (runtime, tool, or SPECULAR failures)\n\
