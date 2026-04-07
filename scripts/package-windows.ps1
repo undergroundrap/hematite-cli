@@ -100,10 +100,14 @@ How to use:
 - Run: hematite
 
 Status bar guide:
-- LM:LIVE (green) = LM Studio connected and live
-- VN:SEM (green) = Vein semantic search active (nomic loaded)
-- VN:FTS (yellow) = Vein keyword search only
-- BUD / CMP = prompt budget and compaction pressure
+- LM:LIVE (green)  = LM Studio connected, coding model loaded and live
+- LM:NONE (red)    = LM Studio running but no coding model loaded
+- LM:BOOT (grey)   = Hematite starting up, detecting model
+- LM:STALE (yellow)= Model detected but connection went quiet
+- VN:SEM (green)   = Vein semantic search active (nomic loaded alongside coding model)
+- VN:FTS (yellow)  = Vein keyword search only (load nomic-embed-text-v2 to upgrade)
+- VN:--  (grey)    = Vein not yet indexed (will populate on first turn)
+- BUD / CMP        = prompt budget and compaction pressure
 
 Installer note:
 - If you used the Windows installer and selected the PATH option, open a fresh terminal after installation.

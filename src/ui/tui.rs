@@ -1412,6 +1412,8 @@ pub async fn run_app<B: Backend>(
                         app.worker_labels.insert(nid, label);
                     }
                     InferenceEvent::RuntimeProfile { model_id, context_length } => {
+                        let was_no_model = app.model_id == "no model loaded";
+                        let now_no_model = model_id == "no model loaded";
                         let changed = app.model_id != "detecting..."
                             && (app.model_id != model_id || app.context_length != context_length);
                         app.model_id = model_id.clone();
@@ -1420,7 +1422,12 @@ pub async fn run_app<B: Backend>(
                         if app.provider_state == ProviderRuntimeState::Booting {
                             app.provider_state = ProviderRuntimeState::Live;
                         }
-                        if changed {
+                        if now_no_model && !was_no_model {
+                            app.push_message(
+                                "System",
+                                "No coding model loaded. Load a model in LM Studio (e.g. Qwen/Qwen3.5-9B Q4_K_M) and start the server on port 1234. Optionally also load nomic-embed-text-v2 for semantic search.",
+                            );
+                        } else if changed && !now_no_model {
                             app.push_message(
                                 "System",
                                 &format!(
@@ -1866,7 +1873,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let current_tokens = if app.total_tokens > 0 { app.total_tokens } else { est_tokens };
     let usage_text = format!("TOKENS: {:0>5} | TOTAL: ${:.4}", current_tokens, app.current_session_cost);
     let runtime_age = app.last_runtime_profile_time.elapsed();
-    let (lm_label, lm_color) = if app.model_id == "detecting..." || app.context_length == 0 {
+    let (lm_label, lm_color) = if app.model_id == "no model loaded" {
+        ("LM:NONE", Color::Red)
+    } else if app.model_id == "detecting..." || app.context_length == 0 {
         ("LM:BOOT", Color::DarkGray)
     } else if app.provider_state == ProviderRuntimeState::Recovering {
         ("LM:RECV", Color::Cyan)

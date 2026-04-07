@@ -765,6 +765,8 @@ impl InferenceEngine {
         #[derive(Deserialize)]
         struct ModelEntry {
             id: String,
+            #[serde(rename = "type", default)]
+            model_type: String,
         }
 
         let resp = self
@@ -774,7 +776,17 @@ impl InferenceEngine {
             .await
             .ok()?;
         let list: ModelList = resp.json().await.ok()?;
-        list.data.into_iter().next().map(|m| m.id)
+        // Skip embedding models — they are not coding agents and should never
+        // be selected as the active model even if they are the only one loaded.
+        // Return Some("") when LM Studio is reachable but no coding model is loaded
+        // so callers can distinguish "offline" (None) from "no coding model" (Some("")).
+        Some(
+            list.data
+                .into_iter()
+                .find(|m| m.model_type != "embeddings")
+                .map(|m| m.id)
+                .unwrap_or_default(),
+        )
     }
 
     /// Detect the loaded model's context window size.
@@ -786,6 +798,8 @@ impl InferenceEngine {
         #[derive(Deserialize)]
         struct LmStudioModel {
             id: Option<String>,
+            #[serde(rename = "type", default)]
+            model_type: String,
             state: Option<String>,
             loaded_context_length: Option<u64>,
             context_length: Option<u64>,
@@ -805,25 +819,28 @@ impl InferenceEngine {
         {
             if let Ok(list) = resp.json::<LmStudioList>().await {
                 let target_model = self.current_model().to_ascii_lowercase();
+                // Never select embedding models for context-length detection.
+                let non_embed = |m: &&LmStudioModel| m.model_type != "embeddings";
                 let loaded = list
                     .data
                     .iter()
                     .find(|m| {
-                        m.state.as_deref() == Some("loaded")
+                        non_embed(m)
+                            && m.state.as_deref() == Some("loaded")
                             && m.id
                                 .as_deref()
                                 .map(|id| id.eq_ignore_ascii_case(&target_model))
                                 .unwrap_or(false)
                     })
-                    .or_else(|| list.data.iter().find(|m| m.state.as_deref() == Some("loaded")))
+                    .or_else(|| list.data.iter().find(|m| non_embed(m) && m.state.as_deref() == Some("loaded")))
                     .or_else(|| {
                         list.data.iter().find(|m| {
-                            m.id.as_deref()
+                            non_embed(m) && m.id.as_deref()
                                 .map(|id| id.eq_ignore_ascii_case(&target_model))
                                 .unwrap_or(false)
                         })
                     })
-                    .or_else(|| list.data.first());
+                    .or_else(|| list.data.iter().find(|m| non_embed(m)));
 
                 if let Some(model) = loaded {
                     if let Some(ctx) = model.loaded_context_length {
@@ -859,11 +876,11 @@ impl InferenceEngine {
         let previous_model = self.current_model();
         let previous_context = self.current_context_length();
 
-        let detected_model = self
-            .get_loaded_model()
-            .await
-            .filter(|m| !m.trim().is_empty())
-            .unwrap_or_else(|| previous_model.clone());
+        let detected_model = match self.get_loaded_model().await {
+            Some(m) if !m.is_empty() => m,           // coding model found
+            Some(_) => "no model loaded".to_string(), // reachable but no coding model
+            None => previous_model.clone(),            // LM Studio offline
+        };
 
         if !detected_model.is_empty() && detected_model != previous_model {
             if let Ok(mut guard) = self.model.write() {
