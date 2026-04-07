@@ -2,7 +2,7 @@
 
 ## What this project is
 
-Hematite is a local AI coding harness built in Rust. It runs on your machine, uses LM Studio as the local model runtime on `localhost:1234`. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
+Hematite is a local AI coding harness built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
 
 Hematite supports two model protocol paths:
 
@@ -69,6 +69,21 @@ Hematite loads stdio MCP servers from:
 - `.hematite/mcp_servers.json`
 
 Workspace config overrides global config by server name. On Windows, wrapper launchers such as `npx`, `npm`, `.cmd`, and `.bat` are resolved automatically.
+
+## LLM Provider Configuration
+
+Hematite defaults to LM Studio on `http://localhost:1234/v1`. To use a different OpenAI-compatible server (Ollama, vllm, a remote machine, etc.), set `api_url` in `.hematite/settings.json`:
+
+```json
+"api_url": "http://localhost:11434/v1"
+```
+
+This overrides the `--url` CLI flag. The value must be the base `/v1` path — Hematite appends `/chat/completions`, `/models`, and `/embeddings` automatically.
+
+Common values:
+- LM Studio (default): `http://localhost:1234/v1`
+- Ollama: `http://localhost:11434/v1`
+- Remote machine: `http://192.168.x.x:1234/v1`
 
 ## API Configuration
 

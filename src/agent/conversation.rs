@@ -701,8 +701,9 @@ impl ConversationManager {
         let vein_path = crate::tools::file_ops::workspace_root()
             .join(".hematite")
             .join("vein.db");
-        let vein = crate::memory::vein::Vein::new(&vein_path)
-            .unwrap_or_else(|_| crate::memory::vein::Vein::new(":memory:").unwrap());
+        let vein_base_url = engine.base_url.clone();
+        let vein = crate::memory::vein::Vein::new(&vein_path, vein_base_url.clone())
+            .unwrap_or_else(|_| crate::memory::vein::Vein::new(":memory:", vein_base_url).unwrap());
 
         Self {
             history,

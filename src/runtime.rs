@@ -58,12 +58,16 @@ pub async fn build_runtime_bundle(
     professional: bool,
 ) -> Result<RuntimeBundle, Box<dyn std::error::Error>> {
     println!("Booting Hematite systems...");
-    let mut engine_raw = InferenceEngine::new(cockpit.url.clone(), species.to_string(), snark)?;
+    // settings.json api_url overrides the --url CLI flag so users don't need to retype it.
+    let api_url = crate::agent::config::load_config()
+        .api_url
+        .unwrap_or_else(|| cockpit.url.clone());
+    let mut engine_raw = InferenceEngine::new(api_url, species.to_string(), snark)?;
     let gpu_state = ui::gpu_monitor::spawn_gpu_monitor();
     let git_state = agent::git_monitor::spawn_git_monitor();
 
     if !engine_raw.health_check().await {
-        println!("ERROR: LLM Provider not detected at {}", cockpit.url);
+        println!("ERROR: LLM Provider not detected at {}", engine_raw.base_url);
         println!("Check if LM Studio (or your local server) is running and port mapped correctly.");
         std::process::exit(1);
     }
@@ -214,12 +218,19 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     let gpu_name = gpu_state.gpu_name();
     let vram = gpu_state.label();
 
+    let embed_status = if manager.vein.embedded_chunk_count() > 0 {
+        "Embed: nomic active (semantic search ready)"
+    } else {
+        "Embed: none loaded (BM25 only — load nomic-embed-text-v2 for semantic search)"
+    };
+
     let greeting = format!(
-        "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}",
+        "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\n{}",
         manager.engine.current_model(),
         manager.engine.current_context_length(),
         gpu_name,
-        vram
+        vram,
+        embed_status
     );
 
     let _ = agent_tx

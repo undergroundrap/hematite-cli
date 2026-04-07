@@ -9,6 +9,9 @@ pub use crate::agent::economics::{SessionEconomics, ToolRecord};
 pub struct InferenceEngine {
     pub client: reqwest::Client,
     pub api_url: String,
+    /// Root URL of the LLM provider (e.g. `http://localhost:1234`).
+    /// All non-completions endpoints (models list, health, embeddings) are derived from this.
+    pub base_url: String,
     pub species: String,
     pub snark: u8,
     pub kv_semaphore: Semaphore,
@@ -694,6 +697,21 @@ impl InferenceEngine {
             .timeout(std::time::Duration::from_secs(180))
             .build()?;
 
+        // Extract http://host:port as the base for all non-completions endpoints.
+        let base_url = {
+            let trimmed = api_url.trim_end_matches('/');
+            if let Some(scheme_end) = trimmed.find("://") {
+                let after_scheme = &trimmed[scheme_end + 3..];
+                if let Some(path_start) = after_scheme.find('/') {
+                    format!("{}://{}", &trimmed[..scheme_end], &after_scheme[..path_start])
+                } else {
+                    trimmed.to_string()
+                }
+            } else {
+                trimmed.to_string()
+            }
+        };
+
         let api_url = if api_url.ends_with("/chat/completions") {
             api_url
         } else if api_url.ends_with("/") {
@@ -705,6 +723,7 @@ impl InferenceEngine {
         Ok(Self {
             client,
             api_url,
+            base_url,
             species,
             snark,
             kv_semaphore: Semaphore::new(3),
@@ -749,8 +768,8 @@ impl InferenceEngine {
 
     /// Returns true if LM Studio is reachable.
     pub async fn health_check(&self) -> bool {
-        let url = "http://localhost:1234/v1/models";
-        match self.client.get(url).send().await {
+        let url = format!("{}/v1/models", self.base_url);
+        match self.client.get(&url).send().await {
             Ok(resp) => resp.status().is_success(),
             Err(_) => false,
         }
@@ -771,7 +790,7 @@ impl InferenceEngine {
 
         let resp = self
             .client
-            .get("http://localhost:1234/v1/models")
+            .get(format!("{}/v1/models", self.base_url))
             .send()
             .await
             .ok()?;
@@ -813,7 +832,7 @@ impl InferenceEngine {
         // Check api/v0/models (LM Studio specific)
         if let Ok(resp) = self
             .client
-            .get("http://localhost:1234/api/v0/models")
+            .get(format!("{}/api/v0/models", self.base_url))
             .send()
             .await
         {

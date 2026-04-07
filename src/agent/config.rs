@@ -37,6 +37,9 @@ pub struct HematiteConfig {
     /// Force Gemma-native request shaping on for Gemma 4 models.
     #[serde(default)]
     pub gemma_native_formatting: bool,
+    /// Override the LLM provider base URL (e.g. "http://localhost:11434/v1" for Ollama).
+    /// Defaults to "http://localhost:1234/v1" (LM Studio). Takes precedence over --url CLI flag.
+    pub api_url: Option<String>,
     /// Extra text appended verbatim to the system prompt (project notes, conventions, etc.).
     pub context_hint: Option<String>,
     /// Per-project verification commands for build/test/lint/fix workflows.
@@ -208,6 +211,7 @@ fn write_default_config(path: &std::path::Path) {
 
   "auto_approve_moderate": false,
 
+  "api_url": null,
   "context_hint": null,
   "model": null,
   "fast_model": null,

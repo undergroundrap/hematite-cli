@@ -1,6 +1,6 @@
 # hematite
 
-**The local coding agent harness for LM Studio. Windows-first. Built for single-GPU consumer hardware, especially RTX 4070-class machines. Supports Gemma 4 native protocol and standard OpenAI-compatible models (Qwen, etc.). No API key. No cloud. No per-token billing.**
+**Local coding agent harness for any OpenAI-compatible local model server. Windows-first. Built for single-GPU consumer hardware, especially RTX 4070-class machines. LM Studio native, Ollama compatible. Supports Gemma 4 native protocol and standard OpenAI-compatible models (Qwen, etc.). No API key. No cloud. No per-token billing.**
 
 `hematite` turns LM Studio into a serious local coding agent. It is not a generic chat wrapper and it is not trying to imitate a cloud fleet product on your desktop. Hematite owns the operator experience, tool execution, file editing, git workflows, retrieval, compaction, recovery, voice, and runtime orchestration layer. LM Studio handles model loading, swapping, and serving. Hematite supports two model protocol paths: Gemma 4 native (auto-enabled by model name) and standard OpenAI-compatible models including Qwen 3.5.
 
@@ -521,6 +521,7 @@ Hematite reads `.hematite/settings.json` from your project root:
     "allow": ["."],
     "deny": []
   },
+  "api_url": "http://localhost:1234/v1",
   "context_hint": "This is a Rust project using Axum and SQLx.",
   "fast_model": "gemma-4-9b",
   "think_model": "gemma-4-27b",
@@ -540,6 +541,16 @@ Hematite reads `.hematite/settings.json` from your project root:
   }
 }
 ```
+
+**`api_url`** — LLM provider endpoint. Defaults to `http://localhost:1234/v1` (LM Studio). Set this to point Hematite at any OpenAI-compatible server:
+
+| Provider | `api_url` |
+|---|---|
+| LM Studio (default) | `http://localhost:1234/v1` |
+| Ollama | `http://localhost:11434/v1` |
+| Remote machine | `http://192.168.x.x:1234/v1` |
+
+This overrides the `--url` CLI flag. The value is the `/v1` base path — Hematite appends `/chat/completions`, `/models`, and `/embeddings` automatically.
 
 Permission modes: `read-only`, `developer`, `system-admin`
 
