@@ -2004,16 +2004,20 @@ pub fn strip_think_blocks(text: &str) -> String {
         return String::new();
     }
 
-    // [Gemma-4 Heuristic] If the model outputs 'naked' reasoning without tags:
+    // If the model outputs 'naked' reasoning without tags:
     // Strip sentences like "The user asked..." or "I will structure the response..."
     // if they appear before the first identifiable self-introduction or code block.
-    if lower.contains("the user asked")
+    let is_naked_reasoning = lower.contains("the user asked")
+        || lower.contains("the user is asking")
+        || lower.contains("the user wants")
         || lower.contains("i will structure")
-        || lower.contains("necessary information in my identity")
-    {
+        || lower.contains("i should provide")
+        || lower.contains("i can see from")
+        || lower.contains("necessary information in my identity");
+    if is_naked_reasoning {
         let lines: Vec<&str> = text.lines().collect();
         if !lines.is_empty() {
-            // If the first line is pure reasoning, skip it and look for the first real content.
+            // Find the first line that looks like real answer content.
             for (i, line) in lines.iter().enumerate() {
                 let l_line = line.to_lowercase();
                 if l_line.contains("am hematite")
@@ -2024,6 +2028,9 @@ pub fn strip_think_blocks(text: &str) -> String {
                     return lines[i..].join("\n").trim().to_string();
                 }
             }
+            // No real content found after reasoning — the whole response is just
+            // internal monologue (e.g. reasoning + abandoned tool call). Return empty.
+            return String::new();
         }
     }
 
