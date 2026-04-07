@@ -125,19 +125,26 @@ pub fn spawn_runtime_profile_sync(
     agent_tx: mpsc::Sender<InferenceEvent>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(4));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        interval.tick().await;
+        // Initial delay before the first background poll.
+        tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
 
         loop {
-            interval.tick().await;
+            let result = engine.refresh_runtime_profile().await;
 
-            let Some((model_id, context_length, _changed)) = engine.refresh_runtime_profile().await
-            else {
+            let Some((model_id, context_length, _changed)) = result else {
                 if agent_tx.is_closed() {
                     break;
                 }
+                // LM Studio unreachable — back off; no need to hammer a closed server.
+                tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
                 continue;
+            };
+
+            // When no coding model is loaded, back off to reduce log noise in LM Studio.
+            let poll_interval = if model_id == "no model loaded" {
+                tokio::time::Duration::from_secs(12)
+            } else {
+                tokio::time::Duration::from_secs(4)
             };
 
             if agent_tx
@@ -150,6 +157,8 @@ pub fn spawn_runtime_profile_sync(
             {
                 break;
             }
+
+            tokio::time::sleep(poll_interval).await;
         }
     })
 }

@@ -924,6 +924,8 @@ pub async fn run_app<B: Backend>(
                                                 continue;
                                             }
                                             "/forget" => {
+                                                // Cancel any running turn so /forget isn't queued behind retries.
+                                                app.cancel_token.store(true, std::sync::atomic::Ordering::SeqCst);
                                                 app.messages.clear();
                                                 app.messages_raw.clear();
                                                 app.last_reasoning.clear();
