@@ -77,6 +77,9 @@ pub(crate) enum WorkflowMode {
     Code,
     Architect,
     ReadOnly,
+    /// Clean conversational mode — lighter prompt, no coding agent scaffolding,
+    /// tools available but not pushed. Vein RAG still runs for context.
+    Chat,
 }
 
 impl WorkflowMode {
@@ -87,11 +90,16 @@ impl WorkflowMode {
             WorkflowMode::Code => "CODE",
             WorkflowMode::Architect => "ARCHITECT",
             WorkflowMode::ReadOnly => "READ-ONLY",
+            WorkflowMode::Chat => "CHAT",
         }
     }
 
     fn is_read_only(self) -> bool {
         matches!(self, WorkflowMode::Ask | WorkflowMode::Architect | WorkflowMode::ReadOnly)
+    }
+
+    pub(crate) fn is_chat(self) -> bool {
+        matches!(self, WorkflowMode::Chat)
     }
 }
 
@@ -1457,6 +1465,18 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if user_input.trim() == "/chat" {
+            self.set_workflow_mode(WorkflowMode::Chat);
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        if user_input.trim() == "/agent" {
+            self.set_workflow_mode(WorkflowMode::Auto);
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         let mut effective_user_input = user_input.trim().to_string();
         if let Some((mode, rest)) = parse_inline_workflow_prompt(user_input) {
             self.set_workflow_mode(mode);
@@ -1829,6 +1849,16 @@ impl ConversationManager {
                 ),
                 WorkflowMode::ReadOnly => system_msg.push_str(
                     "READ-ONLY means analysis only. Do not modify files, run mutating shell commands, or commit changes.\n",
+                ),
+                WorkflowMode::Chat => system_msg.push_str(
+                    "CHAT mode is a clean conversational surface. The user wants natural, direct conversation — not an agent trace.\n\
+                     - Answer conversationally. No bullet-point breakdowns unless the topic genuinely needs them.\n\
+                     - Do NOT call tools unless the user explicitly asks you to look at a file or run something.\n\
+                     - Do NOT mention tools, tool names, or internal mechanics unprompted.\n\
+                     - Keep responses concise and human. One paragraph is usually right.\n\
+                     - You can discuss code, help think through problems, explain concepts, or just talk.\n\
+                     - If the user asks you to edit or build something, you can — but lead with conversation, not scaffolding.\n\
+                     - Switch to `/agent` if the user wants full coding agent mode.\n",
                 ),
             }
         }

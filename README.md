@@ -23,7 +23,7 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 ![Voice](https://img.shields.io/badge/voice-54_voices-purple?style=flat-square)
 ![RAG](https://img.shields.io/badge/RAG-hybrid_BM25+semantic-blue?style=flat-square)
 ![LM Studio](https://img.shields.io/badge/LM_Studio-native-blueviolet?style=flat-square)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![License](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)
 
 ---
 

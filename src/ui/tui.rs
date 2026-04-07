@@ -1106,6 +1106,20 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/chat" => {
+                                                app.workflow_mode = "CHAT".into();
+                                                app.push_message("System", "Chat mode — natural conversation, no agent scaffolding. Use /agent to switch back.");
+                                                app.history_idx = None;
+                                                let _ = app.user_input_tx.try_send("/chat".to_string());
+                                                continue;
+                                            }
+                                            "/agent" => {
+                                                app.workflow_mode = "AUTO".into();
+                                                app.push_message("System", "Agent mode — full coding harness active. Use /chat for clean conversation.");
+                                                app.history_idx = None;
+                                                let _ = app.user_input_tx.try_send("/agent".to_string());
+                                                continue;
+                                            }
                                             "/ask" | "/code" | "/architect" | "/read-only" | "/auto" => {
                                                 let label = match cmd.as_str() {
                                                     "/ask" => "ASK",
@@ -1208,6 +1222,8 @@ pub async fn run_app<B: Backend>(
                                             "/help" => {
                                                 app.push_message("System",
                                                     "Hematite Commands:\n\
+                                                     /chat             — (Mode) Conversation mode — clean chat, no tool noise\n\
+                                                     /agent            — (Mode) Full coding harness — tools, file edits, builds\n\
                                                      /auto             — (Flow) Let Hematite choose the narrowest effective workflow\n\
                                                      /ask [prompt]     — (Flow) Read-only analysis mode; optional inline prompt\n\
                                                      /code [prompt]    — (Flow) Explicit implementation mode; optional inline prompt\n\
@@ -1388,13 +1404,16 @@ pub async fn run_app<B: Backend>(
                         }
                     }
                     InferenceEvent::ToolCallStart { name, args, .. } => {
-                        let display = format!("( )  {} {}", name, args);
-                        app.push_message("Tool", &display);
-                        // Track in active context
-                        app.active_context.push(ContextFile { 
-                            path: name.clone(), 
-                            size: 0, 
-                            status: "Running".into() 
+                        // In chat mode, suppress tool noise from the main chat surface.
+                        if app.workflow_mode != "CHAT" {
+                            let display = format!("( )  {} {}", name, args);
+                            app.push_message("Tool", &display);
+                        }
+                        // Always track in active context regardless of mode
+                        app.active_context.push(ContextFile {
+                            path: name.clone(),
+                            size: 0,
+                            status: "Running".into()
                         });
                         trim_vec_context(&mut app.active_context, 8);
                         app.manual_scroll_offset = None;
@@ -1404,9 +1423,14 @@ pub async fn run_app<B: Backend>(
                         if is_error {
                             app.record_error();
                         }
-                        // Previews should ALWAYS be sanitized single-line summaries in the chat window.
+                        // In chat mode, suppress tool results from main chat.
+                        // Errors still show so the user knows something went wrong.
                         let preview = first_n_chars(&output, 100);
-                        app.push_message("Tool", &format!("{}  {} → {}", icon, name, preview));
+                        if app.workflow_mode != "CHAT" {
+                            app.push_message("Tool", &format!("{}  {} → {}", icon, name, preview));
+                        } else if is_error {
+                            app.push_message("System", &format!("Tool error: {}", preview));
+                        }
                         
                         // If it was a read or write, we can extract the path from the app.active_context "Running" entries
                         // but it's simpler to just let Specular handle the indexing or update here if we had the path.
