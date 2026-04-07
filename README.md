@@ -1,8 +1,18 @@
 # hematite
 
-**Local coding agent harness for any OpenAI-compatible local model server. Windows-first. Built for single-GPU consumer hardware, especially RTX 4070-class machines. LM Studio native, Ollama compatible. Supports Gemma 4 native protocol and standard OpenAI-compatible models (Qwen, etc.). No API key. No cloud. No per-token billing.**
+**Your RTX 4070 is a serious coding machine. Hematite makes it one.**
 
-`hematite` turns LM Studio into a serious local coding agent. It is not a generic chat wrapper and it is not trying to imitate a cloud fleet product on your desktop. Hematite owns the operator experience, tool execution, file editing, git workflows, retrieval, compaction, recovery, voice, and runtime orchestration layer. LM Studio handles model loading, swapping, and serving. Hematite supports two model protocol paths: Gemma 4 native (auto-enabled by model name) and standard OpenAI-compatible models including Qwen 3.5.
+Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, and speaks responses out loud — all from a single binary that boots in seconds.
+
+**What it actually does:**
+- Reads any file, grepping for the right location before touching anything
+- Edits with exact-match precision, CRLF-safe on Windows
+- Runs `verify_build` after every change and feeds errors back to the model automatically
+- Ghost-snapshots every edit so `Ctrl+Z` restores the previous state instantly
+- Indexes your codebase with hybrid BM25 + semantic search so the model starts each turn with the right code already in view
+- Speaks every response through a built-in 54-voice TTS engine — statically linked, zero install, works offline
+
+`hematite` is not a chat wrapper. It owns the full operator loop: tool execution, file editing, git workflows, retrieval, context compaction, recovery, voice, and runtime orchestration. LM Studio handles model serving. Hematite handles everything else.
 
 [![Capabilities](https://img.shields.io/badge/HEM-CAPABILITIES-blueviolet)](CAPABILITIES.md)
 [![Gemma-4](https://img.shields.io/badge/MODEL-GEMMA--4--E4B-blue)](https://hf.co/google/gemma-4-e4b-it)
@@ -23,14 +33,13 @@ Most local AI coding tools are either:
 
 Hematite is built around the opposite assumption: the best local coding agent should feel native on the machine you actually use, tell the truth about its runtime state, and survive the constraints of real consumer GPUs instead of pretending they do not exist.
 
-- **LM Studio native** - model swaps, live context refresh, and runtime-profile sync are first-class, not afterthoughts
-- **Built for open local models** - Gemma 4 native and standard OpenAI-compatible (Qwen, etc.), tiny-context aware, and engineered around the actual failure modes of local inference
-- **Grounded repo work** - architecture tracing, repo mapping, tool discipline, session ledger, and recovery recipes are built for real project work
-- **Windows-first** - PowerShell, path handling, shell safety, and TUI behavior are treated as core product quality
-- **Single-GPU practical** - shaped around 8-12 GB VRAM reality, especially RTX 4070-class machines
-- **Operator-visible runtime truth** - live LM state, prompt-budget pressure, compaction pressure, typed checkpoints, and recovery notes are surfaced directly in the TUI
-- **Zero ongoing cost** - no API key, no subscription, no per-token billing
-- **Private and local** - nothing leaves your machine unless you deliberately enable external research paths
+- **Proven tool loop** — read → grep → edit → verify → undo. Tested on real Rust codebases. The model finds the right line, makes the right change, catches its own errors, and recovers without prompting.
+- **Hybrid RAG built in** — The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, not hunting for it with five read_file calls.
+- **Built-in voice, zero install** — 54-voice Kokoro TTS, statically linked. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run.
+- **Windows-first** — CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
+- **Honest about hardware** — VRAM usage in the status bar, context budget visible, compaction triggered before you hit the ceiling. No silent failures.
+- **Zero ongoing cost** — no API key, no subscription, no per-token billing. Run it all day.
+- **Private by default** — nothing leaves your machine. No telemetry, no cloud fallback.
 
 **Windows is the primary development target.** PowerShell integration, path handling, shell behavior, and sandbox isolation receive the most polish there. Linux and macOS are supported.
 
