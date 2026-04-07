@@ -84,19 +84,31 @@ Hematite $version
 =================
 
 What this is:
-- Hematite is a local GPU coding harness and terminal CLI for LM Studio.
+- Hematite is a local AI coding harness and terminal CLI for LM Studio.
+- Built for single-GPU consumer hardware (tested on RTX 4070, 12 GB VRAM).
+- No cloud. No API key. No per-token billing.
 
 Before running:
-1. Install LM Studio.
-2. Load a compatible Gemma-family model.
-3. Start LM Studio's local server on port 1234.
+1. Install LM Studio (https://lmstudio.ai).
+2. Download and load a coding model. Recommended: Qwen/Qwen3.5-9B Q4_K_M (~6 GB VRAM).
+3. Optionally load nomic-embed-text-v2 Q8_0 alongside it (~512 MB VRAM).
+   This enables The Vein's semantic search. Both models fit on a 12 GB card.
+4. Start LM Studio's local server on port 1234.
 
 How to use:
 - Open a terminal inside your project folder.
 - Run: hematite
 
+Status bar guide:
+- LM:LIVE (green) = LM Studio connected and live
+- VN:SEM (green) = Vein semantic search active (nomic loaded)
+- VN:FTS (yellow) = Vein keyword search only
+- BUD / CMP = prompt budget and compaction pressure
+
 Installer note:
 - If you used the Windows installer and selected the PATH option, open a fresh terminal after installation.
+
+More info: https://github.com/undergroundrap/HEMATITE-CLI
 "@
 Set-Content -LiteralPath $readmeOut -Value $readme -Encoding ASCII
 
