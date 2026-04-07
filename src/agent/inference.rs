@@ -1108,6 +1108,7 @@ impl InferenceEngine {
                       16. For tooling-discipline or best-tool-selection questions, prefer `describe_toolchain` over improvising the tool surface from memory.\n\
                       17. If `describe_toolchain` fully answers the tooling question, preserve its tool names and investigation order exactly.\n\
                       18. PROOF BEFORE ACTION: Before editing an existing file, gather recent evidence with `read_file` or `inspect_lines` on that path or keep it pinned in active context.\n\
+                      18a. GREP BEFORE READ: For files over ~200 lines, always `grep_files` for a specific pattern to find the target line range BEFORE calling `read_file`. Never read a large file top-to-bottom — use offset+limit to read only the relevant window once grep gives you the line number.\n\
                       19. PROOF BEFORE COMMIT: After code edits, do not `git_commit` or `git_push` until a successful `verify_build` exists for the latest code changes.\n\
                       20. RISKY SHELL DISCIPLINE: Risky `shell` calls must include a concrete `reason` argument explaining what is being verified or changed.\n\
                       21. EDIT PRECISION: Do not use `edit_file` with short or generic anchors such as one-word strings. Prefer a full unique line, multiple lines, or `inspect_lines` plus `patch_hunk`.\n\
