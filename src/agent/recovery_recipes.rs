@@ -136,15 +136,35 @@ impl RecoveryDecision {
 #[derive(Debug, Clone, Default)]
 pub struct RecoveryContext {
     attempts: HashMap<RecoveryScenario, u32>,
+    /// Total transient provider retries consumed this turn across all inference calls.
+    transient_retries_this_turn: u32,
 }
+
+/// Maximum transient provider retries allowed across an entire multi-step turn.
+const MAX_TRANSIENT_RETRIES_PER_TURN: u32 = 3;
 
 impl RecoveryContext {
     pub fn clear(&mut self) {
         self.attempts.clear();
+        self.transient_retries_this_turn = 0;
     }
 
     pub fn attempt_count(&self, scenario: RecoveryScenario) -> u32 {
         self.attempts.get(&scenario).copied().unwrap_or(0)
+    }
+
+    /// Returns true and increments the turn-level transient retry budget if a retry
+    /// is still available. Returns false when the budget is exhausted.
+    pub fn consume_transient_retry(&mut self) -> bool {
+        if self.transient_retries_this_turn < MAX_TRANSIENT_RETRIES_PER_TURN {
+            self.transient_retries_this_turn += 1;
+            // Reset the per-scenario counter so attempt_recovery allows the attempt.
+            self.attempts.remove(&RecoveryScenario::ProviderDegraded);
+            self.attempts.remove(&RecoveryScenario::EmptyModelResponse);
+            true
+        } else {
+            false
+        }
     }
 }
 

@@ -1,8 +1,8 @@
 # hematite
 
-**The local coding agent harness for LM Studio. Windows-first. Built for single-GPU consumer hardware, especially RTX 4070-class machines. Optimized for Gemma-4 and other Gemma-family local models. No API key. No cloud. No per-token billing.**
+**The local coding agent harness for LM Studio. Windows-first. Built for single-GPU consumer hardware, especially RTX 4070-class machines. Supports Gemma 4 native protocol and standard OpenAI-compatible models (Qwen, etc.). No API key. No cloud. No per-token billing.**
 
-`hematite` turns LM Studio into a serious local coding agent. It is not a generic chat wrapper and it is not trying to imitate a cloud fleet product on your desktop. Hematite owns the operator experience, tool execution, file editing, git workflows, retrieval, compaction, recovery, voice, and runtime orchestration layer. LM Studio handles model loading, swapping, and serving. Hematite is tuned around Gemma-4 behavior, but it can work with other Gemma-family models and custom Gemma variants you load through LM Studio.
+`hematite` turns LM Studio into a serious local coding agent. It is not a generic chat wrapper and it is not trying to imitate a cloud fleet product on your desktop. Hematite owns the operator experience, tool execution, file editing, git workflows, retrieval, compaction, recovery, voice, and runtime orchestration layer. LM Studio handles model loading, swapping, and serving. Hematite supports two model protocol paths: Gemma 4 native (auto-enabled by model name) and standard OpenAI-compatible models including Qwen 3.5.
 
 [![Capabilities](https://img.shields.io/badge/HEM-CAPABILITIES-blueviolet)](CAPABILITIES.md)
 [![Gemma-4](https://img.shields.io/badge/MODEL-GEMMA--4--E4B-blue)](https://hf.co/google/gemma-4-e4b-it)
@@ -24,7 +24,7 @@ Most local AI coding tools are either:
 Hematite is built around the opposite assumption: the best local coding agent should feel native on the machine you actually use, tell the truth about its runtime state, and survive the constraints of real consumer GPUs instead of pretending they do not exist.
 
 - **LM Studio native** - model swaps, live context refresh, and runtime-profile sync are first-class, not afterthoughts
-- **Built for open local models** - Gemma-4 tuned, tiny-context aware, and engineered around the actual failure modes of local inference
+- **Built for open local models** - Gemma 4 native and standard OpenAI-compatible (Qwen, etc.), tiny-context aware, and engineered around the actual failure modes of local inference
 - **Grounded repo work** - architecture tracing, repo mapping, tool discipline, session ledger, and recovery recipes are built for real project work
 - **Windows-first** - PowerShell, path handling, shell safety, and TUI behavior are treated as core product quality
 - **Single-GPU practical** - shaped around 8-12 GB VRAM reality, especially RTX 4070-class machines
@@ -42,7 +42,7 @@ Hematite is for developers who want a **local coding CLI that behaves like a ser
 
 - You want a **local coding agent for LM Studio** that can read, edit, search, verify, and reason about a real repository.
 - You want a **Windows local AI coding assistant** that does not treat PowerShell or local pathing as second-class.
-- You want a **Gemma-4 coding harness** that survives tight context budgets instead of silently melting down near the ceiling.
+- You want a **local coding harness** that survives tight context budgets instead of silently melting down near the ceiling.
 - You want a **local coding CLI for RTX 4070-class hardware** that admits hardware limits and engineers around them.
 - You want a harness that exposes **runtime truth**: live model context, budget pressure, recovery steps, blocker states, and session carry-forward.
 
@@ -158,7 +158,7 @@ That same pattern can be translated across the tool surface over time. The goal 
 - NVIDIA GPU with 8 GB+ VRAM recommended; 12 GB VRAM is the sweet spot Hematite is most actively shaped around
 - Rust toolchain if building from source
 
-**Recommended models:** any Gemma-family model that behaves well in LM Studio, including stock Gemma-4 checkpoints and custom Gemma variants. Hematite is most tuned for Gemma-4 style prompting.
+**Recommended models:** Gemma 4 family (native protocol, auto-detected by model name) or any standard OpenAI-compatible model such as Qwen 3.5 9B Q4_K_M. Both paths are tested on RTX 4070-class hardware.
 
 **Primary hardware target:** a single RTX 4070-class GPU on a normal desktop Windows machine. Hematite is engineered around that constraint: limited local VRAM, one active consumer GPU, LM Studio as the serving layer, and open models that need strong tooling and context discipline instead of cloud-scale brute force.
 
@@ -284,9 +284,9 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 
 ## Key Features
 
-### Gemma-4 Native Architecture
+### Dual Model Protocol Support
 
-Hematite is aligned with the Gemma-4 E4B prompting model. It uses native control tokens such as `<|think|>`, `<|turn>`, and `<|tool_call>`, and keeps internal reasoning in a dedicated TUI panel instead of polluting the main chat.
+Hematite supports two model protocol paths. **Gemma 4 native**: auto-detected by model name; uses native control tokens such as `<|think|>`, `<|turn>`, and `<|tool_call>`, with tool results wrapped in `<|tool_response>` markup. **Standard OpenAI-compatible**: plain message format with no model-specific markup; tested primary target is Qwen 3.5 9B Q4_K_M. Internal reasoning is kept in a dedicated TUI panel instead of polluting the main chat.
 
 ### Hardware-Aware Context Management
 

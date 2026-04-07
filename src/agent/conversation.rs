@@ -2052,10 +2052,26 @@ impl ConversationManager {
             // Use the canonical system prompt from history[0] which was built
             // by InferenceEngine::build_system_prompt() + build_system_with_corrections()
             // and includes GPU state, git context, permissions, and instruction files.
-            let mut prompt_msgs = vec![self.history[0].clone()];
-            if let Some(intervention) = loop_intervention.take() {
-                prompt_msgs.push(ChatMessage::system(&intervention));
-            }
+            let mut prompt_msgs = if let Some(intervention) = loop_intervention.take() {
+                // Gemma 4 handles multiple system messages natively.
+                // Standard models (Qwen, etc.) reject a second system message — merge into history[0].
+                if crate::agent::inference::is_gemma4_model_name(
+                    &self.engine.current_model(),
+                ) {
+                    let mut msgs = vec![self.history[0].clone()];
+                    msgs.push(ChatMessage::system(&intervention));
+                    msgs
+                } else {
+                    let merged = format!(
+                        "{}\n\n{}",
+                        self.history[0].content.as_str(),
+                        intervention
+                    );
+                    vec![ChatMessage::system(&merged)]
+                }
+            } else {
+                vec![self.history[0].clone()]
+            };
             prompt_msgs.extend(messages);
             if let Some(budget_note) =
                 enforce_prompt_budget(&mut prompt_msgs, self.engine.current_context_length())
@@ -2085,34 +2101,34 @@ impl ConversationManager {
                 Err(e) => {
                     let class = classify_runtime_failure(&e);
                     if should_retry_runtime_failure(class) {
-                        if let Some(scenario) = recovery_scenario_for_runtime_failure(class) {
-                            if let RecoveryDecision::Attempt(plan) =
-                                attempt_recovery(scenario, &mut self.recovery_context)
-                            {
-                                self.transcript.log_system(&format!(
-                                    "Automatic provider recovery triggered: {}",
-                                    e.trim()
-                                ));
-                                self.emit_recovery_recipe_summary(
-                                    &tx,
-                                    plan.recipe.scenario.label(),
-                                    compact_recovery_plan_summary(&plan),
-                                )
+                        if self.recovery_context.consume_transient_retry() {
+                            let label = match class {
+                                RuntimeFailureClass::ProviderDegraded => "provider_degraded",
+                                _ => "empty_model_response",
+                            };
+                            self.transcript.log_system(&format!(
+                                "Automatic provider recovery triggered: {}",
+                                e.trim()
+                            ));
+                            self.emit_recovery_recipe_summary(
+                                &tx,
+                                label,
+                                compact_runtime_recovery_summary(class),
+                            )
+                            .await;
+                            let _ = tx
+                                .send(InferenceEvent::ProviderStatus {
+                                    state: ProviderRuntimeState::Recovering,
+                                    summary: compact_runtime_recovery_summary(class).into(),
+                                })
                                 .await;
-                                let _ = tx
-                                    .send(InferenceEvent::ProviderStatus {
-                                        state: ProviderRuntimeState::Recovering,
-                                        summary: compact_runtime_recovery_summary(class).into(),
-                                    })
-                                    .await;
-                                self.emit_operator_checkpoint(
-                                    &tx,
-                                    OperatorCheckpointState::RecoveringProvider,
-                                    compact_runtime_recovery_summary(class),
-                                )
-                                .await;
-                                continue;
-                            }
+                            self.emit_operator_checkpoint(
+                                &tx,
+                                OperatorCheckpointState::RecoveringProvider,
+                                compact_runtime_recovery_summary(class),
+                            )
+                            .await;
+                            continue;
                         }
                     }
 
@@ -2469,6 +2485,9 @@ impl ConversationManager {
                         .await;
 
                     // Cap output before history
+                    let compact_ctx = crate::agent::inference::is_compact_context_window_pub(
+                        self.engine.current_context_length(),
+                    );
                     let capped = if implement_current_plan {
                         cap_output(&final_output, 1200)
                     } else if startup_ui_work_turn
@@ -2482,11 +2501,33 @@ impl ConversationManager {
                         cap_output(&final_output, 2500)
                     } else if tool_name == "map_project" {
                         cap_output(&final_output, 3500)
+                    } else if compact_ctx && (tool_name == "read_file" || tool_name == "inspect_lines") {
+                        // Compact context: cap file reads tightly and add a navigation hint on truncation.
+                        let limit = 3000usize;
+                        if final_output.len() > limit {
+                            let total_lines = final_output.lines().count();
+                            let mut split_at = limit;
+                            while !final_output.is_char_boundary(split_at) && split_at > 0 {
+                                split_at -= 1;
+                            }
+                            format!(
+                                "{}\n... [file truncated — {} total lines. Use `inspect_lines` with start_line near {} to reach the end of the file.]",
+                                &final_output[..split_at],
+                                total_lines,
+                                total_lines.saturating_sub(150),
+                            )
+                        } else {
+                            final_output.clone()
+                        }
                     } else {
                         cap_output(&final_output, 8000)
                     };
-                    self.history
-                        .push(ChatMessage::tool_result(&call_id, &tool_name, &capped));
+                    self.history.push(ChatMessage::tool_result_for_model(
+                        &call_id,
+                        &tool_name,
+                        &capped,
+                        &self.engine.current_model(),
+                    ));
 
                     if architecture_overview_mode && !is_error && tool_name == "trace_runtime_flow" {
                         overview_runtime_trace = Some(summarize_runtime_trace_output(&final_output));
@@ -2594,7 +2635,7 @@ impl ConversationManager {
                                 startup_ui_lane_failures = startup_ui_lane_failures.saturating_add(1);
                                 if startup_ui_work && loop_intervention.is_none() {
                                     loop_intervention = Some(format!(
-                                        "STOP. `grep_files` on `{}` returned no matches. Use `inspect_lines` on the banner region next, then edit.",
+                                        "STOP. `grep_files` on `{}` returned no matches. Do not keep guessing patterns. Use `inspect_lines` to page through the file and find the banner text visually, then edit.",
                                         path
                                     ));
                                     *repeat_count = 0;
@@ -4547,13 +4588,14 @@ fn select_startup_ui_tool_batch(
         );
     }
 
+    // Allow any read/inspect/grep through — the model may legitimately need to
+    // read a file that isn't in the scored owner candidate list (e.g. runtime.rs).
+    // Only hard-veto mutation without prior evidence; reads always accumulate context.
     if let Some(call) = select(&|call| {
         matches!(
             call.function.name.as_str(),
             "read_file" | "inspect_lines" | "grep_files"
-        ) && tool_call_path(call)
-            .map(|path| owner_candidates.contains(&path))
-            .unwrap_or(false)
+        )
     }) {
         return choose_single(call);
     }

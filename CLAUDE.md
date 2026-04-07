@@ -2,7 +2,12 @@
 
 ## What this project is
 
-Hematite is a local AI coding harness built in Rust. It runs on your machine, uses LM Studio as the local model runtime on `localhost:1234`, and is tuned for Gemma-4 and other Gemma-family models. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
+Hematite is a local AI coding harness built in Rust. It runs on your machine, uses LM Studio as the local model runtime on `localhost:1234`. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
+
+Hematite supports two model protocol paths:
+
+- **Gemma 4 native** — Gemma 4 family models; native tool markup auto-enabled by model name (`gemma_native_auto: true` by default)
+- **Standard OpenAI-compatible** — all other models; plain tool format; tested primary target is Qwen 3.5 9B Q4_K_M
 
 ## Build and Run
 
@@ -128,6 +133,11 @@ libs/
 - Some local servers return `tool_calls: []` instead of `null`; Hematite filters this
 - Conversation history slices must start with a `user` message for LM Studio/Jinja alignment
 - Tool hallucination guards block fake tool names such as `thought` or `reasoning`
+- Gemma 4: tool results are wrapped in `<|tool_response>response:{name}{...}<tool_response|>` native markup; controlled by `gemma_native_auto` / `gemma_native_formatting` config
+- Gemma 4: messages are wrapped with `<|turn>` markup before sending; non-Gemma models must NOT receive this wrapping
+- Standard models (Qwen, etc.): tool results use plain content; no model-specific markup applied
+- Standard models (Qwen, etc.): jinja templates require exactly one `system` role message — a second system message causes a 400 Channel Error; `loop_intervention` is merged into `history[0]` instead of appended
+- Turn-level transient retry budget (3 per turn) caps runaway retry loops on Channel Errors; budget resets on successful inference
 
 ## Commit Style
 

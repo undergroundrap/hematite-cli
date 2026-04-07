@@ -344,13 +344,28 @@ impl ChatMessage {
         }
     }
     pub fn tool_result(tool_call_id: &str, fn_name: &str, content: &str) -> Self {
-        let native_resp = format!(
-            "<|tool_response>response:{}{}{}<tool_response|>",
-            fn_name, "{", content
-        );
+        Self::tool_result_for_model(tool_call_id, fn_name, content, "")
+    }
+
+    /// Build a tool result message, applying Gemma 4 native markup only when the
+    /// loaded model is actually a Gemma 4 model.
+    pub fn tool_result_for_model(
+        tool_call_id: &str,
+        fn_name: &str,
+        content: &str,
+        model: &str,
+    ) -> Self {
+        let body = if is_gemma4_model_name(model) {
+            format!(
+                "<|tool_response>response:{}{}{}<tool_response|>",
+                fn_name, "{", content
+            )
+        } else {
+            content.to_string()
+        };
         Self {
             role: "tool".into(),
-            content: MessageContent::Text(native_resp),
+            content: MessageContent::Text(body),
             tool_calls: Vec::new(),
             tool_call_id: Some(tool_call_id.into()),
             name: Some(fn_name.into()),
@@ -422,6 +437,14 @@ const MAX_RESERVED_OUTPUT_TOKENS: usize = 4096;
 
 fn is_tiny_context_window(context_length: usize) -> bool {
     context_length <= 8_192
+}
+
+fn is_compact_context_window(context_length: usize) -> bool {
+    context_length > 8_192 && context_length <= 49_152
+}
+
+pub fn is_compact_context_window_pub(context_length: usize) -> bool {
+    is_compact_context_window(context_length)
 }
 
 fn is_provider_context_limit_detail(lower: &str) -> bool {
@@ -903,6 +926,9 @@ impl InferenceEngine {
         if is_tiny_context_window(current_context_length) {
             return self.build_system_prompt_tiny(brief, professional);
         }
+        if is_compact_context_window(current_context_length) {
+            return self.build_system_prompt_compact(brief, professional, tools);
+        }
 
         // Hematite bootstrap: keep reasoning disciplined without leaking scaffolding into user-facing replies.
         let mut sys = String::from("<|turn>system\n<|think|>\n## HEMATITE OPERATING PROTOCOL\n\
@@ -1086,6 +1112,72 @@ impl InferenceEngine {
         sys
     }
 
+    fn build_system_prompt_compact(
+        &self,
+        brief: bool,
+        professional: bool,
+        tools: &[ToolDefinition],
+    ) -> String {
+        // Compact tier: fits in 16k context. Keeps tool names + one-line descriptions
+        // but skips full JSON schemas, verbose protocol sections, and CLAUDE.md injection.
+        let current_model = self.current_model();
+        let current_context_length = self.current_context_length();
+        let os = std::env::consts::OS;
+
+        let mut sys = String::from("<|turn>system\n<|think|>\n");
+        sys.push_str("You are Hematite, a local coding harness working on the user's machine.\n");
+        if professional {
+            sys.push_str("Be direct, technical, concise, and ASCII-first.\n");
+        } else {
+            sys.push_str(&format!(
+                "You are a [{}] local AI coding system. Be direct, concise, and technical.\n",
+                self.species
+            ));
+        }
+        sys.push_str(&format!(
+            "Model: {} | Context: {} tokens. Keep turns focused.\n",
+            current_model, current_context_length
+        ));
+        if is_gemma4_model_name(&current_model) {
+            sys.push_str(
+                "Gemma 4: use exact tool JSON. No extra prose in tool calls. \
+                 Raw regex patterns in grep_files, no slash delimiters.\n",
+            );
+        }
+        if cfg!(target_os = "windows") {
+            sys.push_str(&format!(
+                "OS: {}. Use PowerShell for shell. Never bash or /dev/null.\n",
+                os
+            ));
+        } else {
+            sys.push_str(&format!("OS: {}. Use native Unix shell.\n", os));
+        }
+        if brief {
+            sys.push_str("BRIEF MODE: one concise sentence unless code is required.\n");
+        }
+
+        sys.push_str(
+            "\nCORE RULES:\n\
+             - Read before editing: use `read_file` or `inspect_lines` on a file before mutating it.\n\
+             - Verify after edits: run `verify_build` after code changes, before committing.\n\
+             - One tool at a time. Do not batch unrelated tool calls.\n\
+             - Do not invent tool names, file paths, or symbols not confirmed by tool output.\n\
+             - Built-in tools first: prefer `read_file`, `edit_file`, `grep_files` over MCP filesystem tools.\n\
+             - STARTUP/UI CHANGES: read the owner file first, make one focused edit, then run `verify_build`.\n",
+        );
+
+        if !tools.is_empty() {
+            sys.push_str("\n# AVAILABLE TOOLS\n");
+            for tool in tools {
+                let desc: String = tool.function.description.chars().take(120).collect();
+                sys.push_str(&format!("- {}: {}\n", tool.function.name, desc));
+            }
+        }
+
+        sys.push_str("<turn|>\n");
+        sys
+    }
+
     fn build_system_prompt_tiny(&self, brief: bool, professional: bool) -> String {
         let current_model = self.current_model();
         let current_context_length = self.current_context_length();
@@ -1173,21 +1265,28 @@ impl InferenceEngine {
         let request_messages = if should_use_gemma_native_formatting(self, &model) {
             prepare_gemma_native_messages(messages)
         } else {
-            messages
+            messages.to_vec()
+        };
+
+        // In compact context windows, restrict tools to the core coding set.
+        // Full schemas for 36+ tools add 10k+ tokens via the model's chat template (e.g. Gemma 4).
+        // Sending a small core set keeps schemas available for structured tool-call dispatch
+        // while staying within the 16k budget.
+        const COMPACT_CORE_TOOLS: &[&str] = &[
+            "read_file", "inspect_lines", "edit_file", "write_file",
+            "grep_files", "list_files", "verify_build", "shell", "map_project",
+        ];
+        let effective_tools = if is_compact_context_window(self.current_context_length()) {
+            let core: Vec<_> = filtered_tools
                 .iter()
-                .map(|m| {
-                    let mut clone = m.clone();
-                    let current_text = m.content.as_str();
-                    // Don't double-wrap if already wrapped
-                    if !current_text.starts_with("<|turn>") {
-                        clone.content = MessageContent::Text(format!(
-                            "<|turn>{}\n{}\n<turn|>",
-                            m.role, current_text
-                        ));
-                    }
-                    clone
-                })
-                .collect()
+                .filter(|t| COMPACT_CORE_TOOLS.contains(&t.function.name.as_str()))
+                .cloned()
+                .collect();
+            if core.is_empty() { None } else { Some(core) }
+        } else if filtered_tools.is_empty() {
+            None
+        } else {
+            Some(filtered_tools)
         };
 
         let request = ChatRequest {
@@ -1195,11 +1294,7 @@ impl InferenceEngine {
             messages: request_messages,
             temperature: 0.2,
             stream: false,
-            tools: if filtered_tools.is_empty() {
-                None
-            } else {
-                Some(filtered_tools)
-            },
+            tools: effective_tools,
         };
 
         // Exponential backoff: retry up to 3× on 5xx / timeout / connect errors.

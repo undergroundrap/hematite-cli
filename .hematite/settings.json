@@ -15,7 +15,7 @@
 
   "auto_approve_moderate": false,
 
-  "context_hint": null,
+  "context_hint": "The startup banner (shown on launch) is in src/runtime.rs around line 208. When asked to update the startup banner or launch message, look there first.",
   "model": null,
   "fast_model": null,
   "think_model": null
