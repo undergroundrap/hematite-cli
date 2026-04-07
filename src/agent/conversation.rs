@@ -8,11 +8,8 @@ use crate::agent::recovery_recipes::{
     RecoveryDecision, RecoveryPlan, RecoveryScenario, RecoveryStep,
 };
 use crate::agent::policy::{
-    action_target_path, is_destructive_tool, is_mcp_mutating_tool, is_mcp_workspace_read_tool,
-    is_startup_ui_owner_path,
-    normalize_workspace_path, docs_edit_without_explicit_request,
-    looks_like_startup_ui_copy_request, startup_ui_owner_paths,
-    startup_ui_target_conflicts_with_owner_discovery, tool_path_argument,
+    action_target_path, docs_edit_without_explicit_request, is_destructive_tool,
+    is_mcp_mutating_tool, is_mcp_workspace_read_tool, normalize_workspace_path,
 };
 use crate::agent::architecture_summary::{
     build_architecture_overview_answer, prune_architecture_trace_batch,
@@ -908,25 +905,6 @@ impl ConversationManager {
         name: &str,
         args: &Value,
     ) -> Result<(), String> {
-        let startup_ui_prompt = self
-            .latest_user_prompt()
-            .filter(|prompt| looks_like_startup_ui_copy_request(prompt))
-            .map(|prompt| prompt.to_string());
-        let startup_ui_locked_owner = if startup_ui_prompt.is_some() {
-            let state = self.action_grounding.lock().await;
-            state
-                .observed_paths
-                .iter()
-                .filter(|(path, turn)| {
-                    state.turn_index.saturating_sub(**turn) <= 3
-                        && is_startup_ui_owner_path(path.as_str())
-                })
-                .max_by_key(|(_, turn)| **turn)
-                .map(|(path, _)| path.clone())
-        } else {
-            None
-        };
-
         if self
             .plan_execution_active
             .load(std::sync::atomic::Ordering::SeqCst)
@@ -1006,131 +984,6 @@ impl ConversationManager {
             }
         }
 
-        if startup_ui_prompt.is_some() {
-            match name {
-                "auto_pin_context" => {
-                    return Err(
-                        "Action blocked: startup/UI copy work should stay compact. Do not call `auto_pin_context`. Inspect one likely UI or front-end owner file with `read_file` or `inspect_lines`, then edit."
-                            .to_string(),
-                    );
-                }
-                "map_project" => {
-                    return Err(
-                        "Action blocked: `map_project` is too broad for startup/UI copy work. Start with one likely UI or front-end owner file and inspect the local text you plan to change."
-                            .to_string(),
-                    );
-                }
-                "lsp_get_diagnostics" | "lsp_hover" | "lsp_definitions" | "lsp_references"
-                | "lsp_search_symbol" => {
-                    return Err(
-                        "Action blocked: startup/UI copy work does not need LSP diagnostics or symbol navigation first. Use `read_file` or `inspect_lines` on one likely UI or front-end owner file."
-                            .to_string(),
-                    );
-                }
-                "grep_files" => {
-                    let raw_path = args.get("path").and_then(|v| v.as_str()).unwrap_or("").trim();
-                    if raw_path.is_empty()
-                        || matches!(raw_path, "." | "./" | "src" | "src/" | "./src" | "src\\")
-                    {
-                        return Err(
-                            "Action blocked: broad `grep_files` is too noisy for startup/UI copy work. Inspect one likely UI or front-end owner file directly, or scope `grep_files` to a single likely UI path if you truly need discovery."
-                                .to_string(),
-                        );
-                    }
-                }
-                "verify_build" => {
-                    let state = self.action_grounding.lock().await;
-                    let code_changed_since_verify = state.code_changed_since_verify;
-                    drop(state);
-                    if !code_changed_since_verify {
-                        return Err(
-                            "Action blocked: `verify_build` comes after the edit for startup/UI copy work. Inspect the owner file first, make one focused change, then verify."
-                                .to_string(),
-                        );
-                    }
-                }
-                _ => {}
-            }
-
-            if let Some(locked_owner) = startup_ui_locked_owner.as_deref() {
-                match name {
-                    "map_project" | "auto_pin_context" => {
-                        return Err(format!(
-                            "Action blocked: startup/UI copy work already has a likely owner file: '{}'. Stay on that file, inspect the exact local text, then edit and verify.",
-                            locked_owner
-                        ));
-                    }
-                    _ => {}
-                }
-            }
-
-            if let Some(prompt) = startup_ui_prompt.as_deref() {
-                if let Some(target) = tool_path_argument(name, args).as_deref() {
-                    if let Some(locked_owner) = startup_ui_locked_owner.as_deref() {
-                        if matches!(
-                            name,
-                            "grep_files"
-                                | "list_files"
-                                | "read_file"
-                                | "inspect_lines"
-                                | "edit_file"
-                                | "patch_hunk"
-                                | "multi_search_replace"
-                        ) && target != locked_owner
-                        {
-                            return Err(format!(
-                                "Action blocked: startup/UI copy work already has a likely owner file: '{}'. Stay on that file for inspection and editing instead of switching to '{}'.",
-                                locked_owner, target
-                            ));
-                        }
-                    }
-                    if startup_ui_target_conflicts_with_owner_discovery(prompt, target) {
-                        let owners = startup_ui_owner_paths()
-                            .into_iter()
-                            .map(|p| format!("`{}`", p))
-                            .collect::<Vec<_>>()
-                            .join(", ");
-                        let owner_guidance = if owners.is_empty() {
-                            "Inspect the repo's likely UI or front-end surface files first.".to_string()
-                        } else {
-                            format!(
-                                "Inspect a likely UI or front-end owner file first: {}.",
-                                owners
-                            )
-                        };
-                        return Err(format!(
-                            "Action blocked: startup/UI copy work should inspect likely UI-surface owner files first, not '{}'. {}",
-                            target, owner_guidance
-                        ));
-                    }
-                }
-            }
-
-            if matches!(name, "edit_file" | "patch_hunk" | "multi_search_replace") {
-                if let Some(target) = action_target_path(name, args) {
-                    let state = self.action_grounding.lock().await;
-                    let exact_window_known = state
-                        .inspected_paths
-                        .get(&target)
-                        .map(|turn| state.turn_index.saturating_sub(*turn) <= 3)
-                        .unwrap_or(false);
-                    let target_is_locked_owner = startup_ui_locked_owner
-                        .as_deref()
-                        .map(|owner| owner == target)
-                        .unwrap_or(false);
-                    let target_is_ui_owner = is_startup_ui_owner_path(target.as_str());
-                    drop(state);
-
-                    if (target_is_locked_owner || target_is_ui_owner) && !exact_window_known {
-                        return Err(format!(
-                            "Action blocked: startup/UI copy work requires an exact local line window before `{}` on '{}'. Use `inspect_lines` on that file around the banner text you plan to change, then retry the mutation.",
-                            name, target
-                        ));
-                    }
-                }
-            }
-        }
-
         if self.workflow_mode.is_read_only() && name == "auto_pin_context" {
             return Err(
                 "Action blocked: `auto_pin_context` is disabled in read-only workflows. Use the grounded file evidence you already have, or narrow with `inspect_lines` instead of pinning more files into active context."
@@ -1165,25 +1018,6 @@ impl ConversationManager {
                         return Err(format!(
                             "Action blocked: '{}' is a docs file but the current request did not explicitly ask for documentation changes. Finish the code task first. If docs need updating, the user will ask.",
                             target
-                        ));
-                    }
-                    if startup_ui_target_conflicts_with_owner_discovery(prompt, target) {
-                        let owners = startup_ui_owner_paths()
-                            .into_iter()
-                            .map(|p| format!("`{}`", p))
-                            .collect::<Vec<_>>()
-                            .join(", ");
-                        let owner_guidance = if owners.is_empty() {
-                            "Inspect the repo's likely UI or front-end surface files first and keep the edit inside that layer.".to_string()
-                        } else {
-                            format!(
-                                "Inspect the likely UI or front-end owner files first and keep the edit inside one of them: {}.",
-                                owners
-                            )
-                        };
-                        return Err(format!(
-                            "Action blocked: this request sounds like startup/UI copy work, but '{}' is not a likely UI-surface owner file. {}",
-                            target, owner_guidance
                         ));
                     }
                 }
