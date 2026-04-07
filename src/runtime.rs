@@ -230,7 +230,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         manager.engine.current_context_length(),
         gpu_name,
         vram,
-        manager.engine.base_url,
+        format!("{}/v1", manager.engine.base_url),
         embed_status
     );
 

@@ -384,6 +384,12 @@ Hybrid results are merged and ranked: semantic hits score higher when the embedd
 
 **To wipe and rebuild the index** (e.g. switching projects or after a big refactor): use `/vein-reset` in the TUI. The database is cleared immediately and rebuilt from scratch on the next turn. For a full deep clean including the database file, use `pwsh ./clean.ps1 -Deep`.
 
+**Large file support:** the index covers files up to 512 KB — large source files like `tui.rs`, `inference.rs`, and `conversation.rs` are indexed in full, not silently skipped.
+
+**BM25 query accuracy:** stopwords are filtered and tokens are OR-joined so conversational queries like "how does the specular panel work" return relevant results instead of empty matches.
+
+**Backfill ordering:** when the embedding model is loaded after initial indexing, `.rs` source files are embedded before documentation and config files so the most useful chunks get semantic vectors first.
+
 ### Built-In Web Research
 
 Hematite can search the web for technical information when local context is not enough. `research_web` is used to find likely documentation or debugging leads, and `fetch_docs` pulls the resulting pages into clean Markdown so the model can actually read them instead of guessing from snippets.
@@ -391,6 +397,8 @@ Hematite can search the web for technical information when local context is not 
 ### Grounded Runtime Tracing
 
 For architecture and control-flow questions, Hematite can use `trace_runtime_flow` to return a verified read-only runtime trace instead of relying on model memory alone. This is especially useful on local open models where exact symbol tracing is weaker than cloud frontier models.
+
+Supported topics: `user_turn`, `session_reset`, `reasoning_split`, `runtime_subsystems`, `startup`, `voice`. The `voice` topic covers the Ctrl+T toggle binding, `VoiceManager.toggle()`, and the speech pipeline — returning a grounded answer in a single tool call instead of burning multiple turns on grep searches that return empty.
 
 For broad read-only architecture walkthroughs, Hematite now pairs `trace_runtime_flow` with `map_project` instead of letting the model freestyle a long repo tour. The intended shape is: `map_project` for structure and owner files, one `trace_runtime_flow` topic for runtime or control flow, then a compact grounded overview.
 
@@ -446,6 +454,18 @@ If Hematite detects a Gemma 4 model at startup, it reports whether Gemma Native 
 ### Vision Analysis
 
 Hematite can inspect screenshots, diagrams, and UI captures through `vision_analyze`, which lets the model reason about visual bugs and interface state instead of relying only on text descriptions.
+
+### Startup Greeting
+
+On launch, Hematite prints a one-line status block:
+
+```
+Hematite Online | Model: qwen/qwen3.5-9b | CTX: 32000 | GPU: NVIDIA GeForce RTX 4070 | VRAM: 9.3 GB / 12.0 GB
+Endpoint: http://localhost:1234/v1
+Embed: nomic active (semantic search ready)
+```
+
+The endpoint line shows exactly where Hematite is connecting — immediately visible if you're using Ollama, a remote machine, or any non-default server instead of LM Studio.
 
 ### Background Audio Engine
 

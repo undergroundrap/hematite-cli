@@ -141,6 +141,7 @@ libs/
 - `ACTIVE CONTEXT`: shows the current working file set
 - Ghost system: `.hematite/ghost/` stores pre-edit backups
 - Hardware guard: `gpu_monitor.rs` watches VRAM and can force brief mode or reduce swarm fanout
+- Startup greeting prints active endpoint (`Endpoint: http://localhost:1234/v1`) so misconfigured providers are immediately visible
 
 ## The Vein — Local RAG
 
@@ -179,6 +180,12 @@ fall back to a sliding window. This ensures each retrieved chunk is a coherent, 
 
 **Resetting the index:** `/vein-reset` wipes all three tables and resets the status badge to
 `VN:--`. The next turn rebuilds from scratch. `pwsh ./clean.ps1 -Deep` also deletes the DB file.
+
+**File size limit:** 512 KB per file. Large files like `tui.rs`, `inference.rs`, and `conversation.rs` are indexed in full. Files over 512 KB are skipped.
+
+**BM25 query shape:** stopwords are stripped and tokens are OR-joined in the FTS5 query. This prevents conversational queries like "how does the specular panel work" from returning zero results due to FTS5 implicit AND semantics.
+
+**Backfill ordering:** `.rs` files are embedded first so the most relevant source files get semantic vectors before documentation or config files.
 
 ## Model Behavior Notes
 
