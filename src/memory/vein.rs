@@ -386,6 +386,12 @@ impl Vein {
                      FROM chunks_fts f
                      LEFT JOIN chunks_vec v ON f.path = v.path AND (f.rowid - 1) = v.chunk_idx
                      WHERE v.path IS NULL
+                     ORDER BY CASE
+                         WHEN f.path LIKE '%.rs' THEN 0
+                         WHEN f.path LIKE '%.toml' THEN 1
+                         WHEN f.path LIKE '%.json' THEN 2
+                         ELSE 3
+                     END, f.path
                      LIMIT 20",
                 )
                 .unwrap();

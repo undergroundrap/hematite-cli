@@ -128,6 +128,12 @@ pub fn classify_bash_risk(cmd: &str) -> RiskLevel {
         "select-string", "select-object", "where-object",
         "sort ", "sort\n", "wc ", "uniq ", "cut ",
         "file ", "stat ", "du ", "df ",
+        // PowerShell wrapped read-only commands (Select-String, Get-ChildItem inside powershell -Command)
+        "powershell -command \"select-string",
+        "powershell -command \"get-childitem",
+        "powershell -command \"get-content",
+        "powershell -command 'select-string",
+        "powershell -command 'get-childitem",
     ];
     if safe_prefixes.iter().any(|p| lower.starts_with(p) || lower == p.trim()) {
         return RiskLevel::Safe;
