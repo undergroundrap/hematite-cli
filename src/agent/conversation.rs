@@ -2718,17 +2718,26 @@ impl ConversationManager {
                     }
 
                     if is_error
-                        && startup_ui_work
-                        && tool_name == "edit_file"
-                        && final_output.contains("search string not found")
+                        && matches!(tool_name.as_str(), "edit_file" | "multi_search_replace")
+                        && (final_output.contains("search string not found")
+                            || final_output.contains("search string is too short")
+                            || final_output.contains("search string matched"))
                     {
                         if let Some(target) = action_target_path(&tool_name, &res.args) {
                             startup_ui_anchor_miss_targets.insert(target.clone());
                             startup_ui_lane_failures = startup_ui_lane_failures.saturating_add(1);
-                            loop_intervention = Some(format!(
-                                "STOP. `edit_file` on `{}` missed its anchor. Use `inspect_lines` to confirm the exact text, then retry with the correct string.",
-                                target
-                            ));
+                            let guidance = if final_output.contains("matched") {
+                                format!(
+                                    "STOP. `{}` on `{}` — search string matched multiple times. Use `inspect_lines` on the exact region to get a unique anchor, then retry.",
+                                    tool_name, target
+                                )
+                            } else {
+                                format!(
+                                    "STOP. `{}` on `{}` — search string did not match. Use `inspect_lines` on the target region to get the exact current text (check whitespace and indentation), then retry.",
+                                    tool_name, target
+                                )
+                            };
+                            loop_intervention = Some(guidance);
                             *repeat_count = 0;
                         }
                     }
