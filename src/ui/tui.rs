@@ -1041,6 +1041,7 @@ pub async fn run_app<B: Backend>(
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("You", "/forget");
                                                 app.agent_running = true;
+                                                app.cancel_token.store(false, std::sync::atomic::Ordering::SeqCst);
                                                 let _ = app.user_input_tx.try_send("/forget".to_string());
                                                 app.history_idx = None;
                                                 continue;
@@ -1295,7 +1296,8 @@ pub async fn run_app<B: Backend>(
                                     app.history_idx = None;
                                     app.push_message("You", &input_text);
                                     app.agent_running = true;
-                                    app.last_reasoning.clear(); 
+                                    app.cancel_token.store(false, std::sync::atomic::Ordering::SeqCst);
+                                    app.last_reasoning.clear();
                                     app.manual_scroll_offset = None;
                                     app.specular_auto_scroll = true;
                                     let tx = app.user_input_tx.clone();
