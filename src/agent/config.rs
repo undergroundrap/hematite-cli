@@ -42,6 +42,10 @@ pub struct HematiteConfig {
     pub api_url: Option<String>,
     /// Voice ID for TTS. Use /voice in the TUI to list and select. Defaults to "af_sky".
     pub voice: Option<String>,
+    /// TTS speech speed multiplier. 1.0 = normal, 0.8 = slower, 1.3 = faster. Defaults to 1.0.
+    pub voice_speed: Option<f32>,
+    /// TTS volume. 0.0 = silent, 1.0 = normal, 2.0 = louder. Defaults to 1.0.
+    pub voice_volume: Option<f32>,
     /// Extra text appended verbatim to the system prompt (project notes, conventions, etc.).
     pub context_hint: Option<String>,
     /// Per-project verification commands for build/test/lint/fix workflows.
@@ -176,6 +180,14 @@ pub fn effective_voice(config: &HematiteConfig) -> String {
     config.voice.clone().unwrap_or_else(|| "af_sky".to_string())
 }
 
+pub fn effective_voice_speed(config: &HematiteConfig) -> f32 {
+    config.voice_speed.unwrap_or(1.0).clamp(0.5, 2.0)
+}
+
+pub fn effective_voice_volume(config: &HematiteConfig) -> f32 {
+    config.voice_volume.unwrap_or(1.0).clamp(0.0, 3.0)
+}
+
 pub fn effective_gemma_native_formatting(
     config: &HematiteConfig,
     model_name: &str,
@@ -225,6 +237,8 @@ fn write_default_config(path: &std::path::Path) {
 
   "api_url": null,
   "voice": null,
+  "voice_speed": null,
+  "voice_volume": null,
   "context_hint": null,
   "model": null,
   "fast_model": null,

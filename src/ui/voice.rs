@@ -15,19 +15,30 @@ pub struct VoiceManager {
     sink: Arc<tokio::sync::Mutex<Option<Sink>>>,
     /// Currently active voice ID — updated live by /voice command.
     current_voice: Arc<std::sync::Mutex<String>>,
+    /// Speech speed multiplier (0.5–2.0). Read at synthesis time.
+    current_speed: Arc<std::sync::Mutex<f32>>,
+    /// Output volume (0.0–3.0). Applied to the rodio Sink.
+    current_volume: Arc<std::sync::Mutex<f32>>,
 }
 
 impl VoiceManager {
     pub fn new(event_tx: tokio_mpsc::Sender<InferenceEvent>) -> Self {
-        let initial_voice = crate::agent::config::effective_voice(&crate::agent::config::load_config());
+        let cfg = crate::agent::config::load_config();
+        let initial_voice  = crate::agent::config::effective_voice(&cfg);
+        let initial_speed  = crate::agent::config::effective_voice_speed(&cfg);
+        let initial_volume = crate::agent::config::effective_voice_volume(&cfg);
         let (tx, rx) = mpsc::sync_channel::<String>(128);
         let enabled = Arc::new(AtomicBool::new(true));
         let cancelled = Arc::new(AtomicBool::new(false));
         let enabled_ctx = enabled.clone();
         let cancelled_ctx = cancelled.clone();
         let sink_shared = Arc::new(tokio::sync::Mutex::new(None));
-        let current_voice = Arc::new(std::sync::Mutex::new(initial_voice));
-        let voice_synth = Arc::clone(&current_voice);
+        let current_voice  = Arc::new(std::sync::Mutex::new(initial_voice));
+        let current_speed  = Arc::new(std::sync::Mutex::new(initial_speed));
+        let current_volume = Arc::new(std::sync::Mutex::new(initial_volume));
+        let voice_synth  = Arc::clone(&current_voice);
+        let speed_synth  = Arc::clone(&current_speed);
+        let volume_synth = Arc::clone(&current_volume);
         let sink_manager_clone = Arc::clone(&sink_shared);
 
         // Dedicated thread for voice synthesis and playback
@@ -91,11 +102,13 @@ impl VoiceManager {
                                 
                             // TRUE STREAMING: Yield chunks immediately to the audio sink
                             let voice_id = voice_synth.lock().map(|v| v.clone()).unwrap_or_else(|_| "af_sky".to_string());
+                            let speed    = speed_synth.lock().map(|v| *v).unwrap_or(1.0);
+                            let volume   = volume_synth.lock().map(|v| *v).unwrap_or(1.0);
                             let res = engine.tts_raw_audio_streaming(
                                 &to_speak,
                                 "en-us",
                                 &voice_id,
-                                1.0,
+                                speed,
                                 None, None, None, None,
                                 |chunk| {
                                     // CHECK FOR ABORT: mid-stream silence
@@ -106,6 +119,7 @@ impl VoiceManager {
                                     if !chunk.is_empty() {
                                         if let Ok(mut snk_opt) = sink_synth_clone.try_lock() {
                                             if let Some(ref mut snk) = *snk_opt {
+                                                snk.set_volume(volume);
                                                 let source = rodio::buffer::SamplesBuffer::new(1, 24000, chunk);
                                                 snk.append(source);
                                                 snk.play();
@@ -195,7 +209,7 @@ impl VoiceManager {
         });
 
 
-        Self { sender: tx, enabled, cancelled, sink: sink_manager_clone, current_voice }
+        Self { sender: tx, enabled, cancelled, sink: sink_manager_clone, current_voice, current_speed, current_volume }
     }
 
     pub fn speak(&self, text: String) {
@@ -257,6 +271,18 @@ impl VoiceManager {
 
     pub fn current_voice_id(&self) -> String {
         self.current_voice.lock().map(|v| v.clone()).unwrap_or_else(|_| "af_sky".to_string())
+    }
+
+    pub fn set_speed(&self, speed: f32) {
+        if let Ok(mut v) = self.current_speed.lock() {
+            *v = speed.clamp(0.5, 2.0);
+        }
+    }
+
+    pub fn set_volume(&self, volume: f32) {
+        if let Ok(mut v) = self.current_volume.lock() {
+            *v = volume.clamp(0.0, 3.0);
+        }
     }
 }
 
