@@ -243,9 +243,11 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
     }
 
     let abs = safe_path(path)?;
-    let original = fs::read_to_string(&abs)
+    let raw = fs::read_to_string(&abs)
         .map_err(|e| format!("edit_file: {e} ({path})"))?;
-        
+    // Normalize CRLF → LF so search strings from the model (always LF) match on Windows.
+    let original = raw.replace("\r\n", "\n");
+
     save_ghost_backup(path, &original);
 
     let search_trimmed = search.trim();
@@ -398,9 +400,11 @@ pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
     }
 
     let abs = safe_path(path)?;
-    let original = fs::read_to_string(&abs)
+    let raw = fs::read_to_string(&abs)
         .map_err(|e| format!("multi_search_replace: {e} ({path})"))?;
-    
+    // Normalize CRLF → LF so search strings from the model (always LF) match on Windows.
+    let original = raw.replace("\r\n", "\n");
+
     save_ghost_backup(path, &original);
 
     let mut current_content = original.clone();
