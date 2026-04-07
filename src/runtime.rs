@@ -224,14 +224,23 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         "Embed: none loaded (BM25 only — load nomic-embed-text-v2 for semantic search)"
     };
 
+    let voice_cfg = crate::agent::config::load_config();
+    let voice_status = format!(
+        "Voice: {} | Speed: {}x | Volume: {}x",
+        crate::agent::config::effective_voice(&voice_cfg),
+        crate::agent::config::effective_voice_speed(&voice_cfg),
+        crate::agent::config::effective_voice_volume(&voice_cfg),
+    );
+
     let greeting = format!(
-        "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\n{}",
+        "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\n{}\n{}",
         manager.engine.current_model(),
         manager.engine.current_context_length(),
         gpu_name,
         vram,
         format!("{}/v1", manager.engine.base_url),
-        embed_status
+        embed_status,
+        voice_status
     );
 
     let _ = agent_tx
