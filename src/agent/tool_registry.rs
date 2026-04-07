@@ -81,7 +81,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                     "topic": {
                         "type": "string",
                         "enum": ["user_turn", "session_reset", "reasoning_split", "runtime_subsystems", "startup", "voice"],
-                        "description": "Which verified runtime report to return"
+                        "description": "Which verified runtime report to return. Use 'voice' for any question about Ctrl+T, voice toggle, or TTS pipeline. Use 'user_turn' for keyboard-to-output flow. Use 'session_reset' for /clear, /forget, /new. Use 'startup' for startup wiring. Use 'reasoning_split' for specular/thought routing. Use 'runtime_subsystems' for background subsystem overview."
                     },
                     "input": {
                         "type": "string",
