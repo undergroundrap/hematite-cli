@@ -150,12 +150,30 @@ impl Vein {
         query: &str,
         limit: usize,
     ) -> Result<Vec<SearchResult>, Box<dyn std::error::Error>> {
+        // Strip common English stopwords so FTS5 MATCH gets meaningful tokens only.
+        // FTS5 uses implicit AND by default — passing stopwords like "how", "does",
+        // "the" causes zero results because source code never contains those phrases.
+        const STOPWORDS: &[&str] = &[
+            "how", "does", "do", "did", "what", "where", "when", "why", "which", "who",
+            "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+            "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
+            "of", "with", "by", "from", "get", "gets", "got", "work", "works",
+            "make", "makes", "use", "uses", "into", "that", "this", "it", "its",
+        ];
+
         let safe_query: String = query
             .chars()
             .map(|c| if c.is_alphanumeric() || c == ' ' || c == '_' { c } else { ' ' })
             .collect();
-        let safe_query = safe_query.trim().to_string();
-        if safe_query.is_empty() {
+
+        // Build an OR query from non-stopword tokens so any relevant term matches.
+        let fts_query = safe_query
+            .split_whitespace()
+            .filter(|w| w.len() >= 3 && !STOPWORDS.contains(&w.to_lowercase().as_str()))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+
+        if fts_query.is_empty() {
             return Ok(Vec::new());
         }
 
@@ -169,7 +187,7 @@ impl Vein {
         )?;
 
         let results: Vec<SearchResult> = stmt
-            .query_map(params![safe_query, limit as i64], |row| {
+            .query_map(params![fts_query, limit as i64], |row| {
                 Ok(SearchResult {
                     path: row.get(0)?,
                     content: row.get(1)?,
