@@ -135,6 +135,35 @@ libs/
   kokoros/              Vendored voice synthesis library.
 ```
 
+## Voice Engine
+
+Hematite ships a fully self-contained TTS pipeline using the vendored Kokoro engine. No cloud, no
+separate install, no Python — everything is baked into the binary at compile time.
+
+**How it works:**
+
+- The Kokoro ONNX model (`kokoro-v1.0.onnx`, 311 MB) and voice styles (`voices.bin`, 27 MB) are
+  embedded in the binary via `include_bytes!` at compile time
+- ONNX Runtime 1.24.2 is **statically linked** via `ort`'s `download-binaries` feature — the
+  system `onnxruntime.dll` is never used, eliminating DLL version conflicts
+- `DirectML.dll` (GPU inference on Windows) ships alongside the binary — copied to `target/debug/`
+  by the build, bundled in portable releases
+- 54 voices are available across English (American/British), Spanish, French, Hindi, Italian,
+  Japanese, and Chinese — all baked in, no downloads at runtime
+- Voice ID, speed (0.5–2.0×), and volume (0.0–3.0×) are configurable via `/voice` or `settings.json`
+
+**First-start note:** ONNX graph optimization runs on first load, which takes 10–30 seconds on an
+RTX 4070-class system. Subsequent starts reuse the optimized graph. During loading, incoming speech
+tokens buffer (1024 capacity) so no audio is lost.
+
+**Why static linking matters:** Windows ships `onnxruntime.dll` 1.17 in System32. Kokoro's ONNX
+model uses opsets not supported by 1.17. Dynamic loading would silently crash inside C code before
+any Rust error handler could catch it. Static linking with 1.24.2 sidesteps this entirely — the
+binary carries the exact runtime it was built against.
+
+**Runtime DLL footprint:** only `DirectML.dll` is needed alongside the binary. It ships with
+Windows 10 1903+ and is also bundled in the Hematite portable release.
+
 ## Key Concepts
 
 - `InferenceEvent`: the enum flowing from agent to TUI over `mpsc`
