@@ -346,9 +346,18 @@ Before every file edit, Hematite snapshots a hidden git ref at `refs/hematite/gh
 
 Drop a `CLAUDE.md` or `.hematite.md` in your project root. Hematite picks it up automatically and follows your project-specific coding standards every turn.
 
-### The Vein (RAG Memory)
+### The Vein (Hybrid RAG Memory)
 
-An SQLite FTS5 index of your project source is queried every turn so relevant code can be pulled into context without extra tool calls.
+The Vein is Hematite's retrieval layer. At the start of every turn it re-indexes any changed files and queries for chunks relevant to the user's message. Results are injected directly into the system prompt so the model starts the turn with the right code already visible — reducing wasted `read_file` calls and letting smaller models perform better on unfamiliar codebases.
+
+**Two retrieval modes run together:**
+
+- **BM25 keyword search** (always on) — SQLite FTS5 with Porter stemming. Zero extra GPU cost, works with any LM Studio setup.
+- **Semantic vector search** (optional, better) — Calls LM Studio's `/v1/embeddings` endpoint using `nomic-embed-text-v1.5`. Understands concept-level queries: "what renders the startup screen" finds the right function even if no file uses the word "banner". Vectors are stored in SQLite and reused across sessions so files are only re-embedded when they actually change.
+
+**To enable semantic search:** load `text-embedding-nomic-embed-text-v1.5` in LM Studio alongside your main coding model. On an RTX 4070 the embedding model costs roughly 270 MB VRAM — both fit with room to spare.
+
+Hybrid results are merged and ranked: semantic hits score higher when the embedding model is available; BM25 fills the gap when it isn't. Results are deduplicated by file path and capped so they don't crowd out the model's working context.
 
 ### Built-In Web Research
 

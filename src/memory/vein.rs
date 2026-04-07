@@ -1,18 +1,32 @@
 use rusqlite::{params, Connection};
 use std::path::Path;
 
-/// "The Vein" — local RAG memory engine backed by SQLite FTS5.
+/// "The Vein" — local RAG memory engine backed by SQLite FTS5 + semantic embeddings.
 ///
-/// Indexes all source files in the project using sliding-window chunking.
-/// Searches via BM25 full-text ranking — no external embedding model required.
-/// Incremental: only re-indexes files whose mtime has changed.
+/// Two retrieval modes, used together:
+///
+/// **BM25 (always available)**
+/// Full-text search via SQLite FTS5 with Porter-stemming. Fast, zero extra GPU cost,
+/// works as the fallback when the embedding model isn't loaded.
+///
+/// **Semantic (when LM Studio has an embedding model loaded)**
+/// Calls `/v1/embeddings` (nomic-embed-text-v1.5 or similar) to produce 768-dim float
+/// vectors for each chunk. At search time the query is embedded and cosine similarity
+/// selects the most conceptually relevant chunks — even when no keywords match.
+///
+/// Hybrid search runs BM25 and semantic in parallel, deduplicates by path, and returns
+/// the top-k results ranked by combined score. Semantic results score higher when the
+/// embedding model is available; BM25 fills the gap when it isn't.
+///
+/// Indexing is incremental: files are re-indexed only when their mtime changes. Embedding
+/// vectors are stored in a separate `chunks_vec` SQLite table so they survive re-runs
+/// without hitting the embedding API again.
 pub struct Vein {
     db: std::sync::Arc<std::sync::Mutex<Connection>>,
 }
 
 // SAFETY: rusqlite::Connection is !Send by default, but we wrap it in Arc<Mutex>
-// and ensure all accesses are synchronized. We primarily use this for FTS5
-// indexing which is safe across threads when serialized by a mutex.
+// and ensure all accesses are serialized by the mutex.
 unsafe impl Send for Vein {}
 unsafe impl Sync for Vein {}
 
@@ -20,7 +34,7 @@ unsafe impl Sync for Vein {}
 pub struct SearchResult {
     pub path: String,
     pub content: String,
-    /// BM25 relevance score (higher = more relevant).
+    /// Combined relevance score (higher = more relevant).
     pub score: f32,
 }
 
@@ -31,7 +45,9 @@ impl Vein {
         // WAL mode for better concurrent read performance.
         db.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;")?;
 
-        // Metadata table: tracks last-modified time per path.
+        // chunks_meta: tracks last-modified time per path for incremental indexing.
+        // chunks_fts:  BM25 full-text index of all code chunks.
+        // chunks_vec:  semantic embedding vectors, keyed by (path, chunk_idx).
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS chunks_meta (
                 path TEXT PRIMARY KEY,
@@ -41,19 +57,28 @@ impl Vein {
                 path UNINDEXED,
                 content,
                 tokenize='porter ascii'
+            );
+            CREATE TABLE IF NOT EXISTS chunks_vec (
+                path TEXT NOT NULL,
+                chunk_idx INTEGER NOT NULL,
+                embedding BLOB NOT NULL,
+                PRIMARY KEY (path, chunk_idx)
             );",
         )?;
 
         Ok(Self { db: std::sync::Arc::new(std::sync::Mutex::new(db)) })
     }
 
-    /// Index a single file. Skip if mtime hasn't changed since last index.
+    // ── Indexing ──────────────────────────────────────────────────────────────
+
+    /// Index a single file for BM25 search. Skip if mtime hasn't changed.
+    /// Returns the chunks that were written (empty if file was unchanged).
     pub fn index_document(
         &mut self,
         path: &str,
         last_modified: i64,
         full_text: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         let db = self.db.lock().unwrap();
         let existing: Option<i64> = db
             .query_row(
@@ -65,28 +90,24 @@ impl Vein {
 
         if let Some(ts) = existing {
             if ts >= last_modified {
-                return Ok(());
+                return Ok(Vec::new()); // unchanged — skip
             }
         }
 
-        // Evict stale chunks then update metadata.
+        // Evict stale BM25 chunks, stale embedding vectors, then update metadata.
         db.execute("DELETE FROM chunks_fts WHERE path = ?1", params![path])?;
+        db.execute("DELETE FROM chunks_vec WHERE path = ?1", params![path])?;
         db.execute(
             "INSERT OR REPLACE INTO chunks_meta (path, last_modified) VALUES (?1, ?2)",
             params![path, last_modified],
         )?;
 
-        // Symbol-aware chunker: groups complete Rust items (fn/impl/struct/enum/trait)
-        // into single chunks so the model always retrieves coherent code units.
-        // Non-Rust files chunk at paragraph boundaries. Falls back to sliding window
-        // for oversized blocks.
         let ext = std::path::Path::new(path)
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("");
         let chunks = chunk_by_symbols(ext, full_text);
 
-        // Close the local lock so we can start a transaction on the connection.
         drop(db);
 
         let mut db = self.db.lock().unwrap();
@@ -100,26 +121,36 @@ impl Vein {
         }
         tx.commit()?;
 
-        Ok(())
+        Ok(chunks)
     }
 
+    /// Embed a set of chunks for one file and store the vectors.
+    /// Called after `index_document` returns new chunks.
+    /// Silently skips if the embedding model is unavailable.
+    pub fn embed_and_store_chunks(&self, path: &str, chunks: &[String]) {
+        for (idx, chunk) in chunks.iter().enumerate() {
+            if let Some(vec) = embed_text_blocking(chunk) {
+                let blob = floats_to_blob(&vec);
+                let db = self.db.lock().unwrap();
+                let _ = db.execute(
+                    "INSERT OR REPLACE INTO chunks_vec (path, chunk_idx, embedding) VALUES (?1, ?2, ?3)",
+                    params![path, idx as i64, blob],
+                );
+            }
+        }
+    }
+
+    // ── Search ────────────────────────────────────────────────────────────────
+
     /// BM25-ranked full-text search via FTS5 MATCH.
-    /// Returns the top `limit` chunks ordered by relevance.
-    pub fn search_context(
+    pub fn search_bm25(
         &self,
         query: &str,
         limit: usize,
     ) -> Result<Vec<SearchResult>, Box<dyn std::error::Error>> {
-        // Sanitize: FTS5 MATCH is sensitive to unbalanced quotes and special tokens.
         let safe_query: String = query
             .chars()
-            .map(|c| {
-                if c.is_alphanumeric() || c == ' ' || c == '_' {
-                    c
-                } else {
-                    ' '
-                }
-            })
+            .map(|c| if c.is_alphanumeric() || c == ' ' || c == '_' { c } else { ' ' })
             .collect();
         let safe_query = safe_query.trim().to_string();
         if safe_query.is_empty() {
@@ -140,7 +171,6 @@ impl Vein {
                 Ok(SearchResult {
                     path: row.get(0)?,
                     content: row.get(1)?,
-                    // FTS5 rank is negative (lower = better). Negate for "higher = better".
                     score: -(row.get::<_, f64>(2).unwrap_or(0.0) as f32),
                 })
             })?
@@ -150,7 +180,110 @@ impl Vein {
         Ok(results)
     }
 
-    /// Walk the entire project and index all source files.
+    /// Semantic search: embed the query, cosine-similarity against all stored vectors.
+    /// Returns empty if the embedding model isn't loaded.
+    pub fn search_semantic(&self, query: &str, limit: usize) -> Vec<SearchResult> {
+        let query_vec = match embed_text_blocking(query) {
+            Some(v) => v,
+            None => return Vec::new(),
+        };
+
+        // Load all stored embeddings.
+        let rows: Vec<(String, i64, Vec<u8>)> = {
+            let db = self.db.lock().unwrap();
+            let mut stmt = match db.prepare(
+                "SELECT cv.path, cv.chunk_idx, cv.embedding
+                 FROM chunks_vec cv",
+            ) {
+                Ok(s) => s,
+                Err(_) => return Vec::new(),
+            };
+            stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                ))
+            })
+            .ok()
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+        };
+
+        if rows.is_empty() {
+            return Vec::new();
+        }
+
+        // Score each chunk.
+        let mut scored: Vec<(f32, String, i64)> = rows
+            .into_iter()
+            .filter_map(|(path, idx, blob)| {
+                let vec = blob_to_floats(&blob);
+                let sim = cosine_similarity(&query_vec, &vec);
+                Some((sim, path, idx))
+            })
+            .collect();
+
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        scored.truncate(limit);
+
+        // Fetch the content for the top chunks.
+        let db = self.db.lock().unwrap();
+        scored
+            .into_iter()
+            .filter_map(|(score, path, idx)| {
+                // chunks_fts rows for this path are indexed in insertion order = chunk order.
+                // We use LIMIT/OFFSET to fetch the chunk at position `idx`.
+                let content: Option<String> = db
+                    .query_row(
+                        "SELECT content FROM chunks_fts WHERE path = ?1 LIMIT 1 OFFSET ?2",
+                        params![path, idx],
+                        |r| r.get(0),
+                    )
+                    .ok();
+                content.map(|c| SearchResult { path, content: c, score })
+            })
+            .collect()
+    }
+
+    /// Hybrid search: BM25 + semantic, deduplicated and re-ranked.
+    ///
+    /// Semantic results are preferred (they score higher) when the embedding model
+    /// is available. BM25 fills in or takes over when it isn't.
+    pub fn search_context(
+        &self,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<SearchResult>, Box<dyn std::error::Error>> {
+        let bm25 = self.search_bm25(query, limit).unwrap_or_default();
+        let semantic = self.search_semantic(query, limit);
+
+        // Merge: semantic results win ties (scored 1.0–2.0 range after boost).
+        // BM25 results land in 0.0–1.0 range.
+        let mut merged: Vec<SearchResult> = Vec::new();
+
+        for r in semantic {
+            // Boost semantic scores into the 1.0–2.0 band.
+            merged.push(SearchResult { score: 1.0 + r.score.clamp(0.0, 1.0), ..r });
+        }
+
+        for r in bm25 {
+            // Only add BM25 results that aren't already covered by a semantic hit.
+            if !merged.iter().any(|m| m.path == r.path) {
+                // Normalize BM25 score into 0.0–1.0: raw BM25 scores vary, cap at 10.
+                let norm = (r.score / 10.0).clamp(0.0, 1.0);
+                merged.push(SearchResult { score: norm, ..r });
+            }
+        }
+
+        merged.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        merged.truncate(limit);
+        Ok(merged)
+    }
+
+    // ── Project Indexing ──────────────────────────────────────────────────────
+
+    /// Walk the entire project and index all source files (BM25 + embeddings).
     ///
     /// Skips: `target/`, `.git/`, `node_modules/`, `.hematite/`, files > 100 KB.
     /// Returns the number of files processed (unchanged files are fast-pathed).
@@ -201,8 +334,14 @@ impl Vein {
             let rel_str = rel.to_string_lossy().replace('\\', "/");
 
             if let Ok(content) = std::fs::read_to_string(path) {
-                if self.index_document(&rel_str, mtime, &content).is_ok() {
-                    count += 1;
+                match self.index_document(&rel_str, mtime, &content) {
+                    Ok(new_chunks) if !new_chunks.is_empty() => {
+                        // File changed — also re-embed the new chunks.
+                        self.embed_and_store_chunks(&rel_str, &new_chunks);
+                        count += 1;
+                    }
+                    Ok(_) => {} // unchanged
+                    Err(_) => {}
                 }
             }
         }
@@ -218,6 +357,85 @@ impl Vein {
         })
         .unwrap_or(0) as usize
     }
+
+    /// Number of chunks that have semantic embedding vectors stored.
+    pub fn embedded_chunk_count(&self) -> usize {
+        let db = self.db.lock().unwrap();
+        db.query_row("SELECT COUNT(*) FROM chunks_vec", [], |r| {
+            r.get::<_, i64>(0)
+        })
+        .unwrap_or(0) as usize
+    }
+}
+
+// ── Embedding API ─────────────────────────────────────────────────────────────
+
+/// Call LM Studio's `/v1/embeddings` endpoint synchronously.
+///
+/// Uses the model string `"nomic-embed-text-v1.5"` — LM Studio matches loaded
+/// models by substring, so the exact loaded model name doesn't need to match
+/// exactly as long as a compatible embedding model is loaded.
+///
+/// Returns `None` if:
+/// - No embedding model is loaded in LM Studio
+/// - LM Studio is not running
+/// - Any network or parse error occurs
+///
+/// Callers must tolerate `None` and fall back to BM25-only search.
+fn embed_text_blocking(text: &str) -> Option<Vec<f32>> {
+    // Truncate to ~8000 chars to stay within typical embedding model limits.
+    let text = if text.len() > 8000 { &text[..8000] } else { text };
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .ok()?;
+
+    let body = serde_json::json!({
+        "model": "nomic-embed-text-v1.5",
+        "input": text
+    });
+
+    let resp = client
+        .post("http://localhost:1234/v1/embeddings")
+        .json(&body)
+        .send()
+        .ok()?;
+
+    if !resp.status().is_success() {
+        return None;
+    }
+
+    let json: serde_json::Value = resp.json().ok()?;
+    let embedding = json["data"][0]["embedding"].as_array()?;
+    let vec: Vec<f32> = embedding
+        .iter()
+        .filter_map(|v| v.as_f64().map(|f| f as f32))
+        .collect();
+
+    if vec.is_empty() { None } else { Some(vec) }
+}
+
+// ── Vector math ───────────────────────────────────────────────────────────────
+
+fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
+    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm_a == 0.0 || norm_b == 0.0 { 0.0 } else { dot / (norm_a * norm_b) }
+}
+
+fn floats_to_blob(floats: &[f32]) -> Vec<u8> {
+    floats.iter().flat_map(|f| f.to_le_bytes()).collect()
+}
+
+fn blob_to_floats(blob: &[u8]) -> Vec<f32> {
+    blob.chunks_exact(4)
+        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        .collect()
 }
 
 // ── Chunking strategies ───────────────────────────────────────────────────────
@@ -303,8 +521,6 @@ fn chunk_rust_symbols(text: &str) -> Vec<String> {
 }
 
 /// Chunk non-Rust text at paragraph boundaries (double newline).
-/// Accumulates paragraphs up to 2000 chars; oversized paragraphs fall back to
-/// sliding window.
 fn chunk_paragraphs(text: &str) -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
     let mut current = String::new();

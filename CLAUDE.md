@@ -112,7 +112,7 @@ src/
     modal_review.rs     Swarm diff review modal.
     hatch.rs            Rusty personality generation.
   memory/
-    vein.rs             SQLite FTS local retrieval.
+    vein.rs             Vein RAG: SQLite FTS5 BM25 + semantic embedding retrieval.
     deep_reflect.rs     Idle-triggered session memory synthesis.
 libs/
   kokoros/              Vendored voice synthesis library.
@@ -126,6 +126,34 @@ libs/
 - `ACTIVE CONTEXT`: shows the current working file set
 - Ghost system: `.hematite/ghost/` stores pre-edit backups
 - Hardware guard: `gpu_monitor.rs` watches VRAM and can force brief mode or reduce swarm fanout
+
+## The Vein — Local RAG
+
+The Vein is Hematite's retrieval-augmented generation layer. At the start of each turn it indexes
+any changed files and queries for context relevant to the user's message. Results are injected into
+the system prompt so the model starts with the right code already in view, reducing tool calls.
+
+**Two retrieval modes, hybrid-merged:**
+
+- **BM25** (always available) — SQLite FTS5 full-text search with Porter stemming. Fast, zero GPU
+  cost, works even when LM Studio has no embedding model loaded.
+- **Semantic** (optional, higher quality) — Calls `/v1/embeddings` on LM Studio to embed each chunk
+  using `nomic-embed-text-v1.5`. Understands synonyms and concept-level matches; finds "what renders
+  on startup" even when no file uses the word "banner". Vectors are stored in SQLite so they survive
+  restarts without re-embedding.
+
+**To enable semantic search:** load `text-embedding-nomic-embed-text-v1.5` in LM Studio alongside
+your main coding model. On an RTX 4070 this costs ~270 MB VRAM — both models fit comfortably.
+
+**How hybrid ranking works:** semantic hits score 1.0–2.0 (preferred), BM25 fills to 0.0–1.0 for
+paths not already covered. Results are deduplicated by file path and capped at 3000 chars total.
+
+**Incremental indexing:** files are re-indexed only when their mtime changes. BM25 runs on every
+changed file; embeddings are generated for the same files so the vector store stays in sync.
+
+**Chunking strategy:** Rust files are split at symbol boundaries (fn/impl/struct/enum boundaries),
+keeping doc-comments with their item. Other files split at paragraph breaks. Oversized blocks
+fall back to a sliding window. This ensures each retrieved chunk is a coherent, complete code unit.
 
 ## Model Behavior Notes
 

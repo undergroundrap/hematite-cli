@@ -1952,15 +1952,15 @@ impl ConversationManager {
                 turn_anchor = 2;
             }
 
-            // On the first iteration inject Vein context; subsequent iters use plain slice
-            // (tool results are now in history so Vein context would be redundant).
+            // On the first iteration inject Vein context into the system message.
+            // Subsequent iterations use the plain slice — tool results are now in
+            // history so Vein context would be redundant.
+            let inject_vein = first_iter && !implement_current_plan;
             let messages = if implement_current_plan {
                 first_iter = false;
                 self.context_window_slice_from(turn_anchor)
-            } else if first_iter {
-                first_iter = false;
-                self.context_window_slice_with_vein(vein_context.as_deref())
             } else {
+                first_iter = false;
                 self.context_window_slice()
             };
 
@@ -1987,6 +1987,26 @@ impl ConversationManager {
             } else {
                 vec![self.history[0].clone()]
             };
+
+            // Inject Vein context into the system message on the first iteration.
+            // Vein results are merged in the same way as loop_intervention so standard
+            // models (Qwen etc.) only ever see one system message.
+            if inject_vein {
+                if let Some(ref ctx) = vein_context {
+                    if crate::agent::inference::is_gemma4_model_name(
+                        &self.engine.current_model(),
+                    ) {
+                        prompt_msgs.push(ChatMessage::system(ctx));
+                    } else {
+                        let merged = format!(
+                            "{}\n\n{}",
+                            prompt_msgs[0].content.as_str(),
+                            ctx
+                        );
+                        prompt_msgs[0] = ChatMessage::system(&merged);
+                    }
+                }
+            }
             prompt_msgs.extend(messages);
             if let Some(budget_note) =
                 enforce_prompt_budget(&mut prompt_msgs, self.engine.current_context_length())
@@ -3047,6 +3067,7 @@ impl ConversationManager {
     }
 
     /// Query The Vein for context relevant to the user's message.
+    /// Runs hybrid BM25 + semantic search (semantic requires embedding model in LM Studio).
     /// Returns a formatted system message string, or None if nothing useful found.
     fn build_vein_context(&self, query: &str) -> Option<String> {
         // Skip trivial / very short inputs.
@@ -3054,15 +3075,21 @@ impl ConversationManager {
             return None;
         }
 
-        let results = self.vein.search_context(query, 4).ok()?;
+        let results = tokio::task::block_in_place(|| self.vein.search_context(query, 4)).ok()?;
         if results.is_empty() {
             return None;
         }
 
-        let mut ctx = String::from(
-            "# Relevant context from The Vein (auto-retrieved from your codebase)\n\
-             Use this to answer without needing extra read_file calls where possible.\n\n",
-        );
+        let semantic_active = self.vein.embedded_chunk_count() > 0;
+        let header = if semantic_active {
+            "# Relevant context from The Vein (hybrid BM25 + semantic retrieval)\n\
+             Use this to answer without needing extra read_file calls where possible.\n\n"
+        } else {
+            "# Relevant context from The Vein (BM25 keyword retrieval)\n\
+             Use this to answer without needing extra read_file calls where possible.\n\n"
+        };
+
+        let mut ctx = String::from(header);
 
         let mut total = 0usize;
         const MAX_CTX_CHARS: usize = 3_000;
@@ -3136,11 +3163,6 @@ impl ConversationManager {
         }
 
         result
-    }
-
-    /// Like context_window_slice but maintains history without system prompts.
-    fn context_window_slice_with_vein(&self, _vein_context: Option<&str>) -> Vec<ChatMessage> {
-        self.context_window_slice()
     }
 
     /// Build a deterministic smart summary of recent conversation history.
