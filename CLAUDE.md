@@ -254,6 +254,24 @@ Hematite tracks token usage and session cost in real time.
 - Report includes: session start timestamp, duration, model, context length, total tokens, estimated cost, turn count, and full transcript
 - `.hematite/reports/` is gitignored — reports are local runtime artifacts
 
+## Release Build
+
+To build a fresh portable release and update `dist/windows/`:
+
+```powershell
+pwsh ./release.ps1
+```
+
+This runs `cargo build --release`, copies the binary and `DirectML.dll` into
+`dist/windows/Hematite-0.1.0-portable/`, and rezips the portable archive.
+
+- The ONNX model (311 MB) is baked into the binary at compile time — no separate download
+- `DirectML.dll` is copied from `target/release/` automatically by the ORT build script
+- Output: `dist/windows/Hematite-0.1.0-portable.zip` (~336 MB)
+- `dist/` is gitignored — these are release artifacts, not tracked in source
+
+To rebuild with a different version tag: `pwsh ./release.ps1 -Version 0.2.0`
+
 ## Cleanup
 
 ```powershell
