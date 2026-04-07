@@ -13,6 +13,9 @@ dist/
 .hematite/assets/voice/*.npz
 .hematite/assets/voice/tokenizer.json
 
+# User-local config (voice, api_url, keys — not project-shareable)
+.hematite/settings.json
+
 # Runtime / temp artifacts
 .hematite/ghost/*.bak
 .hematite/ghost/ledger.txt
