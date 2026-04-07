@@ -675,6 +675,8 @@ pub enum InferenceEvent {
     UsageUpdate(TokenUsage),
     /// The current runtime profile detected from LM Studio.
     RuntimeProfile { model_id: String, context_length: usize },
+    /// Vein index status after each incremental re-index.
+    VeinStatus { file_count: usize, embedded_count: usize },
 }
 
 // ── Engine implementation ─────────────────────────────────────────────────────

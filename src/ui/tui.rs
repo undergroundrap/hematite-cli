@@ -125,6 +125,8 @@ pub struct App {
     compaction_estimated_tokens: usize,
     compaction_threshold_tokens: usize,
     last_runtime_profile_time: Instant,
+    vein_file_count: usize,
+    vein_embedded_count: usize,
     provider_state: ProviderRuntimeState,
     last_provider_summary: String,
     mcp_state: McpRuntimeState,
@@ -461,6 +463,8 @@ pub async fn run_app<B: Backend>(
         compaction_estimated_tokens: 0,
         compaction_threshold_tokens: 0,
         last_runtime_profile_time: Instant::now(),
+        vein_file_count: 0,
+        vein_embedded_count: 0,
         provider_state: ProviderRuntimeState::Booting,
         last_provider_summary: String::new(),
         mcp_state: McpRuntimeState::Unconfigured,
@@ -1351,6 +1355,10 @@ pub async fn run_app<B: Backend>(
                             );
                         }
                     }
+                    InferenceEvent::VeinStatus { file_count, embedded_count } => {
+                        app.vein_file_count = file_count;
+                        app.vein_embedded_count = embedded_count;
+                    }
                 }
             }
 
@@ -1817,6 +1825,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         None        => "",
     };
 
+    let (vein_label, vein_color) = if app.vein_file_count == 0 {
+        ("VN:--", Color::DarkGray)
+    } else if app.vein_embedded_count > 0 {
+        ("VN:SEM", Color::Green)
+    } else {
+        ("VN:FTS", Color::Yellow)
+    };
+
     let (status_idx, lm_idx, bud_idx, cmp_idx, remote_idx, tokens_idx, vram_idx) = if app.professional {
         (0usize, 1usize, 2usize, 3usize, 4usize, 5usize, 6usize)
     } else {
@@ -1867,9 +1883,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     
     f.render_widget(Clear, bar_chunks[lm_idx]);
     f.render_widget(
-        Paragraph::new(format!(" {}", lm_label))
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(lm_color)))
-            .fg(lm_color),
+        Paragraph::new(
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(format!(" {}", lm_label), Style::default().fg(lm_color)),
+                ratatui::text::Span::raw(" | "),
+                ratatui::text::Span::styled(vein_label, Style::default().fg(vein_color)),
+            ])
+        )
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(lm_color))),
         bar_chunks[lm_idx],
     );
 

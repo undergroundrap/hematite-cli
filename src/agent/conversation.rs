@@ -1880,6 +1880,10 @@ impl ConversationManager {
 
         // Incremental re-index: update any files that changed since last turn.
         tokio::task::block_in_place(|| self.vein.index_project());
+        let _ = tx.send(InferenceEvent::VeinStatus {
+            file_count: self.vein.file_count(),
+            embedded_count: self.vein.embedded_chunk_count(),
+        }).await;
 
         // Query The Vein for context relevant to this turn.
         // Results are injected as a system message just before the user message,
