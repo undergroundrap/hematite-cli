@@ -12,8 +12,9 @@ pub async fn trace_runtime_flow(args: &Value) -> Result<String, String> {
         "reasoning_split" => Ok(trace_reasoning_split()),
         "runtime_subsystems" => Ok(trace_runtime_subsystems()),
         "startup" => Ok(trace_startup()),
+        "voice" => Ok(trace_voice()),
         other => Err(format!(
-            "Unknown topic '{}'. Use one of: user_turn, session_reset, reasoning_split, runtime_subsystems, startup.",
+            "Unknown topic '{}'. Use one of: user_turn, session_reset, reasoning_split, runtime_subsystems, startup, voice.",
             other
         )),
     }
@@ -177,5 +178,32 @@ fn trace_startup() -> String {
 Possible weak points\n\
 - Startup depends on LM Studio being available before the TUI fully launches.\n\
 - `run_agent_loop` still mixes boot diagnostics and steady-state turn handling in one task, even though runtime assembly is cleaner now."
+        .to_string()
+}
+
+fn trace_voice() -> String {
+    "Verified voice synthesis flow\n\n\
+Ctrl+T toggle\n\
+1. `run_app` in `src/ui/tui.rs` handles `KeyCode::Char('t') if key.modifiers.contains(event::KeyModifiers::CONTROL)`. \
+   It calls `app.voice_manager.toggle()` and pushes a System message showing the new state.\n\
+   File refs: `src/ui/tui.rs` -> `run_app`, `KeyCode::Char('t')`, `KeyModifiers::CONTROL`\n\
+2. `VoiceManager::toggle()` flips the internal `enabled` AtomicBool and returns the new state.\n\
+   File refs: `src/ui/voice.rs` -> `VoiceManager::toggle`\n\n\
+Speech pipeline\n\
+1. `build_runtime_bundle` constructs `VoiceManager::new(agent_tx.clone())` so the voice subsystem \
+   can emit `InferenceEvent::VoiceStatus` back on the agent channel.\n\
+   File refs: `src/runtime.rs` -> `build_runtime_bundle`; `src/ui/voice.rs` -> `VoiceManager::new`\n\
+2. Inside `run_app`, only `InferenceEvent::Token` triggers speech (not `MutedToken`). \
+   When enabled and not muted, the TUI calls `app.voice_manager.speak(token.clone())`.\n\
+   File refs: `src/ui/tui.rs` -> `run_app`, `InferenceEvent::Token`\n\
+3. `VoiceManager::speak` pushes text into an internal sync channel. Background threads assemble \
+   sentence chunks, synthesize via `TTSKoko::tts_raw_audio_streaming`, and append PCM into a `rodio::Sink`.\n\
+   File refs: `src/ui/voice.rs` -> `VoiceManager::speak`, `TTSKoko::tts_raw_audio_streaming`\n\
+4. When the turn ends, `run_app` calls `app.voice_manager.flush()` to drain any remaining audio.\n\
+   File refs: `src/ui/tui.rs` -> `InferenceEvent::Done`; `src/ui/voice.rs` -> `VoiceManager::flush`\n\n\
+Possible weak points\n\
+- The Ctrl+T handler uses crossterm's `KeyCode::Char('t')` + `KeyModifiers::CONTROL` — not a string like 'Ctrl+T'. \
+  Searching for 'Ctrl.*T' or 'toggle_voice' will find nothing; search for `KeyCode::Char.*'t'` instead.\n\
+- Voice state is an AtomicBool inside `VoiceManager`; there is no `voice_enabled` field on `App`."
         .to_string()
 }

@@ -72,14 +72,15 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "trace_runtime_flow",
             "Return an authoritative read-only trace of Hematite runtime flow. \
              Use this for architecture questions about keyboard input to final output, \
-             reasoning/specular separation, startup wiring, runtime subsystems, or \
+             reasoning/specular separation, startup wiring, runtime subsystems, \
+             voice synthesis and Ctrl+T toggle, or \
              session reset commands like /clear, /new, and /forget. Prefer this over guessing.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["user_turn", "session_reset", "reasoning_split", "runtime_subsystems", "startup"],
+                        "enum": ["user_turn", "session_reset", "reasoning_split", "runtime_subsystems", "startup", "voice"],
                         "description": "Which verified runtime report to return"
                     },
                     "input": {
