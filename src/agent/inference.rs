@@ -2012,7 +2012,16 @@ pub fn strip_think_blocks(text: &str) -> String {
         || lower.contains("the user wants")
         || lower.contains("i will structure")
         || lower.contains("i should provide")
+        || lower.contains("i should give")
+        || lower.contains("i should avoid")
+        || lower.contains("i should note")
+        || lower.contains("i should focus")
+        || lower.contains("i should keep")
+        || lower.contains("i should respond")
+        || lower.contains("i need to")
         || lower.contains("i can see from")
+        || lower.contains("without being overly")
+        || lower.contains("let me ")
         || lower.contains("necessary information in my identity");
     if is_naked_reasoning {
         let lines: Vec<&str> = text.lines().collect();
