@@ -612,6 +612,16 @@ Hematite reads `.hematite/settings.json` from your project root:
 
 This overrides the `--url` CLI flag. The value is the `/v1` base path — Hematite appends `/chat/completions`, `/models`, and `/embeddings` automatically.
 
+**`context_hint`** — an optional one-liner injected into the system prompt every turn. Use it to point Hematite at something it would otherwise have to rediscover. Examples:
+
+```json
+"context_hint": "Entry point is src/main.rs. Config loading is in src/config.rs."
+"context_hint": "This is a Next.js 14 app using the App Router. Pages are in src/app/."
+"context_hint": "Database schema is in db/schema.sql. ORM models are in src/models/."
+```
+
+Keep it short — one or two sentences. It's injected on every turn so it costs tokens each time. Leave it `null` if your project structure is self-evident from the file tree.
+
 Permission modes: `read-only`, `developer`, `system-admin`
 
 Workspace trust roots: `trust.allow` and `trust.deny`
