@@ -15,6 +15,11 @@ dist/
 
 # User-local config (voice, api_url, keys — not project-shareable)
 .hematite/settings.json
+# MCP server config may contain API keys or local paths
+.hematite/mcp_servers.json
+# Session-generated plan and task files
+.hematite/PLAN.md
+.hematite/TASK.md
 
 # Runtime / temp artifacts
 .hematite/ghost/*.bak
