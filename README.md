@@ -220,31 +220,29 @@ cargo run --release -- --stats
 
 Hematite is designed as a **workspace-aware standalone executable** that pairs with LM Studio.
 
-### Portable Release
-
-1. Run `pwsh ./scripts/package-windows.ps1`.
-2. Pick up the portable bundle from `dist/windows/Hematite-<version>-portable/`.
-3. Run `hematite` inside any project directory.
-
-### Installer Recommendation
-
-If you want Hematite to be easy for normal users to adopt, ship both:
-
-- a **portable zip** for power users
-- a **Windows installer** that places `hematite.exe` on `PATH`, checks for LM Studio, and explains the first-run flow
-
-The installer should present Hematite honestly as a **local GPU coding CLI for LM Studio**, not as the model runtime itself.
-
-Current packaging commands:
+### Building a Release
 
 ```powershell
-pwsh ./scripts/package-windows.ps1
-pwsh ./scripts/package-windows.ps1 -Installer
+pwsh ./release.ps1
 ```
 
-Notes:
-- the packaging script clears `CARGO_NET_OFFLINE` for the build step so ONNX Runtime provisioning does not fail in release mode
-- `-Installer` requires Inno Setup (`iscc`) to be installed locally
+This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.1.0-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
+
+To build with a different version tag:
+
+```powershell
+pwsh ./release.ps1 -Version 0.2.0
+```
+
+### What ships in the portable
+
+| File | Size | Purpose |
+|---|---|---|
+| `hematite.exe` | ~320 MB | Binary with ONNX Runtime + Kokoro voice model baked in |
+| `DirectML.dll` | ~16 MB | GPU inference on Windows (auto-copied from build output) |
+| `README.txt` | — | Quick-start instructions |
+
+`dist/` is gitignored — these are release artifacts, not tracked in source.
 
 ### Automated Windows Releases
 
@@ -469,7 +467,13 @@ The endpoint line shows exactly where Hematite is connecting — immediately vis
 
 ### Background Audio Engine
 
-Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically linked 24 kHz Kokoro pipeline and loads the voice model in the background so the CLI can stay responsive during startup.
+Press `Ctrl+T` to enable real-time text-to-speech. Hematite ships a **self-contained voice engine** — no install, no downloads, no Python. The Kokoro model (311 MB), all 54 voices, and ONNX Runtime 1.24.2 are statically linked into the binary at compile time. On first start the voice engine loads in the background (~10–30s on an RTX 4070); you'll see "Vibrant & Ready" in the chat when it's done. Responses spoken during that window are buffered and played back once the engine is ready.
+
+Voice settings are configurable via `/voice` or `settings.json`:
+
+- `/voice` — list all 54 voices
+- `/voice N` or `/voice <id>` — select a voice, saved immediately
+- `voice_speed` (0.5–2.0×) and `voice_volume` (0.0–3.0×) in `.hematite/settings.json`
 
 ### Session Reports
 
@@ -540,20 +544,29 @@ Workflow note:
 
 ---
 
-## Voice Setup (Optional)
+## Voice
 
-To enable the Voice of Hematite, place the following assets in `.hematite/assets/voice/`:
+No setup required. Voice is built in.
 
-- [kokoro-v1.0.onnx](https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx)
-- [voices.bin](https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin) and rename it to `voices.bin`
+The full Kokoro TTS engine — model weights, all 54 voices, and ONNX Runtime 1.24.2 — is baked into the Hematite binary at compile time. Press `Ctrl+T` to toggle it on.
 
-Architecture notes:
+**Why this matters:** most local TTS tools require a separate Python runtime, manual model downloads, or specific system DLL versions. Hematite ships everything in one binary. The only runtime dependency is `DirectML.dll`, which is bundled in the portable release and ships with Windows 10 1903+.
 
-- ORT and DirectML dependencies are staged next to the executable during build
-- the 325 MB voice model loads in a background thread
-- `misaki-rs` is used for English phoneme synthesis
+**54 voices** across American English, British English, Spanish, French, Hindi, Italian, Japanese, and Chinese. Recommended: `af_heart`, `af_bella`, `am_michael`, `bf_emma`, `bm_george`.
 
-Once assets are present, press `Ctrl+T` in the TUI to toggle voice.
+```
+/voice           list all voices with numbers
+/voice 17        select voice #17
+/voice am_adam   select by ID
+```
+
+Voice speed and volume are configurable in `.hematite/settings.json`:
+
+```json
+"voice": "am_michael",
+"voice_speed": 1.1,
+"voice_volume": 1.0
+```
 
 ---
 
