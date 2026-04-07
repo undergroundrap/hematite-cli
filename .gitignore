@@ -19,6 +19,7 @@ dist/
 .hematite/last_request.json
 .hematite/scratch/
 .hematite/session.json
+.hematite/reports/
 .hematite_scratch/
 .hematite_logs/
 tmp/
