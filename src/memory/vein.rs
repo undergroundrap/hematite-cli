@@ -319,7 +319,7 @@ impl Vein {
             }
 
             let Ok(meta) = std::fs::metadata(path) else { continue };
-            if meta.len() > 100_000 {
+            if meta.len() > 512_000 {
                 continue;
             }
 
