@@ -357,6 +357,8 @@ Before every file edit, Hematite snapshots a hidden git ref at `refs/hematite/gh
 
 `/swarm <directive>` spawns parallel worker agents that research, implement, and propose diffs for review. Worker count is capped automatically based on available VRAM.
 
+**Single-GPU note:** on a single consumer GPU with one model loaded, workers share the same inference endpoint and run sequentially rather than truly in parallel. Swarm is most effective on multi-GPU setups or when pointing at a remote LM Studio instance. On a 4070-class machine it still works — it just runs workers one after another rather than simultaneously.
+
 ### Project Rule Discovery
 
 Drop a `CLAUDE.md` or `.hematite.md` in your project root. Hematite picks it up automatically and follows your project-specific coding standards every turn.
