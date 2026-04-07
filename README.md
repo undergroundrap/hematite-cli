@@ -15,12 +15,34 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding agent when you need it, clean conversation when you don't. LM Studio handles model serving. Hematite handles everything else.
 
-[![Capabilities](https://img.shields.io/badge/HEM-CAPABILITIES-blueviolet)](CAPABILITIES.md)
-[![Gemma-4](https://img.shields.io/badge/MODEL-GEMMA--4--E4B-blue)](https://hf.co/google/gemma-4-e4b-it)
+![Version](https://img.shields.io/badge/version-0.1.0-orange?style=flat-square)
 ![Windows](https://img.shields.io/badge/Windows-native-blue?style=flat-square)
 ![Linux](https://img.shields.io/badge/Linux-supported-green?style=flat-square)
 ![macOS](https://img.shields.io/badge/macOS-supported-lightgrey?style=flat-square)
+![Offline](https://img.shields.io/badge/offline-100%25-brightgreen?style=flat-square)
+![Voice](https://img.shields.io/badge/voice-54_voices-purple?style=flat-square)
+![RAG](https://img.shields.io/badge/RAG-hybrid_BM25+semantic-blue?style=flat-square)
+![LM Studio](https://img.shields.io/badge/LM_Studio-native-blueviolet?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+
+---
+
+## Contents
+
+- [Why Hematite Wins Its Lane](#why-hematite-wins-its-lane)
+- [One Binary. No Runtime. No Drama.](#one-binary-no-runtime-no-drama)
+- [Terminal-Native Chat](#terminal-native-chat--better-than-a-browser-ui)
+- [Hematite vs The Field](#hematite-vs-the-field)
+- [Requirements](#requirements)
+- [Quick Start](#quick-start)
+- [What It Can Do](#what-it-can-do)
+- [Key Features](#key-features)
+- [Voice](#voice)
+- [TUI Slash Commands](#tui-slash-commands)
+- [Configuration](#configuration)
+- [MCP Servers](#mcp-servers)
+- [Distribution](#distribution)
+- [Cleanup](#cleanup)
 
 ---
 
@@ -104,54 +126,36 @@ Both modes. One binary. Voice in both. Switch with a command.
 
 ---
 
-## Hematite vs The Usual Alternatives
+## Hematite vs The Field
 
-**Compared with cloud coding agents**
+There are several tools in this space. Here is what each one actually requires and what it actually does.
 
-- Hematite is local-first, cost-stable, and designed for one machine instead of a managed worker fleet.
-- It spends more effort on context discipline, recovery, and runtime truth because local open models need that engineering.
+| | **Hematite** | **Aider** | **Continue** | **AnythingLLM / Jan** | **Open Interpreter** |
+|---|---|---|---|---|---|
+| **Install** | Single `.exe`, no runtime | `pip install aider` + Python 3.10+ | VS Code/JetBrains extension | Electron installer (200–400 MB) | `pip install open-interpreter` + Python |
+| **Local models** | First-class (LM Studio, Ollama) | Supported but secondary | Supported | Supported | Supported but secondary |
+| **Cloud-first** | No | Yes (GPT-4/Claude default) | No | No | Yes (GPT-4 default) |
+| **Cost** | Free, offline | Free tool, pay per token if cloud | Free | Free | Free tool, pay per token if cloud |
+| **Windows quality** | Native, tested, CRLF-safe | Workable, Linux-first design | IDE-dependent | Electron (cross-platform) | Workable |
+| **Codebase RAG** | Built-in (BM25 + semantic) | No | Basic | Basic | No |
+| **Voice / TTS** | Built-in, 54 voices, offline | No | No | No | No |
+| **Chat mode** | Yes (agent + clean chat) | No (agent only) | Yes (IDE chat) | Yes (browser UI) | No |
+| **Idle RAM** | ~30 MB | ~50 MB | IDE overhead | 200–500 MB (Electron) | ~80 MB |
+| **Build verification** | Built-in, error recovery loop | Git-diff focused | No | No | Ad hoc shell |
+| **Undo / ghost backup** | Built-in (`Ctrl+Z`) | Git-based | No | No | No |
+| **Offline** | Fully offline | Fully offline | Fully offline | Fully offline | Fully offline |
 
-**Compared with generic local chat wrappers**
+### The honest breakdown
 
-- Hematite is not just chat plus a shell command.
-- It has grounded repo tools, project mapping, runtime tracing, typed permission enforcement, typed recovery recipes, and a persistent session ledger.
+**Aider** is the closest real competitor in the terminal space. It's well-engineered and git-native. It does not have RAG, voice, a TUI, Windows-native polish, or built-in build verification. It assumes cloud models by default. If you're on Linux and already have Python, it's a solid choice for git-centric workflows. If you're on Windows, running local models, and want voice + codebase awareness, Hematite is the better fit.
 
-**Compared with "just use LM Studio directly"**
+**Continue** lives inside your IDE. That's its strength (tight editor integration) and its ceiling (you're inside VS Code's Electron process, not a standalone agent). It has no build verification loop, no RAG of its own, and no voice.
 
-- LM Studio is the model runtime.
-- Hematite is the agent harness: TUI, tools, editing, workflow modes, retrieval, compaction, safety, and orchestration.
+**AnythingLLM and Jan** are UI-first products. They look polished because they're browser apps. You pay for that with 200–500 MB RAM at idle, Electron startup lag, and no real terminal workflow. They're good for people who want a chat interface and aren't doing serious coding work with the AI.
 
----
+**Open Interpreter** is the closest thing to Hematite's ambition — a local agent that can run code and talk to your system. It requires Python and defaults to cloud. It has no codebase RAG, no voice, and no Windows-specific polish.
 
-## Why Local?
-
-If you are searching for a **local coding agent**, **Windows local AI coding assistant**, or **LM Studio coding CLI**, the answer is not just "privacy."
-
-Local matters because it changes the workflow:
-
-- **No per-turn billing pressure** - you can iterate on repo work without thinking in API spend.
-- **Direct runtime visibility** - you can see the live model, context window, budget pressure, and recovery state instead of guessing what a remote service is doing.
-- **Hardware-aware behavior** - Hematite is designed around real consumer GPU limits, especially 8-12 GB VRAM machines.
-- **Project-native control** - the harness lives with your repo, your rules, your task files, and your local verification commands.
-- **More honest failure handling** - when a local model degrades or hits a context ceiling, Hematite can surface the real blocker and recovery path instead of hiding it behind a hosted black box.
-
-Cloud tools still win on raw frontier-model power. Hematite is built for the other side of the trade: better local control, better local visibility, and a stronger repo workflow on the machine you already own.
-
----
-
-## Comparison Table
-
-| Category | Hematite | Cloud Coding Agents | Generic Local Chat Wrappers |
-|---|---|---|---|
-| Primary goal | Best local coding harness for LM Studio | Managed remote coding workflow | Basic local model chat shell |
-| Runtime model | Local LM Studio models | Hosted frontier/cloud models | Local models |
-| Cost model | No per-token billing | Ongoing usage cost | Usually local/no per-token billing |
-| Windows-first polish | Yes | Usually secondary | Often inconsistent |
-| Repo grounding | Strong: `map_project`, `trace_runtime_flow`, tool discipline, retrieval | Usually strong, but cloud-shaped | Usually weak |
-| Local runtime truth | Strong: live CTX sync, `LM`, `BUD`, `CMP`, recovery states | Often opaque | Usually minimal |
-| Small-context survival | Explicitly engineered | Less important in hosted setups | Usually weak |
-| Recovery model | Typed failures, checkpoints, session ledger, recovery recipes | Usually hidden behind product UX | Usually ad hoc |
-| Best fit | Serious repo work on consumer GPUs | Highest raw capability with cloud spend | Simple local chat or light scripting |
+**The real gap:** none of these tools have all three of Hematite's core differentiators at once — offline-capable codebase RAG, built-in voice, and a native binary with no runtime dependency. That combination doesn't exist anywhere else in this category right now.
 
 ---
 
