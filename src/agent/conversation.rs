@@ -1883,9 +1883,14 @@ impl ConversationManager {
         // History from previous turns must not be fed back into the prompt to prevent duplication.
         self.reasoning_history = None;
 
+        let is_gemma = crate::agent::inference::is_gemma4_model_name(&self.engine.current_model());
         let user_content = match self.think_mode {
             Some(true) => format!("/think\n{}", effective_user_input),
             Some(false) => format!("/no_think\n{}", effective_user_input),
+            // For non-Gemma models (Qwen etc.) default to /think so the model uses
+            // hybrid thinking — it decides how much reasoning each turn needs.
+            // Gemma handles reasoning via <|think|> in the system prompt instead.
+            None if !is_gemma => format!("/think\n{}", effective_user_input),
             None => effective_user_input.clone(),
         };
         self.history.push(ChatMessage::user(&user_content));
