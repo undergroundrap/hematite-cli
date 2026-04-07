@@ -174,6 +174,8 @@ pub struct App {
     pub voice_loading_progress: f64,
     /// If false, the VRAM watchdog is silenced.
     pub hardware_guard_enabled: bool,
+    /// Wall-clock time when this session started (for report timestamp).
+    pub session_start: std::time::SystemTime,
 }
 
 impl App {
@@ -439,6 +441,58 @@ impl App {
         let _ = child.wait();
     }
 
+    pub fn write_session_report(&self) {
+        let report_dir = std::path::PathBuf::from(".hematite/reports");
+        if std::fs::create_dir_all(&report_dir).is_err() {
+            return;
+        }
+
+        // Timestamp from session_start
+        let start_secs = self.session_start
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        // Simple epoch → YYYY-MM-DD_HH-MM-SS (UTC)
+        let secs_in_day = start_secs % 86400;
+        let days = start_secs / 86400;
+        let years_approx = (days * 4 + 2) / 1461;
+        let year = 1970 + years_approx;
+        let day_of_year = days - (years_approx * 365 + years_approx / 4);
+        let month = (day_of_year / 30 + 1).min(12);
+        let day = (day_of_year % 30 + 1).min(31);
+        let hh = secs_in_day / 3600;
+        let mm = (secs_in_day % 3600) / 60;
+        let ss = secs_in_day % 60;
+        let timestamp = format!("{:04}-{:02}-{:02}_{:02}-{:02}-{:02}", year, month, day, hh, mm, ss);
+
+        let duration_secs = std::time::SystemTime::now()
+            .duration_since(self.session_start)
+            .unwrap_or_default()
+            .as_secs();
+
+        let report_path = report_dir.join(format!("session_{}.json", timestamp));
+
+        let turns: Vec<serde_json::Value> = self.messages_raw.iter()
+            .map(|(speaker, text)| serde_json::json!({ "speaker": speaker, "text": text }))
+            .collect();
+
+        let report = serde_json::json!({
+            "session_start": timestamp,
+            "duration_secs": duration_secs,
+            "model": self.model_id,
+            "context_length": self.context_length,
+            "total_tokens": self.total_tokens,
+            "estimated_cost_usd": self.current_session_cost,
+            "turn_count": turns.len(),
+            "transcript": turns,
+        });
+
+        if let Ok(json) = serde_json::to_string_pretty(&report) {
+            let _ = std::fs::write(&report_path, json);
+        }
+    }
+
     pub fn copy_transcript_to_clipboard(&self) {
         let mut history = self.messages_raw.iter()
             .map(|m| format!("[{}] {}\n", m.0, m.1))
@@ -549,6 +603,7 @@ pub async fn run_app<B: Backend>(
         voice_loading: false,
         voice_loading_progress: 0.0,
         hardware_guard_enabled: true,
+        session_start: std::time::SystemTime::now(),
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
@@ -677,6 +732,7 @@ pub async fn run_app<B: Backend>(
                         match key.code {
                             KeyCode::Char('q') | KeyCode::Char('c')
                                 if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
+                                    app.write_session_report();
                                     app.copy_transcript_to_clipboard();
                                     break;
                                 }
@@ -689,6 +745,7 @@ pub async fn run_app<B: Backend>(
                                 app.cancel_token.store(true, std::sync::atomic::Ordering::SeqCst);
                                 
                                 if app.thinking || app.agent_running {
+                                    app.write_session_report();
                                     app.copy_transcript_to_clipboard();
                                     app.push_message("System", "Cancellation requested. Logs copied to clipboard.");
                                 }
