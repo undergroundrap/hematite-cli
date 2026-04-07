@@ -346,7 +346,68 @@ impl Vein {
             }
         }
 
+        // Back-fill embeddings for any chunks that were indexed before the
+        // embedding model was loaded. Runs a quick COUNT first to skip the
+        // work entirely when everything is already embedded.
+        self.backfill_missing_embeddings();
+
         count
+    }
+
+    /// Embed any FTS chunks that don't yet have a vector in chunks_vec.
+    /// Called at the end of index_project so that loading the embedding model
+    /// after the initial index automatically triggers a semantic upgrade on the
+    /// next agent turn — no /forget or file-touch required.
+    fn backfill_missing_embeddings(&self) {
+        // Fast path: if chunk counts match, nothing to do.
+        let (fts_count, vec_count) = {
+            let db = self.db.lock().unwrap();
+            let fts: i64 = db
+                .query_row("SELECT COUNT(*) FROM chunks_fts", [], |r| r.get(0))
+                .unwrap_or(0);
+            let vec: i64 = db
+                .query_row("SELECT COUNT(*) FROM chunks_vec", [], |r| r.get(0))
+                .unwrap_or(0);
+            (fts, vec)
+        };
+        if fts_count == 0 || fts_count == vec_count {
+            return;
+        }
+
+        // Fetch (path, chunk_idx, content) for chunks with no embedding.
+        // chunks_fts rowid serves as chunk_idx (1-based → convert to 0-based).
+        let missing: Vec<(String, i64, String)> = {
+            let db = self.db.lock().unwrap();
+            let mut stmt = db
+                .prepare(
+                    "SELECT f.path, (f.rowid - 1) AS chunk_idx, f.content
+                     FROM chunks_fts f
+                     LEFT JOIN chunks_vec v ON f.path = v.path AND (f.rowid - 1) = v.chunk_idx
+                     WHERE v.path IS NULL
+                     LIMIT 20",
+                )
+                .unwrap();
+            stmt.query_map([], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?))
+            })
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect()
+        };
+
+        for (path, idx, content) in missing {
+            if let Some(vec) = embed_text_blocking(&content) {
+                let blob = floats_to_blob(&vec);
+                let db = self.db.lock().unwrap();
+                let _ = db.execute(
+                    "INSERT OR REPLACE INTO chunks_vec (path, chunk_idx, embedding) VALUES (?1, ?2, ?3)",
+                    params![path, idx, blob],
+                );
+            } else {
+                // Embedding model not available — stop trying for this pass.
+                break;
+            }
+        }
     }
 
     /// Total number of unique files currently indexed.

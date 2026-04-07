@@ -1232,6 +1232,47 @@ impl ConversationManager {
         tx: mpsc::Sender<InferenceEvent>,
         yolo: bool,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // ── Fast-path reset commands: handled locally, no network I/O needed ──
+        if user_input.trim() == "/new" {
+            self.history.clear();
+            self.reasoning_history = None;
+            self.session_memory.clear();
+            self.running_summary = None;
+            self.correction_hints.clear();
+            self.pinned_files.lock().await.clear();
+            self.reset_action_grounding().await;
+            purge_task_files();
+            let _ = std::fs::remove_file(session_path());
+            self.save_empty_session();
+            self.emit_compaction_pressure(&tx).await;
+            self.emit_prompt_pressure_idle(&tx).await;
+            for chunk in chunk_text("Session cleared. Fresh context.", 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        if user_input.trim() == "/forget" {
+            self.history.clear();
+            self.reasoning_history = None;
+            self.session_memory.clear();
+            self.running_summary = None;
+            self.correction_hints.clear();
+            self.pinned_files.lock().await.clear();
+            self.reset_action_grounding().await;
+            purge_task_files();
+            let _ = std::fs::remove_file(session_path());
+            self.save_empty_session();
+            self.emit_compaction_pressure(&tx).await;
+            self.emit_prompt_pressure_idle(&tx).await;
+            for chunk in chunk_text("Task Memory & History purged. Clean slate achieved.", 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         // Reload config every turn (edits apply immediately, no restart needed).
         let config = crate::agent::config::load_config();
         self.recovery_context.clear();
@@ -1279,27 +1320,6 @@ impl ConversationManager {
             .think_model
             .clone()
             .or_else(|| self.think_model.clone());
-
-        // ── /new: reset session ───────────────────────────────────────────────
-        if user_input.trim() == "/new" {
-            self.history.clear();
-            self.reasoning_history = None;
-            self.session_memory.clear();
-            self.running_summary = None;
-            self.correction_hints.clear();
-            self.pinned_files.lock().await.clear();
-            self.reset_action_grounding().await;
-            purge_task_files();
-            let _ = std::fs::remove_file(session_path());
-            self.save_empty_session();
-            self.emit_compaction_pressure(&tx).await;
-            self.emit_prompt_pressure_idle(&tx).await;
-            for chunk in chunk_text("Session cleared. Fresh context.", 8) {
-                let _ = tx.send(InferenceEvent::Token(chunk)).await;
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            return Ok(());
-        }
 
         // ── /lsp: start language servers manually if needed ──────────────────
         if user_input.trim() == "/lsp" {
@@ -1354,27 +1374,6 @@ impl ConversationManager {
                         ))
                         .await;
                 }
-            }
-            let _ = tx.send(InferenceEvent::Done).await;
-            return Ok(());
-        }
-
-        // ── /forget: clear virtual memory, history, & physical ghosts ────────
-        if user_input.trim() == "/forget" {
-            self.history.clear();
-            self.reasoning_history = None;
-            self.session_memory.clear();
-            self.running_summary = None; // Reset the context chain
-            self.correction_hints.clear();
-            self.pinned_files.lock().await.clear();
-            self.reset_action_grounding().await;
-            purge_task_files();
-            let _ = std::fs::remove_file(session_path());
-            self.save_empty_session();
-            self.emit_compaction_pressure(&tx).await;
-            self.emit_prompt_pressure_idle(&tx).await;
-            for chunk in chunk_text("Task Memory & History purged. Clean slate achieved.", 8) {
-                let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
             let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
@@ -3096,14 +3095,14 @@ impl ConversationManager {
         let mut ctx = String::from(header);
 
         let mut total = 0usize;
-        const MAX_CTX_CHARS: usize = 3_000;
+        const MAX_CTX_CHARS: usize = 1_500;
 
         for r in results {
             if total >= MAX_CTX_CHARS {
                 break;
             }
-            let snippet = if r.content.len() > 800 {
-                format!("{}...", &r.content[..800])
+            let snippet = if r.content.len() > 500 {
+                format!("{}...", &r.content[..500])
             } else {
                 r.content.clone()
             };

@@ -1789,7 +1789,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let bar_constraints = if app.professional {
         vec![
             Constraint::Min(0),       // MODE
-            Constraint::Length(12),   // LM
+            Constraint::Length(22),   // LM + VN badge
             Constraint::Length(12),   // BUD
             Constraint::Length(12),   // CMP
             Constraint::Length(16),   // REMOTE
@@ -1800,7 +1800,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         vec![
             Constraint::Length(12),   // NAME
             Constraint::Min(0),       // MODE
-            Constraint::Length(12),   // LM
+            Constraint::Length(22),   // LM + VN badge
             Constraint::Length(12),   // BUD
             Constraint::Length(12),   // CMP
             Constraint::Length(16),   // REMOTE
