@@ -108,7 +108,7 @@ Status bar guide:
 Installer note:
 - If you used the Windows installer and selected the PATH option, open a fresh terminal after installation.
 
-More info: https://github.com/undergroundrap/HEMATITE-CLI
+More info: https://github.com/undergroundrap/hematite-cli
 "@
 Set-Content -LiteralPath $readmeOut -Value $readme -Encoding ASCII
 

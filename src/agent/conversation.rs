@@ -1900,7 +1900,13 @@ impl ConversationManager {
         // Query The Vein for context relevant to this turn.
         // Results are injected as a system message just before the user message,
         // giving the model relevant code snippets without extra tool calls.
-        let vein_context = self.build_vein_context(&effective_user_input);
+        let (vein_context, vein_paths) = match self.build_vein_context(&effective_user_input) {
+            Some((ctx, paths)) => (Some(ctx), paths),
+            None => (None, Vec::new()),
+        };
+        if !vein_paths.is_empty() {
+            let _ = tx.send(InferenceEvent::VeinContext { paths: vein_paths }).await;
+        }
 
         // Route: pick fast vs think model based on the complexity of this request.
         let routed_model =
@@ -2008,7 +2014,7 @@ impl ConversationManager {
             // Vein results are merged in the same way as loop_intervention so standard
             // models (Qwen etc.) only ever see one system message.
             if inject_vein {
-                if let Some(ref ctx) = vein_context {
+                if let Some(ref ctx) = vein_context.as_ref() {
                     if crate::agent::inference::is_gemma4_model_name(
                         &self.engine.current_model(),
                     ) {
@@ -3085,7 +3091,7 @@ impl ConversationManager {
     /// Query The Vein for context relevant to the user's message.
     /// Runs hybrid BM25 + semantic search (semantic requires embedding model in LM Studio).
     /// Returns a formatted system message string, or None if nothing useful found.
-    fn build_vein_context(&self, query: &str) -> Option<String> {
+    fn build_vein_context(&self, query: &str) -> Option<(String, Vec<String>)> {
         // Skip trivial / very short inputs.
         if query.trim().split_whitespace().count() < 3 {
             return None;
@@ -3106,6 +3112,7 @@ impl ConversationManager {
         };
 
         let mut ctx = String::from(header);
+        let mut paths: Vec<String> = Vec::new();
 
         let mut total = 0usize;
         const MAX_CTX_CHARS: usize = 1_500;
@@ -3121,9 +3128,12 @@ impl ConversationManager {
             };
             ctx.push_str(&format!("--- {} ---\n{}\n\n", r.path, snippet));
             total += snippet.len() + r.path.len() + 10;
+            if !paths.contains(&r.path) {
+                paths.push(r.path);
+            }
         }
 
-        Some(ctx)
+        Some((ctx, paths))
     }
 
     /// Returns the conversation history (WITHOUT the system prompt) for the context window.

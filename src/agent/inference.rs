@@ -677,6 +677,9 @@ pub enum InferenceEvent {
     RuntimeProfile { model_id: String, context_length: usize },
     /// Vein index status after each incremental re-index.
     VeinStatus { file_count: usize, embedded_count: usize },
+    /// File paths the Vein surfaced as relevant to the current turn.
+    /// Used to populate ACTIVE CONTEXT with retrieval results.
+    VeinContext { paths: Vec<String> },
 }
 
 // ── Engine implementation ─────────────────────────────────────────────────────

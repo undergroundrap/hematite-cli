@@ -122,6 +122,12 @@ pub fn classify_bash_risk(cmd: &str) -> RiskLevel {
         "get-childitem", "get-content", "get-location",
         "cargo --version", "rustc --version", "git --version",
         "node --version", "npm --version", "python --version",
+        // Read-only search and inspection — must never require approval
+        "grep ", "grep\n", "rg ", "rg\n",
+        "find ", "find\n",
+        "select-string", "select-object", "where-object",
+        "sort ", "sort\n", "wc ", "uniq ", "cut ",
+        "file ", "stat ", "du ", "df ",
     ];
     if safe_prefixes.iter().any(|p| lower.starts_with(p) || lower == p.trim()) {
         return RiskLevel::Safe;

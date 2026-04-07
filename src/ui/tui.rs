@@ -50,28 +50,47 @@ pub struct ContextFile {
 
 fn default_active_context() -> Vec<ContextFile> {
     let root = crate::tools::file_ops::workspace_root();
-    let candidates = [
-        ("src/main.rs", "Active"),
-        ("src/ui/tui.rs", "Active"),
-        ("Cargo.toml", "Active"),
-        ("./src", "Watching"),
+
+    // Detect the actual project entrypoints generically rather than
+    // hardcoding Hematite's own file layout. Priority order: first match wins
+    // for the "primary" slot, then the project manifest, then source root.
+    let entrypoint_candidates = [
+        "src/main.rs", "src/lib.rs", "src/index.ts", "src/index.js",
+        "src/main.ts", "src/main.js", "src/main.py", "main.py",
+        "main.go", "index.js", "index.ts", "app.py", "app.rs",
+    ];
+    let manifest_candidates = [
+        "Cargo.toml", "package.json", "go.mod", "pyproject.toml",
+        "setup.py", "composer.json", "pom.xml", "build.gradle",
     ];
 
     let mut files = Vec::new();
-    for (path, status) in candidates {
-        let joined = if path == "./src" {
-            root.join("src")
-        } else {
-            root.join(path)
-        };
+
+    // Primary entrypoint
+    for path in &entrypoint_candidates {
+        let joined = root.join(path);
         if joined.exists() {
             let size = std::fs::metadata(&joined).map(|m| m.len()).unwrap_or(0);
-            files.push(ContextFile {
-                path: path.to_string(),
-                size,
-                status: status.to_string(),
-            });
+            files.push(ContextFile { path: path.to_string(), size, status: "Active".to_string() });
+            break;
         }
+    }
+
+    // Project manifest
+    for path in &manifest_candidates {
+        let joined = root.join(path);
+        if joined.exists() {
+            let size = std::fs::metadata(&joined).map(|m| m.len()).unwrap_or(0);
+            files.push(ContextFile { path: path.to_string(), size, status: "Active".to_string() });
+            break;
+        }
+    }
+
+    // Source root watcher
+    let src = root.join("src");
+    if src.exists() {
+        let size = std::fs::metadata(&src).map(|m| m.len()).unwrap_or(0);
+        files.push(ContextFile { path: "./src".to_string(), size, status: "Watching".to_string() });
     }
 
     files
@@ -1414,6 +1433,25 @@ pub async fn run_app<B: Backend>(
                     InferenceEvent::VeinStatus { file_count, embedded_count } => {
                         app.vein_file_count = file_count;
                         app.vein_embedded_count = embedded_count;
+                    }
+                    InferenceEvent::VeinContext { paths } => {
+                        // Replace the default placeholder entries with what the
+                        // Vein actually surfaced for this turn.
+                        app.active_context.retain(|f| f.status == "Running");
+                        for path in paths {
+                            let root = crate::tools::file_ops::workspace_root();
+                            let size = std::fs::metadata(root.join(&path))
+                                .map(|m| m.len())
+                                .unwrap_or(0);
+                            if !app.active_context.iter().any(|f| f.path == path) {
+                                app.active_context.push(ContextFile {
+                                    path,
+                                    size,
+                                    status: "Vein".to_string(),
+                                });
+                            }
+                        }
+                        trim_vec_context(&mut app.active_context, 8);
                     }
                 }
             }
