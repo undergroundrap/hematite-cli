@@ -110,7 +110,8 @@ Remove-TreeContents -LiteralPath ".hematite\reports"
 if ($Deep) {
     $deepTargets = @(
         "target",
-        "onnx_lib"
+        "onnx_lib",
+        ".hematite\vein.db"
     )
 
     foreach ($target in $deepTargets) {

@@ -427,6 +427,17 @@ impl Vein {
         })
         .unwrap_or(0) as usize
     }
+
+    /// Wipe all indexed data. The DB file stays on disk; next index_project()
+    /// call rebuilds from scratch (re-reads all files, re-embeds all chunks).
+    pub fn reset(&self) {
+        let db = self.db.lock().unwrap();
+        let _ = db.execute_batch(
+            "DELETE FROM chunks_fts;
+             DELETE FROM chunks_vec;
+             DELETE FROM chunks_meta;"
+        );
+    }
 }
 
 // ── Embedding API ─────────────────────────────────────────────────────────────

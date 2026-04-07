@@ -867,6 +867,15 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/vein-reset" => {
+                                                app.vein_file_count = 0;
+                                                app.vein_embedded_count = 0;
+                                                app.push_message("You", "/vein-reset");
+                                                app.agent_running = true;
+                                                let _ = app.user_input_tx.try_send("/vein-reset".to_string());
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/copy" => {
                                                 app.copy_transcript_to_clipboard();
                                                 app.push_message("System", "Diagnostic transcript copied to clipboard.");
@@ -1080,6 +1089,7 @@ pub async fn run_app<B: Backend>(
                                                      /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
                                                      /new              — (Reset) Clear history, memories, and task files\n\
                                                      /forget           — (Wipe) Nuclear pivot: reset history & active tasks\n\
+                                                     /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
                                                      /clear            — (UI) Clear dialogue display only\n\
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
                                                      /runtime-refresh  — (Model) Re-read LM Studio model + CTX now\n\

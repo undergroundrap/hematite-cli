@@ -365,14 +365,20 @@ Drop a `CLAUDE.md` or `.hematite.md` in your project root. Hematite picks it up 
 
 The Vein is Hematite's retrieval layer. At the start of every turn it re-indexes any changed files and queries for chunks relevant to the user's message. Results are injected directly into the system prompt so the model starts the turn with the right code already visible — reducing wasted `read_file` calls and letting smaller models perform better on unfamiliar codebases.
 
+**The index is per-project.** The database lives at `.hematite/vein.db` inside the workspace root. Run Hematite in a different folder and it gets a completely separate index for that project — no cross-contamination. The index is purely file-driven: it learns from what's on disk, not from the conversation. As you edit code the index stays current automatically because files are only re-indexed when their mtime changes.
+
 **Two retrieval modes run together:**
 
 - **BM25 keyword search** (always on) — SQLite FTS5 with Porter stemming. Zero extra GPU cost, works with any LM Studio setup.
-- **Semantic vector search** (optional, better) — Calls LM Studio's `/v1/embeddings` endpoint using `nomic-embed-text-v1.5`. Understands concept-level queries: "what renders the startup screen" finds the right function even if no file uses the word "banner". Vectors are stored in SQLite and reused across sessions so files are only re-embedded when they actually change.
+- **Semantic vector search** (optional, better) — Calls LM Studio's `/v1/embeddings` endpoint using `nomic-embed-text-v2`. Understands concept-level queries: "what renders the startup screen" finds the right function even if no file uses the word "banner". Vectors are stored in SQLite and reused across sessions so files are only re-embedded when they actually change.
 
-**To enable semantic search:** load `nomic-embed-text-v2` in LM Studio alongside your main coding model. On an RTX 4070 the embedding model costs roughly 270 MB VRAM — both fit with room to spare.
+**To enable semantic search:** load `nomic-embed-text-v2` Q8_0 in LM Studio alongside your main coding model. On an RTX 4070 it costs roughly 512 MB VRAM — both models fit comfortably. The status bar shows `VN:SEM` (green) when semantic search is active, `VN:FTS` (yellow) when only BM25 is running, and `VN:--` (grey) on a fresh session before the first index pass.
+
+**Automatic backfill:** if you load the embedding model after Hematite has already indexed your project, it detects the gap and re-embeds the missing chunks gradually across the next few turns — no `/vein-reset` or file-touch needed. The `VN:FTS` badge flips to `VN:SEM` once the backfill completes.
 
 Hybrid results are merged and ranked: semantic hits score higher when the embedding model is available; BM25 fills the gap when it isn't. Results are deduplicated by file path and capped so they don't crowd out the model's working context.
+
+**To wipe and rebuild the index** (e.g. switching projects or after a big refactor): use `/vein-reset` in the TUI. The database is cleared immediately and rebuilt from scratch on the next turn. For a full deep clean including the database file, use `pwsh ./clean.ps1 -Deep`.
 
 ### Built-In Web Research
 
@@ -454,6 +460,7 @@ Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically li
 /gemma-native [auto|on|off|status]  Auto/force/disable Gemma 4 native formatting
 /new              Reset session and clear context
 /forget           Purge saved conversation memory and wipe visible session state
+/vein-reset       Wipe the RAG index; rebuilds automatically on next turn
 /think            Enable Gemma-4 native reasoning channel
 /no_think         Enable lower-effort reasoning
 /lsp              Start language servers manually

@@ -1273,6 +1273,19 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if user_input.trim() == "/vein-reset" {
+            tokio::task::block_in_place(|| self.vein.reset());
+            let _ = tx.send(InferenceEvent::VeinStatus {
+                file_count: 0,
+                embedded_count: 0,
+            }).await;
+            for chunk in chunk_text("Vein index cleared. Will rebuild on the next turn.", 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         // Reload config every turn (edits apply immediately, no restart needed).
         let config = crate::agent::config::load_config();
         self.recovery_context.clear();
