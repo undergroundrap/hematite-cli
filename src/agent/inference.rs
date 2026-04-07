@@ -2027,8 +2027,35 @@ pub fn strip_think_blocks(text: &str) -> String {
         }
     }
 
-    text.trim().replace("\n\n\n", "\n\n").to_string()
+    // Strip leaked XML tool-call fragments that Qwen sometimes emits when it
+    // abandons a tool call mid-generation (e.g. </parameter></function></tool_call>).
+    let cleaned = strip_xml_tool_call_artifacts(text);
+    cleaned.trim().replace("\n\n\n", "\n\n").to_string()
 }
+
+/// Remove stray XML tool-call closing/opening tags that local models occasionally
+/// leak into visible output when they start-then-abandon a tool call.
+fn strip_xml_tool_call_artifacts(text: &str) -> String {
+    // Tags to remove (both open and close forms, case-insensitive).
+    const XML_ARTIFACTS: &[&str] = &[
+        "</tool_call>", "<tool_call>",
+        "</function>",  "<function>",
+        "</parameter>", "<parameter>",
+        "</arguments>", "<arguments>",
+        "</tool_use>",  "<tool_use>",
+        "</invoke>",    "<invoke>",
+    ];
+    let mut out = text.to_string();
+    for tag in XML_ARTIFACTS {
+        // Case-insensitive replace
+        while let Some(pos) = out.to_lowercase().find(&tag.to_lowercase()) {
+            out.drain(pos..pos + tag.len());
+        }
+    }
+    // Collapse any blank lines left behind
+    out
+}
+
 /// Extract native Gemma-4 <|tool_call|> tags from text.
 /// Format: <|tool_call|>call:func_name{key:<|"|>value<|"|>, key2:value2}<tool_call|>
 pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
