@@ -57,6 +57,7 @@ struct ActionGroundingState {
     inspected_paths: std::collections::HashMap<String, u64>,
     last_verify_build_turn: Option<u64>,
     last_verify_build_ok: bool,
+    last_failed_build_paths: Vec<String>,
     code_changed_since_verify: bool,
 }
 
@@ -359,6 +360,39 @@ fn compact_recovery_decision_summary(decision: &RecoveryDecision) -> String {
     }
 }
 
+
+/// Parse file paths from cargo/compiler error output.
+/// Handles lines like `  --> src/foo/bar.rs:34:12` and `error: could not compile`.
+fn parse_failing_paths_from_build_output(output: &str) -> Vec<String> {
+    let root = crate::tools::file_ops::workspace_root();
+    let mut paths: Vec<String> = output
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim_start();
+            // Cargo error location: "--> path/to/file.rs:line:col"
+            let after_arrow = trimmed.strip_prefix("--> ")?;
+            let file_part = after_arrow.split(':').next()?;
+            if file_part.is_empty() || file_part.starts_with('<') {
+                return None;
+            }
+            let p = std::path::Path::new(file_part);
+            let resolved = if p.is_absolute() {
+                p.to_path_buf()
+            } else {
+                root.join(p)
+            };
+            Some(
+                resolved
+                    .to_string_lossy()
+                    .replace('\\', "/")
+                    .to_lowercase(),
+            )
+        })
+        .collect();
+    paths.sort();
+    paths.dedup();
+    paths
+}
 
 fn build_mode_redirect_answer(mode: WorkflowMode) -> String {
     match mode {
@@ -844,13 +878,16 @@ impl ConversationManager {
         state.inspected_paths.insert(normalized, turn);
     }
 
-    async fn record_verify_build_result(&self, ok: bool) {
+    async fn record_verify_build_result(&self, ok: bool, output: &str) {
         let mut state = self.action_grounding.lock().await;
         let turn = state.turn_index;
         state.last_verify_build_turn = Some(turn);
         state.last_verify_build_ok = ok;
         if ok {
             state.code_changed_since_verify = false;
+            state.last_failed_build_paths.clear();
+        } else {
+            state.last_failed_build_paths = parse_failing_paths_from_build_output(output);
         }
     }
 
@@ -1185,6 +1222,30 @@ impl ConversationManager {
                 "Action blocked: `{}` is an external MCP filesystem read tool. For local workspace inspection, prefer Hematite's built-in read path (`read_file`, `inspect_lines`, `list_files`, or `grep_files`) unless the user explicitly requires MCP for that action.",
                 name
             ));
+        }
+
+        // Phase gate: if the build is broken, constrain edits to files that cargo flagged.
+        // This prevents the model from wandering to unrelated files after a failed verify.
+        if matches!(name, "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace") {
+            if let Some(target) = normalized_target.as_deref() {
+                let state = self.action_grounding.lock().await;
+                if state.code_changed_since_verify
+                    && !state.last_verify_build_ok
+                    && !state.last_failed_build_paths.is_empty()
+                    && !state.last_failed_build_paths.iter().any(|p| p == target)
+                {
+                    let files = state
+                        .last_failed_build_paths
+                        .iter()
+                        .map(|p| format!("`{}`", p))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    return Err(format!(
+                        "Action blocked: the build is broken. Fix the errors in {} before editing other files. Run `verify_build` to confirm the fix, then continue.",
+                        files
+                    ));
+                }
+            }
         }
 
         if name == "git_commit" || name == "git_push" {
@@ -3011,7 +3072,7 @@ impl ConversationManager {
                         .await;
                     let verify_res = self.auto_verify_build().await;
                     let verify_ok = verify_res.contains("BUILD SUCCESS");
-                    self.record_verify_build_result(verify_ok).await;
+                    self.record_verify_build_result(verify_ok, &verify_res).await;
                     self.record_session_verification(
                         verify_ok,
                         if verify_ok {
@@ -3995,7 +4056,7 @@ impl ConversationManager {
                 let ok = output.contains("BUILD OK")
                     || output.contains("BUILD SUCCESS")
                     || output.contains("BUILD OKAY");
-                self.record_verify_build_result(ok).await;
+                self.record_verify_build_result(ok, &output).await;
             }
 
             if matches!(
@@ -5075,6 +5136,45 @@ mod tests {
         let intervention = intervention.expect("expected hard clamp intervention");
         assert!(intervention.contains("Hard-clamp") || intervention.contains("hard-clamp"));
         assert!(intervention.contains("inspect_lines"));
+    }
+
+    #[test]
+    fn failing_path_parser_extracts_cargo_error_locations() {
+        let output = r#"
+BUILD FAILURE: The build is currently broken. FIX THESE ERRORS IMMEDIATELY:
+
+error[E0412]: cannot find type `Foo` in this scope
+  --> src/agent/conversation.rs:42:12
+   |
+42 |     field: Foo,
+   |            ^^^ not found
+
+error[E0308]: mismatched types
+  --> src/tools/file_ops.rs:100:5
+   |
+   = note: expected `String`, found `&str`
+"#;
+        let paths = parse_failing_paths_from_build_output(output);
+        assert!(
+            paths.iter().any(|p| p.contains("conversation.rs")),
+            "should capture conversation.rs"
+        );
+        assert!(
+            paths.iter().any(|p| p.contains("file_ops.rs")),
+            "should capture file_ops.rs"
+        );
+        assert_eq!(paths.len(), 2, "no duplicates");
+    }
+
+    #[test]
+    fn failing_path_parser_ignores_macro_expansions() {
+        let output = r#"
+  --> <macro-expansion>:1:2
+  --> src/real/file.rs:10:5
+"#;
+        let paths = parse_failing_paths_from_build_output(output);
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0].contains("file.rs"));
     }
 
 }
