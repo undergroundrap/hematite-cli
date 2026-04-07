@@ -13,16 +13,21 @@ pub struct VoiceManager {
     enabled: Arc<AtomicBool>,
     cancelled: Arc<AtomicBool>, // Immediate abort flag
     sink: Arc<tokio::sync::Mutex<Option<Sink>>>,
+    /// Currently active voice ID — updated live by /voice command.
+    current_voice: Arc<std::sync::Mutex<String>>,
 }
 
 impl VoiceManager {
     pub fn new(event_tx: tokio_mpsc::Sender<InferenceEvent>) -> Self {
+        let initial_voice = crate::agent::config::effective_voice(&crate::agent::config::load_config());
         let (tx, rx) = mpsc::sync_channel::<String>(128);
         let enabled = Arc::new(AtomicBool::new(true));
         let cancelled = Arc::new(AtomicBool::new(false));
         let enabled_ctx = enabled.clone();
         let cancelled_ctx = cancelled.clone();
         let sink_shared = Arc::new(tokio::sync::Mutex::new(None));
+        let current_voice = Arc::new(std::sync::Mutex::new(initial_voice));
+        let voice_synth = Arc::clone(&current_voice);
         let sink_manager_clone = Arc::clone(&sink_shared);
 
         // Dedicated thread for voice synthesis and playback
@@ -85,10 +90,11 @@ impl VoiceManager {
                         if let Some(ref mut engine) = *engine_opt {
                                 
                             // TRUE STREAMING: Yield chunks immediately to the audio sink
+                            let voice_id = voice_synth.lock().map(|v| v.clone()).unwrap_or_else(|_| "af_sky".to_string());
                             let res = engine.tts_raw_audio_streaming(
                                 &to_speak,
                                 "en-us",
-                                "af_sky",
+                                &voice_id,
                                 1.0,
                                 None, None, None, None,
                                 |chunk| {
@@ -189,7 +195,7 @@ impl VoiceManager {
         });
 
 
-        Self { sender: tx, enabled, cancelled, sink: sink_manager_clone }
+        Self { sender: tx, enabled, cancelled, sink: sink_manager_clone, current_voice }
     }
 
     pub fn speak(&self, text: String) {
@@ -241,4 +247,68 @@ impl VoiceManager {
     pub fn is_enabled(&self) -> bool {
         self.enabled.load(Ordering::Relaxed)
     }
+
+    /// Change the active voice. Takes effect on the next spoken sentence.
+    pub fn set_voice(&self, voice_id: &str) {
+        if let Ok(mut v) = self.current_voice.lock() {
+            *v = voice_id.to_string();
+        }
+    }
+
+    pub fn current_voice_id(&self) -> String {
+        self.current_voice.lock().map(|v| v.clone()).unwrap_or_else(|_| "af_sky".to_string())
+    }
 }
+
+/// All voices baked into voices.bin, grouped for display.
+pub const VOICE_LIST: &[(&str, &str)] = &[
+    ("af_alloy",    "American Female — Alloy"),
+    ("af_aoede",    "American Female — Aoede"),
+    ("af_bella",    "American Female — Bella ⭐"),
+    ("af_heart",    "American Female — Heart ⭐"),
+    ("af_jessica",  "American Female — Jessica"),
+    ("af_kore",     "American Female — Kore"),
+    ("af_nicole",   "American Female — Nicole"),
+    ("af_nova",     "American Female — Nova"),
+    ("af_river",    "American Female — River"),
+    ("af_sarah",    "American Female — Sarah"),
+    ("af_sky",      "American Female — Sky (default)"),
+    ("am_adam",     "American Male   — Adam"),
+    ("am_echo",     "American Male   — Echo"),
+    ("am_eric",     "American Male   — Eric"),
+    ("am_fenrir",   "American Male   — Fenrir"),
+    ("am_liam",     "American Male   — Liam"),
+    ("am_michael",  "American Male   — Michael ⭐"),
+    ("am_onyx",     "American Male   — Onyx"),
+    ("am_puck",     "American Male   — Puck"),
+    ("bf_alice",    "British Female  — Alice"),
+    ("bf_emma",     "British Female  — Emma ⭐"),
+    ("bf_isabella", "British Female  — Isabella"),
+    ("bf_lily",     "British Female  — Lily"),
+    ("bm_daniel",   "British Male    — Daniel"),
+    ("bm_fable",    "British Male    — Fable ⭐"),
+    ("bm_george",   "British Male    — George ⭐"),
+    ("bm_lewis",    "British Male    — Lewis"),
+    ("ef_dora",     "Spanish Female  — Dora"),
+    ("em_alex",     "Spanish Male    — Alex"),
+    ("ff_siwis",    "French Female   — Siwis"),
+    ("hf_alpha",    "Hindi Female    — Alpha"),
+    ("hf_beta",     "Hindi Female    — Beta"),
+    ("hm_omega",    "Hindi Male      — Omega"),
+    ("hm_psi",      "Hindi Male      — Psi"),
+    ("if_sara",     "Italian Female  — Sara"),
+    ("im_nicola",   "Italian Male    — Nicola"),
+    ("jf_alpha",    "Japanese Female — Alpha"),
+    ("jf_gongitsune","Japanese Female — Gongitsune"),
+    ("jf_nezumi",   "Japanese Female — Nezumi"),
+    ("jf_tebukuro", "Japanese Female — Tebukuro"),
+    ("jm_kumo",     "Japanese Male   — Kumo"),
+    ("zf_xiaobei",  "Chinese Female  — Xiaobei"),
+    ("zf_xiaoni",   "Chinese Female  — Xiaoni"),
+    ("zf_xiaoxiao", "Chinese Female  — Xiaoxiao"),
+    ("zf_xiaoyi",   "Chinese Female  — Xiaoyi"),
+    ("zm_yunjian",  "Chinese Male    — Yunjian"),
+    ("zm_yunxi",    "Chinese Male    — Yunxi"),
+    ("zm_yunxia",   "Chinese Male    — Yunxia"),
+    ("zm_yunyang",  "Chinese Male    — Yunyang"),
+];

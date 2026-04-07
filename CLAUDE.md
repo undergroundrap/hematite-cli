@@ -27,6 +27,8 @@ pwsh ./clean.ps1
 - `ESC`: cancel the current task and copy the session transcript to the clipboard
 - `Ctrl+Q` / `Ctrl+C`: exit Hematite and copy the session transcript
 - `Ctrl+T`: toggle voice
+- `/voice`: list all available TTS voices with numbers
+- `/voice N` or `/voice <id>`: select a voice by number or ID — saves to `.hematite/settings.json` and takes effect immediately
 - `/copy`: copy the session transcript manually
 - `/clear`: clear visible dialogue and side-panel session state
 - `/forget`: purge saved conversation memory and wipe visible session state

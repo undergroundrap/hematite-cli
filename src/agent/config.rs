@@ -40,6 +40,8 @@ pub struct HematiteConfig {
     /// Override the LLM provider base URL (e.g. "http://localhost:11434/v1" for Ollama).
     /// Defaults to "http://localhost:1234/v1" (LM Studio). Takes precedence over --url CLI flag.
     pub api_url: Option<String>,
+    /// Voice ID for TTS. Use /voice in the TUI to list and select. Defaults to "af_sky".
+    pub voice: Option<String>,
     /// Extra text appended verbatim to the system prompt (project notes, conventions, etc.).
     pub context_hint: Option<String>,
     /// Per-project verification commands for build/test/lint/fix workflows.
@@ -164,6 +166,16 @@ pub fn set_gemma_native_mode(mode: &str) -> Result<(), String> {
     save_config(&config)
 }
 
+pub fn set_voice(voice_id: &str) -> Result<(), String> {
+    let mut config = load_config();
+    config.voice = Some(voice_id.to_string());
+    save_config(&config)
+}
+
+pub fn effective_voice(config: &HematiteConfig) -> String {
+    config.voice.clone().unwrap_or_else(|| "af_sky".to_string())
+}
+
 pub fn effective_gemma_native_formatting(
     config: &HematiteConfig,
     model_name: &str,
@@ -212,6 +224,7 @@ fn write_default_config(path: &std::path::Path) {
   "auto_approve_moderate": false,
 
   "api_url": null,
+  "voice": null,
   "context_hint": null,
   "model": null,
   "fast_model": null,

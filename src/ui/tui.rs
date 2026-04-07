@@ -974,6 +974,43 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/voice" => {
+                                                use crate::ui::voice::VOICE_LIST;
+                                                if let Some(arg) = parts.get(1) {
+                                                    // /voice N — select by number
+                                                    if let Ok(n) = arg.parse::<usize>() {
+                                                        let idx = n.saturating_sub(1);
+                                                        if let Some(&(id, label)) = VOICE_LIST.get(idx) {
+                                                            app.voice_manager.set_voice(id);
+                                                            let _ = crate::agent::config::set_voice(id);
+                                                            app.push_message("System", &format!("Voice set to {} — {}", id, label));
+                                                        } else {
+                                                            app.push_message("System", &format!("Invalid voice number. Use /voice to list voices (1–{}).", VOICE_LIST.len()));
+                                                        }
+                                                    } else {
+                                                        // /voice af_bella — select by name
+                                                        if let Some(&(id, label)) = VOICE_LIST.iter().find(|&&(id, _)| id == *arg) {
+                                                            app.voice_manager.set_voice(id);
+                                                            let _ = crate::agent::config::set_voice(id);
+                                                            app.push_message("System", &format!("Voice set to {} — {}", id, label));
+                                                        } else {
+                                                            app.push_message("System", &format!("Unknown voice '{}'. Use /voice to list voices.", arg));
+                                                        }
+                                                    }
+                                                } else {
+                                                    // /voice — list all voices
+                                                    let current = app.voice_manager.current_voice_id();
+                                                    let mut list = format!("Available voices (current: {}):\n", current);
+                                                    for (i, &(id, label)) in VOICE_LIST.iter().enumerate() {
+                                                        let marker = if id == current.as_str() { " ◀" } else { "" };
+                                                        list.push_str(&format!("  {:>2}. {}{}\n", i + 1, label, marker));
+                                                    }
+                                                    list.push_str("\nUse /voice N or /voice <id> to select.");
+                                                    app.push_message("System", &list);
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/new" => {
                                                 app.messages.clear();
                                                 app.messages_raw.clear();
@@ -1188,6 +1225,8 @@ pub async fn run_app<B: Backend>(
                                                      /worktree <cmd>   — (Isolated) Manage git worktrees (list|add|remove|prune)\n\
                                                      /think            — (Brain) Enable deep reasoning mode\n\
                                                      /no_think         — (Speed) Disable reasoning (3-5x faster responses)\n\
+                                                     /voice            — (TTS) List all available voices\n\
+                                                     /voice N          — (TTS) Select voice by number\n\
                                                      /copy             — (Debug) Copy session transcript to clipboard\n\
                                                      /copy2            — (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
                                                      \nHotkeys:\n\
