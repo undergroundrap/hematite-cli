@@ -58,6 +58,7 @@ pub(crate) fn is_docs_like_path(path: &str) -> bool {
         || lower.ends_with("/claude")
 }
 
+#[cfg(test)]
 pub(crate) fn docs_target_conflicts_with_startup_ui_request(
     prompt: &str,
     normalized_target: &str,
@@ -65,6 +66,14 @@ pub(crate) fn docs_target_conflicts_with_startup_ui_request(
     looks_like_startup_ui_copy_request(prompt)
         && is_docs_like_path(normalized_target)
         && !prompt_explicitly_targets_docs(prompt)
+}
+
+/// Block docs edits for any task unless the user explicitly asked for docs.
+pub(crate) fn docs_edit_without_explicit_request(
+    prompt: &str,
+    normalized_target: &str,
+) -> bool {
+    is_docs_like_path(normalized_target) && !prompt_explicitly_targets_docs(prompt)
 }
 
 fn prompt_explicitly_targets_path(prompt: &str) -> bool {
