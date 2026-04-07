@@ -198,6 +198,9 @@ fall back to a sliding window. This ensures each retrieved chunk is a coherent, 
 - Standard models (Qwen, etc.): tool results use plain content; no model-specific markup applied
 - Standard models (Qwen, etc.): jinja templates require exactly one `system` role message — a second system message causes a 400 Channel Error; `loop_intervention` is merged into `history[0]` instead of appended
 - Turn-level transient retry budget (3 per turn) caps runaway retry loops on Channel Errors; budget resets on successful inference
+- Repeat guard: if the same `(tool_name, args)` is called 3+ times in a turn, a hard stop intervention is injected; `verify_build` and git tools are exempt (fix-verify loops are legitimate)
+- Naked reasoning prose leaked without `<think>` tags is stripped from visible output before it reaches chat; stray `</think>`, `</function>`, `</tool_call>`, and similar XML artifacts are also stripped
+- `edit_file` and `multi_search_replace` normalize CRLF → LF before matching so model search strings (always LF) work correctly on Windows files
 
 ## Commit Style
 
@@ -215,8 +218,10 @@ docs: update README
 
 Hematite tracks token usage and session cost in real time.
 
-- Exit and cancel flows copy the session transcript to the clipboard
-- Session reports are written under `.hematite/reports/`
+- Exit (Ctrl+C) and cancel (ESC) flows copy the session transcript to the clipboard
+- Session reports are written to `.hematite/reports/session_YYYY-MM-DD_HH-MM-SS.json` on every exit and cancel
+- Report includes: session start timestamp, duration, model, context length, total tokens, estimated cost, turn count, and full transcript
+- `.hematite/reports/` is gitignored — reports are local runtime artifacts
 
 ## Cleanup
 

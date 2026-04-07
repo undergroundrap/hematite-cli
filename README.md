@@ -471,6 +471,33 @@ The endpoint line shows exactly where Hematite is connecting — immediately vis
 
 Press `Ctrl+T` to enable real-time text-to-speech. Hematite uses a statically linked 24 kHz Kokoro pipeline and loads the voice model in the background so the CLI can stay responsive during startup.
 
+### Session Reports
+
+On every exit (Ctrl+C) or cancel (ESC), Hematite writes a structured JSON report to `.hematite/reports/`:
+
+```json
+{
+  "session_start": "2026-04-07_16-26-01",
+  "duration_secs": 90,
+  "model": "qwen/qwen3.5-9b",
+  "context_length": 32000,
+  "total_tokens": 5451,
+  "estimated_cost_usd": 0.003,
+  "turn_count": 6,
+  "transcript": [...]
+}
+```
+
+Reports are gitignored — they are local runtime artifacts for your own review.
+
+### Tool Loop Guard
+
+If the model calls the same tool with identical arguments 3 or more times in a single turn, Hematite injects a hard stop and tells the model to change approach. This prevents runaway grep/shell spirals that burn context without making progress. `verify_build` and git tools are exempt since repeated verification calls are legitimate in fix-verify loops.
+
+### Windows Edit Reliability
+
+`edit_file` and `multi_search_replace` normalize CRLF line endings before matching, so model-generated search strings (always LF) work correctly against Windows files. Prior to this fix, edits on CRLF files would fail the exact-match check and require multiple retries or fallback to `patch_hunk`.
+
 ---
 
 ## TUI Slash Commands
