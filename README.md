@@ -287,6 +287,10 @@ cargo run --release -- --stats
 
 Hematite is designed as a **workspace-aware standalone executable** that pairs with LM Studio.
 
+### Versioning
+
+Hematite follows [Semantic Versioning](https://semver.org/): `PATCH` for bug fixes, `MINOR` for new user-visible features, `MAJOR` for breaking changes or the first stable release. Bump immediately before a release, never speculatively. Full policy in `CLAUDE.md`.
+
 ### Bumping the Version
 
 **Always run this before cutting a release.** It updates the version string in every file that needs it — `Cargo.toml`, `README.md`, `CLAUDE.md`, and `release.ps1` — in one shot:
