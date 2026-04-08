@@ -308,6 +308,29 @@ Hematite supports attaching files to any conversation turn via hotkeys or slash 
 - `/detach` drops any pending document or image before sending
 - Attachments are cleared automatically after the next turn
 
+## Versioning Policy
+
+Hematite follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
+
+| Bump | When |
+|---|---|
+| `PATCH` (0.1.**1**) | Bug fixes, doc updates, internal refactors with no user-visible change |
+| `MINOR` (0.**2**.0) | New user-visible features, meaningful UX improvements, new tools |
+| `MAJOR` (**1**.0.0) | Breaking config/API changes, or the first stable public release |
+
+**Pre-1.0 rule:** while the version is `0.x.y`, minor bumps are used freely for new features. Don't stay on a patch version just because the change feels small — if a user would notice it, it's a minor bump.
+
+**When to bump:**
+- Never bump mid-development. Version numbers live in `Cargo.toml` and are baked into the binary at compile time.
+- Bump immediately before running `release.ps1` — not after features land, not speculatively.
+- Always use `bump-version.ps1` — never edit version strings by hand across files.
+- After bumping, verify `cargo build` is clean, commit the bump as a standalone commit, then run the release.
+
+**Commit message for a version bump:**
+```
+chore: bump version to 0.2.0
+```
+
 ## Release Build
 
 **Step 1 — bump the version** (updates Cargo.toml, README.md, CLAUDE.md, release.ps1 atomically):
