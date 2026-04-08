@@ -61,6 +61,14 @@ At minimum, run:
 cargo check
 ```
 
+`cargo check` confirms the build graph is healthy but does not link the binary. It is not sufficient for release verification. Before cutting a release, run the full release build:
+
+```powershell
+pwsh ./scripts/package-windows.ps1
+```
+
+This is the real gate — it runs `cargo build --release` and proves the binary links and packages correctly. The portable zip in `dist/windows/` must be newer than the commit you are tagging.
+
 If your change affects packaging or release behavior, also run:
 
 ```powershell
