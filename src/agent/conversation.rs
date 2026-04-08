@@ -1973,8 +1973,10 @@ impl ConversationManager {
             // For non-Gemma models (Qwen etc.) default to /think so the model uses
             // hybrid thinking — it decides how much reasoning each turn needs.
             // Gemma handles reasoning via <|think|> in the system prompt instead.
-            // Chat mode skips /think — fast direct answers, no reasoning overhead.
-            None if !is_gemma && !self.workflow_mode.is_chat() => format!("/think\n{}", effective_user_input),
+            // Chat mode and quick tool calls skip /think — fast direct answers.
+            None if !is_gemma && !self.workflow_mode.is_chat() && !is_quick_tool_request(&effective_user_input) => {
+                format!("/think\n{}", effective_user_input)
+            }
             None => effective_user_input.clone(),
         };
         self.history.push(ChatMessage::user(&user_content));
@@ -4172,6 +4174,25 @@ fn enforce_prompt_budget(
 }
 
 /// Split text into chunks of roughly `words_per_chunk` whitespace-separated tokens.
+/// Returns true for short, direct tool-use requests that don't benefit from deep reasoning.
+/// Used to skip the auto-/think prepend so the model calls the tool immediately
+/// instead of spending thousands of tokens deliberating over a trivial task.
+fn is_quick_tool_request(input: &str) -> bool {
+    let lower = input.to_lowercase();
+    // Explicit run_code requests — sandbox calls need no reasoning warmup.
+    if lower.contains("run_code") || lower.contains("run code") {
+        return true;
+    }
+    // Short compute/test requests — "calculate X", "test this", "execute Y"
+    let is_short = input.len() < 120;
+    let compute_keywords = ["calculate", "compute", "execute", "run this", "test this",
+                             "what is ", "how much", "how many", "convert ", "print "];
+    if is_short && compute_keywords.iter().any(|k| lower.contains(k)) {
+        return true;
+    }
+    false
+}
+
 fn chunk_text(text: &str, words_per_chunk: usize) -> Vec<String> {
     let mut chunks = Vec::new();
     let mut current = String::new();
