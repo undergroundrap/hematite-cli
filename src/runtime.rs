@@ -68,7 +68,10 @@ pub async fn build_runtime_bundle(
     let git_state = agent::git_monitor::spawn_git_monitor();
 
     if !engine_raw.health_check().await {
-        println!("ERROR: LLM Provider not detected at {}", engine_raw.base_url);
+        println!(
+            "ERROR: LLM Provider not detected at {}",
+            engine_raw.base_url
+        );
         println!("Check if LM Studio (or your local server) is running and port mapped correctly.");
         std::process::exit(1);
     }
@@ -213,7 +216,10 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     }
     let indexed = manager.initialize_vein();
     let _ = agent_tx
-        .send(InferenceEvent::Thought(format!("The Vein: indexed {} files", indexed)))
+        .send(InferenceEvent::Thought(format!(
+            "The Vein: indexed {} files",
+            indexed
+        )))
         .await;
     let _ = agent_tx.send(InferenceEvent::Done).await;
 
@@ -244,6 +250,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         embed_status,
         voice_status
     );
+    let greeting = greeting.replace('—', "-");
 
     let _ = agent_tx
         .send(InferenceEvent::MutedToken(format!("\n{}", greeting)))
@@ -269,7 +276,10 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     }
 
     while let Some(input) = user_input_rx.recv().await {
-        if let Err(e) = manager.run_turn(&input, agent_tx.clone(), config.yolo).await {
+        if let Err(e) = manager
+            .run_turn(&input, agent_tx.clone(), config.yolo)
+            .await
+        {
             let _ = agent_tx.send(InferenceEvent::Error(e.to_string())).await;
             let _ = agent_tx.send(InferenceEvent::Done).await;
         }

@@ -998,6 +998,7 @@ dependencies = [
  "home",
  "kokoros",
  "lazy_static",
+ "lopdf",
  "notify",
  "pdf-extract",
  "percent-encoding",

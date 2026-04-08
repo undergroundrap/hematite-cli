@@ -41,7 +41,10 @@ pub struct SearchResult {
 }
 
 impl Vein {
-    pub fn new<P: AsRef<Path>>(db_path: P, base_url: String) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new<P: AsRef<Path>>(
+        db_path: P,
+        base_url: String,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let db = Connection::open(db_path)?;
 
         // WAL mode for better concurrent read performance.
@@ -68,7 +71,10 @@ impl Vein {
             );",
         )?;
 
-        Ok(Self { db: std::sync::Arc::new(std::sync::Mutex::new(db)), base_url })
+        Ok(Self {
+            db: std::sync::Arc::new(std::sync::Mutex::new(db)),
+            base_url,
+        })
     }
 
     // ── Indexing ──────────────────────────────────────────────────────────────
@@ -115,8 +121,7 @@ impl Vein {
         let mut db = self.db.lock().unwrap();
         let tx = db.transaction()?;
         {
-            let mut stmt =
-                tx.prepare("INSERT INTO chunks_fts (path, content) VALUES (?1, ?2)")?;
+            let mut stmt = tx.prepare("INSERT INTO chunks_fts (path, content) VALUES (?1, ?2)")?;
             for chunk in &chunks {
                 stmt.execute(params![path, chunk.as_str()])?;
             }
@@ -154,16 +159,22 @@ impl Vein {
         // FTS5 uses implicit AND by default — passing stopwords like "how", "does",
         // "the" causes zero results because source code never contains those phrases.
         const STOPWORDS: &[&str] = &[
-            "how", "does", "do", "did", "what", "where", "when", "why", "which", "who",
-            "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
-            "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
-            "of", "with", "by", "from", "get", "gets", "got", "work", "works",
-            "make", "makes", "use", "uses", "into", "that", "this", "it", "its",
+            "how", "does", "do", "did", "what", "where", "when", "why", "which", "who", "is",
+            "are", "was", "were", "be", "been", "being", "have", "has", "had", "a", "an", "the",
+            "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by", "from", "get",
+            "gets", "got", "work", "works", "make", "makes", "use", "uses", "into", "that", "this",
+            "it", "its",
         ];
 
         let safe_query: String = query
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == ' ' || c == '_' { c } else { ' ' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == ' ' || c == '_' {
+                    c
+                } else {
+                    ' '
+                }
+            })
             .collect();
 
         // Build an OR query from non-stopword tokens so any relevant term matches.
@@ -261,7 +272,11 @@ impl Vein {
                         |r| r.get(0),
                     )
                     .ok();
-                content.map(|c| SearchResult { path, content: c, score })
+                content.map(|c| SearchResult {
+                    path,
+                    content: c,
+                    score,
+                })
             })
             .collect()
     }
@@ -284,7 +299,10 @@ impl Vein {
 
         for r in semantic {
             // Boost semantic scores into the 1.0–2.0 band.
-            merged.push(SearchResult { score: 1.0 + r.score.clamp(0.0, 1.0), ..r });
+            merged.push(SearchResult {
+                score: 1.0 + r.score.clamp(0.0, 1.0),
+                ..r
+            });
         }
 
         for r in bm25 {
@@ -296,7 +314,11 @@ impl Vein {
             }
         }
 
-        merged.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        merged.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         merged.truncate(limit);
         Ok(merged)
     }
@@ -313,8 +335,8 @@ impl Vein {
         let mut count = 0usize;
 
         const INDEXABLE: &[&str] = &[
-            "rs", "toml", "md", "json", "ts", "tsx", "js", "py", "go",
-            "c", "cpp", "h", "yaml", "yml", "txt",
+            "rs", "toml", "md", "json", "ts", "tsx", "js", "py", "go", "c", "cpp", "h", "yaml",
+            "yml", "txt",
         ];
         const SKIP_DIRS: &[&str] = &["target", ".git", "node_modules", ".hematite"];
 
@@ -337,7 +359,9 @@ impl Vein {
                 continue;
             }
 
-            let Ok(meta) = std::fs::metadata(path) else { continue };
+            let Ok(meta) = std::fs::metadata(path) else {
+                continue;
+            };
             if meta.len() > 512_000 {
                 continue;
             }
@@ -398,13 +422,20 @@ impl Vein {
             .filter(|e| e.file_type().is_file())
         {
             let path = entry.path();
-            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
             if !DOCS_INDEXABLE.contains(&ext.as_str()) {
                 continue;
             }
 
-            let Ok(meta) = std::fs::metadata(path) else { continue };
-            if meta.len() > 50_000_000 { // 50 MB cap for docs
+            let Ok(meta) = std::fs::metadata(path) else {
+                continue;
+            };
+            if meta.len() > 50_000_000 {
+                // 50 MB cap for docs
                 continue;
             }
 
@@ -483,7 +514,11 @@ impl Vein {
                 )
                 .unwrap();
             stmt.query_map([], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?))
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, i64>(1)?,
+                    r.get::<_, String>(2)?,
+                ))
             })
             .unwrap()
             .filter_map(|r| r.ok())
@@ -530,7 +565,7 @@ impl Vein {
         let _ = db.execute_batch(
             "DELETE FROM chunks_fts;
              DELETE FROM chunks_vec;
-             DELETE FROM chunks_meta;"
+             DELETE FROM chunks_meta;",
         );
     }
 }
@@ -562,7 +597,11 @@ fn embed_text_with_prefix(text: &str, task: &str, base_url: &str) -> Option<Vec<
     // Nomic v2 task instruction prefix format: "<task>: <text>"
     let prefixed = format!("{}: {}", task, text);
     // Truncate to ~8000 chars to stay within typical embedding model limits.
-    let input = if prefixed.len() > 8000 { &prefixed[..8000] } else { &prefixed };
+    let input = if prefixed.len() > 8000 {
+        &prefixed[..8000]
+    } else {
+        &prefixed
+    };
 
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -575,11 +614,7 @@ fn embed_text_with_prefix(text: &str, task: &str, base_url: &str) -> Option<Vec<
     });
 
     let url = format!("{}/v1/embeddings", base_url);
-    let resp = client
-        .post(&url)
-        .json(&body)
-        .send()
-        .ok()?;
+    let resp = client.post(&url).json(&body).send().ok()?;
 
     if !resp.status().is_success() {
         return None;
@@ -592,7 +627,11 @@ fn embed_text_with_prefix(text: &str, task: &str, base_url: &str) -> Option<Vec<
         .filter_map(|v| v.as_f64().map(|f| f as f32))
         .collect();
 
-    if vec.is_empty() { None } else { Some(vec) }
+    if vec.is_empty() {
+        None
+    } else {
+        Some(vec)
+    }
 }
 
 // ── Vector math ───────────────────────────────────────────────────────────────
@@ -604,7 +643,11 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
     let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
     let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-    if norm_a == 0.0 || norm_b == 0.0 { 0.0 } else { dot / (norm_a * norm_b) }
+    if norm_a == 0.0 || norm_b == 0.0 {
+        0.0
+    } else {
+        dot / (norm_a * norm_b)
+    }
 }
 
 fn floats_to_blob(floats: &[f32]) -> Vec<u8> {
@@ -622,6 +665,108 @@ fn blob_to_floats(blob: &[u8]) -> Vec<f32> {
 /// Extract plain text from a PDF file using pdf-extract.
 /// Returns None if the file can't be read or yields no text.
 /// Output is best-effort — layout is not preserved, but content is.
+fn normalize_extracted_document_text(text: String) -> Option<String> {
+    let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+    let trimmed = normalized.trim_matches(|c: char| c.is_whitespace() || c == '\0');
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn extract_pdf_text_with_pdf_extract(path: &std::path::Path) -> Result<Option<String>, String> {
+    let previous_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        pdf_extract::extract_text(path)
+    }));
+    std::panic::set_hook(previous_hook);
+
+    match result {
+        Ok(Ok(text)) => Ok(normalize_extracted_document_text(text)),
+        Ok(Err(e)) => Err(format!("pdf-extract failed: {}", e)),
+        Err(payload) => {
+            let panic_text = if let Some(msg) = payload.downcast_ref::<&str>() {
+                (*msg).to_string()
+            } else if let Some(msg) = payload.downcast_ref::<String>() {
+                msg.clone()
+            } else {
+                "unknown parser panic".to_string()
+            };
+            Err(format!("pdf-extract panicked: {}", panic_text))
+        }
+    }
+}
+
+fn extract_pdf_text_with_lopdf(path: &std::path::Path) -> Result<Option<String>, String> {
+    let mut doc =
+        lopdf::Document::load(path).map_err(|e| format!("lopdf could not open PDF: {}", e))?;
+
+    if doc.is_encrypted() {
+        doc.decrypt("")
+            .map_err(|e| format!("PDF is encrypted and could not be decrypted: {}", e))?;
+    }
+
+    let page_numbers: Vec<u32> = doc.get_pages().keys().copied().collect();
+    if page_numbers.is_empty() {
+        return Ok(None);
+    }
+
+    let mut extracted_pages = Vec::new();
+    let mut page_errors = Vec::new();
+
+    for page_number in page_numbers {
+        match doc.extract_text(&[page_number]) {
+            Ok(text) => {
+                if let Some(page_text) = normalize_extracted_document_text(text) {
+                    extracted_pages.push(page_text);
+                }
+            }
+            Err(e) => page_errors.push(format!("page {page_number}: {e}")),
+        }
+    }
+
+    if !extracted_pages.is_empty() {
+        return Ok(Some(extracted_pages.join("\n\n")));
+    }
+
+    if !page_errors.is_empty() {
+        let sample_errors = page_errors
+            .into_iter()
+            .take(3)
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(format!(
+            "lopdf could not extract usable page text ({sample_errors})"
+        ));
+    }
+
+    Ok(None)
+}
+
+fn extract_pdf_text_inside_helper(path: &std::path::Path) -> Result<Option<String>, String> {
+    let mut failures = Vec::new();
+
+    match extract_pdf_text_with_pdf_extract(path) {
+        Ok(Some(text)) => return Ok(Some(text)),
+        Ok(None) => failures.push("pdf-extract found no usable text".to_string()),
+        Err(e) => failures.push(e),
+    }
+
+    match extract_pdf_text_with_lopdf(path) {
+        Ok(Some(text)) => return Ok(Some(text)),
+        Ok(None) => failures.push("lopdf found no usable text".to_string()),
+        Err(e) => failures.push(e),
+    }
+
+    let detail = failures.into_iter().take(2).collect::<Vec<_>>().join("; ");
+    Err(format!(
+        "Could not extract text from PDF. Hematite keeps PDF parsing best-effort so it can stay a lightweight single-binary local coding harness. The file may be scanned/image-only, encrypted, or use unsupported font encoding. Try exporting it to text/markdown or attach page images instead. Detail: {}",
+        detail
+    ))
+}
+
 fn extract_pdf_text(path: &std::path::Path) -> Result<Option<String>, String> {
     let exe = std::env::current_exe()
         .map_err(|e| format!("Could not locate Hematite executable for PDF helper: {}", e))?;
@@ -653,37 +798,28 @@ fn extract_pdf_text(path: &std::path::Path) -> Result<Option<String>, String> {
 }
 
 pub fn run_pdf_extract_helper(path: &std::path::Path) -> i32 {
-    let previous_hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(|_| {}));
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        pdf_extract::extract_text(path)
-    }));
-    std::panic::set_hook(previous_hook);
-
-    match result {
-        Ok(Ok(text)) => {
+    match extract_pdf_text_inside_helper(path) {
+        Ok(Some(text)) => {
             use std::io::Write;
             let mut stdout = std::io::stdout();
             if stdout.write_all(text.as_bytes()).is_ok() {
                 0
             } else {
-                let _ = writeln!(std::io::stderr(), "PDF helper could not write extracted text.");
+                let _ = writeln!(
+                    std::io::stderr(),
+                    "PDF helper could not write extracted text."
+                );
                 1
             }
         }
-        Ok(Err(e)) => {
-            eprintln!("PDF extraction failed: {}", e);
+        Ok(None) => {
+            eprintln!(
+                "Could not extract text from PDF. Hematite keeps PDF parsing best-effort so it can stay a lightweight single-binary local coding harness. The file appears to contain no usable embedded text. Try exporting it to text/markdown or attach page images instead."
+            );
             1
         }
-        Err(payload) => {
-            let panic_text = if let Some(msg) = payload.downcast_ref::<&str>() {
-                (*msg).to_string()
-            } else if let Some(msg) = payload.downcast_ref::<String>() {
-                msg.clone()
-            } else {
-                "unknown pdf parser panic".to_string()
-            };
-            eprintln!("PDF extraction panicked: {}", panic_text);
+        Err(e) => {
+            eprintln!("{}", e);
             1
         }
     }
@@ -692,7 +828,11 @@ pub fn run_pdf_extract_helper(path: &std::path::Path) -> i32 {
 /// Extract text from any supported document type (PDF, markdown, plain text).
 /// Used by /attach for one-shot context injection.
 pub fn extract_document_text(path: &std::path::Path) -> Result<String, String> {
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
     match ext.as_str() {
         "pdf" => extract_pdf_text(path)?
             .ok_or_else(|| "Could not extract text from PDF — file may be scanned/image-only or use unsupported font encoding.".to_string()),
@@ -722,16 +862,28 @@ fn chunk_by_symbols(ext: &str, text: &str) -> Vec<String> {
 /// by sliding window so no single chunk blows the retrieval budget.
 fn chunk_rust_symbols(text: &str) -> Vec<String> {
     const ITEM_STARTS: &[&str] = &[
-        "pub fn ", "pub async fn ", "pub unsafe fn ",
-        "async fn ", "unsafe fn ", "fn ",
-        "pub impl", "impl ",
-        "pub struct ", "struct ",
-        "pub enum ", "enum ",
-        "pub trait ", "trait ",
-        "pub mod ", "mod ",
-        "pub type ", "type ",
-        "pub const ", "const ",
-        "pub static ", "static ",
+        "pub fn ",
+        "pub async fn ",
+        "pub unsafe fn ",
+        "async fn ",
+        "unsafe fn ",
+        "fn ",
+        "pub impl",
+        "impl ",
+        "pub struct ",
+        "struct ",
+        "pub enum ",
+        "enum ",
+        "pub trait ",
+        "trait ",
+        "pub mod ",
+        "mod ",
+        "pub type ",
+        "type ",
+        "pub const ",
+        "const ",
+        "pub static ",
+        "static ",
     ];
 
     let lines: Vec<&str> = text.lines().collect();
@@ -748,8 +900,10 @@ fn chunk_rust_symbols(text: &str) -> Vec<String> {
             let mut split = current.len();
             while split > 0 {
                 let prev = current[split - 1].trim();
-                if prev.starts_with("///") || prev.starts_with("//!")
-                    || prev.starts_with("#[") || prev.is_empty()
+                if prev.starts_with("///")
+                    || prev.starts_with("//!")
+                    || prev.starts_with("#[")
+                    || prev.is_empty()
                 {
                     split -= 1;
                 } else {

@@ -38,6 +38,7 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 - [What It Can Do](#what-it-can-do)
 - [Key Features](#key-features)
 - [Voice](#voice)
+- [Document Attachments](#document-attachments)
 - [TUI Slash Commands](#tui-slash-commands)
 - [Configuration](#configuration)
 - [MCP Servers](#mcp-servers)
@@ -553,6 +554,29 @@ If Hematite detects a Gemma 4 model at startup, it reports whether Gemma Native 
 
 Hematite can inspect screenshots, diagrams, and UI captures through `vision_analyze`, which lets the model reason about visual bugs and interface state instead of relying only on text descriptions. In the TUI, `/image <path>`, `/image-pick`, and `Ctrl+I` attach an image to the next turn so the main conversation can use the multimodal path directly.
 
+### Document Attachments
+
+Hematite can also attach `.pdf`, `.md`, and `.txt` files to the next turn, but PDF support is intentionally **best-effort**, not a flagship document-ingestion pipeline.
+
+Why the limitation is deliberate:
+
+- Hematite is optimized around being a fast local coding harness with a simple deployment story.
+- The project prioritizes a **single binary**, local-first runtime instead of bundling a heavier PDF/OCR stack with extra native engines, installers, or background services.
+- That keeps startup, packaging, and reliability aligned with Hematite's main job: coding, repo grounding, workflow control, and multimodal coding help.
+
+What that means in practice:
+
+- Text PDFs with usable embedded text often work.
+- Some PDFs still fail, especially scanned/image-only files, encrypted files, and files with unsupported or broken font encodings.
+- Hematite will fail cleanly and tell you when the PDF could not be parsed safely.
+
+If a PDF does not attach cleanly, the recommended fallback is:
+
+- export it to `.txt` or `.md` first
+- or attach screenshots/page images and use the vision path instead
+
+If you need industrial-strength PDF ingestion or OCR-heavy document workflows, a document-first tool is a better fit. Hematite keeps enough PDF support to be useful without pretending to be a full document platform.
+
 ### Startup Greeting
 
 On launch, Hematite prints a one-line status block:
@@ -625,12 +649,13 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 /worktree prune   Remove stale worktree entries
 /swarm <directive>  Spawn parallel worker agents
 /diff             Show git diff --stat
-/attach <path>    Attach a PDF/markdown/txt file for the next message
+/attach <path>    Attach a PDF/markdown/txt file for the next message (PDF is best-effort)
 /attach-pick      Open a file picker and attach a document
 /image <path>     Attach an image for the next message
 /image-pick       Open a file picker and attach an image
 /detach           Drop pending document/image attachments
-/copy             Copy the session transcript
+/copy             Copy the exact session transcript, including help/system output
+/copy-clean       Copy the chat transcript without help/debug boilerplate
 /undo             Undo last file edit
 /clear            Clear visible dialogue and side-panel session state
 /help             Show all commands

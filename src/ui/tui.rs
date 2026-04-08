@@ -1,23 +1,26 @@
-use crossterm::event::{self, Event, KeyCode, EventStream};
+use super::modal_review::{draw_diff_review, ActiveReview};
+use crate::agent::conversation::{AttachedDocument, AttachedImage, UserTurn};
+use crate::agent::inference::{McpRuntimeState, OperatorCheckpointState, ProviderRuntimeState};
+use crate::agent::specular::SpecularEvent;
+use crate::agent::swarm::{ReviewResponse, SwarmMessage};
+use crate::agent::utils::{strip_ansi, CRLF_REGEX};
+use crate::ui::gpu_monitor::GpuState;
+use crossterm::event::{self, Event, EventStream, KeyCode};
 use futures::StreamExt;
 use ratatui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Gauge, List, ListItem, Paragraph, Wrap, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{
+        Block, Borders, Clear, Gauge, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation,
+        ScrollbarState, Wrap,
+    },
     Terminal,
 };
 use std::sync::{Arc, Mutex};
-use crate::ui::gpu_monitor::GpuState;
 use std::time::Instant;
 use tokio::sync::mpsc::Receiver;
-use crate::agent::conversation::{AttachedDocument, AttachedImage, UserTurn};
-use crate::agent::inference::{McpRuntimeState, OperatorCheckpointState, ProviderRuntimeState};
-use crate::agent::specular::SpecularEvent;
-use crate::agent::swarm::{SwarmMessage, ReviewResponse};
-use super::modal_review::{ActiveReview, draw_diff_review};
-use crate::agent::utils::{strip_ansi, CRLF_REGEX};
 use walkdir::WalkDir;
 
 // ── Approval modal state ──────────────────────────────────────────────────────
@@ -56,13 +59,29 @@ fn default_active_context() -> Vec<ContextFile> {
     // hardcoding Hematite's own file layout. Priority order: first match wins
     // for the "primary" slot, then the project manifest, then source root.
     let entrypoint_candidates = [
-        "src/main.rs", "src/lib.rs", "src/index.ts", "src/index.js",
-        "src/main.ts", "src/main.js", "src/main.py", "main.py",
-        "main.go", "index.js", "index.ts", "app.py", "app.rs",
+        "src/main.rs",
+        "src/lib.rs",
+        "src/index.ts",
+        "src/index.js",
+        "src/main.ts",
+        "src/main.js",
+        "src/main.py",
+        "main.py",
+        "main.go",
+        "index.js",
+        "index.ts",
+        "app.py",
+        "app.rs",
     ];
     let manifest_candidates = [
-        "Cargo.toml", "package.json", "go.mod", "pyproject.toml",
-        "setup.py", "composer.json", "pom.xml", "build.gradle",
+        "Cargo.toml",
+        "package.json",
+        "go.mod",
+        "pyproject.toml",
+        "setup.py",
+        "composer.json",
+        "pom.xml",
+        "build.gradle",
     ];
 
     let mut files = Vec::new();
@@ -72,7 +91,11 @@ fn default_active_context() -> Vec<ContextFile> {
         let joined = root.join(path);
         if joined.exists() {
             let size = std::fs::metadata(&joined).map(|m| m.len()).unwrap_or(0);
-            files.push(ContextFile { path: path.to_string(), size, status: "Active".to_string() });
+            files.push(ContextFile {
+                path: path.to_string(),
+                size,
+                status: "Active".to_string(),
+            });
             break;
         }
     }
@@ -82,7 +105,11 @@ fn default_active_context() -> Vec<ContextFile> {
         let joined = root.join(path);
         if joined.exists() {
             let size = std::fs::metadata(&joined).map(|m| m.len()).unwrap_or(0);
-            files.push(ContextFile { path: path.to_string(), size, status: "Active".to_string() });
+            files.push(ContextFile {
+                path: path.to_string(),
+                size,
+                status: "Active".to_string(),
+            });
             break;
         }
     }
@@ -91,7 +118,11 @@ fn default_active_context() -> Vec<ContextFile> {
     let src = root.join("src");
     if src.exists() {
         let size = std::fs::metadata(&src).map(|m| m.len()).unwrap_or(0);
-        files.push(ContextFile { path: "./src".to_string(), size, status: "Watching".to_string() });
+        files.push(ContextFile {
+            path: "./src".to_string(),
+            size,
+            status: "Watching".to_string(),
+        });
     }
 
     files
@@ -213,7 +244,9 @@ impl App {
 
     pub fn push_message(&mut self, speaker: &str, content: &str) {
         let filtered = filter_tui_noise(content);
-        if filtered.is_empty() && !content.is_empty() { return; } // Completely suppressed noise
+        if filtered.is_empty() && !content.is_empty() {
+            return;
+        } // Completely suppressed noise
 
         self.messages_raw.push((speaker.to_string(), filtered));
         // Cap raw history to prevent UI lag.
@@ -234,7 +267,11 @@ impl App {
                 last_raw.1.push_str(token);
                 // Optimization: Only rebuild formatting on whitespace/newline or if specifically requested.
                 // This prevents "shattering" the TUI during high-speed token streams.
-                if token.contains(' ') || token.contains('\n') || token.contains('.') || token.len() > 5 {
+                if token.contains(' ')
+                    || token.contains('\n')
+                    || token.contains('.')
+                    || token.len() > 5
+                {
                     self.rebuild_formatted_messages();
                 }
             }
@@ -261,14 +298,18 @@ impl App {
         // Hematite = rust iron-oxide brown; You = green; Tool = cyan
         let rust = Color::Rgb(180, 90, 50);
         let style = match speaker {
-            "You"      => Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            "You" => Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
             "Hematite" => Style::default().fg(rust).add_modifier(Modifier::BOLD),
-            "Tool"     => Style::default().fg(Color::Cyan),
-            _          => Style::default().fg(Color::DarkGray),
+            "Tool" => Style::default().fg(Color::Cyan),
+            _ => Style::default().fg(Color::DarkGray),
         };
 
         // Aggressive trim to avoid leading/trailing blank rows.
-        let cleaned = crate::agent::inference::strip_think_blocks(content).trim().to_string();
+        let cleaned = crate::agent::inference::strip_think_blocks(content)
+            .trim()
+            .to_string();
         let cleaned = strip_ghost_prefix(&cleaned);
 
         let mut is_first = true;
@@ -281,25 +322,32 @@ impl App {
                 continue;
             }
 
-            let label = if is_first { format!("{}: ", speaker) } else { "  ".to_string() };
-            
-            if speaker == "Tool" && (raw_line.starts_with("-") || raw_line.starts_with("+") || raw_line.starts_with("@@")) {
+            let label = if is_first {
+                format!("{}: ", speaker)
+            } else {
+                "  ".to_string()
+            };
+
+            if speaker == "Tool"
+                && (raw_line.starts_with("-")
+                    || raw_line.starts_with("+")
+                    || raw_line.starts_with("@@"))
+            {
                 let line_style = if raw_line.starts_with("-") {
                     Style::default().fg(Color::Red)
                 } else if raw_line.starts_with("+") {
                     Style::default().fg(Color::Green)
                 } else {
-                    Style::default().fg(Color::Yellow).add_modifier(Modifier::DIM)
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::DIM)
                 };
                 lines.push(Line::from(vec![
                     Span::raw("    "), // Deeper indent for diffs
                     Span::styled(raw_line.to_string(), line_style),
                 ]));
             } else {
-                let mut spans = vec![
-                    Span::raw(" "),
-                    Span::styled(label, style),
-                ];
+                let mut spans = vec![Span::raw(" "), Span::styled(label, style)];
                 // Render inline markdown for Hematite responses; plain text for others.
                 // Code fence lines (``` or ```rust etc.) are rendered as plain dim text
                 // rather than passed through inline_markdown_core, which would misparse
@@ -330,16 +378,17 @@ impl App {
         let root = crate::tools::file_ops::workspace_root();
         // Extract the fragment after the last '@'
         let query = if let Some(pos) = self.input.rfind('@') {
-            &self.input[pos+1..]
+            &self.input[pos + 1..]
         } else {
             ""
-        }.to_lowercase();
-        
+        }
+        .to_lowercase();
+
         self.autocomplete_filter = query.clone();
-        
+
         let mut matches = Vec::new();
         let mut total_found = 0;
-        
+
         for entry in WalkDir::new(&root)
             .into_iter()
             .filter_entry(|e| {
@@ -353,14 +402,17 @@ impl App {
                 let path_str = path.to_string_lossy().to_string();
                 if path_str.to_lowercase().contains(&query) {
                     total_found += 1;
-                    if matches.len() < 15 { // Show up to 15 at once
+                    if matches.len() < 15 {
+                        // Show up to 15 at once
                         matches.push(path_str);
                     }
                 }
             }
-            if total_found > 100 { break; } // Safety cap for massive repos
+            if total_found > 100 {
+                break;
+            } // Safety cap for massive repos
         }
-        
+
         // Prioritize: Move .rs and .md files to the top if they match
         matches.sort_by(|a, b| {
             let a_ext = a.split('.').last().unwrap_or("");
@@ -371,19 +423,21 @@ impl App {
         });
 
         self.autocomplete_suggestions = matches;
-        self.selected_suggestion = self.selected_suggestion.min(self.autocomplete_suggestions.len().saturating_sub(1));
+        self.selected_suggestion = self
+            .selected_suggestion
+            .min(self.autocomplete_suggestions.len().saturating_sub(1));
     }
 
     /// [Intelli-Hematite] Update the context strategy deck with real file data.
     pub fn push_context_file(&mut self, path: String, status: String) {
         self.active_context.retain(|f| f.path != path);
-        
+
         let root = crate::tools::file_ops::workspace_root();
         let full_path = root.join(&path);
         let size = std::fs::metadata(full_path).map(|m| m.len()).unwrap_or(0);
-        
+
         self.active_context.push(ContextFile { path, size, status });
-        
+
         if self.active_context.len() > 10 {
             self.active_context.remove(0);
         }
@@ -406,7 +460,9 @@ impl App {
             for line in content.lines() {
                 let trimmed = line.trim();
                 // Match "- [ ]" or "- [/]"
-                if (trimmed.starts_with("- [ ]") || trimmed.starts_with("- [/]")) && trimmed.len() > 6 {
+                if (trimmed.starts_with("- [ ]") || trimmed.starts_with("- [/]"))
+                    && trimmed.len() > 6
+                {
                     self.current_objective = trimmed[6..].trim().to_string();
                     return;
                 }
@@ -440,7 +496,10 @@ impl App {
             out.push('\n');
         }
 
-        out.push_str(&format!("Tokens: {} | Cost: ${:.4}\n", self.total_tokens, self.current_session_cost));
+        out.push_str(&format!(
+            "Tokens: {} | Cost: ${:.4}\n",
+            self.total_tokens, self.current_session_cost
+        ));
 
         let mut child = std::process::Command::new("clip.exe")
             .stdin(std::process::Stdio::piped())
@@ -460,7 +519,8 @@ impl App {
         }
 
         // Timestamp from session_start
-        let start_secs = self.session_start
+        let start_secs = self
+            .session_start
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
@@ -476,7 +536,10 @@ impl App {
         let hh = secs_in_day / 3600;
         let mm = (secs_in_day % 3600) / 60;
         let ss = secs_in_day % 60;
-        let timestamp = format!("{:04}-{:02}-{:02}_{:02}-{:02}-{:02}", year, month, day, hh, mm, ss);
+        let timestamp = format!(
+            "{:04}-{:02}-{:02}_{:02}-{:02}-{:02}",
+            year, month, day, hh, mm, ss
+        );
 
         let duration_secs = std::time::SystemTime::now()
             .duration_since(self.session_start)
@@ -485,7 +548,9 @@ impl App {
 
         let report_path = report_dir.join(format!("session_{}.json", timestamp));
 
-        let turns: Vec<serde_json::Value> = self.messages_raw.iter()
+        let turns: Vec<serde_json::Value> = self
+            .messages_raw
+            .iter()
             .map(|(speaker, text)| serde_json::json!({ "speaker": speaker, "text": text }))
             .collect();
 
@@ -506,20 +571,47 @@ impl App {
     }
 
     pub fn copy_transcript_to_clipboard(&self) {
-        let mut history = self.messages_raw.iter()
+        let mut history = self
+            .messages_raw
+            .iter()
             .map(|m| format!("[{}] {}\n", m.0, m.1))
             .collect::<String>();
-        
+
         history.push_str("\nSession Stats\n");
         history.push_str(&format!("Tokens: {}\n", self.total_tokens));
         history.push_str(&format!("Cost: ${:.4}\n", self.current_session_cost));
-        
+
         // Windows clip.exe — fast and zero dependencies.
         let mut child = std::process::Command::new("clip.exe")
             .stdin(std::process::Stdio::piped())
             .spawn()
             .expect("Failed to spawn clip.exe");
-        
+
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            let _ = stdin.write_all(history.as_bytes());
+        }
+        let _ = child.wait();
+    }
+
+    pub fn copy_clean_transcript_to_clipboard(&self) {
+        let mut history = self
+            .messages_raw
+            .iter()
+            .filter(|(speaker, content)| !should_skip_transcript_copy_entry(speaker, content))
+            .map(|m| format!("[{}] {}\n", m.0, m.1))
+            .collect::<String>();
+
+        history.push_str("\nSession Stats\n");
+        history.push_str(&format!("Tokens: {}\n", self.total_tokens));
+        history.push_str(&format!("Cost: ${:.4}\n", self.current_session_cost));
+
+        // Windows clip.exe — fast and zero dependencies.
+        let mut child = std::process::Command::new("clip.exe")
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn clip.exe");
+
         if let Some(mut stdin) = child.stdin.take() {
             use std::io::Write;
             let _ = stdin.write_all(history.as_bytes());
@@ -528,6 +620,17 @@ impl App {
     }
 }
 
+fn should_skip_transcript_copy_entry(speaker: &str, content: &str) -> bool {
+    if speaker != "System" {
+        return false;
+    }
+
+    content.starts_with("Hematite Commands:\n")
+        || content.starts_with("Document note: `/attach`")
+        || content == "Chat transcript copied to clipboard."
+        || content == "SPECULAR log copied to clipboard (reasoning + events)."
+        || content == "Cancellation requested. Logs copied to clipboard."
+}
 
 // ── run_app ───────────────────────────────────────────────────────────────────
 
@@ -746,7 +849,9 @@ fn build_input_actions(app: &App) -> Vec<InputActionVisual> {
         "Image"
     };
     let detach_style = if app.attached_context.is_some() || app.attached_image.is_some() {
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::DarkGray)
     };
@@ -762,7 +867,9 @@ fn build_input_actions(app: &App) -> Vec<InputActionVisual> {
         actions.push(InputActionVisual {
             action: InputAction::New,
             label: "New".to_string(),
-            style: Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            style: Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
         });
         actions.push(InputActionVisual {
             action: InputAction::Forget,
@@ -774,12 +881,16 @@ fn build_input_actions(app: &App) -> Vec<InputActionVisual> {
     actions.push(InputActionVisual {
         action: InputAction::PickDocument,
         label: format!("{} ^O", doc_label),
-        style: Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+        style: Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
     });
     actions.push(InputActionVisual {
         action: InputAction::PickImage,
         label: format!("{} ^I", image_label),
-        style: Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+        style: Style::default()
+            .fg(Color::Magenta)
+            .add_modifier(Modifier::BOLD),
     });
     actions.push(InputActionVisual {
         action: InputAction::Detach,
@@ -789,7 +900,9 @@ fn build_input_actions(app: &App) -> Vec<InputActionVisual> {
     actions.push(InputActionVisual {
         action: InputAction::Help,
         label: "Help".to_string(),
-        style: Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD),
+        style: Style::default()
+            .fg(Color::Blue)
+            .add_modifier(Modifier::BOLD),
     });
     actions
 }
@@ -810,12 +923,27 @@ fn visible_input_actions(app: &App, max_width: u16) -> Vec<InputActionVisual> {
 }
 
 fn input_status_text(app: &App) -> String {
-    let voice_status = if app.voice_manager.is_enabled() { "ON" } else { "OFF" };
+    let voice_status = if app.voice_manager.is_enabled() {
+        "ON"
+    } else {
+        "OFF"
+    };
     let approvals_status = if app.yolo_mode { "OFF" } else { "ON" };
-    let doc_status = if app.attached_context.is_some() { "DOC" } else { "--" };
-    let image_status = if app.attached_image.is_some() { "IMG" } else { "--" };
+    let doc_status = if app.attached_context.is_some() {
+        "DOC"
+    } else {
+        "--"
+    };
+    let image_status = if app.attached_image.is_some() {
+        "IMG"
+    } else {
+        "--"
+    };
     if app.agent_running {
-        format!("pending:{}:{} | voice:{}", doc_status, image_status, voice_status)
+        format!(
+            "pending:{}:{} | voice:{}",
+            doc_status, image_status, voice_status
+        )
     } else {
         format!(
             "pending:{}:{} | voice:{} | appr:{} | Len:{}",
@@ -860,10 +988,7 @@ fn render_input_title(app: &App, title_area: Rect) -> Line<'static> {
         } else {
             action.style
         };
-        spans.push(Span::styled(
-            format!("[{}]", action.label),
-            style,
-        ));
+        spans.push(Span::styled(format!("[{}]", action.label), style));
     }
     let status = input_status_text(app);
     if !spans.is_empty() {
@@ -893,11 +1018,73 @@ fn request_stop(app: &mut App) {
     if app.thinking || app.agent_running {
         app.write_session_report();
         app.copy_transcript_to_clipboard();
-        app.push_message("System", "Cancellation requested. Logs copied to clipboard.");
+        app.push_message(
+            "System",
+            "Cancellation requested. Logs copied to clipboard.",
+        );
     }
 }
 
 fn show_help_message(app: &mut App) {
+    app.push_message(
+        "System",
+        "Hematite Commands:\n\
+         /chat             - (Mode) Conversation mode - clean chat, no tool noise\n\
+         /agent            - (Mode) Full coding harness - tools, file edits, builds\n\
+         /reroll           - (Soul) Hatch a new companion mid-session\n\
+         /auto             - (Flow) Let Hematite choose the narrowest effective workflow\n\
+         /ask [prompt]     - (Flow) Read-only analysis mode; optional inline prompt\n\
+         /code [prompt]    - (Flow) Explicit implementation mode; optional inline prompt\n\
+         /architect [prompt] - (Flow) Plan-first mode; optional inline prompt\n\
+         /read-only [prompt] - (Flow) Hard read-only mode; optional inline prompt\n\
+         /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
+         /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
+         /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
+         /clear            - (UI) Clear dialogue display only\n\
+         /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
+         /runtime-refresh  - (Model) Re-read LM Studio model + CTX now\n\
+         /undo             - (Ghost) Revert last file change\n\
+         /diff             - (Git) Show session changes (--stat)\n\
+         /lsp              - (Logic) Start Language Servers (semantic intelligence)\n\
+         /swarm <text>     - (Swarm) Spawn parallel workers on a directive\n\
+         /worktree <cmd>   - (Isolated) Manage git worktrees (list|add|remove|prune)\n\
+         /think            - (Brain) Enable deep reasoning mode\n\
+         /no_think         - (Speed) Disable reasoning (3-5x faster responses)\n\
+         /voice            - (TTS) List all available voices\n\
+         /voice N          - (TTS) Select voice by number\n\
+         /attach <path>    - (Docs) Attach a PDF/markdown/txt file for next message (PDF best-effort)\n\
+         /attach-pick      - (Docs) Open a file picker and attach a document\n\
+         /image <path>     - (Vision) Attach an image for the next message\n\
+         /image-pick       - (Vision) Open a file picker and attach an image\n\
+         /detach           - (Context) Drop pending document/image attachments\n\
+         /copy             - (Debug) Copy exact session transcript (includes help/system output)\n\
+         /copy-clean       - (Debug) Copy chat transcript without help/debug boilerplate\n\
+         /copy2            - (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
+         \nHotkeys:\n\
+         Ctrl+B - Toggle Brief Mode (minimal output)\n\
+         Ctrl+P - Toggle Professional Mode (strip personality)\n\
+         Ctrl+O - Open document picker for next-turn context\n\
+         Ctrl+I - Open image picker for next-turn vision context\n\
+         Ctrl+Y - Toggle Approvals Off (bypass safety approvals)\n\
+         Ctrl+S - Quick Swarm (hardcoded bootstrap)\n\
+         Ctrl+Z - Undo last edit\n\
+         Ctrl+Q/C - Quit session\n\
+         ESC    - Silence current playback\n\
+         \nStatus Legend:\n\
+         LM    - LM Studio runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
+         VN    - Vein RAG status (`SEM`=semantic active, `FTS`=BM25 only, `--`=not indexed)\n\
+         BUD   - Total prompt-budget pressure against the live context window\n\
+         CMP   - History compaction pressure against Hematite's adaptive threshold\n\
+         ERR   - Session error count (runtime, tool, or SPECULAR failures)\n\
+         CTX   - Live context window currently reported by LM Studio\n\
+         VOICE - Local speech output state\n\
+         \nDocument note: `/attach` supports PDF/markdown/txt, but PDF parsing is best-effort by design so Hematite can stay a lightweight single-binary local coding harness. If a PDF fails, export it to text/markdown or attach page images instead.\n\
+         ",
+    );
+}
+
+#[allow(dead_code)]
+fn show_help_message_legacy(app: &mut App) {
     app.push_message("System",
         "Hematite Commands:\n\
          /chat             — (Mode) Conversation mode — clean chat, no tool noise\n\
@@ -950,6 +1137,10 @@ fn show_help_message(app: &mut App) {
          VOICE — Local speech output state\n\
          \nAssistant: Semantic Pathing (LSP), Vision Pass, Web Research, Swarm Synthesis"
     );
+    app.push_message(
+        "System",
+        "Document note: `/attach` supports PDF/markdown/txt, but PDF parsing is best-effort by design so Hematite can stay a lightweight single-binary local coding harness. If a PDF fails, export it to text/markdown or attach page images instead.",
+    );
 }
 
 fn trigger_input_action(app: &mut App, action: InputAction) {
@@ -967,7 +1158,10 @@ fn trigger_input_action(app: &mut App, action: InputAction) {
         },
         InputAction::Detach => {
             app.clear_pending_attachments();
-            app.push_message("System", "Cleared pending document/image attachments for the next turn.");
+            app.push_message(
+                "System",
+                "Cleared pending document/image attachments for the next turn.",
+            );
         }
         InputAction::New => {
             if !app.agent_running {
@@ -979,11 +1173,13 @@ fn trigger_input_action(app: &mut App, action: InputAction) {
         }
         InputAction::Forget => {
             if !app.agent_running {
-                app.cancel_token.store(true, std::sync::atomic::Ordering::SeqCst);
+                app.cancel_token
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
                 reset_visible_session_state(app);
                 app.push_message("You", "/forget");
                 app.agent_running = true;
-                app.cancel_token.store(false, std::sync::atomic::Ordering::SeqCst);
+                app.cancel_token
+                    .store(false, std::sync::atomic::Ordering::SeqCst);
                 let _ = app.user_input_tx.try_send(UserTurn::text("/forget"));
             }
         }
@@ -1112,7 +1308,7 @@ pub async fn run_app<B: Backend>(
         thinking: false,
         agent_running: false,
         current_thought: String::new(),
-        professional, 
+        professional,
         last_reasoning: String::new(),
         active_context: default_active_context(),
         manual_scroll_offset: None,
@@ -1188,7 +1384,10 @@ pub async fn run_app<B: Backend>(
         let vram_ratio = app.gpu_state.ratio();
         if app.hardware_guard_enabled && vram_ratio > 0.95 && !app.brief_mode {
             app.brief_mode = true;
-            app.push_message("System", "🚨 HARDWARE GUARD: VRAM > 95%. Brief Mode auto-enabled to prevent crash.");
+            app.push_message(
+                "System",
+                "🚨 HARDWARE GUARD: VRAM > 95%. Brief Mode auto-enabled to prevent crash.",
+            );
         }
 
         terminal.draw(|f| ui(f, &app))?;
@@ -1375,7 +1574,7 @@ pub async fn run_app<B: Backend>(
                                 if max_workers < 3 {
                                     app.push_message("System", "Hardware Guard: Limiting swarm to 1 worker due to GPU load.");
                                 }
-                                
+
                                 app.agent_running = true;
                                 tokio::spawn(async move {
                                     let payload = r#"<worker_task id="1" target="src/ui/tui.rs">Implement Swarm Layout</worker_task>
@@ -1465,8 +1664,8 @@ pub async fn run_app<B: Backend>(
                                     app.update_autocomplete();
                                 }
                             }
-                            KeyCode::Backspace => { 
-                                app.input.pop(); 
+                            KeyCode::Backspace => {
+                                app.input.pop();
                                 if app.show_autocomplete {
                                     if app.input.ends_with('@') || !app.input.contains('@') {
                                         app.show_autocomplete = false;
@@ -1489,7 +1688,7 @@ pub async fn run_app<B: Backend>(
                                 }
 
                                 if !app.input.is_empty() && !app.agent_running {
-                                    // PASTE GUARD: If a newline arrives within 50ms of a character, 
+                                    // PASTE GUARD: If a newline arrives within 50ms of a character,
                                     // it's almost certainly part of a paste stream. Convert to space.
                                     if Instant::now().duration_since(app.last_input_time) < std::time::Duration::from_millis(50) {
                                         app.input.push(' ');
@@ -1498,7 +1697,7 @@ pub async fn run_app<B: Backend>(
                                     }
 
                                     let input_text = app.input.drain(..).collect::<String>();
-                                    
+
                                     // ── Slash Command Processor ──────────────────────────
                                     if input_text.starts_with('/') {
                                         let parts: Vec<&str> = input_text.trim().split_whitespace().collect();
@@ -1553,7 +1752,13 @@ pub async fn run_app<B: Backend>(
                                             }
                                             "/copy" => {
                                                 app.copy_transcript_to_clipboard();
-                                                app.push_message("System", "Diagnostic transcript copied to clipboard.");
+                                                app.push_message("System", "Exact session transcript copied to clipboard (includes help/system output).");
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/copy-clean" => {
+                                                app.copy_clean_transcript_to_clipboard();
+                                                app.push_message("System", "Clean chat transcript copied to clipboard (skips help/debug boilerplate).");
                                                 app.history_idx = None;
                                                 continue;
                                             }
@@ -1800,6 +2005,11 @@ pub async fn run_app<B: Backend>(
                                                 continue;
                                             }
                                             "/help" => {
+                                                show_help_message(&mut app);
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/help-legacy-unused" => {
                                                 app.push_message("System",
                                                     "Hematite Commands:\n\
                                                      /chat             — (Mode) Conversation mode — clean chat, no tool noise\n\
@@ -1890,6 +2100,11 @@ pub async fn run_app<B: Backend>(
                                             }
                                             "/attach" => {
                                                 let file_path = parts[1..].join(" ").trim().to_string();
+                                                if file_path.is_empty() {
+                                                    app.push_message("System", "Usage: /attach <path>  - attach a file (PDF, markdown, txt) as context for the next message.\nPDF parsing is best-effort for single-binary portability; scanned/image-only or oddly encoded PDFs may fail.\nUse /attach-pick for a file dialog. Drop reference docs in .hematite/docs/ to have them indexed permanently.");
+                                                    app.history_idx = None;
+                                                    continue;
+                                                }
                                                 if file_path.is_empty() {
                                                     app.push_message("System", "Usage: /attach <path>  — attach a file (PDF, markdown, txt) as context for the next message.\nUse /attach-pick for a file dialog. Drop reference docs in .hematite/docs/ to have them indexed permanently.");
                                                 } else {
@@ -1983,7 +2198,7 @@ pub async fn run_app<B: Backend>(
                     }
                     Some(Ok(Event::Paste(content))) => {
                         if !try_attach_from_paste(&mut app, &content) {
-                            // Normalize pasted newlines into spaces so we don't accidentally submit 
+                            // Normalize pasted newlines into spaces so we don't accidentally submit
                             // multiple lines or break the single-line input logic.
                             let normalized = content.replace("\r\n", " ").replace('\n', " ");
                             app.input.push_str(&normalized);
@@ -2055,7 +2270,7 @@ pub async fn run_app<B: Backend>(
                         }
                         app.update_last_message(token);
                         app.manual_scroll_offset = None;
-                        
+
                         // ONLY speak if not muted
                         if !is_muted && app.voice_manager.is_enabled() && !app.cancel_token.load(std::sync::atomic::Ordering::SeqCst) {
                             app.voice_manager.speak(token.clone());
@@ -2089,10 +2304,10 @@ pub async fn run_app<B: Backend>(
                         } else if is_error {
                             app.push_message("System", &format!("Tool error: {}", preview));
                         }
-                        
+
                         // If it was a read or write, we can extract the path from the app.active_context "Running" entries
                         // but it's simpler to just let Specular handle the indexing or update here if we had the path.
-                        
+
                         // Remove "Running" tools from context list
                         app.active_context.retain(|f| f.path != name || f.status != "Running");
                         app.manual_scroll_offset = None;
@@ -2307,7 +2522,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     if size.width < 60 || size.height < 10 {
         // Render a minimal wait message or just clear if area is too collapsed
         f.render_widget(Clear, size);
-        return; 
+        return;
     }
 
     let input_height = compute_input_height(f.size().width, app.input.len());
@@ -2329,13 +2544,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     // ── Box 1: Dialogue ───────────────────────────────────────────────────────
     let mut core_lines = app.messages.clone();
 
-
     // Show agent-running indicator as last line when active.
     if app.agent_running {
         let dots = ".".repeat((app.tick_count % 4) as usize + 1);
         core_lines.push(Line::from(Span::styled(
             format!(" Hematite is thinking{}", dots),
-            Style::default().fg(Color::Magenta).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(Color::Magenta)
+                .add_modifier(Modifier::DIM),
         )));
     }
 
@@ -2345,13 +2561,13 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         } else {
             (200, 0, 200) // Magenta pulse for thinking
         };
-        
+
         let pulse = (app.tick_count % 50) as f64 / 50.0;
         let factor = (pulse * std::f64::consts::PI).sin().abs();
         let r = (r_base as f64 * factor) as u8;
         let g = (g_base as f64 * factor) as u8;
         let b = (b_base as f64 * factor) as u8;
-        
+
         (Color::Rgb(r.max(60), g.max(60), b.max(60)), "•")
     } else {
         (Color::Rgb(80, 80, 80), "•") // Standby
@@ -2375,28 +2591,35 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         live_objective
     };
 
-    let core_title = if app.professional { 
+    let core_title = if app.professional {
         Line::from(vec![
             Span::styled(format!(" {} ", core_icon), Style::default().fg(heart_color)),
             Span::styled("HEMATITE ", Style::default().add_modifier(Modifier::BOLD)),
-            Span::styled(format!(" TASK: {} ", objective_text), Style::default().fg(Color::Yellow).add_modifier(Modifier::ITALIC)),
+            Span::styled(
+                format!(" TASK: {} ", objective_text),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::ITALIC),
+            ),
         ])
-    } else { 
+    } else {
         Line::from(format!(" TASK: {} ", objective_text))
     };
-    
+
     let core_para = Paragraph::new(core_lines.clone())
-        .block(Block::default()
-            .title(core_title)
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::DarkGray)))
+        .block(
+            Block::default()
+                .title(core_title)
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        )
         .wrap(Wrap { trim: true });
 
     // Enhanced Scroll calculation.
     let avail_h = top[0].height.saturating_sub(2);
     // Borders (2) + Scrollbar (1) + explicit Padding (1) = 4.
     let inner_w = top[0].width.saturating_sub(4).max(1);
-    
+
     let mut total_lines: u16 = 0;
     for line in &core_lines {
         let line_w = line.width() as u16;
@@ -2417,19 +2640,24 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         max_scroll
     };
-    
+
     // Clear the outer chunk and the inner dialogue area to prevent ghosting from previous frames or background renders.
     f.render_widget(Clear, top[0]);
-    
+
     // Create a sub-area for the dialogue with horizontal padding.
-    let chat_area = Rect::new(top[0].x + 1, top[0].y, top[0].width.saturating_sub(2).max(1), top[0].height);
-    f.render_widget(Clear, chat_area); 
+    let chat_area = Rect::new(
+        top[0].x + 1,
+        top[0].y,
+        top[0].width.saturating_sub(2).max(1),
+        top[0].height,
+    );
+    f.render_widget(Clear, chat_area);
     f.render_widget(core_para.scroll((scroll, 0)), chat_area);
-    
+
     // Scrollbar: content_length = max_scroll+1 so position==max_scroll puts the
     // thumb flush at the bottom (position == content_length - 1).
-    let mut scrollbar_state = ScrollbarState::new(max_scroll as usize + 1)
-        .position(scroll as usize);
+    let mut scrollbar_state =
+        ScrollbarState::new(max_scroll as usize + 1).position(scroll as usize);
     f.render_stateful_widget(
         Scrollbar::default()
             .orientation(ScrollbarOrientation::VerticalRight)
@@ -2454,30 +2682,36 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         app.active_context.clone()
     };
-    let mut context_display = context_source.iter().map(|f| {
-        let (icon, color) = match f.status.as_str() {
-            "Running" => ("⚙️", Color::Cyan),
-            "Dirty"   => ("📝", Color::Yellow),
-            _         => ("📄", Color::Gray),
-        };
-        // Simple heuristic for "Tokens" (size / 4)
-        let tokens = f.size / 4;
-        ListItem::new(Line::from(vec![
-            Span::styled(format!(" {} ", icon), Style::default().fg(color)),
-            Span::styled(f.path.clone(), Style::default().fg(Color::White)),
-            Span::styled(format!(" {}t ", tokens), Style::default().fg(Color::DarkGray)),
-        ]))
-    }).collect::<Vec<ListItem>>();
+    let mut context_display = context_source
+        .iter()
+        .map(|f| {
+            let (icon, color) = match f.status.as_str() {
+                "Running" => ("⚙️", Color::Cyan),
+                "Dirty" => ("📝", Color::Yellow),
+                _ => ("📄", Color::Gray),
+            };
+            // Simple heuristic for "Tokens" (size / 4)
+            let tokens = f.size / 4;
+            ListItem::new(Line::from(vec![
+                Span::styled(format!(" {} ", icon), Style::default().fg(color)),
+                Span::styled(f.path.clone(), Style::default().fg(Color::White)),
+                Span::styled(
+                    format!(" {}t ", tokens),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ]))
+        })
+        .collect::<Vec<ListItem>>();
 
     if context_display.is_empty() {
         context_display = vec![ListItem::new(" (No active files)")];
     }
-    
+
     let ctx_block = Block::default()
         .title(" ACTIVE CONTEXT ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
-        
+
     f.render_widget(Clear, side[0]);
     f.render_widget(List::new(context_display).block(ctx_block), side[0]);
 
@@ -2499,12 +2733,12 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     if app.thinking || app.agent_running {
         let dots = ".".repeat((app.tick_count % 4) as usize + 1);
         let label = if app.thinking { "REASONING" } else { "WORKING" };
-        v_lines.push(Line::from(vec![
-            Span::styled(
-                format!("[ {}{} ]", label, dots),
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-            ),
-        ]));
+        v_lines.push(Line::from(vec![Span::styled(
+            format!("[ {}{} ]", label, dots),
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        )]));
         // Show last 300 chars of current thought, split by line.
         let preview = if app.current_thought.chars().count() > 300 {
             app.current_thought
@@ -2531,16 +2765,18 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     if !app.active_workers.is_empty() {
         v_lines.push(Line::from(vec![Span::styled(
             "── Task Progress ──",
-            Style::default().fg(Color::White).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::DIM),
         )]));
-        
+
         let mut sorted_ids: Vec<_> = app.active_workers.keys().cloned().collect();
         sorted_ids.sort();
-        
+
         for id in sorted_ids {
             let prog = app.active_workers[&id];
             let custom_label = app.worker_labels.get(&id).cloned();
-            
+
             let (label, color) = match prog {
                 101..=102 => ("VERIFIED", Color::Green),
                 100 if !app.agent_running && id != "AGENT" => ("SKIPPED ", Color::DarkGray),
@@ -2551,14 +2787,24 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             let display_label = custom_label.unwrap_or_else(|| label.to_string());
             let filled = (prog.min(100) / 10) as usize;
             let bar = "▓".repeat(filled) + &"░".repeat(10 - filled);
-            
-            let id_prefix = if id == "AGENT" { "Agent: ".to_string() } else { format!("W{}: ", id) };
-            
+
+            let id_prefix = if id == "AGENT" {
+                "Agent: ".to_string()
+            } else {
+                format!("W{}: ", id)
+            };
+
             v_lines.push(Line::from(vec![
                 Span::styled(id_prefix, Style::default().fg(Color::Gray)),
                 Span::styled(bar, Style::default().fg(color)),
-                Span::styled(format!(" {} ", display_label), Style::default().fg(color).add_modifier(Modifier::BOLD)),
-                Span::styled(format!("{}%", prog.min(100)), Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!(" {} ", display_label),
+                    Style::default().fg(color).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("{}%", prog.min(100)),
+                    Style::default().fg(Color::DarkGray),
+                ),
             ]));
         }
         v_lines.push(Line::raw(""));
@@ -2568,7 +2814,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     if !app.last_reasoning.is_empty() {
         v_lines.push(Line::from(vec![Span::styled(
             "── Logic Trace ──",
-            Style::default().fg(Color::White).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::DIM),
         )]));
         for raw in app.last_reasoning.lines() {
             v_lines.extend(render_markdown_line(raw));
@@ -2580,7 +2828,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     if !app.specular_logs.is_empty() {
         v_lines.push(Line::from(vec![Span::styled(
             "── Events ──",
-            Style::default().fg(Color::White).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::DIM),
         )]));
         for log in &app.specular_logs {
             let (icon, color) = if log.starts_with("ERROR") {
@@ -2594,7 +2844,12 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             };
             v_lines.push(Line::from(vec![
                 Span::styled(icon, Style::default().fg(color)),
-                Span::styled(log.to_string(), Style::default().fg(Color::White).add_modifier(Modifier::DIM)),
+                Span::styled(
+                    log.to_string(),
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::DIM),
+                ),
             ]));
         }
     }
@@ -2618,8 +2873,8 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     f.render_widget(specular_para, side[1]);
 
     // Scrollbar for SPECULAR
-    let mut v_scrollbar_state = ScrollbarState::new(v_max_scroll as usize + 1)
-        .position(v_scroll as usize);
+    let mut v_scrollbar_state =
+        ScrollbarState::new(v_max_scroll as usize + 1).position(v_scroll as usize);
     f.render_stateful_widget(
         Scrollbar::default()
             .orientation(ScrollbarOrientation::VerticalRight)
@@ -2631,30 +2886,42 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     // ── Box 3: Status bar ─────────────────────────────────────────────────────
     let frame = app.tick_count % 3;
-    let spark = match frame { 0 => "✧", 1 => "✦", _ => "✨" };
-    let vigil = if app.brief_mode { "VIGIL:[ON]" } else { "VIGIL:[off]" };
-    let yolo  = if app.yolo_mode  { " | APPROVALS: OFF" }     else { "" };
+    let spark = match frame {
+        0 => "✧",
+        1 => "✦",
+        _ => "✨",
+    };
+    let vigil = if app.brief_mode {
+        "VIGIL:[ON]"
+    } else {
+        "VIGIL:[off]"
+    };
+    let yolo = if app.yolo_mode {
+        " | APPROVALS: OFF"
+    } else {
+        ""
+    };
 
     let bar_constraints = if app.professional {
         vec![
-            Constraint::Min(0),       // MODE
-            Constraint::Length(22),   // LM + VN badge
-            Constraint::Length(12),   // BUD
-            Constraint::Length(12),   // CMP
-            Constraint::Length(16),   // REMOTE
-            Constraint::Length(28),   // TOKENS
-            Constraint::Length(28),   // VRAM
+            Constraint::Min(0),     // MODE
+            Constraint::Length(22), // LM + VN badge
+            Constraint::Length(12), // BUD
+            Constraint::Length(12), // CMP
+            Constraint::Length(16), // REMOTE
+            Constraint::Length(28), // TOKENS
+            Constraint::Length(28), // VRAM
         ]
     } else {
         vec![
-            Constraint::Length(12),   // NAME
-            Constraint::Min(0),       // MODE
-            Constraint::Length(22),   // LM + VN badge
-            Constraint::Length(12),   // BUD
-            Constraint::Length(12),   // CMP
-            Constraint::Length(16),   // REMOTE
-            Constraint::Length(28),   // TOKENS
-            Constraint::Length(28),   // VRAM
+            Constraint::Length(12), // NAME
+            Constraint::Min(0),     // MODE
+            Constraint::Length(22), // LM + VN badge
+            Constraint::Length(12), // BUD
+            Constraint::Length(12), // CMP
+            Constraint::Length(16), // REMOTE
+            Constraint::Length(28), // TOKENS
+            Constraint::Length(28), // VRAM
         ]
     };
     let bar_chunks = Layout::default()
@@ -2664,8 +2931,15 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     let char_count: usize = app.messages_raw.iter().map(|(_, c)| c.len()).sum();
     let est_tokens = char_count / 3;
-    let current_tokens = if app.total_tokens > 0 { app.total_tokens } else { est_tokens };
-    let usage_text = format!("TOKENS: {:0>5} | TOTAL: ${:.4}", current_tokens, app.current_session_cost);
+    let current_tokens = if app.total_tokens > 0 {
+        app.total_tokens
+    } else {
+        est_tokens
+    };
+    let usage_text = format!(
+        "TOKENS: {:0>5} | TOTAL: ${:.4}",
+        current_tokens, app.current_session_cost
+    );
     let runtime_age = app.last_runtime_profile_time.elapsed();
     let (lm_label, lm_color) = if app.model_id == "no model loaded" {
         ("LM:NONE", Color::Red)
@@ -2717,9 +2991,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     };
 
     let think_badge = match app.think_mode {
-        Some(true)  => " [THINK]",
+        Some(true) => " [THINK]",
         Some(false) => " [FAST]",
-        None        => "",
+        None => "",
     };
 
     let (vein_label, vein_color) = if app.vein_file_count == 0 {
@@ -2730,16 +3004,21 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         ("VN:FTS", Color::Yellow)
     };
 
-    let (status_idx, lm_idx, bud_idx, cmp_idx, remote_idx, tokens_idx, vram_idx) = if app.professional {
-        (0usize, 1usize, 2usize, 3usize, 4usize, 5usize, 6usize)
-    } else {
-        (1usize, 2usize, 3usize, 4usize, 5usize, 6usize, 7usize)
-    };
+    let (status_idx, lm_idx, bud_idx, cmp_idx, remote_idx, tokens_idx, vram_idx) =
+        if app.professional {
+            (0usize, 1usize, 2usize, 3usize, 4usize, 5usize, 6usize)
+        } else {
+            (1usize, 2usize, 3usize, 4usize, 5usize, 6usize, 7usize)
+        };
 
     if app.professional {
         f.render_widget(Clear, bar_chunks[status_idx]);
 
-        let voice_badge = if app.voice_manager.is_enabled() { " | VOICE:ON" } else { "" };
+        let voice_badge = if app.voice_manager.is_enabled() {
+            " | VOICE:ON"
+        } else {
+            ""
+        };
         f.render_widget(
             Paragraph::new(format!(
                 " MODE:PRO | FLOW:{}{} | CTX:{} | ERR:{}{}{}",
@@ -2756,7 +3035,8 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         f.render_widget(Clear, bar_chunks[0]);
         f.render_widget(
-            Paragraph::new(format!(" {} {}", spark, app.soul_name)).block(Block::default().borders(Borders::ALL)),
+            Paragraph::new(format!(" {} {}", spark, app.soul_name))
+                .block(Block::default().borders(Borders::ALL)),
             bar_chunks[0],
         );
         f.render_widget(Clear, bar_chunks[status_idx]);
@@ -2773,28 +3053,36 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let git_color = match git_status {
         crate::agent::git_monitor::GitRemoteStatus::Connected => Color::Green,
         crate::agent::git_monitor::GitRemoteStatus::NoRemote => Color::Yellow,
-        crate::agent::git_monitor::GitRemoteStatus::Behind | crate::agent::git_monitor::GitRemoteStatus::Ahead => Color::Magenta,
-        crate::agent::git_monitor::GitRemoteStatus::Diverged | crate::agent::git_monitor::GitRemoteStatus::Error => Color::Red,
+        crate::agent::git_monitor::GitRemoteStatus::Behind
+        | crate::agent::git_monitor::GitRemoteStatus::Ahead => Color::Magenta,
+        crate::agent::git_monitor::GitRemoteStatus::Diverged
+        | crate::agent::git_monitor::GitRemoteStatus::Error => Color::Red,
         _ => Color::DarkGray,
     };
-    
+
     f.render_widget(Clear, bar_chunks[lm_idx]);
     f.render_widget(
-        Paragraph::new(
-            ratatui::text::Line::from(vec![
-                ratatui::text::Span::styled(format!(" {}", lm_label), Style::default().fg(lm_color)),
-                ratatui::text::Span::raw(" | "),
-                ratatui::text::Span::styled(vein_label, Style::default().fg(vein_color)),
-            ])
-        )
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(lm_color))),
+        Paragraph::new(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(format!(" {}", lm_label), Style::default().fg(lm_color)),
+            ratatui::text::Span::raw(" | "),
+            ratatui::text::Span::styled(vein_label, Style::default().fg(vein_color)),
+        ]))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(lm_color)),
+        ),
         bar_chunks[lm_idx],
     );
 
     f.render_widget(Clear, bar_chunks[bud_idx]);
     f.render_widget(
         Paragraph::new(prompt_label)
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(prompt_color)))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(prompt_color)),
+            )
             .fg(prompt_color),
         bar_chunks[bud_idx],
     );
@@ -2802,7 +3090,11 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     f.render_widget(Clear, bar_chunks[cmp_idx]);
     f.render_widget(
         Paragraph::new(compaction_label)
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(compaction_color)))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(compaction_color)),
+            )
             .fg(compaction_color),
         bar_chunks[cmp_idx],
     );
@@ -2810,7 +3102,11 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     f.render_widget(Clear, bar_chunks[remote_idx]);
     f.render_widget(
         Paragraph::new(format!(" REMOTE: {}", git_label))
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(git_color)))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(git_color)),
+            )
             .fg(git_color),
         bar_chunks[remote_idx],
     );
@@ -2839,7 +3135,11 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     f.render_widget(Clear, bar_chunks[vram_idx]);
     f.render_widget(
         Gauge::default()
-            .block(Block::default().borders(Borders::ALL).title(format!(" {} ", gpu_name)))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(format!(" {} ", gpu_name)),
+            )
             .gauge_style(Style::default().fg(gauge_color))
             .ratio(vram_ratio)
             .label(format!("  {}  ", vram_label)), // Added extra padding for visual excellence
@@ -2860,14 +3160,13 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         .borders(Borders::ALL)
         .border_style(input_style)
         .style(Style::default().bg(Color::Rgb(40, 25, 15))); // Deeper soil rich background
-    
+
     let inner_area = input_block.inner(input_rect);
     f.render_widget(Clear, input_rect);
     f.render_widget(input_block, input_rect);
 
     f.render_widget(
-        Paragraph::new(app.input.as_str())
-            .wrap(Wrap { trim: true }),
+        Paragraph::new(app.input.as_str()).wrap(Wrap { trim: true }),
         inner_area,
     );
 
@@ -2904,12 +3203,18 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             )),
             Line::from(Span::styled(
                 "  [Y] Approve     [N] Decline ",
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
             )),
         ];
         f.render_widget(
             Paragraph::new(header_text)
-                .block(Block::default().borders(Borders::TOP | Borders::LEFT | Borders::RIGHT).border_style(Style::default().fg(Color::Red)))
+                .block(
+                    Block::default()
+                        .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
+                        .border_style(Style::default().fg(Color::Red)),
+                )
                 .alignment(ratatui::layout::Alignment::Center),
             chunks[0],
         );
@@ -2917,11 +3222,18 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         // ── Modal Body ───────────────────────────────────────────────────────
         let body_text = vec![
             Line::from(Span::raw(format!(" Tool: {}", approval.tool_name))),
-            Line::from(Span::styled(format!(" ❯ {}", approval.display), Style::default().fg(Color::Cyan))),
+            Line::from(Span::styled(
+                format!(" ❯ {}", approval.display),
+                Style::default().fg(Color::Cyan),
+            )),
         ];
         f.render_widget(
             Paragraph::new(body_text)
-                .block(Block::default().borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT).border_style(Style::default().fg(Color::Red)))
+                .block(
+                    Block::default()
+                        .borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT)
+                        .border_style(Style::default().fg(Color::Red)),
+                )
                 .wrap(Wrap { trim: true }),
             chunks[1],
         );
@@ -2936,28 +3248,42 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     if app.show_autocomplete && !app.autocomplete_suggestions.is_empty() {
         let area = Rect {
             x: chunks[1].x + 2,
-            y: chunks[1].y.saturating_sub(app.autocomplete_suggestions.len() as u16 + 2),
+            y: chunks[1]
+                .y
+                .saturating_sub(app.autocomplete_suggestions.len() as u16 + 2),
             width: chunks[1].width.saturating_sub(4),
             height: app.autocomplete_suggestions.len() as u16 + 2,
         };
         f.render_widget(Clear, area);
-        
-        let items: Vec<ListItem> = app.autocomplete_suggestions.iter().enumerate().map(|(i, s)| {
-            let style = if i == app.selected_suggestion {
-                Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(Color::Gray)
-            };
-            ListItem::new(format!(" 📄 {}", s)).style(style)
-        }).collect();
-        
-        let hatch = List::new(items)
-            .block(Block::default()
+
+        let items: Vec<ListItem> = app
+            .autocomplete_suggestions
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                let style = if i == app.selected_suggestion {
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::Gray)
+                };
+                ListItem::new(format!(" 📄 {}", s)).style(style)
+            })
+            .collect();
+
+        let hatch = List::new(items).block(
+            Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
-                .title(format!(" @ RESOLVER (Matching: {}) ", app.autocomplete_filter)));
+                .title(format!(
+                    " @ RESOLVER (Matching: {}) ",
+                    app.autocomplete_filter
+                )),
+        );
         f.render_widget(hatch, area);
-        
+
         // Optional "More matches..." indicator
         if app.autocomplete_suggestions.len() >= 15 {
             let more_area = Rect {
@@ -2966,7 +3292,10 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                 width: 20,
                 height: 1,
             };
-            f.render_widget(Paragraph::new("... (type to narrow) ").style(Style::default().fg(Color::DarkGray)), more_area);
+            f.render_widget(
+                Paragraph::new("... (type to narrow) ").style(Style::default().fg(Color::DarkGray)),
+                more_area,
+            );
         }
     }
 }
@@ -2994,9 +3323,18 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 
 fn strip_ghost_prefix(s: &str) -> &str {
     for prefix in &[
-        "Hematite: ", "HEMATITE: ", "Assistant: ", "assistant: ", 
-        "Okay, ", "Hmm, ", "Wait, ", "Alright, ", "Got it, ", 
-        "Certainly, ", "Sure, ", "Understood, "
+        "Hematite: ",
+        "HEMATITE: ",
+        "Assistant: ",
+        "assistant: ",
+        "Okay, ",
+        "Hmm, ",
+        "Wait, ",
+        "Alright, ",
+        "Got it, ",
+        "Certainly, ",
+        "Sure, ",
+        "Understood, ",
     ] {
         if s.to_lowercase().starts_with(&prefix.to_lowercase()) {
             return &s[prefix.len()..];
@@ -3047,8 +3385,10 @@ fn render_markdown_line(raw: &str) -> Vec<Line<'static>> {
 
     // 2. Strip thought tags.
     let cleaned_owned = trimmed
-        .replace("<thought>", "").replace("</thought>", "")
-        .replace("<think>", "").replace("</think>", "");
+        .replace("<thought>", "")
+        .replace("</thought>", "")
+        .replace("<think>", "")
+        .replace("</think>", "");
     let trimmed = cleaned_owned.trim();
     if trimmed.is_empty() {
         return vec![];
@@ -3059,16 +3399,26 @@ fn render_markdown_line(raw: &str) -> Vec<Line<'static>> {
         if let Some(rest) = trimmed.strip_prefix(prefix) {
             return vec![Line::from(vec![Span::styled(
                 format!("{}{}", indent, rest),
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
             )])];
         }
     }
 
     // > blockquote
-    if let Some(rest) = trimmed.strip_prefix("> ").or_else(|| trimmed.strip_prefix(">")) {
+    if let Some(rest) = trimmed
+        .strip_prefix("> ")
+        .or_else(|| trimmed.strip_prefix(">"))
+    {
         return vec![Line::from(vec![
             Span::styled("| ", Style::default().fg(Color::DarkGray)),
-            Span::styled(rest.to_string(), Style::default().fg(Color::White).add_modifier(Modifier::DIM)),
+            Span::styled(
+                rest.to_string(),
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::DIM),
+            ),
         ])];
     }
 
@@ -3100,7 +3450,9 @@ fn inline_markdown_core(text: &str) -> Vec<Span<'static>> {
             if let Some(end) = after_open.find("**") {
                 spans.push(Span::styled(
                     after_open[..end].to_string(),
-                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
                 ));
                 remaining = &after_open[end + 2..];
                 continue;
@@ -3135,22 +3487,32 @@ fn inline_markdown(text: &str) -> Vec<Span<'static>> {
     while !remaining.is_empty() {
         if let Some(start) = remaining.find("**") {
             let before = &remaining[..start];
-            if !before.is_empty() { spans.push(Span::raw(before.to_string())); }
+            if !before.is_empty() {
+                spans.push(Span::raw(before.to_string()));
+            }
             let after_open = &remaining[start + 2..];
             if let Some(end) = after_open.find("**") {
-                spans.push(Span::styled(after_open[..end].to_string(),
-                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD)));
+                spans.push(Span::styled(
+                    after_open[..end].to_string(),
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
+                ));
                 remaining = &after_open[end + 2..];
                 continue;
             }
         }
         if let Some(start) = remaining.find('`') {
             let before = &remaining[..start];
-            if !before.is_empty() { spans.push(Span::raw(before.to_string())); }
+            if !before.is_empty() {
+                spans.push(Span::raw(before.to_string()));
+            }
             let after_open = &remaining[start + 1..];
             if let Some(end) = after_open.find('`') {
-                spans.push(Span::styled(after_open[..end].to_string(),
-                    Style::default().fg(Color::Yellow)));
+                spans.push(Span::styled(
+                    after_open[..end].to_string(),
+                    Style::default().fg(Color::Yellow),
+                ));
                 remaining = &after_open[end + 1..];
                 continue;
             }
@@ -3163,9 +3525,7 @@ fn inline_markdown(text: &str) -> Vec<Span<'static>> {
 
 // ── Splash Screen ─────────────────────────────────────────────────────────────
 
-fn draw_splash<B: Backend>(
-    terminal: &mut Terminal<B>,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn draw_splash<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), Box<dyn std::error::Error>> {
     let rust_color = Color::Rgb(180, 90, 50);
 
     let logo_lines = vec![
@@ -3211,28 +3571,24 @@ fn draw_splash<B: Backend>(
         lines.push(Line::raw(""));
 
         // Version
-        lines.push(Line::from(vec![
-            Span::styled(
-                format!("v{}", version),
-                Style::default().fg(Color::DarkGray),
-            ),
-        ]));
+        lines.push(Line::from(vec![Span::styled(
+            format!("v{}", version),
+            Style::default().fg(Color::DarkGray),
+        )]));
 
         // Tagline
-        lines.push(Line::from(vec![
-            Span::styled(
-                "Local AI coding harness",
-                Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM),
-            ),
-        ]));
+        lines.push(Line::from(vec![Span::styled(
+            "Local AI coding harness",
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::DIM),
+        )]));
 
         // Developer credit
-        lines.push(Line::from(vec![
-            Span::styled(
-                "Developed by Ocean Bennett",
-                Style::default().fg(Color::Gray).add_modifier(Modifier::DIM),
-            ),
-        ]));
+        lines.push(Line::from(vec![Span::styled(
+            "Developed by Ocean Bennett",
+            Style::default().fg(Color::Gray).add_modifier(Modifier::DIM),
+        )]));
 
         // Spacer
         lines.push(Line::raw(""));
@@ -3243,13 +3599,14 @@ fn draw_splash<B: Backend>(
             Span::styled("[ ", Style::default().fg(rust_color)),
             Span::styled(
                 "Press ENTER to start",
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled(" ]", Style::default().fg(rust_color)),
         ]));
 
-        let splash = Paragraph::new(lines)
-            .alignment(ratatui::layout::Alignment::Center);
+        let splash = Paragraph::new(lines).alignment(ratatui::layout::Alignment::Center);
 
         f.render_widget(splash, area);
     })?;
@@ -3264,17 +3621,26 @@ fn normalize_id(id: &str) -> String {
 fn filter_tui_noise(text: &str) -> String {
     // 1. First Pass: Strip ANSI escape codes that cause "shattering" in layout.
     let cleaned = strip_ansi(text);
-    
+
     // 2. Second Pass: Filter heuristic noise.
     let mut lines = Vec::new();
     for line in cleaned.lines() {
         // Strip multi-line "LF replaced by CRLF" noise frequently emitted by git/shell on Windows.
-        if CRLF_REGEX.is_match(line) { continue; }
+        if CRLF_REGEX.is_match(line) {
+            continue;
+        }
         // Strip git checkout/file update noise if it's too repetitive.
-        if line.contains("Updating files:") && line.contains("%") { continue; }
+        if line.contains("Updating files:") && line.contains("%") {
+            continue;
+        }
         // Strip random terminal control characters that might have escaped.
-        let sanitized: String = line.chars().filter(|c| !c.is_control() || *c == '\t').collect();
-        if sanitized.trim().is_empty() && !line.trim().is_empty() { continue; }
+        let sanitized: String = line
+            .chars()
+            .filter(|c| !c.is_control() || *c == '\t')
+            .collect();
+        if sanitized.trim().is_empty() && !line.trim().is_empty() {
+            continue;
+        }
 
         lines.push(normalize_tui_text(&sanitized));
     }
