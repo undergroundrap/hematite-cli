@@ -272,9 +272,11 @@ Hematite exposes a `run_code` tool that lets the model write and run JavaScript/
 - 16 KB output cap (8 KB stdout + 8 KB stderr)
 - Clear error message if the runtime is not installed — no silent failure
 
-**Runtime availability on developer machine:** Python 3.12.10 installed (ready). Deno not installed (JS/TS requires `winget install DenoLand.Deno`).
+**Runtime detection order for Deno:** `~/.lmstudio/.internal/utils/deno.exe` (LM Studio's bundled copy, present for all LM Studio users) → system `deno` on PATH. Since Hematite requires LM Studio, JS/TS execution works with zero install for every user.
 
-**Packaging:** neither runtime is bundled in the binary. Python ships with Windows 11 and most machines already have it. Deno is a single binary the user installs if needed.
+**Runtime detection for Python:** `python3` → `python` on PATH. Python 3 ships with Windows 11 and most machines.
+
+**To install Deno system-wide** (optional, for use outside Hematite): `winget install DenoLand.Deno`.
 
 ## Release Build
 
