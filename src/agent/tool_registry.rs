@@ -50,7 +50,11 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "Execute a short JavaScript/TypeScript or Python snippet in a sandboxed subprocess. \
              No network access, no filesystem escape, hard 10-second timeout. \
              Use this to verify logic, test algorithms, process data, or do quick calculations \
-             without touching the user's files. Prefer this over shell for self-contained code experiments.",
+             without touching the user's files. Prefer this over shell for self-contained code experiments. \
+             JavaScript/TypeScript runs via Deno — `Deno` is a global object, no imports needed. \
+             To check the runtime: `console.log(Deno.version.deno)`. \
+             Do NOT use Python import syntax in JavaScript code. \
+             Do NOT fall back to shell to run deno or python — use this tool directly.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
