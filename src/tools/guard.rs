@@ -79,6 +79,23 @@ pub fn bash_is_safe(cmd: &str) -> Result<(), String> {
             return Err(format!("AccessDenied: Bash command structurally attempts to manipulate blacklisted system area: {}", protected));
         }
     }
+
+    // Block using shell as a substitute for run_code.
+    // The model should use run_code directly — shell is the wrong tool for this.
+    let sandbox_redirects = [
+        "deno run", "deno --version", "deno -v",
+        "python -c ", "python3 -c ", "node -e ", "node --eval",
+    ];
+    for pattern in sandbox_redirects {
+        if lower.contains(pattern) {
+            return Err(format!(
+                "Use the run_code tool instead of shell for executing {} code. \
+                 Shell is blocked for sandbox-style execution.",
+                pattern.split_whitespace().next().unwrap_or("code")
+            ));
+        }
+    }
+
     Ok(())
 }
 
