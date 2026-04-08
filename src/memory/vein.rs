@@ -305,7 +305,8 @@ impl Vein {
 
     /// Walk the entire project and index all source files (BM25 + embeddings).
     ///
-    /// Skips: `target/`, `.git/`, `node_modules/`, `.hematite/`, files > 100 KB.
+    /// Skips: `target/`, `.git/`, `node_modules/`, `.hematite/`, files > 512 KB.
+    /// Also indexes `.hematite/docs/` — the designated reference document drop folder.
     /// Returns the number of files processed (unchanged files are fast-pathed).
     pub fn index_project(&mut self) -> usize {
         let root = crate::tools::file_ops::workspace_root();
@@ -356,20 +357,88 @@ impl Vein {
             if let Ok(content) = std::fs::read_to_string(path) {
                 match self.index_document(&rel_str, mtime, &content) {
                     Ok(new_chunks) if !new_chunks.is_empty() => {
-                        // BM25 indexed — embeddings are handled by backfill_missing_embeddings()
-                        // below so startup is never blocked by sequential HTTP calls.
                         count += 1;
                     }
-                    Ok(_) => {} // unchanged
+                    Ok(_) => {}
                     Err(_) => {}
                 }
             }
         }
 
+        // Index reference documents dropped into .hematite/docs/
+        // Supports PDFs plus plain text/markdown — unified with source code retrieval.
+        count += self.index_docs_folder(&root);
+
         // Embed any unembedded chunks (new files + files whose mtime changed).
         // Capped at 20 per call so startup completes quickly; remaining chunks
         // are filled on subsequent turns.
         self.backfill_missing_embeddings();
+
+        count
+    }
+
+    /// Index reference documents in `.hematite/docs/`.
+    /// Supports PDF (text extraction), markdown, and plain text.
+    /// Documents are stored with path prefix `docs/filename` so they are
+    /// distinguishable from source files in retrieval results.
+    fn index_docs_folder(&mut self, workspace_root: &std::path::Path) -> usize {
+        let docs_dir = workspace_root.join(".hematite").join("docs");
+        if !docs_dir.exists() {
+            return 0;
+        }
+
+        const DOCS_INDEXABLE: &[&str] = &["pdf", "md", "txt", "markdown"];
+        let mut count = 0usize;
+
+        for entry in walkdir::WalkDir::new(&docs_dir)
+            .max_depth(3)
+            .follow_links(false)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            let path = entry.path();
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+            if !DOCS_INDEXABLE.contains(&ext.as_str()) {
+                continue;
+            }
+
+            let Ok(meta) = std::fs::metadata(path) else { continue };
+            if meta.len() > 50_000_000 { // 50 MB cap for docs
+                continue;
+            }
+
+            let mtime = meta
+                .modified()
+                .map(|t| {
+                    t.duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs() as i64
+                })
+                .unwrap_or(0);
+
+            let rel = path.strip_prefix(workspace_root).unwrap_or(path);
+            let rel_str = rel.to_string_lossy().replace('\\', "/");
+
+            let content = if ext == "pdf" {
+                extract_pdf_text(path)
+            } else {
+                std::fs::read_to_string(path).ok()
+            };
+
+            if let Some(text) = content {
+                if text.trim().is_empty() {
+                    continue;
+                }
+                match self.index_document(&rel_str, mtime, &text) {
+                    Ok(new_chunks) if !new_chunks.is_empty() => {
+                        count += 1;
+                    }
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+            }
+        }
 
         count
     }
@@ -546,6 +615,32 @@ fn blob_to_floats(blob: &[u8]) -> Vec<f32> {
     blob.chunks_exact(4)
         .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
         .collect()
+}
+
+// ── Document extraction ───────────────────────────────────────────────────────
+
+/// Extract plain text from a PDF file using pdf-extract.
+/// Returns None if the file can't be read or yields no text.
+/// Output is best-effort — layout is not preserved, but content is.
+fn extract_pdf_text(path: &std::path::Path) -> Option<String> {
+    let text = pdf_extract::extract_text(path).ok()?;
+    if text.trim().is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+/// Extract text from any supported document type (PDF, markdown, plain text).
+/// Used by /attach for one-shot context injection.
+pub fn extract_document_text(path: &std::path::Path) -> Result<String, String> {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    match ext.as_str() {
+        "pdf" => extract_pdf_text(path)
+            .ok_or_else(|| "Could not extract text from PDF — file may be scanned/image-only.".to_string()),
+        _ => std::fs::read_to_string(path)
+            .map_err(|e| format!("Could not read file: {e}")),
+    }
 }
 
 // ── Chunking strategies ───────────────────────────────────────────────────────

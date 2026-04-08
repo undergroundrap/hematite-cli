@@ -178,6 +178,8 @@ pub struct App {
     pub session_start: std::time::SystemTime,
     /// The current Rusty companion's species name — shown in the footer.
     pub soul_name: String,
+    /// File attached via /attach — injected as context prefix on the next turn, then cleared.
+    pub attached_context: Option<(String, String)>, // (filename, content)
 }
 
 impl App {
@@ -607,6 +609,7 @@ pub async fn run_app<B: Backend>(
         hardware_guard_enabled: true,
         session_start: std::time::SystemTime::now(),
         soul_name: soul.species.clone(),
+        attached_context: None,
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
@@ -1253,6 +1256,7 @@ pub async fn run_app<B: Backend>(
                                                      /no_think         — (Speed) Disable reasoning (3-5x faster responses)\n\
                                                      /voice            — (TTS) List all available voices\n\
                                                      /voice N          — (TTS) Select voice by number\n\
+                                                     /attach <path>    — (Docs) Attach a PDF/markdown/txt file as context for next message\n\
                                                      /copy             — (Debug) Copy session transcript to clipboard\n\
                                                      /copy2            — (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
                                                      \nHotkeys:\n\
@@ -1303,6 +1307,33 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/attach" => {
+                                                let file_path = parts[1..].join(" ").trim().to_string();
+                                                if file_path.is_empty() {
+                                                    app.push_message("System", "Usage: /attach <path>  — attach a file (PDF, markdown, txt) as context for the next message.\nDrop reference docs in .hematite/docs/ to have them indexed permanently.");
+                                                } else {
+                                                    let p = std::path::Path::new(&file_path);
+                                                    match crate::memory::vein::extract_document_text(p) {
+                                                        Ok(text) => {
+                                                            let name = p.file_name()
+                                                                .and_then(|n| n.to_str())
+                                                                .unwrap_or(&file_path)
+                                                                .to_string();
+                                                            let preview_len = text.len().min(200);
+                                                            app.push_message("System", &format!(
+                                                                "Attached: {} ({} chars) — will be injected as context on your next message.\nPreview: {}...",
+                                                                name, text.len(), &text[..preview_len]
+                                                            ));
+                                                            app.attached_context = Some((name, text));
+                                                        }
+                                                        Err(e) => {
+                                                            app.push_message("System", &format!("Attach failed: {}", e));
+                                                        }
+                                                    }
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             _ => {
                                                 app.push_message("System", &format!("Unknown command: {}", cmd));
                                                 app.history_idx = None;
@@ -1326,8 +1357,17 @@ pub async fn run_app<B: Backend>(
                                     app.manual_scroll_offset = None;
                                     app.specular_auto_scroll = true;
                                     let tx = app.user_input_tx.clone();
+                                    // Prepend any /attach'd file as context before the user's message.
+                                    let outbound = if let Some((name, content)) = app.attached_context.take() {
+                                        format!(
+                                            "[Attached document: {}]\n\n{}\n\n---\n\n{}",
+                                            name, content, input_text
+                                        )
+                                    } else {
+                                        input_text
+                                    };
                                     tokio::spawn(async move {
-                                        let _ = tx.send(input_text).await;
+                                        let _ = tx.send(outbound).await;
                                     });
                                 }
                             }
