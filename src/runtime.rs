@@ -47,6 +47,7 @@ pub struct AgentLoopConfig {
     pub brief: bool,
     pub snark: u8,
     pub chaos: u8,
+    pub soul_personality: String,
     pub fast_model: Option<String>,
     pub think_model: Option<String>,
 }
@@ -188,6 +189,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         config.brief,
         config.snark,
         config.chaos,
+        config.soul_personality,
         config.fast_model,
         config.think_model,
         gpu_state.clone(),

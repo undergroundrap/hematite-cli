@@ -72,6 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             brief: cockpit.brief,
             snark: local_soul.snark,
             chaos: local_soul.chaos,
+            soul_personality: local_soul.personality.clone(),
             fast_model: cockpit.fast_model.clone(),
             think_model: cockpit.think_model.clone(),
         },

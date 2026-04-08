@@ -683,6 +683,13 @@ pub enum InferenceEvent {
     /// File paths the Vein surfaced as relevant to the current turn.
     /// Used to populate ACTIVE CONTEXT with retrieval results.
     VeinContext { paths: Vec<String> },
+    /// A new companion was hatched mid-session via /reroll.
+    SoulReroll {
+        species: String,
+        rarity: String,
+        shiny: bool,
+        personality: String,
+    },
 }
 
 // ── Engine implementation ─────────────────────────────────────────────────────

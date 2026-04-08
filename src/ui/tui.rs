@@ -176,6 +176,8 @@ pub struct App {
     pub hardware_guard_enabled: bool,
     /// Wall-clock time when this session started (for report timestamp).
     pub session_start: std::time::SystemTime,
+    /// The current Rusty companion's species name — shown in the footer.
+    pub soul_name: String,
 }
 
 impl App {
@@ -604,6 +606,7 @@ pub async fn run_app<B: Backend>(
         voice_loading_progress: 0.0,
         hardware_guard_enabled: true,
         session_start: std::time::SystemTime::now(),
+        soul_name: soul.species.clone(),
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
@@ -1113,6 +1116,11 @@ pub async fn run_app<B: Backend>(
                                                 let _ = app.user_input_tx.try_send("/chat".to_string());
                                                 continue;
                                             }
+                                            "/reroll" => {
+                                                app.history_idx = None;
+                                                let _ = app.user_input_tx.try_send("/reroll".to_string());
+                                                continue;
+                                            }
                                             "/agent" => {
                                                 app.workflow_mode = "AUTO".into();
                                                 app.push_message("System", "Agent mode — full coding harness active. Use /chat for clean conversation.");
@@ -1224,6 +1232,7 @@ pub async fn run_app<B: Backend>(
                                                     "Hematite Commands:\n\
                                                      /chat             — (Mode) Conversation mode — clean chat, no tool noise\n\
                                                      /agent            — (Mode) Full coding harness — tools, file edits, builds\n\
+                                                     /reroll           — (Soul) Hatch a new companion mid-session\n\
                                                      /auto             — (Flow) Let Hematite choose the narrowest effective workflow\n\
                                                      /ask [prompt]     — (Flow) Read-only analysis mode; optional inline prompt\n\
                                                      /code [prompt]    — (Flow) Explicit implementation mode; optional inline prompt\n\
@@ -1593,6 +1602,14 @@ pub async fn run_app<B: Backend>(
                             }
                         }
                         trim_vec_context(&mut app.active_context, 8);
+                    }
+                    InferenceEvent::SoulReroll { species, rarity, shiny, .. } => {
+                        let shiny_tag = if shiny { " 🌟 SHINY" } else { "" };
+                        app.soul_name = species.clone();
+                        app.push_message(
+                            "System",
+                            &format!("[{}{}] {} has awakened.", rarity, shiny_tag, species),
+                        );
                     }
                 }
             }
@@ -2096,7 +2113,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         f.render_widget(Clear, bar_chunks[0]);
         f.render_widget(
-            Paragraph::new(format!(" {} Rusty", spark)).block(Block::default().borders(Borders::ALL)),
+            Paragraph::new(format!(" {} {}", spark, app.soul_name)).block(Block::default().borders(Borders::ALL)),
             bar_chunks[0],
         );
         f.render_widget(Clear, bar_chunks[status_idx]);

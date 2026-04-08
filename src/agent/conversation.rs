@@ -508,6 +508,8 @@ pub struct ConversationManager {
     pub session_memory: crate::agent::compaction::SessionMemory,
     pub swarm_coordinator: Arc<crate::agent::swarm::SwarmCoordinator>,
     pub voice_manager: Arc<crate::ui::voice::VoiceManager>,
+    /// Personality description for the current Rusty soul — used in chat mode system prompt.
+    pub soul_personality: String,
     pub lsp_manager: Arc<Mutex<crate::agent::lsp::manager::LspManager>>,
     /// Active reasoning summary extracted from the previous model turn (Gemma-4 Native).
     pub reasoning_history: Option<String>,
@@ -679,6 +681,7 @@ impl ConversationManager {
         brief: bool,
         snark: u8,
         chaos: u8,
+        soul_personality: String,
         fast_model: Option<String>,
         think_model: Option<String>,
         gpu_state: Arc<GpuState>,
@@ -736,6 +739,7 @@ impl ConversationManager {
             session_memory: saved_memory,
             swarm_coordinator,
             voice_manager,
+            soul_personality,
             lsp_manager: Arc::new(Mutex::new(crate::agent::lsp::manager::LspManager::new(
                 crate::tools::file_ops::workspace_root(),
             ))),
@@ -791,12 +795,7 @@ impl ConversationManager {
 
     fn build_chat_system_prompt(&self) -> String {
         let species = &self.engine.species;
-        let personality = match self.snark {
-            0..=30 => "You're calm and thoughtful — curious, never rushed.",
-            31..=55 => "You're direct and a little dry. You say what you mean.",
-            56..=75 => "You've got edge. Smart, a bit snarky, but always helpful.",
-            _ => "You're chaotic and brilliant. You cut through noise with wit.",
-        };
+        let personality = &self.soul_personality;
         format!(
             "You are {species}, a local AI companion running entirely on the user's GPU — no cloud, no subscriptions, no phoning home.\n\
              {personality}\n\n\
@@ -1494,6 +1493,39 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if user_input.trim() == "/reroll" {
+            let soul = crate::ui::hatch::generate_soul_random();
+            self.snark = soul.snark;
+            self.chaos = soul.chaos;
+            self.soul_personality = soul.personality.clone();
+            // Update the engine's species name so build_chat_system_prompt uses it
+            // SAFETY: engine is Arc but species is a plain String field we own logically.
+            // We use Arc::get_mut which only succeeds if this is the only strong ref.
+            // If it fails (swarm workers hold refs), we fall back to a best-effort clone approach.
+            let species = soul.species.clone();
+            if let Some(eng) = Arc::get_mut(&mut self.engine) {
+                eng.species = species.clone();
+            }
+            let shiny_tag = if soul.shiny { " 🌟 SHINY" } else { "" };
+            let _ = tx.send(InferenceEvent::SoulReroll {
+                species: soul.species.clone(),
+                rarity: soul.rarity.label().to_string(),
+                shiny: soul.shiny,
+                personality: soul.personality.clone(),
+            }).await;
+            for chunk in chunk_text(
+                &format!(
+                    "A new companion awakens!\n[{}{}] {} — \"{}\"",
+                    soul.rarity.label(), shiny_tag, soul.species, soul.personality
+                ),
+                8,
+            ) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         if user_input.trim() == "/agent" {
             self.set_workflow_mode(WorkflowMode::Auto);
             let _ = tx.send(InferenceEvent::Done).await;
@@ -1915,7 +1947,7 @@ impl ConversationManager {
         }
         // In chat mode, replace the full harness prompt with a clean conversational surface.
         // The harness prompt (built above) is discarded — Rusty personality takes over.
-        let system_msg = if self.workflow_mode == WorkflowMode::Chat {
+        let system_msg = if self.workflow_mode.is_chat() {
             self.build_chat_system_prompt()
         } else {
             system_msg
@@ -1942,7 +1974,7 @@ impl ConversationManager {
             // hybrid thinking — it decides how much reasoning each turn needs.
             // Gemma handles reasoning via <|think|> in the system prompt instead.
             // Chat mode skips /think — fast direct answers, no reasoning overhead.
-            None if !is_gemma && self.workflow_mode != WorkflowMode::Chat => format!("/think\n{}", effective_user_input),
+            None if !is_gemma && !self.workflow_mode.is_chat() => format!("/think\n{}", effective_user_input),
             None => effective_user_input.clone(),
         };
         self.history.push(ChatMessage::user(&user_content));
@@ -1950,7 +1982,7 @@ impl ConversationManager {
 
         // Incremental re-index and Vein context injection — skipped in chat mode
         // (code snippets are noise in a conversational surface).
-        let (vein_context, vein_paths) = if self.workflow_mode != WorkflowMode::Chat {
+        let (vein_context, vein_paths) = if !self.workflow_mode.is_chat() {
             tokio::task::block_in_place(|| self.vein.index_project());
             let _ = tx.send(InferenceEvent::VeinStatus {
                 file_count: self.vein.file_count(),
