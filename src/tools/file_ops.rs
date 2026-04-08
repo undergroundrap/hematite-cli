@@ -1003,7 +1003,7 @@ pub fn compute_edit_file_diff(args: &Value) -> Result<String, String> {
         }
     };
 
-    let mut diff = format!("--- {}\n", path);
+    let mut diff = String::new();
     for line in effective_search.lines() {
         diff.push_str(&format!("- {}\n", line));
     }
@@ -1035,7 +1035,7 @@ pub fn compute_patch_hunk_diff(args: &Value) -> Result<String, String> {
     let s_idx = start_line - 1;
     let e_idx = end_line;
 
-    let mut diff = format!("--- {} (lines {}-{})\n", path, start_line, end_line);
+    let mut diff = format!("@@ lines {}-{} @@\n", start_line, end_line);
     for i in s_idx..e_idx {
         diff.push_str(&format!("- {}\n", lines[i].trim_end()));
     }
@@ -1047,7 +1047,6 @@ pub fn compute_patch_hunk_diff(args: &Value) -> Result<String, String> {
 
 /// Return a formatted diff string for a multi_search_replace operation without applying it.
 pub fn compute_msr_diff(args: &Value) -> Result<String, String> {
-    let path = require_str(args, "path")?;
     let hunks_val = args
         .get("hunks")
         .ok_or_else(|| "multi_search_replace requires 'hunks' array".to_string())?;
@@ -1060,9 +1059,11 @@ pub fn compute_msr_diff(args: &Value) -> Result<String, String> {
     let hunks: Vec<PreviewHunk> = serde_json::from_value(hunks_val.clone())
         .map_err(|e| format!("compute_msr_diff: invalid hunks: {e}"))?;
 
-    let mut diff = format!("--- {}\n", path);
+    let mut diff = String::new();
     for (i, hunk) in hunks.iter().enumerate() {
-        diff.push_str(&format!("@@ hunk {} @@\n", i + 1));
+        if hunks.len() > 1 {
+            diff.push_str(&format!("@@ hunk {} @@\n", i + 1));
+        }
         for line in hunk.search.lines() {
             diff.push_str(&format!("- {}\n", line.trim_end()));
         }

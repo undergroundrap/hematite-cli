@@ -1555,11 +1555,23 @@ pub async fn run_app<B: Backend>(
                         if let Some(approval) = app.awaiting_approval.take() {
                             match key.code {
                                 KeyCode::Char('y') | KeyCode::Char('Y') => {
-                                    app.push_message("System", &format!("Approved: {}", approval.display));
+                                    if let Some(ref diff) = approval.diff {
+                                        let added = diff.lines().filter(|l| l.starts_with("+ ")).count();
+                                        let removed = diff.lines().filter(|l| l.starts_with("- ")).count();
+                                        app.push_message("System", &format!(
+                                            "Applied: {} +{} -{}", approval.display, added, removed
+                                        ));
+                                    } else {
+                                        app.push_message("System", &format!("Approved: {}", approval.display));
+                                    }
                                     let _ = approval.responder.send(true);
                                 }
                                 KeyCode::Char('n') | KeyCode::Char('N') => {
-                                    app.push_message("System", "Declined.");
+                                    if approval.diff.is_some() {
+                                        app.push_message("System", "Edit skipped.");
+                                    } else {
+                                        app.push_message("System", "Declined.");
+                                    }
                                     let _ = approval.responder.send(false);
                                 }
                                 _ => { app.awaiting_approval = Some(approval); }
@@ -3293,11 +3305,23 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         let border_color = if is_diff_preview { Color::Yellow } else { Color::Red };
         if let Some(diff_text) = &approval.diff {
             // Render colored diff lines
+            let added = diff_text.lines().filter(|l| l.starts_with("+ ")).count();
+            let removed = diff_text.lines().filter(|l| l.starts_with("- ")).count();
             let mut body_lines: Vec<Line> = vec![
                 Line::from(Span::styled(
                     format!(" {}", approval.display),
                     Style::default().fg(Color::Cyan),
                 )),
+                Line::from(vec![
+                    Span::styled(
+                        format!(" +{}", added),
+                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!(" -{}", removed),
+                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    ),
+                ]),
                 Line::from(Span::raw("")),
             ];
             for raw_line in diff_text.lines() {

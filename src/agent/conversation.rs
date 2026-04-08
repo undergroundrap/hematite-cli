@@ -943,7 +943,11 @@ impl ConversationManager {
         let normalized = normalize_workspace_path(path);
         let mut state = self.action_grounding.lock().await;
         let turn = state.turn_index;
-        state.observed_paths.insert(normalized, turn);
+        // read_file returns full file content with line numbers — sufficient for
+        // the model to know exact text before editing, so it satisfies the
+        // line-inspection grounding check too.
+        state.observed_paths.insert(normalized.clone(), turn);
+        state.inspected_paths.insert(normalized, turn);
     }
 
     async fn record_line_inspection(&self, path: &str) {
