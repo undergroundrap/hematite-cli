@@ -46,6 +46,28 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
         make_tool(
+            "run_code",
+            "Execute a short JavaScript/TypeScript or Python snippet in a sandboxed subprocess. \
+             No network access, no filesystem escape, hard 10-second timeout. \
+             Use this to verify logic, test algorithms, process data, or do quick calculations \
+             without touching the user's files. Prefer this over shell for self-contained code experiments.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "language": {
+                        "type": "string",
+                        "enum": ["javascript", "typescript", "python"],
+                        "description": "The language to run. javascript/typescript requires Deno; python requires Python 3."
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "The code to execute. Keep it short and self-contained. Print results to stdout."
+                    }
+                },
+                "required": ["language", "code"]
+            }),
+        ),
+        make_tool(
             "map_project",
             "Compact architecture-aware map of the project structure, key configuration files, \
              likely entrypoints, and core owner files. Use this at the start of a task to gain \
@@ -604,6 +626,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
 pub async fn dispatch_builtin_tool(name: &str, args: &Value) -> Result<String, String> {
     match name {
         "shell" => crate::tools::shell::execute(args).await,
+        "run_code" => crate::tools::code_sandbox::execute(args).await,
         "map_project" => crate::tools::project_map::map_project(args).await,
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,

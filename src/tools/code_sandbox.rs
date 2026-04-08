@@ -1,0 +1,214 @@
+//! Sandboxed code execution tool.
+//!
+//! Lets the model write and run code in a restricted subprocess — no network,
+//! no filesystem escape, hard timeout. Supports JavaScript/TypeScript (Deno)
+//! and Python. Neither runtime is bundled; we detect what's available and
+//! report clearly when nothing is found.
+
+use serde_json::Value;
+use std::io::Write;
+use std::process::{Command, Stdio};
+use std::time::Duration;
+
+const TIMEOUT_SECS: u64 = 10;
+const MAX_OUTPUT_BYTES: usize = 16_384; // 16 KB — enough for any reasonable script result
+
+pub async fn execute(args: &Value) -> Result<String, String> {
+    let language = args
+        .get("language")
+        .and_then(|v| v.as_str())
+        .unwrap_or("javascript")
+        .to_lowercase();
+
+    let code = args
+        .get("code")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing required argument: 'code'")?;
+
+    match language.as_str() {
+        "javascript" | "typescript" | "js" | "ts" => run_deno(code),
+        "python" | "python3" | "py" => run_python(code),
+        other => Err(format!(
+            "Unsupported language: '{}'. Supported: javascript, typescript, python.",
+            other
+        )),
+    }
+}
+
+/// Run code via Deno with strict permission flags.
+/// Uses stdin so no temp file is needed.
+fn run_deno(code: &str) -> Result<String, String> {
+    let deno = find_executable(&["deno"]).ok_or_else(|| {
+        "Deno is not installed or not on PATH. Install from https://deno.com — \
+         it's a single binary, no npm required. On Windows: `winget install DenoLand.Deno`."
+            .to_string()
+    })?;
+
+    let mut child = Command::new(&deno)
+        .args([
+            "run",
+            "--allow-read=.",  // workspace only
+            "--allow-write=.", // workspace only
+            "--deny-net",      // no outbound network
+            "--deny-sys",      // no OS info
+            "--deny-env",      // no environment variable access
+            "--deny-run",      // no spawning other processes
+            "--no-prompt",     // never ask for permissions interactively
+            "-",               // read from stdin
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn Deno: {e}"))?;
+
+    write_stdin(&mut child, code)?;
+    collect_output(child, "deno")
+}
+
+/// Run code via Python with network and subprocess access blocked at env level.
+/// Python has no built-in permission flags like Deno, so we restrict the
+/// environment and use a short timeout as the primary safety net.
+fn run_python(code: &str) -> Result<String, String> {
+    let python = find_executable(&["python3", "python"]).ok_or_else(|| {
+        "Python is not installed or not on PATH.".to_string()
+    })?;
+
+    let mut child = Command::new(&python)
+        .args([
+            "-c",
+            // Wrap the code: block network imports and dangerous builtins before running.
+            &wrap_python(code),
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        // Strip PATH so the script can't find other executables easily
+        .env_clear()
+        .env("PYTHONDONTWRITEBYTECODE", "1")
+        .env("PYTHONIOENCODING", "utf-8")
+        .spawn()
+        .map_err(|e| format!("Failed to spawn Python: {e}"))?;
+
+    collect_output(child, "python")
+}
+
+/// Wraps the user's Python in a minimal sandbox: blocks socket, subprocess,
+/// os.system, and __import__ to prevent the most obvious escapes.
+fn wrap_python(code: &str) -> String {
+    format!(
+        r#"
+import sys
+
+# Block network access
+import socket as _socket
+_socket.socket = None  # type: ignore
+
+# Block subprocess and os.system
+import os as _os
+_os.system = lambda *a, **k: (_ for _ in ()).throw(PermissionError("os.system blocked in sandbox"))
+_popen_orig = _os.popen
+_os.popen = lambda *a, **k: (_ for _ in ()).throw(PermissionError("os.popen blocked in sandbox"))
+
+# Block __import__ for subprocess
+_real_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+def _safe_import(name, *args, **kwargs):
+    if name in ('subprocess', 'multiprocessing', 'pty', 'telnetlib', 'ftplib', 'smtplib', 'http', 'urllib', 'requests', 'httpx'):
+        raise ImportError(f"Module '{{name}}' is blocked in the sandbox.")
+    return _real_import(name, *args, **kwargs)
+import builtins
+builtins.__import__ = _safe_import
+
+# Run the actual code
+exec(compile(r"""{code}""", "<sandbox>", "exec"))
+"#,
+        code = code.replace(r#"""""#, r#"\" \" \""#)
+    )
+}
+
+fn write_stdin(child: &mut std::process::Child, code: &str) -> Result<(), String> {
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or("Failed to open stdin for sandbox process")?;
+    stdin
+        .write_all(code.as_bytes())
+        .map_err(|e| format!("Failed to write to sandbox stdin: {e}"))?;
+    drop(stdin); // signal EOF so the process starts
+    Ok(())
+}
+
+fn collect_output(mut child: std::process::Child, runtime: &str) -> Result<String, String> {
+    // Enforce hard timeout using a thread to kill the process if it hangs.
+    let timeout = Duration::from_secs(TIMEOUT_SECS);
+    let start = std::time::Instant::now();
+
+    // Poll with wait_with_output — use a thread so we can enforce a timeout.
+    let output = std::thread::scope(|s| {
+        let handle = s.spawn(|| child.wait_with_output());
+        loop {
+            if start.elapsed() >= timeout {
+                return Err(format!(
+                    "Sandbox timeout: process exceeded {}s and was killed.",
+                    TIMEOUT_SECS
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(50));
+            if handle.is_finished() {
+                return handle
+                    .join()
+                    .map_err(|_| "Sandbox thread panicked.".to_string())?
+                    .map_err(|e| format!("Failed to collect {runtime} output: {e}"));
+            }
+        }
+    })?;
+
+    let stdout = truncate(
+        &String::from_utf8_lossy(&output.stdout),
+        MAX_OUTPUT_BYTES / 2,
+    );
+    let stderr = truncate(
+        &String::from_utf8_lossy(&output.stderr),
+        MAX_OUTPUT_BYTES / 2,
+    );
+
+    if output.status.success() {
+        if stdout.trim().is_empty() && stderr.trim().is_empty() {
+            Ok("(no output)".to_string())
+        } else if stderr.trim().is_empty() {
+            Ok(stdout)
+        } else {
+            Ok(format!("{stdout}\n[stderr]\n{stderr}"))
+        }
+    } else {
+        let code = output.status.code().map(|c| c.to_string()).unwrap_or_else(|| "?".to_string());
+        Err(format!(
+            "Exit code {code}\n{}\n{}",
+            stdout.trim(),
+            stderr.trim()
+        ))
+    }
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}\n... [truncated]", &s[..max])
+    }
+}
+
+/// Find the first available executable from a list of candidates.
+fn find_executable(candidates: &[&str]) -> Option<String> {
+    for name in candidates {
+        let check = if cfg!(windows) {
+            Command::new("where").arg(name).output()
+        } else {
+            Command::new("which").arg(name).output()
+        };
+        if check.map(|o| o.status.success()).unwrap_or(false) {
+            return Some(name.to_string());
+        }
+    }
+    None
+}

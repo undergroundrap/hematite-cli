@@ -1,5 +1,6 @@
 pub mod tool;
 pub use tool::RiskLevel;
+pub mod code_sandbox;
 pub mod file_edit;
 pub mod file_ops;
 pub mod git;
