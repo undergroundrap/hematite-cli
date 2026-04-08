@@ -62,6 +62,10 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                     "code": {
                         "type": "string",
                         "description": "The code to execute. Keep it short and self-contained. Print results to stdout."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "description": "Max execution time in seconds (default 10, max 60). Use higher values for longer computations."
                     }
                 },
                 "required": ["language", "code"]

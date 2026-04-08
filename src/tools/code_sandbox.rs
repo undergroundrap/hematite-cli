@@ -10,7 +10,8 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-const TIMEOUT_SECS: u64 = 10;
+const DEFAULT_TIMEOUT_SECS: u64 = 10;
+const MAX_TIMEOUT_SECS: u64 = 60;
 const MAX_OUTPUT_BYTES: usize = 16_384; // 16 KB — enough for any reasonable script result
 
 pub async fn execute(args: &Value) -> Result<String, String> {
@@ -25,9 +26,15 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         .and_then(|v| v.as_str())
         .ok_or("Missing required argument: 'code'")?;
 
+    let timeout_secs = args
+        .get("timeout_seconds")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(DEFAULT_TIMEOUT_SECS)
+        .min(MAX_TIMEOUT_SECS);
+
     match language.as_str() {
-        "javascript" | "typescript" | "js" | "ts" => run_deno(code),
-        "python" | "python3" | "py" => run_python(code),
+        "javascript" | "typescript" | "js" | "ts" => run_deno(code, timeout_secs),
+        "python" | "python3" | "py" => run_python(code, timeout_secs),
         other => Err(format!(
             "Unsupported language: '{}'. Supported: javascript, typescript, python.",
             other
@@ -37,7 +44,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
 
 /// Run code via Deno with strict permission flags.
 /// Uses stdin so no temp file is needed.
-fn run_deno(code: &str) -> Result<String, String> {
+fn run_deno(code: &str, timeout_secs: u64) -> Result<String, String> {
     let deno = find_executable(&["deno"]).ok_or_else(|| {
         "Deno is not installed or not on PATH. Install from https://deno.com — \
          it's a single binary, no npm required. On Windows: `winget install DenoLand.Deno`."
@@ -53,9 +60,11 @@ fn run_deno(code: &str) -> Result<String, String> {
             "--deny-sys",      // no OS info
             "--deny-env",      // no environment variable access
             "--deny-run",      // no spawning other processes
+            "--deny-ffi",      // no native library calls (FFI escape vector)
             "--no-prompt",     // never ask for permissions interactively
-            "-",               // read from stdin
+            "-",               // read from stdin — no temp file needed
         ])
+        .env("NO_COLOR", "true") // clean output, no ANSI codes in results
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -63,18 +72,18 @@ fn run_deno(code: &str) -> Result<String, String> {
         .map_err(|e| format!("Failed to spawn Deno: {e}"))?;
 
     write_stdin(&mut child, code)?;
-    collect_output(child, "deno")
+    collect_output(child, "deno", timeout_secs)
 }
 
 /// Run code via Python with network and subprocess access blocked at env level.
 /// Python has no built-in permission flags like Deno, so we restrict the
 /// environment and use a short timeout as the primary safety net.
-fn run_python(code: &str) -> Result<String, String> {
+fn run_python(code: &str, timeout_secs: u64) -> Result<String, String> {
     let python = find_executable(&["python3", "python"]).ok_or_else(|| {
         "Python is not installed or not on PATH.".to_string()
     })?;
 
-    let mut child = Command::new(&python)
+    let child = Command::new(&python)
         .args([
             "-c",
             // Wrap the code: block network imports and dangerous builtins before running.
@@ -90,7 +99,7 @@ fn run_python(code: &str) -> Result<String, String> {
         .spawn()
         .map_err(|e| format!("Failed to spawn Python: {e}"))?;
 
-    collect_output(child, "python")
+    collect_output(child, "python", timeout_secs)
 }
 
 /// Wraps the user's Python in a minimal sandbox: blocks socket, subprocess,
@@ -138,9 +147,8 @@ fn write_stdin(child: &mut std::process::Child, code: &str) -> Result<(), String
     Ok(())
 }
 
-fn collect_output(mut child: std::process::Child, runtime: &str) -> Result<String, String> {
-    // Enforce hard timeout using a thread to kill the process if it hangs.
-    let timeout = Duration::from_secs(TIMEOUT_SECS);
+fn collect_output(child: std::process::Child, runtime: &str, timeout_secs: u64) -> Result<String, String> {
+    let timeout = Duration::from_secs(timeout_secs);
     let start = std::time::Instant::now();
 
     // Poll with wait_with_output — use a thread so we can enforce a timeout.
@@ -150,7 +158,7 @@ fn collect_output(mut child: std::process::Child, runtime: &str) -> Result<Strin
             if start.elapsed() >= timeout {
                 return Err(format!(
                     "Sandbox timeout: process exceeded {}s and was killed.",
-                    TIMEOUT_SECS
+                    timeout_secs
                 ));
             }
             std::thread::sleep(Duration::from_millis(50));
