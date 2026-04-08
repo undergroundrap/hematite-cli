@@ -1,6 +1,6 @@
-use serde_json::{Value, json};
-use std::fs;
 use crate::tools::file_ops::workspace_root;
+use serde_json::{json, Value};
+use std::fs;
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct PlanHandoff {
@@ -44,7 +44,10 @@ impl PlanHandoff {
             out.push_str(&format!("  - Goal: {}\n", self.goal.trim()));
         }
         if !self.target_files.is_empty() {
-            out.push_str(&format!("  - Target Files: {}\n", self.target_files.join(", ")));
+            out.push_str(&format!(
+                "  - Target Files: {}\n",
+                self.target_files.join(", ")
+            ));
         }
         if !self.ordered_steps.is_empty() {
             out.push_str("  - Ordered Steps:\n");
@@ -147,16 +150,33 @@ pub fn load_plan_handoff() -> Option<PlanHandoff> {
 
 pub fn parse_plan_handoff(input: &str) -> Option<PlanHandoff> {
     let sections = collect_sections(input);
-    let goal = sections.get("goal").map(|s| s.trim().to_string()).unwrap_or_default();
-    let target_files = parse_bullets(sections.get("target files").map(String::as_str).unwrap_or(""));
-    let ordered_steps = parse_ordered(sections.get("ordered steps").map(String::as_str).unwrap_or(""));
+    let goal = sections
+        .get("goal")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+    let target_files = parse_bullets(
+        sections
+            .get("target files")
+            .map(String::as_str)
+            .unwrap_or(""),
+    );
+    let ordered_steps = parse_ordered(
+        sections
+            .get("ordered steps")
+            .map(String::as_str)
+            .unwrap_or(""),
+    );
     let verification = sections
         .get("verification")
         .map(|s| s.trim().to_string())
         .unwrap_or_default();
     let risks = parse_bullets(sections.get("risks").map(String::as_str).unwrap_or(""));
-    let open_questions =
-        parse_bullets(sections.get("open questions").map(String::as_str).unwrap_or(""));
+    let open_questions = parse_bullets(
+        sections
+            .get("open questions")
+            .map(String::as_str)
+            .unwrap_or(""),
+    );
 
     let plan = PlanHandoff {
         goal,
@@ -201,7 +221,11 @@ fn collect_sections(input: &str) -> std::collections::BTreeMap<String, String> {
 }
 
 fn normalize_heading(line: &str) -> Option<String> {
-    let heading = line.trim_start_matches('#').trim().trim_end_matches(':').trim();
+    let heading = line
+        .trim_start_matches('#')
+        .trim()
+        .trim_end_matches(':')
+        .trim();
     match heading.to_ascii_lowercase().as_str() {
         "goal" => Some("goal".to_string()),
         "target files" => Some("target files".to_string()),
@@ -222,7 +246,10 @@ fn parse_bullets(section: &str) -> Vec<String> {
                 .strip_prefix("- ")
                 .or_else(|| trimmed.strip_prefix("* "))
                 .map(str::trim)?;
-            if stripped.is_empty() || stripped.eq_ignore_ascii_case("none") || stripped.eq_ignore_ascii_case("none specified") {
+            if stripped.is_empty()
+                || stripped.eq_ignore_ascii_case("none")
+                || stripped.eq_ignore_ascii_case("none specified")
+            {
                 None
             } else {
                 Some(stripped.to_string())
@@ -250,25 +277,34 @@ fn parse_ordered(section: &str) -> Vec<String> {
 
 /// Manages a persistent mission plan for the agent in `.hematite/PLAN.md`.
 pub async fn maintain_plan(args: &Value) -> Result<String, String> {
-    let blueprint = args.get("blueprint").and_then(|v| v.as_str())
+    let blueprint = args
+        .get("blueprint")
+        .and_then(|v| v.as_str())
         .ok_or("maintain_plan: 'blueprint' (markdown text) required")?;
     let plan_path = plan_path();
 
     fs::create_dir_all(plan_path.parent().unwrap()).map_err(|e| e.to_string())?;
     fs::write(&plan_path, blueprint).map_err(|e| format!("Failed to write plan: {e}"))?;
-    
-    Ok(format!("Strategic Blueprint updated in .hematite/PLAN.md ({} bytes)", blueprint.len()))
+
+    Ok(format!(
+        "Strategic Blueprint updated in .hematite/PLAN.md ({} bytes)",
+        blueprint.len()
+    ))
 }
 
 /// Generates a final walkthrough report for the current session.
 pub async fn generate_walkthrough(args: &Value) -> Result<String, String> {
-    let summary = args.get("summary").and_then(|v| v.as_str())
+    let summary = args
+        .get("summary")
+        .and_then(|v| v.as_str())
         .ok_or("generate_walkthrough: 'summary' required")?;
     let path = workspace_root().join(".hematite").join("WALKTHROUGH.md");
 
     fs::write(&path, summary).map_err(|e| format!("Failed to save walkthrough: {e}"))?;
-    
-    Ok(format!("Walkthrough report saved to .hematite/WALKTHROUGH.md. Session complete!"))
+
+    Ok(format!(
+        "Walkthrough report saved to .hematite/WALKTHROUGH.md. Session complete!"
+    ))
 }
 
 pub fn get_plan_params() -> Value {

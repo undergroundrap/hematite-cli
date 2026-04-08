@@ -1,5 +1,5 @@
-use serde_json::{json, Value};
 use chrono;
+use serde_json::{json, Value};
 
 pub async fn execute(_args: &Value) -> Result<String, String> {
     let now = chrono::Utc::now();
@@ -13,5 +13,6 @@ pub async fn execute(_args: &Value) -> Result<String, String> {
         "version": env!("CARGO_PKG_VERSION"),
         "time": format!("{}", now.format("%Y-%m-%d %H:%M:%S UTC")),
         "src_file_count": file_count
-    }).to_string())
+    })
+    .to_string())
 }

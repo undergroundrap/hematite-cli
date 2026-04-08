@@ -121,7 +121,7 @@ impl RecoveryDecision {
                 recipe,
                 attempts_made,
                 reason,
-        } => format!(
+            } => format!(
                 "escalate {} after {}/{}: {} ({})",
                 recipe.scenario.label(),
                 attempts_made,
@@ -222,7 +222,10 @@ pub fn recipe_for(scenario: RecoveryScenario) -> RecoveryRecipe {
         },
         RecoveryScenario::ToolLoop => RecoveryRecipe {
             scenario,
-            steps: vec![RecoveryStep::StopRepeatingToolPattern, RecoveryStep::NarrowRequest],
+            steps: vec![
+                RecoveryStep::StopRepeatingToolPattern,
+                RecoveryStep::NarrowRequest,
+            ],
             max_attempts: 1,
         },
         RecoveryScenario::VerificationFailed => RecoveryRecipe {
@@ -262,10 +265,7 @@ pub fn preview_recovery_decision(
     }
 }
 
-pub fn attempt_recovery(
-    scenario: RecoveryScenario,
-    ctx: &mut RecoveryContext,
-) -> RecoveryDecision {
+pub fn attempt_recovery(scenario: RecoveryScenario, ctx: &mut RecoveryContext) -> RecoveryDecision {
     match preview_recovery_decision(scenario, ctx) {
         RecoveryDecision::Attempt(plan) => {
             ctx.attempts.insert(scenario, plan.next_attempt);

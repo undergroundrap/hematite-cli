@@ -33,10 +33,7 @@ pub fn is_gemma4_model_name(model: &str) -> bool {
     lower.contains("gemma-4") || lower.contains("gemma4")
 }
 
-fn should_use_gemma_native_formatting(
-    engine: &InferenceEngine,
-    model: &str,
-) -> bool {
+fn should_use_gemma_native_formatting(engine: &InferenceEngine, model: &str) -> bool {
     is_gemma4_model_name(model) && engine.gemma_native_formatting_enabled()
 }
 
@@ -546,9 +543,7 @@ impl OperatorCheckpointState {
             OperatorCheckpointState::HistoryCompacted => "history_compacted",
             OperatorCheckpointState::BlockedContextWindow => "blocked_context_window",
             OperatorCheckpointState::BlockedPolicy => "blocked_policy",
-            OperatorCheckpointState::BlockedRecentFileEvidence => {
-                "blocked_recent_file_evidence"
-            }
+            OperatorCheckpointState::BlockedRecentFileEvidence => "blocked_recent_file_evidence",
             OperatorCheckpointState::BlockedExactLineWindow => "blocked_exact_line_window",
             OperatorCheckpointState::BlockedToolLoop => "blocked_tool_loop",
             OperatorCheckpointState::BlockedVerification => "blocked_verification",
@@ -646,9 +641,7 @@ pub enum InferenceEvent {
         summary: String,
     },
     /// Typed recovery recipe summary for operator/debug surfaces.
-    RecoveryRecipe {
-        summary: String,
-    },
+    RecoveryRecipe { summary: String },
     /// Compact MCP/runtime server health for the operator surface.
     McpStatus {
         state: McpRuntimeState,
@@ -677,9 +670,15 @@ pub enum InferenceEvent {
     /// Real-time token usage update from the API.
     UsageUpdate(TokenUsage),
     /// The current runtime profile detected from LM Studio.
-    RuntimeProfile { model_id: String, context_length: usize },
+    RuntimeProfile {
+        model_id: String,
+        context_length: usize,
+    },
     /// Vein index status after each incremental re-index.
-    VeinStatus { file_count: usize, embedded_count: usize },
+    VeinStatus {
+        file_count: usize,
+        embedded_count: usize,
+    },
     /// File paths the Vein surfaced as relevant to the current turn.
     /// Used to populate ACTIVE CONTEXT with retrieval results.
     VeinContext { paths: Vec<String> },
@@ -710,7 +709,11 @@ impl InferenceEngine {
             if let Some(scheme_end) = trimmed.find("://") {
                 let after_scheme = &trimmed[scheme_end + 3..];
                 if let Some(path_start) = after_scheme.find('/') {
-                    format!("{}://{}", &trimmed[..scheme_end], &after_scheme[..path_start])
+                    format!(
+                        "{}://{}",
+                        &trimmed[..scheme_end],
+                        &after_scheme[..path_start]
+                    )
                 } else {
                     trimmed.to_string()
                 }
@@ -754,10 +757,7 @@ impl InferenceEngine {
     }
 
     pub fn current_model(&self) -> String {
-        self.model
-            .read()
-            .map(|g| g.clone())
-            .unwrap_or_default()
+        self.model.read().map(|g| g.clone()).unwrap_or_default()
     }
 
     pub fn current_context_length(&self) -> usize {
@@ -858,12 +858,18 @@ impl InferenceEngine {
                                 .map(|id| id.eq_ignore_ascii_case(&target_model))
                                 .unwrap_or(false)
                     })
-                    .or_else(|| list.data.iter().find(|m| non_embed(m) && m.state.as_deref() == Some("loaded")))
+                    .or_else(|| {
+                        list.data
+                            .iter()
+                            .find(|m| non_embed(m) && m.state.as_deref() == Some("loaded"))
+                    })
                     .or_else(|| {
                         list.data.iter().find(|m| {
-                            non_embed(m) && m.id.as_deref()
-                                .map(|id| id.eq_ignore_ascii_case(&target_model))
-                                .unwrap_or(false)
+                            non_embed(m)
+                                && m.id
+                                    .as_deref()
+                                    .map(|id| id.eq_ignore_ascii_case(&target_model))
+                                    .unwrap_or(false)
                         })
                     })
                     .or_else(|| list.data.iter().find(|m| non_embed(m)));
@@ -903,9 +909,9 @@ impl InferenceEngine {
         let previous_context = self.current_context_length();
 
         let detected_model = match self.get_loaded_model().await {
-            Some(m) if !m.is_empty() => m,           // coding model found
+            Some(m) if !m.is_empty() => m,            // coding model found
             Some(_) => "no model loaded".to_string(), // reachable but no coding model
-            None => previous_model.clone(),            // LM Studio offline
+            None => previous_model.clone(),           // LM Studio offline
         };
 
         if !detected_model.is_empty() && detected_model != previous_model {
@@ -1262,13 +1268,18 @@ impl InferenceEngine {
                 os
             ));
         } else {
-            sys.push_str(&format!("You are running on {}. Use the native Unix shell conventions.\n", os));
+            sys.push_str(&format!(
+                "You are running on {}. Use the native Unix shell conventions.\n",
+                os
+            ));
         }
         if brief {
             sys.push_str("BRIEF MODE: answer in one concise sentence unless code is required.\n");
         }
         if is_gemma4_model_name(&current_model) {
-            sys.push_str("Gemma 4 note: use exact tool JSON with no extra prose when calling tools.\n");
+            sys.push_str(
+                "Gemma 4 note: use exact tool JSON with no extra prose when calling tools.\n",
+            );
         }
         sys.push_str("<turn|>\n");
         sys
@@ -1322,8 +1333,15 @@ impl InferenceEngine {
         // Sending a small core set keeps schemas available for structured tool-call dispatch
         // while staying within the 16k budget.
         const COMPACT_CORE_TOOLS: &[&str] = &[
-            "read_file", "inspect_lines", "edit_file", "write_file",
-            "grep_files", "list_files", "verify_build", "shell", "map_project",
+            "read_file",
+            "inspect_lines",
+            "edit_file",
+            "write_file",
+            "grep_files",
+            "list_files",
+            "verify_build",
+            "shell",
+            "map_project",
         ];
         let effective_tools = if is_compact_context_window(self.current_context_length()) {
             let core: Vec<_> = filtered_tools
@@ -1331,7 +1349,11 @@ impl InferenceEngine {
                 .filter(|t| COMPACT_CORE_TOOLS.contains(&t.function.name.as_str()))
                 .cloned()
                 .collect();
-            if core.is_empty() { None } else { Some(core) }
+            if core.is_empty() {
+                None
+            } else {
+                Some(core)
+            }
         } else if filtered_tools.is_empty() {
             None
         } else {
@@ -1426,8 +1448,10 @@ impl InferenceEngine {
         if is_gemma4_model_name(&model) {
             if let Some(calls) = tool_calls.as_mut() {
                 for call in calls.iter_mut() {
-                    call.function.arguments =
-                        normalize_tool_argument_string(&call.function.name, &call.function.arguments);
+                    call.function.arguments = normalize_tool_argument_string(
+                        &call.function.name,
+                        &call.function.arguments,
+                    );
                 }
             }
         }
@@ -1471,7 +1495,12 @@ impl InferenceEngine {
             tools: None,
         };
 
-        if let Err(e) = preflight_chat_request(&current_model, &request.messages, &[], self.current_context_length()) {
+        if let Err(e) = preflight_chat_request(
+            &current_model,
+            &request.messages,
+            &[],
+            self.current_context_length(),
+        ) {
             let tag = classify_runtime_failure_tag(&e);
             let _ = tx
                 .send(InferenceEvent::ProviderStatus {
@@ -1510,7 +1539,9 @@ impl InferenceEngine {
                         })
                         .await;
                     let _ = tx
-                        .send(InferenceEvent::Error(format_runtime_failure_message(&detail)))
+                        .send(InferenceEvent::Error(format_runtime_failure_message(
+                            &detail,
+                        )))
                         .await;
                     let _ = tx.send(InferenceEvent::Done).await;
                     return Ok(());
@@ -1528,7 +1559,9 @@ impl InferenceEngine {
                         })
                         .await;
                     let _ = tx
-                        .send(InferenceEvent::Error(format_runtime_failure_message(&detail)))
+                        .send(InferenceEvent::Error(format_runtime_failure_message(
+                            &detail,
+                        )))
                         .await;
                     let _ = tx.send(InferenceEvent::Done).await;
                     return Ok(());
@@ -1554,7 +1587,9 @@ impl InferenceEngine {
                 })
                 .await;
             let _ = tx
-                .send(InferenceEvent::Error(format_runtime_failure_message(&detail)))
+                .send(InferenceEvent::Error(format_runtime_failure_message(
+                    &detail,
+                )))
                 .await;
             let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
@@ -1589,7 +1624,9 @@ impl InferenceEngine {
                         })
                         .await;
                     let _ = tx
-                        .send(InferenceEvent::Error(format_runtime_failure_message(&detail)))
+                        .send(InferenceEvent::Error(format_runtime_failure_message(
+                            &detail,
+                        )))
                         .await;
                     let _ = tx.send(InferenceEvent::Done).await;
                     return Ok(());
@@ -1746,7 +1783,10 @@ impl InferenceEngine {
         professional: bool,
     ) -> Result<String, String> {
         let current_model = self.current_model();
-        let model = self.worker_model.as_deref().unwrap_or(current_model.as_str());
+        let model = self
+            .worker_model
+            .as_deref()
+            .unwrap_or(current_model.as_str());
         self.generate_task_with_model(prompt, 0.1, professional, model)
             .await
     }
@@ -1782,7 +1822,10 @@ impl InferenceEngine {
 
         let system = self.build_system_prompt(self.snark, 50, false, professional, &[], None, &[]);
         let request_messages = if should_use_gemma_native_formatting(self, model) {
-            prepare_gemma_native_messages(&[ChatMessage::system(&system), ChatMessage::user(prompt)])
+            prepare_gemma_native_messages(&[
+                ChatMessage::system(&system),
+                ChatMessage::user(prompt),
+            ])
         } else {
             vec![ChatMessage::system(&system), ChatMessage::user(prompt)]
         };
@@ -2016,7 +2059,11 @@ pub fn strip_think_blocks(text: &str) -> String {
     // allocation so it can't slip through any branch below.
     let text = {
         let t = text.trim_start();
-        if t.to_lowercase().starts_with("</think>") { &t[8..] } else { text }
+        if t.to_lowercase().starts_with("</think>") {
+            &t[8..]
+        } else {
+            text
+        }
     };
 
     let lower = text.to_lowercase();
@@ -2082,8 +2129,8 @@ pub fn strip_think_blocks(text: &str) -> String {
             let mut start_idx = 0;
             for (i, line) in lines.iter().enumerate() {
                 let l = line.to_lowercase();
-                let is_reasoning_line = naked_reasoning_phrases.iter().any(|p| l.contains(p))
-                    || l.trim().is_empty();
+                let is_reasoning_line =
+                    naked_reasoning_phrases.iter().any(|p| l.contains(p)) || l.trim().is_empty();
                 if is_reasoning_line {
                     start_idx = i + 1;
                 } else {
@@ -2091,7 +2138,11 @@ pub fn strip_think_blocks(text: &str) -> String {
                 }
             }
             if start_idx < lines.len() {
-                return lines[start_idx..].join("\n").trim().replace("\n\n\n", "\n\n").to_string();
+                return lines[start_idx..]
+                    .join("\n")
+                    .trim()
+                    .replace("\n\n\n", "\n\n")
+                    .to_string();
             }
             // Entire response was reasoning prose — return empty.
             return String::new();
@@ -2109,14 +2160,22 @@ pub fn strip_think_blocks(text: &str) -> String {
 fn strip_xml_tool_call_artifacts(text: &str) -> String {
     // Tags to remove (both open and close forms, case-insensitive).
     const XML_ARTIFACTS: &[&str] = &[
-        "</tool_call>", "<tool_call>",
-        "</function>",  "<function>",
-        "</parameter>", "<parameter>",
-        "</arguments>", "<arguments>",
-        "</tool_use>",  "<tool_use>",
-        "</invoke>",    "<invoke>",
+        "</tool_call>",
+        "<tool_call>",
+        "</function>",
+        "<function>",
+        "</parameter>",
+        "<parameter>",
+        "</arguments>",
+        "<arguments>",
+        "</tool_use>",
+        "<tool_use>",
+        "</invoke>",
+        "<invoke>",
         // Stray think/reasoning closing tags that leak after block extraction.
-        "</think>", "</thought>", "</thinking>",
+        "</think>",
+        "</thought>",
+        "</thinking>",
     ];
     let mut out = text.to_string();
     for tag in XML_ARTIFACTS {
@@ -2283,7 +2342,9 @@ fn prepare_gemma_native_messages(messages: &[ChatMessage]) -> Vec<ChatMessage> {
 
     for message in messages {
         if message.role == "system" {
-            let cleaned = strip_legacy_turn_wrappers(message.content.as_str()).trim().to_string();
+            let cleaned = strip_legacy_turn_wrappers(message.content.as_str())
+                .trim()
+                .to_string();
             if !cleaned.is_empty() {
                 system_blocks.push(cleaned);
             }
@@ -2336,9 +2397,9 @@ pub fn strip_native_tool_call_text(text: &str) -> String {
     let re_call = Regex::new(
         r#"(?s)<\|?tool_call\|?>\s*call:[A-Za-z_][A-Za-z0-9_]*\{.*?\}(?:<\|?tool_call\|?>|\[END_TOOL_REQUEST\])"#
     ).unwrap();
-    let re_response = Regex::new(
-        r#"(?s)<\|tool_response\|?>.*?(?:<\|tool_response\|?>|<tool_response\|>)"#
-    ).unwrap();
+    let re_response =
+        Regex::new(r#"(?s)<\|tool_response\|?>.*?(?:<\|tool_response\|?>|<tool_response\|>)"#)
+            .unwrap();
     let without_calls = re_call.replace_all(text, "");
     re_response
         .replace_all(without_calls.as_ref(), "")

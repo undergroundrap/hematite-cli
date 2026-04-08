@@ -33,8 +33,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         services,
         channels,
         watcher_guard: _watcher_guard,
-    } = build_runtime_bundle(&cockpit, &local_soul.species, local_soul.snark, !cockpit.rusty)
-        .await?;
+    } = build_runtime_bundle(
+        &cockpit,
+        &local_soul.species,
+        local_soul.snark,
+        !cockpit.rusty,
+    )
+    .await?;
 
     let hematite::runtime::RuntimeServices {
         engine,

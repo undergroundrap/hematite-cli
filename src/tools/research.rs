@@ -1,8 +1,8 @@
-use serde_json::{Value};
-use reqwest::header::USER_AGENT;
-use std::time::{Duration};
-use std::sync::Mutex;
 use lazy_static::lazy_static;
+use reqwest::header::USER_AGENT;
+use serde_json::Value;
+use std::sync::Mutex;
+use std::time::Duration;
 use std::time::Instant;
 
 lazy_static! {
@@ -15,7 +15,9 @@ lazy_static! {
 /// Perform a zero-cost technical search using DuckDuckGo Lite.
 /// Returns snippets and titles from technical search results.
 pub async fn execute_search(args: &Value) -> Result<String, String> {
-    let query = args.get("query").and_then(|v| v.as_str())
+    let query = args
+        .get("query")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing required argument: 'query'".to_string())?;
 
     // 1. First Attempt: Original Query via Jina Proxy
@@ -25,14 +27,15 @@ pub async fn execute_search(args: &Value) -> Result<String, String> {
     }
 
     // 2. Fallback: Simplified Query if needed
-    let tier2 = query.replace("2024", "")
+    let tier2 = query
+        .replace("2024", "")
         .replace("2025", "")
         .replace("2026", "")
         .replace("crate", "")
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
-    
+
     if tier2 != query {
         let second_results = perform_search(&tier2).await?;
         if !second_results.is_empty() {
@@ -40,7 +43,10 @@ pub async fn execute_search(args: &Value) -> Result<String, String> {
         }
     }
 
-    Ok("No search results found. All web content was safely sanitized. Try a broader search term.".to_string())
+    Ok(
+        "No search results found. All web content was safely sanitized. Try a broader search term."
+            .to_string(),
+    )
 }
 
 /// Proactively strip JSON-like structures and tool-call patterns from web content.
@@ -95,11 +101,14 @@ async fn perform_search(query: &str) -> Result<String, String> {
         request = request.header("Authorization", format!("Bearer {}", key));
     }
 
-    let response = request.send()
+    let response = request
+        .send()
         .await
         .map_err(|e| format!("Failed to connect to search proxy: {e}"))?;
 
-    let markdown = response.text().await
+    let markdown = response
+        .text()
+        .await
         .map_err(|e| format!("Failed to read search response: {e}"))?;
 
     // 3. Safety First: Sanitize all content before the agent reads it.
@@ -111,12 +120,14 @@ async fn perform_search(query: &str) -> Result<String, String> {
 /// Fetch any URL and convert it into clean, agent-ready Markdown using the Jina Reader proxy.
 /// This prevents local IP blocking and ensures structured context for documentation.
 pub async fn execute_fetch(args: &Value) -> Result<String, String> {
-    let url = args.get("url").and_then(|v| v.as_str())
+    let url = args
+        .get("url")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing required argument: 'url'".to_string())?;
 
     // Prefix with Jina Reader - it handles the rendering and markdown conversion for us.
     let proxy_url = format!("https://r.jina.ai/{}", url);
-    
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(25))
         .build()
@@ -130,14 +141,15 @@ pub async fn execute_fetch(args: &Value) -> Result<String, String> {
         request = request.header("Authorization", format!("Bearer {}", key));
     }
 
-    let response = request.send()
+    let response = request
+        .send()
         .await
         .map_err(|e| format!("Failed to connect to documentation proxy: {e}"))?;
 
-    let markdown = response.text().await
+    let markdown = response
+        .text()
+        .await
         .map_err(|e| format!("Failed to read documentation body: {e}"))?;
 
     Ok(markdown)
 }
-
-

@@ -10,7 +10,9 @@ pub enum SpecularEvent {
 }
 
 /// Spawns the OS file watcher asynchronously and transmits internal alerts into via the mpsc channel
-pub fn spawn_watcher(tx: mpsc::Sender<SpecularEvent>) -> Result<RecommendedWatcher, Box<dyn std::error::Error>> {
+pub fn spawn_watcher(
+    tx: mpsc::Sender<SpecularEvent>,
+) -> Result<RecommendedWatcher, Box<dyn std::error::Error>> {
     let (std_tx, std_rx) = std::sync::mpsc::channel();
 
     let mut watcher = notify::RecommendedWatcher::new(std_tx, Config::default())?;
@@ -34,17 +36,18 @@ pub fn spawn_watcher(tx: mpsc::Sender<SpecularEvent>) -> Result<RecommendedWatch
                             if let Some(ext) = path.extension() {
                                 if ext == "rs" {
                                     // 1) File modification identified locally
-                                    let _ = tx.blocking_send(SpecularEvent::FileChanged(path.clone()));
-                                    
+                                    let _ =
+                                        tx.blocking_send(SpecularEvent::FileChanged(path.clone()));
+
                                     // 2) Trigger pseudo-cargo check
-                                    let output = Command::new("cargo")
-                                        .arg("check")
-                                        .output();
+                                    let output = Command::new("cargo").arg("check").output();
 
                                     if let Ok(cmd_out) = output {
                                         if !cmd_out.status.success() {
                                             // 3) Proactive anomaly! Harvest compiler crash and send to AgentLoop
-                                            let error_str = String::from_utf8_lossy(&cmd_out.stderr).to_string();
+                                            let error_str =
+                                                String::from_utf8_lossy(&cmd_out.stderr)
+                                                    .to_string();
                                             let _ = tx.blocking_send(SpecularEvent::SyntaxError {
                                                 path: path.clone(),
                                                 details: error_str,

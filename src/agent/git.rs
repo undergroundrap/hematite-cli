@@ -1,6 +1,6 @@
-use std::process::{Command, Stdio};
-use std::path::Path;
 use std::io;
+use std::path::Path;
+use std::process::{Command, Stdio};
 
 pub fn is_git_repo(path: &Path) -> bool {
     Command::new("git")
@@ -41,9 +41,14 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
         .output()?;
 
     if !tree_output.status.success() {
-        return Err(io::Error::new(io::ErrorKind::Other, "Git write-tree failed"));
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Git write-tree failed",
+        ));
     }
-    let tree_sha = String::from_utf8_lossy(&tree_output.stdout).trim().to_string();
+    let tree_sha = String::from_utf8_lossy(&tree_output.stdout)
+        .trim()
+        .to_string();
 
     // 3. Create a commit object (parent is HEAD)
     let commit_output = Command::new("git")
@@ -59,9 +64,14 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
         .output()?;
 
     if !commit_output.status.success() {
-        return Err(io::Error::new(io::ErrorKind::Other, "Git commit-tree failed"));
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Git commit-tree failed",
+        ));
     }
-    let commit_sha = String::from_utf8_lossy(&commit_output.stdout).trim().to_string();
+    let commit_sha = String::from_utf8_lossy(&commit_output.stdout)
+        .trim()
+        .to_string();
 
     // 4. Update the hidden ghost ref
     let update_status = Command::new("git")
@@ -75,7 +85,10 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
         .status()?;
 
     if !update_status.success() {
-        return Err(io::Error::new(io::ErrorKind::Other, "Git update-ref failed"));
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Git update-ref failed",
+        ));
     }
 
     Ok(())
@@ -95,7 +108,10 @@ pub fn revert_from_ghost(repo_path: &Path, file_path: &str) -> io::Result<String
         .status()?;
 
     if !status.success() {
-        return Err(io::Error::new(io::ErrorKind::Other, "Git checkout from ghost ref failed"));
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Git checkout from ghost ref failed",
+        ));
     }
 
     Ok(format!("Restored {} from Git Ghost ref", file_path))

@@ -1,6 +1,8 @@
 use serde_json::Value;
 
-use crate::agent::config::{permission_for_shell, HematiteConfig, PermissionDecision, PermissionMode};
+use crate::agent::config::{
+    permission_for_shell, HematiteConfig, PermissionDecision, PermissionMode,
+};
 use crate::agent::trust_resolver::{resolve_workspace_trust, WorkspaceTrustPolicy};
 use crate::tools::RiskLevel;
 
@@ -171,8 +173,7 @@ pub fn authorize_tool_call(
             },
             RiskLevel::High => AuthorizationDecision::Ask {
                 source: AuthorizationSource::ShellRiskHigh,
-                reason: "Shell command classified as high risk and requires approval."
-                    .to_string(),
+                reason: "Shell command classified as high risk and requires approval.".to_string(),
             },
         };
     }
@@ -192,7 +193,10 @@ fn is_destructive_tool(name: &str) -> bool {
 
 pub(crate) fn is_path_safe(path: &str) -> bool {
     let p = path.to_lowercase();
-    p.contains(".hematite/") || p.contains(".hematite\\") || p.contains("tmp/") || p.contains("tmp\\")
+    p.contains(".hematite/")
+        || p.contains(".hematite\\")
+        || p.contains("tmp/")
+        || p.contains("tmp\\")
 }
 
 fn trust_sensitive_tool(name: &str) -> bool {

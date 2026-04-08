@@ -5,7 +5,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq)]
 pub enum PermissionMode {
@@ -192,10 +194,7 @@ pub fn effective_voice_volume(config: &HematiteConfig) -> f32 {
     config.voice_volume.unwrap_or(1.0).clamp(0.0, 3.0)
 }
 
-pub fn effective_gemma_native_formatting(
-    config: &HematiteConfig,
-    model_name: &str,
-) -> bool {
+pub fn effective_gemma_native_formatting(config: &HematiteConfig, model_name: &str) -> bool {
     crate::agent::inference::is_gemma4_model_name(model_name)
         && (config.gemma_native_formatting || config.gemma_native_auto)
 }

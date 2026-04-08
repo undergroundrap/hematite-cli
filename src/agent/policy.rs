@@ -17,10 +17,7 @@ pub(crate) fn normalize_workspace_path(path: &str) -> String {
     } else {
         root.join(candidate)
     };
-    joined
-        .to_string_lossy()
-        .replace('\\', "/")
-        .to_lowercase()
+    joined.to_string_lossy().replace('\\', "/").to_lowercase()
 }
 
 fn prompt_explicitly_targets_docs(prompt: &str) -> bool {
@@ -41,10 +38,7 @@ pub(crate) fn is_docs_like_path(path: &str) -> bool {
 }
 
 /// Block docs edits for any task unless the user explicitly asked for docs.
-pub(crate) fn docs_edit_without_explicit_request(
-    prompt: &str,
-    normalized_target: &str,
-) -> bool {
+pub(crate) fn docs_edit_without_explicit_request(prompt: &str, normalized_target: &str) -> bool {
     is_docs_like_path(normalized_target) && !prompt_explicitly_targets_docs(prompt)
 }
 
@@ -162,7 +156,9 @@ mod tests {
     #[test]
     fn mcp_workspace_read_helper_stays_filesystem_scoped_and_non_mutating() {
         assert!(is_mcp_workspace_read_tool("mcp__filesystem__read_file"));
-        assert!(is_mcp_workspace_read_tool("mcp__filesystem__list_directory"));
+        assert!(is_mcp_workspace_read_tool(
+            "mcp__filesystem__list_directory"
+        ));
         assert!(!is_mcp_workspace_read_tool("mcp__filesystem__write_file"));
         assert!(!is_mcp_workspace_read_tool("mcp__custom__read_record"));
         assert!(!is_mcp_workspace_read_tool("grep_files"));
@@ -177,9 +173,6 @@ mod tests {
             tool_path_argument("read_file", &read),
             Some(expected.clone())
         );
-        assert_eq!(
-            tool_path_argument("edit_file", &edit),
-            Some(expected)
-        );
+        assert_eq!(tool_path_argument("edit_file", &edit), Some(expected));
     }
 }

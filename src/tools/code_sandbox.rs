@@ -81,9 +81,8 @@ fn run_deno(code: &str, timeout_secs: u64) -> Result<String, String> {
 /// Python has no built-in permission flags like Deno, so we restrict the
 /// environment and use a short timeout as the primary safety net.
 fn run_python(code: &str, timeout_secs: u64) -> Result<String, String> {
-    let python = find_executable(&["python3", "python"]).ok_or_else(|| {
-        "Python is not installed or not on PATH.".to_string()
-    })?;
+    let python = find_executable(&["python3", "python"])
+        .ok_or_else(|| "Python is not installed or not on PATH.".to_string())?;
 
     let child = Command::new(&python)
         .args([
@@ -149,7 +148,11 @@ fn write_stdin(child: &mut std::process::Child, code: &str) -> Result<(), String
     Ok(())
 }
 
-fn collect_output(child: std::process::Child, runtime: &str, timeout_secs: u64) -> Result<String, String> {
+fn collect_output(
+    child: std::process::Child,
+    runtime: &str,
+    timeout_secs: u64,
+) -> Result<String, String> {
     let timeout = Duration::from_secs(timeout_secs);
     let start = std::time::Instant::now();
 
@@ -191,7 +194,11 @@ fn collect_output(child: std::process::Child, runtime: &str, timeout_secs: u64) 
             Ok(format!("{stdout}\n[stderr]\n{stderr}"))
         }
     } else {
-        let code = output.status.code().map(|c| c.to_string()).unwrap_or_else(|| "?".to_string());
+        let code = output
+            .status
+            .code()
+            .map(|c| c.to_string())
+            .unwrap_or_else(|| "?".to_string());
         Err(format!(
             "Exit code {code}\n{}\n{}",
             stdout.trim(),
@@ -227,7 +234,10 @@ fn find_deno() -> Option<String> {
 
     // 2. Standard deno install path (deno's own installer puts it here)
     if let Ok(home) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
-        let standard = std::path::Path::new(&home).join(".deno").join("bin").join(exe);
+        let standard = std::path::Path::new(&home)
+            .join(".deno")
+            .join("bin")
+            .join(exe);
         if standard.exists() {
             return Some(standard.to_string_lossy().into_owned());
         }
@@ -238,7 +248,9 @@ fn find_deno() -> Option<String> {
     if cfg!(windows) {
         if let Ok(local_app) = std::env::var("LOCALAPPDATA") {
             let winget_base = std::path::Path::new(&local_app)
-                .join("Microsoft").join("WinGet").join("Packages");
+                .join("Microsoft")
+                .join("WinGet")
+                .join("Packages");
             if let Ok(entries) = std::fs::read_dir(&winget_base) {
                 for entry in entries.flatten() {
                     let name = entry.file_name();
@@ -262,8 +274,12 @@ fn find_deno() -> Option<String> {
     if let Ok(out) = check {
         if out.status.success() {
             // Use the resolved path, not just "deno", to avoid shim ambiguity
-            let resolved = String::from_utf8_lossy(&out.stdout).trim().lines().next()
-                .unwrap_or("deno").to_string();
+            let resolved = String::from_utf8_lossy(&out.stdout)
+                .trim()
+                .lines()
+                .next()
+                .unwrap_or("deno")
+                .to_string();
             return Some(resolved);
         }
     }

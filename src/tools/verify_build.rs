@@ -4,8 +4,8 @@ use serde_json::Value;
 const BUILD_TIMEOUT_SECS: u64 = 120;
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| format!("Cannot determine working directory: {e}"))?;
+    let cwd =
+        std::env::current_dir().map_err(|e| format!("Cannot determine working directory: {e}"))?;
     let action = args
         .get("action")
         .and_then(|v| v.as_str())
@@ -22,7 +22,9 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             )
         })?;
         if let Some(command) = profile_command(profile, action) {
-            let timeout_secs = timeout_override.or(profile.timeout_secs).unwrap_or(BUILD_TIMEOUT_SECS);
+            let timeout_secs = timeout_override
+                .or(profile.timeout_secs)
+                .unwrap_or(BUILD_TIMEOUT_SECS);
             return run_profile_command(profile_name, action, command, timeout_secs).await;
         }
 
@@ -41,7 +43,9 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             )
         })?;
         if let Some(command) = profile_command(profile, action) {
-            let timeout_secs = timeout_override.or(profile.timeout_secs).unwrap_or(BUILD_TIMEOUT_SECS);
+            let timeout_secs = timeout_override
+                .or(profile.timeout_secs)
+                .unwrap_or(BUILD_TIMEOUT_SECS);
             return run_profile_command(default_profile, action, command, timeout_secs).await;
         }
 

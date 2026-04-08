@@ -26,12 +26,7 @@ fn prune_ghost_backups(ghost_dir: &Path) {
         })
         .collect();
 
-    backups.sort_by_key(|entry| {
-        entry
-            .metadata()
-            .and_then(|meta| meta.modified())
-            .ok()
-    });
+    backups.sort_by_key(|entry| entry.metadata().and_then(|meta| meta.modified()).ok());
     backups.reverse();
 
     let retained: std::collections::HashSet<String> = backups
@@ -76,7 +71,7 @@ fn prune_ghost_backups(ghost_dir: &Path) {
 
 fn save_ghost_backup(target_path: &str, content: &str) {
     let ws = workspace_root();
-    
+
     // Phase 1: Try Git Ghost Snapshot
     if crate::agent::git::is_git_repo(&ws) {
         let _ = crate::agent::git::create_ghost_snapshot(&ws);
@@ -85,13 +80,23 @@ fn save_ghost_backup(target_path: &str, content: &str) {
     // Phase 2: Fallback to local file backup (Ghost Ledger)
     let ghost_dir = ws.join(".hematite").join("ghost");
     let _ = fs::create_dir_all(&ghost_dir);
-    let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
-    let safe_name = Path::new(target_path).file_name().unwrap_or_default().to_string_lossy();
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let safe_name = Path::new(target_path)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy();
     let backup_file = ghost_dir.join(format!("{}_{}.bak", ts, safe_name));
-    
+
     if fs::write(&backup_file, content).is_ok() {
         use std::io::Write;
-        if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(ghost_dir.join("ledger.txt")) {
+        if let Ok(mut f) = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(ghost_dir.join("ledger.txt"))
+        {
             let _ = writeln!(f, "{}|{}", target_path, backup_file.display());
         }
         prune_ghost_backups(&ghost_dir);
@@ -102,24 +107,24 @@ pub fn pop_ghost_ledger() -> Result<String, String> {
     let ws = workspace_root();
     let ghost_dir = ws.join(".hematite").join("ghost");
     let ledger_path = ghost_dir.join("ledger.txt");
-    
+
     if !ledger_path.exists() {
         return Err("Ghost Ledger is empty — no edits to undo".into());
     }
 
     let content = fs::read_to_string(&ledger_path).map_err(|e| e.to_string())?;
     let mut lines: Vec<&str> = content.lines().filter(|l| !l.is_empty()).collect();
-    
+
     if lines.is_empty() {
         return Err("Ghost Ledger is empty".into());
     }
-    
+
     let last_line = lines.pop().unwrap();
     let parts: Vec<&str> = last_line.splitn(2, '|').collect();
     if parts.len() != 2 {
         return Err("Corrupted ledger entry".into());
     }
-    
+
     let target_path = parts[0];
     let backup_path = parts[1];
 
@@ -128,20 +133,35 @@ pub fn pop_ghost_ledger() -> Result<String, String> {
         if let Ok(msg) = crate::agent::git::revert_from_ghost(&ws, target_path) {
             let _ = fs::remove_file(backup_path);
             let new_ledger = lines.join("\n");
-            let _ = fs::write(&ledger_path, if new_ledger.is_empty() { String::new() } else { new_ledger + "\n" });
+            let _ = fs::write(
+                &ledger_path,
+                if new_ledger.is_empty() {
+                    String::new()
+                } else {
+                    new_ledger + "\n"
+                },
+            );
             return Ok(msg);
         }
     }
-    
+
     // Priority 2: Standard File Rollback
-    let original_content = fs::read_to_string(backup_path).map_err(|e| format!("Failed to read backup: {e}"))?;
+    let original_content =
+        fs::read_to_string(backup_path).map_err(|e| format!("Failed to read backup: {e}"))?;
     let abs_target = ws.join(target_path);
     fs::write(&abs_target, original_content).map_err(|e| format!("Failed to restore file: {e}"))?;
-    
+
     let new_ledger = lines.join("\n");
-    let _ = fs::write(&ledger_path, if new_ledger.is_empty() { String::new() } else { new_ledger + "\n" });
+    let _ = fs::write(
+        &ledger_path,
+        if new_ledger.is_empty() {
+            String::new()
+        } else {
+            new_ledger + "\n"
+        },
+    );
     let _ = fs::remove_file(backup_path);
-    
+
     Ok(format!("Restored {} from Ghost Ledger", target_path))
 }
 
@@ -150,16 +170,15 @@ pub fn pop_ghost_ledger() -> Result<String, String> {
 pub async fn read_file(args: &Value) -> Result<String, String> {
     let path = require_str(args, "path")?;
     let offset = get_usize_arg(args, "offset");
-    let limit  = get_usize_arg(args, "limit");
+    let limit = get_usize_arg(args, "limit");
 
     let abs = safe_path(path)?;
-    let raw = fs::read_to_string(&abs)
-        .map_err(|e| format!("read_file: {e} ({path})"))?;
+    let raw = fs::read_to_string(&abs).map_err(|e| format!("read_file: {e} ({path})"))?;
 
     let lines: Vec<&str> = raw.lines().collect();
     let total = lines.len();
     let start = offset.unwrap_or(0).min(total);
-    let end   = limit.map(|n| (start + n).min(total)).unwrap_or(total);
+    let end = limit.map(|n| (start + n).min(total)).unwrap_or(total);
 
     let mut content = lines[start..end].join("\n");
     if end < total {
@@ -171,7 +190,10 @@ pub async fn read_file(args: &Value) -> Result<String, String> {
 
     Ok(format!(
         "[{path}  lines {}-{} of {}]\n{}",
-        start + 1, end, total, content
+        start + 1,
+        end,
+        total,
+        content
     ))
 }
 
@@ -180,34 +202,41 @@ pub async fn read_file(args: &Value) -> Result<String, String> {
 pub async fn inspect_lines(args: &Value) -> Result<String, String> {
     let path = require_str(args, "path")?;
     let start_line = get_usize_arg(args, "start_line").unwrap_or(1);
-    let end_line   = get_usize_arg(args, "end_line");
+    let end_line = get_usize_arg(args, "end_line");
 
     let abs = safe_path(path)?;
-    let raw = fs::read_to_string(&abs)
-        .map_err(|e| format!("inspect_lines: {e} ({path})"))?;
+    let raw = fs::read_to_string(&abs).map_err(|e| format!("inspect_lines: {e} ({path})"))?;
 
     let lines: Vec<&str> = raw.lines().collect();
     let total = lines.len();
-    
+
     let start = start_line.saturating_sub(1).min(total);
-    let end   = end_line.unwrap_or(total).min(total);
+    let end = end_line.unwrap_or(total).min(total);
 
     if start >= end && total > 0 {
-        return Err(format!("inspect_lines: start_line ({start_line}) must be <= end_line ({})", end_line.unwrap_or(total)));
+        return Err(format!(
+            "inspect_lines: start_line ({start_line}) must be <= end_line ({})",
+            end_line.unwrap_or(total)
+        ));
     }
 
-    let mut output = format!("[inspect_lines: {path} lines {}-{} of {}]\n", start + 1, end, total);
+    let mut output = format!(
+        "[inspect_lines: {path} lines {}-{} of {}]\n",
+        start + 1,
+        end,
+        total
+    );
     for i in start..end {
         output.push_str(&format!("[{:>4}] | {}\n", i + 1, lines[i]));
     }
-    
+
     Ok(output)
 }
 
 // ── write_file ────────────────────────────────────────────────────────────────
 
 pub async fn write_file(args: &Value) -> Result<String, String> {
-    let path    = require_str(args, "path")?;
+    let path = require_str(args, "path")?;
     let content = require_str(args, "content")?;
 
     let abs = safe_path_allow_new(path)?;
@@ -222,9 +251,8 @@ pub async fn write_file(args: &Value) -> Result<String, String> {
             save_ghost_backup(path, &orig);
         }
     }
-    
-    fs::write(&abs, content)
-        .map_err(|e| format!("write_file: {e} ({path})"))?;
+
+    fs::write(&abs, content).map_err(|e| format!("write_file: {e} ({path})"))?;
 
     let action = if existed { "Updated" } else { "Created" };
     Ok(format!("{action} {path}  ({} bytes)", content.len()))
@@ -233,25 +261,30 @@ pub async fn write_file(args: &Value) -> Result<String, String> {
 // ── edit_file ─────────────────────────────────────────────────────────────────
 
 pub async fn edit_file(args: &Value) -> Result<String, String> {
-    let path    = require_str(args, "path")?;
-    let search  = require_str(args, "search")?;
+    let path = require_str(args, "path")?;
+    let search = require_str(args, "search")?;
     let replace = require_str(args, "replace")?;
-    let replace_all = args.get("replace_all").and_then(|v| v.as_bool()).unwrap_or(false);
+    let replace_all = args
+        .get("replace_all")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     if search == replace {
         return Err("edit_file: 'search' and 'replace' are identical — no change needed".into());
     }
 
     let abs = safe_path(path)?;
-    let raw = fs::read_to_string(&abs)
-        .map_err(|e| format!("edit_file: {e} ({path})"))?;
+    let raw = fs::read_to_string(&abs).map_err(|e| format!("edit_file: {e} ({path})"))?;
     // Normalize CRLF → LF so search strings from the model (always LF) match on Windows.
     let original = raw.replace("\r\n", "\n");
 
     save_ghost_backup(path, &original);
 
     let search_trimmed = search.trim();
-    let search_non_ws_len = search_trimmed.chars().filter(|c| !c.is_whitespace()).count();
+    let search_non_ws_len = search_trimmed
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .count();
     let search_line_count = search_trimmed.lines().count();
     if search_non_ws_len < 12 && search_line_count <= 1 {
         return Err(format!(
@@ -300,13 +333,16 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
         original.replacen(effective_search.as_str(), replace, 1)
     };
 
-    fs::write(&abs, &updated)
-        .map_err(|e| format!("edit_file: write failed: {e}"))?;
+    fs::write(&abs, &updated).map_err(|e| format!("edit_file: write failed: {e}"))?;
 
     let removed = original.lines().count();
-    let added   = updated.lines().count();
-    let repair_note = if was_repaired { "  [whitespace auto-corrected]" } else { "" };
-    
+    let added = updated.lines().count();
+    let repair_note = if was_repaired {
+        "  [whitespace auto-corrected]"
+    } else {
+        ""
+    };
+
     let mut diff_block = String::new();
     diff_block.push_str("\n--- DIFF \n");
     for line in effective_search.lines() {
@@ -325,22 +361,24 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
 // ── patch_hunk ────────────────────────────────────────────────────────────────
 
 pub async fn patch_hunk(args: &Value) -> Result<String, String> {
-    let path       = require_str(args, "path")?;
+    let path = require_str(args, "path")?;
     let start_line = require_usize(args, "start_line")?;
-    let end_line   = require_usize(args, "end_line")?;
+    let end_line = require_usize(args, "end_line")?;
     let replacement = require_str(args, "replacement")?;
 
     let abs = safe_path(path)?;
-    let original = fs::read_to_string(&abs)
-        .map_err(|e| format!("patch_hunk: {e} ({path})"))?;
-    
+    let original = fs::read_to_string(&abs).map_err(|e| format!("patch_hunk: {e} ({path})"))?;
+
     save_ghost_backup(path, &original);
 
     let lines: Vec<String> = original.lines().map(|s| s.to_string()).collect();
     let total = lines.len();
 
     if start_line < 1 || start_line > total || end_line < start_line || end_line > total {
-        return Err(format!("patch_hunk: invalid line range {}-{} for file with {} lines", start_line, end_line, total));
+        return Err(format!(
+            "patch_hunk: invalid line range {}-{} for file with {} lines",
+            start_line, end_line, total
+        ));
     }
 
     let mut updated_lines = Vec::new();
@@ -350,7 +388,7 @@ pub async fn patch_hunk(args: &Value) -> Result<String, String> {
 
     // 1. Lines before the hunk
     updated_lines.extend_from_slice(&lines[0..s_idx]);
-    
+
     // 2. The hunk replacement
     for line in replacement.lines() {
         updated_lines.push(line.to_string());
@@ -362,8 +400,7 @@ pub async fn patch_hunk(args: &Value) -> Result<String, String> {
     }
 
     let updated_content = updated_lines.join("\n");
-    fs::write(&abs, &updated_content)
-        .map_err(|e| format!("patch_hunk: write failed: {e}"))?;
+    fs::write(&abs, &updated_content).map_err(|e| format!("patch_hunk: write failed: {e}"))?;
 
     let mut diff = String::new();
     diff.push_str("\n--- HUNK DIFF ---\n");
@@ -376,7 +413,11 @@ pub async fn patch_hunk(args: &Value) -> Result<String, String> {
 
     Ok(format!(
         "Patched {path} lines {}-{} ({} -> {} lines){}",
-        start_line, end_line, (e_idx - s_idx), replacement.lines().count(), diff
+        start_line,
+        end_line,
+        (e_idx - s_idx),
+        replacement.lines().count(),
+        diff
     ))
 }
 
@@ -390,8 +431,10 @@ struct SearchReplaceHunk {
 
 pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
     let path = require_str(args, "path")?;
-    let hunks_val = args.get("hunks").ok_or_else(|| "multi_search_replace requires 'hunks' array".to_string())?;
-    
+    let hunks_val = args
+        .get("hunks")
+        .ok_or_else(|| "multi_search_replace requires 'hunks' array".to_string())?;
+
     let hunks: Vec<SearchReplaceHunk> = serde_json::from_value(hunks_val.clone())
         .map_err(|e| format!("multi_search_replace: invalid hunks array: {e}"))?;
 
@@ -400,8 +443,8 @@ pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
     }
 
     let abs = safe_path(path)?;
-    let raw = fs::read_to_string(&abs)
-        .map_err(|e| format!("multi_search_replace: {e} ({path})"))?;
+    let raw =
+        fs::read_to_string(&abs).map_err(|e| format!("multi_search_replace: {e} ({path})"))?;
     // Normalize CRLF → LF so search strings from the model (always LF) match on Windows.
     let original = raw.replace("\r\n", "\n");
 
@@ -412,7 +455,7 @@ pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
     diff.push_str("\n--- SEARCH & REPLACE DIFF ---\n");
 
     let mut patched_hunks = 0;
-    
+
     for (i, hunk) in hunks.iter().enumerate() {
         let match_count = current_content.matches(&hunk.search).count();
         if match_count == 0 {
@@ -446,7 +489,7 @@ pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
 // ── list_files ────────────────────────────────────────────────────────────────
 
 pub async fn list_files(args: &Value) -> Result<String, String> {
-    let started  = Instant::now();
+    let started = Instant::now();
     let base_str = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
     let ext_filter = args.get("extension").and_then(|v| v.as_str());
 
@@ -495,7 +538,11 @@ pub async fn list_files(args: &Value) -> Result<String, String> {
         "{} file(s) in {}  ({ms}ms){}",
         total.min(LIMIT),
         base_str,
-        if truncated { "  [truncated at 200]" } else { "" }
+        if truncated {
+            "  [truncated at 200]"
+        } else {
+            ""
+        }
     );
     out.push('\n');
     out.push_str(&shown.join("\n"));
@@ -505,18 +552,21 @@ pub async fn list_files(args: &Value) -> Result<String, String> {
 // ── grep_files ────────────────────────────────────────────────────────────────
 
 pub async fn grep_files(args: &Value) -> Result<String, String> {
-    let pattern          = require_str(args, "pattern")?;
-    let base_str         = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
-    let ext_filter       = args.get("extension").and_then(|v| v.as_str());
-    let case_insensitive = args.get("case_insensitive").and_then(|v| v.as_bool()).unwrap_or(true);
-    let files_only       = args.get("mode").and_then(|v| v.as_str()) == Some("files_only");
-    let head_limit       = get_usize_arg(args, "head_limit").unwrap_or(50);
-    let offset           = get_usize_arg(args, "offset").unwrap_or(0);
+    let pattern = require_str(args, "pattern")?;
+    let base_str = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
+    let ext_filter = args.get("extension").and_then(|v| v.as_str());
+    let case_insensitive = args
+        .get("case_insensitive")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let files_only = args.get("mode").and_then(|v| v.as_str()) == Some("files_only");
+    let head_limit = get_usize_arg(args, "head_limit").unwrap_or(50);
+    let offset = get_usize_arg(args, "offset").unwrap_or(0);
 
     // Context lines: `context` sets both before+after; `before`/`after` override individually.
-    let ctx_default      = get_usize_arg(args, "context").unwrap_or(0);
-    let before           = get_usize_arg(args, "before").unwrap_or(ctx_default);
-    let after            = get_usize_arg(args, "after").unwrap_or(ctx_default);
+    let ctx_default = get_usize_arg(args, "context").unwrap_or(0);
+    let before = get_usize_arg(args, "before").unwrap_or(ctx_default);
+    let after = get_usize_arg(args, "after").unwrap_or(ctx_default);
 
     let base = safe_path(base_str)?;
 
@@ -531,13 +581,21 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
 
         for entry in WalkDir::new(&base).follow_links(false) {
             let entry = entry.map_err(|e| format!("grep_files: {e}"))?;
-            if !entry.file_type().is_file() { continue; }
-            let p = entry.path();
-            if path_has_hidden_segment(p) { continue; }
-            if let Some(ext) = ext_filter {
-                if p.extension().and_then(|s| s.to_str()) != Some(ext) { continue; }
+            if !entry.file_type().is_file() {
+                continue;
             }
-            let Ok(contents) = fs::read_to_string(p) else { continue };
+            let p = entry.path();
+            if path_has_hidden_segment(p) {
+                continue;
+            }
+            if let Some(ext) = ext_filter {
+                if p.extension().and_then(|s| s.to_str()) != Some(ext) {
+                    continue;
+                }
+            }
+            let Ok(contents) = fs::read_to_string(p) else {
+                continue;
+            };
             if contents.lines().any(|line| regex.is_match(line)) {
                 matched_files.push(p.display().to_string());
             }
@@ -548,11 +606,19 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
         }
 
         let total = matched_files.len();
-        let page: Vec<_> = matched_files.into_iter().skip(offset).take(head_limit).collect();
+        let page: Vec<_> = matched_files
+            .into_iter()
+            .skip(offset)
+            .take(head_limit)
+            .collect();
         let showing = page.len();
         let mut out = format!("{total} file(s) match '{pattern}'");
         if offset > 0 || showing < total {
-            out.push_str(&format!(" [showing {}-{} of {total}]", offset + 1, offset + showing));
+            out.push_str(&format!(
+                " [showing {}-{} of {total}]",
+                offset + 1,
+                offset + showing
+            ));
         }
         out.push('\n');
         out.push_str(&page.join("\n"));
@@ -574,30 +640,48 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
 
     for entry in WalkDir::new(&base).follow_links(false) {
         let entry = entry.map_err(|e| format!("grep_files: {e}"))?;
-        if !entry.file_type().is_file() { continue; }
-        let p = entry.path();
-        if path_has_hidden_segment(p) { continue; }
-        if let Some(ext) = ext_filter {
-            if p.extension().and_then(|s| s.to_str()) != Some(ext) { continue; }
+        if !entry.file_type().is_file() {
+            continue;
         }
-        let Ok(contents) = fs::read_to_string(p) else { continue };
+        let p = entry.path();
+        if path_has_hidden_segment(p) {
+            continue;
+        }
+        if let Some(ext) = ext_filter {
+            if p.extension().and_then(|s| s.to_str()) != Some(ext) {
+                continue;
+            }
+        }
+        let Ok(contents) = fs::read_to_string(p) else {
+            continue;
+        };
         let all_lines: Vec<&str> = contents.lines().collect();
         let n = all_lines.len();
 
         // Find all match indices in this file.
-        let match_idxs: Vec<usize> = all_lines.iter().enumerate()
+        let match_idxs: Vec<usize> = all_lines
+            .iter()
+            .enumerate()
             .filter(|(_, line)| regex.is_match(line))
             .map(|(i, _)| i)
             .collect();
 
-        if match_idxs.is_empty() { continue; }
+        if match_idxs.is_empty() {
+            continue;
+        }
         files_matched += 1;
         total_matches += match_idxs.len();
 
         // Merge overlapping ranges into hunks.
         let path_str = p.display().to_string();
-        let mut ranges: Vec<(usize, usize)> = match_idxs.iter()
-            .map(|&i| (i.saturating_sub(before), (i + after).min(n.saturating_sub(1))))
+        let mut ranges: Vec<(usize, usize)> = match_idxs
+            .iter()
+            .map(|&i| {
+                (
+                    i.saturating_sub(before),
+                    (i + after).min(n.saturating_sub(1)),
+                )
+            })
             .collect();
 
         // Sort and merge overlapping ranges.
@@ -605,7 +689,10 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
         let mut merged: Vec<(usize, usize)> = Vec::new();
         for (s, e) in ranges {
             if let Some(last) = merged.last_mut() {
-                if s <= last.1 + 1 { last.1 = last.1.max(e); continue; }
+                if s <= last.1 + 1 {
+                    last.1 = last.1.max(e);
+                    continue;
+                }
             }
             merged.push((s, e));
         }
@@ -617,7 +704,10 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
             for i in start..=end {
                 hunk_lines.push((i + 1, all_lines[i].to_string(), match_set.contains(&i)));
             }
-            hunks.push(Hunk { path: path_str.clone(), lines: hunk_lines });
+            hunks.push(Hunk {
+                path: path_str.clone(),
+                lines: hunk_lines,
+            });
         }
     }
 
@@ -629,16 +719,21 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
     let page_hunks: Vec<_> = hunks.into_iter().skip(offset).take(head_limit).collect();
     let showing = page_hunks.len();
 
-    let mut out = format!(
-        "{total_matches} match(es) across {files_matched} file(s), {total_hunks} hunk(s)"
-    );
+    let mut out =
+        format!("{total_matches} match(es) across {files_matched} file(s), {total_hunks} hunk(s)");
     if offset > 0 || showing < total_hunks {
-        out.push_str(&format!(" [hunks {}-{} of {total_hunks}]", offset + 1, offset + showing));
+        out.push_str(&format!(
+            " [hunks {}-{} of {total_hunks}]",
+            offset + 1,
+            offset + showing
+        ));
     }
     out.push('\n');
 
     for (i, hunk) in page_hunks.iter().enumerate() {
-        if i > 0 { out.push_str("\n--\n"); }
+        if i > 0 {
+            out.push_str("\n--\n");
+        }
         for (lineno, text, is_match) in &hunk.lines {
             if *is_match {
                 out.push_str(&format!("{}:{}:{}\n", hunk.path, lineno, text));
@@ -664,8 +759,7 @@ fn get_usize_arg(args: &Value, key: &str) -> Option<usize> {
 }
 
 fn require_usize(args: &Value, key: &str) -> Result<usize, String> {
-    get_usize_arg(args, key)
-        .ok_or_else(|| format!("Missing required numeric argument: '{key}'"))
+    get_usize_arg(args, key).ok_or_else(|| format!("Missing required numeric argument: '{key}'"))
 }
 
 fn value_as_usize(value: &Value) -> Option<usize> {
@@ -688,9 +782,7 @@ fn value_as_usize(value: &Value) -> Option<usize> {
         return None;
     }
 
-    value
-        .as_str()
-        .and_then(|s| s.trim().parse::<usize>().ok())
+    value.as_str().and_then(|s| s.trim().parse::<usize>().ok())
 }
 
 // ── Path helpers ──────────────────────────────────────────────────────────────
@@ -713,7 +805,9 @@ fn safe_path_allow_new(path: &str) -> Result<PathBuf, String> {
 
     // File doesn't exist yet — canonicalize the parent, append the filename.
     let parent = candidate.parent().unwrap_or(Path::new("."));
-    let name   = candidate.file_name().ok_or_else(|| format!("invalid path: {path}"))?;
+    let name = candidate
+        .file_name()
+        .ok_or_else(|| format!("invalid path: {path}"))?;
     let abs_parent = parent
         .canonicalize()
         .map_err(|_| format!("safe_path: parent dir doesn't exist for {path}"))?;
@@ -743,8 +837,7 @@ fn canonicalize_safe(candidate: &Path, original: &str) -> Result<PathBuf, String
 
 fn check_workspace_bounds(abs: &Path, original: &str) -> Result<(), String> {
     // Delegate to the existing guard for blacklist + traversal checks.
-    let workspace = std::env::current_dir()
-        .map_err(|e| format!("could not read cwd: {e}"))?;
+    let workspace = std::env::current_dir().map_err(|e| format!("could not read cwd: {e}"))?;
     super::guard::path_is_safe(&workspace, abs)
         .map(|_| ())
         .map_err(|e| format!("file access denied for '{original}': {e}"))
@@ -765,7 +858,8 @@ fn path_has_hidden_segment(p: &Path) -> bool {
 /// so the model can see the real indentation/content and self-correct.
 fn nearest_lines(content: &str, search: &str) -> String {
     // Try to find the best-matching line by the first non-empty search line.
-    let first_search_line = search.lines()
+    let first_search_line = search
+        .lines()
         .map(|l| l.trim())
         .find(|l| !l.is_empty())
         .unwrap_or("");
@@ -779,11 +873,15 @@ fn nearest_lines(content: &str, search: &str) -> String {
     let best_idx = if first_search_line.is_empty() {
         0
     } else {
-        lines.iter().enumerate()
+        lines
+            .iter()
+            .enumerate()
             .max_by_key(|(_, l)| {
                 let lt = l.trim();
                 // Score: length of longest common prefix after trimming.
-                first_search_line.chars().zip(lt.chars())
+                first_search_line
+                    .chars()
+                    .zip(lt.chars())
                     .take_while(|(a, b)| a == b)
                     .count()
             })
@@ -792,7 +890,7 @@ fn nearest_lines(content: &str, search: &str) -> String {
     };
 
     let start = best_idx.saturating_sub(3);
-    let end   = (best_idx + 5).min(lines.len());
+    let end = (best_idx + 5).min(lines.len());
     let snippet = lines[start..end]
         .iter()
         .enumerate()
@@ -800,7 +898,12 @@ fn nearest_lines(content: &str, search: &str) -> String {
         .collect::<Vec<_>>()
         .join("\n");
 
-    format!("Nearest matching lines ({}:{}):\n{}", best_idx + 1, end, snippet)
+    format!(
+        "Nearest matching lines ({}:{}):\n{}",
+        best_idx + 1,
+        end,
+        snippet
+    )
 }
 
 /// Fuzzy match: normalise both sides (trim trailing whitespace per line,
@@ -811,14 +914,14 @@ fn nearest_lines(content: &str, search: &str) -> String {
 fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>> {
     // Normalise a string: CRLF→LF, trim both leading and trailing whitespace on each line.
     fn normalise(s: &str) -> String {
-        s.lines()
-            .map(|l| l.trim())
-            .collect::<Vec<_>>()
-            .join("\n")
+        s.lines().map(|l| l.trim()).collect::<Vec<_>>().join("\n")
     }
 
     let norm_content = normalise(content);
-    let norm_search  = normalise(search).trim_start_matches('\n').trim_end_matches('\n').to_string();
+    let norm_search = normalise(search)
+        .trim_start_matches('\n')
+        .trim_end_matches('\n')
+        .to_string();
 
     if norm_search.is_empty() {
         return None;
@@ -829,8 +932,17 @@ fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>
 
     // Map the byte position back into the original (non-normalised) content.
     // We do this by counting newlines up to norm_pos and replaying through original.
-    let lines_before = norm_content[..norm_pos].as_bytes().iter().filter(|&&b| b == b'\n').count();
-    let search_lines = norm_search.as_bytes().iter().filter(|&&b| b == b'\n').count() + 1;
+    let lines_before = norm_content[..norm_pos]
+        .as_bytes()
+        .iter()
+        .filter(|&&b| b == b'\n')
+        .count();
+    let search_lines = norm_search
+        .as_bytes()
+        .iter()
+        .filter(|&&b| b == b'\n')
+        .count()
+        + 1;
 
     let orig_lines: Vec<&str> = content.lines().collect();
 
@@ -859,7 +971,7 @@ fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>
     if byte_start + byte_len > content.len() {
         return None;
     }
-    
+
     let candidate = &content[byte_start..byte_start + byte_len];
     if normalise(candidate).trim_end_matches('\n') == norm_search.as_str() {
         Some(byte_start..byte_start + byte_len)
@@ -872,7 +984,10 @@ fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>
 pub fn workspace_root() -> PathBuf {
     let mut current = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     loop {
-        if current.join(".git").exists() || current.join("Cargo.toml").exists() || current.join("package.json").exists() {
+        if current.join(".git").exists()
+            || current.join("Cargo.toml").exists()
+            || current.join("package.json").exists()
+        {
             return current;
         }
         if !current.pop() {
@@ -888,12 +1003,19 @@ pub async fn map_project(_args: &Value) -> Result<String, String> {
     let root = workspace_root();
     let mut report = String::new();
     report.push_str(&format!("Project Root: {}\n", root.display()));
-    
+
     // ── Layer 1: Configuration DNA ───────────────────────────────────────────
     report.push_str("\n── Configuration DNA ──\n");
     let markers = [
-        "Cargo.toml", "package.json", "go.mod", "requirements.txt", "pyproject.toml",
-        "README.md", "CLAUDE.md", "Taskfile.yml", ".env.example"
+        "Cargo.toml",
+        "package.json",
+        "go.mod",
+        "requirements.txt",
+        "pyproject.toml",
+        "README.md",
+        "CLAUDE.md",
+        "Taskfile.yml",
+        ".env.example",
     ];
     for marker in &markers {
         let path = root.join(marker);
@@ -910,18 +1032,20 @@ pub async fn map_project(_args: &Value) -> Result<String, String> {
     let mut lines = Vec::new();
     build_tree(&root, 0, &mut lines)?;
     report.push_str(&lines.join("\n"));
-    
+
     Ok(report)
 }
 
 fn build_tree(dir: &PathBuf, depth: usize, lines: &mut Vec<String>) -> Result<(), String> {
-    if depth > 4 { return Ok(()); } // Cap depth to prevent token explosion
-    
+    if depth > 4 {
+        return Ok(());
+    } // Cap depth to prevent token explosion
+
     let mut entries: Vec<_> = std::fs::read_dir(dir)
         .map_err(|e| format!("Failed to read dir {dir:?}: {e}"))?
         .filter_map(Result::ok)
         .collect();
-        
+
     entries.sort_by_key(|e| (e.file_type().unwrap().is_file(), e.file_name()));
 
     for entry in entries {
@@ -929,11 +1053,15 @@ fn build_tree(dir: &PathBuf, depth: usize, lines: &mut Vec<String>) -> Result<()
         if name.starts_with('.') || name == "target" || name == "node_modules" || name == "vendor" {
             continue;
         }
-        
+
         let indent = "  ".repeat(depth);
-        let prefix = if entry.file_type().unwrap().is_dir() { "📁 " } else { "📄 " };
+        let prefix = if entry.file_type().unwrap().is_dir() {
+            "📁 "
+        } else {
+            "📄 "
+        };
         lines.push(format!("{indent}{prefix}{name}"));
-        
+
         if entry.file_type().unwrap().is_dir() {
             build_tree(&entry.path(), depth + 1, lines)?;
         }

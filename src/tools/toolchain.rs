@@ -2,9 +2,8 @@ use serde_json::Value;
 
 pub async fn describe_toolchain(args: &Value) -> Result<String, String> {
     let topic = args.get("topic").and_then(|v| v.as_str()).unwrap_or("all");
-    let question = normalize_question_label(
-        args.get("question").and_then(|v| v.as_str()).unwrap_or(""),
-    );
+    let question =
+        normalize_question_label(args.get("question").and_then(|v| v.as_str()).unwrap_or(""));
 
     match topic {
         "read_only_codebase" => Ok(describe_read_only_codebase_tools()),
@@ -33,7 +32,9 @@ fn describe_best_plan_for_question(question: &str) -> String {
 fn is_voice_latency_question(question: &str) -> bool {
     let lower = question.to_lowercase();
     (lower.contains("voice output") || lower.contains("voice"))
-        && (lower.contains("lag") || lower.contains("behind visible text") || lower.contains("latency"))
+        && (lower.contains("lag")
+            || lower.contains("behind visible text")
+            || lower.contains("latency"))
 }
 
 fn normalize_question_label(question: &str) -> &str {
@@ -45,7 +46,11 @@ fn normalize_question_label(question: &str) -> &str {
     if let Some(idx) = trimmed.find("Question:") {
         let after = trimmed[idx + "Question:".len()..].trim();
         if !after.is_empty() {
-            let requirement_markers = ["Requirements:", "Requirement:", "Initial Investigation Order"];
+            let requirement_markers = [
+                "Requirements:",
+                "Requirement:",
+                "Initial Investigation Order",
+            ];
             let mut end = after.len();
             for marker in requirement_markers {
                 if let Some(marker_idx) = after.find(marker) {

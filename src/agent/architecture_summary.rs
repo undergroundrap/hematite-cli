@@ -44,7 +44,10 @@ pub(crate) fn prune_read_only_context_bloat_batch(
     let mut kept = Vec::new();
     let mut dropped = Vec::new();
     for call in calls {
-        if matches!(call.function.name.as_str(), "auto_pin_context" | "list_pinned") {
+        if matches!(
+            call.function.name.as_str(),
+            "auto_pin_context" | "list_pinned"
+        ) {
             dropped.push(call.function.name.clone());
         } else {
             kept.push(call);
@@ -178,7 +181,10 @@ fn collect_project_map_bullets(report: &str, header: &str, limit: usize) -> Vec<
             continue;
         }
 
-        if trimmed.starts_with("-- ") || trimmed == "Likely entrypoints" || trimmed == "Core owner files" {
+        if trimmed.starts_with("-- ")
+            || trimmed == "Likely entrypoints"
+            || trimmed == "Core owner files"
+        {
             if !bullets.is_empty() {
                 break;
             }
@@ -225,7 +231,8 @@ pub(crate) fn summarize_project_map_output(report: &str) -> String {
             .collect();
     }
 
-    let mut lines = vec!["Based on `map_project`, the grounded architecture summary is:".to_string()];
+    let mut lines =
+        vec!["Based on `map_project`, the grounded architecture summary is:".to_string()];
 
     if !entrypoints.is_empty() {
         lines.push(String::new());

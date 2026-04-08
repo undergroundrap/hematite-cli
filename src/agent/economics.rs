@@ -82,6 +82,7 @@ impl SessionEconomics {
                 }).collect::<Vec<_>>(),
                 "simulated_cost_usd": self.simulated_cost()
             }
-        }).to_string()
+        })
+        .to_string()
     }
 }

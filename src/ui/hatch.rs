@@ -1,9 +1,13 @@
+use crossterm::{
+    cursor::MoveTo,
+    terminal::{Clear, ClearType},
+    ExecutableCommand,
+};
 use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::env;
+use std::hash::{Hash, Hasher};
 use std::io::{self, Write};
 use std::time::Duration;
-use crossterm::{ExecutableCommand, terminal::{Clear, ClearType}, cursor::MoveTo};
 use tokio::time::sleep;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -100,14 +104,14 @@ fn build_soul_from_prng(prng: &mut impl FnMut() -> u32) -> RustySoul {
     let roll = prng() % 100;
 
     let (species, rarity) = match roll {
-        0..=1  => ("Ferralynx",   Rarity::Legendary),
-        2..=3  => ("Voidferrite", Rarity::Legendary),
-        4..=7  => ("Chromashale", Rarity::Epic),
-        8..=11 => ("Magnetwyrm",  Rarity::Epic),
+        0..=1 => ("Ferralynx", Rarity::Legendary),
+        2..=3 => ("Voidferrite", Rarity::Legendary),
+        4..=7 => ("Chromashale", Rarity::Epic),
+        8..=11 => ("Magnetwyrm", Rarity::Epic),
         12..=17 => ("Cinderling", Rarity::Epic),
         _ => match prng() % 3 {
             0 => ("Oredrake", Rarity::Rare),
-            1 => ("Rustpup",  Rarity::Rare),
+            1 => ("Rustpup", Rarity::Rare),
             _ => ("Slagstag", Rarity::Rare),
         },
     };
@@ -159,7 +163,11 @@ pub async fn run_hatch_sequence(soul: &RustySoul) {
     let mut stdout = io::stdout();
     let _ = stdout.execute(Clear(ClearType::All));
 
-    let frames = ["\n\n\n     [ 💎 ] ", "\n\n\n     [ 💎 ] (Pulsing...)", "\n\n\n     [ 💥 ] (CRACKING!)"];
+    let frames = [
+        "\n\n\n     [ 💎 ] ",
+        "\n\n\n     [ 💎 ] (Pulsing...)",
+        "\n\n\n     [ 💥 ] (CRACKING!)",
+    ];
     for frame in frames {
         let _ = stdout.execute(Clear(ClearType::All));
         let _ = stdout.execute(MoveTo(0, 5));
@@ -173,9 +181,17 @@ pub async fn run_hatch_sequence(soul: &RustySoul) {
     let shiny_tag = if soul.shiny { "🌟 SHINY " } else { "" };
 
     println!("     A Rusty Emerges!\n");
-    println!("     Species: {}{} [{}]", shiny_tag, soul.species, soul.rarity.label());
+    println!(
+        "     Species: {}{} [{}]",
+        shiny_tag,
+        soul.species,
+        soul.rarity.label()
+    );
     println!("{}", soul.sprite);
-    println!("     WIS: {} | CHA: {} | SNK: {}", soul.wisdom, soul.chaos, soul.snark);
+    println!(
+        "     WIS: {} | CHA: {} | SNK: {}",
+        soul.wisdom, soul.chaos, soul.snark
+    );
     println!("\n     \"{}\"\n", soul.personality);
     println!("\n     Booting Hematite CLI Cockpit...");
     let _ = stdout.flush();

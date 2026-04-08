@@ -18,14 +18,26 @@ impl RiskEvaluator {
         // HIGH RISK: Anything that can destroy data, push to remotes,
         // or modify system-level configuration. Always blocks.
         let high_risk_patterns = [
-            "rm ", "rm -", "del ", "rmdir",
-            "git push", "git reset --hard",
-            "format-volume", "diskpart",
-            "system32", "C:\\Windows",
-            "shutdown", "taskkill",
-            ".env", ".ssh", ".gitconfig",
-            "curl ", "wget ", "Invoke-WebRequest",
-            "chmod 777", "sudo ",
+            "rm ",
+            "rm -",
+            "del ",
+            "rmdir",
+            "git push",
+            "git reset --hard",
+            "format-volume",
+            "diskpart",
+            "system32",
+            "C:\\Windows",
+            "shutdown",
+            "taskkill",
+            ".env",
+            ".ssh",
+            ".gitconfig",
+            "curl ",
+            "wget ",
+            "Invoke-WebRequest",
+            "chmod 777",
+            "sudo ",
         ];
 
         for pattern in &high_risk_patterns {
@@ -52,8 +64,11 @@ impl RiskEvaluator {
 
         // SAFE: Read-only operations that can never modify state.
         let safe_tools = [
-            "FileReadTool", "GlobTool", "GrepTool",
-            "SlimLspTool", "ToolSearchTool",
+            "FileReadTool",
+            "GlobTool",
+            "GrepTool",
+            "SlimLspTool",
+            "ToolSearchTool",
         ];
 
         if safe_tools.contains(&tool_name) {

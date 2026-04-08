@@ -32,7 +32,10 @@ impl CompactionConfig {
         let effective = (context_length as f64 * 0.40 * (1.0 - vram * 0.5)) as usize;
         let max_estimated_tokens = effective.max(4_000).min(60_000);
         let preserve_recent_messages = (context_length / 3_000).clamp(8, 20);
-        Self { preserve_recent_messages, max_estimated_tokens }
+        Self {
+            preserve_recent_messages,
+            max_estimated_tokens,
+        }
     }
 }
 
@@ -246,7 +249,11 @@ impl SessionMemory {
             }
         }
         if let Some(verification) = &self.last_verification {
-            let status = if verification.successful { "passed" } else { "failed" };
+            let status = if verification.successful {
+                "passed"
+            } else {
+                "failed"
+            };
             s.push_str(&format!(
                 "- **Latest Verification**: {} - {}\n",
                 status, verification.summary
@@ -355,11 +362,13 @@ pub fn compact_history(
     // 4. [MIDDLE OF TURN] (Index Anchor+1 .. End - Preserve) -> Folded into summary.
     // 5. [RECENT WORK] (End - Preserve .. End) -> Kept verbatim.
 
-    // The anchor MUST be at least 1 (to avoid 1..0 slice panics) and 
+    // The anchor MUST be at least 1 (to avoid 1..0 slice panics) and
     // capped at history.len() - 1.
     let anchor = anchor_index.unwrap_or(1).max(1).min(history.len() - 1);
-    let keep_from = history.len().saturating_sub(config.preserve_recent_messages);
-    
+    let keep_from = history
+        .len()
+        .saturating_sub(config.preserve_recent_messages);
+
     let mut messages_to_summarize = Vec::new();
     let mut preserved_messages = Vec::new();
 
@@ -386,7 +395,10 @@ pub fn compact_history(
         None => new_summary_txt,
     };
 
-    let summary_content = format!("{}{}{}", COMPACT_PREAMBLE, merged_summary, COMPACT_INSTRUCTION);
+    let summary_content = format!(
+        "{}{}{}",
+        COMPACT_PREAMBLE, merged_summary, COMPACT_INSTRUCTION
+    );
     let summary_msg = ChatMessage::system(&summary_content);
 
     let mut new_history = vec![history[0].clone()];
@@ -402,36 +414,43 @@ pub fn compact_history(
 /// Heuristic extraction of "The Mission" from a set of messages.
 pub fn extract_memory(messages: &[ChatMessage]) -> SessionMemory {
     let mut mem = SessionMemory::default();
-    
+
     // We only care about the MOST RECENT task boundary.
     // If we find multiple user messages, we only use the last one's intent
     // to avoid "Topic Pollution" (e.g. keeping Tokio context during a Ratatui research).
     let last_user_idx = messages.iter().rposition(|m| m.role == "user");
-    
+
     if let Some(idx) = last_user_idx {
         let m = &messages[idx];
         let content_str = m.content.as_str();
         let limit = 250;
         mem.current_task = content_str.chars().take(limit).collect();
-        if content_str.len() > limit { mem.current_task.push_str("..."); }
+        if content_str.len() > limit {
+            mem.current_task.push_str("...");
+        }
 
         // Smart Pivot: Only extract files/learnings from THIS turn's tool calls
-        // if the turn has already started. This prevents "Ghost Files" from 
+        // if the turn has already started. This prevents "Ghost Files" from
         // lingering in the working set.
         for turn_msg in &messages[idx..] {
             // Working Set (from Tool calls)
             for call in &turn_msg.tool_calls {
-                if let Ok(args) = serde_json::from_str::<serde_json::Value>(&call.function.arguments) {
+                if let Ok(args) =
+                    serde_json::from_str::<serde_json::Value>(&call.function.arguments)
+                {
                     if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
                         mem.working_set.insert(path.to_string());
                     }
                 }
             }
-            
+
             // Learnings
             if turn_msg.role == "tool" {
                 let content_str = turn_msg.content.as_str();
-                if content_str.contains("Error:") || content_str.contains("Finished") || content_str.contains("Complete") {
+                if content_str.contains("Error:")
+                    || content_str.contains("Finished")
+                    || content_str.contains("Complete")
+                {
                     let lines: Vec<_> = content_str.lines().take(2).collect();
                     mem.learnings.push(lines.join(" "));
                 }
@@ -449,7 +468,10 @@ pub fn extract_memory(messages: &[ChatMessage]) -> SessionMemory {
 }
 
 pub fn estimate_tokens(messages: &[ChatMessage]) -> usize {
-    messages.iter().map(|m| m.content.as_str().len() / 4 + 1).sum()
+    messages
+        .iter()
+        .map(|m| m.content.as_str().len() / 4 + 1)
+        .sum()
 }
 
 pub fn estimate_compactable_tokens(history: &[ChatMessage]) -> usize {
@@ -461,9 +483,10 @@ pub fn estimate_compactable_tokens(history: &[ChatMessage]) -> usize {
 }
 
 fn build_technical_summary(messages: &[ChatMessage]) -> String {
-    let mut lines = vec![
-        format!("- Scope: {} earlier turns compacted.", messages.len()),
-    ];
+    let mut lines = vec![format!(
+        "- Scope: {} earlier turns compacted.",
+        messages.len()
+    )];
 
     // 1. Extract Key Files
     let mut files = HashSet::new();
@@ -472,7 +495,9 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
 
     for m in messages {
         for word in m.content.as_str().split_whitespace() {
-            let clean = word.trim_matches(|c: char| matches!(c, ',' | '.' | ':' | ';' | ')' | '(' | '"' | '\'' | '`'));
+            let clean = word.trim_matches(|c: char| {
+                matches!(c, ',' | '.' | ':' | ';' | ')' | '(' | '"' | '\'' | '`')
+            });
             if clean.contains('.') && (clean.contains('/') || clean.contains('\\')) {
                 files.insert(clean.to_string());
             }
@@ -511,11 +536,21 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
             s.push_str("...");
             s
         } else if content_str.is_empty() && !m.tool_calls.is_empty() {
-            format!("Executing tools: {:?}", m.tool_calls.iter().map(|c| &c.function.name).collect::<Vec<_>>())
+            format!(
+                "Executing tools: {:?}",
+                m.tool_calls
+                    .iter()
+                    .map(|c| &c.function.name)
+                    .collect::<Vec<_>>()
+            )
         } else {
             content_str.to_string()
         };
-        lines.push(format!("  - {}: {}", m.role, preview.replace('\n', " ").trim()));
+        lines.push(format!(
+            "  - {}: {}",
+            m.role,
+            preview.replace('\n', " ").trim()
+        ));
     }
 
     compress_summary_text(&lines.join("\n"))
@@ -596,7 +631,9 @@ fn push_summary_line_with_budget(
         .map(String::as_str)
         .chain(std::iter::once(line.as_str()))
         .collect::<Vec<_>>();
-    if candidate.len() <= budget.max_lines && joined_summary_char_count(&candidate) <= budget.max_chars {
+    if candidate.len() <= budget.max_lines
+        && joined_summary_char_count(&candidate) <= budget.max_chars
+    {
         lines.push(line);
     }
 }

@@ -283,8 +283,7 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
     ) || (lower.contains("what is hematite") && !lower.contains("lm studio"))
     {
         Some(DirectAnswerKind::Identity)
-    } else if (mentions_stable_product_surface(&lower)
-        || mentions_product_truth_routing(&lower))
+    } else if (mentions_stable_product_surface(&lower) || mentions_product_truth_routing(&lower))
         && contains_any(
             &lower,
             &[
@@ -313,7 +312,10 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
     {
         Some(DirectAnswerKind::SessionResetSemantics)
     } else if (lower.contains("reasoning output") || lower.contains("reasoning"))
-        && contains_any(&lower, &["visible chat output", "visible chat", "chat output"])
+        && contains_any(
+            &lower,
+            &["visible chat output", "visible chat", "chat output"],
+        )
     {
         Some(DirectAnswerKind::ReasoningSplit)
     } else if lower.contains("/ask")
@@ -355,7 +357,10 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         Some(DirectAnswerKind::GemmaNative)
     } else if lower.contains("verify_build")
         && lower.contains(".hematite/settings.json")
-        && contains_any(&lower, &["build", "test", "lint", "fix", "verification commands"])
+        && contains_any(
+            &lower,
+            &["build", "test", "lint", "fix", "verification commands"],
+        )
     {
         Some(DirectAnswerKind::VerifyProfiles)
     } else if (lower.contains("carry forward by default")
@@ -406,18 +411,20 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         ],
     ) {
         Some(DirectAnswerKind::RecoveryRecipes)
-    } else if !architecture_overview_mode && contains_any(
-        &lower,
-        &[
-            "mcp server health",
-            "mcp runtime state",
-            "mcp lifecycle",
-            "mcp state",
-            "mcp healthy",
-            "mcp degraded",
-            "mcp failed",
-        ],
-    ) {
+    } else if !architecture_overview_mode
+        && contains_any(
+            &lower,
+            &[
+                "mcp server health",
+                "mcp runtime state",
+                "mcp lifecycle",
+                "mcp state",
+                "mcp healthy",
+                "mcp degraded",
+                "mcp failed",
+            ],
+        )
+    {
         Some(DirectAnswerKind::McpLifecycle)
     } else if contains_any(
         &lower,
@@ -466,7 +473,13 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         ],
     ) && contains_any(
         &lower,
-        &["tool catalog", "dispatch path", "dispatch", "tool registry", "owns"],
+        &[
+            "tool catalog",
+            "dispatch path",
+            "dispatch",
+            "tool registry",
+            "owns",
+        ],
     ) {
         Some(DirectAnswerKind::ToolRegistryOwnership)
     } else if (lower.contains("other coding languages")

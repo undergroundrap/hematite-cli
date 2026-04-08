@@ -1,8 +1,8 @@
-use std::collections::{HashMap, BTreeSet};
-use std::sync::Arc;
-use serde_json::json;
 use crate::agent::lsp::client::LspClient;
+use serde_json::json;
+use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Orchestrates Language Servers for the agent.
 pub struct LspManager {
@@ -26,7 +26,7 @@ impl LspManager {
         if self.workspace_root.join("Cargo.toml").exists() {
             self.start_server("rust", "rust-analyzer", &[]).await?;
         }
-        
+
         // ── Stabilization ──
         // Give the Language Server a moment to index before the first tool call fires.
         tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
@@ -34,8 +34,14 @@ impl LspManager {
         Ok(())
     }
 
-    pub async fn start_server(&mut self, lang: &str, command: &str, args: &[String]) -> Result<(), String> {
-        let client = LspClient::spawn(command, args).map_err(|e| format!("LSP Spawn Fail: {}", e))?;
+    pub async fn start_server(
+        &mut self,
+        lang: &str,
+        command: &str,
+        args: &[String],
+    ) -> Result<(), String> {
+        let client =
+            LspClient::spawn(command, args).map_err(|e| format!("LSP Spawn Fail: {}", e))?;
         let arc_client = Arc::new(client);
 
         // --- LAYER 1: LSP Handshake ---
@@ -89,7 +95,10 @@ impl LspManager {
         } else {
             self.workspace_root.join(path)
         };
-        format!("file:///{}", abs_path.to_str().unwrap_or_default().replace("\\", "/"))
+        format!(
+            "file:///{}",
+            abs_path.to_str().unwrap_or_default().replace("\\", "/")
+        )
     }
 
     pub async fn ensure_opened(&mut self, path: &str) -> Result<(), String> {
@@ -103,11 +112,12 @@ impl LspManager {
             return Ok(());
         }
 
-        let client = self.get_client_for_path(path)
+        let client = self
+            .get_client_for_path(path)
             .ok_or_else(|| format!("No LSP client for {}", path))?;
-        
-        let content = std::fs::read_to_string(&path_obj)
-            .map_err(|e| format!("Read Fail: {}", e))?;
+
+        let content =
+            std::fs::read_to_string(&path_obj).map_err(|e| format!("Read Fail: {}", e))?;
 
         let lang_id = match path_obj.extension().and_then(|e| e.to_str()) {
             Some("rs") => "rust",

@@ -1,10 +1,10 @@
-use serde_json::Value;
-use std::process::Command;
-use std::path::Path;
 use crate::agent::git::is_git_repo;
+use serde_json::Value;
+use std::path::Path;
+use std::process::Command;
 
 /// tool: git_commit
-/// 
+///
 /// Action: Stage all changes (git add -A) and commit them using the 'Conventional Commits' style.
 pub async fn execute(args: &Value) -> Result<String, String> {
     let message = args
@@ -37,7 +37,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         .arg(message)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status() 
+        .status()
         .map_err(|e| format!("Failed to run git commit: {e}"))?;
 
     if commit_status.success() {
@@ -69,7 +69,10 @@ pub async fn execute_push(_args: &Value) -> Result<String, String> {
 
 /// tool: git_remote
 pub async fn execute_remote(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("list");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("list");
     let repo_path = Path::new(".");
     if !is_git_repo(repo_path) {
         return Err("Current directory is not a Git repository".to_string());
@@ -77,13 +80,22 @@ pub async fn execute_remote(args: &Value) -> Result<String, String> {
 
     match action {
         "list" => {
-            let output = Command::new("git").arg("remote").arg("-v").output()
+            let output = Command::new("git")
+                .arg("remote")
+                .arg("-v")
+                .output()
                 .map_err(|e| format!("Failed to list remotes: {e}"))?;
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         }
         "add" => {
-            let name = args.get("name").and_then(|v| v.as_str()).ok_or("Missing name for add")?;
-            let url = args.get("url").and_then(|v| v.as_str()).ok_or("Missing url for add")?;
+            let name = args
+                .get("name")
+                .and_then(|v| v.as_str())
+                .ok_or("Missing name for add")?;
+            let url = args
+                .get("url")
+                .and_then(|v| v.as_str())
+                .ok_or("Missing url for add")?;
             let status = std::process::Command::new("git")
                 .args(["remote", "add", name, url])
                 .stdout(std::process::Stdio::null())
@@ -97,7 +109,10 @@ pub async fn execute_remote(args: &Value) -> Result<String, String> {
             }
         }
         "remove" => {
-            let name = args.get("name").and_then(|v| v.as_str()).ok_or("Missing name for remove")?;
+            let name = args
+                .get("name")
+                .and_then(|v| v.as_str())
+                .ok_or("Missing name for remove")?;
             let status = std::process::Command::new("git")
                 .args(["remote", "remove", name])
                 .stdout(std::process::Stdio::null())
@@ -110,7 +125,7 @@ pub async fn execute_remote(args: &Value) -> Result<String, String> {
                 Err("Failed to remove remote".to_string())
             }
         }
-        _ => Err(format!("Unknown action: {}", action))
+        _ => Err(format!("Unknown action: {}", action)),
     }
 }
 
@@ -119,7 +134,9 @@ pub async fn execute_remote(args: &Value) -> Result<String, String> {
 /// Manage Git worktrees — isolated working directories on separate branches.
 /// Use this to do risky or experimental work without touching the main branch.
 pub async fn execute_worktree(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str())
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing required argument: 'action' (list|add|remove|prune)".to_string())?;
 
     let repo_path = Path::new(".");
@@ -142,7 +159,9 @@ pub async fn execute_worktree(args: &Value) -> Result<String, String> {
         }
 
         "add" => {
-            let path = args.get("path").and_then(|v| v.as_str())
+            let path = args
+                .get("path")
+                .and_then(|v| v.as_str())
                 .ok_or_else(|| "Missing 'path' for worktree add".to_string())?;
 
             // Derive branch name from path basename if not explicitly provided.
@@ -159,7 +178,9 @@ pub async fn execute_worktree(args: &Value) -> Result<String, String> {
                 .args(["branch", "--list", branch])
                 .output()
                 .map_err(|e| format!("Failed to check branch: {e}"))?;
-            let branch_exists = !String::from_utf8_lossy(&branch_check.stdout).trim().is_empty();
+            let branch_exists = !String::from_utf8_lossy(&branch_check.stdout)
+                .trim()
+                .is_empty();
 
             let output = if branch_exists {
                 // Check out existing branch.
@@ -187,7 +208,9 @@ pub async fn execute_worktree(args: &Value) -> Result<String, String> {
         }
 
         "remove" => {
-            let path = args.get("path").and_then(|v| v.as_str())
+            let path = args
+                .get("path")
+                .and_then(|v| v.as_str())
                 .ok_or_else(|| "Missing 'path' for worktree remove".to_string())?;
 
             let output = Command::new("git")
@@ -217,9 +240,15 @@ pub async fn execute_worktree(args: &Value) -> Result<String, String> {
                 .output()
                 .map_err(|e| format!("Failed to prune worktrees: {e}"))?;
             let out = String::from_utf8_lossy(&output.stdout).to_string();
-            Ok(if out.trim().is_empty() { "Nothing to prune.".to_string() } else { out })
+            Ok(if out.trim().is_empty() {
+                "Nothing to prune.".to_string()
+            } else {
+                out
+            })
         }
 
-        _ => Err(format!("Unknown worktree action '{action}'. Use: list | add | remove | prune"))
+        _ => Err(format!(
+            "Unknown worktree action '{action}'. Use: list | add | remove | prune"
+        )),
     }
 }

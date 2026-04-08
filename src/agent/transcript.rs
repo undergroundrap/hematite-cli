@@ -1,4 +1,4 @@
-use std::fs::{OpenOptions, create_dir_all};
+use std::fs::{create_dir_all, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -21,7 +21,10 @@ impl TranscriptLogger {
         let today = chrono_lite_date();
         let session_file = log_dir.join(format!("{}.log", today));
 
-        Self { log_dir, session_file }
+        Self {
+            log_dir,
+            session_file,
+        }
     }
 
     /// Appends a timestamped user turn to the daily log.

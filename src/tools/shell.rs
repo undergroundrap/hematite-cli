@@ -5,7 +5,7 @@ const DEFAULT_TIMEOUT_SECS: u64 = 60;
 const MAX_OUTPUT_BYTES: usize = 65_536; // 64 KB cap (higher for professional mode)
 
 /// Execute a shell command and return its stdout/stderr combined as a String.
-/// 
+///
 /// Unified Shell Adapter:
 /// - Windows: Tries `pwsh` first, then `powershell.exe`, then `cmd /C`.
 /// - Unix: Tries `sh -c`.
@@ -27,7 +27,11 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     let timeout_ms = args
         .get("timeout_ms")
         .and_then(|v| v.as_u64())
-        .or_else(|| args.get("timeout_secs").and_then(|v| v.as_u64()).map(|s| s * 1000))
+        .or_else(|| {
+            args.get("timeout_secs")
+                .and_then(|v| v.as_u64())
+                .map(|s| s * 1000)
+        })
         .unwrap_or(DEFAULT_TIMEOUT_SECS * 1000);
 
     let run_in_background = args
@@ -38,11 +42,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     // Security gate — absolute blacklist regardless of YOLO state.
     crate::tools::guard::bash_is_safe(&command)?;
 
-    let cwd = std::env::current_dir()
-        .map_err(|e| format!("Failed to get working directory: {e}"))?;
+    let cwd =
+        std::env::current_dir().map_err(|e| format!("Failed to get working directory: {e}"))?;
 
     let mut tokio_cmd = build_command(&command).await;
-    tokio_cmd.current_dir(&cwd)
+    tokio_cmd
+        .current_dir(&cwd)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
@@ -54,7 +59,9 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     // ────────────────────────────────────────────────────────────────────────
 
     if run_in_background {
-        let _child = tokio_cmd.spawn().map_err(|e| format!("Failed to spawn background process: {e}"))?;
+        let _child = tokio_cmd
+            .spawn()
+            .map_err(|e| format!("Failed to spawn background process: {e}"))?;
         return Ok("[background_task_id: spawned]\nCommand started in background. Use `ps` or `jobs` to monitor if available.".into());
     }
 

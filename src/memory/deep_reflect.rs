@@ -22,9 +22,7 @@ pub fn spawn_deep_reflect_system(
         loop {
             sleep(Duration::from_secs(60)).await;
 
-            let idle = {
-                last_interaction.lock().unwrap().elapsed()
-            };
+            let idle = { last_interaction.lock().unwrap().elapsed() };
             if idle < Duration::from_secs(300) {
                 continue;
             }
@@ -105,12 +103,7 @@ pub fn load_recent_memories() -> String {
         .into_iter()
         .flatten()
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path()
-                .extension()
-                .map(|x| x == "md")
-                .unwrap_or(false)
-        })
+        .filter(|e| e.path().extension().map(|x| x == "md").unwrap_or(false))
         .collect();
     files.sort_by_key(|e| e.file_name());
     files.reverse(); // newest first
@@ -147,8 +140,8 @@ pub fn load_recent_memories() -> String {
 
 /// Fast non-cryptographic hash for change detection.
 fn fast_hash(s: &str) -> u64 {
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     let mut h = DefaultHasher::new();
     s.hash(&mut h);
     h.finish()
@@ -174,7 +167,20 @@ fn date_string() -> String {
         remaining -= days_in_year;
         year += 1;
     }
-    let months = [31u64, if is_leap(year) { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let months = [
+        31u64,
+        if is_leap(year) { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     let mut month = 1u64;
     for days_in_month in &months {
         if remaining < *days_in_month {

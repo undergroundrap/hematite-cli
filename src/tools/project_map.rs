@@ -64,10 +64,12 @@ fn resolve_focus_root(root: &Path, focus: &str) -> Result<PathBuf, String> {
     crate::tools::guard::path_is_safe(root, &canonical)
         .map_err(|e| format!("map_project: invalid focus '{}': {}", focus, e))?;
     if canonical.is_file() {
-        return canonical
-            .parent()
-            .map(Path::to_path_buf)
-            .ok_or_else(|| format!("map_project: focus '{}' has no readable parent directory", focus));
+        return canonical.parent().map(Path::to_path_buf).ok_or_else(|| {
+            format!(
+                "map_project: focus '{}' has no readable parent directory",
+                focus
+            )
+        });
     }
     Ok(canonical)
 }
@@ -270,9 +272,7 @@ fn value_as_usize(value: &Value) -> Option<usize> {
         }
     }
 
-    value
-        .as_str()
-        .and_then(|s| s.trim().parse::<usize>().ok())
+    value.as_str().and_then(|s| s.trim().parse::<usize>().ok())
 }
 
 fn is_core_library_path(relative_path: &str) -> bool {
@@ -302,7 +302,10 @@ fn classify_file_role(relative_path: &str) -> &'static str {
         "runtime assembly"
     } else if lower.contains("/ui/") || lower.contains("tui") || lower.contains("voice") {
         "ui / operator surface"
-    } else if lower.contains("/agent/") || lower.contains("conversation") || lower.contains("inference") {
+    } else if lower.contains("/agent/")
+        || lower.contains("conversation")
+        || lower.contains("inference")
+    {
         "agent orchestration"
     } else if lower.contains("/tools/") || lower.contains("shell") || lower.contains("git") {
         "tooling layer"
@@ -354,9 +357,12 @@ fn score_architecture_file(relative_path: &str) -> i32 {
 }
 
 fn extract_top_symbols(path: &Path) -> Result<Vec<String>, String> {
-    let content =
-        fs::read_to_string(path).map_err(|e| format!("symbol scan failed for {:?}: {}", path, e))?;
-    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or_default();
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("symbol scan failed for {:?}: {}", path, e))?;
+    let ext = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default();
     let mut symbols = Vec::new();
 
     let patterns: &[&str] = match ext {
@@ -391,7 +397,8 @@ fn extract_top_symbols(path: &Path) -> Result<Vec<String>, String> {
     };
 
     for pattern in patterns {
-        let regex = regex::Regex::new(pattern).map_err(|e| format!("invalid symbol regex: {}", e))?;
+        let regex =
+            regex::Regex::new(pattern).map_err(|e| format!("invalid symbol regex: {}", e))?;
         for capture in regex.captures_iter(&content) {
             let Some(name) = capture.get(1).map(|m| m.as_str().to_string()) else {
                 continue;

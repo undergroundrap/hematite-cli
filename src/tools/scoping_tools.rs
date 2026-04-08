@@ -30,6 +30,6 @@ pub fn get_scoping_definitions() -> Vec<Value> {
                 "type": "object",
                 "properties": {}
             }
-        })
+        }),
     ]
 }

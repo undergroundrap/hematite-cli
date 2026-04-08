@@ -1,16 +1,3 @@
-use crate::agent::inference::{
-    ChatMessage, InferenceEngine, InferenceEvent, MessageContent, OperatorCheckpointState,
-    ProviderRuntimeState,
-    ToolCallFn, ToolDefinition, ToolFunction,
-};
-use crate::agent::recovery_recipes::{
-    attempt_recovery, plan_recovery, preview_recovery_decision, RecoveryContext,
-    RecoveryDecision, RecoveryPlan, RecoveryScenario, RecoveryStep,
-};
-use crate::agent::policy::{
-    action_target_path, docs_edit_without_explicit_request, is_destructive_tool,
-    is_mcp_mutating_tool, is_mcp_workspace_read_tool, normalize_workspace_path,
-};
 use crate::agent::architecture_summary::{
     build_architecture_overview_answer, prune_architecture_trace_batch,
     prune_authoritative_tool_batch, prune_read_only_context_bloat_batch,
@@ -20,15 +7,26 @@ use crate::agent::direct_answers::{
     build_architect_session_reset_plan, build_authorization_policy_answer,
     build_gemma_native_answer, build_gemma_native_settings_answer, build_identity_answer,
     build_language_capability_answer, build_mcp_lifecycle_answer, build_product_surface_answer,
-    build_reasoning_split_answer, build_recovery_recipes_answer,
-    build_session_memory_answer, build_session_reset_semantics_answer,
-    build_tool_classes_answer, build_tool_registry_ownership_answer,
-    build_unsafe_workflow_pressure_answer,
+    build_reasoning_split_answer, build_recovery_recipes_answer, build_session_memory_answer,
+    build_session_reset_semantics_answer, build_tool_classes_answer,
+    build_tool_registry_ownership_answer, build_unsafe_workflow_pressure_answer,
     build_verify_profiles_answer, build_workflow_modes_answer,
 };
+use crate::agent::inference::{
+    ChatMessage, InferenceEngine, InferenceEvent, MessageContent, OperatorCheckpointState,
+    ProviderRuntimeState, ToolCallFn, ToolDefinition, ToolFunction,
+};
+use crate::agent::policy::{
+    action_target_path, docs_edit_without_explicit_request, is_destructive_tool,
+    is_mcp_mutating_tool, is_mcp_workspace_read_tool, normalize_workspace_path,
+};
+use crate::agent::recovery_recipes::{
+    attempt_recovery, plan_recovery, preview_recovery_decision, RecoveryContext, RecoveryDecision,
+    RecoveryPlan, RecoveryScenario, RecoveryStep,
+};
 use crate::agent::routing::{
-    classify_query_intent, is_capability_probe_tool, looks_like_mutation_request,
-    DirectAnswerKind, QueryIntentClass,
+    classify_query_intent, is_capability_probe_tool, looks_like_mutation_request, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
@@ -93,8 +91,7 @@ struct PlanExecutionGuard {
 
 impl Drop for PlanExecutionGuard {
     fn drop(&mut self) {
-        self.flag
-            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.flag.store(false, std::sync::atomic::Ordering::SeqCst);
     }
 }
 
@@ -124,7 +121,10 @@ impl WorkflowMode {
     }
 
     fn is_read_only(self) -> bool {
-        matches!(self, WorkflowMode::Ask | WorkflowMode::Architect | WorkflowMode::ReadOnly)
+        matches!(
+            self,
+            WorkflowMode::Ask | WorkflowMode::Architect | WorkflowMode::ReadOnly
+        )
     }
 
     pub(crate) fn is_chat(self) -> bool {
@@ -138,10 +138,7 @@ fn session_path() -> std::path::PathBuf {
         .join("session.json")
 }
 
-fn load_session_data() -> (
-    Option<String>,
-    crate::agent::compaction::SessionMemory,
-) {
+fn load_session_data() -> (Option<String>, crate::agent::compaction::SessionMemory) {
     let path = session_path();
     if !path.exists() {
         return (None, crate::agent::compaction::SessionMemory::default());
@@ -217,7 +214,6 @@ fn transcript_user_turn_text(user_turn: &UserTurn, prompt: &str) -> String {
         format!("{}\n{}", prefixes.join("\n"), prompt)
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RuntimeFailureClass {
@@ -341,12 +337,16 @@ fn provider_state_for_runtime_failure(class: RuntimeFailureClass) -> Option<Prov
     }
 }
 
-fn checkpoint_state_for_runtime_failure(class: RuntimeFailureClass) -> Option<OperatorCheckpointState> {
+fn checkpoint_state_for_runtime_failure(
+    class: RuntimeFailureClass,
+) -> Option<OperatorCheckpointState> {
     match class {
         RuntimeFailureClass::ContextWindow => Some(OperatorCheckpointState::BlockedContextWindow),
         RuntimeFailureClass::ToolPolicyBlocked => Some(OperatorCheckpointState::BlockedPolicy),
         RuntimeFailureClass::ToolLoop => Some(OperatorCheckpointState::BlockedToolLoop),
-        RuntimeFailureClass::VerificationFailed => Some(OperatorCheckpointState::BlockedVerification),
+        RuntimeFailureClass::VerificationFailed => {
+            Some(OperatorCheckpointState::BlockedVerification)
+        }
         _ => None,
     }
 }
@@ -409,7 +409,11 @@ fn recovery_scenario_for_runtime_failure(class: RuntimeFailureClass) -> Option<R
 }
 
 fn compact_recovery_plan_summary(plan: &RecoveryPlan) -> String {
-    format!("{} [{}]", plan.recipe.scenario.label(), plan.recipe.steps_summary())
+    format!(
+        "{} [{}]",
+        plan.recipe.scenario.label(),
+        plan.recipe.steps_summary()
+    )
 }
 
 fn compact_recovery_decision_summary(decision: &RecoveryDecision) -> String {
@@ -428,7 +432,6 @@ fn compact_recovery_decision_summary(decision: &RecoveryDecision) -> String {
         ),
     }
 }
-
 
 /// Parse file paths from cargo/compiler error output.
 /// Handles lines like `  --> src/foo/bar.rs:34:12` and `error: could not compile`.
@@ -450,12 +453,7 @@ fn parse_failing_paths_from_build_output(output: &str) -> Vec<String> {
             } else {
                 root.join(p)
             };
-            Some(
-                resolved
-                    .to_string_lossy()
-                    .replace('\\', "/")
-                    .to_lowercase(),
-            )
+            Some(resolved.to_string_lossy().replace('\\', "/").to_lowercase())
         })
         .collect();
     paths.sort();
@@ -527,7 +525,6 @@ fn parse_inline_workflow_prompt(user_input: &str) -> Option<(WorkflowMode, &str)
     }
     None
 }
-
 
 // Tool catalogue
 
@@ -628,10 +625,7 @@ impl ConversationManager {
         self.session_memory
             .record_checkpoint(state.label(), summary.clone());
         let _ = tx
-            .send(InferenceEvent::OperatorCheckpoint {
-                state,
-                summary,
-            })
+            .send(InferenceEvent::OperatorCheckpoint { state, summary })
             .await;
     }
 
@@ -643,11 +637,8 @@ impl ConversationManager {
     ) {
         let state = state.into();
         let summary = summary.into();
-        self.session_memory
-            .record_recovery(state, summary.clone());
-        let _ = tx
-            .send(InferenceEvent::RecoveryRecipe { summary })
-            .await;
+        self.session_memory.record_recovery(state, summary.clone());
+        let _ = tx.send(InferenceEvent::RecoveryRecipe { summary }).await;
     }
 
     async fn emit_provider_live(&mut self, tx: &mpsc::Sender<InferenceEvent>) {
@@ -705,8 +696,7 @@ impl ConversationManager {
         let percent = if config.max_estimated_tokens == 0 {
             0
         } else {
-            ((estimated_tokens.saturating_mul(100)) / config.max_estimated_tokens)
-                .min(100) as u8
+            ((estimated_tokens.saturating_mul(100)) / config.max_estimated_tokens).min(100) as u8
         };
 
         let _ = tx
@@ -761,15 +751,8 @@ impl ConversationManager {
         ));
 
         // Build the initial system prompt using the canonical InferenceEngine path.
-        let dynamic_instructions = engine.build_system_prompt(
-            snark,
-            chaos,
-            brief,
-            professional,
-            &[],
-            None,
-            &[],
-        );
+        let dynamic_instructions =
+            engine.build_system_prompt(snark, chaos, brief, professional, &[], None, &[]);
 
         let history = vec![ChatMessage::system(&dynamic_instructions)];
 
@@ -854,7 +837,8 @@ impl ConversationManager {
         let previous_memory = self.session_memory.clone();
         self.session_memory = compaction::extract_memory(&self.history);
         self.session_memory.current_plan = current_plan;
-        self.session_memory.inherit_runtime_ledger_from(&previous_memory);
+        self.session_memory
+            .inherit_runtime_ledger_from(&previous_memory);
     }
 
     fn build_chat_system_prompt(&self) -> String {
@@ -995,11 +979,7 @@ impl ConversationManager {
         };
     }
 
-    async fn validate_action_preconditions(
-        &self,
-        name: &str,
-        args: &Value,
-    ) -> Result<(), String> {
+    async fn validate_action_preconditions(&self, name: &str, args: &Value) -> Result<(), String> {
         if self
             .plan_execution_active
             .load(std::sync::atomic::Ordering::SeqCst)
@@ -1106,8 +1086,10 @@ impl ConversationManager {
 
         let normalized_target = action_target_path(name, args);
         if let Some(target) = normalized_target.as_deref() {
-            if matches!(name, "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace")
-            {
+            if matches!(
+                name,
+                "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace"
+            ) {
                 if let Some(prompt) = self.latest_user_prompt() {
                     if docs_edit_without_explicit_request(prompt, target) {
                         return Err(format!(
@@ -1121,9 +1103,7 @@ impl ConversationManager {
             if path_exists {
                 let state = self.action_grounding.lock().await;
                 let pinned = self.pinned_files.lock().await;
-                let pinned_match = pinned
-                    .keys()
-                    .any(|p| normalize_workspace_path(p) == target);
+                let pinned_match = pinned.keys().any(|p| normalize_workspace_path(p) == target);
                 drop(pinned);
 
                 // edit_file and multi_search_replace match text exactly, so they need a
@@ -1181,7 +1161,10 @@ impl ConversationManager {
 
         // Phase gate: if the build is broken, constrain edits to files that cargo flagged.
         // This prevents the model from wandering to unrelated files after a failed verify.
-        if matches!(name, "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace") {
+        if matches!(
+            name,
+            "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace"
+        ) {
             if let Some(target) = normalized_target.as_deref() {
                 let state = self.action_grounding.lock().await;
                 if state.code_changed_since_verify
@@ -1215,7 +1198,11 @@ impl ConversationManager {
 
         if name == "shell" {
             let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
-            let reason = args.get("reason").and_then(|v| v.as_str()).unwrap_or("").trim();
+            let reason = args
+                .get("reason")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim();
             let risk = crate::tools::guard::classify_bash_risk(command);
             if !matches!(risk, crate::tools::RiskLevel::Safe) && reason.is_empty() {
                 return Err(
@@ -1379,10 +1366,12 @@ impl ConversationManager {
 
         if user_input.trim() == "/vein-reset" {
             tokio::task::block_in_place(|| self.vein.reset());
-            let _ = tx.send(InferenceEvent::VeinStatus {
-                file_count: 0,
-                embedded_count: 0,
-            }).await;
+            let _ = tx
+                .send(InferenceEvent::VeinStatus {
+                    file_count: 0,
+                    embedded_count: 0,
+                })
+                .await;
             for chunk in chunk_text("Vein index cleared. Will rebuild on the next turn.", 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
@@ -1411,11 +1400,9 @@ impl ConversationManager {
         }
         self.emit_compaction_pressure(&tx).await;
         let current_model = self.engine.current_model();
-        self.engine
-            .set_gemma_native_formatting(crate::agent::config::effective_gemma_native_formatting(
-                &config,
-                &current_model,
-            ));
+        self.engine.set_gemma_native_formatting(
+            crate::agent::config::effective_gemma_native_formatting(&config, &current_model),
+        );
         let _turn_id = self.begin_grounded_turn().await;
         let _hook_runner = crate::agent::hooks::HookRunner::new(config.hooks.clone());
         let mcp_tools = match self.refresh_mcp_tools(&tx).await {
@@ -1580,16 +1567,21 @@ impl ConversationManager {
                 eng.species = species.clone();
             }
             let shiny_tag = if soul.shiny { " 🌟 SHINY" } else { "" };
-            let _ = tx.send(InferenceEvent::SoulReroll {
-                species: soul.species.clone(),
-                rarity: soul.rarity.label().to_string(),
-                shiny: soul.shiny,
-                personality: soul.personality.clone(),
-            }).await;
+            let _ = tx
+                .send(InferenceEvent::SoulReroll {
+                    species: soul.species.clone(),
+                    rarity: soul.rarity.label().to_string(),
+                    shiny: soul.shiny,
+                    personality: soul.personality.clone(),
+                })
+                .await;
             for chunk in chunk_text(
                 &format!(
                     "A new companion awakens!\n[{}{}] {} — \"{}\"",
-                    soul.rarity.label(), shiny_tag, soul.species, soul.personality
+                    soul.rarity.label(),
+                    shiny_tag,
+                    soul.species,
+                    soul.personality
                 ),
                 8,
             ) {
@@ -1737,12 +1729,13 @@ impl ConversationManager {
                     } else {
                         "all"
                     };
-                    let response = crate::tools::toolchain::describe_toolchain(&serde_json::json!({
-                        "topic": topic,
-                        "question": effective_user_input,
-                    }))
-                    .await
-                    .unwrap_or_else(|e| format!("Error: {}", e));
+                    let response =
+                        crate::tools::toolchain::describe_toolchain(&serde_json::json!({
+                            "topic": topic,
+                            "question": effective_user_input,
+                        }))
+                        .await
+                        .unwrap_or_else(|e| format!("Error: {}", e));
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
                         .await;
                     return Ok(());
@@ -1759,8 +1752,10 @@ impl ConversationManager {
             }
         }
 
-        if matches!(self.workflow_mode, WorkflowMode::Ask | WorkflowMode::ReadOnly)
-            && looks_like_mutation_request(&effective_user_input)
+        if matches!(
+            self.workflow_mode,
+            WorkflowMode::Ask | WorkflowMode::ReadOnly
+        ) && looks_like_mutation_request(&effective_user_input)
         {
             let response = build_mode_redirect_answer(self.workflow_mode);
             self.history.push(ChatMessage::user(&effective_user_input));
@@ -1872,8 +1867,8 @@ impl ConversationManager {
                 }
             }
         }
-        let grounded_trace_mode =
-            intent.grounded_trace_mode || intent.primary_class == QueryIntentClass::RuntimeDiagnosis;
+        let grounded_trace_mode = intent.grounded_trace_mode
+            || intent.primary_class == QueryIntentClass::RuntimeDiagnosis;
         let capability_mode =
             intent.capability_mode || intent.primary_class == QueryIntentClass::Capability;
         let toolchain_mode =
@@ -1960,9 +1955,8 @@ impl ConversationManager {
             self.workflow_mode.label()
         ));
         if tiny_context_mode {
-            system_msg.push_str(
-                "Use the narrowest safe behavior for this mode. Keep the turn short.\n",
-            );
+            system_msg
+                .push_str("Use the narrowest safe behavior for this mode. Keep the turn short.\n");
         } else {
             match self.workflow_mode {
                 WorkflowMode::Auto => system_msg.push_str(
@@ -2049,14 +2043,18 @@ impl ConversationManager {
             // hybrid thinking — it decides how much reasoning each turn needs.
             // Gemma handles reasoning via <|think|> in the system prompt instead.
             // Chat mode and quick tool calls skip /think — fast direct answers.
-            None if !is_gemma && !self.workflow_mode.is_chat() && !is_quick_tool_request(&effective_user_input) => {
+            None if !is_gemma
+                && !self.workflow_mode.is_chat()
+                && !is_quick_tool_request(&effective_user_input) =>
+            {
                 format!("/think\n{}", effective_user_input)
             }
             None => effective_user_input.clone(),
         };
         if let Some(image) = user_turn.attached_image.as_ref() {
-            let image_url = crate::tools::vision::encode_image_as_data_url(std::path::Path::new(&image.path))
-                .map_err(|e| format!("Image attachment failed for {}: {}", image.name, e))?;
+            let image_url =
+                crate::tools::vision::encode_image_as_data_url(std::path::Path::new(&image.path))
+                    .map_err(|e| format!("Image attachment failed for {}: {}", image.name, e))?;
             self.history
                 .push(ChatMessage::user_with_image(&user_content, &image_url));
         } else {
@@ -2068,10 +2066,12 @@ impl ConversationManager {
         // (code snippets are noise in a conversational surface).
         let (vein_context, vein_paths) = if !self.workflow_mode.is_chat() {
             tokio::task::block_in_place(|| self.vein.index_project());
-            let _ = tx.send(InferenceEvent::VeinStatus {
-                file_count: self.vein.file_count(),
-                embedded_count: self.vein.embedded_chunk_count(),
-            }).await;
+            let _ = tx
+                .send(InferenceEvent::VeinStatus {
+                    file_count: self.vein.file_count(),
+                    embedded_count: self.vein.embedded_chunk_count(),
+                })
+                .await;
             match self.build_vein_context(&effective_user_input) {
                 Some((ctx, paths)) => (Some(ctx), paths),
                 None => (None, Vec::new()),
@@ -2080,17 +2080,18 @@ impl ConversationManager {
             (None, Vec::new())
         };
         if !vein_paths.is_empty() {
-            let _ = tx.send(InferenceEvent::VeinContext { paths: vein_paths }).await;
+            let _ = tx
+                .send(InferenceEvent::VeinContext { paths: vein_paths })
+                .await;
         }
 
         // Route: pick fast vs think model based on the complexity of this request.
-        let routed_model =
-            route_model(
-                &effective_user_input,
-                effective_fast.as_deref(),
-                effective_think.as_deref(),
-            )
-            .map(|s| s.to_string());
+        let routed_model = route_model(
+            &effective_user_input,
+            effective_fast.as_deref(),
+            effective_think.as_deref(),
+        )
+        .map(|s| s.to_string());
 
         let mut loop_intervention: Option<String> = None;
         let mut implementation_started = false;
@@ -2167,18 +2168,13 @@ impl ConversationManager {
             let mut prompt_msgs = if let Some(intervention) = loop_intervention.take() {
                 // Gemma 4 handles multiple system messages natively.
                 // Standard models (Qwen, etc.) reject a second system message — merge into history[0].
-                if crate::agent::inference::is_gemma4_model_name(
-                    &self.engine.current_model(),
-                ) {
+                if crate::agent::inference::is_gemma4_model_name(&self.engine.current_model()) {
                     let mut msgs = vec![self.history[0].clone()];
                     msgs.push(ChatMessage::system(&intervention));
                     msgs
                 } else {
-                    let merged = format!(
-                        "{}\n\n{}",
-                        self.history[0].content.as_str(),
-                        intervention
-                    );
+                    let merged =
+                        format!("{}\n\n{}", self.history[0].content.as_str(), intervention);
                     vec![ChatMessage::system(&merged)]
                 }
             } else {
@@ -2190,16 +2186,10 @@ impl ConversationManager {
             // models (Qwen etc.) only ever see one system message.
             if inject_vein {
                 if let Some(ref ctx) = vein_context.as_ref() {
-                    if crate::agent::inference::is_gemma4_model_name(
-                        &self.engine.current_model(),
-                    ) {
+                    if crate::agent::inference::is_gemma4_model_name(&self.engine.current_model()) {
                         prompt_msgs.push(ChatMessage::system(ctx));
                     } else {
-                        let merged = format!(
-                            "{}\n\n{}",
-                            prompt_msgs[0].content.as_str(),
-                            ctx
-                        );
+                        let merged = format!("{}\n\n{}", prompt_msgs[0].content.as_str(), ctx);
                         prompt_msgs[0] = ChatMessage::system(&merged);
                     }
                 }
@@ -2214,7 +2204,10 @@ impl ConversationManager {
                     budget_note,
                 )
                 .await;
-                let recipe = plan_recovery(RecoveryScenario::PromptBudgetPressure, &self.recovery_context);
+                let recipe = plan_recovery(
+                    RecoveryScenario::PromptBudgetPressure,
+                    &self.recovery_context,
+                );
                 self.emit_recovery_recipe_summary(
                     &tx,
                     recipe.recipe.scenario.label(),
@@ -2222,7 +2215,8 @@ impl ConversationManager {
                 )
                 .await;
             }
-            self.emit_prompt_pressure_for_messages(&tx, &prompt_msgs).await;
+            self.emit_prompt_pressure_for_messages(&tx, &prompt_msgs)
+                .await;
 
             let (mut text, mut tool_calls, usage, finish_reason) = match self
                 .engine
@@ -2277,7 +2271,11 @@ impl ConversationManager {
 
             // Fallback safety net: if native tool markup leaked past the inference-layer
             // extractor, recover it here instead of treating it as plain assistant text.
-            if tool_calls.as_ref().map(|calls| calls.is_empty()).unwrap_or(true) {
+            if tool_calls
+                .as_ref()
+                .map(|calls| calls.is_empty())
+                .unwrap_or(true)
+            {
                 if let Some(raw_text) = text.as_deref() {
                     let native_calls = crate::agent::inference::extract_native_tool_calls(raw_text);
                     if !native_calls.is_empty() {
@@ -2317,8 +2315,11 @@ impl ConversationManager {
                     let _ = tx.send(InferenceEvent::Thought(note)).await;
                 }
 
-                let (calls, prune_note) =
-                    prune_authoritative_tool_batch(calls, grounded_trace_mode, &effective_user_input);
+                let (calls, prune_note) = prune_authoritative_tool_batch(
+                    calls,
+                    grounded_trace_mode,
+                    &effective_user_input,
+                );
                 if let Some(note) = prune_note {
                     let _ = tx.send(InferenceEvent::Thought(note)).await;
                 }
@@ -2374,7 +2375,9 @@ impl ConversationManager {
 
                 if capability_mode
                     && !capability_needs_repo
-                    && calls.iter().all(|c| is_capability_probe_tool(&c.function.name))
+                    && calls
+                        .iter()
+                        .all(|c| is_capability_probe_tool(&c.function.name))
                 {
                     loop_intervention = Some(
                         "STOP. This is a stable capability question. Do not inspect the repository or call tools. \
@@ -2461,10 +2464,8 @@ impl ConversationManager {
                 let mut blocked_policy_output: Option<String> = None;
                 let mut recoverable_policy_intervention: Option<String> = None;
                 let mut recoverable_policy_recipe: Option<RecoveryScenario> = None;
-                let mut recoverable_policy_checkpoint: Option<(
-                    OperatorCheckpointState,
-                    String,
-                )> = None;
+                let mut recoverable_policy_checkpoint: Option<(OperatorCheckpointState, String)> =
+                    None;
                 let mut reset_inspection_evidence = false;
                 for res in results {
                     let call_id = res.call_id.clone();
@@ -2508,7 +2509,10 @@ impl ConversationManager {
                     *repeat_count += 1;
 
                     // verify_build is legitimately called multiple times in fix-verify loops.
-                    let repeat_guard_exempt = matches!(tool_name.as_str(), "verify_build" | "git_commit" | "git_push");
+                    let repeat_guard_exempt = matches!(
+                        tool_name.as_str(),
+                        "verify_build" | "git_commit" | "git_push"
+                    );
                     if *repeat_count >= 3 && !repeat_guard_exempt {
                         loop_intervention = Some(format!(
                             "STOP. You have called `{}` with identical arguments {} times and keep getting the same result. \
@@ -2570,7 +2574,9 @@ impl ConversationManager {
                         cap_output(&final_output, 2500)
                     } else if tool_name == "map_project" {
                         cap_output(&final_output, 3500)
-                    } else if compact_ctx && (tool_name == "read_file" || tool_name == "inspect_lines") {
+                    } else if compact_ctx
+                        && (tool_name == "read_file" || tool_name == "inspect_lines")
+                    {
                         // Compact context: cap file reads tightly and add a navigation hint on truncation.
                         let limit = 3000usize;
                         if final_output.len() > limit {
@@ -2598,9 +2604,12 @@ impl ConversationManager {
                         &self.engine.current_model(),
                     ));
 
-                    if architecture_overview_mode && !is_error && tool_name == "trace_runtime_flow" {
-                        overview_runtime_trace = Some(summarize_runtime_trace_output(&final_output));
-                    } else if architecture_overview_mode && !is_error && tool_name == "map_project" {
+                    if architecture_overview_mode && !is_error && tool_name == "trace_runtime_flow"
+                    {
+                        overview_runtime_trace =
+                            Some(summarize_runtime_trace_output(&final_output));
+                    } else if architecture_overview_mode && !is_error && tool_name == "map_project"
+                    {
                         overview_project_map = Some(summarize_project_map_output(&final_output));
                     }
 
@@ -2628,11 +2637,8 @@ impl ConversationManager {
                             {
                                 reset_inspection_evidence = true;
                             }
-                            let read_offset = res
-                                .args
-                                .get("offset")
-                                .and_then(|v| v.as_u64())
-                                .unwrap_or(0);
+                            let read_offset =
+                                res.args.get("offset").and_then(|v| v.as_u64()).unwrap_or(0);
                             successful_read_targets.insert(normalized.clone());
                             successful_read_regions.insert((normalized.clone(), read_offset));
                         }
@@ -2714,8 +2720,7 @@ impl ConversationManager {
                         recoverable_policy_recipe = Some(RecoveryScenario::CurrentPlanScopeBlocked);
                         recoverable_policy_checkpoint = Some((
                             OperatorCheckpointState::BlockedPolicy,
-                            "`map_project` blocked for current-plan execution."
-                                .to_string(),
+                            "`map_project` blocked for current-plan execution.".to_string(),
                         ));
                     } else if res.blocked_by_policy
                         && implement_current_plan
@@ -2760,8 +2765,7 @@ impl ConversationManager {
                         recoverable_policy_intervention = Some(format!(
                             "STOP. Edit blocked — `{target}` needs an inspected window. Use `inspect_lines` around the edit region, then retry."
                         ));
-                        recoverable_policy_recipe =
-                            Some(RecoveryScenario::ExactLineWindowRequired);
+                        recoverable_policy_recipe = Some(RecoveryScenario::ExactLineWindowRequired);
                         recoverable_policy_checkpoint = Some((
                             OperatorCheckpointState::BlockedExactLineWindow,
                             format!("Edit blocked on `{target}`; exact line window required."),
@@ -2900,7 +2904,8 @@ impl ConversationManager {
                         "A blocked tool path was surfaced directly to the operator.",
                     )
                     .await;
-                    self.history.push(ChatMessage::assistant_text(&blocked_output));
+                    self.history
+                        .push(ChatMessage::assistant_text(&blocked_output));
                     self.transcript.log_agent(&blocked_output);
 
                     for chunk in chunk_text(&blocked_output, 8) {
@@ -2956,7 +2961,8 @@ impl ConversationManager {
                         .await;
                     let verify_res = self.auto_verify_build().await;
                     let verify_ok = verify_res.contains("BUILD SUCCESS");
-                    self.record_verify_build_result(verify_ok, &verify_res).await;
+                    self.record_verify_build_result(verify_ok, &verify_res)
+                        .await;
                     self.record_session_verification(
                         verify_ok,
                         if verify_ok {
@@ -3128,9 +3134,9 @@ impl ConversationManager {
                     .recipe
                     .steps
                     .contains(&RecoveryStep::RefreshRuntimeProfile),
-                RecoveryDecision::Escalate { recipe, .. } => recipe
-                    .steps
-                    .contains(&RecoveryStep::RefreshRuntimeProfile),
+                RecoveryDecision::Escalate { recipe, .. } => {
+                    recipe.steps.contains(&RecoveryStep::RefreshRuntimeProfile)
+                }
             };
             if needs_refresh {
                 if let Some((model_id, context_length, changed)) = self
@@ -3165,8 +3171,10 @@ impl ConversationManager {
                 .await;
         }
         let formatted = format_runtime_failure(class, detail);
-        self.history
-            .push(ChatMessage::system(&format!("# RUNTIME FAILURE\n{}", formatted)));
+        self.history.push(ChatMessage::system(&format!(
+            "# RUNTIME FAILURE\n{}",
+            formatted
+        )));
         self.transcript.log_system(&formatted);
         let _ = tx.send(InferenceEvent::Error(formatted)).await;
         let _ = tx.send(InferenceEvent::Done).await;
@@ -3175,7 +3183,10 @@ impl ConversationManager {
     /// [Task Analyzer] Run 'cargo check' and return a concise summary for the model.
     async fn auto_verify_build(&self) -> String {
         match crate::tools::verify_build::execute(&serde_json::json!({ "action": "build" })).await {
-            Ok(out) => "BUILD SUCCESS: Your changes are architecturally sound.\n\n".to_string() + &cap_output(&out, 2000),
+            Ok(out) => {
+                "BUILD SUCCESS: Your changes are architecturally sound.\n\n".to_string()
+                    + &cap_output(&out, 2000)
+            }
             Err(e) => format!(
                 "BUILD FAILURE: The build is currently broken. FIX THESE ERRORS IMMEDIATELY:\n\n{}",
                 cap_output(&e, 2000)
@@ -3222,7 +3233,8 @@ impl ConversationManager {
         // Layer 6: Memory Synthesis (Task Context Persistence)
         let previous_memory = self.session_memory.clone();
         self.session_memory = compaction::extract_memory(&self.history);
-        self.session_memory.inherit_runtime_ledger_from(&previous_memory);
+        self.session_memory
+            .inherit_runtime_ledger_from(&previous_memory);
         self.session_memory.record_compaction(
             removed_message_count,
             format!(
@@ -3672,26 +3684,33 @@ impl ConversationManager {
         let decision_result = match precondition_result {
             Err(e) => Err(e),
             Ok(_) => match auth {
-            crate::agent::permission_enforcer::AuthorizationDecision::Allow { .. } => Ok(()),
-            crate::agent::permission_enforcer::AuthorizationDecision::Ask { reason, source: _ } => {
-                let (approve_tx, approve_rx) = tokio::sync::oneshot::channel::<bool>();
-                let _ = tx
-                    .send(InferenceEvent::ApprovalRequired {
-                        id: real_id.clone(),
-                        name: call.name.clone(),
-                        display: format!("{}\nWhy: {}", display, reason),
-                        responder: approve_tx,
-                    })
-                    .await;
+                crate::agent::permission_enforcer::AuthorizationDecision::Allow { .. } => Ok(()),
+                crate::agent::permission_enforcer::AuthorizationDecision::Ask {
+                    reason,
+                    source: _,
+                } => {
+                    let (approve_tx, approve_rx) = tokio::sync::oneshot::channel::<bool>();
+                    let _ = tx
+                        .send(InferenceEvent::ApprovalRequired {
+                            id: real_id.clone(),
+                            name: call.name.clone(),
+                            display: format!("{}\nWhy: {}", display, reason),
+                            responder: approve_tx,
+                        })
+                        .await;
 
-                match approve_rx.await {
-                    Ok(true) => Ok(()),
-                    _ => Err("Declined by user".into()),
+                    match approve_rx.await {
+                        Ok(true) => Ok(()),
+                        _ => Err("Declined by user".into()),
+                    }
                 }
-            }
-            crate::agent::permission_enforcer::AuthorizationDecision::Deny { reason, .. } => Err(reason),
-        }};
-        let blocked_by_policy = matches!(&decision_result, Err(e) if e.starts_with("Action blocked:"));
+                crate::agent::permission_enforcer::AuthorizationDecision::Deny {
+                    reason, ..
+                } => Err(reason),
+            },
+        };
+        let blocked_by_policy =
+            matches!(&decision_result, Err(e) if e.starts_with("Action blocked:"));
 
         // 3. Execution (Local or MCP)
         let (output, is_error) = match decision_result {
@@ -3954,10 +3973,8 @@ impl ConversationManager {
                 "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace"
             ) || is_mcp_mutating_tool(&call.name)
             {
-                self.record_successful_mutation(
-                    action_target_path(&call.name, &args).as_deref(),
-                )
-                .await;
+                self.record_successful_mutation(action_target_path(&call.name, &args).as_deref())
+                    .await;
             }
 
             if let Some(receipt) = self.build_action_receipt(&call.name, &args, &output, is_error) {
@@ -4034,8 +4051,24 @@ fn is_code_like_path(path: &str) -> bool {
         .to_ascii_lowercase();
     matches!(
         ext.as_str(),
-        "rs" | "js" | "ts" | "tsx" | "jsx" | "py" | "go" | "java" | "c" | "cpp" | "cc" | "h"
-            | "hpp" | "cs" | "swift" | "kt" | "kts" | "rb" | "php"
+        "rs" | "js"
+            | "ts"
+            | "tsx"
+            | "jsx"
+            | "py"
+            | "go"
+            | "java"
+            | "c"
+            | "cpp"
+            | "cc"
+            | "h"
+            | "hpp"
+            | "cs"
+            | "swift"
+            | "kt"
+            | "kts"
+            | "rb"
+            | "php"
     )
 }
 
@@ -4116,7 +4149,10 @@ fn summarize_tool_message_for_budget(message: &ChatMessage) -> String {
 fn summarize_chat_message_for_budget(message: &ChatMessage) -> String {
     let role = message.role.as_str();
     let body = summarize_prompt_blob(message.content.as_str(), 240);
-    format!("[Prompt-budget summary of earlier {} message]\n{}", role, body)
+    format!(
+        "[Prompt-budget summary of earlier {} message]\n{}",
+        role, body
+    )
 }
 
 fn normalize_prompt_start(messages: &mut Vec<ChatMessage>) {
@@ -4245,8 +4281,18 @@ fn is_quick_tool_request(input: &str) -> bool {
     }
     // Short compute/test requests — "calculate X", "test this", "execute Y"
     let is_short = input.len() < 120;
-    let compute_keywords = ["calculate", "compute", "execute", "run this", "test this",
-                             "what is ", "how much", "how many", "convert ", "print "];
+    let compute_keywords = [
+        "calculate",
+        "compute",
+        "execute",
+        "run this",
+        "test this",
+        "what is ",
+        "how much",
+        "how many",
+        "convert ",
+        "print ",
+    ];
     if is_short && compute_keywords.iter().any(|k| lower.contains(k)) {
         return true;
     }
@@ -4286,11 +4332,12 @@ fn repeated_read_target(call: &crate::agent::inference::ToolCallFn) -> Option<St
     Some(normalize_workspace_path(path))
 }
 
-
-
 fn order_batch_reads_first(
     calls: Vec<crate::agent::inference::ToolCallResponse>,
-) -> (Vec<crate::agent::inference::ToolCallResponse>, Option<String>) {
+) -> (
+    Vec<crate::agent::inference::ToolCallResponse>,
+    Option<String>,
+) {
     let has_reads = calls.iter().any(|c| {
         matches!(
             c.function.name.as_str(),
@@ -4569,7 +4616,6 @@ mod tests {
         assert_eq!(intent.direct_answer, None);
     }
 
-
     #[test]
     fn failing_path_parser_extracts_cargo_error_locations() {
         let output = r#"
@@ -4608,7 +4654,4 @@ error[E0308]: mismatched types
         assert_eq!(paths.len(), 1);
         assert!(paths[0].contains("file.rs"));
     }
-
 }
-
-

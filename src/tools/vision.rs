@@ -1,7 +1,7 @@
-use serde_json::Value;
+use crate::agent::inference::{ChatMessage, InferenceEngine};
 use base64::prelude::*;
+use serde_json::Value;
 use std::path::Path;
-use crate::agent::inference::{InferenceEngine, ChatMessage};
 
 pub fn encode_image_as_data_url(path: &Path) -> Result<String, String> {
     if !path.exists() {
@@ -22,13 +22,14 @@ pub fn encode_image_as_data_url(path: &Path) -> Result<String, String> {
     Ok(format!("data:{};base64,{}", mime, b64))
 }
 
-pub async fn vision_analyze(
-    engine: &InferenceEngine,
-    args: &Value,
-) -> Result<String, String> {
-    let path_str = args.get("path").and_then(|v| v.as_str())
+pub async fn vision_analyze(engine: &InferenceEngine, args: &Value) -> Result<String, String> {
+    let path_str = args
+        .get("path")
+        .and_then(|v| v.as_str())
         .ok_or("Missing parameter: path")?;
-    let prompt = args.get("prompt").and_then(|v| v.as_str())
+    let prompt = args
+        .get("prompt")
+        .and_then(|v| v.as_str())
         .ok_or("Missing parameter: prompt")?;
 
     let path = Path::new(path_str);
@@ -39,7 +40,7 @@ pub async fn vision_analyze(
             e
         }
     })?;
-    
+
     let messages = vec![
         ChatMessage::system("You are a vision-capable technical assistant. Analyze the provided image (likely a screenshot, diagram, or UI mockup) and provide a concise technical summary or answer the specific query."),
         ChatMessage::user_with_image(prompt, &url),
@@ -47,6 +48,6 @@ pub async fn vision_analyze(
 
     // Use the main engine but with tools disabled for the vision-pass sub-call.
     let (text, _, _, _) = engine.call_with_tools(&messages, &[], None).await?;
-    
+
     Ok(text.unwrap_or_else(|| "The vision model returned an empty response.".to_string()))
 }

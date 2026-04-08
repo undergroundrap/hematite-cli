@@ -1,6 +1,6 @@
-use std::process::Command;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HookEvent {
@@ -105,7 +105,7 @@ impl HookRunner {
                     if !stdout.is_empty() {
                         messages.push(stdout);
                     }
-                    
+
                     // Exit code 2 means "DENY" — hook explicitly blocks the tool call
                     if output.status.code() == Some(2) {
                         denied = true;

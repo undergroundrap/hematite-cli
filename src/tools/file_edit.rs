@@ -23,17 +23,21 @@ impl HematiteTool for FileEditTool {
 
     fn security_audit(&self, args: &Value) -> Result<(), String> {
         let path_str = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
-        let workspace = std::env::current_dir().map_err(|e| format!("Workspace Env Error: {}", e))?;
+        let workspace =
+            std::env::current_dir().map_err(|e| format!("Workspace Env Error: {}", e))?;
         let target = std::path::Path::new(path_str);
-        
+
         // Intercept Path Traversal / Blacklist Ghosting organically
         super::guard::path_is_safe(&workspace, target)?;
-        
+
         Ok(())
     }
 
     fn dry_run(&self, payload: Value) -> Result<String, String> {
-        Ok(format!("Proposed text replacement mapping evaluated smoothly via HUNK logic: {:?}", payload))
+        Ok(format!(
+            "Proposed text replacement mapping evaluated smoothly via HUNK logic: {:?}",
+            payload
+        ))
     }
 
     fn run(&self, _payload: Value) -> Result<String, String> {

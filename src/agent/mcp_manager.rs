@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-use std::path::Path;
+use crate::agent::inference::McpRuntimeState;
+use crate::agent::mcp::*;
+use crate::tools::file_ops::workspace_root;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use crate::agent::mcp::*;
-use crate::agent::inference::McpRuntimeState;
-use crate::tools::file_ops::workspace_root;
-use anyhow::{Result, anyhow};
+use std::collections::HashMap;
+use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct McpConfig {
@@ -77,7 +77,10 @@ impl McpManager {
             let args = cfg.args.clone().unwrap_or_default();
             let env = cfg.env.clone().unwrap_or_default();
 
-            match self.spawn_and_initialize_server(&cfg.command, &args, &env).await {
+            match self
+                .spawn_and_initialize_server(&cfg.command, &args, &env)
+                .await
+            {
                 Ok(proc) => {
                     self.connections.insert(name.clone(), proc);
                 }
@@ -102,9 +105,7 @@ impl McpManager {
         }
 
         // 2. Load LOCAL config (.hematite/mcp_servers.json in workspace)
-        let local_path = workspace_root()
-            .join(".hematite")
-            .join("mcp_servers.json");
+        let local_path = workspace_root().join(".hematite").join("mcp_servers.json");
         if let Ok(local_cfg) = self.read_mcp_file(&local_path) {
             self.merge_configs(&mut config, local_cfg);
         }
@@ -194,17 +195,18 @@ impl McpManager {
                     proc.shutdown().await;
                 }
                 Err(_) => {
-                    last_error = Some(Self::format_mcp_init_error(&proc, "initialize timed out after 5s".to_string()));
+                    last_error = Some(Self::format_mcp_init_error(
+                        &proc,
+                        "initialize timed out after 5s".to_string(),
+                    ));
                     proc.shutdown().await;
                 }
             }
         }
 
-        Err(anyhow!(
-            last_error.unwrap_or_else(|| {
-                "server did not complete initialize using newline or content-length framing".to_string()
-            })
-        ))
+        Err(anyhow!(last_error.unwrap_or_else(|| {
+            "server did not complete initialize using newline or content-length framing".to_string()
+        })))
     }
 
     fn format_mcp_init_error(proc: &McpProcess, base_error: String) -> String {
@@ -223,7 +225,7 @@ impl McpManager {
         self.tool_map.clear();
         self.discovery_errors.clear();
         let server_names: Vec<String> = self.connections.keys().cloned().collect();
-        
+
         for name in server_names {
             if let Some(proc) = self.connections.get_mut(&name) {
                 match proc.list_tools(self.next_id).await {
@@ -248,21 +250,31 @@ impl McpManager {
     }
 
     pub async fn call_tool(&mut self, full_name: &str, args: &JsonValue) -> Result<String> {
-        let server_name = self.tool_map.get(full_name).ok_or_else(|| anyhow!("Unknown MCP tool: {}", full_name))?;
-        let proc = self.connections.get_mut(server_name).ok_or_else(|| anyhow!("Server not connected: {}", server_name))?;
-        
+        let server_name = self
+            .tool_map
+            .get(full_name)
+            .ok_or_else(|| anyhow!("Unknown MCP tool: {}", full_name))?;
+        let proc = self
+            .connections
+            .get_mut(server_name)
+            .ok_or_else(|| anyhow!("Server not connected: {}", server_name))?;
+
         // Strip prefix to get original name
         let prefix = format!("mcp__{}__", server_name);
         let original_name = full_name.strip_prefix(&prefix).unwrap_or(full_name);
 
-        let result = proc.call_tool(self.next_id, original_name, args.clone()).await?;
+        let result = proc
+            .call_tool(self.next_id, original_name, args.clone())
+            .await?;
         self.next_id += 1;
 
         let mut output = String::new();
         for content in result.content {
             match content {
                 McpContent::Text { text } => output.push_str(&text),
-                McpContent::Image { .. } => output.push_str("\n[Image Data Not Supported in TUI]\n"),
+                McpContent::Image { .. } => {
+                    output.push_str("\n[Image Data Not Supported in TUI]\n")
+                }
             }
         }
 

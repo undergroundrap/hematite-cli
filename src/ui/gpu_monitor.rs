@@ -49,7 +49,11 @@ impl GpuState {
         if total == 0 {
             return "N/A".into();
         }
-        format!("{:.1} GB / {:.1} GB", used as f64 / 1024.0, total as f64 / 1024.0)
+        format!(
+            "{:.1} GB / {:.1} GB",
+            used as f64 / 1024.0,
+            total as f64 / 1024.0
+        )
     }
 
     /// Returns the GPU name (e.g. "NVIDIA GeForce RTX 4070").
@@ -103,7 +107,10 @@ async fn poll_nvidia_smi() -> Option<(u32, u32, String)> {
 
     let used: u32 = parts[0].trim().parse().ok()?;
     let total: u32 = parts[1].trim().parse().ok()?;
-    let name = parts.get(2).map(|s| s.trim().to_string()).unwrap_or_default();
+    let name = parts
+        .get(2)
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
 
     Some((used, total, name))
 }

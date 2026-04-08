@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
-use tokio::process::Command;
 use std::time::Duration;
+use tokio::process::Command;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(u8)]
@@ -95,25 +95,29 @@ async fn check_git_status() -> Option<(GitRemoteStatus, String)> {
     }
 
     // 2. Check for remotes.
-    let remote_check = Command::new("git")
-        .args(["remote"])
-        .output()
-        .await
-        .ok()?;
+    let remote_check = Command::new("git").args(["remote"]).output().await.ok()?;
 
-    let remotes = String::from_utf8_lossy(&remote_check.stdout).trim().to_string();
+    let remotes = String::from_utf8_lossy(&remote_check.stdout)
+        .trim()
+        .to_string();
     if remotes.is_empty() {
         return Some((GitRemoteStatus::NoRemote, "None".into()));
     }
 
     // 3. Get remote URL (assume 'origin' but check first remote if origin missing).
-    let primary_remote = if remotes.contains("origin") { "origin" } else { remotes.split_whitespace().next().unwrap_or("origin") };
+    let primary_remote = if remotes.contains("origin") {
+        "origin"
+    } else {
+        remotes.split_whitespace().next().unwrap_or("origin")
+    };
     let url_check = Command::new("git")
         .args(["remote", "get-url", primary_remote])
         .output()
         .await
         .ok()?;
-    let url = String::from_utf8_lossy(&url_check.stdout).trim().to_string();
+    let url = String::from_utf8_lossy(&url_check.stdout)
+        .trim()
+        .to_string();
 
     // 4. Fetch to check sync status (optional, but requested for "persistent check").
     // We do a "quiet" fetch.
@@ -130,7 +134,9 @@ async fn check_git_status() -> Option<(GitRemoteStatus, String)> {
         .ok()?;
 
     if sync_check.status.success() {
-        let counts = String::from_utf8_lossy(&sync_check.stdout).trim().to_string();
+        let counts = String::from_utf8_lossy(&sync_check.stdout)
+            .trim()
+            .to_string();
         let parts: Vec<&str> = counts.split_whitespace().collect();
         if parts.len() == 2 {
             let ahead: u32 = parts[0].parse().unwrap_or(0);

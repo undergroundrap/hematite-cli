@@ -1,13 +1,13 @@
-use std::collections::VecDeque;
-use std::process::Stdio;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
+use std::process::Stdio;
+use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 use tokio::task::JoinHandle;
-use anyhow::{Result, anyhow};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum McpFraming {
@@ -94,12 +94,22 @@ pub struct McpProcess {
 }
 
 impl McpProcess {
-    pub fn spawn(command: &str, args: &[String], env: &std::collections::HashMap<String, String>) -> Result<Self> {
+    pub fn spawn(
+        command: &str,
+        args: &[String],
+        env: &std::collections::HashMap<String, String>,
+    ) -> Result<Self> {
         Self::spawn_with_framing(command, args, env, McpFraming::NewlineDelimited)
     }
 
-    pub fn spawn_with_framing(command: &str, args: &[String], env: &std::collections::HashMap<String, String>, framing: McpFraming) -> Result<Self> {
-        let resolved_command = resolve_command_path(command).unwrap_or_else(|| PathBuf::from(command));
+    pub fn spawn_with_framing(
+        command: &str,
+        args: &[String],
+        env: &std::collections::HashMap<String, String>,
+        framing: McpFraming,
+    ) -> Result<Self> {
+        let resolved_command =
+            resolve_command_path(command).unwrap_or_else(|| PathBuf::from(command));
         let mut cmd = if is_cmd_wrapper(&resolved_command) {
             let mut wrapper = Command::new("cmd");
             wrapper.arg("/C").arg(&resolved_command);
@@ -111,15 +121,24 @@ impl McpProcess {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        
+
         for (k, v) in env {
             cmd.env(k, v);
         }
 
         let mut child = cmd.spawn()?;
-        let stdin = child.stdin.take().ok_or_else(|| anyhow!("Failed to capture stdin"))?;
-        let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
-        let stderr = child.stderr.take().ok_or_else(|| anyhow!("Failed to capture stderr"))?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| anyhow!("Failed to capture stdin"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow!("Failed to capture stdout"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow!("Failed to capture stderr"))?;
         let stderr_lines = Arc::new(Mutex::new(VecDeque::with_capacity(16)));
         let stderr_task = spawn_stderr_drain(stderr, Arc::clone(&stderr_lines));
 
@@ -133,7 +152,12 @@ impl McpProcess {
         })
     }
 
-    pub async fn request<P: Serialize, R: for<'de> Deserialize<'de>>(&mut self, id: u64, method: &str, params: Option<P>) -> Result<R> {
+    pub async fn request<P: Serialize, R: for<'de> Deserialize<'de>>(
+        &mut self,
+        id: u64,
+        method: &str,
+        params: Option<P>,
+    ) -> Result<R> {
         let req = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: JsonRpcId::Number(id),
@@ -145,8 +169,13 @@ impl McpProcess {
 
         loop {
             let payload = self.read_message_payload().await?;
-            let value: JsonValue = serde_json::from_slice(&payload)
-                .map_err(|e| anyhow!("Failed to parse MCP response: {}. Raw: {}", e, String::from_utf8_lossy(&payload)))?;
+            let value: JsonValue = serde_json::from_slice(&payload).map_err(|e| {
+                anyhow!(
+                    "Failed to parse MCP response: {}. Raw: {}",
+                    e,
+                    String::from_utf8_lossy(&payload)
+                )
+            })?;
 
             // Ignore notifications or server-initiated events while waiting for a response.
             if value.get("id").is_none() {
@@ -160,7 +189,9 @@ impl McpProcess {
                 return Err(anyhow!("MCP Error ({}): {}", error.code, error.message));
             }
 
-            return resp.result.ok_or_else(|| anyhow!("Missing result in MCP response"));
+            return resp
+                .result
+                .ok_or_else(|| anyhow!("Missing result in MCP response"));
         }
     }
 
@@ -181,7 +212,8 @@ impl McpProcess {
             "clientInfo": { "name": "hematite", "version": "0.1.0" }
         });
         let _: JsonValue = self.request(id, "initialize", Some(params)).await?;
-        self.notify("notifications/initialized", Some(serde_json::json!({}))).await?;
+        self.notify("notifications/initialized", Some(serde_json::json!({})))
+            .await?;
         Ok(())
     }
 
@@ -190,7 +222,12 @@ impl McpProcess {
         Ok(res.tools)
     }
 
-    pub async fn call_tool(&mut self, id: u64, name: &str, arguments: JsonValue) -> Result<McpCallToolResult> {
+    pub async fn call_tool(
+        &mut self,
+        id: u64,
+        name: &str,
+        arguments: JsonValue,
+    ) -> Result<McpCallToolResult> {
         let params = serde_json::json!({
             "name": name,
             "arguments": arguments
@@ -259,7 +296,9 @@ impl McpProcess {
                     let mut header_line = String::new();
                     self.stdout.read_line(&mut header_line).await?;
                     if header_line.is_empty() {
-                        return Err(anyhow!("MCP server closed connection while reading headers"));
+                        return Err(anyhow!(
+                            "MCP server closed connection while reading headers"
+                        ));
                     }
                     if header_line == "\r\n" || header_line == "\n" {
                         break;

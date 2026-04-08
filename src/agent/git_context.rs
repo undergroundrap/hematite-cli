@@ -8,11 +8,11 @@ pub fn read_git_status(cwd: &Path) -> Option<String> {
         .current_dir(cwd)
         .output()
         .ok()?;
-        
+
     if !output.status.success() {
         return None;
     }
-    
+
     let stdout = String::from_utf8(output.stdout).ok()?;
     let trimmed = stdout.trim();
     if trimmed.is_empty() {
@@ -46,7 +46,11 @@ pub fn read_git_diff(cwd: &Path, max_chars: usize) -> Option<String> {
     } else {
         let combined = sections.join("\n\n");
         if combined.len() > max_chars {
-            Some(format!("{}\n... [diff capped at {} chars]", &combined[..max_chars], max_chars))
+            Some(format!(
+                "{}\n... [diff capped at {} chars]",
+                &combined[..max_chars],
+                max_chars
+            ))
         } else {
             Some(combined)
         }
@@ -59,10 +63,10 @@ fn read_git_output(cwd: &Path, args: &[&str]) -> Option<String> {
         .current_dir(cwd)
         .output()
         .ok()?;
-        
+
     if !output.status.success() {
         return None;
     }
-    
+
     String::from_utf8(output.stdout).ok()
 }

@@ -1,6 +1,6 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub struct InstructionFile {
@@ -71,8 +71,10 @@ pub fn render_instructions(files: &[InstructionFile], max_chars: usize) -> Optio
 
     let mut output = Vec::new();
     output.push("# Project Instructions".to_string());
-    output.push("These rules were discovered in the directory tree for the current repository:".to_string());
-    
+    output.push(
+        "These rules were discovered in the directory tree for the current repository:".to_string(),
+    );
+
     let mut remaining = max_chars;
     for file in files {
         if remaining < 100 {

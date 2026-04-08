@@ -1,12 +1,18 @@
-use std::process::Command;
 use serde_json::Value;
+use std::process::Command;
 
 /// tool: git_onboarding
-/// 
+///
 /// Action: Configures or updates a Git remote (usually 'origin') and optionally performs an initial push.
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let url = args.get("url").and_then(|v| v.as_str()).ok_or("Missing 'url' argument")?;
-    let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("origin");
+    let url = args
+        .get("url")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing 'url' argument")?;
+    let name = args
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("origin");
     let do_push = args.get("push").and_then(|v| v.as_bool()).unwrap_or(false);
 
     // Security Audit
@@ -15,19 +21,34 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     }
 
     // 1. Check if remote exists
-    let check = Command::new("git").args(["remote", "get-url", name]).output().map_err(|e| e.to_string())?;
-    
+    let check = Command::new("git")
+        .args(["remote", "get-url", name])
+        .output()
+        .map_err(|e| e.to_string())?;
+
     if check.status.success() {
         // Already exists, update it
-        let set_url = Command::new("git").args(["remote", "set-url", name, url]).output().map_err(|e| e.to_string())?;
+        let set_url = Command::new("git")
+            .args(["remote", "set-url", name, url])
+            .output()
+            .map_err(|e| e.to_string())?;
         if !set_url.status.success() {
-            return Err(format!("Failed to update remote: {}", String::from_utf8_lossy(&set_url.stderr)));
+            return Err(format!(
+                "Failed to update remote: {}",
+                String::from_utf8_lossy(&set_url.stderr)
+            ));
         }
     } else {
         // New remote
-        let add = Command::new("git").args(["remote", "add", name, url]).output().map_err(|e| e.to_string())?;
+        let add = Command::new("git")
+            .args(["remote", "add", name, url])
+            .output()
+            .map_err(|e| e.to_string())?;
         if !add.status.success() {
-            return Err(format!("Failed to add remote: {}", String::from_utf8_lossy(&add.stderr)));
+            return Err(format!(
+                "Failed to add remote: {}",
+                String::from_utf8_lossy(&add.stderr)
+            ));
         }
     }
 
@@ -39,7 +60,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             .args(["push", "-u", name, "HEAD"])
             .output()
             .map_err(|e| e.to_string())?;
-        
+
         if push.status.success() {
             status.push_str("\nInitial push complete. Branch tracking established.");
         } else {

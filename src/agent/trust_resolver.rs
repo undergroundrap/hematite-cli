@@ -34,7 +34,10 @@ pub fn resolve_workspace_trust(
     let workspace_display = workspace.to_string_lossy().replace('\\', "/");
 
     let denied_roots = resolve_roots(workspace_root, &config.deny);
-    if let Some(root) = denied_roots.iter().find(|root| path_matches(&workspace, root)) {
+    if let Some(root) = denied_roots
+        .iter()
+        .find(|root| path_matches(&workspace, root))
+    {
         let matched = root.to_string_lossy().replace('\\', "/");
         return WorkspaceTrustDecision {
             policy: WorkspaceTrustPolicy::Denied,
@@ -46,7 +49,10 @@ pub fn resolve_workspace_trust(
     }
 
     let allow_roots = resolve_roots(workspace_root, &config.allow);
-    if let Some(root) = allow_roots.iter().find(|root| path_matches(&workspace, root)) {
+    if let Some(root) = allow_roots
+        .iter()
+        .find(|root| path_matches(&workspace, root))
+    {
         let matched = root.to_string_lossy().replace('\\', "/");
         let source = if root == &workspace {
             WorkspaceTrustSource::DefaultWorkspace

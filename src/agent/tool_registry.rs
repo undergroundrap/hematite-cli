@@ -1,6 +1,4 @@
-use crate::agent::inference::{
-    tool_metadata_for_name, ToolDefinition, ToolFunction,
-};
+use crate::agent::inference::{tool_metadata_for_name, ToolDefinition, ToolFunction};
 use serde_json::Value;
 
 fn make_tool(name: &str, description: &str, parameters: Value) -> ToolDefinition {

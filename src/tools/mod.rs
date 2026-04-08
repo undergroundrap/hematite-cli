@@ -16,7 +16,7 @@ pub mod runtime_trace;
 pub mod scoping_tools;
 pub mod shell;
 pub mod tasks;
-pub mod toolchain;
 pub mod tool_schema_cache;
+pub mod toolchain;
 pub mod verify_build;
 pub mod vision;
