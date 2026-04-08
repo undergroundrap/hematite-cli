@@ -44,4 +44,7 @@ pub struct CliCockpit {
 
     #[arg(long, default_value = "http://localhost:1234/v1", help = "The base URL for the OpenAI-compatible API")]
     pub url: String,
+
+    #[arg(long, hide = true)]
+    pub pdf_extract_helper: Option<String>,
 }

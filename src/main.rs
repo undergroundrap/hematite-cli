@@ -15,6 +15,10 @@ use std::sync::Arc;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cockpit = CliCockpit::parse();
+    if let Some(path) = cockpit.pdf_extract_helper.as_deref() {
+        let code = hematite::memory::vein::run_pdf_extract_helper(std::path::Path::new(path));
+        std::process::exit(code);
+    }
     let local_soul = ui::hatch::generate_soul(cockpit.reroll.clone());
 
     if cockpit.stats {

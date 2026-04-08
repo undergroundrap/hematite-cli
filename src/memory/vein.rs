@@ -421,7 +421,7 @@ impl Vein {
             let rel_str = rel.to_string_lossy().replace('\\', "/");
 
             let content = if ext == "pdf" {
-                extract_pdf_text(path)
+                extract_pdf_text(path).ok().flatten()
             } else {
                 std::fs::read_to_string(path).ok()
             };
@@ -622,12 +622,70 @@ fn blob_to_floats(blob: &[u8]) -> Vec<f32> {
 /// Extract plain text from a PDF file using pdf-extract.
 /// Returns None if the file can't be read or yields no text.
 /// Output is best-effort — layout is not preserved, but content is.
-fn extract_pdf_text(path: &std::path::Path) -> Option<String> {
-    let text = pdf_extract::extract_text(path).ok()?;
+fn extract_pdf_text(path: &std::path::Path) -> Result<Option<String>, String> {
+    let exe = std::env::current_exe()
+        .map_err(|e| format!("Could not locate Hematite executable for PDF helper: {}", e))?;
+    let output = std::process::Command::new(exe)
+        .arg("--pdf-extract-helper")
+        .arg(path)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .map_err(|e| format!("Could not launch PDF helper: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if stderr.is_empty() {
+            "PDF extraction failed.".to_string()
+        } else {
+            stderr
+        });
+    }
+
+    let text = String::from_utf8(output.stdout)
+        .map_err(|e| format!("PDF helper returned non-UTF8 text: {}", e))?;
     if text.trim().is_empty() {
-        None
+        Ok(None)
     } else {
-        Some(text)
+        Ok(Some(text))
+    }
+}
+
+pub fn run_pdf_extract_helper(path: &std::path::Path) -> i32 {
+    let previous_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        pdf_extract::extract_text(path)
+    }));
+    std::panic::set_hook(previous_hook);
+
+    match result {
+        Ok(Ok(text)) => {
+            use std::io::Write;
+            let mut stdout = std::io::stdout();
+            if stdout.write_all(text.as_bytes()).is_ok() {
+                0
+            } else {
+                let _ = writeln!(std::io::stderr(), "PDF helper could not write extracted text.");
+                1
+            }
+        }
+        Ok(Err(e)) => {
+            eprintln!("PDF extraction failed: {}", e);
+            1
+        }
+        Err(payload) => {
+            let panic_text = if let Some(msg) = payload.downcast_ref::<&str>() {
+                (*msg).to_string()
+            } else if let Some(msg) = payload.downcast_ref::<String>() {
+                msg.clone()
+            } else {
+                "unknown pdf parser panic".to_string()
+            };
+            eprintln!("PDF extraction panicked: {}", panic_text);
+            1
+        }
     }
 }
 
@@ -636,8 +694,8 @@ fn extract_pdf_text(path: &std::path::Path) -> Option<String> {
 pub fn extract_document_text(path: &std::path::Path) -> Result<String, String> {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
     match ext.as_str() {
-        "pdf" => extract_pdf_text(path)
-            .ok_or_else(|| "Could not extract text from PDF — file may be scanned/image-only.".to_string()),
+        "pdf" => extract_pdf_text(path)?
+            .ok_or_else(|| "Could not extract text from PDF — file may be scanned/image-only or use unsupported font encoding.".to_string()),
         _ => std::fs::read_to_string(path)
             .map_err(|e| format!("Could not read file: {e}")),
     }

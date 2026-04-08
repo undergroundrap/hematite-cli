@@ -4087,29 +4087,7 @@ struct PromptBudgetStats {
 }
 
 fn estimate_prompt_tokens(messages: &[ChatMessage]) -> usize {
-    messages
-        .iter()
-        .map(|m| {
-            let content_tokens = match &m.content {
-                MessageContent::Text(s) => s.len() / 4 + 1,
-                MessageContent::Parts(parts) => parts
-                    .iter()
-                    .map(|p| match p {
-                        crate::agent::inference::ContentPart::Text { text } => text.len() / 4 + 1,
-                        crate::agent::inference::ContentPart::ImageUrl { image_url } => {
-                            image_url.url.len() / 4 + 4
-                        }
-                    })
-                    .sum(),
-            };
-            let tool_tokens: usize = m
-                .tool_calls
-                .iter()
-                .map(|c| (c.function.name.len() + c.function.arguments.len()) / 4 + 4)
-                .sum();
-            content_tokens + tool_tokens + 6
-        })
-        .sum()
+    crate::agent::inference::estimate_message_batch_tokens(messages)
 }
 
 fn summarize_prompt_blob(text: &str, max_chars: usize) -> String {

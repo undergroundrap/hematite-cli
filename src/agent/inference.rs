@@ -1850,6 +1850,33 @@ fn estimate_serialized_tokens<T: Serialize + ?Sized>(value: &T) -> usize {
         .map_or(0, |bytes| bytes.len() / 4 + 1)
 }
 
+const IMAGE_PART_TOKEN_ESTIMATE: usize = 1024;
+
+fn estimate_message_tokens(message: &ChatMessage) -> usize {
+    let content_tokens = match &message.content {
+        MessageContent::Text(s) => s.len() / 4 + 1,
+        MessageContent::Parts(parts) => parts
+            .iter()
+            .map(|part| match part {
+                ContentPart::Text { text } => text.len() / 4 + 1,
+                // Image payloads are transported as data URLs, but their base64
+                // length should not be treated like plain text context pressure.
+                ContentPart::ImageUrl { .. } => IMAGE_PART_TOKEN_ESTIMATE,
+            })
+            .sum(),
+    };
+    let tool_tokens: usize = message
+        .tool_calls
+        .iter()
+        .map(|call| (call.function.name.len() + call.function.arguments.len()) / 4 + 4)
+        .sum();
+    content_tokens + tool_tokens + 6
+}
+
+pub fn estimate_message_batch_tokens(messages: &[ChatMessage]) -> usize {
+    messages.iter().map(estimate_message_tokens).sum()
+}
+
 fn reserved_output_tokens(context_length: usize) -> usize {
     let proportional = (context_length / 8).max(MIN_RESERVED_OUTPUT_TOKENS);
     proportional.min(MAX_RESERVED_OUTPUT_TOKENS)
@@ -1861,7 +1888,7 @@ pub fn estimate_prompt_pressure(
     context_length: usize,
 ) -> (usize, usize, usize, u8) {
     let estimated_input_tokens =
-        estimate_serialized_tokens(messages) + estimate_serialized_tokens(tools) + 32;
+        estimate_message_batch_tokens(messages) + estimate_serialized_tokens(tools) + 32;
     let reserved_output = reserved_output_tokens(context_length);
     let estimated_total = estimated_input_tokens.saturating_add(reserved_output);
     let percent = if context_length == 0 {

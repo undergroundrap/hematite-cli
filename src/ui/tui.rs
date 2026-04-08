@@ -182,6 +182,7 @@ pub struct App {
     /// File attached via /attach — injected as context prefix on the next turn, then cleared.
     pub attached_context: Option<(String, String)>,
     pub attached_image: Option<AttachedImage>,
+    hovered_input_action: Option<InputAction>,
 }
 
 impl App {
@@ -530,6 +531,23 @@ impl App {
 
 // ── run_app ───────────────────────────────────────────────────────────────────
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum InputAction {
+    Stop,
+    PickDocument,
+    PickImage,
+    Detach,
+    New,
+    Forget,
+    Help,
+}
+
+struct InputActionVisual {
+    action: InputAction,
+    label: String,
+    style: Style,
+}
+
 #[derive(Clone, Copy)]
 enum AttachmentPickerKind {
     Document,
@@ -584,6 +602,392 @@ fn attach_image_from_path(app: &mut App, file_path: &str) {
         Err(e) => {
             app.push_message("System", &format!("Image attach failed: {}", e));
         }
+    }
+}
+
+fn is_document_path(path: &std::path::Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase()
+            .as_str(),
+        "pdf" | "md" | "markdown" | "txt" | "rst"
+    )
+}
+
+fn is_image_path(path: &std::path::Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase()
+            .as_str(),
+        "png" | "jpg" | "jpeg" | "gif" | "webp"
+    )
+}
+
+fn extract_pasted_path_candidates(content: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return out;
+    }
+
+    let mut in_quotes = false;
+    let mut current = String::new();
+    for ch in trimmed.chars() {
+        if ch == '"' {
+            if in_quotes && !current.trim().is_empty() {
+                out.push(current.trim().to_string());
+                current.clear();
+            }
+            in_quotes = !in_quotes;
+            continue;
+        }
+        if in_quotes {
+            current.push(ch);
+        }
+    }
+    if !out.is_empty() {
+        return out;
+    }
+
+    for line in trimmed.lines() {
+        let candidate = line.trim().trim_matches('"').trim();
+        if !candidate.is_empty() {
+            out.push(candidate.to_string());
+        }
+    }
+
+    if out.is_empty() {
+        out.push(trimmed.trim_matches('"').to_string());
+    }
+    out
+}
+
+fn try_attach_from_paste(app: &mut App, content: &str) -> bool {
+    let mut attached_doc = false;
+    let mut attached_image = false;
+    let mut ignored_supported = 0usize;
+
+    for raw in extract_pasted_path_candidates(content) {
+        let path = std::path::Path::new(&raw);
+        if !path.exists() {
+            continue;
+        }
+        if is_image_path(path) {
+            if attached_image || app.attached_image.is_some() {
+                ignored_supported += 1;
+            } else {
+                attach_image_from_path(app, &raw);
+                attached_image = true;
+            }
+        } else if is_document_path(path) {
+            if attached_doc || app.attached_context.is_some() {
+                ignored_supported += 1;
+            } else {
+                attach_document_from_path(app, &raw);
+                attached_doc = true;
+            }
+        }
+    }
+
+    if ignored_supported > 0 {
+        app.push_message(
+            "System",
+            &format!(
+                "Ignored {} extra dropped file(s). Hematite currently keeps one pending document and one pending image.",
+                ignored_supported
+            ),
+        );
+    }
+
+    attached_doc || attached_image
+}
+
+fn compute_input_height(total_width: u16, input_len: usize) -> u16 {
+    let width = total_width.max(1) as usize;
+    let approx_input_w = (width * 65 / 100).saturating_sub(4).max(1);
+    let needed_lines = (input_len / approx_input_w) as u16 + 3;
+    needed_lines.clamp(3, 10)
+}
+
+fn input_rect_for_size(size: Rect, input_len: usize) -> Rect {
+    let input_height = compute_input_height(size.width, input_len);
+    Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(0),
+            Constraint::Length(input_height),
+            Constraint::Length(3),
+        ])
+        .split(size)[1]
+}
+
+fn input_title_area(input_rect: Rect) -> Rect {
+    Rect {
+        x: input_rect.x.saturating_add(1),
+        y: input_rect.y,
+        width: input_rect.width.saturating_sub(2),
+        height: 1,
+    }
+}
+
+fn build_input_actions(app: &App) -> Vec<InputActionVisual> {
+    let doc_label = if app.attached_context.is_some() {
+        "Files*"
+    } else {
+        "Files"
+    };
+    let image_label = if app.attached_image.is_some() {
+        "Image*"
+    } else {
+        "Image"
+    };
+    let detach_style = if app.attached_context.is_some() || app.attached_image.is_some() {
+        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
+    let mut actions = Vec::new();
+    if app.agent_running {
+        actions.push(InputActionVisual {
+            action: InputAction::Stop,
+            label: "Stop Esc".to_string(),
+            style: Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        });
+    } else {
+        actions.push(InputActionVisual {
+            action: InputAction::New,
+            label: "New".to_string(),
+            style: Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+        });
+        actions.push(InputActionVisual {
+            action: InputAction::Forget,
+            label: "Forget".to_string(),
+            style: Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        });
+    }
+
+    actions.push(InputActionVisual {
+        action: InputAction::PickDocument,
+        label: format!("{} ^O", doc_label),
+        style: Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+    });
+    actions.push(InputActionVisual {
+        action: InputAction::PickImage,
+        label: format!("{} ^I", image_label),
+        style: Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+    });
+    actions.push(InputActionVisual {
+        action: InputAction::Detach,
+        label: "Detach".to_string(),
+        style: detach_style,
+    });
+    actions.push(InputActionVisual {
+        action: InputAction::Help,
+        label: "Help".to_string(),
+        style: Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD),
+    });
+    actions
+}
+
+fn visible_input_actions(app: &App, max_width: u16) -> Vec<InputActionVisual> {
+    let mut used = 0u16;
+    let mut visible = Vec::new();
+    for action in build_input_actions(app) {
+        let chip_width = action.label.chars().count() as u16 + 2;
+        let gap = if visible.is_empty() { 0 } else { 1 };
+        if used + gap + chip_width > max_width {
+            break;
+        }
+        used += gap + chip_width;
+        visible.push(action);
+    }
+    visible
+}
+
+fn input_status_text(app: &App) -> String {
+    let voice_status = if app.voice_manager.is_enabled() { "ON" } else { "OFF" };
+    let approvals_status = if app.yolo_mode { "OFF" } else { "ON" };
+    let doc_status = if app.attached_context.is_some() { "DOC" } else { "--" };
+    let image_status = if app.attached_image.is_some() { "IMG" } else { "--" };
+    if app.agent_running {
+        format!("pending:{}:{} | voice:{}", doc_status, image_status, voice_status)
+    } else {
+        format!(
+            "pending:{}:{} | voice:{} | appr:{} | Len:{}",
+            doc_status,
+            image_status,
+            voice_status,
+            approvals_status,
+            app.input.len()
+        )
+    }
+}
+
+fn visible_input_actions_for_title(app: &App, title_area: Rect) -> Vec<InputActionVisual> {
+    let reserved = input_status_text(app).chars().count() as u16 + 3;
+    let max_width = title_area.width.saturating_sub(reserved);
+    visible_input_actions(app, max_width)
+}
+
+fn input_action_hitboxes(app: &App, title_area: Rect) -> Vec<(InputAction, u16, u16)> {
+    let mut x = title_area.x;
+    let mut out = Vec::new();
+    for action in visible_input_actions_for_title(app, title_area) {
+        let chip_width = action.label.chars().count() as u16 + 2;
+        out.push((action.action, x, x + chip_width.saturating_sub(1)));
+        x = x.saturating_add(chip_width + 1);
+    }
+    out
+}
+
+fn render_input_title(app: &App, title_area: Rect) -> Line<'static> {
+    let mut spans = Vec::new();
+    let actions = visible_input_actions_for_title(app, title_area);
+    for (idx, action) in actions.into_iter().enumerate() {
+        if idx > 0 {
+            spans.push(Span::raw(" "));
+        }
+        let style = if app.hovered_input_action == Some(action.action) {
+            action
+                .style
+                .bg(Color::Rgb(85, 48, 26))
+                .add_modifier(Modifier::REVERSED)
+        } else {
+            action.style
+        };
+        spans.push(Span::styled(
+            format!("[{}]", action.label),
+            style,
+        ));
+    }
+    let status = input_status_text(app);
+    if !spans.is_empty() {
+        spans.push(Span::raw(" | "));
+    }
+    spans.push(Span::styled(status, Style::default().fg(Color::DarkGray)));
+    Line::from(spans)
+}
+
+fn reset_visible_session_state(app: &mut App) {
+    app.messages.clear();
+    app.messages_raw.clear();
+    app.last_reasoning.clear();
+    app.current_thought.clear();
+    app.specular_logs.clear();
+    app.reset_error_count();
+    app.reset_runtime_status_memory();
+    app.reset_active_context();
+    app.clear_pending_attachments();
+    app.current_objective = "Idle".into();
+}
+
+fn request_stop(app: &mut App) {
+    app.voice_manager.stop();
+    app.cancel_token
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    if app.thinking || app.agent_running {
+        app.write_session_report();
+        app.copy_transcript_to_clipboard();
+        app.push_message("System", "Cancellation requested. Logs copied to clipboard.");
+    }
+}
+
+fn show_help_message(app: &mut App) {
+    app.push_message("System",
+        "Hematite Commands:\n\
+         /chat             — (Mode) Conversation mode — clean chat, no tool noise\n\
+         /agent            — (Mode) Full coding harness — tools, file edits, builds\n\
+         /reroll           — (Soul) Hatch a new companion mid-session\n\
+         /auto             — (Flow) Let Hematite choose the narrowest effective workflow\n\
+         /ask [prompt]     — (Flow) Read-only analysis mode; optional inline prompt\n\
+         /code [prompt]    — (Flow) Explicit implementation mode; optional inline prompt\n\
+         /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
+         /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
+         /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
+         /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
+         /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
+         /clear            — (UI) Clear dialogue display only\n\
+         /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
+         /runtime-refresh  — (Model) Re-read LM Studio model + CTX now\n\
+         /undo             — (Ghost) Revert last file change\n\
+         /diff             — (Git) Show session changes (--stat)\n\
+         /lsp              — (Logic) Start Language Servers (semantic intelligence)\n\
+         /swarm <text>     — (Swarm) Spawn parallel workers on a directive\n\
+         /worktree <cmd>   — (Isolated) Manage git worktrees (list|add|remove|prune)\n\
+         /think            — (Brain) Enable deep reasoning mode\n\
+         /no_think         — (Speed) Disable reasoning (3-5x faster responses)\n\
+         /voice            — (TTS) List all available voices\n\
+         /voice N          — (TTS) Select voice by number\n\
+         /attach <path>    — (Docs) Attach a PDF/markdown/txt file for next message\n\
+         /attach-pick      — (Docs) Open a file picker and attach a document\n\
+         /image <path>     — (Vision) Attach an image for the next message\n\
+         /image-pick       — (Vision) Open a file picker and attach an image\n\
+         /detach           — (Context) Drop pending document/image attachments\n\
+         /copy             — (Debug) Copy session transcript to clipboard\n\
+         /copy2            — (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
+         \nHotkeys:\n\
+         Ctrl+B — Toggle Brief Mode (minimal output)\n\
+         Ctrl+P — Toggle Professional Mode (strip personality)\n\
+         Ctrl+O — Open document picker for next-turn context\n\
+         Ctrl+I — Open image picker for next-turn vision context\n\
+         Ctrl+Y — Toggle Approvals Off (bypass safety approvals)\n\
+         Ctrl+S — Quick Swarm (hardcoded bootstrap)\n\
+         Ctrl+Z — Undo last edit\n\
+         Ctrl+Q/C — Quit session\n\
+         ESC    — Silence current playback\n\
+         \nStatus Legend:\n\
+         LM    — LM Studio runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
+         VN    — Vein RAG status (`SEM`=semantic active, `FTS`=BM25 only, `--`=not indexed)\n\
+         BUD   — Total prompt-budget pressure against the live context window\n\
+         CMP   — History compaction pressure against Hematite's adaptive threshold\n\
+         ERR   — Session error count (runtime, tool, or SPECULAR failures)\n\
+         CTX   — Live context window currently reported by LM Studio\n\
+         VOICE — Local speech output state\n\
+         \nAssistant: Semantic Pathing (LSP), Vision Pass, Web Research, Swarm Synthesis"
+    );
+}
+
+fn trigger_input_action(app: &mut App, action: InputAction) {
+    match action {
+        InputAction::Stop => request_stop(app),
+        InputAction::PickDocument => match pick_attachment_path(AttachmentPickerKind::Document) {
+            Ok(Some(path)) => attach_document_from_path(app, &path),
+            Ok(None) => app.push_message("System", "Document picker cancelled."),
+            Err(e) => app.push_message("System", &e),
+        },
+        InputAction::PickImage => match pick_attachment_path(AttachmentPickerKind::Image) {
+            Ok(Some(path)) => attach_image_from_path(app, &path),
+            Ok(None) => app.push_message("System", "Image picker cancelled."),
+            Err(e) => app.push_message("System", &e),
+        },
+        InputAction::Detach => {
+            app.clear_pending_attachments();
+            app.push_message("System", "Cleared pending document/image attachments for the next turn.");
+        }
+        InputAction::New => {
+            if !app.agent_running {
+                reset_visible_session_state(app);
+                app.push_message("You", "/new");
+                app.agent_running = true;
+                let _ = app.user_input_tx.try_send(UserTurn::text("/new"));
+            }
+        }
+        InputAction::Forget => {
+            if !app.agent_running {
+                app.cancel_token.store(true, std::sync::atomic::Ordering::SeqCst);
+                reset_visible_session_state(app);
+                app.push_message("You", "/forget");
+                app.agent_running = true;
+                app.cancel_token.store(false, std::sync::atomic::Ordering::SeqCst);
+                let _ = app.user_input_tx.try_send(UserTurn::text("/forget"));
+            }
+        }
+        InputAction::Help => show_help_message(app),
     }
 }
 
@@ -755,6 +1159,7 @@ pub async fn run_app<B: Backend>(
         soul_name: soul.species.clone(),
         attached_context: None,
         attached_image: None,
+        hovered_input_action: None,
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
@@ -808,14 +1213,51 @@ pub async fn run_app<B: Backend>(
             maybe_event = event_stream.next() => {
                 match maybe_event {
                     Some(Ok(Event::Mouse(mouse))) => {
-                        use crossterm::event::MouseEventKind;
-                        let (width, _) = match terminal.size() {
+                        use crossterm::event::{MouseButton, MouseEventKind};
+                        let (width, height) = match terminal.size() {
                             Ok(s) => (s.width, s.height),
                             Err(_) => (80, 24),
                         };
                         let is_right_side = mouse.column as f64 > width as f64 * 0.65;
+                        let input_rect = input_rect_for_size(
+                            Rect { x: 0, y: 0, width, height },
+                            app.input.len(),
+                        );
+                        let title_area = input_title_area(input_rect);
 
                         match mouse.kind {
+                            MouseEventKind::Moved => {
+                                let hovered = if mouse.row == title_area.y
+                                    && mouse.column >= title_area.x
+                                    && mouse.column < title_area.x + title_area.width
+                                {
+                                    input_action_hitboxes(&app, title_area)
+                                        .into_iter()
+                                        .find_map(|(action, start, end)| {
+                                            (mouse.column >= start && mouse.column <= end)
+                                                .then_some(action)
+                                        })
+                                } else {
+                                    None
+                                };
+                                app.hovered_input_action = hovered;
+                            }
+                            MouseEventKind::Down(MouseButton::Left) => {
+                                if mouse.row == title_area.y
+                                    && mouse.column >= title_area.x
+                                    && mouse.column < title_area.x + title_area.width
+                                {
+                                    for (action, start, end) in input_action_hitboxes(&app, title_area) {
+                                        if mouse.column >= start && mouse.column <= end {
+                                            app.hovered_input_action = Some(action);
+                                            trigger_input_action(&mut app, action);
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    app.hovered_input_action = None;
+                                }
+                            }
                             MouseEventKind::ScrollUp => {
                                 if is_right_side {
                                     // User scrolled up — disable auto-scroll so they can read.
@@ -889,17 +1331,7 @@ pub async fn run_app<B: Backend>(
                                 }
 
                             KeyCode::Esc => {
-                                // Silence current audio immediately
-                                app.voice_manager.stop();
-                                
-                                // Always flag cancellation on Esc to block post-stop 'zombie tokens' from speech
-                                app.cancel_token.store(true, std::sync::atomic::Ordering::SeqCst);
-                                
-                                if app.thinking || app.agent_running {
-                                    app.write_session_report();
-                                    app.copy_transcript_to_clipboard();
-                                    app.push_message("System", "Cancellation requested. Logs copied to clipboard.");
-                                }
+                                request_stop(&mut app);
                             }
 
                             KeyCode::Char('b') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
@@ -1087,16 +1519,7 @@ pub async fn run_app<B: Backend>(
                                                 continue;
                                             }
                                             "/clear" => {
-                                                app.messages.clear();
-                                                app.messages_raw.clear();
-                                                app.last_reasoning.clear();
-                                                app.current_thought.clear();
-                                                app.specular_logs.clear();
-                                                app.reset_error_count();
-                                                app.reset_runtime_status_memory();
-                                                app.reset_active_context();
-                                                app.clear_pending_attachments();
-                                                app.current_objective = "Idle".into();
+                                                reset_visible_session_state(&mut app);
                                                 app.push_message("System", "Dialogue buffer cleared.");
                                                 app.history_idx = None;
                                                 continue;
@@ -1178,15 +1601,7 @@ pub async fn run_app<B: Backend>(
                                                 continue;
                                             }
                                             "/new" => {
-                                                app.messages.clear();
-                                                app.messages_raw.clear();
-                                                app.last_reasoning.clear();
-                                                app.current_thought.clear();
-                                                app.specular_logs.clear();
-                                                app.reset_error_count();
-                                                app.reset_runtime_status_memory();
-                                                app.reset_active_context();
-                                                app.current_objective = "Idle".into();
+                                                reset_visible_session_state(&mut app);
                                                 app.push_message("You", "/new");
                                                 app.agent_running = true;
                                                 app.clear_pending_attachments();
@@ -1197,15 +1612,7 @@ pub async fn run_app<B: Backend>(
                                             "/forget" => {
                                                 // Cancel any running turn so /forget isn't queued behind retries.
                                                 app.cancel_token.store(true, std::sync::atomic::Ordering::SeqCst);
-                                                app.messages.clear();
-                                                app.messages_raw.clear();
-                                                app.last_reasoning.clear();
-                                                app.current_thought.clear();
-                                                app.specular_logs.clear();
-                                                app.reset_error_count();
-                                                app.reset_runtime_status_memory();
-                                                app.reset_active_context();
-                                                app.current_objective = "Idle".into();
+                                                reset_visible_session_state(&mut app);
                                                 app.push_message("You", "/forget");
                                                 app.agent_running = true;
                                                 app.cancel_token.store(false, std::sync::atomic::Ordering::SeqCst);
@@ -1575,11 +1982,13 @@ pub async fn run_app<B: Backend>(
                         }
                     }
                     Some(Ok(Event::Paste(content))) => {
-                        // Normalize pasted newlines into spaces so we don't accidentally submit 
-                        // multiple lines or break the single-line input logic.
-                        let normalized = content.replace("\r\n", " ").replace('\n', " ");
-                        app.input.push_str(&normalized);
-                        app.last_input_time = Instant::now();
+                        if !try_attach_from_paste(&mut app, &content) {
+                            // Normalize pasted newlines into spaces so we don't accidentally submit 
+                            // multiple lines or break the single-line input logic.
+                            let normalized = content.replace("\r\n", " ").replace('\n', " ");
+                            app.input.push_str(&normalized);
+                            app.last_input_time = Instant::now();
+                        }
                     }
                     _ => {}
                 }
@@ -1901,13 +2310,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         return; 
     }
 
-    let input_len = app.input.len();
-    let width = f.size().width.max(1) as usize;
-    // We know the top[0] (Dialogue) is 65%. 
-    // The input area width is roughly 65% of the total width minus borders.
-    let approx_input_w = (width * 65 / 100).saturating_sub(4).max(1);
-    let needed_lines = (input_len / approx_input_w) as u16 + 3;
-    let input_height = needed_lines.clamp(3, 10);
+    let input_height = compute_input_height(f.size().width, app.input.len());
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -2449,27 +2852,18 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         Style::default().fg(Color::Rgb(120, 70, 50))
     };
-    let input_hint = if app.agent_running {
-        " Working... [Esc] stop".to_string()
-    } else {
-        let voice_status = if app.voice_manager.is_enabled() { "ON" } else { "OFF" };
-        let approvals_status = if app.yolo_mode { "OFF" } else { "ON" };
-        format!(
-            " [Enter] send | [Esc] stop | [^T] voice:{} | [^Y] appr:{} | [/help] cmds | Len:{} ",
-            voice_status,
-            approvals_status,
-            app.input.len()
-        )
-    };
+    let input_rect = chunks[1];
+    let title_area = input_title_area(input_rect);
+    let input_hint = render_input_title(app, title_area);
     let input_block = Block::default()
         .title(input_hint)
         .borders(Borders::ALL)
         .border_style(input_style)
         .style(Style::default().bg(Color::Rgb(40, 25, 15))); // Deeper soil rich background
     
-    let inner_area = input_block.inner(chunks[1]);
-    f.render_widget(Clear, chunks[1]);
-    f.render_widget(input_block, chunks[1]);
+    let inner_area = input_block.inner(input_rect);
+    f.render_widget(Clear, input_rect);
+    f.render_widget(input_block, input_rect);
 
     f.render_widget(
         Paragraph::new(app.input.as_str())
@@ -2481,7 +2875,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     // Hardware Cursor (Managed by terminal emulator for smooth asynchronous blink)
     // Always call set_cursor during standard operation to "park" the cursor safely in the input box,
     // preventing it from jittering to (0,0) (the top-left title) during modal reviews.
-    if !app.agent_running {
+    if !app.agent_running && inner_area.height > 0 {
         let text_w = app.input.len() as u16;
         let max_w = inner_area.width.saturating_sub(1);
         let cursor_x = inner_area.x + text_w.min(max_w);
