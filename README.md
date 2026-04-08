@@ -57,6 +57,7 @@ Most local AI coding tools are either:
 Hematite is built around the opposite assumption: the best local coding agent should feel native on the machine you actually use, tell the truth about its runtime state, and survive the constraints of real consumer GPUs instead of pretending they do not exist.
 
 - **Proven tool loop** — read → grep → edit → verify → undo. Tested on real Rust codebases. The model finds the right line, makes the right change, catches its own errors, and recovers without prompting.
+- **Sandboxed code execution** — the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation — not training-data guesses.
 - **Hybrid RAG built in** — The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, not hunting for it with five read_file calls.
 - **Built-in voice, zero install** — 54-voice Kokoro TTS, statically linked. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run.
 - **Windows-first** — CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
@@ -142,6 +143,7 @@ There are several tools in this space. Here is what each one actually requires a
 | **Chat mode** | Yes (agent + clean chat) | No (agent only) | Yes (IDE chat) | Yes (browser UI) | No |
 | **Idle RAM** | ~30 MB | ~50 MB | IDE overhead | 200–500 MB (Electron) | ~80 MB |
 | **Build verification** | Built-in, error recovery loop | Git-diff focused | No | No | Ad hoc shell |
+| **Code execution** | Sandboxed JS + Python (zero-trust) | No | No | No | Yes (primary feature) |
 | **Undo / ghost backup** | Built-in (`Ctrl+Z`) | Git-based | No | No | No |
 | **Offline** | Fully offline | Fully offline | Fully offline | Fully offline | Fully offline |
 
@@ -153,9 +155,9 @@ There are several tools in this space. Here is what each one actually requires a
 
 **AnythingLLM and Jan** are UI-first products. They look polished because they're browser apps. You pay for that with 200–500 MB RAM at idle, Electron startup lag, and no real terminal workflow. They're good for people who want a chat interface and aren't doing serious coding work with the AI.
 
-**Open Interpreter** is the closest thing to Hematite's ambition — a local agent that can run code and talk to your system. It requires Python and defaults to cloud. It has no codebase RAG, no voice, and no Windows-specific polish.
+**Open Interpreter** is the closest thing to Hematite's ambition — a local agent that can run code and talk to your system. It requires Python and defaults to cloud. It has no codebase RAG, no voice, and no Windows-specific polish. Hematite now matches its code execution capability with a sandboxed `run_code` tool (JS + Python, zero-trust, hard timeout) while adding everything Open Interpreter lacks.
 
-**The real gap:** none of these tools have all three of Hematite's core differentiators at once — offline-capable codebase RAG, built-in voice, and a native binary with no runtime dependency. That combination doesn't exist anywhere else in this category right now.
+**The real gap:** none of these tools have all four of Hematite's core differentiators at once — offline-capable codebase RAG, built-in voice, sandboxed code execution, and a native binary with no runtime dependency. That combination doesn't exist anywhere else in this category right now.
 
 ---
 

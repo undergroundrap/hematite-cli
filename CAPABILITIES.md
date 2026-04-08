@@ -110,7 +110,18 @@ Hematite includes built-in operator experience features that are part of the pro
 - **Live diagnostics**: runtime state, GPU load, and tool activity are surfaced during use
 - **Hybrid thinking**: non-Gemma models (Qwen etc.) automatically use `/think` mode so the model decides how much reasoning each turn needs without user intervention
 
-## 7. MCP Interoperability
+## 7. Sandboxed Code Execution
+
+Hematite can run code the model writes in a restricted subprocess — enabling real computation, not pattern-matched guesses from training data.
+
+- **`run_code` tool**: model writes JavaScript/TypeScript or Python, Hematite executes it and returns the actual output
+- **Deno sandbox (JS/TS)**: `--deny-net`, `--deny-env`, `--deny-sys`, `--deny-run`, `--deny-ffi`, `--allow-read/write=.` — zero-trust permission model; no network, no filesystem escape, no native library calls
+- **Python sandbox**: blocked socket, subprocess, and dangerous module imports; clean environment via `env_clear`
+- **Hard timeout**: 10 seconds by default, model-configurable up to 60 seconds; process killed on expiry
+- **No bundled runtimes**: Python 3 ships with Windows 11 and is already on most machines; Deno is a single binary install if JS/TS execution is needed
+- **Real math and logic**: the model can verify algorithms, run calculations, test data transformations, and fix errors from actual output — not training-data approximations
+
+## 8. MCP Interoperability
 
 Hematite can extend itself through external MCP servers without making MCP the core identity of the product.
 

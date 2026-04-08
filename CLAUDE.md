@@ -254,6 +254,28 @@ Hematite tracks token usage and session cost in real time.
 - Report includes: session start timestamp, duration, model, context length, total tokens, estimated cost, turn count, and full transcript
 - `.hematite/reports/` is gitignored — reports are local runtime artifacts
 
+## Sandboxed Code Execution
+
+Hematite exposes a `run_code` tool that lets the model write and run JavaScript/TypeScript or Python in a restricted subprocess. This is real execution — the model gets actual output, not training-data approximations.
+
+**Deno sandbox (JS/TS):**
+- Flags: `--deny-net --deny-env --deny-sys --deny-run --deny-ffi --allow-read=. --allow-write=. --no-prompt`
+- Code fed via stdin — no temp file created or cleaned up
+- `NO_COLOR=true` set so output is clean
+
+**Python sandbox:**
+- `env_clear()` + blocked socket, os.system, os.popen, and dangerous module imports (subprocess, urllib, requests, etc.) via a custom `__import__` wrapper
+- Note: Python sandboxing is best-effort (no OS-level permission flags like Deno)
+
+**Both runtimes:**
+- Hard timeout: 10 seconds default, up to 60 seconds if the model passes `timeout_seconds`
+- 16 KB output cap (8 KB stdout + 8 KB stderr)
+- Clear error message if the runtime is not installed — no silent failure
+
+**Runtime availability on developer machine:** Python 3.12.10 installed (ready). Deno not installed (JS/TS requires `winget install DenoLand.Deno`).
+
+**Packaging:** neither runtime is bundled in the binary. Python ships with Windows 11 and most machines already have it. Deno is a single binary the user installs if needed.
+
 ## Release Build
 
 To build a fresh portable release and update `dist/windows/`:
