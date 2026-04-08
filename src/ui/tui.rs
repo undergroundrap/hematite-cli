@@ -581,17 +581,7 @@ impl App {
         history.push_str(&format!("Tokens: {}\n", self.total_tokens));
         history.push_str(&format!("Cost: ${:.4}\n", self.current_session_cost));
 
-        // Windows clip.exe — fast and zero dependencies.
-        let mut child = std::process::Command::new("clip.exe")
-            .stdin(std::process::Stdio::piped())
-            .spawn()
-            .expect("Failed to spawn clip.exe");
-
-        if let Some(mut stdin) = child.stdin.take() {
-            use std::io::Write;
-            let _ = stdin.write_all(history.as_bytes());
-        }
-        let _ = child.wait();
+        copy_text_to_clipboard(&history);
     }
 
     pub fn copy_clean_transcript_to_clipboard(&self) {
@@ -606,18 +596,38 @@ impl App {
         history.push_str(&format!("Tokens: {}\n", self.total_tokens));
         history.push_str(&format!("Cost: ${:.4}\n", self.current_session_cost));
 
-        // Windows clip.exe — fast and zero dependencies.
-        let mut child = std::process::Command::new("clip.exe")
-            .stdin(std::process::Stdio::piped())
-            .spawn()
-            .expect("Failed to spawn clip.exe");
-
-        if let Some(mut stdin) = child.stdin.take() {
-            use std::io::Write;
-            let _ = stdin.write_all(history.as_bytes());
-        }
-        let _ = child.wait();
+        copy_text_to_clipboard(&history);
     }
+
+    pub fn copy_last_reply_to_clipboard(&self) -> bool {
+        if let Some((speaker, content)) = self
+            .messages_raw
+            .iter()
+            .rev()
+            .find(|(speaker, content)| is_copyable_hematite_reply(speaker, content))
+        {
+            let cleaned = cleaned_copyable_reply_text(content);
+            let payload = format!("[{}] {}", speaker, cleaned);
+            copy_text_to_clipboard(&payload);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+fn copy_text_to_clipboard(text: &str) {
+    // Windows clip.exe — fast and zero dependencies.
+    let mut child = std::process::Command::new("clip.exe")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn clip.exe");
+
+    if let Some(mut stdin) = child.stdin.take() {
+        use std::io::Write;
+        let _ = stdin.write_all(text.as_bytes());
+    }
+    let _ = child.wait();
 }
 
 fn should_skip_transcript_copy_entry(speaker: &str, content: &str) -> bool {
@@ -630,6 +640,39 @@ fn should_skip_transcript_copy_entry(speaker: &str, content: &str) -> bool {
         || content == "Chat transcript copied to clipboard."
         || content == "SPECULAR log copied to clipboard (reasoning + events)."
         || content == "Cancellation requested. Logs copied to clipboard."
+}
+
+fn is_copyable_hematite_reply(speaker: &str, content: &str) -> bool {
+    if speaker != "Hematite" {
+        return false;
+    }
+
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    if trimmed == "Initialising Engine & Hardware..."
+        || trimmed == "Swarm engaged."
+        || trimmed.starts_with("Hematite Online | Model:")
+        || trimmed.starts_with("Swarm analyzing: '")
+        || trimmed.ends_with("Standing by for review...")
+        || trimmed.ends_with("conflict - review required.")
+        || trimmed.ends_with("conflict — review required.")
+    {
+        return false;
+    }
+
+    true
+}
+
+fn cleaned_copyable_reply_text(content: &str) -> String {
+    let cleaned = content
+        .replace("<thought>", "")
+        .replace("</thought>", "")
+        .replace("<think>", "")
+        .replace("</think>", "");
+    strip_ghost_prefix(cleaned.trim()).trim().to_string()
 }
 
 // ── run_app ───────────────────────────────────────────────────────────────────
@@ -1058,6 +1101,7 @@ fn show_help_message(app: &mut App) {
          /image-pick       - (Vision) Open a file picker and attach an image\n\
          /detach           - (Context) Drop pending document/image attachments\n\
          /copy             - (Debug) Copy exact session transcript (includes help/system output)\n\
+         /copy-last        - (Debug) Copy the latest Hematite reply only\n\
          /copy-clean       - (Debug) Copy chat transcript without help/debug boilerplate\n\
          /copy2            - (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
          \nHotkeys:\n\
@@ -1753,6 +1797,15 @@ pub async fn run_app<B: Backend>(
                                             "/copy" => {
                                                 app.copy_transcript_to_clipboard();
                                                 app.push_message("System", "Exact session transcript copied to clipboard (includes help/system output).");
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/copy-last" => {
+                                                if app.copy_last_reply_to_clipboard() {
+                                                    app.push_message("System", "Latest Hematite reply copied to clipboard.");
+                                                } else {
+                                                    app.push_message("System", "No Hematite reply is available to copy yet.");
+                                                }
                                                 app.history_idx = None;
                                                 continue;
                                             }

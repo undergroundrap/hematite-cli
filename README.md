@@ -655,6 +655,7 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 /image-pick       Open a file picker and attach an image
 /detach           Drop pending document/image attachments
 /copy             Copy the exact session transcript, including help/system output
+/copy-last        Copy the latest Hematite reply only
 /copy-clean       Copy the chat transcript without help/debug boilerplate
 /undo             Undo last file edit
 /clear            Clear visible dialogue and side-panel session state
