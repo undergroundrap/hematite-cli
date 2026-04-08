@@ -834,11 +834,52 @@ pub fn extract_document_text(path: &std::path::Path) -> Result<String, String> {
         .unwrap_or("")
         .to_lowercase();
     match ext.as_str() {
-        "pdf" => extract_pdf_text(path)?
-            .ok_or_else(|| "Could not extract text from PDF — file may be scanned/image-only or use unsupported font encoding.".to_string()),
+        "pdf" => {
+            let text = extract_pdf_text(path)?
+                .ok_or_else(|| {
+                    "PDF contains no extractable text — it may be scanned/image-only. \
+                     Try attaching page screenshots with /image instead.".to_string()
+                })?;
+            pdf_quality_check(text)
+        }
         _ => std::fs::read_to_string(path)
             .map_err(|e| format!("Could not read file: {e}")),
     }
+}
+
+/// Detect garbled PDF extraction — common with academic publisher PDFs that use
+/// custom embedded fonts with non-standard glyph mappings.
+///
+/// Returns the text if it looks usable, or an informative error if it looks garbled.
+fn pdf_quality_check(text: String) -> Result<String, String> {
+    let trimmed = text.trim();
+
+    // Too little content to be useful.
+    if trimmed.len() < 150 {
+        return Err(format!(
+            "PDF extracted only {} characters — likely a scanned or image-only PDF, \
+             or uses unsupported custom fonts. Try attaching page screenshots with /image instead.",
+            trimmed.len()
+        ));
+    }
+
+    // Detect words smashed together: space ratio too low.
+    // Normal prose is ~15–20% spaces. Below 4% means glyphs aren't mapping to spaces.
+    let non_newline: usize = trimmed.chars().filter(|c| *c != '\n' && *c != '\r').count();
+    let spaces: usize = trimmed.chars().filter(|c| *c == ' ').count();
+    let space_ratio = if non_newline > 0 { spaces as f32 / non_newline as f32 } else { 0.0 };
+
+    if space_ratio < 0.04 {
+        return Err(
+            "PDF text extraction produced garbled output — words are merged with no spaces. \
+             This usually means the PDF uses custom embedded fonts (common with academic publishers \
+             like EBSCO, Elsevier, Springer). \
+             Try a PDF exported from Word, Google Docs, or LaTeX, \
+             or attach page screenshots with /image instead.".to_string()
+        );
+    }
+
+    Ok(text)
 }
 
 // ── Chunking strategies ───────────────────────────────────────────────────────
