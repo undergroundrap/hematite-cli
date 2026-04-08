@@ -31,7 +31,7 @@ fn trace_user_turn(args: &Value) -> String {
 Visible chat output path\n\
 1. Keyboard input is collected inside `run_app` in `src/ui/tui.rs`. When Enter is pressed on a non-slash command, the TUI drains `app.input`, pushes `You`, marks `app.agent_running = true`, and sends the text through `app.user_input_tx`.\n\
    File refs: `src/ui/tui.rs` -> `run_app`, `App::push_message`\n\
-2. `app.user_input_tx` is the `user_input_tx` side of `tokio::sync::mpsc::channel::<String>(32)` assembled inside `build_runtime_bundle` in `src/runtime.rs`. The receiver side is `user_input_rx`.\n\
+2. `app.user_input_tx` is the `user_input_tx` side of `tokio::sync::mpsc::channel::<UserTurn>(32)` assembled inside `build_runtime_bundle` in `src/runtime.rs`. The receiver side is `user_input_rx`.\n\
    File refs: `src/runtime.rs` -> `build_runtime_bundle`; `src/main.rs` -> `main`\n\
 3. `main` spawns `run_agent_loop(AgentLoopRuntime {{ user_input_rx, agent_tx, ... }}, AgentLoopConfig {{ ... }})`. That loop waits on `user_input_rx.recv()` and forwards each turn into `ConversationManager::run_turn(&input, agent_tx.clone(), yolo)`.\n\
    File refs: `src/runtime.rs` -> `run_agent_loop`, `AgentLoopRuntime`, `AgentLoopConfig`; `src/agent/conversation.rs` -> `ConversationManager::run_turn`\n\
@@ -96,24 +96,24 @@ fn trace_session_reset(args: &Value) -> String {
     if command == "all" || command == "/new" {
         out.push_str(
             "/new\n\
-1. `run_app` clears the visible TUI state, pushes `You: /new`, marks `app.agent_running = true`, and sends the literal string `/new` through `app.user_input_tx`.\n\
+1. `run_app` clears the visible TUI state, clears pending attachments, pushes `You: /new`, marks `app.agent_running = true`, and sends `UserTurn::text(\"/new\")` through `app.user_input_tx`.\n\
    File refs: `src/ui/tui.rs` -> `run_app`, `/new` branch\n\
 2. `run_agent_loop` receives `/new` from `user_input_rx` and forwards it into `ConversationManager::run_turn(&input, agent_tx.clone(), yolo)`.\n\
    File refs: `src/runtime.rs` -> `run_agent_loop`, `user_input_rx`\n\
-3. `ConversationManager::run_turn` matches `user_input.trim() == \"/new\"`, then clears `history`, `reasoning_history`, `session_memory`, `running_summary`, `correction_hints`, and `pinned_files`, calls `purge_task_files()`, removes `session.json`, rewrites the empty session file, streams `InferenceEvent::Token` chunks for `Session cleared. Fresh context.`, then emits `InferenceEvent::Done`.\n\
-   File refs: `src/agent/conversation.rs` -> `ConversationManager::run_turn`, `purge_task_files`, `session_path`\n\n"
+3. `ConversationManager::run_turn` matches `user_input.trim() == \"/new\"`, then clears `history`, `reasoning_history`, `session_memory`, `running_summary`, `correction_hints`, and `pinned_files`, resets task files, removes `session.json`, rewrites the empty session file, and streams the fresh-context confirmation before `InferenceEvent::Done`.\n\
+   File refs: `src/agent/conversation.rs` -> `ConversationManager::run_turn`, `reset_task_files`, `session_path`\n\n"
         );
     }
 
     if command == "all" || command == "/forget" {
         out.push_str(
             "/forget\n\
-1. `run_app` clears the same visible TUI state as `/new`, pushes `You: /forget`, marks `app.agent_running = true`, and sends `/forget` through `app.user_input_tx`.\n\
+1. `run_app` clears the same visible TUI state as `/new`, clears pending attachments, pushes `You: /forget`, marks `app.agent_running = true`, and sends `UserTurn::text(\"/forget\")` through `app.user_input_tx`.\n\
    File refs: `src/ui/tui.rs` -> `run_app`, `/forget` branch\n\
 2. `run_agent_loop` forwards that string into `ConversationManager::run_turn`.\n\
    File refs: `src/runtime.rs` -> `run_agent_loop`\n\
-3. `ConversationManager::run_turn` matches `user_input.trim() == \"/forget\"`, clears `history`, `reasoning_history`, `session_memory`, `running_summary`, `correction_hints`, `pinned_files`, calls `purge_task_files()`, removes and rewrites `session.json`, streams `InferenceEvent::Token` chunks for `Task Memory & History purged. Clean slate achieved.`, then emits `InferenceEvent::Done`.\n\
-   File refs: `src/agent/conversation.rs` -> `ConversationManager::run_turn`, `purge_task_files`, `session_path`\n\n"
+3. `ConversationManager::run_turn` matches `user_input.trim() == \"/forget\"`, clears `history`, `reasoning_history`, `session_memory`, `running_summary`, `correction_hints`, and `pinned_files`, resets task files, purges saved memory artifacts, resets the Vein index, removes and rewrites `session.json`, then streams the hard-forget confirmation before `InferenceEvent::Done`.\n\
+   File refs: `src/agent/conversation.rs` -> `ConversationManager::run_turn`, `reset_task_files`, `session_path`\n\n"
         );
     }
 

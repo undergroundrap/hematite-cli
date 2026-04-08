@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use crate::ui::gpu_monitor::GpuState;
 use std::time::Instant;
 use tokio::sync::mpsc::Receiver;
+use crate::agent::conversation::{AttachedDocument, AttachedImage, UserTurn};
 use crate::agent::inference::{McpRuntimeState, OperatorCheckpointState, ProviderRuntimeState};
 use crate::agent::specular::SpecularEvent;
 use crate::agent::swarm::{SwarmMessage, ReviewResponse};
@@ -120,7 +121,7 @@ pub struct App {
     pub active_context: Vec<ContextFile>,
     pub manual_scroll_offset: Option<u16>,
     /// Channel to send user messages to the agent task.
-    pub user_input_tx: tokio::sync::mpsc::Sender<String>,
+    pub user_input_tx: tokio::sync::mpsc::Sender<UserTurn>,
     pub specular_scroll: u16,
     /// When true the SPECULAR panel snaps to the bottom every frame.
     /// Set false when the user manually scrolls up; reset true on new turn / Done.
@@ -179,7 +180,8 @@ pub struct App {
     /// The current Rusty companion's species name — shown in the footer.
     pub soul_name: String,
     /// File attached via /attach — injected as context prefix on the next turn, then cleared.
-    pub attached_context: Option<(String, String)>, // (filename, content)
+    pub attached_context: Option<(String, String)>,
+    pub attached_image: Option<AttachedImage>,
 }
 
 impl App {
@@ -201,6 +203,11 @@ impl App {
         self.last_operator_checkpoint_summary.clear();
         self.last_operator_checkpoint_state = OperatorCheckpointState::Idle;
         self.last_recovery_recipe_summary.clear();
+    }
+
+    pub fn clear_pending_attachments(&mut self) {
+        self.attached_context = None;
+        self.attached_image = None;
     }
 
     pub fn push_message(&mut self, speaker: &str, content: &str) {
@@ -523,11 +530,148 @@ impl App {
 
 // ── run_app ───────────────────────────────────────────────────────────────────
 
+#[derive(Clone, Copy)]
+enum AttachmentPickerKind {
+    Document,
+    Image,
+}
+
+fn attach_document_from_path(app: &mut App, file_path: &str) {
+    let p = std::path::Path::new(file_path);
+    match crate::memory::vein::extract_document_text(p) {
+        Ok(text) => {
+            let name = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(file_path)
+                .to_string();
+            let preview_len = text.len().min(200);
+            app.push_message(
+                "System",
+                &format!(
+                    "Attached document: {} ({} chars) for the next message.\nPreview: {}...",
+                    name,
+                    text.len(),
+                    &text[..preview_len]
+                ),
+            );
+            app.attached_context = Some((name, text));
+        }
+        Err(e) => {
+            app.push_message("System", &format!("Attach failed: {}", e));
+        }
+    }
+}
+
+fn attach_image_from_path(app: &mut App, file_path: &str) {
+    let p = std::path::Path::new(file_path);
+    match crate::tools::vision::encode_image_as_data_url(p) {
+        Ok(_) => {
+            let name = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(file_path)
+                .to_string();
+            app.push_message(
+                "System",
+                &format!("Attached image: {} for the next message.", name),
+            );
+            app.attached_image = Some(AttachedImage {
+                name,
+                path: file_path.to_string(),
+            });
+        }
+        Err(e) => {
+            app.push_message("System", &format!("Image attach failed: {}", e));
+        }
+    }
+}
+
+fn pick_attachment_path(kind: AttachmentPickerKind) -> Result<Option<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let (title, filter) = match kind {
+            AttachmentPickerKind::Document => (
+                "Attach document for the next Hematite turn",
+                "Documents|*.pdf;*.md;*.markdown;*.txt;*.rst|All Files|*.*",
+            ),
+            AttachmentPickerKind::Image => (
+                "Attach image for the next Hematite turn",
+                "Images|*.png;*.jpg;*.jpeg;*.gif;*.webp|All Files|*.*",
+            ),
+        };
+        let script = format!(
+            "Add-Type -AssemblyName System.Windows.Forms\n$dialog = New-Object System.Windows.Forms.OpenFileDialog\n$dialog.Title = '{title}'\n$dialog.Filter = '{filter}'\n$dialog.Multiselect = $false\nif ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{ Write-Output $dialog.FileName }}"
+        );
+        let output = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-STA", "-Command", &script])
+            .output()
+            .map_err(|e| format!("File picker failed: {}", e))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            return Err(if stderr.is_empty() {
+                "File picker did not complete successfully.".to_string()
+            } else {
+                format!("File picker failed: {}", stderr)
+            });
+        }
+        let selected = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if selected.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(selected))
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let prompt = match kind {
+            AttachmentPickerKind::Document => "Choose a document for the next Hematite turn",
+            AttachmentPickerKind::Image => "Choose an image for the next Hematite turn",
+        };
+        let script = format!("POSIX path of (choose file with prompt \"{}\")", prompt);
+        let output = std::process::Command::new("osascript")
+            .args(["-e", &script])
+            .output()
+            .map_err(|e| format!("File picker failed: {}", e))?;
+        if output.status.success() {
+            let selected = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if selected.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(selected))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let title = match kind {
+            AttachmentPickerKind::Document => "Attach document for the next Hematite turn",
+            AttachmentPickerKind::Image => "Attach image for the next Hematite turn",
+        };
+        let output = std::process::Command::new("zenity")
+            .args(["--file-selection", "--title", title])
+            .output()
+            .map_err(|e| format!("File picker failed: {}", e))?;
+        if output.status.success() {
+            let selected = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if selected.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(selected))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 pub async fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut specular_rx: Receiver<SpecularEvent>,
     mut agent_rx: Receiver<crate::agent::inference::InferenceEvent>,
-    user_input_tx: tokio::sync::mpsc::Sender<String>,
+    user_input_tx: tokio::sync::mpsc::Sender<UserTurn>,
     mut swarm_rx: Receiver<SwarmMessage>,
     swarm_tx: tokio::sync::mpsc::Sender<SwarmMessage>,
     swarm_coordinator: Arc<crate::agent::swarm::SwarmCoordinator>,
@@ -610,6 +754,7 @@ pub async fn run_app<B: Backend>(
         session_start: std::time::SystemTime::now(),
         soul_name: soul.species.clone(),
         attached_context: None,
+        attached_image: None,
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
@@ -775,6 +920,20 @@ pub async fn run_app<B: Backend>(
                                 let enabled = app.voice_manager.toggle();
                                 app.push_message("System", &format!("Voice of Hematite: {}", if enabled { "VIBRANT" } else { "SILENCED" }));
                             }
+                            KeyCode::Char('o') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
+                                match pick_attachment_path(AttachmentPickerKind::Document) {
+                                    Ok(Some(path)) => attach_document_from_path(&mut app, &path),
+                                    Ok(None) => app.push_message("System", "Document picker cancelled."),
+                                    Err(e) => app.push_message("System", &e),
+                                }
+                            }
+                            KeyCode::Char('i') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
+                                match pick_attachment_path(AttachmentPickerKind::Image) {
+                                    Ok(Some(path)) => attach_image_from_path(&mut app, &path),
+                                    Ok(None) => app.push_message("System", "Image picker cancelled."),
+                                    Err(e) => app.push_message("System", &e),
+                                }
+                            }
                             KeyCode::Char('s') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
                                 app.push_message("Hematite", "Swarm engaged.");
                                 let swarm_tx_c = swarm_tx.clone();
@@ -936,6 +1095,7 @@ pub async fn run_app<B: Backend>(
                                                 app.reset_error_count();
                                                 app.reset_runtime_status_memory();
                                                 app.reset_active_context();
+                                                app.clear_pending_attachments();
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("System", "Dialogue buffer cleared.");
                                                 app.history_idx = None;
@@ -964,7 +1124,7 @@ pub async fn run_app<B: Backend>(
                                                 app.vein_embedded_count = 0;
                                                 app.push_message("You", "/vein-reset");
                                                 app.agent_running = true;
-                                                let _ = app.user_input_tx.try_send("/vein-reset".to_string());
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/vein-reset"));
                                                 app.history_idx = None;
                                                 continue;
                                             }
@@ -1029,7 +1189,8 @@ pub async fn run_app<B: Backend>(
                                                 app.current_objective = "Idle".into();
                                                 app.push_message("You", "/new");
                                                 app.agent_running = true;
-                                                let _ = app.user_input_tx.try_send("/new".to_string());
+                                                app.clear_pending_attachments();
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/new"));
                                                 app.history_idx = None;
                                                 continue;
                                             }
@@ -1048,7 +1209,8 @@ pub async fn run_app<B: Backend>(
                                                 app.push_message("You", "/forget");
                                                 app.agent_running = true;
                                                 app.cancel_token.store(false, std::sync::atomic::Ordering::SeqCst);
-                                                let _ = app.user_input_tx.try_send("/forget".to_string());
+                                                app.clear_pending_attachments();
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/forget"));
                                                 app.history_idx = None;
                                                 continue;
                                             }
@@ -1116,19 +1278,19 @@ pub async fn run_app<B: Backend>(
                                                 app.workflow_mode = "CHAT".into();
                                                 app.push_message("System", "Chat mode — natural conversation, no agent scaffolding. Use /agent to switch back.");
                                                 app.history_idx = None;
-                                                let _ = app.user_input_tx.try_send("/chat".to_string());
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/chat"));
                                                 continue;
                                             }
                                             "/reroll" => {
                                                 app.history_idx = None;
-                                                let _ = app.user_input_tx.try_send("/reroll".to_string());
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/reroll"));
                                                 continue;
                                             }
                                             "/agent" => {
                                                 app.workflow_mode = "AUTO".into();
                                                 app.push_message("System", "Agent mode — full coding harness active. Use /chat for clean conversation.");
                                                 app.history_idx = None;
-                                                let _ = app.user_input_tx.try_send("/agent".to_string());
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/agent"));
                                                 continue;
                                             }
                                             "/ask" | "/code" | "/architect" | "/read-only" | "/auto" => {
@@ -1143,7 +1305,7 @@ pub async fn run_app<B: Backend>(
                                                 let outbound = input_text.trim().to_string();
                                                 app.push_message("You", &outbound);
                                                 app.agent_running = true;
-                                                let _ = app.user_input_tx.try_send(outbound);
+                                                let _ = app.user_input_tx.try_send(UserTurn::text(outbound));
                                                 app.history_idx = None;
                                                 continue;
                                             }
@@ -1153,9 +1315,9 @@ pub async fn run_app<B: Backend>(
                                                     "list" => {
                                                         app.push_message("You", "/worktree list");
                                                         app.agent_running = true;
-                                                        let _ = app.user_input_tx.try_send(
-                                                            "Call git_worktree with action=list".to_string()
-                                                        );
+                                                        let _ = app.user_input_tx.try_send(UserTurn::text(
+                                                            "Call git_worktree with action=list"
+                                                        ));
                                                     }
                                                     "add" => {
                                                         let wt_path = parts.get(2).copied().unwrap_or("");
@@ -1170,7 +1332,7 @@ pub async fn run_app<B: Backend>(
                                                             } else {
                                                                 format!("Call git_worktree with action=add path={wt_path} branch={wt_branch}")
                                                             };
-                                                            let _ = app.user_input_tx.try_send(directive);
+                                                            let _ = app.user_input_tx.try_send(UserTurn::text(directive));
                                                         }
                                                     }
                                                     "remove" => {
@@ -1180,17 +1342,17 @@ pub async fn run_app<B: Backend>(
                                                         } else {
                                                             app.push_message("You", &format!("/worktree remove {wt_path}"));
                                                             app.agent_running = true;
-                                                            let _ = app.user_input_tx.try_send(
+                                                            let _ = app.user_input_tx.try_send(UserTurn::text(
                                                                 format!("Call git_worktree with action=remove path={wt_path}")
-                                                            );
+                                                            ));
                                                         }
                                                     }
                                                     "prune" => {
                                                         app.push_message("You", "/worktree prune");
                                                         app.agent_running = true;
-                                                        let _ = app.user_input_tx.try_send(
-                                                            "Call git_worktree with action=prune".to_string()
-                                                        );
+                                                        let _ = app.user_input_tx.try_send(UserTurn::text(
+                                                            "Call git_worktree with action=prune"
+                                                        ));
                                                     }
                                                     _ => {
                                                         app.push_message("System",
@@ -1204,7 +1366,7 @@ pub async fn run_app<B: Backend>(
                                                 app.think_mode = Some(true);
                                                 app.push_message("You", "/think");
                                                 app.agent_running = true;
-                                                let _ = app.user_input_tx.try_send("/think".to_string());
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/think"));
                                                 app.history_idx = None;
                                                 continue;
                                             }
@@ -1212,21 +1374,21 @@ pub async fn run_app<B: Backend>(
                                                 app.think_mode = Some(false);
                                                 app.push_message("You", "/no_think");
                                                 app.agent_running = true;
-                                                let _ = app.user_input_tx.try_send("/no_think".to_string());
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/no_think"));
                                                 app.history_idx = None;
                                                 continue;
                                             }
                                             "/lsp" => {
                                                 app.push_message("You", "/lsp");
                                                 app.agent_running = true;
-                                                let _ = app.user_input_tx.try_send("/lsp".to_string());
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/lsp"));
                                                 app.history_idx = None;
                                                 continue;
                                             }
                                             "/runtime-refresh" => {
                                                 app.push_message("You", "/runtime-refresh");
                                                 app.agent_running = true;
-                                                let _ = app.user_input_tx.try_send("/runtime-refresh".to_string());
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/runtime-refresh"));
                                                 app.history_idx = None;
                                                 continue;
                                             }
@@ -1241,8 +1403,8 @@ pub async fn run_app<B: Backend>(
                                                      /code [prompt]    — (Flow) Explicit implementation mode; optional inline prompt\n\
                                                      /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
                                                      /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
-                                                     /new              — (Reset) Clear history, memories, and task files\n\
-                                                     /forget           — (Wipe) Nuclear pivot: reset history & active tasks\n\
+                                                     /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
+                                                     /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
                                                      /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
                                                      /clear            — (UI) Clear dialogue display only\n\
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
@@ -1256,12 +1418,18 @@ pub async fn run_app<B: Backend>(
                                                      /no_think         — (Speed) Disable reasoning (3-5x faster responses)\n\
                                                      /voice            — (TTS) List all available voices\n\
                                                      /voice N          — (TTS) Select voice by number\n\
-                                                     /attach <path>    — (Docs) Attach a PDF/markdown/txt file as context for next message\n\
+                                                     /attach <path>    — (Docs) Attach a PDF/markdown/txt file for next message\n\
+                                                     /attach-pick      — (Docs) Open a file picker and attach a document\n\
+                                                     /image <path>     — (Vision) Attach an image for the next message\n\
+                                                     /image-pick       — (Vision) Open a file picker and attach an image\n\
+                                                     /detach           — (Context) Drop pending document/image attachments\n\
                                                      /copy             — (Debug) Copy session transcript to clipboard\n\
                                                      /copy2            — (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
                                                      \nHotkeys:\n\
                                                      Ctrl+B — Toggle Brief Mode (minimal output)\n\
                                                      Ctrl+P — Toggle Professional Mode (strip personality)\n\
+                                                     Ctrl+O — Open document picker for next-turn context\n\
+                                                     Ctrl+I — Open image picker for next-turn vision context\n\
                                                      Ctrl+Y — Toggle Approvals Off (bypass safety approvals)\n\
                                                      Ctrl+S — Quick Swarm (hardcoded bootstrap)\n\
                                                      Ctrl+Z — Undo last edit\n\
@@ -1307,10 +1475,16 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/detach" => {
+                                                app.clear_pending_attachments();
+                                                app.push_message("System", "Cleared pending document/image attachments for the next turn.");
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/attach" => {
                                                 let file_path = parts[1..].join(" ").trim().to_string();
                                                 if file_path.is_empty() {
-                                                    app.push_message("System", "Usage: /attach <path>  — attach a file (PDF, markdown, txt) as context for the next message.\nDrop reference docs in .hematite/docs/ to have them indexed permanently.");
+                                                    app.push_message("System", "Usage: /attach <path>  — attach a file (PDF, markdown, txt) as context for the next message.\nUse /attach-pick for a file dialog. Drop reference docs in .hematite/docs/ to have them indexed permanently.");
                                                 } else {
                                                     let p = std::path::Path::new(&file_path);
                                                     match crate::memory::vein::extract_document_text(p) {
@@ -1330,6 +1504,34 @@ pub async fn run_app<B: Backend>(
                                                             app.push_message("System", &format!("Attach failed: {}", e));
                                                         }
                                                     }
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/attach-pick" => {
+                                                match pick_attachment_path(AttachmentPickerKind::Document) {
+                                                    Ok(Some(path)) => attach_document_from_path(&mut app, &path),
+                                                    Ok(None) => app.push_message("System", "Document picker cancelled."),
+                                                    Err(e) => app.push_message("System", &e),
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/image" => {
+                                                let file_path = parts[1..].join(" ").trim().to_string();
+                                                if file_path.is_empty() {
+                                                    app.push_message("System", "Usage: /image <path>  - attach an image (PNG/JPG/GIF/WebP) for the next message.\nUse /image-pick for a file dialog.");
+                                                } else {
+                                                    attach_image_from_path(&mut app, &file_path);
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/image-pick" => {
+                                                match pick_attachment_path(AttachmentPickerKind::Image) {
+                                                    Ok(Some(path)) => attach_image_from_path(&mut app, &path),
+                                                    Ok(None) => app.push_message("System", "Image picker cancelled."),
+                                                    Err(e) => app.push_message("System", &e),
                                                 }
                                                 app.history_idx = None;
                                                 continue;
@@ -1357,14 +1559,12 @@ pub async fn run_app<B: Backend>(
                                     app.manual_scroll_offset = None;
                                     app.specular_auto_scroll = true;
                                     let tx = app.user_input_tx.clone();
-                                    // Prepend any /attach'd file as context before the user's message.
-                                    let outbound = if let Some((name, content)) = app.attached_context.take() {
-                                        format!(
-                                            "[Attached document: {}]\n\n{}\n\n---\n\n{}",
-                                            name, content, input_text
-                                        )
-                                    } else {
-                                        input_text
+                                    let outbound = UserTurn {
+                                        text: input_text,
+                                        attached_document: app.attached_context.take().map(|(name, content)| {
+                                            AttachedDocument { name, content }
+                                        }),
+                                        attached_image: app.attached_image.take(),
                                     };
                                     tokio::spawn(async move {
                                         let _ = tx.send(outbound).await;
@@ -1408,7 +1608,7 @@ pub async fn run_app<B: Backend>(
                                      Fix the compiler error above.",
                                     diag
                                 );
-                                let _ = tx.send(msg).await;
+                                let _ = tx.send(UserTurn::text(msg)).await;
                             });
                         }
                     }

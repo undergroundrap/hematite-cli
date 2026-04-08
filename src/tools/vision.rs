@@ -3,6 +3,25 @@ use base64::prelude::*;
 use std::path::Path;
 use crate::agent::inference::{InferenceEngine, ChatMessage};
 
+pub fn encode_image_as_data_url(path: &Path) -> Result<String, String> {
+    if !path.exists() {
+        return Err(format!("File not found: {}", path.display()));
+    }
+
+    let data = std::fs::read(path).map_err(|e| format!("Failed to read image: {}", e))?;
+    let b64 = BASE64_STANDARD.encode(data);
+
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("png");
+    let mime = match ext.to_lowercase().as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        _ => "image/png",
+    };
+
+    Ok(format!("data:{};base64,{}", mime, b64))
+}
+
 pub async fn vision_analyze(
     engine: &InferenceEngine,
     args: &Value,
@@ -13,22 +32,13 @@ pub async fn vision_analyze(
         .ok_or("Missing parameter: prompt")?;
 
     let path = Path::new(path_str);
-    if !path.exists() {
-        return Err(format!("File not found: {}", path_str));
-    }
-
-    let data = std::fs::read(path).map_err(|e| format!("Failed to read image: {}", e))?;
-    let b64 = BASE64_STANDARD.encode(data);
-    
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("png");
-    let mime = match ext.to_lowercase().as_str() {
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif" => "image/gif",
-        "webp" => "image/webp",
-        _ => "image/png",
-    };
-
-    let url = format!("data:{};base64,{}", mime, b64);
+    let url = encode_image_as_data_url(path).map_err(|e| {
+        if e.starts_with("File not found: ") {
+            format!("File not found: {}", path_str)
+        } else {
+            e
+        }
+    })?;
     
     let messages = vec![
         ChatMessage::system("You are a vision-capable technical assistant. Analyze the provided image (likely a screenshot, diagram, or UI mockup) and provide a concise technical summary or answer the specific query."),

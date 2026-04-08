@@ -1,5 +1,5 @@
 use crate::agent;
-use crate::agent::conversation::ConversationManager;
+use crate::agent::conversation::{ConversationManager, UserTurn};
 use crate::agent::git_monitor::GitState;
 use crate::agent::inference::{InferenceEngine, InferenceEvent};
 use crate::ui;
@@ -25,8 +25,8 @@ pub struct RuntimeChannels {
     pub agent_rx: mpsc::Receiver<InferenceEvent>,
     pub swarm_tx: mpsc::Sender<agent::swarm::SwarmMessage>,
     pub swarm_rx: mpsc::Receiver<agent::swarm::SwarmMessage>,
-    pub user_input_tx: mpsc::Sender<String>,
-    pub user_input_rx: mpsc::Receiver<String>,
+    pub user_input_tx: mpsc::Sender<UserTurn>,
+    pub user_input_rx: mpsc::Receiver<UserTurn>,
 }
 
 pub struct RuntimeBundle {
@@ -36,7 +36,7 @@ pub struct RuntimeBundle {
 }
 
 pub struct AgentLoopRuntime {
-    pub user_input_rx: mpsc::Receiver<String>,
+    pub user_input_rx: mpsc::Receiver<UserTurn>,
     pub agent_tx: mpsc::Sender<InferenceEvent>,
     pub services: RuntimeServices,
 }
@@ -100,7 +100,7 @@ pub async fn build_runtime_bundle(
         professional,
     ));
 
-    let (user_input_tx, user_input_rx) = mpsc::channel::<String>(32);
+    let (user_input_tx, user_input_rx) = mpsc::channel::<UserTurn>(32);
     let cancel_token = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     Ok(RuntimeBundle {

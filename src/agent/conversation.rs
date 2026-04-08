@@ -40,6 +40,35 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 // -- Session persistence -------------------------------------------------------
 
+#[derive(Clone, Debug, Default)]
+pub struct UserTurn {
+    pub text: String,
+    pub attached_document: Option<AttachedDocument>,
+    pub attached_image: Option<AttachedImage>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AttachedDocument {
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct AttachedImage {
+    pub name: String,
+    pub path: String,
+}
+
+impl UserTurn {
+    pub fn text(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            attached_document: None,
+            attached_image: None,
+        }
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 struct SavedSession {
     running_summary: Option<String>,
@@ -126,24 +155,24 @@ fn load_session_data() -> (
     (saved.running_summary, saved.session_memory)
 }
 
-fn purge_task_files() {
+fn reset_task_files() {
     let root = crate::tools::file_ops::workspace_root();
-    // Wipe Task/Plan/Walkthrough (layer 1-2)
     let _ = std::fs::remove_file(root.join(".hematite").join("TASK.md"));
     let _ = std::fs::remove_file(root.join(".hematite").join("PLAN.md"));
     let _ = std::fs::remove_file(root.join(".hematite").join("WALKTHROUGH.md"));
     let _ = std::fs::remove_file(root.join(".github").join("WALKTHROUGH.md"));
     let _ = std::fs::write(root.join(".hematite").join("TASK.md"), "");
     let _ = std::fs::write(root.join(".hematite").join("PLAN.md"), "");
+}
 
-    // Wipe DeepReflect summaries (layer 3)
+fn purge_persistent_memory() {
+    let root = crate::tools::file_ops::workspace_root();
     let mem_dir = root.join(".hematite").join("memories");
     if mem_dir.exists() {
         let _ = std::fs::remove_dir_all(&mem_dir);
         let _ = std::fs::create_dir_all(&mem_dir);
     }
 
-    // Truncate Logs (layer 4)
     let log_dir = root.join(".hematite_logs");
     if log_dir.exists() {
         if let Ok(entries) = std::fs::read_dir(&log_dir) {
@@ -151,6 +180,41 @@ fn purge_task_files() {
                 let _ = std::fs::write(entry.path(), "");
             }
         }
+    }
+}
+
+fn apply_turn_attachments(user_turn: &UserTurn, prompt: &str) -> String {
+    let mut out = prompt.trim().to_string();
+    if let Some(doc) = user_turn.attached_document.as_ref() {
+        out = format!(
+            "[Attached document: {}]\n\n{}\n\n---\n\n{}",
+            doc.name, doc.content, out
+        );
+    }
+    if let Some(image) = user_turn.attached_image.as_ref() {
+        out = if out.is_empty() {
+            format!("[Attached image: {}]", image.name)
+        } else {
+            format!("[Attached image: {}]\n\n{}", image.name, out)
+        };
+    }
+    out
+}
+
+fn transcript_user_turn_text(user_turn: &UserTurn, prompt: &str) -> String {
+    let mut prefixes = Vec::new();
+    if let Some(doc) = user_turn.attached_document.as_ref() {
+        prefixes.push(format!("[Attached document: {}]", doc.name));
+    }
+    if let Some(image) = user_turn.attached_image.as_ref() {
+        prefixes.push(format!("[Attached image: {}]", image.name));
+    }
+    if prefixes.is_empty() {
+        prompt.to_string()
+    } else if prompt.trim().is_empty() {
+        prefixes.join("\n")
+    } else {
+        format!("{}\n{}", prefixes.join("\n"), prompt)
     }
 }
 
@@ -1259,10 +1323,11 @@ impl ConversationManager {
     /// as `InferenceEvent` values via `tx`.
     pub async fn run_turn(
         &mut self,
-        user_input: &str,
+        user_turn: &UserTurn,
         tx: mpsc::Sender<InferenceEvent>,
         yolo: bool,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let user_input = user_turn.text.as_str();
         // ── Fast-path reset commands: handled locally, no network I/O needed ──
         if user_input.trim() == "/new" {
             self.history.clear();
@@ -1272,12 +1337,15 @@ impl ConversationManager {
             self.correction_hints.clear();
             self.pinned_files.lock().await.clear();
             self.reset_action_grounding().await;
-            purge_task_files();
+            reset_task_files();
             let _ = std::fs::remove_file(session_path());
             self.save_empty_session();
             self.emit_compaction_pressure(&tx).await;
             self.emit_prompt_pressure_idle(&tx).await;
-            for chunk in chunk_text("Session cleared. Fresh context.", 8) {
+            for chunk in chunk_text(
+                "Fresh task context started. Chat history, pins, and task files cleared. Saved memory remains available.",
+                8,
+            ) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
             let _ = tx.send(InferenceEvent::Done).await;
@@ -1292,12 +1360,17 @@ impl ConversationManager {
             self.correction_hints.clear();
             self.pinned_files.lock().await.clear();
             self.reset_action_grounding().await;
-            purge_task_files();
+            reset_task_files();
+            purge_persistent_memory();
+            tokio::task::block_in_place(|| self.vein.reset());
             let _ = std::fs::remove_file(session_path());
             self.save_empty_session();
             self.emit_compaction_pressure(&tx).await;
             self.emit_prompt_pressure_idle(&tx).await;
-            for chunk in chunk_text("Task Memory & History purged. Clean slate achieved.", 8) {
+            for chunk in chunk_text(
+                "Hard forget complete. Chat history, saved memory, task files, and the Vein index were purged.",
+                8,
+            ) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
             let _ = tx.send(InferenceEvent::Done).await;
@@ -1537,6 +1610,8 @@ impl ConversationManager {
             self.set_workflow_mode(mode);
             effective_user_input = rest.to_string();
         }
+        let transcript_user_input = transcript_user_turn_text(user_turn, &effective_user_input);
+        effective_user_input = apply_turn_attachments(user_turn, &effective_user_input);
         let implement_current_plan = self.workflow_mode == WorkflowMode::Code
             && is_current_plan_execution_request(&effective_user_input)
             && self
@@ -1690,7 +1765,7 @@ impl ConversationManager {
             let response = build_mode_redirect_answer(self.workflow_mode);
             self.history.push(ChatMessage::user(&effective_user_input));
             self.history.push(ChatMessage::assistant_text(&response));
-            self.transcript.log_user(user_input);
+            self.transcript.log_user(&transcript_user_input);
             self.transcript.log_agent(&response);
             for chunk in chunk_text(&response, 8) {
                 if !chunk.is_empty() {
@@ -1979,8 +2054,15 @@ impl ConversationManager {
             }
             None => effective_user_input.clone(),
         };
-        self.history.push(ChatMessage::user(&user_content));
-        self.transcript.log_user(user_input);
+        if let Some(image) = user_turn.attached_image.as_ref() {
+            let image_url = crate::tools::vision::encode_image_as_data_url(std::path::Path::new(&image.path))
+                .map_err(|e| format!("Image attachment failed for {}: {}", image.name, e))?;
+            self.history
+                .push(ChatMessage::user_with_image(&user_content, &image_url));
+        } else {
+            self.history.push(ChatMessage::user(&user_content));
+        }
+        self.transcript.log_user(&transcript_user_input);
 
         // Incremental re-index and Vein context injection — skipped in chat mode
         // (code snippets are noise in a conversational surface).

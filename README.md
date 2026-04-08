@@ -551,7 +551,7 @@ If Hematite detects a Gemma 4 model at startup, it reports whether Gemma Native 
 
 ### Vision Analysis
 
-Hematite can inspect screenshots, diagrams, and UI captures through `vision_analyze`, which lets the model reason about visual bugs and interface state instead of relying only on text descriptions.
+Hematite can inspect screenshots, diagrams, and UI captures through `vision_analyze`, which lets the model reason about visual bugs and interface state instead of relying only on text descriptions. In the TUI, `/image <path>`, `/image-pick`, and `Ctrl+I` attach an image to the next turn so the main conversation can use the multimodal path directly.
 
 ### Startup Greeting
 
@@ -613,8 +613,8 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 /architect [prompt]  Sticky plan-first mode; optional inline prompt that can refresh `.hematite/PLAN.md`
 /read-only [prompt]  Sticky hard read-only mode; optional inline prompt
 /gemma-native [auto|on|off|status]  Auto/force/disable Gemma 4 native formatting
-/new              Reset session and clear context
-/forget           Purge saved conversation memory and wipe visible session state
+/new              Fresh task context; clear chat, pins, and task files
+/forget           Hard forget; purge saved memory and the Vein index too
 /vein-reset       Wipe the RAG index; rebuilds automatically on next turn
 /think            Enable Gemma-4 native reasoning channel
 /no_think         Enable lower-effort reasoning
@@ -625,6 +625,11 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 /worktree prune   Remove stale worktree entries
 /swarm <directive>  Spawn parallel worker agents
 /diff             Show git diff --stat
+/attach <path>    Attach a PDF/markdown/txt file for the next message
+/attach-pick      Open a file picker and attach a document
+/image <path>     Attach an image for the next message
+/image-pick       Open a file picker and attach an image
+/detach           Drop pending document/image attachments
 /copy             Copy the session transcript
 /undo             Undo last file edit
 /clear            Clear visible dialogue and side-panel session state

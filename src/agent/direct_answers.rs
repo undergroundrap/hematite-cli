@@ -31,7 +31,7 @@ pub(crate) fn build_tool_registry_ownership_answer() -> String {
 }
 
 pub(crate) fn build_session_reset_semantics_answer() -> String {
-    "`/clear` is the UI-only cleanup path: it clears the visible dialogue buffer and SPECULAR side-panel state in the TUI, but it does not run the deeper agent reset path.\n\n`/new` is the fresh-context reset: it clears in-memory history, resets session/task state, drops pinned context, wipes task files, and starts a fresh conversation context.\n\n`/forget` is the hard memory purge path: it performs the same visible/session reset shape as `/new`, but it is framed as the explicit memory-wipe command and reports a hard purge of task memory and history.\n\nSo the practical split is: `/clear` = visual cleanup, `/new` = fresh task context, `/forget` = hard wipe semantics.".to_string()
+    "`/clear` is the UI-only cleanup path: it clears the visible dialogue buffer, SPECULAR side-panel state, and pending one-shot attachments in the TUI, but it does not run the deeper agent reset path.\n\n`/new` is the fresh-task reset: it clears in-memory chat history, resets session/task state, drops pinned context, wipes task files, and starts a fresh conversation context while leaving longer-lived saved memory available.\n\n`/forget` is the hard memory purge path: it does the `/new` reset and also purges saved memory artifacts plus the Vein index so the next turn starts from a much cleaner slate.\n\nIf the issue is only a pending one-shot file or image, use `/detach` instead of resetting the whole session.\n\nSo the practical split is: `/clear` = visual cleanup, `/detach` = drop pending attachments, `/new` = fresh task context, `/forget` = hard wipe semantics.".to_string()
 }
 
 pub(crate) fn build_product_surface_answer() -> String {
