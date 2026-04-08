@@ -322,7 +322,7 @@ Hematite follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`
 
 **When to bump:**
 - Never bump mid-development. Version numbers live in `Cargo.toml` and are baked into the binary at compile time.
-- Bump immediately before running `release.ps1` — not after features land, not speculatively.
+- Bump immediately before running `scripts/package-windows.ps1` — not after features land, not speculatively.
 - Always use `bump-version.ps1` — never edit version strings by hand across files.
 - After bumping, verify `cargo build` is clean, commit the bump as a standalone commit, then run the release.
 
@@ -333,7 +333,7 @@ chore: bump version to 0.2.0
 
 ## Release Build
 
-**Step 1 — bump the version** (updates Cargo.toml, README.md, CLAUDE.md, release.ps1 atomically):
+**Step 1 — bump the version** (updates Cargo.toml, README.md, CLAUDE.md atomically):
 
 ```powershell
 pwsh ./bump-version.ps1 -Version 0.2.0
@@ -344,7 +344,7 @@ Never edit version numbers by hand — they will drift across files.
 **Step 2 — build the release binary:**
 
 ```powershell
-pwsh ./release.ps1
+pwsh ./scripts/package-windows.ps1
 ```
 
 This runs `cargo build --release`, copies the binary and `DirectML.dll` into

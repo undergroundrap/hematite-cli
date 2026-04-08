@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$Installer
+    [switch]$Installer,  # Build the Inno Setup installer in addition to the portable zip
+    [switch]$AddToPath   # Register the portable dir in the user PATH after building
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,18 +17,16 @@ if (-not $versionMatch.Success) {
 }
 $version = $versionMatch.Groups[1].Value
 
-$distRoot = Join-Path $repoRoot "dist\windows"
+$distRoot  = Join-Path $repoRoot "dist\windows"
 $bundleDir = Join-Path $distRoot "Hematite-$version-portable"
 $releaseDir = Join-Path $repoRoot "target\release"
 $readmeOut = Join-Path $bundleDir "README.txt"
-$zipPath = Join-Path $distRoot "Hematite-$version-portable.zip"
-$issPath = Join-Path $repoRoot "installer\hematite.iss"
+$zipPath   = Join-Path $distRoot "Hematite-$version-portable.zip"
+$issPath   = Join-Path $repoRoot "installer\hematite.iss"
 
 function Resolve-Iscc {
     $command = Get-Command iscc -ErrorAction SilentlyContinue
-    if ($command) {
-        return $command.Source
-    }
+    if ($command) { return $command.Source }
 
     $candidates = @(
         (Join-Path ${env:LOCALAPPDATA} "Programs\Inno Setup 6\ISCC.exe"),
@@ -44,28 +43,25 @@ function Resolve-Iscc {
     return $null
 }
 
-New-Item -ItemType Directory -Force -Path $distRoot | Out-Null
-if (Test-Path -LiteralPath $bundleDir) {
-    Remove-Item -LiteralPath $bundleDir -Recurse -Force
-}
-New-Item -ItemType Directory -Force -Path $bundleDir | Out-Null
+# ── Build ─────────────────────────────────────────────────────────────────────
+
+Write-Host "Building release binary (v$version)..." -ForegroundColor Cyan
 
 $previousOffline = $env:CARGO_NET_OFFLINE
-if (Test-Path Env:CARGO_NET_OFFLINE) {
-    Remove-Item Env:CARGO_NET_OFFLINE
-}
+if (Test-Path Env:CARGO_NET_OFFLINE) { Remove-Item Env:CARGO_NET_OFFLINE }
 
 try {
     cargo build --release
-    if ($LASTEXITCODE -ne 0) {
-        throw "cargo build --release failed."
-    }
+    if ($LASTEXITCODE -ne 0) { throw "cargo build --release failed." }
+} finally {
+    if ($null -ne $previousOffline) { $env:CARGO_NET_OFFLINE = $previousOffline }
 }
-finally {
-    if ($null -ne $previousOffline) {
-        $env:CARGO_NET_OFFLINE = $previousOffline
-    }
-}
+
+# ── Assemble portable bundle ──────────────────────────────────────────────────
+
+New-Item -ItemType Directory -Force -Path $distRoot | Out-Null
+if (Test-Path -LiteralPath $bundleDir) { Remove-Item -LiteralPath $bundleDir -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $bundleDir | Out-Null
 
 $requiredFiles = @(
     (Join-Path $releaseDir "hematite.exe"),
@@ -109,17 +105,26 @@ Status bar guide:
 - VN:--  (grey)    = Vein not yet indexed (will populate on first turn)
 - BUD / CMP        = prompt budget and compaction pressure
 
-Installer note:
-- If you used the Windows installer and selected the PATH option, open a fresh terminal after installation.
-
 More info: https://github.com/undergroundrap/hematite-cli
 "@
 Set-Content -LiteralPath $readmeOut -Value $readme -Encoding ASCII
 
-if (Test-Path -LiteralPath $zipPath) {
-    Remove-Item -LiteralPath $zipPath -Force
-}
+# ── Zip ───────────────────────────────────────────────────────────────────────
+
+if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
 Compress-Archive -Path (Join-Path $bundleDir '*') -DestinationPath $zipPath
+
+$zipMB = [math]::Round((Get-Item $zipPath).Length / 1MB)
+$exeMB = [math]::Round((Get-Item (Join-Path $bundleDir "hematite.exe")).Length / 1MB)
+$dllMB = [math]::Round((Get-Item (Join-Path $bundleDir "DirectML.dll")).Length / 1MB)
+
+Write-Host ""
+Write-Host "Portable bundle ready: $bundleDir" -ForegroundColor Green
+Write-Host "  hematite.exe  — ${exeMB}MB"
+Write-Host "  DirectML.dll  — ${dllMB}MB"
+Write-Host "Portable zip:    $zipPath (${zipMB}MB)" -ForegroundColor Green
+
+# ── Installer (optional) ──────────────────────────────────────────────────────
 
 if ($Installer) {
     $iscc = Resolve-Iscc
@@ -128,15 +133,29 @@ if ($Installer) {
     }
 
     & $iscc "/DAppVersion=$version" "/DBundleDir=$bundleDir" "/DOutputDir=$distRoot" $issPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "Installer compilation failed."
-    }
+    if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed." }
+
+    Write-Host "Installer output ready in: $distRoot" -ForegroundColor Green
+} else {
+    Write-Host ""
+    Write-Host "Tip: add -Installer to also build the Windows Setup.exe (requires Inno Setup)"
 }
 
-Write-Host "Portable bundle ready: $bundleDir"
-Write-Host "Portable zip ready: $zipPath"
-if ($Installer) {
-    Write-Host "Installer output ready in: $distRoot"
+# ── PATH registration (optional) ──────────────────────────────────────────────
+
+if ($AddToPath) {
+    $absBundle = (Resolve-Path $bundleDir).Path
+    $userPath  = [Environment]::GetEnvironmentVariable("Path", "User")
+    if ($userPath -notlike "*$absBundle*") {
+        [Environment]::SetEnvironmentVariable("Path", "$userPath;$absBundle", "User")
+        Write-Host ""
+        Write-Host "Added to user PATH: $absBundle" -ForegroundColor Cyan
+        Write-Host "Restart your terminal (or IDE) for 'hematite' to be available everywhere."
+    } else {
+        Write-Host ""
+        Write-Host "Already on PATH: $absBundle"
+    }
 } else {
-    Write-Host "Installer not built. Re-run with -Installer after installing Inno Setup."
+    Write-Host "Tip: add -AddToPath to register 'hematite' in your user PATH"
+    Write-Host "     pwsh ./scripts/package-windows.ps1 -AddToPath"
 }

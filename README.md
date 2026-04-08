@@ -293,7 +293,7 @@ Hematite follows [Semantic Versioning](https://semver.org/): `PATCH` for bug fix
 
 ### Bumping the Version
 
-**Always run this before cutting a release.** It updates the version string in every file that needs it — `Cargo.toml`, `README.md`, `CLAUDE.md`, and `release.ps1` — in one shot:
+**Always run this before cutting a release.** It updates the version string in every file that needs it — `Cargo.toml`, `README.md`, `CLAUDE.md` — in one shot:
 
 ```powershell
 pwsh ./bump-version.ps1 -Version 0.2.0
@@ -306,7 +306,7 @@ Then verify the build compiles and commit the result before running the release 
 After bumping the version:
 
 ```powershell
-pwsh ./release.ps1
+pwsh ./scripts/package-windows.ps1
 ```
 
 This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.1.0-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
@@ -314,7 +314,7 @@ This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/win
 To add `hematite` to your user PATH so it works from any terminal or IDE:
 
 ```powershell
-pwsh ./release.ps1 -AddToPath
+pwsh ./scripts/package-windows.ps1 -AddToPath
 ```
 
 Restart your terminal after running this. From then on, `cd` into any project folder and type `hematite` — it picks up your project root automatically via `.git` or `Cargo.toml`/`package.json`. Works in PowerShell, CMD, Windows Terminal, VS Code's integrated terminal, and JetBrains IDEs.

@@ -79,8 +79,8 @@ For behavior regressions and prompt-quality checks, use the benchmark prompts un
 
 - Package version comes from `Cargo.toml` — see `CLAUDE.md` for the full versioning policy
 - **Always bump the version with `pwsh ./bump-version.ps1 -Version X.Y.Z` before releasing** — never edit version strings by hand
-- Local Windows release is built with `pwsh ./release.ps1`
-- Legacy packaging: `scripts/package-windows.ps1` (use `-Installer` for the Inno Setup installer)
+- Local Windows release is built with `pwsh ./scripts/package-windows.ps1`
+- Add `-Installer` for the Inno Setup installer, `-AddToPath` to register in user PATH
 - Tagged GitHub releases are built by `.github/workflows/windows-release.yml`
 
 Before a public release, verify `cargo build` is clean, bump the version, commit, then run the release script.

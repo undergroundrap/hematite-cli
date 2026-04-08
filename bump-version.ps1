@@ -33,12 +33,10 @@ Set-Content "Cargo.toml" $content -NoNewline
     -replace [regex]::Escape("Hematite-$old"), "Hematite-$Version" |
     Set-Content "CLAUDE.md" -NoNewline
 
-# release.ps1 default param
-(Get-Content "release.ps1" -Raw) `
-    -replace [regex]::Escape("`"$old`""), "`"$Version`"" |
-    Set-Content "release.ps1" -NoNewline
-
 Write-Host "Done. Files updated:" -ForegroundColor Green
-Write-Host "  Cargo.toml, README.md, CLAUDE.md, release.ps1"
+Write-Host "  Cargo.toml, README.md, CLAUDE.md"
 Write-Host ""
-Write-Host "Next: cargo build to verify, then git commit and git tag v$Version"
+Write-Host "Next steps:"
+Write-Host "  1. cargo build          — verify it compiles"
+Write-Host "  2. git add -A && git commit -m 'chore: bump version to $Version'"
+Write-Host "  3. pwsh ./scripts/package-windows.ps1 -AddToPath"
