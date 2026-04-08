@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [],
+    "ask": [],
+    "deny": []
+  },
+  "trust": {
+    "allow": [
+      "."
+    ],
+    "deny": []
+  },
+  "model": null,
+  "fast_model": null,
+  "think_model": null,
+  "gemma_native_auto": true,
+  "gemma_native_formatting": false,
+  "api_url": null,
+  "voice": "af_sky",
+  "voice_speed": null,
+  "voice_volume": null,
+  "context_hint": null,
+  "verify": {
+    "default_profile": null,
+    "profiles": {}
+  },
+  "hooks": {
+    "pre_tool_use": [],
+    "post_tool_use": []
+  }
+}
