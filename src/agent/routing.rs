@@ -57,19 +57,6 @@ fn mentions_reset_commands(lower: &str) -> bool {
     contains_all(lower, &["/clear", "/new", "/forget"])
 }
 
-fn mentions_repo_inspection_request(lower: &str) -> bool {
-    contains_any(
-        lower,
-        &[
-            "inspect",
-            "repository file tools",
-            "then continue",
-            "src/agent/conversation.rs",
-            "src/ui/tui.rs",
-        ],
-    )
-}
-
 fn mentions_stable_product_surface(lower: &str) -> bool {
     contains_any(
         lower,
