@@ -37,6 +37,6 @@ Write-Host "Done. Files updated:" -ForegroundColor Green
 Write-Host "  Cargo.toml, README.md, CLAUDE.md"
 Write-Host ""
 Write-Host "Next steps:"
-Write-Host "  1. cargo build          — verify it compiles"
+Write-Host "  1. cargo build          - verify it compiles"
 Write-Host "  2. git add -A && git commit -m 'chore: bump version to $Version'"
 Write-Host "  3. pwsh ./scripts/package-windows.ps1 -AddToPath"

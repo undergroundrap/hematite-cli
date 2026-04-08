@@ -18,7 +18,7 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding agent when you need it, clean conversation when you don't. LM Studio handles model serving. Hematite handles everything else.
 
-![Version](https://img.shields.io/badge/version-0.1.0-orange?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.2.0-orange?style=flat-square)
 ![Windows](https://img.shields.io/badge/Windows-native-blue?style=flat-square)
 ![Linux](https://img.shields.io/badge/Linux-supported-green?style=flat-square)
 ![macOS](https://img.shields.io/badge/macOS-supported-lightgrey?style=flat-square)
@@ -309,7 +309,7 @@ After bumping the version:
 pwsh ./scripts/package-windows.ps1
 ```
 
-This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.1.0-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
+This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.2.0-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
 
 To add `hematite` to your user PATH so it works from any terminal or IDE:
 

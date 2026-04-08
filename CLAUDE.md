@@ -348,11 +348,11 @@ pwsh ./scripts/package-windows.ps1
 ```
 
 This runs `cargo build --release`, copies the binary and `DirectML.dll` into
-`dist/windows/Hematite-0.1.0-portable/`, and rezips the portable archive.
+`dist/windows/Hematite-0.2.0-portable/`, and rezips the portable archive.
 
 - The ONNX model (311 MB) is baked into the binary at compile time — no separate download
 - `DirectML.dll` is copied from `target/release/` automatically by the ORT build script
-- Output: `dist/windows/Hematite-0.1.0-portable.zip` (~336 MB)
+- Output: `dist/windows/Hematite-0.2.0-portable.zip` (~336 MB)
 - `dist/` is gitignored — these are release artifacts, not tracked in source
 
 ## Cleanup
