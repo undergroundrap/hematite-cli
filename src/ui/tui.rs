@@ -33,6 +33,8 @@ pub struct PendingApproval {
     /// Pre-formatted diff from `compute_*_diff`.  Lines starting with "- " are
     /// removals (red), "+ " are additions (green), "---" / "@@ " are headers.
     pub diff: Option<String>,
+    /// Current scroll offset for the diff body (lines scrolled down).
+    pub diff_scroll: u16,
     pub responder: tokio::sync::oneshot::Sender<bool>,
 }
 
@@ -1583,7 +1585,36 @@ pub async fn run_app<B: Backend>(
                         }
 
                         // ── High-risk approval modal (exclusive lock) ─────────
-                        if let Some(approval) = app.awaiting_approval.take() {
+                        if let Some(mut approval) = app.awaiting_approval.take() {
+                            // Scroll keys — adjust offset and put approval back.
+                            let scroll_handled = if approval.diff.is_some() {
+                                let diff_lines = approval.diff.as_ref().map(|d| d.lines().count()).unwrap_or(0) as u16;
+                                match key.code {
+                                    KeyCode::Down | KeyCode::Char('j') => {
+                                        approval.diff_scroll = approval.diff_scroll.saturating_add(1).min(diff_lines.saturating_sub(1));
+                                        true
+                                    }
+                                    KeyCode::Up | KeyCode::Char('k') => {
+                                        approval.diff_scroll = approval.diff_scroll.saturating_sub(1);
+                                        true
+                                    }
+                                    KeyCode::PageDown => {
+                                        approval.diff_scroll = approval.diff_scroll.saturating_add(10).min(diff_lines.saturating_sub(1));
+                                        true
+                                    }
+                                    KeyCode::PageUp => {
+                                        approval.diff_scroll = approval.diff_scroll.saturating_sub(10);
+                                        true
+                                    }
+                                    _ => false,
+                                }
+                            } else {
+                                false
+                            };
+                            if scroll_handled {
+                                app.awaiting_approval = Some(approval);
+                                continue;
+                            }
                             match key.code {
                                 KeyCode::Char('y') | KeyCode::Char('Y') => {
                                     if let Some(ref diff) = approval.diff {
@@ -2417,6 +2448,7 @@ pub async fn run_app<B: Backend>(
                             display: display.clone(),
                             tool_name: name,
                             diff,
+                            diff_scroll: 0,
                             responder,
                         });
                         if is_diff {
@@ -3315,7 +3347,8 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                 Style::default().fg(title_color).add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
-                "  [Y] Apply     [N] Skip ",
+                if is_diff_preview { "  [↑↓/jk/PgUp/PgDn] Scroll   [Y] Apply   [N] Skip " }
+                else { "  [Y] Approve     [N] Decline " },
                 Style::default()
                     .fg(Color::Green)
                     .add_modifier(Modifier::BOLD),
@@ -3385,7 +3418,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                             .borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT)
                             .border_style(Style::default().fg(border_color)),
                     )
-                    .wrap(Wrap { trim: false }),
+                    .scroll((approval.diff_scroll, 0)),
                 chunks[1],
             );
         } else {
