@@ -27,9 +27,10 @@ Full Apache 2.0 license text: https://www.apache.org/licenses/LICENSE-2.0
 **Source:** https://huggingface.co/hexgrad/Kokoro-82M  
 **License:** Apache License 2.0  
 
-The Kokoro voice model weights (`.onnx` and `voices.bin`) are distributed
-separately and are not included in this repository. Users who enable voice
-must download them independently. See README for setup instructions.
+The Kokoro voice model weights (`kokoro-v1.0.onnx`, 311 MB) and voice styles
+(`voices.bin`, 27 MB) are embedded directly into the Hematite binary at compile
+time via `include_bytes!`. No separate download is required — voice works
+out of the box with no additional setup.
 
 ---
 
