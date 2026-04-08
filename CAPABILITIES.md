@@ -114,12 +114,27 @@ Hematite includes built-in operator experience features that are part of the pro
 
 Hematite can run code the model writes in a restricted subprocess — enabling real computation, not pattern-matched guesses from training data.
 
+**Why this matters vs. LM Studio's built-in chat:** LM Studio's chat interface can discuss algorithms, write code snippets, and explain how Fibonacci works. It cannot run any of it. When you ask a local model "what's Fibonacci(20)?", it reaches into training data and gives you a plausible answer — which may be right, may be slightly wrong, and cannot be verified without running it yourself. Hematite closes that gap: the model writes the code, Hematite executes it in a zero-trust sandbox, and the real output comes back in the same turn.
+
+**Proof of concept — SHA-256 hash via Web Crypto API:**
+
+```
+User: compute the SHA-256 hash of the string "Hematite"
+
+→ run_code (javascript, Deno sandbox, crypto.subtle.digest)
+
+94a194250ccdb8506d67ead15dd3a1db50803855123422f21b378b56f80ba99c
+```
+
+That result cannot come from training data. SHA-256 is deterministic but not memorizable — no model can produce `94a194250ccdb8506d67ead15dd3a1db50803855123422f21b378b56f80ba99c` without actually running a hash function. It is real cryptographic computation in a sandboxed Deno process, returned in one tool call. LM Studio's chat UI — regardless of which model is loaded — cannot do this.
+
 - **`run_code` tool**: model writes JavaScript/TypeScript or Python, Hematite executes it and returns the actual output
 - **Deno sandbox (JS/TS)**: `--deny-net`, `--deny-env`, `--deny-sys`, `--deny-run`, `--deny-ffi`, `--allow-read/write=.` — zero-trust permission model; no network, no filesystem escape, no native library calls
 - **Python sandbox**: blocked socket, subprocess, and dangerous module imports; clean environment via `env_clear`
 - **Hard timeout**: 10 seconds by default, model-configurable up to 60 seconds; process killed on expiry
-- **No bundled runtimes**: Python 3 ships with Windows 11 and is already on most machines; Deno is a single binary install if JS/TS execution is needed
+- **Automatic Deno detection**: Hematite finds Deno automatically — checks `settings.json` override, `~/.deno/bin/`, WinGet package store, system PATH, then LM Studio's bundled copy as a last resort. If you have LM Studio installed, you likely already have Deno and JS/TS execution works out of the box with no extra setup
 - **Real math and logic**: the model can verify algorithms, run calculations, test data transformations, and fix errors from actual output — not training-data approximations
+- **Practical use cases**: check a sorting algorithm on a real dataset, verify a regex against real strings, compute checksums, generate test fixtures, run a quick proof — all without leaving the conversation
 
 ## 8. MCP Interoperability
 
@@ -130,7 +145,7 @@ Hematite can extend itself through external MCP servers without making MCP the c
 - **Protocol resilience**: supports newline-delimited stdio and falls back to `Content-Length` framing
 - **TUI-safe process handling**: MCP stderr is captured in memory so child processes do not corrupt the terminal UI
 
-## 8. Local-First Product Boundary
+## 9. Local-First Product Boundary
 
 Hematite is the **agent harness**. LM Studio is the **model runtime**.
 

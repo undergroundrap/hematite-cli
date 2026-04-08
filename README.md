@@ -359,6 +359,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `git_push` | Push to origin HEAD |
 | `git_worktree` | Create, list, prune, and remove isolated worktrees |
 | `verify_build` | Run build/test/lint/fix validation through verify profiles or auto-detected defaults |
+| `run_code` | Execute JavaScript/TypeScript (Deno) or Python in a zero-trust sandbox — real output, not model guesses |
 | `clarify` | Ask the user a question when genuinely blocked |
 
 ---
@@ -455,6 +456,37 @@ Hybrid results are merged and ranked: semantic hits score higher when the embedd
 **BM25 query accuracy:** stopwords are filtered and tokens are OR-joined so conversational queries like "how does the specular panel work" return relevant results instead of empty matches.
 
 **Backfill ordering:** when the embedding model is loaded after initial indexing, `.rs` source files are embedded before documentation and config files so the most useful chunks get semantic vectors first.
+
+### Sandboxed Code Execution — Real Answers, Not Training-Data Guesses
+
+This is where Hematite pulls ahead of LM Studio's built-in chat in a way that's hard to ignore.
+
+LM Studio's chat interface can discuss algorithms, explain logic, and write code. It cannot run any of it. When you ask a local model "what's the 20th Fibonacci number?" or "does this regex match that string?", it reaches into training data and gives you a plausible answer — which may be exactly right, slightly wrong, or confidently wrong, and you have no way to verify it inside the conversation.
+
+Hematite's `run_code` tool closes that gap. The model writes the code. Hematite runs it. The real output comes back in the same turn.
+
+**What that looks like in practice:**
+
+```
+User: use run_code to compute the SHA-256 hash of the string "Hematite"
+
+[Hematite calls run_code → Deno sandbox → real crypto process executes]
+
+94a194250ccdb8506d67ead15dd3a1db50803855123422f21b378b56f80ba99c
+```
+
+That output cannot come from training data. SHA-256 is deterministic but not memorizable — the model has no way to produce `94a194250ccdb8506d67ead15dd3a1db50803855123422f21b378b56f80ba99c` without actually running a hash function. One tool call. Real cryptographic computation. LM Studio's chat interface cannot do this regardless of which model is loaded.
+
+**What you can do with this:**
+- Verify a sorting algorithm on a real sample of your data
+- Test a regex against actual strings from your codebase
+- Run a quick proof on a logic branch before committing
+- Generate test fixtures, compute checksums, validate data transformations
+- Debug a function by running it with edge-case inputs — and letting the model read the real output
+
+**Zero-trust sandbox.** Deno runs with `--deny-net`, `--deny-env`, `--deny-sys`, `--deny-run`, `--deny-ffi` and only read/write access to the workspace. The process cannot reach the network, read environment variables, call native libraries, or spawn other processes. Python runs with a cleared environment and blocked imports for `subprocess`, `socket`, `urllib`, and related modules.
+
+**No extra install needed if you use LM Studio.** LM Studio ships Deno internally. Hematite finds it automatically — no configuration required. If you're not using LM Studio, install Deno globally: `winget install DenoLand.Deno`.
 
 ### Built-In Web Research
 

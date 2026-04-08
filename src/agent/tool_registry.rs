@@ -49,12 +49,24 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "run_code",
             "Execute a short JavaScript/TypeScript or Python snippet in a sandboxed subprocess. \
              No network access, no filesystem escape, hard 10-second timeout. \
-             Use this to verify logic, test algorithms, process data, or do quick calculations \
-             without touching the user's files. Prefer this over shell for self-contained code experiments. \
-             JavaScript/TypeScript runs via Deno — `Deno` is a global object, no imports needed. \
-             To check the runtime: `console.log(Deno.version.deno)`. \
-             Do NOT use Python import syntax in JavaScript code. \
-             Do NOT fall back to shell to run deno or python — use this tool directly.",
+             Use this to verify logic, test algorithms, compute values, or test functions \
+             when you need real output rather than a guess. \
+             ALWAYS include the `language` field — there is no default. \
+             \
+             JAVASCRIPT/TYPESCRIPT (language: \"javascript\"): \
+             Runs via Deno, NOT Node.js. `require()` does not exist — never use it. \
+             URL imports (e.g. from 'https://deno.land/...') are blocked — network is off. \
+             Use built-in Web APIs only: `crypto.subtle`, `TextEncoder`, `URL`, `atob`/`btoa`, etc. \
+             SHA-256 example: \
+               const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('hello')); \
+               console.log([...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('')); \
+             \
+             PYTHON (language: \"python\"): \
+             Standard library is available. `hashlib`, `json`, `math`, `datetime`, `re`, `itertools` all work. \
+             `subprocess`, `socket`, `urllib`, `requests` are blocked. \
+             SHA-256 example: import hashlib; print(hashlib.sha256(b'hello').hexdigest()) \
+             \
+             Do NOT fall back to shell to run deno, python, or node — use this tool directly.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
