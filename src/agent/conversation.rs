@@ -3695,6 +3695,7 @@ impl ConversationManager {
                             id: real_id.clone(),
                             name: call.name.clone(),
                             display: format!("{}\nWhy: {}", display, reason),
+                            diff: None,
                             responder: approve_tx,
                         })
                         .await;
@@ -3901,6 +3902,7 @@ impl ConversationManager {
                                                 id: format!("swarm_{}", worker_id),
                                                 name: "swarm_apply".to_string(),
                                                 display,
+                                                diff: None,
                                                 responder: approve_tx,
                                             })
                                             .await;
@@ -3932,6 +3934,44 @@ impl ConversationManager {
                     }
                 } else if call.name == "vision_analyze" {
                     crate::tools::vision::vision_analyze(&self.engine, &args).await
+                } else if matches!(
+                    call.name.as_str(),
+                    "edit_file" | "patch_hunk" | "multi_search_replace"
+                ) && !yolo
+                {
+                    // ── Diff preview gate ─────────────────────────────────────
+                    // Compute what the edit would look like before applying it.
+                    // If we can build a diff, require user Y/N in the TUI.
+                    let diff_result = match call.name.as_str() {
+                        "edit_file" => crate::tools::file_ops::compute_edit_file_diff(&args),
+                        "patch_hunk" => crate::tools::file_ops::compute_patch_hunk_diff(&args),
+                        _ => crate::tools::file_ops::compute_msr_diff(&args),
+                    };
+                    match diff_result {
+                        Ok(diff_text) => {
+                            let path_label = args
+                                .get("path")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("file");
+                            let (appr_tx, appr_rx) = tokio::sync::oneshot::channel::<bool>();
+                            let _ = tx
+                                .send(InferenceEvent::ApprovalRequired {
+                                    id: real_id.clone(),
+                                    name: call.name.clone(),
+                                    display: format!("Edit preview: {}", path_label),
+                                    diff: Some(diff_text),
+                                    responder: appr_tx,
+                                })
+                                .await;
+                            match appr_rx.await {
+                                Ok(true) => dispatch_tool(&call.name, &args).await,
+                                _ => Err("Edit declined by user.".into()),
+                            }
+                        }
+                        // Diff computation failed (e.g. search string not found yet) —
+                        // fall through and let the tool return its own error.
+                        Err(_) => dispatch_tool(&call.name, &args).await,
+                    }
                 } else {
                     dispatch_tool(&call.name, &args).await
                 };

@@ -980,6 +980,99 @@ fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>
     }
 }
 
+// ── Diff preview helpers (read-only, no writes) ───────────────────────────────
+
+/// Return a formatted diff string for an edit_file operation without applying it.
+/// Lines prefixed "- " are removals, "+ " are additions.  Returns Err if the
+/// search string cannot be located (caller falls through to normal tool dispatch).
+pub fn compute_edit_file_diff(args: &Value) -> Result<String, String> {
+    let path = require_str(args, "path")?;
+    let search = require_str(args, "search")?;
+    let replace = require_str(args, "replace")?;
+
+    let abs = safe_path(path)?;
+    let raw = fs::read_to_string(&abs).map_err(|e| format!("diff preview read: {e}"))?;
+    let original = raw.replace("\r\n", "\n");
+
+    let effective_search: String = if original.contains(search) {
+        search.to_string()
+    } else {
+        match fuzzy_find_span(&original, search) {
+            Some(span) => original[span].to_string(),
+            None => return Err("search string not found — diff preview unavailable".into()),
+        }
+    };
+
+    let mut diff = format!("--- {}\n", path);
+    for line in effective_search.lines() {
+        diff.push_str(&format!("- {}\n", line));
+    }
+    for line in replace.lines() {
+        diff.push_str(&format!("+ {}\n", line));
+    }
+    Ok(diff)
+}
+
+/// Return a formatted diff string for a patch_hunk operation without applying it.
+pub fn compute_patch_hunk_diff(args: &Value) -> Result<String, String> {
+    let path = require_str(args, "path")?;
+    let start_line = require_usize(args, "start_line")?;
+    let end_line = require_usize(args, "end_line")?;
+    let replacement = require_str(args, "replacement")?;
+
+    let abs = safe_path(path)?;
+    let original = fs::read_to_string(&abs).map_err(|e| format!("diff preview read: {e}"))?;
+    let lines: Vec<&str> = original.lines().collect();
+    let total = lines.len();
+
+    if start_line < 1 || start_line > total || end_line < start_line || end_line > total {
+        return Err(format!(
+            "patch_hunk: invalid line range {}-{} for file with {} lines",
+            start_line, end_line, total
+        ));
+    }
+
+    let s_idx = start_line - 1;
+    let e_idx = end_line;
+
+    let mut diff = format!("--- {} (lines {}-{})\n", path, start_line, end_line);
+    for i in s_idx..e_idx {
+        diff.push_str(&format!("- {}\n", lines[i].trim_end()));
+    }
+    for line in replacement.lines() {
+        diff.push_str(&format!("+ {}\n", line.trim_end()));
+    }
+    Ok(diff)
+}
+
+/// Return a formatted diff string for a multi_search_replace operation without applying it.
+pub fn compute_msr_diff(args: &Value) -> Result<String, String> {
+    let path = require_str(args, "path")?;
+    let hunks_val = args
+        .get("hunks")
+        .ok_or_else(|| "multi_search_replace requires 'hunks' array".to_string())?;
+
+    #[derive(serde::Deserialize)]
+    struct PreviewHunk {
+        search: String,
+        replace: String,
+    }
+    let hunks: Vec<PreviewHunk> = serde_json::from_value(hunks_val.clone())
+        .map_err(|e| format!("compute_msr_diff: invalid hunks: {e}"))?;
+
+    let mut diff = format!("--- {}\n", path);
+    for (i, hunk) in hunks.iter().enumerate() {
+        diff.push_str(&format!("@@ hunk {} @@\n", i + 1));
+        for line in hunk.search.lines() {
+            diff.push_str(&format!("- {}\n", line.trim_end()));
+        }
+        for line in hunk.replace.lines() {
+            diff.push_str(&format!("+ {}\n", line.trim_end()));
+        }
+    }
+    Ok(diff)
+}
+
 /// Resolve the workspace root by looking upward for common markers.
 pub fn workspace_root() -> PathBuf {
     let mut current = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));

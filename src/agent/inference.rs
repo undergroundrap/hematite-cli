@@ -620,10 +620,14 @@ pub enum InferenceEvent {
     },
     /// A risky tool requires explicit user approval.
     /// The TUI must send `true` (approved) or `false` (rejected) via `responder`.
+    /// When `diff` is Some, the modal renders a coloured before/after diff preview.
     ApprovalRequired {
         id: String,
         name: String,
         display: String,
+        /// Pre-formatted diff: lines starting with "- " are removals, "+ " are additions,
+        /// "---" is a file header.  None means a plain high-risk approval (no diff).
+        diff: Option<String>,
         responder: tokio::sync::oneshot::Sender<bool>,
     },
     /// The current agent turn is complete.

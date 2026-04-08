@@ -30,6 +30,9 @@ use walkdir::WalkDir;
 pub struct PendingApproval {
     pub display: String,
     pub tool_name: String,
+    /// Pre-formatted diff from `compute_*_diff`.  Lines starting with "- " are
+    /// removals (red), "+ " are additions (green), "---" / "@@ " are headers.
+    pub diff: Option<String>,
     pub responder: tokio::sync::oneshot::Sender<bool>,
 }
 
@@ -2365,14 +2368,20 @@ pub async fn run_app<B: Backend>(
                         app.active_context.retain(|f| f.path != name || f.status != "Running");
                         app.manual_scroll_offset = None;
                     }
-                    InferenceEvent::ApprovalRequired { id: _, name, display, responder } => {
+                    InferenceEvent::ApprovalRequired { id: _, name, display, diff, responder } => {
+                        let is_diff = diff.is_some();
                         app.awaiting_approval = Some(PendingApproval {
                             display: display.clone(),
                             tool_name: name,
+                            diff,
                             responder,
                         });
-                        app.push_message("System", "[!]  Approval required (Press [Y] Approve or [N] Decline)");
-                        app.push_message("System", &format!("Command: {}", display));
+                        if is_diff {
+                            app.push_message("System", "[~]  Diff preview — [Y] Apply  [N] Skip");
+                        } else {
+                            app.push_message("System", "[!]  Approval required (Press [Y] Approve or [N] Decline)");
+                            app.push_message("System", &format!("Command: {}", display));
+                        }
                     }
                     InferenceEvent::UsageUpdate(usage) => {
                         app.total_tokens = usage.total_tokens;
@@ -3236,28 +3245,36 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     // ── High-risk approval modal ───────────────────────────────────────────────
     if let Some(approval) = &app.awaiting_approval {
-        // Dynamic Height Modal: Use a Header/Body split to ensure instructions are never cut off.
-        let area = centered_rect(75, 50, f.size());
+        let is_diff_preview = approval.diff.is_some();
+
+        // Taller modal for diff preview so more lines are visible.
+        let modal_h = if is_diff_preview { 70 } else { 50 };
+        let area = centered_rect(80, modal_h, f.size());
         f.render_widget(Clear, area);
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(4), // Header: Title + Instructions
-                Constraint::Min(0),    // Body: Tool + Command
+                Constraint::Min(0),    // Body: Tool + diff/command
             ])
             .split(area);
 
         // ── Modal Header ─────────────────────────────────────────────────────
+        let (title_str, title_color) = if is_diff_preview {
+            (" DIFF PREVIEW — REVIEW BEFORE APPLYING ", Color::Yellow)
+        } else {
+            (" HIGH-RISK OPERATION REQUESTED ", Color::Red)
+        };
         let header_text = vec![
             Line::from(Span::styled(
-                " 🔒 HIGH-RISK OPERATION REQUESTED 🔒 ",
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                title_str,
+                Style::default().fg(title_color).add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
-                "  [Y] Approve     [N] Decline ",
+                "  [Y] Apply     [N] Skip ",
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(Color::Green)
                     .add_modifier(Modifier::BOLD),
             )),
         ];
@@ -3266,30 +3283,75 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                 .block(
                     Block::default()
                         .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
-                        .border_style(Style::default().fg(Color::Red)),
+                        .border_style(Style::default().fg(title_color)),
                 )
                 .alignment(ratatui::layout::Alignment::Center),
             chunks[0],
         );
 
         // ── Modal Body ───────────────────────────────────────────────────────
-        let body_text = vec![
-            Line::from(Span::raw(format!(" Tool: {}", approval.tool_name))),
-            Line::from(Span::styled(
-                format!(" ❯ {}", approval.display),
-                Style::default().fg(Color::Cyan),
-            )),
-        ];
-        f.render_widget(
-            Paragraph::new(body_text)
-                .block(
-                    Block::default()
-                        .borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT)
-                        .border_style(Style::default().fg(Color::Red)),
-                )
-                .wrap(Wrap { trim: true }),
-            chunks[1],
-        );
+        let border_color = if is_diff_preview { Color::Yellow } else { Color::Red };
+        if let Some(diff_text) = &approval.diff {
+            // Render colored diff lines
+            let mut body_lines: Vec<Line> = vec![
+                Line::from(Span::styled(
+                    format!(" {}", approval.display),
+                    Style::default().fg(Color::Cyan),
+                )),
+                Line::from(Span::raw("")),
+            ];
+            for raw_line in diff_text.lines() {
+                let styled = if raw_line.starts_with("+ ") {
+                    Line::from(Span::styled(
+                        format!(" {}", raw_line),
+                        Style::default().fg(Color::Green),
+                    ))
+                } else if raw_line.starts_with("- ") {
+                    Line::from(Span::styled(
+                        format!(" {}", raw_line),
+                        Style::default().fg(Color::Red),
+                    ))
+                } else if raw_line.starts_with("---") || raw_line.starts_with("@@ ") {
+                    Line::from(Span::styled(
+                        format!(" {}", raw_line),
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::BOLD),
+                    ))
+                } else {
+                    Line::from(Span::raw(format!(" {}", raw_line)))
+                };
+                body_lines.push(styled);
+            }
+            f.render_widget(
+                Paragraph::new(body_lines)
+                    .block(
+                        Block::default()
+                            .borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT)
+                            .border_style(Style::default().fg(border_color)),
+                    )
+                    .wrap(Wrap { trim: false }),
+                chunks[1],
+            );
+        } else {
+            let body_text = vec![
+                Line::from(Span::raw(format!(" Tool: {}", approval.tool_name))),
+                Line::from(Span::styled(
+                    format!(" ❯ {}", approval.display),
+                    Style::default().fg(Color::Cyan),
+                )),
+            ];
+            f.render_widget(
+                Paragraph::new(body_text)
+                    .block(
+                        Block::default()
+                            .borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT)
+                            .border_style(Style::default().fg(border_color)),
+                    )
+                    .wrap(Wrap { trim: true }),
+                chunks[1],
+            );
+        }
     }
 
     // ── Swarm diff review modal ────────────────────────────────────────────────
