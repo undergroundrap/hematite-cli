@@ -6,6 +6,7 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 
 **What it actually does:**
 - Reads any file, grepping for the right location before touching anything
+- Shows a coloured diff preview before every edit — press Y to apply, N to skip
 - Edits with exact-match precision, CRLF-safe on Windows
 - Runs `verify_build` after every change and feeds errors back to the model automatically
 - Ghost-snapshots every edit so `Ctrl+Z` restores the previous state instantly
@@ -149,6 +150,7 @@ There are several tools in this space. Here is what each one actually requires a
 | **Code execution** | Sandboxed JS + Python (zero-trust) | No | No | No | Yes (primary feature) |
 | **Image / doc attach** | Yes (`Ctrl+I`, `/image`, `/attach`) | No | No | Yes (UI upload) | No |
 | **PDF ingestion** | Best-effort (text PDFs) | No | No | Full (Electron + dependencies) | No |
+| **Diff preview** | Yes — Y/N before every edit, `+N -N` in chat | Yes (Aider's core feature) | No | No | No |
 | **Undo / ghost backup** | Built-in (`Ctrl+Z`) | Git-based | No | No | No |
 | **Offline** | Fully offline | Fully offline | Fully offline | Fully offline | Fully offline |
 

@@ -30,6 +30,7 @@ pwsh ./clean.ps1
 - `Ctrl+O`: open file picker to attach a document (PDF/markdown/txt) for the next turn
 - `Ctrl+I`: open file picker to attach an image for the next turn (vision path)
 - `Ctrl+Z`: undo last file edit (ghost backup restore)
+- `Y` / `N`: approve or skip a diff preview modal when the model proposes an edit
 - `/voice`: list all available TTS voices with numbers
 - `/voice N` or `/voice <id>`: select a voice by number or ID — saves to `.hematite/settings.json` and takes effect immediately
 - `/attach <path>`: attach a PDF, markdown, or text file as context for the next message then clear
@@ -239,6 +240,8 @@ fall back to a sliding window. This ensures each retrieved chunk is a coherent, 
 - Repeat guard: if the same `(tool_name, args)` is called 3+ times in a turn, a hard stop intervention is injected; `verify_build` and git tools are exempt (fix-verify loops are legitimate)
 - Naked reasoning prose leaked without `<think>` tags is stripped from visible output before it reaches chat; stray `</think>`, `</function>`, `</tool_call>`, and similar XML artifacts are also stripped
 - `edit_file` and `multi_search_replace` normalize CRLF → LF before matching so model search strings (always LF) work correctly on Windows files
+- Diff preview: before `edit_file`, `patch_hunk`, or `multi_search_replace` is applied, a coloured before/after diff modal is shown in the TUI; user presses Y to apply or N to skip; model is told "Edit declined by user." on N; bypassed in `--yolo` mode
+- `read_file` satisfies the line-inspection grounding check so the model can go `read_file → edit_file` without a separate `inspect_lines` call
 
 ## Commit Style
 

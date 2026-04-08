@@ -331,6 +331,37 @@ impl App {
                 "  ".to_string()
             };
 
+            // System messages with "+N -N" stat tokens get inline green/red coloring.
+            if speaker == "System" && (raw_line.contains(" +") || raw_line.contains(" -")) {
+                let mut spans: Vec<Span<'static>> = vec![
+                    Span::raw(" "),
+                    Span::styled(label, style),
+                ];
+                // Tokenise on whitespace, colouring +digits green, -digits red,
+                // and file paths (containing '/' or '.') bright white.
+                for token in raw_line.split_whitespace() {
+                    let is_add = token.starts_with('+') && token.len() > 1 && token[1..].chars().all(|c| c.is_ascii_digit());
+                    let is_rem = token.starts_with('-') && token.len() > 1 && token[1..].chars().all(|c| c.is_ascii_digit());
+                    let is_path = (token.contains('/') || token.contains('\\') || token.contains('.'))
+                        && !token.starts_with('+')
+                        && !token.starts_with('-')
+                        && !token.ends_with(':');
+                    let span = if is_add {
+                        Span::styled(format!("{} ", token), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+                    } else if is_rem {
+                        Span::styled(format!("{} ", token), Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                    } else if is_path {
+                        Span::styled(format!("{} ", token), Style::default().fg(Color::White).add_modifier(Modifier::BOLD))
+                    } else {
+                        Span::raw(format!("{} ", token))
+                    };
+                    spans.push(span);
+                }
+                lines.push(Line::from(spans));
+                is_first = false;
+                continue;
+            }
+
             if speaker == "Tool"
                 && (raw_line.starts_with("-")
                     || raw_line.starts_with("+")
