@@ -45,11 +45,11 @@ pub async fn execute(args: &Value) -> Result<String, String> {
 /// Run code via Deno with strict permission flags.
 /// Uses stdin so no temp file is needed.
 fn run_deno(code: &str, timeout_secs: u64) -> Result<String, String> {
-    let deno = find_executable(&["deno"]).ok_or_else(|| {
-        "Deno not found. Hematite checks LM Studio's bundled copy \
-         (~/.lmstudio/.internal/utils/deno.exe) automatically — if LM Studio is installed \
-         this should work. To install Deno system-wide: `winget install DenoLand.Deno` \
-         (Windows) or see https://deno.com."
+    let deno = find_deno().ok_or_else(|| {
+        "Deno not found. Hematite checks (in order): settings.json `deno_path`, \
+         LM Studio's bundled copy (~/.lmstudio/.internal/utils/deno.exe), system PATH. \
+         To install Deno globally: `winget install DenoLand.Deno` (Windows) or see https://deno.com. \
+         Or set `deno_path` in .hematite/settings.json to point to any Deno binary."
             .to_string()
     })?;
 
@@ -208,18 +208,40 @@ fn truncate(s: &str, max: usize) -> String {
     }
 }
 
-/// Find the first available executable from a list of candidates.
-/// For Deno specifically, also checks LM Studio's bundled copy before giving up —
-/// since every Hematite user has LM Studio installed, this means JS execution
-/// works out of the box with no extra install step.
-fn find_executable(candidates: &[&str]) -> Option<String> {
-    // Check LM Studio's bundled Deno first (present for all LM Studio users).
-    if candidates.contains(&"deno") {
-        if let Some(lms_deno) = find_lmstudio_deno() {
-            return Some(lms_deno);
+/// Locate Deno with a priority-ordered search:
+/// 1. `deno_path` in .hematite/settings.json (user override — survives LM Studio updates)
+/// 2. LM Studio's bundled copy (~/.lmstudio/.internal/utils/deno.exe)
+/// 3. System PATH
+fn find_deno() -> Option<String> {
+    // 1. settings.json override
+    let config = crate::agent::config::load_config();
+    if let Some(path) = config.deno_path {
+        let p = std::path::Path::new(&path);
+        if p.exists() {
+            return Some(path);
         }
     }
 
+    // 2. LM Studio bundled copy
+    if let Some(lms) = find_lmstudio_deno() {
+        return Some(lms);
+    }
+
+    // 3. System PATH
+    let check = if cfg!(windows) {
+        Command::new("where").arg("deno").output()
+    } else {
+        Command::new("which").arg("deno").output()
+    };
+    if check.map(|o| o.status.success()).unwrap_or(false) {
+        return Some("deno".to_string());
+    }
+
+    None
+}
+
+/// Find the first available executable from a list of candidates.
+fn find_executable(candidates: &[&str]) -> Option<String> {
     for name in candidates {
         let check = if cfg!(windows) {
             Command::new("where").arg(name).output()

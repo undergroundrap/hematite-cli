@@ -48,6 +48,10 @@ pub struct HematiteConfig {
     pub voice_volume: Option<f32>,
     /// Extra text appended verbatim to the system prompt (project notes, conventions, etc.).
     pub context_hint: Option<String>,
+    /// Override path to the Deno executable for the run_code sandbox.
+    /// If unset, Hematite checks LM Studio's bundled Deno, then system PATH.
+    /// Example: "C:/Users/you/.deno/bin/deno.exe"
+    pub deno_path: Option<String>,
     /// Per-project verification commands for build/test/lint/fix workflows.
     #[serde(default)]
     pub verify: VerifyProfilesConfig,
