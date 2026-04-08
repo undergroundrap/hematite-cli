@@ -287,7 +287,19 @@ cargo run --release -- --stats
 
 Hematite is designed as a **workspace-aware standalone executable** that pairs with LM Studio.
 
+### Bumping the Version
+
+**Always run this before cutting a release.** It updates the version string in every file that needs it — `Cargo.toml`, `README.md`, `CLAUDE.md`, and `release.ps1` — in one shot:
+
+```powershell
+pwsh ./bump-version.ps1 -Version 0.2.0
+```
+
+Then verify the build compiles and commit the result before running the release script. Never edit version numbers by hand across files — they will drift.
+
 ### Building a Release
+
+After bumping the version:
 
 ```powershell
 pwsh ./release.ps1
@@ -302,12 +314,6 @@ pwsh ./release.ps1 -AddToPath
 ```
 
 Restart your terminal after running this. From then on, `cd` into any project folder and type `hematite` — it picks up your project root automatically via `.git` or `Cargo.toml`/`package.json`. Works in PowerShell, CMD, Windows Terminal, VS Code's integrated terminal, and JetBrains IDEs.
-
-To build with a different version tag:
-
-```powershell
-pwsh ./release.ps1 -Version 0.2.0
-```
 
 ### What ships in the portable
 

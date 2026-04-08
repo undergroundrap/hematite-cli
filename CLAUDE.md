@@ -310,7 +310,15 @@ Hematite supports attaching files to any conversation turn via hotkeys or slash 
 
 ## Release Build
 
-To build a fresh portable release and update `dist/windows/`:
+**Step 1 — bump the version** (updates Cargo.toml, README.md, CLAUDE.md, release.ps1 atomically):
+
+```powershell
+pwsh ./bump-version.ps1 -Version 0.2.0
+```
+
+Never edit version numbers by hand — they will drift across files.
+
+**Step 2 — build the release binary:**
 
 ```powershell
 pwsh ./release.ps1
@@ -323,8 +331,6 @@ This runs `cargo build --release`, copies the binary and `DirectML.dll` into
 - `DirectML.dll` is copied from `target/release/` automatically by the ORT build script
 - Output: `dist/windows/Hematite-0.1.0-portable.zip` (~336 MB)
 - `dist/` is gitignored — these are release artifacts, not tracked in source
-
-To rebuild with a different version tag: `pwsh ./release.ps1 -Version 0.2.0`
 
 ## Cleanup
 
