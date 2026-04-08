@@ -356,7 +356,7 @@ Linux note: Hematite's voice stack still depends on distro-provided `libsonic` a
 GitHub Actions can build the latest release artifacts for all supported desktop platforms.
 
 - `workflow_dispatch` lets you run the release build manually from GitHub
-- pushing a tag like `v0.1.0` builds the newest Windows, Linux, and macOS artifacts automatically
+- pushing a tag like `v0.2.0` builds the newest Windows, Linux, and macOS artifacts automatically
 - tagged builds attach the generated Windows `.zip` and `Setup.exe`, plus Unix `.tar.gz` archives, to the GitHub release
 
 Typical release flow:

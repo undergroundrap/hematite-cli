@@ -33,11 +33,16 @@ Set-Content "Cargo.toml" $content -NoNewline
     -replace [regex]::Escape("Hematite-$old"), "Hematite-$Version" |
     Set-Content "CLAUDE.md" -NoNewline
 
+# installer/hematite.iss fallback version
+(Get-Content "installer\hematite.iss" -Raw) `
+    -replace [regex]::Escape("#define AppVersion `"$old`""), "#define AppVersion `"$Version`"" |
+    Set-Content "installer\hematite.iss" -NoNewline
+
 Write-Host "Done. Files updated:" -ForegroundColor Green
-Write-Host "  Cargo.toml, README.md, CLAUDE.md"
+Write-Host "  Cargo.toml, README.md, CLAUDE.md, installer\\hematite.iss"
 Write-Host ""
 Write-Host "Next steps:"
 Write-Host "  1. cargo build          - verify it compiles (also regenerates Cargo.lock)"
-Write-Host "  2. git add Cargo.toml Cargo.lock README.md CLAUDE.md"
+Write-Host "  2. git add Cargo.toml Cargo.lock README.md CLAUDE.md installer\\hematite.iss"
 Write-Host "     git commit -m 'chore: bump version to $Version'"
 Write-Host "  3. pwsh ./scripts/package-windows.ps1 -AddToPath"

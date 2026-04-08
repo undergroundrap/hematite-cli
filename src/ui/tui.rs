@@ -2218,7 +2218,13 @@ pub async fn run_app<B: Backend>(
                                                 continue;
                                             }
                                             "/version" => {
-                                                app.push_message("System", "Hematite v0.1.0- strategist");
+                                                app.push_message(
+                                                    "System",
+                                                    &format!(
+                                                        "Hematite v{} - strategist",
+                                                        env!("CARGO_PKG_VERSION")
+                                                    ),
+                                                );
                                                 app.history_idx = None;
                                                 continue;
                                             }

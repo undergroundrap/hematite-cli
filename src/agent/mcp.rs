@@ -209,7 +209,7 @@ impl McpProcess {
         let params = serde_json::json!({
             "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "clientInfo": { "name": "hematite", "version": "0.1.0" }
+            "clientInfo": { "name": "hematite", "version": env!("CARGO_PKG_VERSION") }
         });
         let _: JsonValue = self.request(id, "initialize", Some(params)).await?;
         self.notify("notifications/initialized", Some(serde_json::json!({})))
