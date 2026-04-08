@@ -46,8 +46,10 @@ pub async fn execute(args: &Value) -> Result<String, String> {
 /// Uses stdin so no temp file is needed.
 fn run_deno(code: &str, timeout_secs: u64) -> Result<String, String> {
     let deno = find_executable(&["deno"]).ok_or_else(|| {
-        "Deno is not installed or not on PATH. Install from https://deno.com — \
-         it's a single binary, no npm required. On Windows: `winget install DenoLand.Deno`."
+        "Deno not found. Hematite checks LM Studio's bundled copy \
+         (~/.lmstudio/.internal/utils/deno.exe) automatically — if LM Studio is installed \
+         this should work. To install Deno system-wide: `winget install DenoLand.Deno` \
+         (Windows) or see https://deno.com."
             .to_string()
     })?;
 
@@ -207,7 +209,17 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 /// Find the first available executable from a list of candidates.
+/// For Deno specifically, also checks LM Studio's bundled copy before giving up —
+/// since every Hematite user has LM Studio installed, this means JS execution
+/// works out of the box with no extra install step.
 fn find_executable(candidates: &[&str]) -> Option<String> {
+    // Check LM Studio's bundled Deno first (present for all LM Studio users).
+    if candidates.contains(&"deno") {
+        if let Some(lms_deno) = find_lmstudio_deno() {
+            return Some(lms_deno);
+        }
+    }
+
     for name in candidates {
         let check = if cfg!(windows) {
             Command::new("where").arg(name).output()
@@ -219,4 +231,25 @@ fn find_executable(candidates: &[&str]) -> Option<String> {
         }
     }
     None
+}
+
+/// Returns the path to Deno bundled inside LM Studio's internal utils folder.
+/// LM Studio ships Deno at `~/.lmstudio/.internal/utils/deno[.exe]` on all platforms.
+fn find_lmstudio_deno() -> Option<String> {
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .ok()?;
+
+    let exe = if cfg!(windows) { "deno.exe" } else { "deno" };
+    let path = std::path::Path::new(&home)
+        .join(".lmstudio")
+        .join(".internal")
+        .join("utils")
+        .join(exe);
+
+    if path.exists() {
+        Some(path.to_string_lossy().into_owned())
+    } else {
+        None
+    }
 }
