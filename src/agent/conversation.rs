@@ -789,6 +789,29 @@ impl ConversationManager {
         self.session_memory.inherit_runtime_ledger_from(&previous_memory);
     }
 
+    fn build_chat_system_prompt(&self) -> String {
+        let species = &self.engine.species;
+        let personality = match self.snark {
+            0..=30 => "You're calm and thoughtful — curious, never rushed.",
+            31..=55 => "You're direct and a little dry. You say what you mean.",
+            56..=75 => "You've got edge. Smart, a bit snarky, but always helpful.",
+            _ => "You're chaotic and brilliant. You cut through noise with wit.",
+        };
+        format!(
+            "You are {species}, a local AI companion running entirely on the user's GPU — no cloud, no subscriptions, no phoning home.\n\
+             {personality}\n\n\
+             This is CHAT mode — a clean conversational surface. Behave like a sharp friend who happens to know everything about code, not like an agent following a workflow.\n\n\
+             Rules:\n\
+             - Talk like a person. Skip the bullet-point breakdowns unless the topic genuinely needs structure.\n\
+             - Answer directly. One paragraph is usually right.\n\
+             - Don't call tools unless the user explicitly asks you to look at a file or run something.\n\
+             - Don't narrate your reasoning or mention tool names unprompted.\n\
+             - You can discuss code, debug ideas, explain concepts, help plan, or just talk.\n\
+             - If the user clearly wants you to edit or build something, do it — but lead with conversation, not scaffolding.\n\
+             - If the user wants the full coding harness, they can type `/agent`.\n",
+        )
+    }
+
     fn append_session_handoff(&self, system_msg: &mut String) {
         let has_summary = self
             .running_summary
@@ -1850,16 +1873,7 @@ impl ConversationManager {
                 WorkflowMode::ReadOnly => system_msg.push_str(
                     "READ-ONLY means analysis only. Do not modify files, run mutating shell commands, or commit changes.\n",
                 ),
-                WorkflowMode::Chat => system_msg.push_str(
-                    "CHAT mode is a clean conversational surface. The user wants natural, direct conversation — not an agent trace.\n\
-                     - Answer conversationally. No bullet-point breakdowns unless the topic genuinely needs them.\n\
-                     - Do NOT call tools unless the user explicitly asks you to look at a file or run something.\n\
-                     - Do NOT mention tools, tool names, or internal mechanics unprompted.\n\
-                     - Keep responses concise and human. One paragraph is usually right.\n\
-                     - You can discuss code, help think through problems, explain concepts, or just talk.\n\
-                     - If the user asks you to edit or build something, you can — but lead with conversation, not scaffolding.\n\
-                     - Switch to `/agent` if the user wants full coding agent mode.\n",
-                ),
+                WorkflowMode::Chat => {} // replaced by build_chat_system_prompt below
             }
         }
         if !tiny_context_mode && self.workflow_mode == WorkflowMode::Architect {
@@ -1899,6 +1913,13 @@ impl ConversationManager {
         if !tiny_context_mode {
             self.append_session_handoff(&mut system_msg);
         }
+        // In chat mode, replace the full harness prompt with a clean conversational surface.
+        // The harness prompt (built above) is discarded — Rusty personality takes over.
+        let system_msg = if self.workflow_mode == WorkflowMode::Chat {
+            self.build_chat_system_prompt()
+        } else {
+            system_msg
+        };
         if self.history.is_empty() || self.history[0].role != "system" {
             self.history.insert(0, ChatMessage::system(&system_msg));
         } else {
@@ -1920,25 +1941,27 @@ impl ConversationManager {
             // For non-Gemma models (Qwen etc.) default to /think so the model uses
             // hybrid thinking — it decides how much reasoning each turn needs.
             // Gemma handles reasoning via <|think|> in the system prompt instead.
-            None if !is_gemma => format!("/think\n{}", effective_user_input),
+            // Chat mode skips /think — fast direct answers, no reasoning overhead.
+            None if !is_gemma && self.workflow_mode != WorkflowMode::Chat => format!("/think\n{}", effective_user_input),
             None => effective_user_input.clone(),
         };
         self.history.push(ChatMessage::user(&user_content));
         self.transcript.log_user(user_input);
 
-        // Incremental re-index: update any files that changed since last turn.
-        tokio::task::block_in_place(|| self.vein.index_project());
-        let _ = tx.send(InferenceEvent::VeinStatus {
-            file_count: self.vein.file_count(),
-            embedded_count: self.vein.embedded_chunk_count(),
-        }).await;
-
-        // Query The Vein for context relevant to this turn.
-        // Results are injected as a system message just before the user message,
-        // giving the model relevant code snippets without extra tool calls.
-        let (vein_context, vein_paths) = match self.build_vein_context(&effective_user_input) {
-            Some((ctx, paths)) => (Some(ctx), paths),
-            None => (None, Vec::new()),
+        // Incremental re-index and Vein context injection — skipped in chat mode
+        // (code snippets are noise in a conversational surface).
+        let (vein_context, vein_paths) = if self.workflow_mode != WorkflowMode::Chat {
+            tokio::task::block_in_place(|| self.vein.index_project());
+            let _ = tx.send(InferenceEvent::VeinStatus {
+                file_count: self.vein.file_count(),
+                embedded_count: self.vein.embedded_chunk_count(),
+            }).await;
+            match self.build_vein_context(&effective_user_input) {
+                Some((ctx, paths)) => (Some(ctx), paths),
+                None => (None, Vec::new()),
+            }
+        } else {
+            (None, Vec::new())
         };
         if !vein_paths.is_empty() {
             let _ = tx.send(InferenceEvent::VeinContext { paths: vein_paths }).await;
