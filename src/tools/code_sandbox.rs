@@ -209,25 +209,19 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 /// Locate Deno with a priority-ordered search:
-/// 1. `deno_path` in .hematite/settings.json (user override — survives LM Studio updates)
-/// 2. LM Studio's bundled copy (~/.lmstudio/.internal/utils/deno.exe)
-/// 3. System PATH
+/// 1. `deno_path` in .hematite/settings.json (explicit user pin)
+/// 2. System PATH (deliberate user install wins over bundled copy)
+/// 3. LM Studio's bundled copy (~/.lmstudio/.internal/utils/deno.exe) — automatic fallback
 fn find_deno() -> Option<String> {
     // 1. settings.json override
     let config = crate::agent::config::load_config();
     if let Some(path) = config.deno_path {
-        let p = std::path::Path::new(&path);
-        if p.exists() {
+        if std::path::Path::new(&path).exists() {
             return Some(path);
         }
     }
 
-    // 2. LM Studio bundled copy
-    if let Some(lms) = find_lmstudio_deno() {
-        return Some(lms);
-    }
-
-    // 3. System PATH
+    // 2. System PATH — if the user installed Deno, use theirs
     let check = if cfg!(windows) {
         Command::new("where").arg("deno").output()
     } else {
@@ -237,7 +231,8 @@ fn find_deno() -> Option<String> {
         return Some("deno".to_string());
     }
 
-    None
+    // 3. LM Studio bundled copy — last resort so it doesn't shadow a user's install
+    find_lmstudio_deno()
 }
 
 /// Find the first available executable from a list of candidates.
