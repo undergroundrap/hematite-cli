@@ -210,8 +210,10 @@ fn truncate(s: &str, max: usize) -> String {
 
 /// Locate Deno with a priority-ordered search:
 /// 1. `deno_path` in .hematite/settings.json (explicit user pin)
-/// 2. System PATH (deliberate user install wins over bundled copy)
-/// 3. LM Studio's bundled copy (~/.lmstudio/.internal/utils/deno.exe) — automatic fallback
+/// 2. Standard deno install location (~/.deno/bin/deno.exe)
+/// 3. WinGet package location (winget doesn't always add to PATH correctly)
+/// 4. System PATH via where/which
+/// 5. LM Studio's bundled copy — automatic fallback for all LM Studio users
 fn find_deno() -> Option<String> {
     // 1. settings.json override
     let config = crate::agent::config::load_config();
@@ -221,17 +223,52 @@ fn find_deno() -> Option<String> {
         }
     }
 
-    // 2. System PATH — if the user installed Deno, use theirs
+    let exe = if cfg!(windows) { "deno.exe" } else { "deno" };
+
+    // 2. Standard deno install path (deno's own installer puts it here)
+    if let Ok(home) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
+        let standard = std::path::Path::new(&home).join(".deno").join("bin").join(exe);
+        if standard.exists() {
+            return Some(standard.to_string_lossy().into_owned());
+        }
+    }
+
+    // 3. WinGet package location — winget installs Deno here but doesn't always
+    //    wire PATH correctly for non-PowerShell processes
+    if cfg!(windows) {
+        if let Ok(local_app) = std::env::var("LOCALAPPDATA") {
+            let winget_base = std::path::Path::new(&local_app)
+                .join("Microsoft").join("WinGet").join("Packages");
+            if let Ok(entries) = std::fs::read_dir(&winget_base) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name();
+                    if name.to_string_lossy().starts_with("DenoLand.Deno") {
+                        let candidate = entry.path().join("deno.exe");
+                        if candidate.exists() {
+                            return Some(candidate.to_string_lossy().into_owned());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. System PATH
     let check = if cfg!(windows) {
         Command::new("where").arg("deno").output()
     } else {
         Command::new("which").arg("deno").output()
     };
-    if check.map(|o| o.status.success()).unwrap_or(false) {
-        return Some("deno".to_string());
+    if let Ok(out) = check {
+        if out.status.success() {
+            // Use the resolved path, not just "deno", to avoid shim ambiguity
+            let resolved = String::from_utf8_lossy(&out.stdout).trim().lines().next()
+                .unwrap_or("deno").to_string();
+            return Some(resolved);
+        }
     }
 
-    // 3. LM Studio bundled copy — last resort so it doesn't shadow a user's install
+    // 5. LM Studio bundled copy — last resort
     find_lmstudio_deno()
 }
 
