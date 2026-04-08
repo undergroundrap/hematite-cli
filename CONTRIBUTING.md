@@ -33,7 +33,7 @@ Requirements:
 - `src/memory/`: local retrieval and session memory systems
 - `libs/kokoros/`: vendored voice synthesis library
 
-For the current module boundaries inside `src/agent/`, read [docs/ARCHITECTURE.md](/c:/Users/ocean/AntigravityProjects/Hematite-CLI/docs/ARCHITECTURE.md).
+For the current module boundaries inside `src/agent/`, read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Adding a New Tool
 
@@ -75,10 +75,12 @@ pwsh ./scripts/package-windows.ps1 -Installer
 
 For behavior regressions and prompt-quality checks, use the benchmark prompts under `evals/`. Run `evals/quick_smoke.md` for fast iteration and use `evals/prompt_suite.json` plus `evals/score_template.csv` for broader manual eval runs.
 
-## Release Notes
+## Versioning and Releases
 
-- Package version comes from `Cargo.toml`
-- Local Windows packaging is handled by `scripts/package-windows.ps1`
+- Package version comes from `Cargo.toml` — see `CLAUDE.md` for the full versioning policy
+- **Always bump the version with `pwsh ./bump-version.ps1 -Version X.Y.Z` before releasing** — never edit version strings by hand
+- Local Windows release is built with `pwsh ./release.ps1`
+- Legacy packaging: `scripts/package-windows.ps1` (use `-Installer` for the Inno Setup installer)
 - Tagged GitHub releases are built by `.github/workflows/windows-release.yml`
 
-Before a public release, make sure the README still matches the actual install and update flow.
+Before a public release, verify `cargo build` is clean, bump the version, commit, then run the release script.
