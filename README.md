@@ -259,8 +259,9 @@ Load both in LM Studio at the same time. The embedding model stays resident but 
 2. In LM Studio, download and load your coding model (tested: `Qwen/Qwen3.5-9B` Q4_K_M).
 3. Also load `nomic-embed-text-v2` — this enables The Vein's semantic search and costs only ~512 MB VRAM. On a 12 GB card both models fit together.
 4. Start the LM Studio local server on port `1234`.
-5. Download a Hematite release bundle, or build from source with `cargo build`.
-6. Launch `hematite` from inside your project folder.
+5. Download a Hematite release bundle for your platform.
+6. On Windows, run `Setup.exe` or use the portable zip. On macOS/Linux, extract the archive and run `./install.sh`.
+7. Launch `hematite` from inside your project folder.
 
 ### Developer Mode
 
@@ -311,6 +312,14 @@ pwsh ./scripts/package-windows.ps1
 
 This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.2.0-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
 
+For macOS or Linux:
+
+```bash
+bash ./scripts/package-unix.sh
+```
+
+That builds `--release`, stages a platform archive under `dist/linux/` or `dist/macos/`, bundles `hematite`, `install.sh`, `README.txt`, and copies any runtime sidecar libraries that Cargo dropped next to the binary.
+
 To add `hematite` to your user PATH so it works from any terminal or IDE:
 
 ```powershell
@@ -319,23 +328,36 @@ pwsh ./scripts/package-windows.ps1 -AddToPath
 
 Restart your terminal after running this. From then on, `cd` into any project folder and type `hematite` — it picks up your project root automatically via `.git` or `Cargo.toml`/`package.json`. Works in PowerShell, CMD, Windows Terminal, VS Code's integrated terminal, and JetBrains IDEs.
 
+On macOS/Linux, the packaged archive includes an installer helper:
+
+```bash
+./install.sh
+```
+
+That installs the bundle into `~/.local/opt/hematite`, symlinks `hematite` into `~/.local/bin`, and tells you if `~/.local/bin` is missing from `PATH`.
+
+Linux note: Hematite's voice stack still depends on distro-provided `libsonic` and `libpcaudio`. The installer warns if those libraries are missing.
+
 ### What ships in the portable
 
 | File | Size | Purpose |
 |---|---|---|
 | `hematite.exe` | ~320 MB | Binary with ONNX Runtime + Kokoro voice model baked in |
 | `DirectML.dll` | ~16 MB | GPU inference on Windows (auto-copied from build output) |
+| `hematite` | ~320 MB | macOS/Linux binary with the same baked-in voice model |
+| `install.sh` | - | macOS/Linux helper that installs the bundle and links `hematite` into `~/.local/bin` |
+| shared libs / frameworks | varies | Any ONNX Runtime sidecars copied into `target/release` on macOS/Linux |
 | `README.txt` | — | Quick-start instructions |
 
 `dist/` is gitignored — these are release artifacts, not tracked in source.
 
-### Automated Windows Releases
+### Automated Releases
 
-GitHub Actions can build the latest Windows installer and portable zip for you.
+GitHub Actions can build the latest release artifacts for all supported desktop platforms.
 
 - `workflow_dispatch` lets you run the release build manually from GitHub
-- pushing a tag like `v0.1.0` builds the newest Windows artifacts automatically
-- tagged builds also attach the generated `.zip` and `Setup.exe` to the GitHub release
+- pushing a tag like `v0.1.0` builds the newest Windows, Linux, and macOS artifacts automatically
+- tagged builds attach the generated Windows `.zip` and `Setup.exe`, plus Unix `.tar.gz` archives, to the GitHub release
 
 Typical release flow:
 
@@ -349,7 +371,7 @@ Versioning still comes from `Cargo.toml`, so the package names and installer ver
 
 ### Updating Hematite
 
-Updating is as simple as replacing `hematite.exe` or installing a newer packaged release. Project-specific histories, rules, and task files live in each project's `.hematite/` directory and survive upgrades.
+Updating is as simple as installing a newer packaged release or replacing the existing binary/bundle with a newer one. Project-specific histories, rules, and task files live in each project's `.hematite/` directory and survive upgrades.
 
 ---
 

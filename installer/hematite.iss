@@ -32,7 +32,7 @@ ChangesEnvironment=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "addtopath"; Description: "Add Hematite to PATH"; Flags: unchecked
+Name: "addtopath"; Description: "Add Hematite to PATH"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 
 [Files]
