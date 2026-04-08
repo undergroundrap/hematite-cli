@@ -57,7 +57,7 @@ Most local AI coding tools are either:
 Hematite is built around the opposite assumption: the best local coding agent should feel native on the machine you actually use, tell the truth about its runtime state, and survive the constraints of real consumer GPUs instead of pretending they do not exist.
 
 - **Proven tool loop** — read → grep → edit → verify → undo. Tested on real Rust codebases. The model finds the right line, makes the right change, catches its own errors, and recovers without prompting.
-- **Sandboxed code execution** — the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation — not training-data guesses.
+- **Sandboxed code execution** — the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation — not training-data guesses. Hematite automatically uses Deno from LM Studio's install — no extra setup required. Not using LM Studio? Install Deno globally: `winget install DenoLand.Deno`.
 - **Hybrid RAG built in** — The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, not hunting for it with five read_file calls.
 - **Built-in voice, zero install** — 54-voice Kokoro TTS, statically linked. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run.
 - **Windows-first** — CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
