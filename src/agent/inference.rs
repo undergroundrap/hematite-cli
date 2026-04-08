@@ -1984,6 +1984,14 @@ pub fn extract_think_block(text: &str) -> Option<String> {
 }
 
 pub fn strip_think_blocks(text: &str) -> String {
+    // Fast-path: strip a stray </think> the model emits at the start when it skips
+    // the opening tag (common with Qwen after tool calls). Strip it before the lower
+    // allocation so it can't slip through any branch below.
+    let text = {
+        let t = text.trim_start();
+        if t.to_lowercase().starts_with("</think>") { &t[8..] } else { text }
+    };
+
     let lower = text.to_lowercase();
 
     // Use the official Gemma-4 closing tag — answer is everything after it.
@@ -2013,40 +2021,52 @@ pub fn strip_think_blocks(text: &str) -> String {
     }
 
     // If the model outputs 'naked' reasoning without tags:
-    // Strip sentences like "The user asked..." or "I will structure the response..."
-    // if they appear before the first identifiable self-introduction or code block.
-    let is_naked_reasoning = lower.contains("the user asked")
-        || lower.contains("the user is asking")
-        || lower.contains("the user wants")
-        || lower.contains("i will structure")
-        || lower.contains("i should provide")
-        || lower.contains("i should give")
-        || lower.contains("i should avoid")
-        || lower.contains("i should note")
-        || lower.contains("i should focus")
-        || lower.contains("i should keep")
-        || lower.contains("i should respond")
-        || lower.contains("i need to")
-        || lower.contains("i can see from")
-        || lower.contains("without being overly")
-        || lower.contains("let me ")
-        || lower.contains("necessary information in my identity");
+    // Strip leading sentences like "The user asked..." or "I should present..."
+    // if they appear before actual answer content.
+    let naked_reasoning_phrases: &[&str] = &[
+        "the user asked",
+        "the user is asking",
+        "the user wants",
+        "i will structure",
+        "i should provide",
+        "i should give",
+        "i should avoid",
+        "i should note",
+        "i should focus",
+        "i should keep",
+        "i should respond",
+        "i should present",
+        "i should display",
+        "i should show",
+        "i need to",
+        "i can see from",
+        "without being overly",
+        "let me ",
+        "necessary information in my identity",
+        "was computed successfully",
+        "computed successfully",
+    ];
+    let is_naked_reasoning = naked_reasoning_phrases.iter().any(|p| lower.contains(p));
     if is_naked_reasoning {
         let lines: Vec<&str> = text.lines().collect();
         if !lines.is_empty() {
-            // Find the first line that looks like real answer content.
+            // Skip leading lines that are themselves reasoning prose or blank.
+            // Stop skipping at the first line that looks like real answer content.
+            let mut start_idx = 0;
             for (i, line) in lines.iter().enumerate() {
-                let l_line = line.to_lowercase();
-                if l_line.contains("am hematite")
-                    || l_line.contains("my purpose is")
-                    || line.starts_with("#")
-                    || line.starts_with("```")
-                {
-                    return lines[i..].join("\n").trim().to_string();
+                let l = line.to_lowercase();
+                let is_reasoning_line = naked_reasoning_phrases.iter().any(|p| l.contains(p))
+                    || l.trim().is_empty();
+                if is_reasoning_line {
+                    start_idx = i + 1;
+                } else {
+                    break;
                 }
             }
-            // No real content found after reasoning — the whole response is just
-            // internal monologue (e.g. reasoning + abandoned tool call). Return empty.
+            if start_idx < lines.len() {
+                return lines[start_idx..].join("\n").trim().replace("\n\n\n", "\n\n").to_string();
+            }
+            // Entire response was reasoning prose — return empty.
             return String::new();
         }
     }
