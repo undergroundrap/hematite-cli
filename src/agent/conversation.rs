@@ -2470,7 +2470,6 @@ impl ConversationManager {
                 let mut recoverable_policy_recipe: Option<RecoveryScenario> = None;
                 let mut recoverable_policy_checkpoint: Option<(OperatorCheckpointState, String)> =
                     None;
-                let mut reset_inspection_evidence = false;
                 for res in results {
                     let call_id = res.call_id.clone();
                     let tool_name = res.tool_name.clone();
@@ -2636,32 +2635,11 @@ impl ConversationManager {
                     if !is_error && tool_name == "read_file" {
                         if let Some(path) = res.args.get("path").and_then(|v| v.as_str()) {
                             let normalized = normalize_workspace_path(path);
-                            if normalized.ends_with("src/ui/tui.rs")
-                                || normalized.ends_with("src/agent/conversation.rs")
-                            {
-                                reset_inspection_evidence = true;
-                            }
                             let read_offset =
                                 res.args.get("offset").and_then(|v| v.as_u64()).unwrap_or(0);
                             successful_read_targets.insert(normalized.clone());
                             successful_read_regions.insert((normalized.clone(), read_offset));
                         }
-                    }
-
-                    if !is_error
-                        && matches!(tool_name.as_str(), "grep_files" | "inspect_lines")
-                        && res
-                            .args
-                            .get("path")
-                            .and_then(|v| v.as_str())
-                            .map(|p| {
-                                let normalized = normalize_workspace_path(p);
-                                normalized.ends_with("src/ui/tui.rs")
-                                    || normalized.ends_with("src/agent/conversation.rs")
-                            })
-                            .unwrap_or(false)
-                    {
-                        reset_inspection_evidence = true;
                     }
 
                     if !is_error && tool_name == "grep_files" {
@@ -2853,35 +2831,6 @@ impl ConversationManager {
                     }
                 }
 
-                if intent.stabilize_session_reset_inspection && reset_inspection_evidence {
-                    let response = build_session_reset_semantics_answer();
-                    self.history.push(ChatMessage::assistant_text(&response));
-                    self.transcript.log_agent(&response);
-
-                    for chunk in chunk_text(&response, 8) {
-                        if !chunk.is_empty() {
-                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                        }
-                    }
-
-                    let _ = tx.send(InferenceEvent::Done).await;
-                    break;
-                }
-
-                if intent.stabilize_product_surface_inspection && reset_inspection_evidence {
-                    let response = build_product_surface_answer();
-                    self.history.push(ChatMessage::assistant_text(&response));
-                    self.transcript.log_agent(&response);
-
-                    for chunk in chunk_text(&response, 8) {
-                        if !chunk.is_empty() {
-                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
-                        }
-                    }
-
-                    let _ = tx.send(InferenceEvent::Done).await;
-                    break;
-                }
 
                 if implement_current_plan
                     && !implementation_started
@@ -3399,84 +3348,6 @@ impl ConversationManager {
         result
     }
 
-    /// Build a deterministic smart summary of recent conversation history.
-    #[allow(dead_code)]
-    fn build_smart_summary(&self, messages: &[ChatMessage]) -> String {
-        let mut lines = vec![
-            "--- Context Summary ---".to_string(),
-            format!("- Scope: {} messages compacted.", messages.len()),
-        ];
-
-        // 1. Key Files Referenced
-        let mut files = std::collections::HashSet::new();
-        for m in messages {
-            for word in m.content.as_str().split_whitespace() {
-                let word = word.trim_matches(|c: char| {
-                    matches!(c, ',' | '.' | ':' | ';' | ')' | '(' | '"' | '\'' | '`')
-                });
-                if (word.contains('/') || word.contains('\\'))
-                    && (word.ends_with(".rs")
-                        || word.ends_with(".sh")
-                        || word.ends_with(".toml")
-                        || word.ends_with(".md"))
-                {
-                    files.insert(word.to_string());
-                }
-            }
-        }
-        if !files.is_empty() {
-            let file_list: Vec<String> = files.into_iter().take(10).collect();
-            lines.push(format!("- Key Files: {}", file_list.join(", ")));
-        }
-
-        // 2. Pending Work / Verbatim User Requests
-        let mut recent_requests = Vec::new();
-        for m in messages.iter().filter(|m| m.role == "user").rev().take(3) {
-            let content_str = m.content.as_str();
-            let truncated = if content_str.len() > 120 {
-                let mut s: String = content_str.chars().take(117).collect();
-                s.push_str("...");
-                s
-            } else {
-                content_str.to_string()
-            };
-            recent_requests.push(truncated);
-        }
-        if !recent_requests.is_empty() {
-            lines.push("- Recent User Requests:".to_string());
-            for r in recent_requests.into_iter().rev() {
-                lines.push(format!("  - {}", r));
-            }
-        }
-
-        // 3. Compact Key Timeline
-        lines.push("- Key Timeline:".to_string());
-        for m in messages.iter().take(20) {
-            // Keep the first 20 in sequence for the timeline
-            let content_str = m.content.as_str();
-            let content_preview = if content_str.len() > 100 {
-                format!("{}...", &content_str[..97])
-            } else if content_str.trim().is_empty() && !m.tool_calls.is_empty() {
-                format!(
-                    "Executing tools: {:?}",
-                    m.tool_calls
-                        .iter()
-                        .map(|c| &c.function.name)
-                        .collect::<Vec<_>>()
-                )
-            } else {
-                content_str.to_string()
-            };
-            lines.push(format!(
-                "  - {}: {}",
-                m.role,
-                content_preview.replace('\n', " ")
-            ));
-        }
-
-        lines.join("\n")
-    }
-
     /// Drop old turns from the middle of history.
     fn trim_history(&mut self, max_messages: usize) {
         if self.history.len() <= max_messages {
@@ -3485,31 +3356,6 @@ impl ConversationManager {
         // Always keep [0] (system prompt).
         let excess = self.history.len() - max_messages;
         self.history.drain(1..=excess);
-    }
-
-    /// Performs an automated verification (e.g. cargo check) and returns the result if relevant.
-    #[allow(dead_code)]
-    async fn perform_auto_verify(&mut self) -> Option<String> {
-        let root = crate::tools::file_ops::workspace_root();
-
-        // Strategy: Only run if it's a Rust project (Cargo.toml exists).
-        if root.join("Cargo.toml").exists() {
-            let output = crate::tools::shell::execute(&serde_json::json!({
-                "command": "cargo check --color never",
-                "timeout_secs": 15
-            }))
-            .await;
-
-            match output {
-                Ok(out) => {
-                    if out.contains("error:") || out.contains("warning:") {
-                        return Some(out);
-                    }
-                }
-                Err(e) => return Some(format!("Verification failed to run: {}", e)),
-            }
-        }
-        None
     }
 
     /// P1: Attempt to fix malformed JSON tool arguments by asking the model to re-output them.

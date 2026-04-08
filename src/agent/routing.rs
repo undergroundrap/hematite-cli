@@ -37,8 +37,6 @@ pub(crate) enum DirectAnswerKind {
 pub(crate) struct QueryIntent {
     pub(crate) primary_class: QueryIntentClass,
     pub(crate) direct_answer: Option<DirectAnswerKind>,
-    pub(crate) stabilize_session_reset_inspection: bool,
-    pub(crate) stabilize_product_surface_inspection: bool,
     pub(crate) grounded_trace_mode: bool,
     pub(crate) capability_mode: bool,
     pub(crate) capability_needs_repo: bool,
@@ -541,11 +539,6 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
     QueryIntent {
         primary_class,
         direct_answer,
-        stabilize_session_reset_inspection: mentions_reset_commands(&lower)
-            && mentions_repo_inspection_request(&lower),
-        stabilize_product_surface_inspection: (mentions_stable_product_surface(&lower)
-            || mentions_product_truth_routing(&lower))
-            && mentions_repo_inspection_request(&lower),
         grounded_trace_mode: mentions_runtime_trace || lower.contains("read-only") || anti_guess,
         capability_mode,
         capability_needs_repo,
