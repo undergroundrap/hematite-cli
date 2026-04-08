@@ -27,11 +27,18 @@ pwsh ./clean.ps1
 - `ESC`: cancel the current task and copy the session transcript to the clipboard
 - `Ctrl+Q` / `Ctrl+C`: exit Hematite and copy the session transcript
 - `Ctrl+T`: toggle voice
+- `Ctrl+O`: open file picker to attach a document (PDF/markdown/txt) for the next turn
+- `Ctrl+I`: open file picker to attach an image for the next turn (vision path)
+- `Ctrl+Z`: undo last file edit (ghost backup restore)
 - `/voice`: list all available TTS voices with numbers
 - `/voice N` or `/voice <id>`: select a voice by number or ID — saves to `.hematite/settings.json` and takes effect immediately
+- `/attach <path>`: attach a PDF, markdown, or text file as context for the next message then clear
+- `/image <path>`: attach an image for the next message — passed to the model via the vision path
+- `/detach`: drop any pending document or image attachment without sending
 - `/copy`: copy the session transcript manually
 - `/clear`: clear visible dialogue and side-panel session state
 - `/forget`: purge saved conversation memory and wipe visible session state
+- `/new`: reset session history while keeping project memory
 - `/swarm`: trigger parallel worker agents
 
 Requires LM Studio running locally with a model loaded and the server started on port `1234`.
@@ -277,6 +284,26 @@ Hematite exposes a `run_code` tool that lets the model write and run JavaScript/
 **Runtime detection for Python:** `python3` → `python` on PATH. Python 3 ships with Windows 11 and most machines.
 
 **To install Deno system-wide** (optional, for use outside Hematite): `winget install DenoLand.Deno`.
+
+## Document and Image Attachments
+
+Hematite supports attaching files to any conversation turn via hotkeys or slash commands.
+
+**Document attachment (`Ctrl+O` / `/attach <path>`):**
+- Supported types: PDF (text-based), markdown, plain text
+- PDF extraction is best-effort using pure-Rust `pdf-extract` — works for standard PDFs (Word exports, LaTeX, API docs); rejects with a clear error if words are smashed together or text is too short (common with academic publisher PDFs using custom embedded fonts like EBSCO, Elsevier, Springer)
+- Permanent indexing: drop files in `.hematite/docs/` and the Vein indexes them alongside source code — hybrid BM25+semantic retrieval, no separate step required
+- One-shot: `/attach` injects content as a context prefix on the next message then clears
+
+**Image attachment (`Ctrl+I` / `/image <path>`):**
+- Supported types: PNG, JPG, JPEG, GIF, WebP
+- Encoded as a base64 data URL and passed to the model via the multimodal vision path
+- Works with any vision-capable model loaded in LM Studio
+- Useful for: screenshots of bugs, UI mockups, architecture diagrams, scanned documents that PDF extraction can't handle
+
+**Clearing attachments:**
+- `/detach` drops any pending document or image before sending
+- Attachments are cleared automatically after the next turn
 
 ## Release Build
 

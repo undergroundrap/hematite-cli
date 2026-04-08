@@ -10,6 +10,8 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 - Runs `verify_build` after every change and feeds errors back to the model automatically
 - Ghost-snapshots every edit so `Ctrl+Z` restores the previous state instantly
 - Indexes your codebase with hybrid BM25 + semantic search so the model starts each turn with the right code already in view
+- Attaches images and documents to any turn — vision-capable models see screenshots, diagrams, and specs directly
+- Runs JavaScript and Python in a zero-trust sandbox and returns real output, not training-data guesses
 - Speaks every response through a built-in 54-voice TTS engine — statically linked, zero install, works offline
 - Clean conversational chat mode alongside the full agent mode — terminal-native, no Electron, no browser
 
@@ -145,6 +147,8 @@ There are several tools in this space. Here is what each one actually requires a
 | **Idle RAM** | ~30 MB | ~50 MB | IDE overhead | 200–500 MB (Electron) | ~80 MB |
 | **Build verification** | Built-in, error recovery loop | Git-diff focused | No | No | Ad hoc shell |
 | **Code execution** | Sandboxed JS + Python (zero-trust) | No | No | No | Yes (primary feature) |
+| **Image / doc attach** | Yes (`Ctrl+I`, `/image`, `/attach`) | No | No | Yes (UI upload) | No |
+| **PDF ingestion** | Best-effort (text PDFs) | No | No | Full (Electron + dependencies) | No |
 | **Undo / ghost backup** | Built-in (`Ctrl+Z`) | Git-based | No | No | No |
 | **Offline** | Fully offline | Fully offline | Fully offline | Fully offline | Fully offline |
 
@@ -154,11 +158,11 @@ There are several tools in this space. Here is what each one actually requires a
 
 **Continue** lives inside your IDE. That's its strength (tight editor integration) and its ceiling (you're inside VS Code's Electron process, not a standalone agent). It has no build verification loop, no RAG of its own, and no voice.
 
-**AnythingLLM and Jan** are UI-first products. They look polished because they're browser apps. You pay for that with 200–500 MB RAM at idle, Electron startup lag, and no real terminal workflow. They're good for people who want a chat interface and aren't doing serious coding work with the AI.
+**AnythingLLM and Jan** are UI-first products built for document workflows. AnythingLLM has a more capable PDF pipeline than Hematite — it handles OCR, scanned documents, and complex font encodings that Hematite's best-effort extractor will reject. If document ingestion is your primary use case, it genuinely does that job better. The cost is the full Electron stack: 200–500 MB RAM at idle, a browser engine running in the background, and no real terminal or coding workflow. Hematite covers the common case — text-based PDFs, markdown, plain files, and images — in a single Rust binary with no runtime overhead and no install tax.
 
-**Open Interpreter** is the closest thing to Hematite's ambition — a local agent that can run code and talk to your system. It requires Python and defaults to cloud. It has no codebase RAG, no voice, and no Windows-specific polish. Hematite now matches its code execution capability with a sandboxed `run_code` tool (JS + Python, zero-trust, hard timeout) while adding everything Open Interpreter lacks.
+**Open Interpreter** is the closest thing to Hematite's ambition — a local agent that can run code and talk to your system. It requires Python and defaults to cloud. It has no codebase RAG, no voice, and no Windows-specific polish. Hematite matches its code execution capability with a sandboxed `run_code` tool (JS + Python, zero-trust, hard timeout) while adding everything Open Interpreter lacks.
 
-**The real gap:** none of these tools have all four of Hematite's core differentiators at once — offline-capable codebase RAG, built-in voice, sandboxed code execution, and a native binary with no runtime dependency. That combination doesn't exist anywhere else in this category right now.
+**The real gap:** none of these tools combine all of Hematite's differentiators in a single binary — offline codebase RAG, built-in voice, sandboxed code execution, image and document attachment, and a native Rust binary with no runtime dependency. That combination does not exist anywhere else in this category.
 
 ---
 
@@ -671,7 +675,7 @@ Workflow note:
 - `/auto` returns Hematite to normal behavior
 - each of those workflow commands can also take an inline prompt, for example `/ask why is this failing?` or `/code fix the startup banner`
 
-**Hotkeys:** `Ctrl+B` brief mode, `Ctrl+P` professional mode, `Ctrl+Y` approvals off, `Ctrl+T` voice toggle, `Ctrl+Z` undo, `Ctrl+Q`/`Ctrl+C` quit, `ESC` cancel
+**Hotkeys:** `Ctrl+B` brief mode, `Ctrl+P` professional mode, `Ctrl+Y` approvals off, `Ctrl+T` voice toggle, `Ctrl+O` attach document, `Ctrl+I` attach image, `Ctrl+Z` undo, `Ctrl+Q`/`Ctrl+C` quit, `ESC` cancel
 
 ---
 
