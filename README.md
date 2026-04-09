@@ -86,6 +86,16 @@ Hematite is for developers who want a **local coding CLI that behaves like a ser
 
 If your goal is cloud-scale autonomous orchestration, Hematite is not trying to win that game. If your goal is the best practical local harness for repo work on consumer hardware, that is exactly the category it is trying to own.
 
+**Real scenarios Hematite handles well:**
+
+- **You cloned a repo and have no idea how to run it.** Open Hematite in that folder and ask. It reads the README, Makefile, or config files and tells you exactly what to type — or runs it for you.
+- **You're learning a new codebase.** Ask "what does this function do" or "where is X called" and get an answer grounded in the actual files, not a hallucinated summary.
+- **You want to edit a file without breaking something.** Hematite reads before it writes, shows you the diff, and lets you approve or skip. If the build breaks it catches it and tries to fix it.
+- **You need to understand an error.** Paste the error or let Hematite see the build output — it traces the cause through your actual source files, not generic advice.
+- **You work with documents alongside code.** Drop PDFs, markdown specs, or architecture diagrams into the conversation with `Ctrl+O` or `/attach`. The model reads them as context for the next edit.
+- **You want voice feedback while you work.** Press `Ctrl+T` and every response is spoken aloud. Useful when you're reading logs, reviewing diffs, or just want your hands free.
+- **You care about privacy.** Everything stays on your machine. No usage data sent anywhere, no API key required, no cloud fallback. Your code never leaves.
+
 ---
 
 ## One Binary. No Runtime. No Drama.
