@@ -146,8 +146,10 @@ if ($Installer) {
 if ($AddToPath) {
     $absBundle = (Resolve-Path $bundleDir).Path
     $userPath  = [Environment]::GetEnvironmentVariable("Path", "User")
-    if ($userPath -notlike "*$absBundle*") {
-        [Environment]::SetEnvironmentVariable("Path", "$userPath;$absBundle", "User")
+    # Remove any stale Hematite portable paths before adding the new one
+    $cleaned = ($userPath -split ';' | Where-Object { $_ -notlike '*Hematite-*-portable*' }) -join ';'
+    if ($cleaned -notlike "*$absBundle*") {
+        [Environment]::SetEnvironmentVariable("Path", "$cleaned;$absBundle", "User")
         Write-Host ""
         Write-Host "Added to user PATH: $absBundle" -ForegroundColor Cyan
         Write-Host "Restart your terminal (or IDE) for 'hematite' to be available everywhere."
