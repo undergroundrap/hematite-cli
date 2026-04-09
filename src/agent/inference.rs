@@ -819,15 +819,25 @@ impl InferenceEngine {
         )
     }
 
-    /// Returns the ID of the first loaded embedding model, if any.
+    /// Returns the ID of the first *loaded* embedding model, if any.
+    /// Uses /api/v0/models which includes `type` and `state` fields.
+    /// The OpenAI-compat /v1/models endpoint omits `type` so cannot be used here.
     pub async fn get_embedding_model(&self) -> Option<String> {
         #[derive(Deserialize)]
         struct ModelList { data: Vec<ModelEntry> }
         #[derive(Deserialize)]
-        struct ModelEntry { id: String, #[serde(rename = "type", default)] model_type: String }
-        let resp = self.client.get(format!("{}/v1/models", self.base_url)).send().await.ok()?;
+        struct ModelEntry {
+            id: String,
+            #[serde(rename = "type", default)] model_type: String,
+            #[serde(default)] state: String,
+        }
+        let resp = self.client
+            .get(format!("{}/api/v0/models", self.base_url))
+            .send().await.ok()?;
         let list: ModelList = resp.json().await.ok()?;
-        list.data.into_iter().find(|m| m.model_type == "embeddings").map(|m| m.id)
+        list.data.into_iter()
+            .find(|m| m.model_type == "embeddings" && m.state == "loaded")
+            .map(|m| m.id)
     }
 
     /// Detect the loaded model's context window size.
