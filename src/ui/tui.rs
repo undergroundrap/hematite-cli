@@ -1131,6 +1131,7 @@ fn show_help_message(app: &mut App) {
          /no_think         - (Speed) Disable reasoning (3-5x faster responses)\n\
          /voice            - (TTS) List all available voices\n\
          /voice N          - (TTS) Select voice by number\n\
+         /read <text>      - (TTS) Speak text aloud directly, bypassing the model. ESC to stop.\n\
          /attach <path>    - (Docs) Attach a PDF/markdown/txt file for next message (PDF best-effort)\n\
          /attach-pick      - (Docs) Open a file picker and attach a document\n\
          /image <path>     - (Vision) Attach an image for the next message\n\
@@ -1190,6 +1191,7 @@ fn show_help_message_legacy(app: &mut App) {
          /no_think         — (Speed) Disable reasoning (3-5x faster responses)\n\
          /voice            — (TTS) List all available voices\n\
          /voice N          — (TTS) Select voice by number\n\
+         /read <text>      — (TTS) Speak text aloud directly, bypassing the model. ESC to stop.\n\
          /attach <path>    — (Docs) Attach a PDF/markdown/txt file for next message\n\
          /attach-pick      — (Docs) Open a file picker and attach a document\n\
          /image <path>     — (Vision) Attach an image for the next message\n\
@@ -1931,6 +1933,25 @@ pub async fn run_app<B: Backend>(
                                                     }
                                                     list.push_str("\nUse /voice N or /voice <id> to select.");
                                                     app.push_message("System", &list);
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/read" => {
+                                                let text = parts[1..].join(" ");
+                                                if text.is_empty() {
+                                                    app.push_message("System", "Usage: /read <text to speak>");
+                                                } else if !app.voice_manager.is_enabled() {
+                                                    app.push_message("System", "Voice is off. Press Ctrl+T to enable, then /read again.");
+                                                } else {
+                                                    app.push_message("System", &format!("Reading {} words aloud. ESC to stop.", text.split_whitespace().count()));
+                                                    // Chunk into sentences so TTS starts quickly
+                                                    for sentence in text.split(|c| c == '.' || c == '!' || c == '?') {
+                                                        let s = sentence.trim();
+                                                        if !s.is_empty() {
+                                                            app.voice_manager.speak(format!("{}. ", s));
+                                                        }
+                                                    }
                                                 }
                                                 app.history_idx = None;
                                                 continue;

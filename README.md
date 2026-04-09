@@ -730,6 +730,8 @@ Workflow note:
 
 **Hotkeys:** `Ctrl+B` brief mode, `Ctrl+P` professional mode, `Ctrl+Y` approvals off, `Ctrl+T` voice toggle, `Ctrl+O` attach document, `Ctrl+I` attach image, `Ctrl+Z` undo, `Ctrl+Q`/`Ctrl+C` quit, `ESC` cancel
 
+**TTS read mode (`/read`):** Type `/read <any text>` to speak content aloud directly through the voice engine — no model call, no wait. Paste a paragraph, an error log, an email, anything. ESC stops playback mid-sentence. Voice must be enabled (`Ctrl+T`).
+
 **File mention (`@`):** Type `@` anywhere in your message to open a live file picker. Hematite scans the workspace and filters matches as you type — source files and docs float to the top. Press `Tab` or `Enter` to insert the path. Use this to reference a file inline without leaving the input.
 
 ---
