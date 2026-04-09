@@ -22,6 +22,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputDir}
 OutputBaseFilename=Hematite-{#AppVersion}-Setup
+SetupIconFile=..\assets\hematite.ico
+UninstallDisplayIcon={app}\hematite.exe
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -41,8 +43,8 @@ Source: "{#BundleDir}\DirectML.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BundleDir}\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\Hematite README"; Filename: "{app}\README.txt"
-Name: "{autodesktop}\Hematite README"; Filename: "{app}\README.txt"; Tasks: desktopicon
+Name: "{autoprograms}\Hematite"; Filename: "{app}\hematite.exe"; IconFilename: "{app}\hematite.exe"
+Name: "{autodesktop}\Hematite"; Filename: "{app}\hematite.exe"; IconFilename: "{app}\hematite.exe"; Tasks: desktopicon
 
 [Registry]
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant('{app}'))

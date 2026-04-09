@@ -40,6 +40,9 @@ lopdf = { version = "0.34", default-features = false, features = ["nom_parser"] 
 tempfile = "3"
 dirs = "5"
 
+[build-dependencies]
+winres = "0.1"
+
 [profile.dev.package.ort]
 opt-level = 3
 codegen-units = 1

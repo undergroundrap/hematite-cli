@@ -36,6 +36,17 @@ fn main() {
         }
     }
 
+    // Embed application icon on Windows
+    #[cfg(target_os = "windows")]
+    {
+        let mut res = winres::WindowsResource::new();
+        res.set_icon("assets/hematite.ico");
+        if let Err(e) = res.compile() {
+            eprintln!("winres warning: {e}");
+        }
+    }
+
     // Auto-Rerun on build constraint updates
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=assets/hematite.ico");
 }
