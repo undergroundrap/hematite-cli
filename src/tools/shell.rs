@@ -138,6 +138,7 @@ async fn build_command(command: &str) -> tokio::process::Command {
     }
 }
 
+#[allow(dead_code)]
 async fn which(name: &str) -> bool {
     #[cfg(target_os = "windows")]
     let check = format!("{}.exe", name);
