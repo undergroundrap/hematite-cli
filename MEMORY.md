@@ -1,19 +1,27 @@
-# Hematite Memory Architecture: The Sovereign Record
+# Hematite Memory Architecture
 
 Hematite manages state through two specialized subsystems that balance persistent awareness with immediate context window efficiency.
 
-## 1. The Vein (Long-Term RAG)
-Managed in `src/memory/vein.rs`, **The Vein** is a local SQLite-backed RAG engine.
-- **Indexing**: Files are automatically indexed into `hematite_memory.db` using a BM25-compatible search strategy (via `rusqlite`).
-- **Retrieval**: When the agent is unsure about a file's location, it queries the Vein to retrieve path-relevant snippets without bloating the current context window.
+## 1. The Vein (Local RAG)
 
-## 2. Smart Sovereign Compaction (Short-Term Context)
-Managed in `src/agent/conversation.rs`, this is the deterministic engine that handles the active 32k context window.
-- **Trigger**: Activates when the conversation length exceeds 16 messages or total characters hit a threshold.
-- **The Pillar**: Instead of AI-generated summaries which can hallucinate, Hematite performs **Deterministic Compaction**.
-- **Key Files**: Automatically extracts and preserves the list of files currently being modified.
-- **Verbatim Timeline**: Keeps the most recent 15 messages exactly as they occurred.
-- **Technical Alignment**: Enforces **Global Sequence Alignment** (User-role must start every turn) and **Orphan Purges** to ensure LM Studio never receives a malformed history.
+Managed in `src/memory/vein.rs`. The Vein is a SQLite-backed hybrid retrieval engine that indexes the current project and injects relevant context into each turn.
+
+- **Database:** stored at `.hematite/vein.db` inside the workspace root. Per-project — each folder gets its own index.
+- **BM25 (always active):** SQLite FTS5 full-text search with Porter stemming. Works with no embedding model loaded.
+- **Semantic (optional):** calls LM Studio's `/v1/embeddings` endpoint using `nomic-embed-text-v2`. Stores vectors in SQLite; reused across sessions.
+- **Non-project directories:** indexing is skipped entirely when launched outside a real project (no `Cargo.toml`, `package.json`, `go.mod`, etc.). `VN:--` is the correct status in this case.
+- **Retrieval:** at the start of each turn, changed files are re-indexed and a hybrid BM25+semantic query is run against the user's message. Top results are injected into the system prompt.
+
+Status bar: `VN:SEM` (semantic active) / `VN:FTS` (BM25 only) / `VN:--` (no project or not yet indexed).
+
+## 2. Context Compaction (Short-Term Context)
+
+Managed in `src/agent/conversation.rs` and `src/agent/compaction.rs`.
+
+- **Trigger:** activates when conversation length or token count approaches the context limit.
+- **Strategy:** deterministic compaction — preserves key files, recent messages verbatim, and a rolling summary rather than relying on AI-generated summaries that can hallucinate.
+- **Alignment:** enforces user-role message ordering required by LM Studio's Jinja templates.
 
 ## 3. DeepReflect (Idle Reflection)
-A background process that triggers during user idle time to perform deeper summarization and knowledge distillation, updating the Vein with "learned" insights about the project structure.
+
+Managed in `src/memory/deep_reflect.rs`. A background process that triggers during user idle time to perform deeper summarization and distill session insights into the Vein.
