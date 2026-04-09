@@ -97,6 +97,13 @@ Common values:
 - Ollama: `http://localhost:11434/v1`
 - Remote machine: `http://192.168.x.x:1234/v1`
 
+**Global settings fallback.** Hematite merges two config files at startup: the workspace-level
+`.hematite/settings.json` (inside the project root) and the global `~/.hematite/settings.json`
+(in the user's home directory). Workspace values always win; global fills in any fields not set
+by the workspace. This means `api_url`, `model`, `voice`, and other preferences set globally apply
+in every directory — including non-project launches from the desktop or home folder. The workspace
+config is created automatically on first run in a new directory.
+
 ## API Configuration
 
 Hematite uses Jina Reader/Search for web research. You can run without a key on the public tier, but a key is recommended for stability.
@@ -192,6 +199,12 @@ the system prompt so the model starts with the right code already in view, reduc
 
 **Per-project database:** stored at `.hematite/vein.db` inside the workspace root. Each project
 folder gets its own index. The Vein learns from files on disk, not from conversation content.
+
+**Non-project directories:** Vein indexing is skipped entirely when Hematite is launched outside a
+real project (no `Cargo.toml`, `package.json`, `go.mod`, etc. found walking up from the launch
+directory). A bare `.git` alone does not count. `VN:--` is the correct status in this case.
+Hematite still works fully as an AI assistant — only the file indexing and code context injection
+are inactive.
 
 **Two retrieval modes, hybrid-merged:**
 
