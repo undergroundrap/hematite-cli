@@ -28,9 +28,9 @@ jobs:
         run: |
           $assetsDir = ".hematite\assets\voice"
           New-Item -ItemType Directory -Force -Path $assetsDir | Out-Null
-          $base = "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main"
+          $base = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
           Invoke-WebRequest -Uri "$base/kokoro-v1.0.onnx" -OutFile "$assetsDir\kokoro-v1.0.onnx" -TimeoutSec 300
-          Invoke-WebRequest -Uri "$base/voices.bin" -OutFile "$assetsDir\voices.bin" -TimeoutSec 120
+          Invoke-WebRequest -Uri "$base/voices-v1.0.bin" -OutFile "$assetsDir\voices.bin" -TimeoutSec 120
 
       - name: Install Inno Setup
         shell: powershell
