@@ -718,6 +718,8 @@ Workflow note:
 
 **Hotkeys:** `Ctrl+B` brief mode, `Ctrl+P` professional mode, `Ctrl+Y` approvals off, `Ctrl+T` voice toggle, `Ctrl+O` attach document, `Ctrl+I` attach image, `Ctrl+Z` undo, `Ctrl+Q`/`Ctrl+C` quit, `ESC` cancel
 
+**File mention (`@`):** Type `@` anywhere in your message to open a live file picker. Hematite scans the workspace and filters matches as you type — source files and docs float to the top. Press `Tab` or `Enter` to insert the path. Use this to reference a file inline without leaving the input.
+
 ---
 
 ## Voice

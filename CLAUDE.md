@@ -30,6 +30,7 @@ pwsh ./clean.ps1
 - `Ctrl+O`: open file picker to attach a document (PDF/markdown/txt) for the next turn
 - `Ctrl+I`: open file picker to attach an image for the next turn (vision path)
 - `Ctrl+Z`: undo last file edit (ghost backup restore)
+- `@` in input: opens live file autocomplete — scans workspace, filters as you type, Tab/Enter inserts the path
 - `Y` / `N`: approve or skip a diff preview modal when the model proposes an edit
 - `/voice`: list all available TTS voices with numbers
 - `/voice N` or `/voice <id>`: select a voice by number or ID — saves to `.hematite/settings.json` and takes effect immediately
