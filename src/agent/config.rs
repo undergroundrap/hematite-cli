@@ -127,20 +127,55 @@ pub fn settings_path() -> std::path::PathBuf {
         .join("settings.json")
 }
 
-/// Load `.hematite/settings.json` from the workspace root.
-/// Returns default config if the file doesn't exist or can't be parsed.
+/// Load global settings from `~/.hematite/settings.json` if present.
+fn load_global_config() -> Option<HematiteConfig> {
+    let home = std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))?;
+    let path = std::path::PathBuf::from(home)
+        .join(".hematite")
+        .join("settings.json");
+    let data = std::fs::read_to_string(&path).ok()?;
+    serde_json::from_str(&data).ok()
+}
+
+/// Load `.hematite/settings.json` from the workspace root, with global
+/// `~/.hematite/settings.json` as a fallback for unset fields.
+/// Workspace config always wins; global fills in what workspace doesn't set.
 pub fn load_config() -> HematiteConfig {
     let path = settings_path();
 
-    if !path.exists() {
+    let workspace: Option<HematiteConfig> = if path.exists() {
+        std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|d| serde_json::from_str(&d).ok())
+    } else {
         write_default_config(&path);
-        return HematiteConfig::default();
-    }
-
-    let Ok(data) = std::fs::read_to_string(&path) else {
-        return HematiteConfig::default();
+        None
     };
-    serde_json::from_str(&data).unwrap_or_default()
+
+    let global = load_global_config();
+
+    match (workspace, global) {
+        (Some(ws), Some(gb)) => {
+            // Workspace wins on every field that isn't the zero/null default
+            HematiteConfig {
+                model: ws.model.or(gb.model),
+                fast_model: ws.fast_model.or(gb.fast_model),
+                think_model: ws.think_model.or(gb.think_model),
+                api_url: ws.api_url.or(gb.api_url),
+                voice: if ws.voice != HematiteConfig::default().voice { ws.voice } else { gb.voice },
+                voice_speed: ws.voice_speed.or(gb.voice_speed),
+                voice_volume: ws.voice_volume.or(gb.voice_volume),
+                context_hint: ws.context_hint.or(gb.context_hint),
+                gemma_native_auto: ws.gemma_native_auto,
+                gemma_native_formatting: ws.gemma_native_formatting,
+                ..ws
+            }
+        }
+        (Some(ws), None) => ws,
+        (None, Some(gb)) => gb,
+        (None, None) => HematiteConfig::default(),
+    }
 }
 
 pub fn save_config(config: &HematiteConfig) -> Result<(), String> {

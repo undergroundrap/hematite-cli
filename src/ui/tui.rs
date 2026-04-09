@@ -1945,13 +1945,7 @@ pub async fn run_app<B: Backend>(
                                                     app.push_message("System", "Voice is off. Press Ctrl+T to enable, then /read again.");
                                                 } else {
                                                     app.push_message("System", &format!("Reading {} words aloud. ESC to stop.", text.split_whitespace().count()));
-                                                    // Chunk into sentences so TTS starts quickly
-                                                    for sentence in text.split(|c| c == '.' || c == '!' || c == '?') {
-                                                        let s = sentence.trim();
-                                                        if !s.is_empty() {
-                                                            app.voice_manager.speak(format!("{}. ", s));
-                                                        }
-                                                    }
+                                                    app.voice_manager.speak(text.clone());
                                                 }
                                                 app.history_idx = None;
                                                 continue;
