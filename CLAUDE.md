@@ -325,7 +325,12 @@ Hematite follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`
 - Never bump mid-development. Version numbers live in `Cargo.toml` and are baked into the binary at compile time.
 - Bump immediately before running `scripts/package-windows.ps1` — not after features land, not speculatively.
 - Always use `bump-version.ps1` — never edit version strings by hand across files.
-- After bumping, run `cargo build` (this also regenerates `Cargo.lock`), then commit `Cargo.toml Cargo.lock README.md CLAUDE.md` together as the bump commit, then run the release.
+- After bumping, run `cargo build` (this also regenerates `Cargo.lock`), then commit **exactly these five files** and nothing else:
+  ```
+  git add Cargo.toml Cargo.lock README.md CLAUDE.md installer/hematite.iss
+  git commit -m "chore: bump version to X.Y.Z"
+  ```
+  Never use `git add .` for a bump commit — it can sweep in unrelated changes. Never skip `Cargo.lock` — it must match `Cargo.toml`.
 
 **Commit message for a version bump:**
 ```
