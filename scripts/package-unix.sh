@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-version="$(sed -nE 's/^version\s*=\s*"([^"]+)".*/\1/p' Cargo.toml | head -n 1)"
+version="$(grep '^version = ' Cargo.toml | head -n 1 | sed 's/^version = "\(.*\)"/\1/')"
 if [[ -z "$version" ]]; then
   echo "Could not determine package version from Cargo.toml." >&2
   exit 1
