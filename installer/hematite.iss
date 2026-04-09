@@ -27,7 +27,6 @@ UninstallDisplayIcon={app}\hematite.exe
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\hematite.exe
 ChangesEnvironment=yes
 
 [Languages]
