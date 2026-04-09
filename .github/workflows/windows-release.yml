@@ -23,14 +23,24 @@ jobs:
       - name: Cache Rust build outputs
         uses: Swatinem/rust-cache@v2
 
+      - name: Cache voice model assets
+        uses: actions/cache@v4
+        with:
+          path: .hematite/assets/voice
+          key: kokoro-voice-assets-v1.0
+
       - name: Download voice model assets
         shell: powershell
         run: |
           $assetsDir = ".hematite\assets\voice"
           New-Item -ItemType Directory -Force -Path $assetsDir | Out-Null
           $base = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
-          Invoke-WebRequest -Uri "$base/kokoro-v1.0.onnx" -OutFile "$assetsDir\kokoro-v1.0.onnx" -TimeoutSec 300
-          Invoke-WebRequest -Uri "$base/voices-v1.0.bin" -OutFile "$assetsDir\voices.bin" -TimeoutSec 120
+          if (-not (Test-Path "$assetsDir\kokoro-v1.0.onnx")) {
+            Invoke-WebRequest -Uri "$base/kokoro-v1.0.onnx" -OutFile "$assetsDir\kokoro-v1.0.onnx" -TimeoutSec 300
+          }
+          if (-not (Test-Path "$assetsDir\voices.bin")) {
+            Invoke-WebRequest -Uri "$base/voices-v1.0.bin" -OutFile "$assetsDir\voices.bin" -TimeoutSec 120
+          }
 
       - name: Install Inno Setup
         shell: powershell
