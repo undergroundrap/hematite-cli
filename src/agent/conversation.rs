@@ -2071,7 +2071,9 @@ impl ConversationManager {
 
         // Incremental re-index and Vein context injection — skipped in chat mode
         // (code snippets are noise in a conversational surface).
-        let (vein_context, vein_paths) = if !self.workflow_mode.is_chat() {
+        let (vein_context, vein_paths) = if !self.workflow_mode.is_chat()
+            && crate::tools::file_ops::is_project_workspace()
+        {
             tokio::task::block_in_place(|| self.vein.index_project());
             let _ = tx
                 .send(InferenceEvent::VeinStatus {
