@@ -5,6 +5,7 @@
 Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, and speaks responses out loud — all from a single binary that boots in seconds.
 
 **What it actually does:**
+- Detects the workspace automatically — coding project, document folder, or general directory — and adjusts its behavior accordingly. No flags, no config.
 - Reads any file, grepping for the right location before touching anything
 - Shows a coloured diff preview before every edit — press Y to apply, N to skip
 - Edits with exact-match precision, CRLF-safe on Windows
@@ -18,7 +19,7 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding agent when you need it, clean conversation when you don't. LM Studio handles model serving. Hematite handles everything else.
 
-![Version](https://img.shields.io/badge/version-0.2.0-orange?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.2.1-orange?style=flat-square)
 ![Windows](https://img.shields.io/badge/Windows-native-blue?style=flat-square)
 ![Linux](https://img.shields.io/badge/Linux-supported-green?style=flat-square)
 ![macOS](https://img.shields.io/badge/macOS-supported-lightgrey?style=flat-square)
@@ -310,7 +311,7 @@ After bumping the version:
 pwsh ./scripts/package-windows.ps1
 ```
 
-This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.2.0-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
+This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.2.1-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
 
 For macOS or Linux:
 
@@ -356,7 +357,7 @@ Linux note: Hematite's voice stack still depends on distro-provided `libsonic` a
 GitHub Actions can build the latest release artifacts for all supported desktop platforms.
 
 - `workflow_dispatch` lets you run the release build manually from GitHub
-- pushing a tag like `v0.2.0` builds the newest Windows, Linux, and macOS artifacts automatically
+- pushing a tag like `v0.2.1` builds the newest Windows, Linux, and macOS artifacts automatically
 - tagged builds attach the generated Windows `.zip` and `Setup.exe`, plus Unix `.tar.gz` archives, to the GitHub release
 
 Typical release flow:

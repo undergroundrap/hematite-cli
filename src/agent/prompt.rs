@@ -3,6 +3,53 @@ use std::path::PathBuf;
 
 use crate::agent::git;
 
+enum WorkspaceMode {
+    Coding,
+    Document,
+    General,
+}
+
+fn detect_workspace_mode(root: &PathBuf) -> WorkspaceMode {
+    // Strong coding signals — any of these present means it's a coding workspace
+    let coding_markers = [
+        "Cargo.toml", "package.json", "pyproject.toml", "setup.py",
+        "go.mod", "pom.xml", "build.gradle", "CMakeLists.txt",
+        ".git", "src", "lib",
+    ];
+    for marker in &coding_markers {
+        if root.join(marker).exists() {
+            return WorkspaceMode::Coding;
+        }
+    }
+
+    // No strong coding signal — check file extensions
+    let code_exts = ["rs", "py", "ts", "js", "go", "cpp", "c", "java", "cs", "rb", "swift", "kt"];
+    let doc_exts = ["pdf", "md", "txt", "docx", "epub", "rst"];
+    let mut code_count = 0usize;
+    let mut doc_count = 0usize;
+
+    if let Ok(entries) = fs::read_dir(root) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                    let ext = ext.to_lowercase();
+                    if code_exts.contains(&ext.as_str()) { code_count += 1; }
+                    if doc_exts.contains(&ext.as_str()) { doc_count += 1; }
+                }
+            }
+        }
+    }
+
+    if code_count > 0 {
+        WorkspaceMode::Coding
+    } else if doc_count > 0 {
+        WorkspaceMode::Document
+    } else {
+        WorkspaceMode::General
+    }
+}
+
 pub struct SystemPromptBuilder {
     pub workspace_root: PathBuf,
 }
@@ -26,13 +73,23 @@ impl SystemPromptBuilder {
         let config = crate::agent::config::load_config();
         let mut static_sections = Vec::new();
 
+        let workspace_framing = match detect_workspace_mode(&self.workspace_root) {
+            WorkspaceMode::Coding => "You are Hematite, a local AI coding agent running on the user's machine. \
+                             Hematite is more than the terminal UI: it is the full local harness for tool use, code editing, context management, voice, and orchestration. \
+                             The current directory is a software project — lean into code editing, build verification, and repo-aware tooling.",
+            WorkspaceMode::Document => "You are Hematite, a local AI assistant running on the user's machine. \
+                             Hematite is more than the terminal UI: it is the full local harness for tool use, file analysis, context management, voice, and orchestration. \
+                             The current directory contains documents and files — lean into reading, summarizing, explaining, and answering questions about the content here.",
+            WorkspaceMode::General => "You are Hematite, a local AI assistant running on the user's machine. \
+                             Hematite is more than the terminal UI: it is the full local harness for tool use, file operations, context management, voice, and orchestration.",
+        };
+
         static_sections.push("<|think|>".to_string());
         static_sections.push("# IDENTITY & TONE".to_string());
-        static_sections.push("You are Hematite, a local coding system for the user's machine and repository. \
-                             Hematite is more than the terminal UI: it is the full local harness for tool use, code editing, context management, voice, and orchestration. \
+        static_sections.push(format!("{} \
                              Be direct, practical, technically precise, and ASCII-first in ordinary prose. \
                              For simple questions, answer briefly in plain language. \
-                             Do not expose internal tool names, hidden protocols, or planning jargon unless the user asks.".to_string());
+                             Do not expose internal tool names, hidden protocols, or planning jargon unless the user asks.", workspace_framing));
 
         static_sections.push("\n# ARCHITECTURAL CONSTRAINTS".to_string());
         static_sections.push("- **Model**: Gemma-4-E4B (Native Multimodal Dense Agent). \n\
