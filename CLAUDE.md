@@ -341,14 +341,21 @@ pwsh ./bump-version.ps1 -Version 0.2.0
 
 Never edit version numbers by hand — they will drift across files.
 
-**Step 2 — build the release binary:**
+**Step 2 — tag and push to trigger CI:**
+
+```powershell
+git tag -a v0.2.0 -m "Release v0.2.0"
+git push origin main
+git push origin v0.2.0
+```
+
+Pushing the tag triggers `windows-release.yml` and `unix-release.yml` on GitHub Actions. Both workflows download the Kokoro voice model assets, run `cargo build --release`, package the artifacts, and attach them to the GitHub Release automatically when they go green. No manual upload needed.
+
+**Local build (optional, for testing before tagging):**
 
 ```powershell
 pwsh ./scripts/package-windows.ps1
 ```
-
-This runs `cargo build --release`, copies the binary and `DirectML.dll` into
-`dist/windows/Hematite-0.2.0-portable/`, and rezips the portable archive.
 
 - The ONNX model (311 MB) is baked into the binary at compile time — no separate download
 - `DirectML.dll` is copied from `target/release/` automatically by the ORT build script

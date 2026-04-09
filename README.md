@@ -362,10 +362,16 @@ GitHub Actions can build the latest release artifacts for all supported desktop 
 Typical release flow:
 
 ```powershell
-git commit -am "release: prepare v0.1.1"
-git tag v0.1.1
-git push origin main --tags
+pwsh ./bump-version.ps1 -Version 0.3.0
+cargo build
+git add Cargo.toml Cargo.lock README.md CLAUDE.md installer/hematite.iss
+git commit -m "chore: bump version to 0.3.0"
+git tag -a v0.3.0 -m "Release v0.3.0"
+git push origin main
+git push origin v0.3.0
 ```
+
+Pushing the tag triggers both `windows-release.yml` and `unix-release.yml` automatically. When both go green, the portable zip, Windows installer, and Unix archives are attached to the GitHub Release — no manual upload needed.
 
 Versioning still comes from `Cargo.toml`, so the package names and installer version stay aligned with the Rust crate version.
 

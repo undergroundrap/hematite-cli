@@ -89,6 +89,6 @@ For behavior regressions and prompt-quality checks, use the benchmark prompts un
 - **Always bump the version with `pwsh ./bump-version.ps1 -Version X.Y.Z` before releasing** — never edit version strings by hand
 - Local Windows release is built with `pwsh ./scripts/package-windows.ps1`
 - Add `-Installer` for the Inno Setup installer, `-AddToPath` to register in user PATH
-- Tagged GitHub releases are built by `.github/workflows/windows-release.yml`
+- Pushing a tag (`git push origin vX.Y.Z`) triggers CI automatically — `windows-release.yml` builds the Windows portable zip and installer, `unix-release.yml` builds Linux and macOS archives; both attach artifacts to the GitHub Release when they go green
 
-Before a public release, verify `cargo build` is clean, bump the version, commit, then run the release script.
+Before a public release, verify `cargo build` is clean, bump the version, commit `Cargo.toml Cargo.lock README.md CLAUDE.md installer/hematite.iss`, tag, and push. Do not manually upload release artifacts — CI handles that.
