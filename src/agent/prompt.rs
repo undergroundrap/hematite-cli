@@ -84,19 +84,11 @@ impl SystemPromptBuilder {
                              Hematite is more than the terminal UI: it is the full local harness for tool use, file operations, context management, voice, and orchestration.",
         };
 
-        static_sections.push("<|think|>".to_string());
         static_sections.push("# IDENTITY & TONE".to_string());
         static_sections.push(format!("{} \
                              Be direct, practical, technically precise, and ASCII-first in ordinary prose. \
                              For simple questions, answer briefly in plain language. \
                              Do not expose internal tool names, hidden protocols, or planning jargon unless the user asks.", workspace_framing));
-
-        static_sections.push("\n# ARCHITECTURAL CONSTRAINTS".to_string());
-        static_sections.push("- **Model**: Gemma-4-E4B (Native Multimodal Dense Agent). \n\
-                             - **Context Baseline**: 32,768 (32K) tokens. Use this for snappy, high-quality reasoning. \n\
-                             - **High-Capacity Mode**: 131,072 (128K) tokens. Available for full-repo analysis. \n\
-                             - **Hybrid Attention**: You have a 512-token Sliding Window Attention (SWA). Prioritize immediate local context while relying on Global layers for structural coherence. \n\
-                             - **Multimodal Interleaving**: Place descriptions of images/audio BEFORE your textual conclusions.".to_string());
 
         static_sections.push(format!("\n# BASE INSTRUCTIONS\n{base_instructions}"));
 

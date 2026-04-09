@@ -1091,6 +1091,22 @@ pub fn workspace_root() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
+/// Returns true if the workspace root looks like a real project.
+/// A bare `.git` alone (e.g. accidental `git init` in the home folder) doesn't
+/// count — at least one explicit build/package marker must also be present.
+pub fn is_project_workspace() -> bool {
+    let root = workspace_root();
+    let has_explicit_marker = root.join("Cargo.toml").exists()
+        || root.join("package.json").exists()
+        || root.join("pyproject.toml").exists()
+        || root.join("go.mod").exists()
+        || root.join("setup.py").exists()
+        || root.join("pom.xml").exists()
+        || root.join("build.gradle").exists()
+        || root.join("CMakeLists.txt").exists();
+    has_explicit_marker || (root.join(".git").exists() && root.join("src").exists())
+}
+
 /// A "Pre-Flight Scoping" tool that provides a high-level recursive map of the project.
 /// Returns a directory tree and project configuration overview.
 pub async fn map_project(_args: &Value) -> Result<String, String> {

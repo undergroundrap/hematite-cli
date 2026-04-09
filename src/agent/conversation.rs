@@ -801,6 +801,9 @@ impl ConversationManager {
     /// Index the project into The Vein. Call once after construction.
     /// Uses block_in_place so the tokio runtime thread isn't parked.
     pub fn initialize_vein(&mut self) -> usize {
+        if !crate::tools::file_ops::is_project_workspace() {
+            return 0;
+        }
         tokio::task::block_in_place(|| self.vein.index_project())
     }
 

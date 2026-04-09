@@ -819,6 +819,17 @@ impl InferenceEngine {
         )
     }
 
+    /// Returns the ID of the first loaded embedding model, if any.
+    pub async fn get_embedding_model(&self) -> Option<String> {
+        #[derive(Deserialize)]
+        struct ModelList { data: Vec<ModelEntry> }
+        #[derive(Deserialize)]
+        struct ModelEntry { id: String, #[serde(rename = "type", default)] model_type: String }
+        let resp = self.client.get(format!("{}/v1/models", self.base_url)).send().await.ok()?;
+        let list: ModelList = resp.json().await.ok()?;
+        list.data.into_iter().find(|m| m.model_type == "embeddings").map(|m| m.id)
+    }
+
     /// Detect the loaded model's context window size.
     /// Tries LM Studio's `/api/v0/models` endpoint first and prefers the loaded
     /// model's live `loaded_context_length`, then falls back to older

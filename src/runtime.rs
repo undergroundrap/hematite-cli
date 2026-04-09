@@ -209,6 +209,41 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         })
         .await;
 
+    // Send the startup greeting immediately — before MCP and Vein so it always
+    // appears right away, even if vein indexing takes a while on first run.
+    let gpu_name = gpu_state.gpu_name();
+    let vram = gpu_state.label();
+    let voice_cfg = crate::agent::config::load_config();
+    let voice_status = format!(
+        "Voice: {} | Speed: {}x | Volume: {}x",
+        crate::agent::config::effective_voice(&voice_cfg),
+        crate::agent::config::effective_voice_speed(&voice_cfg),
+        crate::agent::config::effective_voice_volume(&voice_cfg),
+    );
+    let embed_status = match manager.engine.get_embedding_model().await {
+        Some(id) => format!("Embed: {} (semantic search ready)", id),
+        None => "Embed: none loaded (load nomic-embed-text-v2 for semantic search)".to_string(),
+    };
+    let project_hint = if crate::tools::file_ops::is_project_workspace() {
+        String::new()
+    } else {
+        "\nTip: cd into a project folder before running hematite to enable code tools and context search.".to_string()
+    };
+    let greeting = format!(
+        "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\n{}\n{}\n/chat - conversation mode | /agent - full coding harness{}",
+        manager.engine.current_model(),
+        manager.engine.current_context_length(),
+        gpu_name,
+        vram,
+        format!("{}/v1", manager.engine.base_url),
+        embed_status,
+        voice_status,
+        project_hint
+    );
+    let _ = agent_tx
+        .send(InferenceEvent::MutedToken(format!("\n{}", greeting)))
+        .await;
+
     if let Err(e) = manager.initialize_mcp().await {
         let _ = agent_tx
             .send(InferenceEvent::Error(format!("MCP Init Failed: {}", e)))
@@ -222,39 +257,6 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         )))
         .await;
     let _ = agent_tx.send(InferenceEvent::Done).await;
-
-    let gpu_name = gpu_state.gpu_name();
-    let vram = gpu_state.label();
-
-    let embed_status = if manager.vein.embedded_chunk_count() > 0 {
-        "Embed: nomic active (semantic search ready)"
-    } else {
-        "Embed: none loaded (BM25 only — load nomic-embed-text-v2 for semantic search)"
-    };
-
-    let voice_cfg = crate::agent::config::load_config();
-    let voice_status = format!(
-        "Voice: {} | Speed: {}x | Volume: {}x",
-        crate::agent::config::effective_voice(&voice_cfg),
-        crate::agent::config::effective_voice_speed(&voice_cfg),
-        crate::agent::config::effective_voice_volume(&voice_cfg),
-    );
-
-    let greeting = format!(
-        "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\n{}\n{}\n/chat — conversation mode | /agent — full coding harness",
-        manager.engine.current_model(),
-        manager.engine.current_context_length(),
-        gpu_name,
-        vram,
-        format!("{}/v1", manager.engine.base_url),
-        embed_status,
-        voice_status
-    );
-    let greeting = greeting.replace('—', "-");
-
-    let _ = agent_tx
-        .send(InferenceEvent::MutedToken(format!("\n{}", greeting)))
-        .await;
     let startup_config = crate::agent::config::load_config();
     manager.engine.set_gemma_native_formatting(
         crate::agent::config::effective_gemma_native_formatting(
