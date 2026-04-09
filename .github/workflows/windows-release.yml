@@ -23,6 +23,15 @@ jobs:
       - name: Cache Rust build outputs
         uses: Swatinem/rust-cache@v2
 
+      - name: Download voice model assets
+        shell: powershell
+        run: |
+          $assetsDir = ".hematite\assets\voice"
+          New-Item -ItemType Directory -Force -Path $assetsDir | Out-Null
+          $base = "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main"
+          Invoke-WebRequest -Uri "$base/kokoro-v1.0.onnx" -OutFile "$assetsDir\kokoro-v1.0.onnx" -TimeoutSec 300
+          Invoke-WebRequest -Uri "$base/voices.bin" -OutFile "$assetsDir\voices.bin" -TimeoutSec 120
+
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup -y --no-progress

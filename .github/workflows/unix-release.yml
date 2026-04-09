@@ -34,6 +34,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libpcaudio-dev libsonic-dev
 
+      - name: Download voice model assets
+        run: |
+          mkdir -p .hematite/assets/voice
+          base="https://huggingface.co/hexgrad/Kokoro-82M/resolve/main"
+          curl -L --retry 3 --max-time 300 -o .hematite/assets/voice/kokoro-v1.0.onnx "$base/kokoro-v1.0.onnx"
+          curl -L --retry 3 --max-time 120 -o .hematite/assets/voice/voices.bin "$base/voices.bin"
+
       - name: Build portable archive
         shell: bash
         run: bash ./scripts/package-unix.sh
