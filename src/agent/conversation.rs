@@ -25,8 +25,8 @@ use crate::agent::recovery_recipes::{
     RecoveryPlan, RecoveryScenario, RecoveryStep,
 };
 use crate::agent::routing::{
-    classify_query_intent, is_capability_probe_tool, looks_like_mutation_request, DirectAnswerKind,
-    QueryIntentClass,
+    classify_query_intent, is_capability_probe_tool, looks_like_mutation_request,
+    preferred_host_inspection_topic, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
@@ -1282,6 +1282,16 @@ impl ConversationManager {
 
         if name == "shell" {
             let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
+            if let Some(prompt) = self.latest_user_prompt() {
+                if let Some(topic) = preferred_host_inspection_topic(prompt) {
+                    if shell_looks_like_structured_host_inspection(command) {
+                        return Err(format!(
+                            "Action blocked: this is a host-inspection question. Prefer `inspect_host(topic: \"{}\")` instead of raw `shell` for PATH, toolchain, desktop, Downloads, or directory summaries. Use `shell` only if `inspect_host` cannot answer the question directly.",
+                            topic
+                        ));
+                    }
+                }
+            }
             let reason = args
                 .get("reason")
                 .and_then(|v| v.as_str())
@@ -1982,6 +1992,7 @@ impl ConversationManager {
             intent.capability_mode || intent.primary_class == QueryIntentClass::Capability;
         let toolchain_mode =
             intent.toolchain_mode || intent.primary_class == QueryIntentClass::Toolchain;
+        let host_inspection_mode = intent.host_inspection_mode;
         let project_map_mode = intent.preserve_project_map_output
             || intent.primary_class == QueryIntentClass::RepoArchitecture;
         let architecture_overview_mode = intent.architecture_overview_mode;
@@ -2038,6 +2049,15 @@ impl ConversationManager {
                  Do not invent helper tools, MCP tool names, synthetic symbols, or example function names.\n\
                  If `describe_toolchain` fully answers the question, preserve its output exactly instead of restyling it.\n\
                  Be explicit about which tools are optional or conditional.\n"
+            );
+        }
+        if !tiny_context_mode && host_inspection_mode {
+            system_msg.push_str(
+                "\n\n# HOST INSPECTION MODE\n\
+                 This turn is about the local machine and environment, not repository architecture.\n\
+                 Prefer `inspect_host` before raw `shell` for PATH analysis, installed developer tool versions, desktop item counts, Downloads summaries, and directory-size reports.\n\
+                 Use the closest built-in topic first: `summary`, `toolchains`, `path`, `desktop`, `downloads`, or `directory`.\n\
+                 Only use `shell` if the host question truly goes beyond `inspect_host`.\n"
             );
         }
         if !tiny_context_mode && project_map_mode {
@@ -4095,6 +4115,34 @@ pub fn format_tool_display(name: &str, args: &Value) -> String {
 
 // ── Text utilities ────────────────────────────────────────────────────────────
 
+fn shell_looks_like_structured_host_inspection(command: &str) -> bool {
+    let lower = command.to_ascii_lowercase();
+    [
+        "$env:path",
+        "pathvariable",
+        "get-childitem",
+        "gci ",
+        "where.exe",
+        "where ",
+        "cargo --version",
+        "rustc --version",
+        "git --version",
+        "node --version",
+        "npm --version",
+        "pnpm --version",
+        "python --version",
+        "python3 --version",
+        "deno --version",
+        "go version",
+        "dotnet --version",
+        "uv --version",
+        "desktop",
+        "downloads",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
 // Moved strip_think_blocks to inference.rs
 
 fn cap_output(text: &str, max_bytes: usize) -> String {
@@ -4617,6 +4665,28 @@ mod tests {
         assert_eq!(intent.primary_class, QueryIntentClass::RepoArchitecture);
         assert!(intent.architecture_overview_mode);
         assert_eq!(intent.direct_answer, None);
+    }
+
+    #[test]
+    fn intent_router_marks_host_inspection_questions() {
+        let intent = classify_query_intent(
+            WorkflowMode::Auto,
+            "Inspect my PATH, tell me which developer tools you detect with versions, point out any duplicate or missing PATH entries, then summarize whether this machine looks ready for local development.",
+        );
+        assert!(intent.host_inspection_mode);
+    }
+
+    #[test]
+    fn shell_host_inspection_guard_matches_path_and_version_commands() {
+        assert!(shell_looks_like_structured_host_inspection(
+            "$env:PATH -split ';'"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "cargo --version"
+        ));
+        assert!(!shell_looks_like_structured_host_inspection(
+            "Get-NetTCPConnection -LocalPort 3000"
+        ));
     }
 
     #[test]

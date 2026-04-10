@@ -41,6 +41,7 @@ pub(crate) struct QueryIntent {
     pub(crate) capability_mode: bool,
     pub(crate) capability_needs_repo: bool,
     pub(crate) toolchain_mode: bool,
+    pub(crate) host_inspection_mode: bool,
     pub(crate) preserve_project_map_output: bool,
     pub(crate) architecture_overview_mode: bool,
 }
@@ -158,6 +159,69 @@ fn capability_question_requires_repo_inspection(lower: &str) -> bool {
     )
 }
 
+fn mentions_host_inspection_question(lower: &str) -> bool {
+    let host_scope = contains_any(
+        lower,
+        &[
+            "path",
+            "developer tools",
+            "toolchains",
+            "installed",
+            "desktop",
+            "downloads",
+            "folder",
+            "directory",
+            "local development",
+            "machine",
+            "computer",
+        ],
+    );
+    let host_action = contains_any(
+        lower,
+        &[
+            "inspect",
+            "count",
+            "tell me",
+            "summarize",
+            "how big",
+            "biggest",
+            "versions",
+            "duplicate",
+            "missing",
+            "ready",
+        ],
+    );
+
+    host_scope && host_action
+}
+
+pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str> {
+    let lower = user_input.to_lowercase();
+
+    if lower.contains("desktop") {
+        Some("desktop")
+    } else if lower.contains("downloads") {
+        Some("downloads")
+    } else if lower.contains("path") {
+        Some("path")
+    } else if lower.contains("developer tools")
+        || lower.contains("toolchains")
+        || (lower.contains("installed") && lower.contains("version"))
+    {
+        Some("toolchains")
+    } else if lower.contains("directory")
+        || lower.contains("folder")
+        || lower.contains("how big")
+        || lower.contains("biggest")
+    {
+        Some("directory")
+    } else if mentions_host_inspection_question(&lower) {
+        Some("summary")
+    } else {
+        None
+    }
+}
+
 pub(crate) fn looks_like_mutation_request(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     [
@@ -204,6 +268,7 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
     let capability_mode = mentions_capability_question(&lower);
     let capability_needs_repo =
         capability_mode && capability_question_requires_repo_inspection(&lower);
+    let host_inspection_mode = preferred_host_inspection_topic(&lower).is_some();
     let toolchain_mode = contains_any(
         &lower,
         &[
@@ -530,6 +595,7 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         capability_mode,
         capability_needs_repo,
         toolchain_mode,
+        host_inspection_mode,
         preserve_project_map_output,
         architecture_overview_mode,
     }
