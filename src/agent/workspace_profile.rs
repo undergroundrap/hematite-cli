@@ -91,6 +91,55 @@ pub fn profile_prompt_block(root: &Path) -> Option<String> {
     ))
 }
 
+pub fn profile_report(root: &Path) -> String {
+    let profile = load_workspace_profile(root).unwrap_or_else(|| detect_workspace_profile(root));
+    let path = workspace_profile_path(root);
+
+    let mut out = String::new();
+    out.push_str("Workspace Profile\n");
+    out.push_str(&format!("Path: {}\n", path.display()));
+    out.push_str(&format!("Mode: {}\n", profile.workspace_mode));
+    out.push_str(&format!(
+        "Primary stack: {}\n",
+        profile.primary_stack.as_deref().unwrap_or("unknown")
+    ));
+    if !profile.stack_signals.is_empty() {
+        out.push_str(&format!(
+            "Stack signals: {}\n",
+            profile.stack_signals.join(", ")
+        ));
+    }
+    if !profile.package_managers.is_empty() {
+        out.push_str(&format!(
+            "Package managers: {}\n",
+            profile.package_managers.join(", ")
+        ));
+    }
+    if let Some(profile_name) = &profile.verify_profile {
+        out.push_str(&format!("Verify profile: {}\n", profile_name));
+    }
+    if let Some(build_hint) = &profile.build_hint {
+        out.push_str(&format!("Build hint: {}\n", build_hint));
+    }
+    if let Some(test_hint) = &profile.test_hint {
+        out.push_str(&format!("Test hint: {}\n", test_hint));
+    }
+    if !profile.important_paths.is_empty() {
+        out.push_str(&format!(
+            "Important paths: {}\n",
+            profile.important_paths.join(", ")
+        ));
+    }
+    if !profile.ignored_paths.is_empty() {
+        out.push_str(&format!(
+            "Ignored noise: {}\n",
+            profile.ignored_paths.join(", ")
+        ));
+    }
+    out.push_str(&format!("Summary: {}", profile.summary));
+    out
+}
+
 pub fn detect_workspace_profile(root: &Path) -> WorkspaceProfile {
     let is_project = looks_like_project_root(root);
     let workspace_mode = if is_project {

@@ -64,7 +64,7 @@ fn test_workspace_profile_detects_rust_project_shape() {
 #[test]
 fn test_workspace_profile_uses_workspace_verify_profile_and_writes_file() {
     use hematite::agent::workspace_profile::{
-        ensure_workspace_profile, profile_prompt_block, workspace_profile_path,
+        ensure_workspace_profile, profile_prompt_block, profile_report, workspace_profile_path,
     };
 
     let workspace = tempfile::tempdir().expect("temp workspace");
@@ -103,6 +103,11 @@ fn test_workspace_profile_uses_workspace_verify_profile_and_writes_file() {
     let prompt_block = profile_prompt_block(workspace.path()).expect("profile prompt");
     assert!(prompt_block.contains("Verify profile: rust"));
     assert!(prompt_block.contains("Build hint: cargo build"));
+
+    let report = profile_report(workspace.path());
+    assert!(report.contains("Workspace Profile"));
+    assert!(report.contains("Verify profile: rust"));
+    assert!(report.contains("Path:"));
 }
 
 // ── Task file parsing ─────────────────────────────────────────────────────────

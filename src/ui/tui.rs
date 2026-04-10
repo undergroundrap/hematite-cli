@@ -1160,6 +1160,7 @@ fn show_help_message(app: &mut App) {
            /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
            /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
            /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
+           /workspace-profile - (Profile) Show the auto-generated workspace profile\n\
            /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
            /clear            - (UI) Clear dialogue display only\n\
          /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
@@ -1221,6 +1222,7 @@ fn show_help_message_legacy(app: &mut App) {
            /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
            /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
            /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
+           /workspace-profile — (Profile) Show the auto-generated workspace profile\n\
            /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
            /clear            — (UI) Clear dialogue display only\n\
          /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
@@ -1925,6 +1927,13 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/workspace-profile" => {
+                                                app.push_message("You", "/workspace-profile");
+                                                app.agent_running = true;
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/workspace-profile"));
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/copy" => {
                                                 app.copy_transcript_to_clipboard();
                                                 app.push_message("System", "Exact session transcript copied to clipboard (includes help/system output).");
@@ -2220,6 +2229,7 @@ pub async fn run_app<B: Backend>(
                                                        /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
                                                        /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
                                                        /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
+                                                       /workspace-profile — (Profile) Show the auto-generated workspace profile\n\
                                                        /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
                                                        /clear            — (UI) Clear dialogue display only\n\
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\

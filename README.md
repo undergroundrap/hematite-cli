@@ -415,7 +415,7 @@ Restart your terminal after running this. From then on, `cd` into any project fo
 
 **Global settings.** Hematite loads `~/.hematite/settings.json` as a fallback when no workspace-level `.hematite/settings.json` exists. This means your model preference, voice settings, and API URL work from any directory — not just from inside a project. Workspace settings always win when both exist.
 
-**Workspace profile.** On startup, Hematite also writes `.hematite/workspace_profile.json` for the current workspace. That file is auto-generated and gitignored. It captures the detected stack, package manager, important folders, ignored noise folders, and build/test hints so the harness starts with a grounded project profile instead of guessing from scratch every turn.
+**Workspace profile.** On startup, Hematite also writes `.hematite/workspace_profile.json` for the current workspace. That file is auto-generated and gitignored. It captures the detected stack, package manager, important folders, ignored noise folders, and build/test hints so the harness starts with a grounded project profile instead of guessing from scratch every turn. Use `/workspace-profile` to inspect the current generated profile from inside the TUI.
 
 On macOS/Linux, the packaged archive includes an installer helper:
 
@@ -802,6 +802,7 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 /new              Fresh task context; clear chat, pins, and task files
 /forget           Hard forget; purge saved memory and the Vein index too
 /vein-inspect     Show indexed Vein memory, hot files, and active room bias
+/workspace-profile Show the auto-generated workspace profile
 /vein-reset       Wipe the RAG index; rebuilds automatically on next turn
 /think            Enable Gemma-4 native reasoning channel
 /no_think         Enable lower-effort reasoning

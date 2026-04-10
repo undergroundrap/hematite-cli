@@ -54,6 +54,7 @@ pwsh ./clean.ps1
 - `/forget`: purge saved conversation memory and wipe visible session state
 - `/new`: reset session history while keeping project memory
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
+- `/workspace-profile`: inspect the auto-generated workspace profile
 - `/swarm`: trigger parallel worker agents
 
 Requires LM Studio running locally with a model loaded and the server started on port `1234`.
@@ -119,7 +120,8 @@ config is created automatically on first run in a new directory.
 **Workspace profile.** Hematite also writes `.hematite/workspace_profile.json` on startup. It is a
 gitignored, auto-generated project profile containing detected stack/package-manager hints,
 important folders, ignored noise folders, and build/test suggestions. The prompt can use it as
-lightweight grounding before the model starts guessing about repo shape.
+lightweight grounding before the model starts guessing about repo shape. Use `/workspace-profile`
+to inspect the current generated profile in the TUI.
 
 ## API Configuration
 

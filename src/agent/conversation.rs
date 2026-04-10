@@ -1478,6 +1478,17 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if user_input.trim() == "/workspace-profile" {
+            let root = crate::tools::file_ops::workspace_root();
+            let _ = crate::agent::workspace_profile::ensure_workspace_profile(&root);
+            let report = crate::agent::workspace_profile::profile_report(&root);
+            for chunk in chunk_text(&report, 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         if user_input.trim() == "/vein-reset" {
             tokio::task::block_in_place(|| self.vein.reset());
             let _ = tx
