@@ -158,6 +158,44 @@ fn test_vein_l1_ranks_by_heat() {
     assert!(hot_pos < cold_pos, "hotter file should appear first in L1");
 }
 
+// ── Vein room detection ───────────────────────────────────────────────────────
+
+#[test]
+fn test_detect_room_known_segments() {
+    use hematite::memory::vein::detect_room;
+    assert_eq!(detect_room("src/agent/conversation.rs"), "agent");
+    assert_eq!(detect_room("src/ui/tui.rs"), "ui");
+    assert_eq!(detect_room("src/tools/file_ops.rs"), "tools");
+    assert_eq!(detect_room("src/memory/vein.rs"), "memory");
+    assert_eq!(detect_room("tests/diagnostics.rs"), "tests");
+}
+
+#[test]
+fn test_detect_room_fallback() {
+    use hematite::memory::vein::detect_room;
+    assert_eq!(detect_room("src/main.rs"), "src");
+    assert_eq!(detect_room("README.md"), "root"); // file at root with extension → root
+}
+
+#[test]
+fn test_vein_l1_grouped_by_room() {
+    use hematite::memory::vein::Vein;
+
+    let tmp = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(tmp.path(), "http://localhost:1234".to_string())
+        .expect("vein init");
+
+    vein.index_document("src/agent/conversation.rs", 1_000, "pub fn run() {}").unwrap();
+    vein.index_document("src/ui/tui.rs", 2_000, "pub fn draw() {}").unwrap();
+
+    vein.bump_heat("src/agent/conversation.rs");
+    vein.bump_heat("src/ui/tui.rs");
+
+    let l1 = vein.l1_context().expect("L1 should exist");
+    assert!(l1.contains("[agent]"), "should have agent room header");
+    assert!(l1.contains("[ui]"), "should have ui room header");
+}
+
 // ── Document text extraction ──────────────────────────────────────────────────
 
 #[test]

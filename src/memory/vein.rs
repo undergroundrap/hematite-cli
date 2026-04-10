@@ -38,6 +38,42 @@ pub struct SearchResult {
     pub content: String,
     /// Combined relevance score (higher = more relevant).
     pub score: f32,
+    /// Subsystem room derived from the file path (e.g. "agent", "ui", "tools").
+    pub room: String,
+}
+
+/// Derive a subsystem room label from a file path.
+/// Uses path segments to map to known Hematite subsystems.
+/// Falls back to the first directory component or "root".
+pub fn detect_room(path: &str) -> String {
+    const KNOWN: &[(&str, &str)] = &[
+        ("agent",   "agent"),
+        ("ui",      "ui"),
+        ("tools",   "tools"),
+        ("memory",  "memory"),
+        ("tests",   "tests"),
+        ("scripts", "scripts"),
+        ("installer","installer"),
+        ("libs",    "libs"),
+        ("docs",    "docs"),
+    ];
+    let lower = path.to_lowercase().replace('\\', "/");
+    for (segment, room) in KNOWN {
+        // Match as a path component (surrounded by / or at start)
+        if lower == *segment
+            || lower.starts_with(&format!("{}/", segment))
+            || lower.contains(&format!("/{}/", segment))
+        {
+            return room.to_string();
+        }
+    }
+    // Fall back to first directory component
+    lower
+        .split('/')
+        .next()
+        .filter(|s| !s.is_empty() && !s.contains('.'))
+        .unwrap_or("root")
+        .to_string()
 }
 
 impl Vein {
@@ -56,7 +92,8 @@ impl Vein {
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS chunks_meta (
                 path TEXT PRIMARY KEY,
-                last_modified INTEGER NOT NULL
+                last_modified INTEGER NOT NULL,
+                room TEXT NOT NULL DEFAULT 'root'
             );
             CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
                 path UNINDEXED,
@@ -110,9 +147,10 @@ impl Vein {
         // Evict stale BM25 chunks, stale embedding vectors, then update metadata.
         db.execute("DELETE FROM chunks_fts WHERE path = ?1", params![path])?;
         db.execute("DELETE FROM chunks_vec WHERE path = ?1", params![path])?;
+        let room = detect_room(path);
         db.execute(
-            "INSERT OR REPLACE INTO chunks_meta (path, last_modified) VALUES (?1, ?2)",
-            params![path, last_modified],
+            "INSERT OR REPLACE INTO chunks_meta (path, last_modified, room) VALUES (?1, ?2, ?3)",
+            params![path, last_modified, room],
         )?;
 
         let ext = std::path::Path::new(path)
@@ -204,10 +242,13 @@ impl Vein {
 
         let results: Vec<SearchResult> = stmt
             .query_map(params![fts_query, limit as i64], |row| {
+                let path: String = row.get(0)?;
+                let room = detect_room(&path);
                 Ok(SearchResult {
-                    path: row.get(0)?,
+                    path,
                     content: row.get(1)?,
                     score: -(row.get::<_, f64>(2).unwrap_or(0.0) as f32),
+                    room,
                 })
             })?
             .filter_map(|r| r.ok())
@@ -277,10 +318,9 @@ impl Vein {
                         |r| r.get(0),
                     )
                     .ok();
-                content.map(|c| SearchResult {
-                    path,
-                    content: c,
-                    score,
+                content.map(|c| {
+                    let room = detect_room(&path);
+                    SearchResult { path, content: c, score, room }
                 })
             })
             .collect()
@@ -290,6 +330,8 @@ impl Vein {
     ///
     /// Semantic results are preferred (they score higher) when the embedding model
     /// is available. BM25 fills in or takes over when it isn't.
+    /// Results from the active room (hottest subsystem by edit count) get a
+    /// small boost so the model gravitates toward what's currently being worked on.
     pub fn search_context(
         &self,
         query: &str,
@@ -298,14 +340,17 @@ impl Vein {
         let bm25 = self.search_bm25(query, limit).unwrap_or_default();
         let semantic = self.search_semantic(query, limit);
 
+        // Determine the active room from heat scores.
+        let active_room = self.active_room();
+
         // Merge: semantic results win ties (scored 1.0–2.0 range after boost).
         // BM25 results land in 0.0–1.0 range.
         let mut merged: Vec<SearchResult> = Vec::new();
 
         for r in semantic {
-            // Boost semantic scores into the 1.0–2.0 band.
+            let room_boost = if active_room.as_deref() == Some(r.room.as_str()) { 0.15 } else { 0.0 };
             merged.push(SearchResult {
-                score: 1.0 + r.score.clamp(0.0, 1.0),
+                score: 1.0 + r.score.clamp(0.0, 1.0) + room_boost,
                 ..r
             });
         }
@@ -313,9 +358,9 @@ impl Vein {
         for r in bm25 {
             // Only add BM25 results that aren't already covered by a semantic hit.
             if !merged.iter().any(|m| m.path == r.path) {
-                // Normalize BM25 score into 0.0–1.0: raw BM25 scores vary, cap at 10.
                 let norm = (r.score / 10.0).clamp(0.0, 1.0);
-                merged.push(SearchResult { score: norm, ..r });
+                let room_boost = if active_room.as_deref() == Some(r.room.as_str()) { 0.15 } else { 0.0 };
+                merged.push(SearchResult { score: norm + room_boost, ..r });
             }
         }
 
@@ -326,6 +371,22 @@ impl Vein {
         });
         merged.truncate(limit);
         Ok(merged)
+    }
+
+    /// Returns the room with the highest total heat (most edited subsystem).
+    /// Used to bias retrieval toward what the user is actively working on.
+    fn active_room(&self) -> Option<String> {
+        let db = self.db.lock().unwrap();
+        db.query_row(
+            "SELECT cm.room, SUM(fh.heat) as total
+             FROM file_heat fh
+             JOIN chunks_meta cm ON cm.path = fh.path
+             GROUP BY cm.room
+             ORDER BY total DESC
+             LIMIT 1",
+            [],
+            |row| row.get::<_, String>(0),
+        ).ok()
     }
 
     // ── Project Indexing ──────────────────────────────────────────────────────
@@ -597,10 +658,11 @@ impl Vein {
 
     /// Return the top N hot files ranked by edit count (heat) then recency.
     /// Joins file_heat with chunks_meta so only indexed files are included.
-    fn hot_files(&self, n: usize) -> Vec<(String, i64, i64)> {
+    /// Returns (path, heat, mtime, room).
+    fn hot_files(&self, n: usize) -> Vec<(String, i64, i64, String)> {
         let db = self.db.lock().unwrap();
         let mut stmt = match db.prepare(
-            "SELECT fh.path, fh.heat, cm.last_modified
+            "SELECT fh.path, fh.heat, cm.last_modified, cm.room
              FROM file_heat fh
              JOIN chunks_meta cm ON cm.path = fh.path
              ORDER BY fh.heat DESC, cm.last_modified DESC
@@ -614,6 +676,7 @@ impl Vein {
                 row.get::<_, String>(0)?,
                 row.get::<_, i64>(1)?,
                 row.get::<_, i64>(2)?,
+                row.get::<_, String>(3)?,
             ))
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -622,6 +685,7 @@ impl Vein {
 
     /// Build the L1 context block — a compact "hot files" summary injected into
     /// the system prompt at session start. Capped at ~150 tokens.
+    /// Files are grouped by room so the model sees subsystem structure at a glance.
     /// Returns None when there are no heat records yet (fresh project).
     pub fn l1_context(&self) -> Option<String> {
         let files = self.hot_files(8);
@@ -632,17 +696,31 @@ impl Vein {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
-        let mut out = String::from("# Hot Files (most edited in this project)\n");
-        for (path, heat, mtime) in &files {
-            let age_secs = now - mtime;
-            let age = if age_secs < 3600 {
-                "just now".to_string()
-            } else if age_secs < 86400 {
-                format!("{}h ago", age_secs / 3600)
-            } else {
-                format!("{}d ago", age_secs / 86400)
-            };
-            out.push_str(&format!("- {} [{} edit{}, modified {}]\n", path, heat, if *heat == 1 { "" } else { "s" }, age));
+
+        // Group by room for readability.
+        let mut by_room: std::collections::BTreeMap<String, Vec<(String, i64, i64)>> =
+            std::collections::BTreeMap::new();
+        for (path, heat, mtime, room) in &files {
+            by_room.entry(room.clone()).or_default().push((path.clone(), *heat, *mtime));
+        }
+
+        let mut out = String::from("# Hot Files (most edited — grouped by subsystem)\n");
+        for (room, entries) in &by_room {
+            out.push_str(&format!("[{}]\n", room));
+            for (path, heat, mtime) in entries {
+                let age_secs = now - mtime;
+                let age = if age_secs < 3600 {
+                    "just now".to_string()
+                } else if age_secs < 86400 {
+                    format!("{}h ago", age_secs / 3600)
+                } else {
+                    format!("{}d ago", age_secs / 86400)
+                };
+                out.push_str(&format!(
+                    "  - {} [{} edit{}, {}]\n",
+                    path, heat, if *heat == 1 { "" } else { "s" }, age
+                ));
+            }
         }
         Some(out)
     }
