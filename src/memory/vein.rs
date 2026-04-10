@@ -1,7 +1,7 @@
 use rusqlite::{params, Connection};
 use serde::Deserialize;
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 /// "The Vein" — local RAG memory engine backed by SQLite FTS5 + semantic embeddings.
@@ -63,6 +63,13 @@ pub struct VeinInspectionSnapshot {
     pub active_room: Option<String>,
     pub hot_files: Vec<VeinHotFile>,
     pub l1_ready: bool,
+}
+
+#[derive(Debug, Default)]
+struct QuerySignals {
+    exact_phrases: Vec<String>,
+    standout_terms: Vec<String>,
+    historical_memory_hint: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -417,44 +424,29 @@ impl Vein {
         query: &str,
         limit: usize,
     ) -> Result<Vec<SearchResult>, Box<dyn std::error::Error>> {
-        let bm25 = self.search_bm25(query, limit).unwrap_or_default();
-        let semantic = self.search_semantic(query, limit);
+        let candidate_limit = (limit.max(1) * 4).max(12);
+        let bm25 = self.search_bm25(query, candidate_limit).unwrap_or_default();
+        let semantic = self.search_semantic(query, candidate_limit);
+        let signals = QuerySignals::from_query(query);
 
         // Determine the active room from heat scores.
         let active_room = self.active_room();
 
         // Merge: semantic results win ties (scored 1.0–2.0 range after boost).
         // BM25 results land in 0.0–1.0 range.
-        let mut merged: Vec<SearchResult> = Vec::new();
+        let mut merged_by_path: HashMap<String, SearchResult> = HashMap::new();
 
         for r in semantic {
-            let room_boost = if active_room.as_deref() == Some(r.room.as_str()) {
-                0.15
-            } else {
-                0.0
-            };
-            merged.push(SearchResult {
-                score: 1.0 + r.score.clamp(0.0, 1.0) + room_boost,
-                ..r
-            });
+            let score = reranked_score(&signals, active_room.as_deref(), &r, true);
+            merge_scored_result(&mut merged_by_path, SearchResult { score, ..r });
         }
 
         for r in bm25 {
-            // Only add BM25 results that aren't already covered by a semantic hit.
-            if !merged.iter().any(|m| m.path == r.path) {
-                let norm = (r.score / 10.0).clamp(0.0, 1.0);
-                let room_boost = if active_room.as_deref() == Some(r.room.as_str()) {
-                    0.15
-                } else {
-                    0.0
-                };
-                merged.push(SearchResult {
-                    score: norm + room_boost,
-                    ..r
-                });
-            }
+            let score = reranked_score(&signals, active_room.as_deref(), &r, false);
+            merge_scored_result(&mut merged_by_path, SearchResult { score, ..r });
         }
 
+        let mut merged: Vec<SearchResult> = merged_by_path.into_values().collect();
         merged.sort_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
@@ -1080,6 +1072,165 @@ impl Vein {
             let _ = db.execute("DELETE FROM chunks_meta WHERE path = ?1", params![path]);
         }
     }
+}
+
+impl QuerySignals {
+    fn from_query(query: &str) -> Self {
+        let lower = query.to_ascii_lowercase();
+        let historical_memory_hint = [
+            "remember",
+            "earlier",
+            "previous",
+            "last time",
+            "what did we decide",
+            "why did we decide",
+            "what did we say",
+            "why did we change",
+        ]
+        .iter()
+        .any(|needle| lower.contains(needle));
+
+        Self {
+            exact_phrases: extract_exact_phrases(query),
+            standout_terms: extract_standout_terms(query),
+            historical_memory_hint,
+        }
+    }
+}
+
+fn merge_scored_result(
+    merged_by_path: &mut HashMap<String, SearchResult>,
+    candidate: SearchResult,
+) {
+    match merged_by_path.get_mut(&candidate.path) {
+        Some(existing) if candidate.score > existing.score => *existing = candidate,
+        Some(_) => {}
+        None => {
+            merged_by_path.insert(candidate.path.clone(), candidate);
+        }
+    }
+}
+
+fn reranked_score(
+    signals: &QuerySignals,
+    active_room: Option<&str>,
+    result: &SearchResult,
+    is_semantic: bool,
+) -> f32 {
+    let base = if is_semantic {
+        1.0 + result.score.clamp(0.0, 1.0)
+    } else {
+        (result.score / 10.0).clamp(0.0, 1.0)
+    };
+    base + room_bias(active_room, result) + retrieval_signal_boost(signals, result)
+}
+
+fn room_bias(active_room: Option<&str>, result: &SearchResult) -> f32 {
+    if active_room == Some(result.room.as_str()) {
+        0.15
+    } else {
+        0.0
+    }
+}
+
+fn retrieval_signal_boost(signals: &QuerySignals, result: &SearchResult) -> f32 {
+    let mut boost = 0.0f32;
+    let haystack = format!(
+        "{}\n{}",
+        result.path.to_ascii_lowercase(),
+        result.content.to_ascii_lowercase()
+    );
+
+    let phrase_matches = signals
+        .exact_phrases
+        .iter()
+        .filter(|phrase| haystack.contains(phrase.as_str()))
+        .count();
+    if phrase_matches > 0 {
+        boost += 0.35 + ((phrase_matches.saturating_sub(1)) as f32 * 0.1);
+    }
+
+    let standout_matches = signals
+        .standout_terms
+        .iter()
+        .filter(|term| haystack.contains(term.as_str()))
+        .count()
+        .min(3);
+    boost += standout_matches as f32 * 0.12;
+
+    if signals.historical_memory_hint && result.room == "session" {
+        boost += 0.1;
+    }
+
+    boost
+}
+
+fn extract_exact_phrases(query: &str) -> Vec<String> {
+    let mut phrases = Vec::new();
+    let chars: Vec<char> = query.chars().collect();
+    let mut i = 0usize;
+
+    while i < chars.len() {
+        let quote = chars[i];
+        if !matches!(quote, '"' | '\'' | '`') {
+            i += 1;
+            continue;
+        }
+        let start = i + 1;
+        let mut end = start;
+        while end < chars.len() && chars[end] != quote {
+            end += 1;
+        }
+        if end > start {
+            let phrase = chars[start..end]
+                .iter()
+                .collect::<String>()
+                .trim()
+                .to_ascii_lowercase();
+            if phrase.len() >= 3 && !phrases.contains(&phrase) {
+                phrases.push(phrase);
+            }
+        }
+        i = end.saturating_add(1);
+    }
+
+    phrases
+}
+
+fn extract_standout_terms(query: &str) -> Vec<String> {
+    const STOPWORDS: &[&str] = &[
+        "about", "after", "before", "change", "changed", "decide", "decided", "does", "earlier",
+        "flow", "from", "have", "into", "just", "last", "local", "make", "more", "remember",
+        "should", "that", "their", "there", "these", "they", "this", "those", "what", "when",
+        "where", "which", "why", "with", "work",
+    ];
+
+    let mut standout = Vec::new();
+    for token in query.split(|ch: char| {
+        !(ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | '/' | ':'))
+    }) {
+        let trimmed = token.trim();
+        if trimmed.len() < 4 {
+            continue;
+        }
+        let lower = trimmed.to_ascii_lowercase();
+        if STOPWORDS.contains(&lower.as_str()) {
+            continue;
+        }
+
+        let interesting = trimmed.chars().any(|ch| ch.is_ascii_digit())
+            || trimmed
+                .chars()
+                .any(|ch| matches!(ch, '_' | '-' | '.' | '/' | ':'))
+            || trimmed.chars().any(|ch| ch.is_ascii_uppercase())
+            || trimmed.len() >= 9;
+
+        if interesting && !standout.contains(&lower) {
+            standout.push(lower);
+        }
+    }
+
+    standout
 }
 
 fn session_speaker_kind(speaker: &str) -> SessionSpeakerKind {

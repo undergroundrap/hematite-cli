@@ -600,6 +600,8 @@ Hybrid results are merged and ranked: semantic hits score higher when the embedd
 
 **Active-room memory bias:** Hematite tracks which files you edit most, groups those hot files by subsystem, injects a compact "hot files" block into the prompt, and gives retrieval a small score boost toward the currently hottest room. That keeps the model leaning toward the part of the codebase you're actively changing without hard-pinning stale context.
 
+**Ranking cues:** Vein reranking gives extra weight to exact quoted phrases, standout tokens like filenames, commands, codenames, and tool IDs, and memory-style prompts such as "what did we decide earlier" that should lean toward session/import memory instead of generic source overlap.
+
 **Operator inspection:** `/vein-inspect` prints a compact report of the current Vein state: project vs docs-only mode, indexed source/docs/session counts, embedding availability, active room bias, and the current hot files grouped by room. Use this when you want to see what memory Hematite is actually carrying instead of guessing.
 
 **Cross-tool memory import:** if you have useful prior decisions trapped in another tool, drop the export into `.hematite/imports/` and relaunch or send another turn. Hematite treats those imported chats as session memory, chunks them by user/assistant exchange pair, and keeps them out of the normal source-file counters.

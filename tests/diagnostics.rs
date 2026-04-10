@@ -436,6 +436,114 @@ fn test_vein_session_report_caps_to_recent_sessions_and_turns() {
     );
 }
 
+// ── Vein retrieval ranking diagnostics ───────────────────────────────────────
+
+#[test]
+fn test_vein_search_context_boosts_exact_phrases() {
+    use hematite::memory::vein::Vein;
+
+    let db = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+
+    vein.index_document(
+        "src/ui/startup.rs",
+        1,
+        "startup panel work startup panel work startup controls startup panel",
+    )
+    .expect("index startup");
+    vein.index_document(
+        "src/ui/specular.rs",
+        2,
+        "The specular panel shows the active context and event log.",
+    )
+    .expect("index specular");
+
+    let results = vein
+        .search_context("How does the \"specular panel\" work at startup?", 2)
+        .expect("search context");
+    assert_eq!(
+        results[0].path, "src/ui/specular.rs",
+        "exact quoted phrase should outrank generic token overlap"
+    );
+}
+
+#[test]
+fn test_vein_search_context_boosts_standout_query_tokens() {
+    use hematite::memory::vein::Vein;
+
+    let db = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+
+    vein.index_document(
+        "src/release.rs",
+        1,
+        "installer flow local build docs tags portable build installer flow local build release command",
+    )
+    .expect("index generic release");
+    vein.index_document(
+        "src/tools/basalttrace.rs",
+        2,
+        "Basalttrace changed the release pipeline.",
+    )
+    .expect("index standout token");
+
+    let results = vein
+        .search_context(
+            "why did basalttrace installer flow change for local build",
+            2,
+        )
+        .expect("search context");
+    assert_eq!(
+        results[0].path, "src/tools/basalttrace.rs",
+        "standout repo/tool token should outrank generic overlap"
+    );
+}
+
+#[test]
+fn test_vein_search_context_prefers_session_memory_for_historical_queries() {
+    use hematite::memory::vein::Vein;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    let docs_dir = workspace.path().join(".hematite").join("docs");
+    let reports_dir = workspace.path().join(".hematite").join("reports");
+    fs::create_dir_all(&docs_dir).expect("create docs dir");
+    fs::create_dir_all(&reports_dir).expect("create reports dir");
+
+    fs::write(
+        docs_dir.join("opalcache.md"),
+        "Opalcache docs-only mode keeps local support notes searchable.",
+    )
+    .expect("write doc");
+    let report = serde_json::json!({
+        "session_start": "2026-04-10_08-45-00",
+        "transcript": [
+            { "speaker": "You", "text": "What should we do about opalcache docs-only mode?" },
+            { "speaker": "Hematite", "text": "We decided earlier to keep session and import memory searchable outside project folders." }
+        ]
+    });
+    fs::write(
+        reports_dir.join("session_2026-04-10_08-45-00.json"),
+        serde_json::to_string_pretty(&report).expect("serialize report"),
+    )
+    .expect("write report");
+
+    let db = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let indexed = vein.index_workspace_artifacts(workspace.path());
+    assert_eq!(indexed, 2, "should index one doc and one session exchange");
+
+    let results = vein
+        .search_context(
+            "what did we decide earlier about opalcache docs-only mode?",
+            2,
+        )
+        .expect("search context");
+    assert!(
+        results[0].path.starts_with("session/"),
+        "historical decision query should prefer session memory"
+    );
+}
+
 #[test]
 fn test_vein_indexes_imported_marker_transcript_exchanges() {
     use hematite::memory::vein::Vein;

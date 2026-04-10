@@ -253,6 +253,10 @@ paths not already covered. Results are deduplicated by file path and capped at 1
 retrieval boost, and a compact hot-files block grouped by room is injected into the prompt so the
 model stays oriented toward the part of the codebase you're actively editing.
 
+**Ranking cues:** reranking adds small boosts for exact quoted phrases, standout tokens such as
+filenames/commands/tool IDs, and "what did we decide earlier" style prompts that should prefer
+session/import memory over generic source overlap.
+
 **Operator inspection:** `/vein-inspect` prints a compact report of the current Vein state:
 workspace mode, indexed source/docs/session counts, embedding availability, active room bias, and
 the current hot files grouped by room. Use it when you want to inspect what memory Hematite is
