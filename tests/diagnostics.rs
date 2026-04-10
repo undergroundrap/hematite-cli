@@ -100,6 +100,64 @@ fn test_vein_reset_clears_index() {
     assert_eq!(vein.embedded_chunk_count(), 0);
 }
 
+// ── Vein L1 heat tracking ─────────────────────────────────────────────────────
+
+#[test]
+fn test_vein_l1_no_heat_returns_none() {
+    use hematite::memory::vein::Vein;
+
+    let tmp = tempfile::NamedTempFile::new().expect("temp db");
+    let vein = Vein::new(tmp.path(), "http://localhost:1234".to_string())
+        .expect("vein init");
+
+    // Fresh vein with no edits — l1_context should be None.
+    assert!(vein.l1_context().is_none(), "no edits means no L1 block");
+}
+
+#[test]
+fn test_vein_l1_bump_and_retrieve() {
+    use hematite::memory::vein::Vein;
+
+    let tmp = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(tmp.path(), "http://localhost:1234".to_string())
+        .expect("vein init");
+
+    // Index a file so it appears in chunks_meta (required for L1 join).
+    vein.index_document("src/agent/conversation.rs", 1_000_000,
+        "pub fn run() {}\npub fn stop() {}\n").unwrap();
+
+    // Bump heat three times.
+    vein.bump_heat("src/agent/conversation.rs");
+    vein.bump_heat("src/agent/conversation.rs");
+    vein.bump_heat("src/agent/conversation.rs");
+
+    let l1 = vein.l1_context().expect("should have L1 after edits");
+    assert!(l1.contains("src/agent/conversation.rs"), "hot file should appear in L1");
+    assert!(l1.contains("3 edits"), "edit count should be 3");
+}
+
+#[test]
+fn test_vein_l1_ranks_by_heat() {
+    use hematite::memory::vein::Vein;
+
+    let tmp = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(tmp.path(), "http://localhost:1234".to_string())
+        .expect("vein init");
+
+    vein.index_document("src/cold.rs", 1_000, "pub fn cold() {}").unwrap();
+    vein.index_document("src/hot.rs",  2_000, "pub fn hot() {}").unwrap();
+
+    vein.bump_heat("src/cold.rs");
+    vein.bump_heat("src/hot.rs");
+    vein.bump_heat("src/hot.rs");
+    vein.bump_heat("src/hot.rs");
+
+    let l1 = vein.l1_context().expect("L1 should exist");
+    let hot_pos  = l1.find("src/hot.rs").unwrap_or(usize::MAX);
+    let cold_pos = l1.find("src/cold.rs").unwrap_or(usize::MAX);
+    assert!(hot_pos < cold_pos, "hotter file should appear first in L1");
+}
+
 // ── Document text extraction ──────────────────────────────────────────────────
 
 #[test]

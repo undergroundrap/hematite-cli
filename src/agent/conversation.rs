@@ -582,6 +582,9 @@ pub struct ConversationManager {
     plan_execution_active: Arc<std::sync::atomic::AtomicBool>,
     /// Typed per-turn recovery attempt tracking.
     recovery_context: RecoveryContext,
+    /// L1 context block — hot files summary injected into the system prompt.
+    /// Built once after vein init and updated as edits accumulate heat.
+    pub l1_context: Option<String>,
 }
 
 impl ConversationManager {
@@ -795,6 +798,7 @@ impl ConversationManager {
             action_grounding: Arc::new(Mutex::new(ActionGroundingState::default())),
             plan_execution_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             recovery_context: RecoveryContext::default(),
+            l1_context: None,
         }
     }
 
@@ -804,7 +808,9 @@ impl ConversationManager {
         if !crate::tools::file_ops::is_project_workspace() {
             return 0;
         }
-        tokio::task::block_in_place(|| self.vein.index_project())
+        let count = tokio::task::block_in_place(|| self.vein.index_project());
+        self.l1_context = self.vein.l1_context();
+        count
     }
 
     fn save_session(&self) {
@@ -1873,6 +1879,10 @@ impl ConversationManager {
                     ));
                 }
             }
+            // L1: inject hot-files block if available (persists across sessions via vein.db).
+            if let Some(ref l1) = self.l1_context {
+                base_prompt.push_str(&format!("\n\n{}", l1));
+            }
         }
         let grounded_trace_mode = intent.grounded_trace_mode
             || intent.primary_class == QueryIntentClass::RuntimeDiagnosis;
@@ -2491,6 +2501,14 @@ impl ConversationManager {
                     ) {
                         mutation_occurred = true;
                         implementation_started = true;
+                        // Heat tracking: bump L1 score for the edited file.
+                        if !is_error {
+                            let path = res.args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                            if !path.is_empty() {
+                                self.vein.bump_heat(path);
+                                self.l1_context = self.vein.l1_context();
+                            }
+                        }
                     }
 
                     if tool_name == "verify_build" {

@@ -68,6 +68,11 @@ impl Vein {
                 chunk_idx INTEGER NOT NULL,
                 embedding BLOB NOT NULL,
                 PRIMARY KEY (path, chunk_idx)
+            );
+            CREATE TABLE IF NOT EXISTS file_heat (
+                path TEXT PRIMARY KEY,
+                heat INTEGER NOT NULL DEFAULT 0,
+                last_edit INTEGER NOT NULL DEFAULT 0
             );",
         )?;
 
@@ -567,6 +572,79 @@ impl Vein {
              DELETE FROM chunks_vec;
              DELETE FROM chunks_meta;",
         );
+    }
+
+    // ── L1 heat tracking ──────────────────────────────────────────────────────
+
+    /// Record an edit to a file. Increments its heat score in file_heat.
+    /// Called from the tool dispatch after a successful edit_file / write_file /
+    /// patch_hunk / multi_search_replace so the L1 context stays current.
+    pub fn bump_heat(&self, path: &str) {
+        if path.is_empty() {
+            return;
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let db = self.db.lock().unwrap();
+        let _ = db.execute(
+            "INSERT INTO file_heat (path, heat, last_edit) VALUES (?1, 1, ?2)
+             ON CONFLICT(path) DO UPDATE SET heat = heat + 1, last_edit = ?2",
+            params![path, now],
+        );
+    }
+
+    /// Return the top N hot files ranked by edit count (heat) then recency.
+    /// Joins file_heat with chunks_meta so only indexed files are included.
+    fn hot_files(&self, n: usize) -> Vec<(String, i64, i64)> {
+        let db = self.db.lock().unwrap();
+        let mut stmt = match db.prepare(
+            "SELECT fh.path, fh.heat, cm.last_modified
+             FROM file_heat fh
+             JOIN chunks_meta cm ON cm.path = fh.path
+             ORDER BY fh.heat DESC, cm.last_modified DESC
+             LIMIT ?1",
+        ) {
+            Ok(s) => s,
+            Err(_) => return vec![],
+        };
+        stmt.query_map(params![n as i64], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
+    }
+
+    /// Build the L1 context block — a compact "hot files" summary injected into
+    /// the system prompt at session start. Capped at ~150 tokens.
+    /// Returns None when there are no heat records yet (fresh project).
+    pub fn l1_context(&self) -> Option<String> {
+        let files = self.hot_files(8);
+        if files.is_empty() {
+            return None;
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let mut out = String::from("# Hot Files (most edited in this project)\n");
+        for (path, heat, mtime) in &files {
+            let age_secs = now - mtime;
+            let age = if age_secs < 3600 {
+                "just now".to_string()
+            } else if age_secs < 86400 {
+                format!("{}h ago", age_secs / 3600)
+            } else {
+                format!("{}d ago", age_secs / 86400)
+            };
+            out.push_str(&format!("- {} [{} edit{}, modified {}]\n", path, heat, if *heat == 1 { "" } else { "s" }, age));
+        }
+        Some(out)
     }
 }
 
