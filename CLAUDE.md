@@ -53,6 +53,7 @@ pwsh ./clean.ps1
 - `/clear`: clear visible dialogue and side-panel session state
 - `/forget`: purge saved conversation memory and wipe visible session state
 - `/new`: reset session history while keeping project memory
+- `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/swarm`: trigger parallel worker agents
 
 Requires LM Studio running locally with a model loaded and the server started on port `1234`.
@@ -247,6 +248,11 @@ paths not already covered. Results are deduplicated by file path and capped at 1
 **Active-room bias:** file edit heat is tracked per path. The hottest subsystem room gets a small
 retrieval boost, and a compact hot-files block grouped by room is injected into the prompt so the
 model stays oriented toward the part of the codebase you're actively editing.
+
+**Operator inspection:** `/vein-inspect` prints a compact report of the current Vein state:
+workspace mode, indexed source/docs/session counts, embedding availability, active room bias, and
+the current hot files grouped by room. Use it when you want to inspect what memory Hematite is
+actually carrying.
 
 **Incremental indexing:** files are re-indexed only when their mtime changes. BM25 runs on every
 changed file; embeddings are generated for the same files so the vector store stays in sync.

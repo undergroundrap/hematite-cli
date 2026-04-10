@@ -603,6 +603,63 @@ impl ConversationManager {
         count
     }
 
+    fn build_vein_inspection_report(&self, indexed_this_pass: usize) -> String {
+        let snapshot = tokio::task::block_in_place(|| self.vein.inspect_snapshot(8));
+        let workspace_mode = if self.vein_docs_only_mode() {
+            "docs-only (outside a project workspace)"
+        } else {
+            "project workspace"
+        };
+        let active_room = snapshot.active_room.as_deref().unwrap_or("none");
+        let mut out = format!(
+            "Vein Inspection\n\
+             Workspace mode: {workspace_mode}\n\
+             Indexed this pass: {indexed_this_pass}\n\
+             Indexed source files: {}\n\
+             Indexed docs: {}\n\
+             Indexed session exchanges: {}\n\
+             Embedded source/doc chunks: {}\n\
+             Embeddings available: {}\n\
+             Active room bias: {active_room}\n\
+             L1 hot-files block: {}\n",
+            snapshot.indexed_source_files,
+            snapshot.indexed_docs,
+            snapshot.indexed_session_exchanges,
+            snapshot.embedded_source_doc_chunks,
+            if snapshot.has_any_embeddings {
+                "yes"
+            } else {
+                "no"
+            },
+            if snapshot.l1_ready { "ready" } else { "not built yet" },
+        );
+
+        if snapshot.hot_files.is_empty() {
+            out.push_str("Hot files: none yet.\n");
+            return out;
+        }
+
+        out.push_str("\nHot files by room:\n");
+        let mut by_room: std::collections::BTreeMap<&str, Vec<&crate::memory::vein::VeinHotFile>> =
+            std::collections::BTreeMap::new();
+        for file in &snapshot.hot_files {
+            by_room.entry(file.room.as_str()).or_default().push(file);
+        }
+        for (room, files) in by_room {
+            out.push_str(&format!("[{}]\n", room));
+            for file in files {
+                out.push_str(&format!(
+                    "- {} [{} edit{}]\n",
+                    file.path,
+                    file.heat,
+                    if file.heat == 1 { "" } else { "s" }
+                ));
+            }
+        }
+
+        out
+    }
+
     fn latest_user_prompt(&self) -> Option<&str> {
         self.history
             .iter()
@@ -1383,6 +1440,24 @@ impl ConversationManager {
                 "Hard forget complete. Chat history, saved memory, task files, and the Vein index were purged.",
                 8,
             ) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        if user_input.trim() == "/vein-inspect" {
+            let indexed = self.refresh_vein_index();
+            let report = self.build_vein_inspection_report(indexed);
+            let snapshot = tokio::task::block_in_place(|| self.vein.inspect_snapshot(1));
+            let _ = tx
+                .send(InferenceEvent::VeinStatus {
+                    file_count: snapshot.indexed_source_files + snapshot.indexed_docs,
+                    embedded_count: snapshot.embedded_source_doc_chunks,
+                    docs_only: self.vein_docs_only_mode(),
+                })
+                .await;
+            for chunk in chunk_text(&report, 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
             let _ = tx.send(InferenceEvent::Done).await;

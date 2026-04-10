@@ -44,6 +44,26 @@ pub struct SearchResult {
     pub room: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VeinHotFile {
+    pub path: String,
+    pub heat: i64,
+    pub last_modified: i64,
+    pub room: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct VeinInspectionSnapshot {
+    pub indexed_source_files: usize,
+    pub indexed_docs: usize,
+    pub indexed_session_exchanges: usize,
+    pub embedded_source_doc_chunks: usize,
+    pub has_any_embeddings: bool,
+    pub active_room: Option<String>,
+    pub hot_files: Vec<VeinHotFile>,
+    pub l1_ready: bool,
+}
+
 #[derive(Debug, Deserialize)]
 struct SessionReport {
     #[serde(default)]
@@ -793,6 +813,71 @@ impl Vein {
              DELETE FROM chunks_vec;
              DELETE FROM chunks_meta;",
         );
+    }
+
+    /// Return a compact operator-facing snapshot of what The Vein currently knows.
+    /// Intended for trust/debug surfaces like `/vein-inspect`.
+    pub fn inspect_snapshot(&self, hot_limit: usize) -> VeinInspectionSnapshot {
+        let db = self.db.lock().unwrap();
+        let indexed_source_files = db
+            .query_row(
+                "SELECT COUNT(*) FROM chunks_meta
+                 WHERE path NOT LIKE 'session/%'
+                   AND path NOT LIKE '.hematite/docs/%'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0) as usize;
+        let indexed_docs = db
+            .query_row(
+                "SELECT COUNT(*) FROM chunks_meta WHERE path LIKE '.hematite/docs/%'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0) as usize;
+        let indexed_session_exchanges = db
+            .query_row(
+                "SELECT COUNT(*) FROM chunks_meta WHERE path LIKE 'session/%'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0) as usize;
+        let embedded_source_doc_chunks = db
+            .query_row(
+                "SELECT COUNT(*) FROM chunks_vec WHERE path NOT LIKE 'session/%'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0) as usize;
+        let has_any_embeddings = db
+            .query_row("SELECT EXISTS(SELECT 1 FROM chunks_vec LIMIT 1)", [], |r| {
+                r.get::<_, i64>(0)
+            })
+            .unwrap_or(0)
+            != 0;
+        drop(db);
+
+        let hot_files = self
+            .hot_files(hot_limit.max(1))
+            .into_iter()
+            .map(|(path, heat, last_modified, room)| VeinHotFile {
+                path,
+                heat,
+                last_modified,
+                room,
+            })
+            .collect::<Vec<_>>();
+
+        VeinInspectionSnapshot {
+            indexed_source_files,
+            indexed_docs,
+            indexed_session_exchanges,
+            embedded_source_doc_chunks,
+            has_any_embeddings,
+            active_room: self.active_room(),
+            l1_ready: !hot_files.is_empty(),
+            hot_files,
+        }
     }
 
     // ── L1 heat tracking ──────────────────────────────────────────────────────

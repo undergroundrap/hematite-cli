@@ -219,6 +219,58 @@ fn test_vein_l1_grouped_by_room() {
 }
 
 #[test]
+fn test_vein_inspection_snapshot_reports_counts_and_hot_files() {
+    use hematite::memory::vein::Vein;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    let docs_dir = workspace.path().join(".hematite").join("docs");
+    let reports_dir = workspace.path().join(".hematite").join("reports");
+    fs::create_dir_all(&docs_dir).expect("create docs dir");
+    fs::create_dir_all(&reports_dir).expect("create reports dir");
+
+    fs::write(
+        docs_dir.join("memory-notes.md"),
+        "# Notes\n\nopalvector reference doc\n",
+    )
+    .expect("write doc");
+    let report = serde_json::json!({
+        "session_start": "2026-04-10_09-30-00",
+        "transcript": [
+            { "speaker": "You", "text": "remember opalvector?" },
+            { "speaker": "Hematite", "text": "we kept the memory report operator-visible." }
+        ]
+    });
+    fs::write(
+        reports_dir.join("session_2026-04-10_09-30-00.json"),
+        serde_json::to_string_pretty(&report).expect("serialize report"),
+    )
+    .expect("write report");
+
+    let db = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    vein.index_document("src/agent/conversation.rs", 1_000, "pub fn run_turn() {}")
+        .unwrap();
+    let indexed = vein.index_workspace_artifacts(workspace.path());
+    assert_eq!(indexed, 2, "should index one doc and one session exchange");
+
+    vein.bump_heat("src/agent/conversation.rs");
+    vein.bump_heat("src/agent/conversation.rs");
+    vein.bump_heat(".hematite/docs/memory-notes.md");
+
+    let snapshot = vein.inspect_snapshot(5);
+    assert_eq!(snapshot.indexed_source_files, 1);
+    assert_eq!(snapshot.indexed_docs, 1);
+    assert_eq!(snapshot.indexed_session_exchanges, 1);
+    assert_eq!(snapshot.embedded_source_doc_chunks, 0);
+    assert_eq!(snapshot.active_room.as_deref(), Some("agent"));
+    assert!(snapshot.l1_ready, "hot files should make the L1 block available");
+    assert_eq!(snapshot.hot_files.len(), 2);
+    assert_eq!(snapshot.hot_files[0].path, "src/agent/conversation.rs");
+    assert_eq!(snapshot.hot_files[0].room, "agent");
+    assert_eq!(snapshot.hot_files[0].heat, 2);
+}
+
+#[test]
 fn test_vein_indexes_workspace_artifacts_without_project_source() {
     use hematite::memory::vein::Vein;
 

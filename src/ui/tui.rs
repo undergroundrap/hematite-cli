@@ -1155,12 +1155,13 @@ fn show_help_message(app: &mut App) {
          /auto             - (Flow) Let Hematite choose the narrowest effective workflow\n\
          /ask [prompt]     - (Flow) Read-only analysis mode; optional inline prompt\n\
          /code [prompt]    - (Flow) Explicit implementation mode; optional inline prompt\n\
-         /architect [prompt] - (Flow) Plan-first mode; optional inline prompt\n\
-         /read-only [prompt] - (Flow) Hard read-only mode; optional inline prompt\n\
-         /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
-         /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
-         /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
-         /clear            - (UI) Clear dialogue display only\n\
+           /architect [prompt] - (Flow) Plan-first mode; optional inline prompt\n\
+           /read-only [prompt] - (Flow) Hard read-only mode; optional inline prompt\n\
+           /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
+           /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
+           /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
+           /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
+           /clear            - (UI) Clear dialogue display only\n\
          /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
          /runtime-refresh  - (Model) Re-read LM Studio model + CTX now\n\
          /undo             - (Ghost) Revert last file change\n\
@@ -1215,12 +1216,13 @@ fn show_help_message_legacy(app: &mut App) {
          /auto             — (Flow) Let Hematite choose the narrowest effective workflow\n\
          /ask [prompt]     — (Flow) Read-only analysis mode; optional inline prompt\n\
          /code [prompt]    — (Flow) Explicit implementation mode; optional inline prompt\n\
-         /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
-         /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
-         /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
-         /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
-         /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
-         /clear            — (UI) Clear dialogue display only\n\
+           /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
+           /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
+           /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
+           /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
+           /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
+           /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
+           /clear            — (UI) Clear dialogue display only\n\
          /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
          /runtime-refresh  — (Model) Re-read LM Studio model + CTX now\n\
          /undo             — (Ghost) Revert last file change\n\
@@ -1916,6 +1918,13 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/vein-inspect" => {
+                                                app.push_message("You", "/vein-inspect");
+                                                app.agent_running = true;
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/vein-inspect"));
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/copy" => {
                                                 app.copy_transcript_to_clipboard();
                                                 app.push_message("System", "Exact session transcript copied to clipboard (includes help/system output).");
@@ -2206,12 +2215,13 @@ pub async fn run_app<B: Backend>(
                                                      /auto             — (Flow) Let Hematite choose the narrowest effective workflow\n\
                                                      /ask [prompt]     — (Flow) Read-only analysis mode; optional inline prompt\n\
                                                      /code [prompt]    — (Flow) Explicit implementation mode; optional inline prompt\n\
-                                                     /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
-                                                     /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
-                                                     /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
-                                                     /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
-                                                     /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
-                                                     /clear            — (UI) Clear dialogue display only\n\
+                                                       /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
+                                                       /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
+                                                       /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
+                                                       /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
+                                                       /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
+                                                       /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
+                                                       /clear            — (UI) Clear dialogue display only\n\
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
                                                      /runtime-refresh  — (Model) Re-read LM Studio model + CTX now\n\
                                                      /undo             — (Ghost) Revert last file change\n\
