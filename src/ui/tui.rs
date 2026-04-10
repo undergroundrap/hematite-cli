@@ -180,6 +180,9 @@ pub struct App {
     compaction_percent: u8,
     compaction_estimated_tokens: usize,
     compaction_threshold_tokens: usize,
+    /// Tracks the highest threshold crossed for compaction warnings (70, 90).
+    /// Prevents re-firing the same warning every update tick.
+    compaction_warned_level: u8,
     last_runtime_profile_time: Instant,
     vein_file_count: usize,
     vein_embedded_count: usize,
@@ -746,13 +749,32 @@ fn attach_document_from_path(app: &mut App, file_path: &str) {
                 .unwrap_or(file_path)
                 .to_string();
             let preview_len = text.len().min(200);
+            // Rough token estimate: ~4 chars per token.
+            let estimated_tokens = text.len() / 4;
+            let ctx = app.context_length.max(1);
+            let budget_pct = (estimated_tokens * 100) / ctx;
+            let budget_note = if budget_pct >= 75 {
+                format!(
+                    "\nWarning: this document is ~{} tokens (~{}% of your {}k context). \
+                     Very little room left for conversation. Consider /attach on a shorter excerpt.",
+                    estimated_tokens, budget_pct, ctx / 1000
+                )
+            } else if budget_pct >= 40 {
+                format!(
+                    "\nNote: this document is ~{} tokens (~{}% of your {}k context).",
+                    estimated_tokens, budget_pct, ctx / 1000
+                )
+            } else {
+                String::new()
+            };
             app.push_message(
                 "System",
                 &format!(
-                    "Attached document: {} ({} chars) for the next message.\nPreview: {}...",
+                    "Attached document: {} ({} chars) for the next message.\nPreview: {}...{}",
                     name,
                     text.len(),
-                    &text[..preview_len]
+                    &text[..preview_len],
+                    budget_note,
                 ),
             );
             app.attached_context = Some((name, text));
@@ -1412,6 +1434,7 @@ pub async fn run_app<B: Backend>(
         compaction_percent: 0,
         compaction_estimated_tokens: 0,
         compaction_threshold_tokens: 0,
+        compaction_warned_level: 0,
         last_runtime_profile_time: Instant::now(),
         vein_file_count: 0,
         vein_embedded_count: 0,
@@ -2558,6 +2581,24 @@ pub async fn run_app<B: Backend>(
                         app.compaction_estimated_tokens = estimated_tokens;
                         app.compaction_threshold_tokens = threshold_tokens;
                         app.compaction_percent = percent;
+                        // Fire a one-shot warning when crossing 70% or 90%.
+                        // Reset warned_level to 0 when pressure drops back below 60%
+                        // so warnings re-fire if context fills up again after a /new.
+                        if percent < 60 {
+                            app.compaction_warned_level = 0;
+                        } else if percent >= 90 && app.compaction_warned_level < 90 {
+                            app.compaction_warned_level = 90;
+                            app.push_message(
+                                "System",
+                                "Context is 90% full. Use /new to reset history (project memory is preserved) or /forget to wipe everything.",
+                            );
+                        } else if percent >= 70 && app.compaction_warned_level < 70 {
+                            app.compaction_warned_level = 70;
+                            app.push_message(
+                                "System",
+                                &format!("Context at {}% — approaching the compaction threshold. Consider /new soon to keep responses sharp.", percent),
+                            );
+                        }
                     }
                     InferenceEvent::PromptPressure {
                         estimated_input_tokens,
