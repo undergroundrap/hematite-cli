@@ -436,6 +436,102 @@ fn test_vein_session_report_caps_to_recent_sessions_and_turns() {
     );
 }
 
+#[test]
+fn test_vein_indexes_imported_marker_transcript_exchanges() {
+    use hematite::memory::vein::Vein;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    let imports_dir = workspace.path().join(".hematite").join("imports");
+    fs::create_dir_all(&imports_dir).expect("create imports dir");
+
+    fs::write(
+        imports_dir.join("handoff.txt"),
+        "> Remember emberforge and the release script?\nWe switched to a single release command.\n\n> What about docs-only mode?\nIt should still search imported chat exports.\n",
+    )
+    .expect("write transcript");
+
+    let db = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+
+    let indexed = vein.index_imported_session_exports(workspace.path());
+    assert_eq!(indexed, 2, "two imported exchange pairs should be indexed");
+
+    let results = vein
+        .search_bm25("emberforge release command", 5)
+        .expect("search imported transcript");
+    assert!(
+        !results.is_empty(),
+        "imported transcript should be searchable"
+    );
+    assert!(results[0].path.starts_with("session/imports/"));
+    assert_eq!(
+        vein.file_count(),
+        0,
+        "imported session chunks should not inflate source/doc file counts"
+    );
+}
+
+#[test]
+fn test_vein_indexes_imported_codex_jsonl_exchanges() {
+    use hematite::memory::vein::Vein;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    let imports_dir = workspace.path().join(".hematite").join("imports");
+    fs::create_dir_all(&imports_dir).expect("create imports dir");
+
+    let jsonl = r#"{"type":"session_meta","id":"abc"}
+{"type":"event_msg","payload":{"type":"user_message","message":"Remember basalttrace and why we changed the installer flow?"}}
+{"type":"event_msg","payload":{"type":"agent_message","message":"We wanted one release command to update tags, docs, and the local portable build."}}
+{"type":"event_msg","payload":{"type":"user_message","message":"What should imports do?"}}
+{"type":"event_msg","payload":{"type":"agent_message","message":"Imported chats should be searchable as session memory without polluting source counts."}}"#;
+    fs::write(imports_dir.join("codex-rollout.jsonl"), jsonl).expect("write jsonl");
+
+    let db = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+
+    let indexed = vein.index_imported_session_exports(workspace.path());
+    assert_eq!(indexed, 2, "two codex exchange pairs should be indexed");
+
+    let results = vein
+        .search_bm25("basalttrace installer flow", 5)
+        .expect("search codex import");
+    assert!(!results.is_empty(), "codex import should be searchable");
+    assert!(
+        results[0].content.contains("Imported session exchange"),
+        "imported exchanges should be labeled as imported memory"
+    );
+}
+
+#[test]
+fn test_vein_indexes_imported_claude_code_jsonl_exchanges() {
+    use hematite::memory::vein::Vein;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    let imports_dir = workspace.path().join(".hematite").join("imports");
+    fs::create_dir_all(&imports_dir).expect("create imports dir");
+
+    let jsonl = r#"{"type":"human","message":{"content":[{"type":"text","text":"Remember opalcache and the docs-only rule?"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"We kept docs-only retrieval alive outside projects and made imported chats searchable too."}]}}"#;
+    fs::write(imports_dir.join("claude-code.jsonl"), jsonl).expect("write claude jsonl");
+
+    let db = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+
+    let indexed = vein.index_imported_session_exports(workspace.path());
+    assert_eq!(
+        indexed, 1,
+        "one Claude Code exchange pair should be indexed"
+    );
+
+    let results = vein
+        .search_bm25("opalcache docs-only retrieval", 5)
+        .expect("search claude import");
+    assert!(
+        !results.is_empty(),
+        "Claude Code import should be searchable"
+    );
+}
+
 // ── Document text extraction ──────────────────────────────────────────────────
 
 #[test]

@@ -1,5 +1,6 @@
 use rusqlite::{params, Connection};
 use serde::Deserialize;
+use serde_json::Value;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -132,6 +133,8 @@ pub fn detect_room(path: &str) -> String {
 impl Vein {
     const SESSION_REPORT_LIMIT: usize = 5;
     const SESSION_TURN_LIMIT: usize = 50;
+    const IMPORT_FILE_LIMIT: usize = 12;
+    const IMPORT_MAX_BYTES: u64 = 10 * 1024 * 1024;
 
     pub fn new<P: AsRef<Path>>(
         db_path: P,
@@ -550,11 +553,13 @@ impl Vein {
     }
 
     /// Index workspace-local supporting context that should be available even
-    /// outside a real project workspace: `.hematite/docs/` plus recent session
-    /// reports stored in `.hematite/reports/`.
+    /// outside a real project workspace: `.hematite/docs/`, recent session
+    /// reports stored in `.hematite/reports/`, and imported chat exports in
+    /// `.hematite/imports/`.
     pub fn index_workspace_artifacts(&mut self, workspace_root: &std::path::Path) -> usize {
         let mut count = self.index_docs_folder(workspace_root);
         count += self.index_recent_session_reports(workspace_root);
+        count += self.index_imported_session_exports(workspace_root);
         self.backfill_missing_embeddings();
         count
     }
@@ -701,6 +706,78 @@ impl Vein {
         }
 
         self.prune_indexed_prefix("session/", &desired_paths);
+        count
+    }
+
+    /// Index imported chat exports from `.hematite/imports/`.
+    /// Supported inputs include already-normalized `>` transcripts, Claude Code
+    /// JSONL, Codex CLI JSONL, simple role/content JSON exports, ChatGPT
+    /// `mapping` exports, and Hematite session-report JSON.
+    pub fn index_imported_session_exports(&mut self, workspace_root: &std::path::Path) -> usize {
+        let imports_dir = workspace_root.join(".hematite").join("imports");
+        let mut count = 0usize;
+        let mut desired_paths = HashSet::new();
+
+        if imports_dir.exists() {
+            let mut imports: Vec<(std::path::PathBuf, i64)> = walkdir::WalkDir::new(&imports_dir)
+                .max_depth(4)
+                .follow_links(false)
+                .into_iter()
+                .filter_map(|entry| entry.ok())
+                .filter(|entry| entry.file_type().is_file())
+                .filter_map(|entry| {
+                    let path = entry.into_path();
+                    let ext = path
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .unwrap_or("")
+                        .to_ascii_lowercase();
+                    if !matches!(ext.as_str(), "json" | "jsonl" | "md" | "txt") {
+                        return None;
+                    }
+                    let meta = std::fs::metadata(&path).ok()?;
+                    if meta.len() > Self::IMPORT_MAX_BYTES {
+                        return None;
+                    }
+                    let mtime = meta
+                        .modified()
+                        .map(|t| {
+                            t.duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs() as i64
+                        })
+                        .unwrap_or(0);
+                    Some((path, mtime))
+                })
+                .collect();
+
+            imports.sort_by(|(a_path, a_mtime), (b_path, b_mtime)| {
+                b_mtime
+                    .cmp(a_mtime)
+                    .then_with(|| a_path.to_string_lossy().cmp(&b_path.to_string_lossy()))
+            });
+            imports.truncate(Self::IMPORT_FILE_LIMIT);
+
+            for (import_path, mtime) in imports {
+                for exchange in load_imported_session_exchanges(&import_path, &imports_dir, mtime) {
+                    desired_paths.insert(exchange.path.clone());
+                    match self.index_chunks_with_room(
+                        &exchange.path,
+                        exchange.last_modified,
+                        "session",
+                        std::slice::from_ref(&exchange.content),
+                    ) {
+                        Ok(new_chunks) if !new_chunks.is_empty() => {
+                            count += 1;
+                        }
+                        Ok(_) => {}
+                        Err(_) => {}
+                    }
+                }
+            }
+        }
+
+        self.prune_indexed_prefix("session/imports/", &desired_paths);
         count
     }
 
@@ -1079,6 +1156,391 @@ fn load_session_exchanges(report_path: &Path, last_modified: i64) -> Vec<Session
     }
 
     exchanges
+}
+
+fn load_imported_session_exchanges(
+    import_path: &Path,
+    imports_root: &Path,
+    last_modified: i64,
+) -> Vec<SessionExchange> {
+    let Ok(raw) = std::fs::read_to_string(import_path) else {
+        return Vec::new();
+    };
+
+    let messages = normalize_import_messages(&raw, import_path);
+    if messages.is_empty() {
+        return Vec::new();
+    }
+
+    let rel = import_path
+        .strip_prefix(imports_root)
+        .unwrap_or(import_path);
+    let rel_slug = slugify_import_path(rel);
+    let mut exchanges = Vec::new();
+    let mut pending_user: Option<String> = None;
+    let mut turn_index = 0usize;
+
+    for (role, text) in messages {
+        let cleaned = text.trim();
+        if cleaned.is_empty() {
+            continue;
+        }
+        match role.as_str() {
+            "user" => pending_user = Some(cleaned.to_string()),
+            "assistant" => {
+                let Some(user_text) = pending_user.take() else {
+                    continue;
+                };
+                turn_index += 1;
+                exchanges.push(SessionExchange {
+                    path: format!("session/imports/{}/turn-{}", rel_slug, turn_index),
+                    last_modified,
+                    content: format!(
+                        "Imported session exchange\nSource: .hematite/imports/{}\n\nUser:\n{}\n\nAssistant:\n{}",
+                        rel.to_string_lossy().replace('\\', "/"),
+                        user_text,
+                        cleaned
+                    ),
+                });
+            }
+            _ => {}
+        }
+    }
+
+    if exchanges.len() > Vein::SESSION_TURN_LIMIT {
+        let keep_from = exchanges.len() - Vein::SESSION_TURN_LIMIT;
+        exchanges = exchanges.into_iter().skip(keep_from).collect();
+    }
+
+    exchanges
+}
+
+fn normalize_import_messages(raw: &str, import_path: &Path) -> Vec<(String, String)> {
+    if raw.trim().is_empty() {
+        return Vec::new();
+    }
+
+    if let Some(messages) = parse_marker_transcript(raw) {
+        return messages;
+    }
+
+    let ext = import_path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+
+    if matches!(ext.as_str(), "json" | "jsonl")
+        || matches!(raw.trim().chars().next(), Some('{') | Some('['))
+    {
+        if let Some(messages) = parse_jsonl_messages(raw) {
+            if !messages.is_empty() {
+                return messages;
+            }
+        }
+
+        if let Ok(value) = serde_json::from_str::<Value>(raw) {
+            if let Some(messages) = parse_session_report_messages(&value) {
+                return messages;
+            }
+            if let Some(messages) = parse_simple_role_messages(&value) {
+                return messages;
+            }
+            if let Some(messages) = parse_chatgpt_mapping_messages(&value) {
+                return messages;
+            }
+        }
+    }
+
+    Vec::new()
+}
+
+fn parse_marker_transcript(raw: &str) -> Option<Vec<(String, String)>> {
+    let lines = raw.lines().collect::<Vec<_>>();
+    if lines
+        .iter()
+        .filter(|line| line.trim_start().starts_with("> "))
+        .count()
+        < 2
+    {
+        return None;
+    }
+
+    let mut messages = Vec::new();
+    let mut i = 0usize;
+    while i < lines.len() {
+        let line = lines[i].trim_start();
+        if let Some(rest) = line.strip_prefix("> ") {
+            messages.push(("user".to_string(), rest.trim().to_string()));
+            i += 1;
+            let mut assistant_lines = Vec::new();
+            while i < lines.len() {
+                let next = lines[i];
+                if next.trim_start().starts_with("> ") {
+                    break;
+                }
+                let trimmed = next.trim();
+                if !trimmed.is_empty() && trimmed != "---" {
+                    assistant_lines.push(trimmed.to_string());
+                }
+                i += 1;
+            }
+            if !assistant_lines.is_empty() {
+                messages.push(("assistant".to_string(), assistant_lines.join("\n")));
+            }
+        } else {
+            i += 1;
+        }
+    }
+
+    (!messages.is_empty()).then_some(messages)
+}
+
+fn parse_jsonl_messages(raw: &str) -> Option<Vec<(String, String)>> {
+    let mut messages = Vec::new();
+    let mut has_codex_session_meta = false;
+    let mut saw_jsonl = false;
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(value) = serde_json::from_str::<Value>(trimmed) else {
+            continue;
+        };
+        saw_jsonl = true;
+        let Some(object) = value.as_object() else {
+            continue;
+        };
+
+        match object.get("type").and_then(|v| v.as_str()).unwrap_or("") {
+            "session_meta" => {
+                has_codex_session_meta = true;
+            }
+            "event_msg" => {
+                let Some(payload) = object.get("payload").and_then(|v| v.as_object()) else {
+                    continue;
+                };
+                let Some(text) = payload.get("message").and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                match payload.get("type").and_then(|v| v.as_str()).unwrap_or("") {
+                    "user_message" => messages.push(("user".to_string(), text.trim().to_string())),
+                    "agent_message" => {
+                        messages.push(("assistant".to_string(), text.trim().to_string()))
+                    }
+                    _ => {}
+                }
+            }
+            "human" | "user" => {
+                if let Some(text) = extract_text_content(object.get("message").unwrap_or(&value)) {
+                    messages.push(("user".to_string(), text));
+                }
+            }
+            "assistant" => {
+                if let Some(text) = extract_text_content(object.get("message").unwrap_or(&value)) {
+                    messages.push(("assistant".to_string(), text));
+                }
+            }
+            _ => {
+                if let Some(role) = object.get("role").and_then(|v| v.as_str()) {
+                    if let Some(text) = extract_text_content(&value) {
+                        match role {
+                            "user" | "human" => messages.push(("user".to_string(), text)),
+                            "assistant" | "ai" => messages.push(("assistant".to_string(), text)),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if !saw_jsonl {
+        return None;
+    }
+
+    if has_codex_session_meta || !messages.is_empty() {
+        return Some(messages);
+    }
+
+    None
+}
+
+fn parse_session_report_messages(value: &Value) -> Option<Vec<(String, String)>> {
+    let report = value.as_object()?;
+    let transcript = report.get("transcript")?.as_array()?;
+    let mut messages = Vec::new();
+
+    for entry in transcript {
+        let Some(obj) = entry.as_object() else {
+            continue;
+        };
+        let speaker = obj
+            .get("speaker")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        let text = obj
+            .get("text")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        if text.is_empty() {
+            continue;
+        }
+        match session_speaker_kind(speaker) {
+            SessionSpeakerKind::User => messages.push(("user".to_string(), text)),
+            SessionSpeakerKind::Assistant => messages.push(("assistant".to_string(), text)),
+            SessionSpeakerKind::Ignore => {}
+        }
+    }
+
+    (!messages.is_empty()).then_some(messages)
+}
+
+fn parse_simple_role_messages(value: &Value) -> Option<Vec<(String, String)>> {
+    if let Some(array) = value.as_array() {
+        let messages = collect_role_messages(array);
+        return (!messages.is_empty()).then_some(messages);
+    }
+
+    let obj = value.as_object()?;
+    if let Some(messages_value) = obj.get("messages").or_else(|| obj.get("chat_messages")) {
+        let array = messages_value.as_array()?;
+        let messages = collect_role_messages(array);
+        return (!messages.is_empty()).then_some(messages);
+    }
+
+    None
+}
+
+fn collect_role_messages(items: &[Value]) -> Vec<(String, String)> {
+    let mut messages = Vec::new();
+    for item in items {
+        let Some(obj) = item.as_object() else {
+            continue;
+        };
+        let Some(role) = obj.get("role").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        let Some(text) = extract_text_content(item) else {
+            continue;
+        };
+        match role {
+            "user" | "human" => messages.push(("user".to_string(), text)),
+            "assistant" | "ai" => messages.push(("assistant".to_string(), text)),
+            _ => {}
+        }
+    }
+    messages
+}
+
+fn parse_chatgpt_mapping_messages(value: &Value) -> Option<Vec<(String, String)>> {
+    let mapping = value.get("mapping")?.as_object()?;
+    let mut current_id = mapping.iter().find_map(|(node_id, node)| {
+        let obj = node.as_object()?;
+        (obj.get("parent").is_some_and(|parent| parent.is_null())).then_some(node_id.clone())
+    })?;
+
+    let mut messages = Vec::new();
+    let mut visited = std::collections::HashSet::new();
+
+    while visited.insert(current_id.clone()) {
+        let Some(node) = mapping.get(&current_id).and_then(|v| v.as_object()) else {
+            break;
+        };
+
+        if let Some(message) = node.get("message") {
+            let role = message
+                .get("author")
+                .and_then(|author| author.get("role"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if let Some(text) = extract_text_content(message) {
+                match role {
+                    "user" => messages.push(("user".to_string(), text)),
+                    "assistant" => messages.push(("assistant".to_string(), text)),
+                    _ => {}
+                }
+            }
+        }
+
+        let Some(next_id) = node
+            .get("children")
+            .and_then(|children| children.as_array())
+            .and_then(|children| children.first())
+            .and_then(|child| child.as_str())
+        else {
+            break;
+        };
+        current_id = next_id.to_string();
+    }
+
+    (!messages.is_empty()).then_some(messages)
+}
+
+fn extract_text_content(value: &Value) -> Option<String> {
+    if let Some(text) = value.as_str() {
+        let trimmed = text.trim();
+        return (!trimmed.is_empty()).then_some(trimmed.to_string());
+    }
+
+    if let Some(array) = value.as_array() {
+        let joined = array
+            .iter()
+            .filter_map(extract_text_content)
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        return (!joined.is_empty()).then_some(joined);
+    }
+
+    let obj = value.as_object()?;
+
+    if let Some(content) = obj.get("content") {
+        if let Some(text) = extract_text_content(content) {
+            return Some(text);
+        }
+    }
+
+    if let Some(text) = obj.get("text").and_then(|v| v.as_str()) {
+        let trimmed = text.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    if let Some(parts) = obj.get("parts").and_then(|v| v.as_array()) {
+        let joined = parts
+            .iter()
+            .filter_map(|part| part.as_str().map(|s| s.trim().to_string()))
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !joined.is_empty() {
+            return Some(joined);
+        }
+    }
+
+    None
+}
+
+fn slugify_import_path(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "/")
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '/' | '-' | '_') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('/')
+        .replace('/', "__")
 }
 
 // ── Embedding API ─────────────────────────────────────────────────────────────

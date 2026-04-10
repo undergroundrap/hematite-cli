@@ -215,8 +215,9 @@ cloud state.
 
 **Non-project directories:** when Hematite is launched outside a real project (no `Cargo.toml`,
 `package.json`, `go.mod`, etc. found walking up from the launch directory), it skips the source-file
-walk but still keeps The Vein active in docs-only mode. `.hematite/docs/` and recent local session
-reports remain searchable, and the status badge shows `VN:DOC`. A bare `.git` alone does not count
+walk but still keeps The Vein active in docs-only mode. `.hematite/docs/`, imported chats in
+`.hematite/imports/`, and recent local session reports remain searchable, and the status badge
+shows `VN:DOC`. A bare `.git` alone does not count
 as a project workspace.
 
 **Auxiliary local memory inputs:** besides project source, The Vein also indexes:
@@ -224,6 +225,9 @@ as a project workspace.
 - `.hematite/docs/` for permanent local reference material
 - `.hematite/reports/` for recent local session reports, chunked by exchange pair (`user` +
   `assistant`) and capped to the last 5 sessions / 50 turns per session
+- `.hematite/imports/` for imported chat exports (Claude Code JSONL, Codex CLI JSONL, simple
+  role/content JSON, ChatGPT-style `mapping` exports, or `>` transcripts), also chunked as
+  session memory without inflating source/doc status counts
 
 **Two retrieval modes, hybrid-merged:**
 
@@ -308,6 +312,8 @@ Hematite tracks token usage and session cost in real time.
 - Report includes: session start timestamp, duration, model, context length, total tokens, estimated cost, turn count, and full transcript
 - `.hematite/reports/` is gitignored — reports are local runtime artifacts
 - The Vein indexes recent reports as local retrieval memory by exchange pair, capped to the last 5 sessions and 50 turns per session, tagged as `session` room memory so they do not pollute normal source-file status counts
+- `.hematite/imports/` is the manual cross-tool memory lane: drop useful exported chats there and
+  Hematite will index them automatically as imported session exchanges on the next pass
 
 ## Sandboxed Code Execution
 
