@@ -1,4 +1,6 @@
 use rusqlite::{params, Connection};
+use serde::Deserialize;
+use std::collections::HashSet;
 use std::path::Path;
 
 /// "The Vein" — local RAG memory engine backed by SQLite FTS5 + semantic embeddings.
@@ -42,20 +44,51 @@ pub struct SearchResult {
     pub room: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct SessionReport {
+    #[serde(default)]
+    session_start: String,
+    #[serde(default)]
+    transcript: Vec<SessionTranscriptEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SessionTranscriptEntry {
+    #[serde(default)]
+    speaker: String,
+    #[serde(default)]
+    text: String,
+}
+
+#[derive(Debug)]
+struct SessionExchange {
+    path: String,
+    last_modified: i64,
+    content: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SessionSpeakerKind {
+    User,
+    Assistant,
+    Ignore,
+}
+
 /// Derive a subsystem room label from a file path.
 /// Uses path segments to map to known Hematite subsystems.
 /// Falls back to the first directory component or "root".
 pub fn detect_room(path: &str) -> String {
     const KNOWN: &[(&str, &str)] = &[
-        ("agent",   "agent"),
-        ("ui",      "ui"),
-        ("tools",   "tools"),
-        ("memory",  "memory"),
-        ("tests",   "tests"),
+        ("agent", "agent"),
+        ("ui", "ui"),
+        ("tools", "tools"),
+        ("memory", "memory"),
+        ("session", "session"),
+        ("tests", "tests"),
         ("scripts", "scripts"),
-        ("installer","installer"),
-        ("libs",    "libs"),
-        ("docs",    "docs"),
+        ("installer", "installer"),
+        ("libs", "libs"),
+        ("docs", "docs"),
     ];
     let lower = path.to_lowercase().replace('\\', "/");
     for (segment, room) in KNOWN {
@@ -77,6 +110,9 @@ pub fn detect_room(path: &str) -> String {
 }
 
 impl Vein {
+    const SESSION_REPORT_LIMIT: usize = 5;
+    const SESSION_TURN_LIMIT: usize = 50;
+
     pub fn new<P: AsRef<Path>>(
         db_path: P,
         base_url: String,
@@ -114,9 +150,8 @@ impl Vein {
         )?;
 
         // Schema migrations — safe to run on every open (IF NOT EXISTS / ignored if col exists).
-        let _ = db.execute_batch(
-            "ALTER TABLE chunks_meta ADD COLUMN room TEXT NOT NULL DEFAULT 'root';",
-        );
+        let _ = db
+            .execute_batch("ALTER TABLE chunks_meta ADD COLUMN room TEXT NOT NULL DEFAULT 'root';");
         let _ = db.execute_batch(
             "ALTER TABLE file_heat ADD COLUMN last_edit INTEGER NOT NULL DEFAULT 0;",
         );
@@ -137,6 +172,22 @@ impl Vein {
         last_modified: i64,
         full_text: &str,
     ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let room = detect_room(path);
+        let ext = std::path::Path::new(path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
+        let chunks = chunk_by_symbols(ext, full_text);
+        self.index_chunks_with_room(path, last_modified, &room, &chunks)
+    }
+
+    fn index_chunks_with_room(
+        &mut self,
+        path: &str,
+        last_modified: i64,
+        room: &str,
+        chunks: &[String],
+    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         let db = self.db.lock().unwrap();
         let existing: Option<i64> = db
             .query_row(
@@ -155,17 +206,10 @@ impl Vein {
         // Evict stale BM25 chunks, stale embedding vectors, then update metadata.
         db.execute("DELETE FROM chunks_fts WHERE path = ?1", params![path])?;
         db.execute("DELETE FROM chunks_vec WHERE path = ?1", params![path])?;
-        let room = detect_room(path);
         db.execute(
             "INSERT OR REPLACE INTO chunks_meta (path, last_modified, room) VALUES (?1, ?2, ?3)",
             params![path, last_modified, room],
         )?;
-
-        let ext = std::path::Path::new(path)
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
-        let chunks = chunk_by_symbols(ext, full_text);
 
         drop(db);
 
@@ -173,13 +217,13 @@ impl Vein {
         let tx = db.transaction()?;
         {
             let mut stmt = tx.prepare("INSERT INTO chunks_fts (path, content) VALUES (?1, ?2)")?;
-            for chunk in &chunks {
+            for chunk in chunks {
                 stmt.execute(params![path, chunk.as_str()])?;
             }
         }
         tx.commit()?;
 
-        Ok(chunks)
+        Ok(chunks.to_vec())
     }
 
     /// Embed a set of chunks for one file and store the vectors.
@@ -328,7 +372,12 @@ impl Vein {
                     .ok();
                 content.map(|c| {
                     let room = detect_room(&path);
-                    SearchResult { path, content: c, score, room }
+                    SearchResult {
+                        path,
+                        content: c,
+                        score,
+                        room,
+                    }
                 })
             })
             .collect()
@@ -356,7 +405,11 @@ impl Vein {
         let mut merged: Vec<SearchResult> = Vec::new();
 
         for r in semantic {
-            let room_boost = if active_room.as_deref() == Some(r.room.as_str()) { 0.15 } else { 0.0 };
+            let room_boost = if active_room.as_deref() == Some(r.room.as_str()) {
+                0.15
+            } else {
+                0.0
+            };
             merged.push(SearchResult {
                 score: 1.0 + r.score.clamp(0.0, 1.0) + room_boost,
                 ..r
@@ -367,8 +420,15 @@ impl Vein {
             // Only add BM25 results that aren't already covered by a semantic hit.
             if !merged.iter().any(|m| m.path == r.path) {
                 let norm = (r.score / 10.0).clamp(0.0, 1.0);
-                let room_boost = if active_room.as_deref() == Some(r.room.as_str()) { 0.15 } else { 0.0 };
-                merged.push(SearchResult { score: norm + room_boost, ..r });
+                let room_boost = if active_room.as_deref() == Some(r.room.as_str()) {
+                    0.15
+                } else {
+                    0.0
+                };
+                merged.push(SearchResult {
+                    score: norm + room_boost,
+                    ..r
+                });
             }
         }
 
@@ -394,7 +454,8 @@ impl Vein {
              LIMIT 1",
             [],
             |row| row.get::<_, String>(0),
-        ).ok()
+        )
+        .ok()
     }
 
     // ── Project Indexing ──────────────────────────────────────────────────────
@@ -463,15 +524,18 @@ impl Vein {
             }
         }
 
-        // Index reference documents dropped into .hematite/docs/
-        // Supports PDFs plus plain text/markdown — unified with source code retrieval.
-        count += self.index_docs_folder(&root);
+        count += self.index_workspace_artifacts(&root);
 
-        // Embed any unembedded chunks (new files + files whose mtime changed).
-        // Capped at 20 per call so startup completes quickly; remaining chunks
-        // are filled on subsequent turns.
+        count
+    }
+
+    /// Index workspace-local supporting context that should be available even
+    /// outside a real project workspace: `.hematite/docs/` plus recent session
+    /// reports stored in `.hematite/reports/`.
+    pub fn index_workspace_artifacts(&mut self, workspace_root: &std::path::Path) -> usize {
+        let mut count = self.index_docs_folder(workspace_root);
+        count += self.index_recent_session_reports(workspace_root);
         self.backfill_missing_embeddings();
-
         count
     }
 
@@ -481,70 +545,142 @@ impl Vein {
     /// distinguishable from source files in retrieval results.
     fn index_docs_folder(&mut self, workspace_root: &std::path::Path) -> usize {
         let docs_dir = workspace_root.join(".hematite").join("docs");
-        if !docs_dir.exists() {
-            return 0;
-        }
-
         const DOCS_INDEXABLE: &[&str] = &["pdf", "md", "txt", "markdown"];
         let mut count = 0usize;
+        let mut desired_paths = HashSet::new();
 
-        for entry in walkdir::WalkDir::new(&docs_dir)
-            .max_depth(3)
-            .follow_links(false)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
-        {
-            let path = entry.path();
-            let ext = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("")
-                .to_lowercase();
-            if !DOCS_INDEXABLE.contains(&ext.as_str()) {
-                continue;
-            }
-
-            let Ok(meta) = std::fs::metadata(path) else {
-                continue;
-            };
-            if meta.len() > 50_000_000 {
-                // 50 MB cap for docs
-                continue;
-            }
-
-            let mtime = meta
-                .modified()
-                .map(|t| {
-                    t.duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs() as i64
-                })
-                .unwrap_or(0);
-
-            let rel = path.strip_prefix(workspace_root).unwrap_or(path);
-            let rel_str = rel.to_string_lossy().replace('\\', "/");
-
-            let content = if ext == "pdf" {
-                extract_pdf_text(path).ok().flatten()
-            } else {
-                std::fs::read_to_string(path).ok()
-            };
-
-            if let Some(text) = content {
-                if text.trim().is_empty() {
+        if docs_dir.exists() {
+            for entry in walkdir::WalkDir::new(&docs_dir)
+                .max_depth(3)
+                .follow_links(false)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+            {
+                let path = entry.path();
+                let ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if !DOCS_INDEXABLE.contains(&ext.as_str()) {
                     continue;
                 }
-                match self.index_document(&rel_str, mtime, &text) {
-                    Ok(new_chunks) if !new_chunks.is_empty() => {
-                        count += 1;
+
+                let Ok(meta) = std::fs::metadata(path) else {
+                    continue;
+                };
+                if meta.len() > 50_000_000 {
+                    continue;
+                }
+
+                let mtime = meta
+                    .modified()
+                    .map(|t| {
+                        t.duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs() as i64
+                    })
+                    .unwrap_or(0);
+
+                let rel = path.strip_prefix(workspace_root).unwrap_or(path);
+                let rel_str = rel.to_string_lossy().replace('\\', "/");
+                desired_paths.insert(rel_str.clone());
+
+                let content = if ext == "pdf" {
+                    extract_pdf_text(path).ok().flatten()
+                } else {
+                    std::fs::read_to_string(path).ok()
+                };
+
+                if let Some(text) = content {
+                    if text.trim().is_empty() {
+                        continue;
                     }
-                    Ok(_) => {}
-                    Err(_) => {}
+                    match self.index_document(&rel_str, mtime, &text) {
+                        Ok(new_chunks) if !new_chunks.is_empty() => {
+                            count += 1;
+                        }
+                        Ok(_) => {}
+                        Err(_) => {}
+                    }
                 }
             }
         }
 
+        self.prune_indexed_prefix(".hematite/docs/", &desired_paths);
+        count
+    }
+
+    /// Index the most recent local session reports by exchange pair so prior
+    /// decisions remain searchable across launches without flooding the vein.
+    pub fn index_recent_session_reports(&mut self, workspace_root: &std::path::Path) -> usize {
+        let reports_dir = workspace_root.join(".hematite").join("reports");
+        let mut count = 0usize;
+        let mut desired_paths = HashSet::new();
+
+        if reports_dir.exists() {
+            let mut reports: Vec<std::path::PathBuf> = std::fs::read_dir(&reports_dir)
+                .ok()
+                .into_iter()
+                .flat_map(|entries| entries.filter_map(|entry| entry.ok()))
+                .map(|entry| entry.path())
+                .filter(|path| {
+                    path.is_file()
+                        && path.extension().and_then(|ext| ext.to_str()) == Some("json")
+                        && path
+                            .file_stem()
+                            .and_then(|stem| stem.to_str())
+                            .map(|stem| stem.starts_with("session_"))
+                            .unwrap_or(false)
+                })
+                .collect();
+
+            reports.sort_by(|a, b| {
+                let a_name = a
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or_default();
+                let b_name = b
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or_default();
+                b_name.cmp(a_name)
+            });
+            reports.truncate(Self::SESSION_REPORT_LIMIT);
+
+            for report_path in reports {
+                let Ok(meta) = std::fs::metadata(&report_path) else {
+                    continue;
+                };
+                let mtime = meta
+                    .modified()
+                    .map(|t| {
+                        t.duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs() as i64
+                    })
+                    .unwrap_or(0);
+
+                for exchange in load_session_exchanges(&report_path, mtime) {
+                    desired_paths.insert(exchange.path.clone());
+                    match self.index_chunks_with_room(
+                        &exchange.path,
+                        exchange.last_modified,
+                        "session",
+                        std::slice::from_ref(&exchange.content),
+                    ) {
+                        Ok(new_chunks) if !new_chunks.is_empty() => {
+                            count += 1;
+                        }
+                        Ok(_) => {}
+                        Err(_) => {}
+                    }
+                }
+            }
+        }
+
+        self.prune_indexed_prefix("session/", &desired_paths);
         count
     }
 
@@ -615,21 +751,37 @@ impl Vein {
     }
 
     /// Total number of unique files currently indexed.
+    /// Session exchange chunks are excluded so status counts stay source/doc centric.
     pub fn file_count(&self) -> usize {
         let db = self.db.lock().unwrap();
-        db.query_row("SELECT COUNT(*) FROM chunks_meta", [], |r| {
-            r.get::<_, i64>(0)
-        })
+        db.query_row(
+            "SELECT COUNT(*) FROM chunks_meta WHERE path NOT LIKE 'session/%'",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
         .unwrap_or(0) as usize
     }
 
-    /// Number of chunks that have semantic embedding vectors stored.
+    /// Number of source/doc chunks that have semantic embedding vectors stored.
+    /// Session exchange chunks are excluded so status counts stay source/doc centric.
     pub fn embedded_chunk_count(&self) -> usize {
         let db = self.db.lock().unwrap();
-        db.query_row("SELECT COUNT(*) FROM chunks_vec", [], |r| {
+        db.query_row(
+            "SELECT COUNT(*) FROM chunks_vec WHERE path NOT LIKE 'session/%'",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .unwrap_or(0) as usize
+    }
+
+    /// True when any chunk type currently has embeddings available.
+    pub fn has_any_embeddings(&self) -> bool {
+        let db = self.db.lock().unwrap();
+        db.query_row("SELECT EXISTS(SELECT 1 FROM chunks_vec LIMIT 1)", [], |r| {
             r.get::<_, i64>(0)
         })
-        .unwrap_or(0) as usize
+        .unwrap_or(0)
+            != 0
     }
 
     /// Wipe all indexed data. The DB file stays on disk; next index_project()
@@ -709,7 +861,10 @@ impl Vein {
         let mut by_room: std::collections::BTreeMap<String, Vec<(String, i64, i64)>> =
             std::collections::BTreeMap::new();
         for (path, heat, mtime, room) in &files {
-            by_room.entry(room.clone()).or_default().push((path.clone(), *heat, *mtime));
+            by_room
+                .entry(room.clone())
+                .or_default()
+                .push((path.clone(), *heat, *mtime));
         }
 
         let mut out = String::from("# Hot Files (most edited — grouped by subsystem)\n");
@@ -726,12 +881,119 @@ impl Vein {
                 };
                 out.push_str(&format!(
                     "  - {} [{} edit{}, {}]\n",
-                    path, heat, if *heat == 1 { "" } else { "s" }, age
+                    path,
+                    heat,
+                    if *heat == 1 { "" } else { "s" },
+                    age
                 ));
             }
         }
         Some(out)
     }
+
+    fn prune_indexed_prefix(&self, prefix: &str, desired_paths: &HashSet<String>) {
+        let pattern = format!("{}%", prefix);
+        let existing_paths: Vec<String> = {
+            let db = self.db.lock().unwrap();
+            let mut stmt = match db.prepare("SELECT path FROM chunks_meta WHERE path LIKE ?1") {
+                Ok(stmt) => stmt,
+                Err(_) => return,
+            };
+            stmt.query_map(params![pattern], |row| row.get::<_, String>(0))
+                .map(|rows| rows.filter_map(|row| row.ok()).collect())
+                .unwrap_or_default()
+        };
+
+        if existing_paths.is_empty() {
+            return;
+        }
+
+        let db = self.db.lock().unwrap();
+        for path in existing_paths {
+            if desired_paths.contains(&path) {
+                continue;
+            }
+            let _ = db.execute("DELETE FROM chunks_fts WHERE path = ?1", params![path]);
+            let _ = db.execute("DELETE FROM chunks_vec WHERE path = ?1", params![path]);
+            let _ = db.execute("DELETE FROM chunks_meta WHERE path = ?1", params![path]);
+        }
+    }
+}
+
+fn session_speaker_kind(speaker: &str) -> SessionSpeakerKind {
+    let normalized = speaker.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "you" | "user" => SessionSpeakerKind::User,
+        "" | "system" | "tool" => SessionSpeakerKind::Ignore,
+        _ => SessionSpeakerKind::Assistant,
+    }
+}
+
+fn load_session_exchanges(report_path: &Path, last_modified: i64) -> Vec<SessionExchange> {
+    let Ok(raw) = std::fs::read_to_string(report_path) else {
+        return Vec::new();
+    };
+    let Ok(report) = serde_json::from_str::<SessionReport>(&raw) else {
+        return Vec::new();
+    };
+
+    let session_key = report_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .and_then(|stem| stem.strip_prefix("session_").or(Some(stem)))
+        .unwrap_or("unknown-session")
+        .to_string();
+    let session_date = report
+        .session_start
+        .split('_')
+        .next()
+        .filter(|date| !date.is_empty())
+        .unwrap_or_else(|| session_key.split('_').next().unwrap_or("unknown-date"))
+        .to_string();
+
+    let mut exchanges = Vec::new();
+    let mut pending_user: Option<String> = None;
+    let mut turn_index = 0usize;
+
+    for entry in report.transcript {
+        match session_speaker_kind(&entry.speaker) {
+            SessionSpeakerKind::User => {
+                let text = entry.text.trim();
+                if !text.is_empty() {
+                    pending_user = Some(text.to_string());
+                }
+            }
+            SessionSpeakerKind::Assistant => {
+                let text = entry.text.trim();
+                if text.is_empty() {
+                    continue;
+                }
+                let Some(user_text) = pending_user.take() else {
+                    continue;
+                };
+                turn_index += 1;
+                exchanges.push(SessionExchange {
+                    path: format!(
+                        "session/{}/{}/turn-{}",
+                        session_date, session_key, turn_index
+                    ),
+                    last_modified,
+                    content: format!(
+                        "Earlier session exchange\nUser:\n{}\n\nAssistant:\n{}",
+                        user_text, text
+                    ),
+                });
+            }
+            SessionSpeakerKind::Ignore => {}
+        }
+    }
+
+    if exchanges.len() > Vein::SESSION_TURN_LIMIT {
+        let keep_from = exchanges.len() - Vein::SESSION_TURN_LIMIT;
+        exchanges = exchanges.into_iter().skip(keep_from).collect();
+    }
+
+    exchanges
 }
 
 // ── Embedding API ─────────────────────────────────────────────────────────────
@@ -999,15 +1261,14 @@ pub fn extract_document_text(path: &std::path::Path) -> Result<String, String> {
         .to_lowercase();
     match ext.as_str() {
         "pdf" => {
-            let text = extract_pdf_text(path)?
-                .ok_or_else(|| {
-                    "PDF contains no extractable text — it may be scanned/image-only. \
-                     Try attaching page screenshots with /image instead.".to_string()
-                })?;
+            let text = extract_pdf_text(path)?.ok_or_else(|| {
+                "PDF contains no extractable text — it may be scanned/image-only. \
+                     Try attaching page screenshots with /image instead."
+                    .to_string()
+            })?;
             pdf_quality_check(text)
         }
-        _ => std::fs::read_to_string(path)
-            .map_err(|e| format!("Could not read file: {e}")),
+        _ => std::fs::read_to_string(path).map_err(|e| format!("Could not read file: {e}")),
     }
 }
 
@@ -1031,7 +1292,11 @@ fn pdf_quality_check(text: String) -> Result<String, String> {
     // Normal prose is ~15–20% spaces. Below 4% means glyphs aren't mapping to spaces.
     let non_newline: usize = trimmed.chars().filter(|c| *c != '\n' && *c != '\r').count();
     let spaces: usize = trimmed.chars().filter(|c| *c == ' ').count();
-    let space_ratio = if non_newline > 0 { spaces as f32 / non_newline as f32 } else { 0.0 };
+    let space_ratio = if non_newline > 0 {
+        spaces as f32 / non_newline as f32
+    } else {
+        0.0
+    };
 
     if space_ratio < 0.04 {
         return Err(

@@ -588,6 +588,21 @@ pub struct ConversationManager {
 }
 
 impl ConversationManager {
+    fn vein_docs_only_mode(&self) -> bool {
+        !crate::tools::file_ops::is_project_workspace()
+    }
+
+    fn refresh_vein_index(&mut self) -> usize {
+        let count = if self.vein_docs_only_mode() {
+            let root = crate::tools::file_ops::workspace_root();
+            tokio::task::block_in_place(|| self.vein.index_workspace_artifacts(&root))
+        } else {
+            tokio::task::block_in_place(|| self.vein.index_project())
+        };
+        self.l1_context = self.vein.l1_context();
+        count
+    }
+
     fn latest_user_prompt(&self) -> Option<&str> {
         self.history
             .iter()
@@ -805,12 +820,7 @@ impl ConversationManager {
     /// Index the project into The Vein. Call once after construction.
     /// Uses block_in_place so the tokio runtime thread isn't parked.
     pub fn initialize_vein(&mut self) -> usize {
-        if !crate::tools::file_ops::is_project_workspace() {
-            return 0;
-        }
-        let count = tokio::task::block_in_place(|| self.vein.index_project());
-        self.l1_context = self.vein.l1_context();
-        count
+        self.refresh_vein_index()
     }
 
     fn save_session(&self) {
@@ -1383,6 +1393,7 @@ impl ConversationManager {
                 .send(InferenceEvent::VeinStatus {
                     file_count: 0,
                     embedded_count: 0,
+                    docs_only: self.vein_docs_only_mode(),
                 })
                 .await;
             for chunk in chunk_text("Vein index cleared. Will rebuild on the next turn.", 8) {
@@ -2081,14 +2092,14 @@ impl ConversationManager {
 
         // Incremental re-index and Vein context injection — skipped in chat mode
         // (code snippets are noise in a conversational surface).
-        let (vein_context, vein_paths) = if !self.workflow_mode.is_chat()
-            && crate::tools::file_ops::is_project_workspace()
-        {
-            tokio::task::block_in_place(|| self.vein.index_project());
+        let vein_docs_only = self.vein_docs_only_mode();
+        let (vein_context, vein_paths) = if !self.workflow_mode.is_chat() {
+            self.refresh_vein_index();
             let _ = tx
                 .send(InferenceEvent::VeinStatus {
                     file_count: self.vein.file_count(),
                     embedded_count: self.vein.embedded_chunk_count(),
+                    docs_only: vein_docs_only,
                 })
                 .await;
             match self.build_vein_context(&effective_user_input) {
@@ -2854,7 +2865,6 @@ impl ConversationManager {
                     }
                 }
 
-
                 if implement_current_plan
                     && !implementation_started
                     && non_mutating_plan_steps >= non_mutating_plan_hard_cap
@@ -3282,7 +3292,7 @@ impl ConversationManager {
             return None;
         }
 
-        let semantic_active = self.vein.embedded_chunk_count() > 0;
+        let semantic_active = self.vein.has_any_embeddings();
         let header = if semantic_active {
             "# Relevant context from The Vein (hybrid BM25 + semantic retrieval)\n\
              Use this to answer without needing extra read_file calls where possible.\n\n"
@@ -3822,10 +3832,8 @@ impl ConversationManager {
                     };
                     match diff_result {
                         Ok(diff_text) => {
-                            let path_label = args
-                                .get("path")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("file");
+                            let path_label =
+                                args.get("path").and_then(|v| v.as_str()).unwrap_or("file");
                             let (appr_tx, appr_rx) = tokio::sync::oneshot::channel::<bool>();
                             let _ = tx
                                 .send(InferenceEvent::ApprovalRequired {

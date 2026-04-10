@@ -186,6 +186,7 @@ pub struct App {
     last_runtime_profile_time: Instant,
     vein_file_count: usize,
     vein_embedded_count: usize,
+    vein_docs_only: bool,
     provider_state: ProviderRuntimeState,
     last_provider_summary: String,
     mcp_state: McpRuntimeState,
@@ -338,25 +339,41 @@ impl App {
 
             // System messages with "+N -N" stat tokens get inline green/red coloring.
             if speaker == "System" && (raw_line.contains(" +") || raw_line.contains(" -")) {
-                let mut spans: Vec<Span<'static>> = vec![
-                    Span::raw(" "),
-                    Span::styled(label, style),
-                ];
+                let mut spans: Vec<Span<'static>> =
+                    vec![Span::raw(" "), Span::styled(label, style)];
                 // Tokenise on whitespace, colouring +digits green, -digits red,
                 // and file paths (containing '/' or '.') bright white.
                 for token in raw_line.split_whitespace() {
-                    let is_add = token.starts_with('+') && token.len() > 1 && token[1..].chars().all(|c| c.is_ascii_digit());
-                    let is_rem = token.starts_with('-') && token.len() > 1 && token[1..].chars().all(|c| c.is_ascii_digit());
-                    let is_path = (token.contains('/') || token.contains('\\') || token.contains('.'))
-                        && !token.starts_with('+')
-                        && !token.starts_with('-')
-                        && !token.ends_with(':');
+                    let is_add = token.starts_with('+')
+                        && token.len() > 1
+                        && token[1..].chars().all(|c| c.is_ascii_digit());
+                    let is_rem = token.starts_with('-')
+                        && token.len() > 1
+                        && token[1..].chars().all(|c| c.is_ascii_digit());
+                    let is_path =
+                        (token.contains('/') || token.contains('\\') || token.contains('.'))
+                            && !token.starts_with('+')
+                            && !token.starts_with('-')
+                            && !token.ends_with(':');
                     let span = if is_add {
-                        Span::styled(format!("{} ", token), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+                        Span::styled(
+                            format!("{} ", token),
+                            Style::default()
+                                .fg(Color::Green)
+                                .add_modifier(Modifier::BOLD),
+                        )
                     } else if is_rem {
-                        Span::styled(format!("{} ", token), Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                        Span::styled(
+                            format!("{} ", token),
+                            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                        )
                     } else if is_path {
-                        Span::styled(format!("{} ", token), Style::default().fg(Color::White).add_modifier(Modifier::BOLD))
+                        Span::styled(
+                            format!("{} ", token),
+                            Style::default()
+                                .fg(Color::White)
+                                .add_modifier(Modifier::BOLD),
+                        )
                     } else {
                         Span::raw(format!("{} ", token))
                     };
@@ -762,7 +779,9 @@ fn attach_document_from_path(app: &mut App, file_path: &str) {
             } else if budget_pct >= 40 {
                 format!(
                     "\nNote: this document is ~{} tokens (~{}% of your {}k context).",
-                    estimated_tokens, budget_pct, ctx / 1000
+                    estimated_tokens,
+                    budget_pct,
+                    ctx / 1000
                 )
             } else {
                 String::new()
@@ -1438,6 +1457,7 @@ pub async fn run_app<B: Backend>(
         last_runtime_profile_time: Instant::now(),
         vein_file_count: 0,
         vein_embedded_count: 0,
+        vein_docs_only: false,
         provider_state: ProviderRuntimeState::Booting,
         last_provider_summary: String::new(),
         mcp_state: McpRuntimeState::Unconfigured,
@@ -2655,9 +2675,10 @@ pub async fn run_app<B: Backend>(
                             ),
                         }
                     }
-                    InferenceEvent::VeinStatus { file_count, embedded_count } => {
+                    InferenceEvent::VeinStatus { file_count, embedded_count, docs_only } => {
                         app.vein_file_count = file_count;
                         app.vein_embedded_count = embedded_count;
+                        app.vein_docs_only = docs_only;
                     }
                     InferenceEvent::VeinContext { paths } => {
                         // Replace the default placeholder entries with what the
@@ -3207,7 +3228,16 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         None => "",
     };
 
-    let (vein_label, vein_color) = if app.vein_file_count == 0 {
+    let (vein_label, vein_color) = if app.vein_docs_only {
+        let color = if app.vein_embedded_count > 0 {
+            Color::Green
+        } else if app.vein_file_count > 0 {
+            Color::Yellow
+        } else {
+            Color::DarkGray
+        };
+        ("VN:DOC", color)
+    } else if app.vein_file_count == 0 {
         ("VN:--", Color::DarkGray)
     } else if app.vein_embedded_count > 0 {
         ("VN:SEM", Color::Green)
@@ -3418,11 +3448,16 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         let header_text = vec![
             Line::from(Span::styled(
                 title_str,
-                Style::default().fg(title_color).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(title_color)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
-                if is_diff_preview { "  [↑↓/jk/PgUp/PgDn] Scroll   [Y] Apply   [N] Skip " }
-                else { "  [Y] Approve     [N] Decline " },
+                if is_diff_preview {
+                    "  [↑↓/jk/PgUp/PgDn] Scroll   [Y] Apply   [N] Skip "
+                } else {
+                    "  [Y] Approve     [N] Decline "
+                },
                 Style::default()
                     .fg(Color::Green)
                     .add_modifier(Modifier::BOLD),
@@ -3440,7 +3475,11 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         );
 
         // ── Modal Body ───────────────────────────────────────────────────────
-        let border_color = if is_diff_preview { Color::Yellow } else { Color::Red };
+        let border_color = if is_diff_preview {
+            Color::Yellow
+        } else {
+            Color::Red
+        };
         if let Some(diff_text) = &approval.diff {
             // Render colored diff lines
             let added = diff_text.lines().filter(|l| l.starts_with("+ ")).count();
@@ -3453,7 +3492,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                 Line::from(vec![
                     Span::styled(
                         format!(" +{}", added),
-                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
                     ),
                     Span::styled(
                         format!(" -{}", removed),

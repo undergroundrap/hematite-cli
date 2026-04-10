@@ -682,6 +682,7 @@ pub enum InferenceEvent {
     VeinStatus {
         file_count: usize,
         embedded_count: usize,
+        docs_only: bool,
     },
     /// File paths the Vein surfaced as relevant to the current turn.
     /// Used to populate ACTIVE CONTEXT with retrieval results.

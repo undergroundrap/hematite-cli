@@ -241,14 +241,19 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         Some(id) => format!("Embed: {} (semantic search ready)", id),
         None => "Embed: none loaded (load nomic-embed-text-v2 for semantic search)".to_string(),
     };
-    let project_hint = if crate::tools::file_ops::is_project_workspace() {
+    let docs_only_mode = !crate::tools::file_ops::is_project_workspace();
+    let project_hint = if !docs_only_mode {
         String::new()
     } else {
-        "\nTip: cd into a project folder before running hematite to enable code tools and context search.".to_string()
+        "\nTip: source indexing is disabled outside a project folder. `.hematite/docs/` and recent local session reports remain searchable in docs-only vein mode.".to_string()
     };
     let display_model = {
         let m = manager.engine.current_model();
-        if m.is_empty() { "no chat model loaded".to_string() } else { m }
+        if m.is_empty() {
+            "no chat model loaded".to_string()
+        } else {
+            m
+        }
     };
     let greeting = format!(
         "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\n{}\n{}\n/chat - conversation mode | /agent - full coding harness{}",
@@ -271,6 +276,13 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
             .await;
     }
     let indexed = manager.initialize_vein();
+    let _ = agent_tx
+        .send(InferenceEvent::VeinStatus {
+            file_count: manager.vein.file_count(),
+            embedded_count: manager.vein.embedded_chunk_count(),
+            docs_only: docs_only_mode,
+        })
+        .await;
     let _ = agent_tx
         .send(InferenceEvent::Thought(format!(
             "The Vein: indexed {} files",
