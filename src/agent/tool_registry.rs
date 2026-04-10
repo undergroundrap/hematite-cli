@@ -146,12 +146,37 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["read_only_codebase", "user_turn_plan", "voice_latency_plan", "all"],
+                        "enum": ["read_only_codebase", "user_turn_plan", "voice_latency_plan", "host_inspection_plan", "all"],
                         "description": "Which authoritative toolchain report to return"
                     },
                     "question": {
                         "type": "string",
                         "description": "Optional user question to label or tailor the read-only investigation plan"
+                    }
+                }
+            }),
+        ),
+        make_tool(
+            "inspect_host",
+            "Return a structured read-only inspection of the current machine and environment. \
+             Prefer this over raw shell for questions about installed developer tools, PATH issues, desktop items, Downloads size, or directory summaries. \
+             Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, \
+             topic=desktop or topic=downloads for known folders, and topic=directory for an arbitrary directory path.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "enum": ["summary", "toolchains", "path", "desktop", "downloads", "directory"],
+                        "description": "Which structured host inspection to run."
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Required when topic=directory. Absolute or relative directory path to inspect."
+                    },
+                    "max_entries": {
+                        "type": "integer",
+                        "description": "Optional cap for listed entries. Defaults to 10 and is capped internally."
                     }
                 }
             }),
@@ -648,6 +673,7 @@ pub async fn dispatch_builtin_tool(name: &str, args: &Value) -> Result<String, S
         "map_project" => crate::tools::project_map::map_project(args).await,
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
+        "inspect_host" => crate::tools::host_inspect::inspect_host(args).await,
         "read_file" => crate::tools::file_ops::read_file(args).await,
         "inspect_lines" => crate::tools::file_ops::inspect_lines(args).await,
         "write_file" => crate::tools::file_ops::write_file(args).await,

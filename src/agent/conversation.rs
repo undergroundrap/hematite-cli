@@ -631,7 +631,11 @@ impl ConversationManager {
             } else {
                 "no"
             },
-            if snapshot.l1_ready { "ready" } else { "not built yet" },
+            if snapshot.l1_ready {
+                "ready"
+            } else {
+                "not built yet"
+            },
         );
 
         if snapshot.hot_files.is_empty() {
@@ -4084,6 +4088,7 @@ pub fn format_tool_display(name: &str, args: &Value) -> String {
         "map_project" => "map project architecture".to_string(),
         "trace_runtime_flow" => format!("trace runtime {}", get("topic")),
         "describe_toolchain" => format!("describe toolchain {}", get("topic")),
+        "inspect_host" => format!("inspect host {}", get("topic")),
         _ => format!("{} {:?}", name, args),
     }
 }

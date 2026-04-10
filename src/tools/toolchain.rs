@@ -9,13 +9,14 @@ pub async fn describe_toolchain(args: &Value) -> Result<String, String> {
         "read_only_codebase" => Ok(describe_read_only_codebase_tools()),
         "user_turn_plan" => Ok(describe_user_turn_plan(question)),
         "voice_latency_plan" => Ok(describe_voice_latency_plan(question)),
+        "host_inspection_plan" => Ok(describe_host_inspection_plan(question)),
         "all" => Ok(format!(
             "{}\n\n{}",
             describe_read_only_codebase_tools(),
             describe_best_plan_for_question(question)
         )),
         other => Err(format!(
-            "Unknown topic '{}'. Use one of: read_only_codebase, user_turn_plan, voice_latency_plan, all.",
+            "Unknown topic '{}'. Use one of: read_only_codebase, user_turn_plan, voice_latency_plan, host_inspection_plan, all.",
             other
         )),
     }
@@ -24,6 +25,8 @@ pub async fn describe_toolchain(args: &Value) -> Result<String, String> {
 fn describe_best_plan_for_question(question: &str) -> String {
     if is_voice_latency_question(question) {
         describe_voice_latency_plan(question)
+    } else if is_host_inspection_question(question) {
+        describe_host_inspection_plan(question)
     } else {
         describe_user_turn_plan(question)
     }
@@ -35,6 +38,26 @@ fn is_voice_latency_question(question: &str) -> bool {
         && (lower.contains("lag")
             || lower.contains("behind visible text")
             || lower.contains("latency"))
+}
+
+fn is_host_inspection_question(question: &str) -> bool {
+    let lower = question.to_lowercase();
+    let host_terms = [
+        "path",
+        "desktop",
+        "downloads",
+        "toolchain",
+        "installed",
+        "version",
+        "directory",
+        "folder",
+        "computer",
+        "machine",
+        "port",
+        "process",
+        "environment",
+    ];
+    host_terms.iter().any(|needle| lower.contains(needle))
 }
 
 fn normalize_question_label(question: &str) -> &str {
@@ -132,10 +155,14 @@ Vision\n\
   Choose it over another tool when: the input is visual rather than textual.\n\
   Conditional: only relevant when an image is available and the vision path is enabled.\n\n\
 Shell and context management\n\
+- `inspect_host`\n\
+  Good for: structured read-only inspection of the current machine such as common developer tool versions, PATH analysis, desktop items, Downloads summaries, and arbitrary directory size reports.\n\
+  Bad for: custom build commands, arbitrary process control, or any mutation.\n\
+  Choose it over another tool when: the user is asking about the host machine rather than repo internals and the question fits one of its built-in topics.\n\
 - `shell`\n\
   Good for: builds, tests, environment checks, and OS-level read-only inspection.\n\
   Bad for: precise code understanding when built-in file and LSP tools are available.\n\
-  Choose it over another tool when: you need runtime verification or information that only the host system can provide.\n\
+  Choose it over another tool when: you need runtime verification, a custom command, or host information that `inspect_host` cannot answer directly.\n\
 - `auto_pin_context`\n\
   Good for: keeping 1-3 critical files in active memory during a complex investigation.\n\
   Bad for: discovery by itself.\n\
@@ -155,7 +182,8 @@ Best Read-Only Toolchain\n\
 - Use `map_project` only when ownership or structure is still unclear.\n\
 - Use `grep_files` for textual discovery, then switch to `read_file` or `inspect_lines` for exact local context.\n\
 - Use `lsp_search_symbol`, `lsp_definitions`, `lsp_references`, and `lsp_hover` for semantic confirmation once you know the area.\n\
-- Use `shell` only when the answer requires runtime verification or host-state information.\n\
+- Use `inspect_host` before `shell` for read-only questions about PATH, installed tools, desktop items, Downloads size, or directory summaries.\n\
+- Use `shell` only when the answer requires runtime verification or host-state information beyond `inspect_host`.\n\
 - Use `research_web`, `fetch_docs`, and `vision_analyze` only when the question truly depends on external docs or images."
         .to_string()
 }
@@ -248,6 +276,34 @@ Tools I would not start with\n\
 - `map_project`: useful if ownership were unclear, but unnecessary here because the runtime trace and symbol names already point to the likely owners.\n\
 \nInitial Investigation Order\n\
 `trace_runtime_flow` -> `read_file` -> `inspect_lines` -> `lsp_search_symbol` -> `lsp_references` -> `lsp_hover` -> `lsp_definitions` -> optional `shell`",
+        label
+    )
+}
+
+fn describe_host_inspection_plan(question: &str) -> String {
+    let label = if question.trim().is_empty() {
+        "What is the best read-only tool order for checking my machine state, installed tools, PATH, desktop items, or folder sizes?"
+    } else {
+        question
+    };
+
+    format!(
+        "Concrete read-only investigation plan for: {:?}\n\n\
+1. `inspect_host`\n\
+   Why first: it is the built-in structured host-inspection tool, so it can answer common machine-state questions without forcing the model to invent shell commands.\n\
+   Use: start with the closest topic such as `summary`, `toolchains`, `path`, `desktop`, `downloads`, or `directory`.\n\
+2. `shell`\n\
+   Why second and only if needed: shell is still the fallback for custom host checks that go beyond `inspect_host`, but it should not be the first move for routine read-only inspection.\n\
+   Use: confirm a special case, run a project-specific command, or inspect host state that has no structured built-in topic yet.\n\
+3. `read_file` / `list_files`\n\
+   Why third and conditional: if the question shifts from host state back into the workspace, move to file tools instead of staying in shell.\n\
+   Use: inspect repo files, logs, or config once the machine-level question identifies the relevant path.\n\n\
+Tools I would not start with\n\
+- `grep_files`: useful for repo text search, but not the right first tool for PATH or desktop questions.\n\
+- `trace_runtime_flow`: useful for Hematite runtime architecture, not machine-state inspection.\n\
+- `research_web`, `fetch_docs`, `vision_analyze`: only relevant if the question expands beyond the local machine.\n\n\
+Initial Investigation Order\n\
+`inspect_host` -> optional `shell` -> optional repo/file tools",
         label
     )
 }

@@ -12,9 +12,17 @@ enum WorkspaceMode {
 fn detect_workspace_mode(root: &PathBuf) -> WorkspaceMode {
     // Strong coding signals — any of these present means it's a coding workspace
     let coding_markers = [
-        "Cargo.toml", "package.json", "pyproject.toml", "setup.py",
-        "go.mod", "pom.xml", "build.gradle", "CMakeLists.txt",
-        ".git", "src", "lib",
+        "Cargo.toml",
+        "package.json",
+        "pyproject.toml",
+        "setup.py",
+        "go.mod",
+        "pom.xml",
+        "build.gradle",
+        "CMakeLists.txt",
+        ".git",
+        "src",
+        "lib",
     ];
     for marker in &coding_markers {
         if root.join(marker).exists() {
@@ -23,7 +31,9 @@ fn detect_workspace_mode(root: &PathBuf) -> WorkspaceMode {
     }
 
     // No strong coding signal — check file extensions
-    let code_exts = ["rs", "py", "ts", "js", "go", "cpp", "c", "java", "cs", "rb", "swift", "kt"];
+    let code_exts = [
+        "rs", "py", "ts", "js", "go", "cpp", "c", "java", "cs", "rb", "swift", "kt",
+    ];
     let doc_exts = ["pdf", "md", "txt", "docx", "epub", "rst"];
     let mut code_count = 0usize;
     let mut doc_count = 0usize;
@@ -34,8 +44,12 @@ fn detect_workspace_mode(root: &PathBuf) -> WorkspaceMode {
             if path.is_file() {
                 if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                     let ext = ext.to_lowercase();
-                    if code_exts.contains(&ext.as_str()) { code_count += 1; }
-                    if doc_exts.contains(&ext.as_str()) { doc_count += 1; }
+                    if code_exts.contains(&ext.as_str()) {
+                        code_count += 1;
+                    }
+                    if doc_exts.contains(&ext.as_str()) {
+                        doc_count += 1;
+                    }
                 }
             }
         }
@@ -239,6 +253,8 @@ impl SystemPromptBuilder {
         prompt.push_str("19. **Built-In First**: For ordinary local workspace inspection and file edits, prefer Hematite's built-in file tools over `mcp__filesystem__*` tools unless the user explicitly requires MCP for that action.\n");
         prompt.push_str("20. **Deep Sync**: Every 6th turn, review the full TASK.md.\n\n21. **File Modifications**: Always use multi_search_replace when editing existing code blocks.\n");
         prompt.push_str("22. **Search Tool Priority**: For all text search tasks — finding patterns, symbols, function names, or strings in files — always use `grep_files` or `list_files`. Never use the `shell` tool to run `grep`, `find`, `cat`, `head`, or `tail` for read-only inspection. Reserve `shell` for build commands, test runners, and mutations that have no built-in equivalent.");
+
+        prompt.push_str("23. **Host Inspection Priority**: For read-only questions about installed tools, PATH entries, desktop items, Downloads size, or directory summaries, prefer `inspect_host` over raw `shell` when it can answer directly.");
 
         prompt
     }

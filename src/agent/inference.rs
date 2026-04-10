@@ -149,6 +149,14 @@ pub fn tool_metadata_for_name(name: &str) -> ToolMetadata {
             read_only_friendly: false,
             plan_scope: false,
         },
+        "inspect_host" => ToolMetadata {
+            category: ToolCategory::Runtime,
+            mutates_workspace: false,
+            external_surface: false,
+            trust_sensitive: false,
+            read_only_friendly: true,
+            plan_scope: false,
+        },
         "verify_build" => ToolMetadata {
             category: ToolCategory::Verification,
             mutates_workspace: false,
@@ -852,18 +860,26 @@ impl InferenceEngine {
     /// where the embed model may report a different state string at startup.
     pub async fn get_embedding_model(&self) -> Option<String> {
         #[derive(Deserialize)]
-        struct ModelList { data: Vec<ModelEntry> }
+        struct ModelList {
+            data: Vec<ModelEntry>,
+        }
         #[derive(Deserialize)]
         struct ModelEntry {
             id: String,
-            #[serde(rename = "type", default)] model_type: String,
-            #[serde(default)] state: String,
+            #[serde(rename = "type", default)]
+            model_type: String,
+            #[serde(default)]
+            state: String,
         }
-        let resp = self.client
+        let resp = self
+            .client
             .get(format!("{}/api/v0/models", self.base_url))
-            .send().await.ok()?;
+            .send()
+            .await
+            .ok()?;
         let list: ModelList = resp.json().await.ok()?;
-        list.data.into_iter()
+        list.data
+            .into_iter()
             .find(|m| m.model_type == "embeddings" && m.state == "loaded")
             .map(|m| m.id)
     }
@@ -1178,7 +1194,8 @@ impl InferenceEngine {
                       19. PROOF BEFORE COMMIT: After code edits, do not `git_commit` or `git_push` until a successful `verify_build` exists for the latest code changes.\n\
                       20. RISKY SHELL DISCIPLINE: Risky `shell` calls must include a concrete `reason` argument explaining what is being verified or changed.\n\
                       21. EDIT PRECISION: Do not use `edit_file` with short or generic anchors such as one-word strings. Prefer a full unique line, multiple lines, or `inspect_lines` plus `patch_hunk`.\n\
-                      22. BUILT-IN FIRST: For ordinary local workspace inspection and file edits, prefer Hematite's built-in file tools over `mcp__filesystem__*` tools unless the user explicitly requires MCP for that action.");
+                      22. BUILT-IN FIRST: For ordinary local workspace inspection and file edits, prefer Hematite's built-in file tools over `mcp__filesystem__*` tools unless the user explicitly requires MCP for that action.\n\
+                      22a. HOST INSPECTION PRIORITY: For read-only questions about installed tools, PATH entries, desktop items, Downloads size, or directory summaries, prefer `inspect_host` over raw `shell` when it can answer directly.");
 
         // Scaffolding protocol — enforces build validation after project creation.
         sys.push_str("\n## SCAFFOLDING PROTOCOL\n\

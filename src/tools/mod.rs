@@ -7,6 +7,7 @@ pub mod git;
 pub mod git_onboarding;
 pub mod guard;
 pub mod health;
+pub mod host_inspect;
 pub mod lsp_tools;
 pub mod plan;
 pub mod project_map;

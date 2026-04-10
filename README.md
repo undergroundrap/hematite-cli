@@ -147,7 +147,7 @@ Both modes. One binary. Voice in both. Switch with a command.
 
 ## Grounded Terminal Ops
 
-Hematite is not limited to "chat about code." It can turn natural-language requests into grounded terminal work using the same local tools a developer would reach for manually: `pwsh`, `git`, `cargo`, `rg`, file listings, process inspection, log reads, and project-specific build commands.
+Hematite is not limited to "chat about code." It can turn natural-language requests into grounded terminal work using the same local tools a developer would reach for manually: `inspect_host`, `pwsh`, `git`, `cargo`, `rg`, file listings, process inspection, log reads, and project-specific build commands.
 
 That matters because the model is no longer answering from vibes. It can inspect the actual machine state, run the real command, and answer from the output. For solo operators, that makes Hematite useful outside strict code editing too: repo triage, workstation inspection, log analysis, release verification, and general file-system investigation.
 
@@ -163,6 +163,8 @@ Useful examples:
 - "List my PATH entries and point out anything suspicious or duplicated."
 
 This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
+
+For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH analysis, toolchain detection, desktop inspection, Downloads summaries, and arbitrary directory reports. `shell` remains the fallback for custom checks that do not fit a built-in inspection topic.
 
 The shell path is still bounded like the rest of the harness: commands run through Hematite's tool layer with timeout limits, output capping, workspace awareness, and approval controls for risky actions.
 
@@ -480,6 +482,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
 | `map_project` | Compact architecture map with config markers, likely entrypoints, core owner files, and a bounded directory tree |
+| `inspect_host` | Structured read-only inspection of PATH, common toolchains, desktop items, Downloads, and arbitrary directories |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
 | `fetch_docs` | Fetch and convert documentation pages into readable Markdown for follow-up analysis |
@@ -493,7 +496,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `run_code` | Execute JavaScript/TypeScript (Deno) or Python in a zero-trust sandbox — real output, not model guesses |
 | `clarify` | Ask the user a question when genuinely blocked |
 
-That `shell` tool is not there for show. It is what lets Hematite answer questions from real local state instead of generic model priors: enumerate desktop files, inspect processes, trace PATH issues, search logs, verify installed toolchains, and run the project commands experienced developers already use daily.
+Use `inspect_host` first for structured host questions like installed tool versions, PATH drift, desktop item counts, or Downloads size. That keeps routine workstation inspection grounded without forcing the model to improvise shell commands. `shell` is still there for the cases that really do need a custom command.
 
 ---
 

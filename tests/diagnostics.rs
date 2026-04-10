@@ -263,7 +263,10 @@ fn test_vein_inspection_snapshot_reports_counts_and_hot_files() {
     assert_eq!(snapshot.indexed_session_exchanges, 1);
     assert_eq!(snapshot.embedded_source_doc_chunks, 0);
     assert_eq!(snapshot.active_room.as_deref(), Some("agent"));
-    assert!(snapshot.l1_ready, "hot files should make the L1 block available");
+    assert!(
+        snapshot.l1_ready,
+        "hot files should make the L1 block available"
+    );
     assert_eq!(snapshot.hot_files.len(), 2);
     assert_eq!(snapshot.hot_files[0].path, "src/agent/conversation.rs");
     assert_eq!(snapshot.hot_files[0].room, "agent");
@@ -491,6 +494,67 @@ fn test_pdf_quality_guard_rejects_garbled_text() {
 }
 
 // ── Sandboxed code execution ──────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_inspect_host_directory_reports_counts_and_names() {
+    use serde_json::json;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    let nested = workspace.path().join("nested");
+    fs::create_dir_all(&nested).expect("create nested dir");
+    fs::write(workspace.path().join("alpha.txt"), "hematite").expect("write alpha");
+    fs::write(nested.join("beta.log"), "operator").expect("write beta");
+
+    let args = json!({
+        "topic": "directory",
+        "path": workspace.path().display().to_string(),
+        "max_entries": 5
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host directory");
+
+    assert!(output.contains("Directory inspection: Directory"));
+    assert!(output.contains("Top-level items: 2"));
+    assert!(output.contains("alpha.txt"));
+    assert!(output.contains("nested"));
+    assert!(output.contains("Recursive files: 2"));
+}
+
+#[tokio::test]
+async fn test_inspect_host_path_reports_path_summary() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "path",
+        "max_entries": 5
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host path");
+
+    assert!(output.contains("Host inspection: PATH"));
+    assert!(output.contains("Total entries:"));
+    assert!(output.contains("PATH entries:"));
+}
+
+#[tokio::test]
+async fn test_describe_toolchain_host_inspection_plan_prefers_inspect_host() {
+    use serde_json::json;
+
+    let output = hematite::tools::toolchain::describe_toolchain(&json!({
+        "topic": "host_inspection_plan",
+        "question": "How should Hematite inspect my PATH and Downloads folder?"
+    }))
+    .await
+    .expect("describe host inspection plan");
+
+    assert!(output.contains("inspect_host"));
+    assert!(output.contains("optional `shell`"));
+    assert!(output.contains("PATH"));
+}
 
 #[tokio::test]
 async fn test_sandbox_python_runs() {
