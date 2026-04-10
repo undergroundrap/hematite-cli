@@ -1,6 +1,7 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    [switch]$Deep
+    [switch]$Deep,
+    [switch]$Reset   # Full blank-slate: everything Deep does + wipes settings.json, PLAN.md, TASK.md
 )
 
 $ErrorActionPreference = "Stop"
@@ -64,6 +65,8 @@ function Remove-Matches {
 $contentDirs = @(
     ".hematite\ghost",
     ".hematite\scratch",
+    ".hematite\memories",
+    ".hematite\sandbox",
     ".hematite_logs",
     ".hematite_scratch",
     "tmp"
@@ -107,7 +110,7 @@ foreach ($pattern in $runtimeGlobs) {
 
 Remove-TreeContents -LiteralPath ".hematite\reports"
 
-if ($Deep) {
+if ($Deep -or $Reset) {
     $deepTargets = @(
         "target",
         "onnx_lib",
@@ -115,6 +118,20 @@ if ($Deep) {
     )
 
     foreach ($target in $deepTargets) {
+        Remove-IfExists -LiteralPath $target
+    }
+}
+
+if ($Reset) {
+    # Full blank-slate — simulates a new user with no prior state.
+    # settings.json and mcp_servers.json are intentionally NOT wiped here;
+    # delete them manually if you want to test the absolute default config path.
+    $resetTargets = @(
+        ".hematite\PLAN.md",
+        ".hematite\TASK.md"
+    )
+
+    foreach ($target in $resetTargets) {
         Remove-IfExists -LiteralPath $target
     }
 }

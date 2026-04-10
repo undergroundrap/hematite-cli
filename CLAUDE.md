@@ -396,8 +396,9 @@ pwsh ./scripts/package-windows.ps1
 ## Cleanup
 
 ```powershell
-pwsh ./clean.ps1
-pwsh ./clean.ps1 -Deep
+pwsh ./clean.ps1           # ghost, scratch, memories, sandbox, reports, logs
+pwsh ./clean.ps1 -Deep    # + target/, onnx_lib/, vein.db
+pwsh ./clean.ps1 -Reset   # + PLAN.md, TASK.md (full blank-slate, simulates new user)
 ```
 
-This removes scratch files, logs, ghost backups, and runtime session artifacts. Deep cleanup also removes build outputs such as `target/` and `onnx_lib/`.
+Regular clean removes runtime artifacts: ghost backups, scratch files, session memories, sandbox output, reports, and logs. Deep also removes build outputs and the vein database. Reset goes further and wipes session state files — use this to simulate a first-run experience without touching `settings.json` or `mcp_servers.json`.
