@@ -209,13 +209,20 @@ any changed files and queries for context relevant to the user's message. Result
 the system prompt so the model starts with the right code already in view, reducing tool calls.
 
 **Per-project database:** stored at `.hematite/vein.db` inside the workspace root. Each project
-folder gets its own index. The Vein learns from files on disk, not from conversation content.
+folder gets its own index. The Vein learns from files on disk and local session artifacts, not from
+cloud state.
 
-**Non-project directories:** Vein indexing is skipped entirely when Hematite is launched outside a
-real project (no `Cargo.toml`, `package.json`, `go.mod`, etc. found walking up from the launch
-directory). A bare `.git` alone does not count. `VN:--` is the correct status in this case.
-Hematite still works fully as an AI assistant — only the file indexing and code context injection
-are inactive.
+**Non-project directories:** when Hematite is launched outside a real project (no `Cargo.toml`,
+`package.json`, `go.mod`, etc. found walking up from the launch directory), it skips the source-file
+walk but still keeps The Vein active in docs-only mode. `.hematite/docs/` and recent local session
+reports remain searchable, and the status badge shows `VN:DOC`. A bare `.git` alone does not count
+as a project workspace.
+
+**Auxiliary local memory inputs:** besides project source, The Vein also indexes:
+
+- `.hematite/docs/` for permanent local reference material
+- `.hematite/reports/` for recent local session reports, chunked by exchange pair (`user` +
+  `assistant`) and capped to the last 5 sessions / 50 turns per session
 
 **Two retrieval modes, hybrid-merged:**
 
@@ -228,13 +235,18 @@ are inactive.
 
 **To enable semantic search:** load `text-embedding-nomic-embed-text-v2` in LM Studio alongside
 your main coding model. On an RTX 4070 this costs ~512 MB VRAM — both models fit comfortably.
-Status bar shows `VN:SEM` (green) when active, `VN:FTS` (yellow) for BM25-only.
+Status bar shows `VN:SEM` (green) when active, `VN:FTS` (yellow) for BM25-only project/docs
+indexing, and `VN:DOC` when only docs/session memory are active outside a project.
 
 **Automatic backfill:** if the embedding model is loaded after initial indexing, Hematite detects
 unembedded chunks and fills them gradually (20 per turn) without needing a reset or file-touch.
 
 **How hybrid ranking works:** semantic hits score 1.0–2.0 (preferred), BM25 fills to 0.0–1.0 for
 paths not already covered. Results are deduplicated by file path and capped at 1500 chars total.
+
+**Active-room bias:** file edit heat is tracked per path. The hottest subsystem room gets a small
+retrieval boost, and a compact hot-files block grouped by room is injected into the prompt so the
+model stays oriented toward the part of the codebase you're actively editing.
 
 **Incremental indexing:** files are re-indexed only when their mtime changes. BM25 runs on every
 changed file; embeddings are generated for the same files so the vector store stays in sync.
@@ -289,6 +301,7 @@ Hematite tracks token usage and session cost in real time.
 - Session reports are written to `.hematite/reports/session_YYYY-MM-DD_HH-MM-SS.json` on every exit and cancel
 - Report includes: session start timestamp, duration, model, context length, total tokens, estimated cost, turn count, and full transcript
 - `.hematite/reports/` is gitignored — reports are local runtime artifacts
+- The Vein indexes recent reports as local retrieval memory by exchange pair, capped to the last 5 sessions and 50 turns per session, tagged as `session` room memory so they do not pollute normal source-file status counts
 
 ## Sandboxed Code Execution
 
@@ -390,7 +403,7 @@ pwsh ./scripts/package-windows.ps1
 
 - The ONNX model (311 MB) is baked into the binary at compile time — no separate download
 - `DirectML.dll` is copied from `target/release/` automatically by the ORT build script
-- Output: `dist/windows/Hematite-0.2.1-portable.zip` (~336 MB)
+- Output: `dist/windows/Hematite-0.3.0-portable.zip` (~336 MB)
 - `dist/` is gitignored — these are release artifacts, not tracked in source
 
 ## Cleanup

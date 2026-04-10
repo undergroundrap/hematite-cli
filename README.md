@@ -19,7 +19,7 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding agent when you need it, clean conversation when you don't. LM Studio handles model serving. Hematite handles everything else.
 
-![Version](https://img.shields.io/badge/version-0.2.1-orange?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.3.0-orange?style=flat-square)
 ![Windows](https://img.shields.io/badge/Windows-native-blue?style=flat-square)
 ![Linux](https://img.shields.io/badge/Linux-supported-green?style=flat-square)
 ![macOS](https://img.shields.io/badge/macOS-supported-lightgrey?style=flat-square)
@@ -321,7 +321,7 @@ After bumping the version:
 pwsh ./scripts/package-windows.ps1
 ```
 
-This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.2.1-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
+This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.3.0-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
 
 For macOS or Linux:
 
@@ -339,7 +339,7 @@ pwsh ./scripts/package-windows.ps1 -AddToPath
 
 Restart your terminal after running this. From then on, `cd` into any project folder and type `hematite` — it picks up your project root automatically via `.git` or `Cargo.toml`/`package.json`. Works in PowerShell, CMD, Windows Terminal, VS Code's integrated terminal, and JetBrains IDEs.
 
-**One workspace per session.** Hematite locks onto the directory it was launched in — that's what gets indexed, and that's where all file tools operate. `cd`-ing inside the terminal after launch doesn't move the workspace. To switch projects, exit and relaunch in the new folder. This is intentional: a single locked workspace keeps the model's context clean and prevents tools from operating on the wrong directory. It also means you can run Hematite in a non-project folder — a downloads folder, a scripts directory, anywhere — and it adapts to what's there. Outside a project directory, Vein indexing is skipped automatically (nothing useful to index), and Hematite functions as a general AI assistant.
+**One workspace per session.** Hematite locks onto the directory it was launched in — that's what gets indexed, and that's where all file tools operate. `cd`-ing inside the terminal after launch doesn't move the workspace. To switch projects, exit and relaunch in the new folder. This is intentional: a single locked workspace keeps the model's context clean and prevents tools from operating on the wrong directory. It also means you can run Hematite in a non-project folder — a downloads folder, a scripts directory, anywhere — and it adapts to what's there. Outside a project directory, Hematite skips the source-file walk but still keeps The Vein alive in docs-only mode: `.hematite/docs/` and recent local session reports remain searchable, and the status badge shows `VN:DOC`.
 
 **Global settings.** Hematite loads `~/.hematite/settings.json` as a fallback when no workspace-level `.hematite/settings.json` exists. This means your model preference, voice settings, and API URL work from any directory — not just from inside a project. Workspace settings always win when both exist.
 
@@ -371,7 +371,7 @@ Linux note: Hematite's voice stack still depends on distro-provided `libsonic` a
 GitHub Actions can build the latest release artifacts for all supported desktop platforms.
 
 - `workflow_dispatch` lets you run the release build manually from GitHub
-- pushing a tag like `v0.2.1` builds the newest Windows, Linux, and macOS artifacts automatically
+- pushing a tag like `v0.3.0` builds the newest Windows, Linux, and macOS artifacts automatically
 - tagged builds attach the generated Windows `.zip` and `Setup.exe`, plus Unix `.tar.gz` archives, to the GitHub release
 
 Typical release flow:
@@ -496,6 +496,12 @@ The Vein is Hematite's retrieval layer. At the start of every turn it re-indexes
 
 **The index is per-project.** The database lives at `.hematite/vein.db` inside the workspace root. Run Hematite in a different folder and it gets a completely separate index for that project — no cross-contamination. The index is purely file-driven: it learns from what's on disk, not from the conversation. As you edit code the index stays current automatically because files are only re-indexed when their mtime changes.
 
+**The Vein now has three local memory inputs:**
+
+- **Project source files** — the main code/config index for real project workspaces.
+- **Reference docs in `.hematite/docs/`** — always indexable local support material, including docs-only launches outside projects.
+- **Recent session reports in `.hematite/reports/`** — the last 5 sessions are indexed as exchange pairs, capped to the last 50 user/assistant turns per session, so prior local decisions can be recalled without flooding the index.
+
 **Two retrieval modes run together:**
 
 - **BM25 keyword search** (always on) — SQLite FTS5 with Porter stemming. Zero extra GPU cost, works with any LM Studio setup.
@@ -503,11 +509,13 @@ The Vein is Hematite's retrieval layer. At the start of every turn it re-indexes
 
 **Why run two models?** The coding model handles language, reasoning, and tool calls. The embedding model does one specific job: convert code chunks and your queries into vectors so Hematite can find the most relevant files by meaning rather than just keywords. It stays loaded but idle during inference — it only activates when indexing changed files or searching. On an RTX 4070 (12 GB VRAM), Qwen/Qwen3.5-9B Q4_K_M uses ~6 GB and nomic-embed-text-v2 Q8_0 uses ~512 MB, leaving comfortable headroom. You do not need to swap models or manage them manually — just load both in LM Studio and leave them running.
 
-**To enable semantic search:** load `nomic-embed-text-v2` Q8_0 in LM Studio alongside your main coding model. The status bar shows `VN:SEM` (green) when semantic search is active, `VN:FTS` (yellow) when only BM25 is running, and `VN:--` (grey) when launched outside a project directory or before the first index pass.
+**To enable semantic search:** load `nomic-embed-text-v2` Q8_0 in LM Studio alongside your main coding model. The status bar shows `VN:SEM` (green) when semantic search is active, `VN:FTS` (yellow) when only BM25 is running, `VN:DOC` when Hematite is outside a real project but docs/session memory are still searchable, and `VN:--` (grey) before the first index pass or after a reset.
 
 **Automatic backfill:** if you load the embedding model after Hematite has already indexed your project, it detects the gap and re-embeds the missing chunks gradually across the next few turns — no `/vein-reset` or file-touch needed. The `VN:FTS` badge flips to `VN:SEM` once the backfill completes.
 
 Hybrid results are merged and ranked: semantic hits score higher when the embedding model is available; BM25 fills the gap when it isn't. Results are deduplicated by file path and capped so they don't crowd out the model's working context.
+
+**Active-room memory bias:** Hematite tracks which files you edit most, groups those hot files by subsystem, injects a compact "hot files" block into the prompt, and gives retrieval a small score boost toward the currently hottest room. That keeps the model leaning toward the part of the codebase you're actively changing without hard-pinning stale context.
 
 **To wipe and rebuild the index** (e.g. switching projects or after a big refactor): use `/vein-reset` in the TUI. The database is cleared immediately and rebuilt from scratch on the next turn. For a full deep clean including the database file, use `pwsh ./clean.ps1 -Deep`.
 
@@ -676,6 +684,8 @@ On every exit (Ctrl+C) or cancel (ESC), Hematite writes a structured JSON report
 ```
 
 Reports are gitignored — they are local runtime artifacts for your own review.
+
+Hematite also reuses those reports as local retrieval memory. The Vein indexes recent reports by exchange pair — one user message plus Hematite's reply — under `session/.../turn-N`, capped to the last 5 sessions and last 50 turns per session. These chunks are tagged as `session` memory so they stay available when relevant without inflating normal source-file counts in the status bar.
 
 ### Tool Loop Guard
 
