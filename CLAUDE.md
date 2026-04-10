@@ -262,6 +262,9 @@ model stays oriented toward the part of the codebase you're actively editing.
 filenames/commands/tool IDs, and "what did we decide earlier" style prompts that should prefer
 session/import memory over generic source overlap.
 
+**Room taxonomy:** room detection is also rule-based across path segments and filenames now, so
+runtime/config/release/integration/doc files do not all collapse into generic folder labels.
+
 **Operator inspection:** `/vein-inspect` prints a compact report of the current Vein state:
 workspace mode, indexed source/docs/session counts, embedding availability, active room bias, and
 the current hot files grouped by room. Use it when you want to inspect what memory Hematite is

@@ -254,10 +254,24 @@ fn test_detect_room_known_segments() {
 }
 
 #[test]
+fn test_detect_room_specialized_roles() {
+    use hematite::memory::vein::detect_room;
+    assert_eq!(detect_room("src/runtime.rs"), "runtime");
+    assert_eq!(detect_room("src/agent/mcp_manager.rs"), "integration");
+    assert_eq!(detect_room("Cargo.toml"), "config");
+    assert_eq!(detect_room("installer/hematite.iss"), "release");
+    assert_eq!(
+        detect_room(".github/workflows/windows-release.yml"),
+        "automation"
+    );
+    assert_eq!(detect_room("README.md"), "docs");
+}
+
+#[test]
 fn test_detect_room_fallback() {
     use hematite::memory::vein::detect_room;
-    assert_eq!(detect_room("src/main.rs"), "src");
-    assert_eq!(detect_room("README.md"), "root"); // file at root with extension → root
+    assert_eq!(detect_room("src/plain.rs"), "src");
+    assert_eq!(detect_room("notes.bin"), "root");
 }
 
 #[test]
@@ -265,6 +279,10 @@ fn test_detect_room_session_prefix() {
     use hematite::memory::vein::detect_room;
     assert_eq!(
         detect_room("session/2026-04-09/2026-04-09_20-15-00/turn-12"),
+        "session"
+    );
+    assert_eq!(
+        detect_room(".hematite/imports/claude-rollout.jsonl"),
         "session"
     );
 }

@@ -103,31 +103,157 @@ enum SessionSpeakerKind {
 }
 
 /// Derive a subsystem room label from a file path.
-/// Uses path segments to map to known Hematite subsystems.
-/// Falls back to the first directory component or "root".
+/// Uses path segments, filenames, and repo-role hints to map files into
+/// stable subsystem rooms. Falls back to the first directory component or
+/// "root" when no stronger signal exists.
 pub fn detect_room(path: &str) -> String {
-    const KNOWN: &[(&str, &str)] = &[
-        ("agent", "agent"),
-        ("ui", "ui"),
-        ("tools", "tools"),
-        ("memory", "memory"),
-        ("session", "session"),
-        ("tests", "tests"),
-        ("scripts", "scripts"),
-        ("installer", "installer"),
-        ("libs", "libs"),
-        ("docs", "docs"),
-    ];
     let lower = path.to_lowercase().replace('\\', "/");
-    for (segment, room) in KNOWN {
-        // Match as a path component (surrounded by / or at start)
-        if lower == *segment
-            || lower.starts_with(&format!("{}/", segment))
-            || lower.contains(&format!("/{}/", segment))
-        {
-            return room.to_string();
+    let filename = lower.rsplit('/').next().unwrap_or(&lower);
+    let ext = filename.rsplit('.').next().unwrap_or("");
+
+    let mut best_room = None::<&str>;
+    let mut best_score = 0i32;
+    let mut consider = |room: &'static str, score: i32| {
+        if score > best_score {
+            best_score = score;
+            best_room = Some(room);
         }
+    };
+
+    let is_component = |segment: &str| {
+        lower == segment
+            || lower.starts_with(&format!("{segment}/"))
+            || lower.contains(&format!("/{segment}/"))
+    };
+
+    if lower.starts_with("session/")
+        || lower.starts_with(".hematite/reports/")
+        || lower.starts_with(".hematite/imports/")
+        || is_component("reports")
+        || is_component("imports")
+    {
+        consider("session", 100);
     }
+
+    if lower.starts_with(".hematite/docs/")
+        || is_component("docs")
+        || matches!(filename, "readme.md" | "claude.md" | ".hematite.md")
+        || matches!(ext, "md" | "markdown" | "pdf" | "rst")
+    {
+        consider("docs", 80);
+    }
+
+    if is_component("tests")
+        || filename.contains("diagnostic")
+        || filename.ends_with("_test.rs")
+        || filename.ends_with(".test.ts")
+    {
+        consider("tests", 85);
+    }
+
+    if lower.starts_with(".github/workflows/")
+        || is_component("workflows")
+        || filename == ".pre-commit-config.yaml"
+        || filename == ".pre-commit-config.yml"
+        || filename.contains("hook")
+    {
+        consider("automation", 78);
+    }
+
+    if lower.starts_with("installer/")
+        || lower.starts_with("dist/")
+        || lower.starts_with("scripts/package-")
+        || filename.contains("release")
+        || filename.contains("bump-version")
+        || ext == "iss"
+    {
+        consider("release", 82);
+    }
+
+    if matches!(
+        filename,
+        "cargo.toml"
+            | "cargo.lock"
+            | "package.json"
+            | "pnpm-lock.yaml"
+            | "yarn.lock"
+            | "bun.lock"
+            | "bun.lockb"
+            | "pyproject.toml"
+            | "setup.py"
+            | "go.mod"
+            | "pom.xml"
+            | "build.gradle"
+            | "build.gradle.kts"
+            | "cmakelists.txt"
+            | ".gitignore"
+            | "settings.json"
+            | "mcp_servers.json"
+    ) || filename.ends_with(".sln")
+        || filename.ends_with(".csproj")
+        || filename.contains("config")
+    {
+        consider("config", 76);
+    }
+
+    if is_component("ui")
+        || matches!(
+            filename,
+            "tui.rs" | "voice.rs" | "hatch.rs" | "gpu_monitor.rs"
+        )
+    {
+        consider("ui", 70);
+    }
+
+    if is_component("memory") || matches!(filename, "vein.rs" | "deep_reflect.rs") {
+        consider("memory", 72);
+    }
+
+    if is_component("tools")
+        || matches!(
+            filename,
+            "verify_build.rs"
+                | "host_inspect.rs"
+                | "shell.rs"
+                | "code_sandbox.rs"
+                | "project_map.rs"
+                | "runtime_trace.rs"
+        )
+    {
+        consider("tools", 68);
+    }
+
+    if filename.contains("mcp")
+        || filename.contains("lsp")
+        || lower.contains("/mcp/")
+        || lower.contains("/lsp/")
+    {
+        consider("integration", 67);
+    }
+
+    if matches!(filename, "main.rs" | "runtime.rs" | "inference.rs")
+        || filename.contains("startup")
+        || filename.contains("runtime")
+    {
+        consider("runtime", 66);
+    }
+
+    if is_component("agent") {
+        consider("agent", 60);
+    }
+
+    if lower.starts_with("libs/") || is_component("libs") {
+        consider("libs", 58);
+    }
+
+    if lower.starts_with("scripts/") || is_component("scripts") {
+        consider("scripts", 55);
+    }
+
+    if let Some(room) = best_room {
+        return room.to_string();
+    }
+
     // Fall back to first directory component
     lower
         .split('/')

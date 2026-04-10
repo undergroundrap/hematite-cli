@@ -604,6 +604,8 @@ Hybrid results are merged and ranked: semantic hits score higher when the embedd
 
 **Ranking cues:** Vein reranking gives extra weight to exact quoted phrases, standout tokens like filenames, commands, codenames, and tool IDs, and memory-style prompts such as "what did we decide earlier" that should lean toward session/import memory instead of generic source overlap.
 
+**Room taxonomy:** Vein room detection is now rule-based across path segments and filenames, so files like `Cargo.toml`, `runtime.rs`, `mcp_manager.rs`, GitHub workflow YAML, installer assets, and top-level docs land in more useful rooms such as `config`, `runtime`, `integration`, `automation`, `release`, and `docs` instead of collapsing into generic folder names.
+
 **Operator inspection:** `/vein-inspect` prints a compact report of the current Vein state: project vs docs-only mode, indexed source/docs/session counts, embedding availability, active room bias, and the current hot files grouped by room. Use this when you want to see what memory Hematite is actually carrying instead of guessing.
 
 **Cross-tool memory import:** if you have useful prior decisions trapped in another tool, drop the export into `.hematite/imports/` and relaunch or send another turn. Hematite treats those imported chats as session memory, chunks them by user/assistant exchange pair, and keeps them out of the normal source-file counters.
