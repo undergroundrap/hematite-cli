@@ -19,7 +19,7 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding agent when you need it, clean conversation when you don't. LM Studio handles model serving. Hematite handles everything else.
 
-![Version](https://img.shields.io/badge/version-0.3.0-orange?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.3.1-orange?style=flat-square)
 ![Windows](https://img.shields.io/badge/Windows-native-blue?style=flat-square)
 ![Linux](https://img.shields.io/badge/Linux-supported-green?style=flat-square)
 ![macOS](https://img.shields.io/badge/macOS-supported-lightgrey?style=flat-square)
@@ -321,7 +321,7 @@ After bumping the version:
 pwsh ./scripts/package-windows.ps1
 ```
 
-This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.3.0-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
+This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.3.1-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
 
 For macOS or Linux:
 
@@ -371,19 +371,19 @@ Linux note: Hematite's voice stack still depends on distro-provided `libsonic` a
 GitHub Actions can build the latest release artifacts for all supported desktop platforms.
 
 - `workflow_dispatch` lets you run the release build manually from GitHub
-- pushing a tag like `v0.3.0` builds the newest Windows, Linux, and macOS artifacts automatically
+- pushing a tag like `v0.3.1` builds the newest Windows, Linux, and macOS artifacts automatically
 - tagged builds attach the generated Windows `.zip` and `Setup.exe`, plus Unix `.tar.gz` archives, to the GitHub release
 
 Typical release flow:
 
 ```powershell
-pwsh ./bump-version.ps1 -Version 0.3.0
+pwsh ./bump-version.ps1 -Version 0.3.1
 cargo build
 git add Cargo.toml Cargo.lock README.md CLAUDE.md installer/hematite.iss
-git commit -m "chore: bump version to 0.3.0"
-git tag -a v0.3.0 -m "Release v0.3.0"
+git commit -m "chore: bump version to 0.3.1"
+git tag -a v0.3.1 -m "Release v0.3.1"
 git push origin main
-git push origin v0.3.0
+git push origin v0.3.1
 ```
 
 Pushing the tag triggers both `windows-release.yml` and `unix-release.yml` automatically. When both go green, the portable zip, Windows installer, and Unix archives are attached to the GitHub Release — no manual upload needed.
