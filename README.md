@@ -387,6 +387,8 @@ By default, the wrapper stops after the local commit, packaging, and local tag c
 
 **Agent note:** if this repo is being operated through an external AI harness such as Codex or Claude, treat the Windows build/package/install path as a real local-machine workflow, not a sandbox-first task. `cargo build --release`, `scripts/package-windows.ps1`, installer generation, and `-AddToPath` can touch the local ORT cache under `AppData`, native release sidecars, `dist/`, and the real user `PATH`. Run those steps with full local access first; reserve sandboxed runs for source inspection, lightweight checks, and isolated code execution.
 
+**Codex note:** Codex in particular may require explicit elevation for Git writes and other real-machine operations such as `git add`, `git commit`, `git tag`, `git push`, release packaging, and PATH updates. That is expected behavior from the harness, not a Hematite issue. If a Git or packaging step needs approval, approve it once and continue with the unrestricted path instead of retrying inside the sandbox.
+
 ### Building a Release
 
 After bumping the version:
@@ -470,6 +472,8 @@ git push origin vX.Y.Z
 ```
 
 Pushing the tag triggers both `windows-release.yml` and `unix-release.yml` automatically. When both go green, the portable zip, Windows installer, and Unix archives are attached to the GitHub Release — no manual upload needed.
+
+For Hematite's release routine, the local Windows build is still the right final preflight because it refreshes the portable bundle you actually run, refreshes `Setup.exe`, and gives you a real smoke test before tagging. The macOS and Linux artifacts are then built remotely by GitHub Actions from the pushed tag â€” you do not need to package those locally first unless you want extra manual verification.
 
 Versioning still comes from `Cargo.toml`, so the package names and installer version stay aligned with the Rust crate version.
 
