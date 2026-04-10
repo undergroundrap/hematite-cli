@@ -102,7 +102,8 @@ Status bar guide:
 - LM:STALE (yellow)= Model detected but connection went quiet
 - VN:SEM (green)   = Vein semantic search active (nomic loaded alongside coding model)
 - VN:FTS (yellow)  = Vein keyword search only (load nomic-embed-text-v2 to upgrade)
-- VN:--  (grey)    = No project detected, or not yet indexed (cd into a project folder)
+- VN:DOC (yellow)  = Docs/session memory only outside a real project workspace
+- VN:--  (grey)    = Vein not indexed yet, or reset before the next turn rebuild
 - BUD / CMP        = prompt budget and compaction pressure
 
 More info: https://github.com/undergroundrap/hematite-cli
