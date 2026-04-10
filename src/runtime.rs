@@ -270,7 +270,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         .send(InferenceEvent::MutedToken(format!("\n{}", greeting)))
         .await;
 
-    if let Err(e) = manager.initialize_mcp().await {
+    if let Err(e) = manager.initialize_mcp(&agent_tx).await {
         let _ = agent_tx
             .send(InferenceEvent::Error(format!("MCP Init Failed: {}", e)))
             .await;

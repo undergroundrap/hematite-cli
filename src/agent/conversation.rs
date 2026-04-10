@@ -1320,9 +1320,11 @@ impl ConversationManager {
     }
 
     /// Spawns and initializes all configured MCP servers, discovering their tools.
-    pub async fn initialize_mcp(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let (tx, _rx) = mpsc::channel(1);
-        let _ = self.refresh_mcp_tools(&tx).await?;
+    pub async fn initialize_mcp(
+        &mut self,
+        tx: &mpsc::Sender<InferenceEvent>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let _ = self.refresh_mcp_tools(tx).await?;
         Ok(())
     }
 

@@ -291,11 +291,17 @@ impl McpManager {
     }
 
     pub fn runtime_report(&self) -> McpRuntimeReport {
+        let first_error = self
+            .startup_errors
+            .first()
+            .or_else(|| self.discovery_errors.first())
+            .map(String::as_str);
         runtime_report_from_snapshot(
             self.configured_servers,
             self.connections.len(),
             self.discovered_tools.len(),
             self.startup_errors.len() + self.discovery_errors.len(),
+            first_error,
         )
     }
 }
@@ -305,6 +311,7 @@ fn runtime_report_from_snapshot(
     connected_servers: usize,
     active_tools: usize,
     error_count: usize,
+    first_error: Option<&str>,
 ) -> McpRuntimeReport {
     let state = if configured_servers == 0 {
         McpRuntimeState::Unconfigured
@@ -316,6 +323,8 @@ fn runtime_report_from_snapshot(
         McpRuntimeState::Healthy
     };
 
+    let detail = summarize_runtime_error(first_error);
+
     let summary = match state {
         McpRuntimeState::Unconfigured => "No MCP servers configured.".to_string(),
         McpRuntimeState::Healthy => format!(
@@ -323,12 +332,12 @@ fn runtime_report_from_snapshot(
             connected_servers, configured_servers, active_tools
         ),
         McpRuntimeState::Degraded => format!(
-            "MCP degraded: {}/{} servers connected; {} tools active; {} startup/discovery issue(s).",
-            connected_servers, configured_servers, active_tools, error_count
+            "MCP degraded: {}/{} servers connected; {} tools active; {} startup/discovery issue(s){}",
+            connected_servers, configured_servers, active_tools, error_count, detail
         ),
         McpRuntimeState::Failed => format!(
-            "MCP failed: 0/{} servers connected; {} startup/discovery issue(s).",
-            configured_servers, error_count
+            "MCP failed: 0/{} servers connected; {} startup/discovery issue(s){}",
+            configured_servers, error_count, detail
         ),
     };
 
@@ -342,34 +351,49 @@ fn runtime_report_from_snapshot(
     }
 }
 
+fn summarize_runtime_error(first_error: Option<&str>) -> String {
+    let Some(error) = first_error.map(str::trim).filter(|value| !value.is_empty()) else {
+        return ".".to_string();
+    };
+
+    const MAX_CHARS: usize = 160;
+    let mut truncated = error.chars().take(MAX_CHARS).collect::<String>();
+    if error.chars().count() > MAX_CHARS {
+        truncated.push_str("...");
+    }
+    format!(" First issue: {truncated}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn runtime_report_marks_unconfigured_when_no_servers_exist() {
-        let report = runtime_report_from_snapshot(0, 0, 0, 0);
+        let report = runtime_report_from_snapshot(0, 0, 0, 0, None);
         assert_eq!(report.state, McpRuntimeState::Unconfigured);
         assert!(report.summary.contains("No MCP servers configured"));
     }
 
     #[test]
     fn runtime_report_marks_failed_when_servers_exist_but_none_connect() {
-        let report = runtime_report_from_snapshot(2, 0, 0, 2);
+        let report = runtime_report_from_snapshot(2, 0, 0, 2, Some("filesystem: spawn failed"));
         assert_eq!(report.state, McpRuntimeState::Failed);
         assert!(report.summary.contains("0/2"));
+        assert!(report.summary.contains("filesystem: spawn failed"));
     }
 
     #[test]
     fn runtime_report_marks_degraded_when_some_servers_or_discovery_steps_fail() {
-        let report = runtime_report_from_snapshot(2, 1, 3, 1);
+        let report = runtime_report_from_snapshot(2, 1, 3, 1, Some("filesystem: tools/list failed"));
         assert_eq!(report.state, McpRuntimeState::Degraded);
         assert!(report.summary.contains("1/2"));
+        assert!(report.summary.contains("tools/list failed"));
     }
 
     #[test]
     fn runtime_report_marks_healthy_when_all_servers_connect_without_errors() {
-        let report = runtime_report_from_snapshot(2, 2, 5, 0);
+        let report = runtime_report_from_snapshot(2, 2, 5, 0, None);
         assert_eq!(report.state, McpRuntimeState::Healthy);
         assert!(report.summary.contains("5 tools active"));
     }

@@ -853,9 +853,13 @@ Hematite can load external MCP tools from JSON config files at:
 
 Workspace entries override global entries with the same server name. The current runtime supports **stdio MCP servers** and reloads the config on each turn, so you can add or edit servers without restarting Hematite.
 
+If you launch Hematite from the desktop, home folder, or any directory outside a specific project, only the global config is guaranteed to apply. Workspace-local MCP config is discovered from the current workspace root, so a repo-local `.hematite/mcp_servers.json` is not visible when you start Hematite somewhere else.
+
 On Windows, wrapper commands such as `npx`, `npm`, `.cmd`, and `.bat` launchers are resolved automatically, so standard MCP examples work without hardcoding absolute paths.
 
 Hematite captures MCP server stderr in memory instead of letting child processes write directly into the TUI. That avoids screen corruption in terminals like VS Code and does not create extra MCP log files on disk.
+
+At startup, MCP health is reported in the `SPECULAR` pane, including unconfigured, healthy, degraded, and failed states. Failed or degraded startup now includes the first surfaced server error instead of only a connection count.
 
 Example:
 
