@@ -166,6 +166,12 @@ This is one of Hematite's strongest local advantages: a terminal-native AI that 
 
 For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH analysis, toolchain detection, desktop inspection, Downloads summaries, and arbitrary directory reports. `shell` remains the fallback for custom checks that do not fit a built-in inspection topic.
 
+Try these prompts:
+
+- `Inspect my PATH, tell me which developer tools you detect with versions, point out any duplicate or missing PATH entries, then give me a one-paragraph summary of whether this machine looks ready for local development.`
+- `Count and name the items on my desktop.`
+- `Inspect my Downloads folder and tell me the top-level item count, the biggest entries, and whether anything there looks unusually large.`
+
 The shell path is still bounded like the rest of the harness: commands run through Hematite's tool layer with timeout limits, output capping, workspace awareness, and approval controls for risky actions.
 
 ---
