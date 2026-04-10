@@ -87,7 +87,7 @@ fn inspect_summary(max_entries: usize) -> Result<String, String> {
 
     if !toolchains.missing.is_empty() {
         out.push_str(&format!(
-            "- Common tools missing from PATH: {}\n",
+            "- Common tools not detected on PATH: {}\n",
             toolchains.missing.join(", ")
         ));
     }
@@ -134,7 +134,7 @@ fn inspect_toolchains() -> Result<String, String> {
     }
 
     if !report.missing.is_empty() {
-        out.push_str("\nMissing from PATH:\n");
+        out.push_str("\nNot detected on PATH:\n");
         for label in report.missing {
             out.push_str(&format!("- {}\n", label));
         }
@@ -536,13 +536,27 @@ fn collect_toolchains() -> ToolchainReport {
         ToolCheck::new("rustc", &[CommandProbe::new("rustc", &["--version"])]),
         ToolCheck::new("cargo", &[CommandProbe::new("cargo", &["--version"])]),
         ToolCheck::new("node", &[CommandProbe::new("node", &["--version"])]),
-        ToolCheck::new("npm", &[CommandProbe::new("npm", &["--version"])]),
-        ToolCheck::new("pnpm", &[CommandProbe::new("pnpm", &["--version"])]),
+        ToolCheck::new(
+            "npm",
+            &[
+                CommandProbe::new("npm", &["--version"]),
+                CommandProbe::new("npm.cmd", &["--version"]),
+            ],
+        ),
+        ToolCheck::new(
+            "pnpm",
+            &[
+                CommandProbe::new("pnpm", &["--version"]),
+                CommandProbe::new("pnpm.cmd", &["--version"]),
+            ],
+        ),
         ToolCheck::new(
             "python",
             &[
                 CommandProbe::new("python", &["--version"]),
                 CommandProbe::new("python3", &["--version"]),
+                CommandProbe::new("py", &["-3", "--version"]),
+                CommandProbe::new("py", &["--version"]),
             ],
         ),
         ToolCheck::new("deno", &[CommandProbe::new("deno", &["--version"])]),

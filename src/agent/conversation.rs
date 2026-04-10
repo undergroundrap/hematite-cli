@@ -4570,17 +4570,6 @@ fn is_parallel_safe(name: &str) -> bool {
 mod tests {
     use super::*;
 
-    fn tool_call(name: &str, arguments: &str) -> crate::agent::inference::ToolCallResponse {
-        crate::agent::inference::ToolCallResponse {
-            id: "call-1".to_string(),
-            call_type: "function".to_string(),
-            function: crate::agent::inference::ToolCallFn {
-                name: name.to_string(),
-                arguments: arguments.to_string(),
-            },
-        }
-    }
-
     #[test]
     fn classifies_lm_studio_context_budget_mismatch_as_context_window() {
         let detail = r#"LM Studio error 400 Bad Request: {"error":"The number of tokens to keep from the initial prompt is greater than the context length (n_keep: 28768>= n_ctx: 4096). Try to load the model with a larger context length, or provide a shorter input."}"#;
@@ -4690,6 +4679,12 @@ mod tests {
             "Inspect my PATH, tell me which developer tools you detect with versions, point out any duplicate or missing PATH entries, then summarize whether this machine looks ready for local development.",
         );
         assert!(intent.host_inspection_mode);
+        assert_eq!(
+            preferred_host_inspection_topic(
+                "Inspect my PATH, tell me which developer tools you detect with versions, point out any duplicate or missing PATH entries, then summarize whether this machine looks ready for local development."
+            ),
+            Some("summary")
+        );
     }
 
     #[test]

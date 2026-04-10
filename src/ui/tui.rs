@@ -673,7 +673,12 @@ impl App {
 }
 
 fn copy_text_to_clipboard(text: &str) {
-    // Windows clip.exe — fast and zero dependencies.
+    if copy_text_to_clipboard_powershell(text) {
+        return;
+    }
+
+    // Fallback: Windows clip.exe is fast and dependency-free, but some
+    // terminal/clipboard paths can mangle non-ASCII punctuation.
     let mut child = std::process::Command::new("clip.exe")
         .stdin(std::process::Stdio::piped())
         .spawn()
@@ -684,6 +689,35 @@ fn copy_text_to_clipboard(text: &str) {
         let _ = stdin.write_all(text.as_bytes());
     }
     let _ = child.wait();
+}
+
+fn copy_text_to_clipboard_powershell(text: &str) -> bool {
+    let temp_path = std::env::temp_dir().join(format!(
+        "hematite-clipboard-{}-{}.txt",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or_default()
+    ));
+
+    if std::fs::write(&temp_path, text.as_bytes()).is_err() {
+        return false;
+    }
+
+    let escaped_path = temp_path.display().to_string().replace('\'', "''");
+    let script = format!(
+        "$t = Get-Content -LiteralPath '{}' -Raw -Encoding UTF8; Set-Clipboard -Value $t",
+        escaped_path
+    );
+
+    let status = std::process::Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .status();
+
+    let _ = std::fs::remove_file(&temp_path);
+
+    matches!(status, Ok(code) if code.success())
 }
 
 fn should_skip_transcript_copy_entry(speaker: &str, content: &str) -> bool {

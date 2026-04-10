@@ -19,7 +19,7 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding agent when you need it, clean conversation when you don't. LM Studio handles model serving. Hematite handles everything else.
 
-![Version](https://img.shields.io/badge/version-0.3.3-orange?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.4.0-orange?style=flat-square)
 ![Windows](https://img.shields.io/badge/Windows-native-blue?style=flat-square)
 ![Linux](https://img.shields.io/badge/Linux-supported-green?style=flat-square)
 ![macOS](https://img.shields.io/badge/macOS-supported-lightgrey?style=flat-square)
@@ -384,6 +384,8 @@ pwsh ./release.ps1 -Version X.Y.Z -Push -AddToPath
 `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` is the closest thing to a full "ship it" command for Hematite on Windows: it creates the local version-bump commit, builds the portable bundle and installer, updates your PATH to the new portable directory, creates the local annotated tag, and then pushes both `main` and the new tag to GitHub.
 
 By default, the wrapper stops after the local commit, packaging, and local tag creation. Add `-Push` if you want it to push `main` and the new tag to GitHub automatically.
+
+**Agent note:** if this repo is being operated through an external AI harness such as Codex or Claude, treat the Windows build/package/install path as a real local-machine workflow, not a sandbox-first task. `cargo build --release`, `scripts/package-windows.ps1`, installer generation, and `-AddToPath` can touch the local ORT cache under `AppData`, native release sidecars, `dist/`, and the real user `PATH`. Run those steps with full local access first; reserve sandboxed runs for source inspection, lightweight checks, and isolated code execution.
 
 ### Building a Release
 

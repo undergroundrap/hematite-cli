@@ -32,6 +32,13 @@ pwsh ./clean.ps1
 >
 > `cargo run` is the fastest loop during development. Run the package script before testing with
 > the portable binary or before committing/tagging a release.
+>
+> **Agent rule:** if you are operating this repo through an external harness with sandboxed tools,
+> do not start local Windows build/package/install steps in the sandbox. `cargo build --release`,
+> `pwsh ./scripts/package-windows.ps1`, installer generation, and `-AddToPath` can touch the local
+> ORT cache in `AppData`, release sidecars, `dist/`, and the real user `PATH`. Treat those as
+> unrestricted local-machine operations first; use sandboxed runs for source inspection,
+> read-only analysis, and isolated code execution.
 
 ## Hotkeys and Commands
 

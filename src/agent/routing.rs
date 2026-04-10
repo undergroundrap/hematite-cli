@@ -197,23 +197,33 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
 
 pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str> {
     let lower = user_input.to_lowercase();
+    let asks_path = lower.contains("path");
+    let asks_toolchains = lower.contains("developer tools")
+        || lower.contains("toolchains")
+        || (lower.contains("installed") && lower.contains("version"))
+        || (lower.contains("detect") && lower.contains("version"));
+    let asks_directory = lower.contains("directory")
+        || lower.contains("folder")
+        || lower.contains("how big")
+        || lower.contains("biggest");
+    let asks_broad_readiness = lower.contains("local development")
+        || lower.contains("ready for local development")
+        || (lower.contains("machine") && lower.contains("ready"))
+        || (lower.contains("computer") && lower.contains("ready"));
 
-    if lower.contains("desktop") {
+    if (asks_path && asks_toolchains)
+        || (mentions_host_inspection_question(&lower) && asks_broad_readiness)
+    {
+        Some("summary")
+    } else if lower.contains("desktop") {
         Some("desktop")
     } else if lower.contains("downloads") {
         Some("downloads")
-    } else if lower.contains("path") {
+    } else if asks_path {
         Some("path")
-    } else if lower.contains("developer tools")
-        || lower.contains("toolchains")
-        || (lower.contains("installed") && lower.contains("version"))
-    {
+    } else if asks_toolchains {
         Some("toolchains")
-    } else if lower.contains("directory")
-        || lower.contains("folder")
-        || lower.contains("how big")
-        || lower.contains("biggest")
-    {
+    } else if asks_directory {
         Some("directory")
     } else if mentions_host_inspection_question(&lower) {
         Some("summary")
