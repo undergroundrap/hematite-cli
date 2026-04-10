@@ -136,6 +136,8 @@ pub fn spawn_runtime_profile_sync(
         // Initial delay before the first background poll.
         tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
 
+        let mut last_embed: Option<String> = None;
+
         loop {
             let result = engine.refresh_runtime_profile().await;
 
@@ -164,6 +166,21 @@ pub fn spawn_runtime_profile_sync(
                 .is_err()
             {
                 break;
+            }
+
+            // Poll embed model separately and notify on change.
+            let current_embed = engine.get_embedding_model().await;
+            if current_embed != last_embed {
+                if agent_tx
+                    .send(InferenceEvent::EmbedProfile {
+                        model_id: current_embed.clone(),
+                    })
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+                last_embed = current_embed;
             }
 
             tokio::time::sleep(poll_interval).await;
@@ -229,9 +246,13 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     } else {
         "\nTip: cd into a project folder before running hematite to enable code tools and context search.".to_string()
     };
+    let display_model = {
+        let m = manager.engine.current_model();
+        if m.is_empty() { "no chat model loaded".to_string() } else { m }
+    };
     let greeting = format!(
         "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\n{}\n{}\n/chat - conversation mode | /agent - full coding harness{}",
-        manager.engine.current_model(),
+        display_model,
         manager.engine.current_context_length(),
         gpu_name,
         vram,

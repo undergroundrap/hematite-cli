@@ -693,6 +693,8 @@ pub enum InferenceEvent {
         shiny: bool,
         personality: String,
     },
+    /// Embed model loaded/unloaded mid-session.
+    EmbedProfile { model_id: Option<String> },
 }
 
 // ── Engine implementation ─────────────────────────────────────────────────────
@@ -786,7 +788,13 @@ impl InferenceEngine {
         }
     }
 
-    /// Query /v1/models and return the first loaded model id.
+    /// Query /api/v0/models and return the first loaded chat model id.
+    /// Uses /api/v0/models (not /v1/models) because the OpenAI-compat endpoint
+    /// omits the `type` field, making it impossible to distinguish embedding
+    /// models from chat models. Falls back to /v1/models with a name heuristic
+    /// if /api/v0/models is unavailable.
+    /// Returns Some("") when LM Studio is reachable but no chat model is loaded
+    /// so callers can distinguish "offline" (None) from "no chat model" (Some("")).
     pub async fn get_loaded_model(&self) -> Option<String> {
         #[derive(Deserialize)]
         struct ModelList {
@@ -797,8 +805,29 @@ impl InferenceEngine {
             id: String,
             #[serde(rename = "type", default)]
             model_type: String,
+            #[serde(default)]
+            state: String,
         }
 
+        // Try /api/v0/models first — it has type and state fields.
+        if let Ok(resp) = self
+            .client
+            .get(format!("{}/api/v0/models", self.base_url))
+            .send()
+            .await
+        {
+            if let Ok(list) = resp.json::<ModelList>().await {
+                let chat_model = list
+                    .data
+                    .into_iter()
+                    .find(|m| m.model_type != "embeddings" && m.state == "loaded")
+                    .map(|m| m.id)
+                    .unwrap_or_default();
+                return Some(chat_model);
+            }
+        }
+
+        // Fallback: /v1/models lacks type info — use name heuristic to skip embed models.
         let resp = self
             .client
             .get(format!("{}/v1/models", self.base_url))
@@ -806,22 +835,20 @@ impl InferenceEngine {
             .await
             .ok()?;
         let list: ModelList = resp.json().await.ok()?;
-        // Skip embedding models — they are not coding agents and should never
-        // be selected as the active model even if they are the only one loaded.
-        // Return Some("") when LM Studio is reachable but no coding model is loaded
-        // so callers can distinguish "offline" (None) from "no coding model" (Some("")).
         Some(
             list.data
                 .into_iter()
-                .find(|m| m.model_type != "embeddings")
+                .find(|m| !m.id.to_lowercase().contains("embed"))
                 .map(|m| m.id)
                 .unwrap_or_default(),
         )
     }
 
-    /// Returns the ID of the first *loaded* embedding model, if any.
+    /// Returns the ID of the first loaded embedding model, if any.
     /// Uses /api/v0/models which includes `type` and `state` fields.
     /// The OpenAI-compat /v1/models endpoint omits `type` so cannot be used here.
+    /// Accepts any non-empty state (not just "loaded") to handle LM Studio variants
+    /// where the embed model may report a different state string at startup.
     pub async fn get_embedding_model(&self) -> Option<String> {
         #[derive(Deserialize)]
         struct ModelList { data: Vec<ModelEntry> }

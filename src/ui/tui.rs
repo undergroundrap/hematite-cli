@@ -2602,6 +2602,18 @@ pub async fn run_app<B: Backend>(
                             );
                         }
                     }
+                    InferenceEvent::EmbedProfile { model_id } => {
+                        match model_id {
+                            Some(id) => app.push_message(
+                                "System",
+                                &format!("Embed model loaded: {} (semantic search ready)", id),
+                            ),
+                            None => app.push_message(
+                                "System",
+                                "Embed model unloaded. Semantic search inactive.",
+                            ),
+                        }
+                    }
                     InferenceEvent::VeinStatus { file_count, embedded_count } => {
                         app.vein_file_count = file_count;
                         app.vein_embedded_count = embedded_count;
