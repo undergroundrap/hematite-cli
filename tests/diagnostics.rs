@@ -34,6 +34,77 @@ async fn test_git_monitor_initial_state() {
     assert_eq!(state.url(), "None");
 }
 
+#[test]
+fn test_workspace_profile_detects_rust_project_shape() {
+    use hematite::agent::workspace_profile::detect_workspace_profile;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    fs::create_dir_all(workspace.path().join("src")).expect("create src");
+    fs::create_dir_all(workspace.path().join("tests")).expect("create tests");
+    fs::create_dir_all(workspace.path().join(".github").join("workflows"))
+        .expect("create workflows");
+    fs::write(
+        workspace.path().join("Cargo.toml"),
+        "[package]\nname='sample'\nversion='0.1.0'\n",
+    )
+    .expect("write cargo");
+
+    let profile = detect_workspace_profile(workspace.path());
+    assert_eq!(profile.workspace_mode, "project");
+    assert_eq!(profile.primary_stack.as_deref(), Some("rust"));
+    assert!(profile.stack_signals.iter().any(|entry| entry == "rust"));
+    assert!(profile
+        .package_managers
+        .iter()
+        .any(|entry| entry == "cargo"));
+    assert!(profile.important_paths.iter().any(|entry| entry == "src"));
+    assert!(profile.important_paths.iter().any(|entry| entry == "tests"));
+}
+
+#[test]
+fn test_workspace_profile_uses_workspace_verify_profile_and_writes_file() {
+    use hematite::agent::workspace_profile::{
+        ensure_workspace_profile, profile_prompt_block, workspace_profile_path,
+    };
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    fs::create_dir_all(workspace.path().join("src")).expect("create src");
+    fs::create_dir_all(workspace.path().join(".hematite")).expect("create hematite dir");
+    fs::write(
+        workspace.path().join("Cargo.toml"),
+        "[package]\nname='sample'\nversion='0.1.0'\n",
+    )
+    .expect("write cargo");
+    fs::write(
+        workspace.path().join(".hematite").join("settings.json"),
+        r#"{
+  "verify": {
+    "default_profile": "rust",
+    "profiles": {
+      "rust": {
+        "build": "cargo build",
+        "test": "cargo test"
+      }
+    }
+  }
+}"#,
+    )
+    .expect("write settings");
+
+    let profile = ensure_workspace_profile(workspace.path()).expect("ensure profile");
+    assert_eq!(profile.verify_profile.as_deref(), Some("rust"));
+    assert_eq!(profile.build_hint.as_deref(), Some("cargo build"));
+    assert_eq!(profile.test_hint.as_deref(), Some("cargo test"));
+    assert!(
+        workspace_profile_path(workspace.path()).exists(),
+        "profile file should be written"
+    );
+
+    let prompt_block = profile_prompt_block(workspace.path()).expect("profile prompt");
+    assert!(prompt_block.contains("Verify profile: rust"));
+    assert!(prompt_block.contains("Build hint: cargo build"));
+}
+
 // ── Task file parsing ─────────────────────────────────────────────────────────
 
 #[tokio::test]

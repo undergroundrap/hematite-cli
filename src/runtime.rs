@@ -226,6 +226,9 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         })
         .await;
 
+    let workspace_root = crate::tools::file_ops::workspace_root();
+    let _ = crate::agent::workspace_profile::ensure_workspace_profile(&workspace_root);
+
     // Send the startup greeting immediately — before MCP and Vein so it always
     // appears right away, even if vein indexing takes a while on first run.
     let gpu_name = gpu_state.gpu_name();
@@ -245,7 +248,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     let project_hint = if !docs_only_mode {
         String::new()
     } else {
-        "\nTip: source indexing is disabled outside a project folder. `.hematite/docs/` and recent local session reports remain searchable in docs-only vein mode.".to_string()
+        "\nTip: source indexing is disabled outside a project folder. `.hematite/docs/`, `.hematite/imports/`, and recent local session reports remain searchable in docs-only vein mode.".to_string()
     };
     let display_model = {
         let m = manager.engine.current_model();

@@ -20,6 +20,7 @@ dist/
 # Session-generated plan and task files
 .hematite/PLAN.md
 .hematite/TASK.md
+.hematite/workspace_profile.json
 
 # Runtime / temp artifacts
 .hematite/ghost/*.bak

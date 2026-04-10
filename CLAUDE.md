@@ -116,6 +116,11 @@ by the workspace. This means `api_url`, `model`, `voice`, and other preferences 
 in every directory — including non-project launches from the desktop or home folder. The workspace
 config is created automatically on first run in a new directory.
 
+**Workspace profile.** Hematite also writes `.hematite/workspace_profile.json` on startup. It is a
+gitignored, auto-generated project profile containing detected stack/package-manager hints,
+important folders, ignored noise folders, and build/test suggestions. The prompt can use it as
+lightweight grounding before the model starts guessing about repo shape.
+
 ## API Configuration
 
 Hematite uses Jina Reader/Search for web research. You can run without a key on the public tier, but a key is recommended for stability.

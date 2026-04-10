@@ -415,6 +415,8 @@ Restart your terminal after running this. From then on, `cd` into any project fo
 
 **Global settings.** Hematite loads `~/.hematite/settings.json` as a fallback when no workspace-level `.hematite/settings.json` exists. This means your model preference, voice settings, and API URL work from any directory — not just from inside a project. Workspace settings always win when both exist.
 
+**Workspace profile.** On startup, Hematite also writes `.hematite/workspace_profile.json` for the current workspace. That file is auto-generated and gitignored. It captures the detected stack, package manager, important folders, ignored noise folders, and build/test hints so the harness starts with a grounded project profile instead of guessing from scratch every turn.
+
 On macOS/Linux, the packaged archive includes an installer helper:
 
 ```bash

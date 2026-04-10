@@ -1981,6 +1981,11 @@ impl ConversationManager {
                     ));
                 }
             }
+            if let Some(profile_block) = crate::agent::workspace_profile::profile_prompt_block(
+                &crate::tools::file_ops::workspace_root(),
+            ) {
+                base_prompt.push_str(&format!("\n\n{}", profile_block));
+            }
             // L1: inject hot-files block if available (persists across sessions via vein.db).
             if let Some(ref l1) = self.l1_context {
                 base_prompt.push_str(&format!("\n\n{}", l1));

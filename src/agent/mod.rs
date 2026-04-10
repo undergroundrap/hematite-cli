@@ -26,3 +26,4 @@ pub mod tool_registry;
 pub mod transcript;
 pub mod trust_resolver;
 pub mod utils;
+pub mod workspace_profile;
