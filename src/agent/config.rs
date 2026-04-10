@@ -129,8 +129,7 @@ pub fn settings_path() -> std::path::PathBuf {
 
 /// Load global settings from `~/.hematite/settings.json` if present.
 fn load_global_config() -> Option<HematiteConfig> {
-    let home = std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))?;
+    let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"))?;
     let path = std::path::PathBuf::from(home)
         .join(".hematite")
         .join("settings.json");
@@ -163,7 +162,11 @@ pub fn load_config() -> HematiteConfig {
                 fast_model: ws.fast_model.or(gb.fast_model),
                 think_model: ws.think_model.or(gb.think_model),
                 api_url: ws.api_url.or(gb.api_url),
-                voice: if ws.voice != HematiteConfig::default().voice { ws.voice } else { gb.voice },
+                voice: if ws.voice != HematiteConfig::default().voice {
+                    ws.voice
+                } else {
+                    gb.voice
+                },
                 voice_speed: ws.voice_speed.or(gb.voice_speed),
                 voice_volume: ws.voice_volume.or(gb.voice_volume),
                 context_hint: ws.context_hint.or(gb.context_hint),

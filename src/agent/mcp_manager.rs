@@ -385,7 +385,8 @@ mod tests {
 
     #[test]
     fn runtime_report_marks_degraded_when_some_servers_or_discovery_steps_fail() {
-        let report = runtime_report_from_snapshot(2, 1, 3, 1, Some("filesystem: tools/list failed"));
+        let report =
+            runtime_report_from_snapshot(2, 1, 3, 1, Some("filesystem: tools/list failed"));
         assert_eq!(report.state, McpRuntimeState::Degraded);
         assert!(report.summary.contains("1/2"));
         assert!(report.summary.contains("tools/list failed"));
