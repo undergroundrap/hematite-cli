@@ -113,6 +113,14 @@ impl Vein {
             );",
         )?;
 
+        // Schema migrations — safe to run on every open (IF NOT EXISTS / ignored if col exists).
+        let _ = db.execute_batch(
+            "ALTER TABLE chunks_meta ADD COLUMN room TEXT NOT NULL DEFAULT 'root';",
+        );
+        let _ = db.execute_batch(
+            "ALTER TABLE file_heat ADD COLUMN last_edit INTEGER NOT NULL DEFAULT 0;",
+        );
+
         Ok(Self {
             db: std::sync::Arc::new(std::sync::Mutex::new(db)),
             base_url,
