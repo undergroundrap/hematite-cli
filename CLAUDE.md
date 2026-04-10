@@ -363,6 +363,7 @@ Hematite follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`
 - Never bump mid-development. Version numbers live in `Cargo.toml` and are baked into the binary at compile time.
 - Bump immediately before running `scripts/package-windows.ps1` — not after features land, not speculatively.
 - Always use `bump-version.ps1` — never edit version strings by hand across files.
+- `bump-version.ps1` now self-verifies the static release surfaces immediately after replacement. After `cargo build`, run `pwsh ./scripts/verify-version-sync.ps1 -Version X.Y.Z -RequireCargoLock` before committing the bump.
 - After bumping, run `cargo build` (this also regenerates `Cargo.lock`), then commit **exactly these five files** and nothing else:
   ```
   git add Cargo.toml Cargo.lock README.md CLAUDE.md installer/hematite.iss
@@ -372,25 +373,32 @@ Hematite follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`
 
 **Commit message for a version bump:**
 ```
-chore: bump version to 0.2.0
+chore: bump version to X.Y.Z
 ```
 
 ## Release Build
 
-**Step 1 — bump the version** (updates Cargo.toml, README.md, CLAUDE.md atomically):
+**Step 1 — bump the version** (updates tracked release metadata and verifies the static surfaces):
 
 ```powershell
-pwsh ./bump-version.ps1 -Version 0.2.0
+pwsh ./bump-version.ps1 -Version X.Y.Z
 ```
 
 Never edit version numbers by hand — they will drift across files.
 
-**Step 2 — tag and push to trigger CI:**
+**Step 2 — rebuild the lockfile and verify the full version state:**
 
 ```powershell
-git tag -a v0.2.0 -m "Release v0.2.0"
+cargo build
+pwsh ./scripts/verify-version-sync.ps1 -Version X.Y.Z -RequireCargoLock
+```
+
+**Step 3 — tag and push to trigger CI:**
+
+```powershell
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
 git push origin main
-git push origin v0.2.0
+git push origin vX.Y.Z
 ```
 
 Pushing the tag triggers `windows-release.yml` and `unix-release.yml` on GitHub Actions. Both workflows download the Kokoro voice model assets, run `cargo build --release`, package the artifacts, and attach them to the GitHub Release automatically when they go green. No manual upload needed.
@@ -403,7 +411,7 @@ pwsh ./scripts/package-windows.ps1
 
 - The ONNX model (311 MB) is baked into the binary at compile time — no separate download
 - `DirectML.dll` is copied from `target/release/` automatically by the ORT build script
-- Output: `dist/windows/Hematite-0.3.1-portable.zip` (~336 MB)
+- Output: `dist/windows/Hematite-X.Y.Z-portable.zip` (~336 MB)
 - `dist/` is gitignored — these are release artifacts, not tracked in source
 
 ## Cleanup

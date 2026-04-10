@@ -305,13 +305,15 @@ Hematite follows [Semantic Versioning](https://semver.org/): `PATCH` for bug fix
 
 ### Bumping the Version
 
-**Always run this before cutting a release.** It updates the version string in every file that needs it — `Cargo.toml`, `README.md`, `CLAUDE.md` — in one shot:
+**Always run this before cutting a release.** It updates the tracked version surfaces in one shot and immediately verifies the static release metadata:
 
 ```powershell
-pwsh ./bump-version.ps1 -Version 0.2.0
+pwsh ./bump-version.ps1 -Version X.Y.Z
 ```
 
-Then verify the build compiles and commit the result before running the release script. Never edit version numbers by hand across files — they will drift.
+Never edit version numbers by hand across files — they will drift.
+
+After `cargo build`, run `pwsh ./scripts/verify-version-sync.ps1 -Version X.Y.Z -RequireCargoLock` before committing the bump so the lockfile and release metadata are checked together.
 
 ### Building a Release
 
@@ -321,7 +323,7 @@ After bumping the version:
 pwsh ./scripts/package-windows.ps1
 ```
 
-This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-0.3.1-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
+This builds `--release`, copies `hematite.exe` and `DirectML.dll` into `dist/windows/Hematite-X.Y.Z-portable/`, and rezips the portable archive. Output is ~336 MB (voice model is baked in).
 
 For macOS or Linux:
 
@@ -371,19 +373,20 @@ Linux note: Hematite's voice stack still depends on distro-provided `libsonic` a
 GitHub Actions can build the latest release artifacts for all supported desktop platforms.
 
 - `workflow_dispatch` lets you run the release build manually from GitHub
-- pushing a tag like `v0.3.1` builds the newest Windows, Linux, and macOS artifacts automatically
+- pushing a tag like `vX.Y.Z` builds the newest Windows, Linux, and macOS artifacts automatically
 - tagged builds attach the generated Windows `.zip` and `Setup.exe`, plus Unix `.tar.gz` archives, to the GitHub release
 
 Typical release flow:
 
 ```powershell
-pwsh ./bump-version.ps1 -Version 0.3.1
+pwsh ./bump-version.ps1 -Version X.Y.Z
 cargo build
+pwsh ./scripts/verify-version-sync.ps1 -Version X.Y.Z -RequireCargoLock
 git add Cargo.toml Cargo.lock README.md CLAUDE.md installer/hematite.iss
-git commit -m "chore: bump version to 0.3.1"
-git tag -a v0.3.1 -m "Release v0.3.1"
+git commit -m "chore: bump version to X.Y.Z"
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
 git push origin main
-git push origin v0.3.1
+git push origin vX.Y.Z
 ```
 
 Pushing the tag triggers both `windows-release.yml` and `unix-release.yml` automatically. When both go green, the portable zip, Windows installer, and Unix archives are attached to the GitHub Release — no manual upload needed.

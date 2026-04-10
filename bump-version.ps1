@@ -1,5 +1,5 @@
 # Hematite Version Bumper
-# Usage: pwsh ./bump-version.ps1 -Version 0.2.0
+# Usage: pwsh ./bump-version.ps1 -Version X.Y.Z
 
 param(
     [Parameter(Mandatory)]
@@ -38,14 +38,20 @@ Set-Content "Cargo.toml" $content -NoNewline
     -replace [regex]::Escape("#define AppVersion `"$old`""), "#define AppVersion `"$Version`"" |
     Set-Content "installer\hematite.iss" -NoNewline
 
+$verifyScript = Join-Path $PSScriptRoot "scripts\verify-version-sync.ps1"
+& $verifyScript -Version $Version -PreviousVersion $old
+
 Write-Host "Done. Files updated:" -ForegroundColor Green
 Write-Host "  Cargo.toml, README.md, CLAUDE.md, installer\\hematite.iss"
+Write-Host "Verified:"
+Write-Host "  Cargo.toml, README badge, and installer fallback are in sync"
 Write-Host ""
 Write-Host "Next steps:"
 Write-Host "  1. cargo build"
 Write-Host "     (regenerates Cargo.lock - must be included in commit)"
-Write-Host "  2. git add Cargo.toml Cargo.lock README.md CLAUDE.md installer\hematite.iss"
+Write-Host "  2. pwsh ./scripts/verify-version-sync.ps1 -Version $Version -RequireCargoLock"
+Write-Host "  3. git add Cargo.toml Cargo.lock README.md CLAUDE.md installer\hematite.iss"
 Write-Host "     git commit -m 'chore: bump version to $Version'"
 Write-Host "     (use exactly these files - never git add .)"
-Write-Host "  3. git tag -a v$Version -m 'Release v$Version'"
+Write-Host "  4. git tag -a v$Version -m 'Release v$Version'"
 Write-Host "     git push origin main && git push origin v$Version"
