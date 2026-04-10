@@ -322,13 +322,14 @@ After `cargo build`, run `pwsh ./scripts/verify-version-sync.ps1 -Version X.Y.Z 
 For solo use, the easiest safe path is the wrapper script:
 
 ```powershell
-pwsh ./release.ps1 -Bump patch
+pwsh ./release.ps1 -Version X.Y.Z
 ```
 
 That one command:
 
 - refuses to run from a dirty git worktree
-- computes the next version from `patch`, `minor`, or `major` if you use `-Bump`
+- sets the exact release version when you use `-Version`
+- can compute the next version from `patch`, `minor`, or `major` if you use `-Bump`
 - runs `bump-version.ps1`
 - runs `cargo build`
 - verifies version sync including `Cargo.lock`
@@ -339,13 +340,16 @@ That one command:
 Useful variants:
 
 ```powershell
+pwsh ./release.ps1 -Bump patch
 pwsh ./release.ps1 -Bump minor
 pwsh ./release.ps1 -Version 0.4.0
 pwsh ./release.ps1 -Bump patch -Push
-pwsh ./release.ps1 -Bump patch -Push -AddToPath
+pwsh ./release.ps1 -Version X.Y.Z -Push -AddToPath
 ```
 
-By default, the wrapper stops after the local commit, packaging, and tag creation. Add `-Push` if you want it to push `main` and the new tag to GitHub automatically.
+`pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` is the closest thing to a full "ship it" command for Hematite on Windows: it creates the local version-bump commit, builds the portable bundle and installer, updates your PATH to the new portable directory, creates the local annotated tag, and then pushes both `main` and the new tag to GitHub.
+
+By default, the wrapper stops after the local commit, packaging, and local tag creation. Add `-Push` if you want it to push `main` and the new tag to GitHub automatically.
 
 ### Building a Release
 
@@ -411,7 +415,7 @@ GitHub Actions can build the latest release artifacts for all supported desktop 
 Typical release flow:
 
 ```powershell
-pwsh ./release.ps1 -Bump patch -Push
+pwsh ./release.ps1 -Version X.Y.Z -Push
 ```
 
 Manual equivalent:

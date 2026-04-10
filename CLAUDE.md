@@ -388,10 +388,12 @@ chore: bump version to X.Y.Z
 **Recommended wrapper for routine releases:**
 
 ```powershell
-pwsh ./release.ps1 -Bump patch
+pwsh ./release.ps1 -Version X.Y.Z
 ```
 
-For solo use, prefer `release.ps1` over manually retyping the release sequence. It refuses to run from a dirty worktree, bumps the version, rebuilds `Cargo.lock`, verifies version sync, commits the version files, builds release artifacts, and creates the annotated tag. Add `-Push` to also push `main` and the tag automatically. Use `-Version X.Y.Z` when you want to set the exact version manually instead of `-Bump patch|minor|major`.
+For solo use, prefer `release.ps1` over manually retyping the release sequence. It refuses to run from a dirty worktree, sets the exact release version when you use `-Version X.Y.Z`, rebuilds `Cargo.lock`, verifies version sync, commits the version files, builds release artifacts, and creates the annotated tag. Add `-Push` to also push `main` and the tag automatically. Use `-Bump patch|minor|major` when you want the script to calculate the next semantic version for you.
+
+`pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` is the full Windows publish path: local bump commit, local tag, rebuilt portable bundle, rebuilt installer, PATH update, then push of both `main` and the new tag.
 
 **Step 1 — bump the version** (updates tracked release metadata and verifies the static surfaces):
 
