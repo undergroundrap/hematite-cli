@@ -14,6 +14,21 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Guard against inaccessible cwd (e.g. launched via desktop shortcut with no "Start in" path).
+    // Windows can set the process cwd to a system folder like AppData\Local\ElevatedDiagnostics.
+    // Relocate to home dir so all relative path resolution works correctly.
+    let cwd_ok = std::env::current_dir()
+        .map(|p| std::fs::read_dir(&p).is_ok())
+        .unwrap_or(false);
+    if !cwd_ok {
+        let home = std::env::var_os("USERPROFILE")
+            .or_else(|| std::env::var_os("HOME"))
+            .map(std::path::PathBuf::from);
+        if let Some(home) = home {
+            let _ = std::env::set_current_dir(home);
+        }
+    }
+
     let cockpit = CliCockpit::parse();
     if let Some(path) = cockpit.pdf_extract_helper.as_deref() {
         let code = hematite::memory::vein::run_pdf_extract_helper(std::path::Path::new(path));

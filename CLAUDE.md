@@ -22,6 +22,17 @@ cargo run -- --stats
 pwsh ./clean.ps1
 ```
 
+> **Important:** `cargo build` / `cargo run` only update `target/debug/hematite.exe`. If you run
+> Hematite from the portable dist (`dist\windows\Hematite-X.Y.Z-portable\hematite.exe`) — which is
+> what end-users have on their PATH — you must rebuild the portable bundle after any code change:
+>
+> ```powershell
+> pwsh ./scripts/package-windows.ps1
+> ```
+>
+> `cargo run` is the fastest loop during development. Run the package script before testing with
+> the portable binary or before committing/tagging a release.
+
 ## Hotkeys and Commands
 
 - `ESC`: cancel the current task and copy the session transcript to the clipboard
