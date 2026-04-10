@@ -36,6 +36,7 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 - [Why Hematite Wins Its Lane](#why-hematite-wins-its-lane)
 - [One Binary. No Runtime. No Drama.](#one-binary-no-runtime-no-drama)
 - [Terminal-Native Chat](#terminal-native-chat--better-than-a-browser-ui)
+- [Grounded Terminal Ops](#grounded-terminal-ops)
 - [Hematite vs The Field](#hematite-vs-the-field)
 - [Requirements](#requirements)
 - [Quick Start](#quick-start)
@@ -63,6 +64,7 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 
 - **Proven tool loop** — read → grep → edit → verify → undo. Tested on real Rust codebases. The model finds the right line, makes the right change, catches its own errors, and recovers without prompting.
 - **Sandboxed code execution** — the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation — not training-data guesses. Hematite automatically uses Deno from LM Studio's install — no extra setup required. Not using LM Studio? Install Deno globally: `winget install DenoLand.Deno`.
+- **Grounded terminal execution** — Hematite can inspect the real machine through native shell tools, files, and project commands. That means it can answer from observed state — installed toolchains, running ports, desktop files, build output, repo status — instead of making generic guesses.
 - **Hybrid RAG built in** — The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, not hunting for it with five read_file calls.
 - **Built-in voice, zero install** — 54-voice Kokoro TTS, statically linked. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run.
 - **Windows-first** — CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
@@ -92,6 +94,7 @@ If your goal is cloud-scale autonomous orchestration, Hematite is not trying to 
 - **You're learning a new codebase.** Ask "what does this function do" or "where is X called" and get an answer grounded in the actual files, not a hallucinated summary.
 - **You want to edit a file without breaking something.** Hematite reads before it writes, shows you the diff, and lets you approve or skip. If the build breaks it catches it and tries to fix it.
 - **You need to understand an error.** Paste the error or let Hematite see the build output — it traces the cause through your actual source files, not generic advice.
+- **You want the terminal to be queryable in plain English.** Ask it to count the icons on your desktop, list the biggest files in a folder, inspect your PATH, identify what is listening on a port, or summarize the output of a real shell command.
 - **You work with documents alongside code.** Drop PDFs, markdown specs, or architecture diagrams into the conversation with `Ctrl+O` or `/attach`. The model reads them as context for the next edit.
 - **You want voice feedback while you work.** Press `Ctrl+T` and every response is spoken aloud. Useful when you're reading logs, reviewing diffs, or just want your hands free.
 - **You care about privacy.** Everything stays on your machine. No usage data sent anywhere, no API key required, no cloud fallback. Your code never leaves.
@@ -139,6 +142,29 @@ Hematite lives where your code lives — in the terminal, inside your project fo
 **Chat mode** — clean conversational surface: no tool noise, no agent scaffolding, just a fast response loop with voice. The same Vein RAG runs underneath so the model still knows your codebase.
 
 Both modes. One binary. Voice in both. Switch with a command.
+
+---
+
+## Grounded Terminal Ops
+
+Hematite is not limited to "chat about code." It can turn natural-language requests into grounded terminal work using the same local tools a developer would reach for manually: `pwsh`, `git`, `cargo`, `rg`, file listings, process inspection, log reads, and project-specific build commands.
+
+That matters because the model is no longer answering from vibes. It can inspect the actual machine state, run the real command, and answer from the output. For solo operators, that makes Hematite useful outside strict code editing too: repo triage, workstation inspection, log analysis, release verification, and general file-system investigation.
+
+Useful examples:
+
+- "Count and name all the icons on my desktop."
+- "Show me what is listening on port 3000."
+- "Find the 20 largest files under this folder."
+- "Tell me whether Rust, Cargo, and Git are installed and which versions I have."
+- "Summarize the changes in this repo since the last tag."
+- "Search this project for every place we mention MCP servers."
+- "Read the last 200 lines of the log and tell me the first real error."
+- "List my PATH entries and point out anything suspicious or duplicated."
+
+This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
+
+The shell path is still bounded like the rest of the harness: commands run through Hematite's tool layer with timeout limits, output capping, workspace awareness, and approval controls for risky actions.
 
 ---
 
@@ -466,6 +492,8 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `verify_build` | Run build/test/lint/fix validation through verify profiles or auto-detected defaults |
 | `run_code` | Execute JavaScript/TypeScript (Deno) or Python in a zero-trust sandbox — real output, not model guesses |
 | `clarify` | Ask the user a question when genuinely blocked |
+
+That `shell` tool is not there for show. It is what lets Hematite answer questions from real local state instead of generic model priors: enumerate desktop files, inspect processes, trace PATH issues, search logs, verify installed toolchains, and run the project commands experienced developers already use daily.
 
 ---
 
