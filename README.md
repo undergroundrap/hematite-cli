@@ -315,6 +315,36 @@ Never edit version numbers by hand across files — they will drift.
 
 After `cargo build`, run `pwsh ./scripts/verify-version-sync.ps1 -Version X.Y.Z -RequireCargoLock` before committing the bump so the lockfile and release metadata are checked together.
 
+### Recommended Release Command
+
+For solo use, the easiest safe path is the wrapper script:
+
+```powershell
+pwsh ./release.ps1 -Bump patch
+```
+
+That one command:
+
+- refuses to run from a dirty git worktree
+- computes the next version from `patch`, `minor`, or `major` if you use `-Bump`
+- runs `bump-version.ps1`
+- runs `cargo build`
+- verifies version sync including `Cargo.lock`
+- commits exactly the version files
+- builds release artifacts
+- creates the annotated git tag
+
+Useful variants:
+
+```powershell
+pwsh ./release.ps1 -Bump minor
+pwsh ./release.ps1 -Version 0.4.0
+pwsh ./release.ps1 -Bump patch -Push
+pwsh ./release.ps1 -Bump patch -Push -AddToPath
+```
+
+By default, the wrapper stops after the local commit, packaging, and tag creation. Add `-Push` if you want it to push `main` and the new tag to GitHub automatically.
+
 ### Building a Release
 
 After bumping the version:
@@ -377,6 +407,12 @@ GitHub Actions can build the latest release artifacts for all supported desktop 
 - tagged builds attach the generated Windows `.zip` and `Setup.exe`, plus Unix `.tar.gz` archives, to the GitHub release
 
 Typical release flow:
+
+```powershell
+pwsh ./release.ps1 -Bump patch -Push
+```
+
+Manual equivalent:
 
 ```powershell
 pwsh ./bump-version.ps1 -Version X.Y.Z

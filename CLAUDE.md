@@ -378,6 +378,14 @@ chore: bump version to X.Y.Z
 
 ## Release Build
 
+**Recommended wrapper for routine releases:**
+
+```powershell
+pwsh ./release.ps1 -Bump patch
+```
+
+For solo use, prefer `release.ps1` over manually retyping the release sequence. It refuses to run from a dirty worktree, bumps the version, rebuilds `Cargo.lock`, verifies version sync, commits the version files, builds release artifacts, and creates the annotated tag. Add `-Push` to also push `main` and the tag automatically. Use `-Version X.Y.Z` when you want to set the exact version manually instead of `-Bump patch|minor|major`.
+
 **Step 1 — bump the version** (updates tracked release metadata and verifies the static surfaces):
 
 ```powershell
