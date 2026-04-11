@@ -12,8 +12,18 @@ use hematite::{ui, CliCockpit};
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::sync::Arc;
 
+fn wants_version_report(args: &[String]) -> bool {
+    args.len() == 2 && matches!(args[1].as_str(), "--version" | "-V")
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let raw_args: Vec<String> = std::env::args().collect();
+    if wants_version_report(&raw_args) {
+        println!("{}", hematite::hematite_version_report());
+        return Ok(());
+    }
+
     // Guard against inaccessible cwd (e.g. launched via desktop shortcut with no "Start in" path).
     // Windows can set the process cwd to a system folder like AppData\Local\ElevatedDiagnostics.
     // Relocate to home dir so all relative path resolution works correctly.
@@ -133,4 +143,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::io::stdout().execute(crossterm::event::DisableMouseCapture)?;
     std::io::stdout().execute(LeaveAlternateScreen)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wants_version_report;
+
+    #[test]
+    fn detects_plain_version_flag() {
+        assert!(wants_version_report(&[
+            "hematite".into(),
+            "--version".into()
+        ]));
+        assert!(wants_version_report(&["hematite".into(), "-V".into()]));
+        assert!(!wants_version_report(&["hematite".into()]));
+        assert!(!wants_version_report(&[
+            "hematite".into(),
+            "--version".into(),
+            "--brief".into()
+        ]));
+    }
 }

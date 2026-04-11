@@ -63,11 +63,12 @@ pwsh ./clean.ps1
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/workspace-profile`: inspect the auto-generated workspace profile
 - `/version`: show the running Hematite release version plus build state
+- `hematite --version`: print the same build report from the CLI
 - `/swarm`: trigger parallel worker agents
 
 Requires LM Studio running locally with a model loaded and the server started on port `1234`.
 
-Practical rule: the version/build label is compile-time metadata. A new commit or tag does not change what the already-built binary reports. Rebuild the binary or rerun `pwsh ./scripts/package-windows.ps1 -AddToPath` if you want `/version` and the startup banner to reflect the latest commit, tag, or dirty/clean state.
+Practical rule: the version/build label is compile-time metadata. A new commit or tag does not change what the already-built binary reports. Rebuild the binary or rerun `pwsh ./scripts/package-windows.ps1 -AddToPath` if you want `hematite --version`, `/version`, and the startup banner to reflect the latest commit, tag, or dirty/clean state.
 
 Package naming rule: the crates.io package is `hematite-cli`, but the executable name stays `hematite`. Keep that split so the package namespace is distinct while the operator command stays short.
 

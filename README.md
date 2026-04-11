@@ -925,6 +925,7 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 /vein-inspect     Show indexed Vein memory, hot files, and active room bias
 /workspace-profile Show the auto-generated workspace profile
 /version          Show the running Hematite release version plus build state
+hematite --version Show the same build report from the CLI
 /vein-reset       Wipe the RAG index; rebuilds automatically on next turn
 /think            Enable Gemma-4 native reasoning channel
 /no_think         Enable lower-effort reasoning
