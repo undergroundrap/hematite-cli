@@ -19,7 +19,7 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding agent when you need it, clean conversation when you don't. LM Studio handles model serving. Hematite handles everything else.
 
-![Version](https://img.shields.io/badge/version-0.4.0-orange?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.4.1-orange?style=flat-square)
 ![Windows](https://img.shields.io/badge/Windows-native-blue?style=flat-square)
 ![Linux](https://img.shields.io/badge/Linux-supported-green?style=flat-square)
 ![macOS](https://img.shields.io/badge/macOS-supported-lightgrey?style=flat-square)
@@ -376,7 +376,7 @@ Useful variants:
 ```powershell
 pwsh ./release.ps1 -Bump patch
 pwsh ./release.ps1 -Bump minor
-pwsh ./release.ps1 -Version 0.4.0
+pwsh ./release.ps1 -Version X.Y.Z
 pwsh ./release.ps1 -Bump patch -Push
 pwsh ./release.ps1 -Version X.Y.Z -Push -AddToPath
 ```
