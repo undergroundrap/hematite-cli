@@ -43,6 +43,8 @@ pub struct SearchResult {
     pub score: f32,
     /// Subsystem room derived from the file path (e.g. "agent", "ui", "tools").
     pub room: String,
+    /// Last-modified timestamp from chunks_meta (unix seconds).
+    pub last_modified: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,6 +72,13 @@ struct QuerySignals {
     exact_phrases: Vec<String>,
     standout_terms: Vec<String>,
     historical_memory_hint: bool,
+    temporal_reference: Option<TemporalReference>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TemporalReference {
+    target_ts: i64,
+    window_secs: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -441,8 +450,9 @@ impl Vein {
 
         let db = self.db.lock().unwrap();
         let mut stmt = db.prepare(
-            "SELECT path, content, rank
+            "SELECT chunks_fts.path, chunks_fts.content, rank, cm.last_modified, cm.room
              FROM chunks_fts
+             JOIN chunks_meta cm ON cm.path = chunks_fts.path
              WHERE chunks_fts MATCH ?1
              ORDER BY rank
              LIMIT ?2",
@@ -450,13 +460,12 @@ impl Vein {
 
         let results: Vec<SearchResult> = stmt
             .query_map(params![fts_query, limit as i64], |row| {
-                let path: String = row.get(0)?;
-                let room = detect_room(&path);
                 Ok(SearchResult {
-                    path,
+                    path: row.get(0)?,
                     content: row.get(1)?,
                     score: -(row.get::<_, f64>(2).unwrap_or(0.0) as f32),
-                    room,
+                    last_modified: row.get(3)?,
+                    room: row.get(4)?,
                 })
             })?
             .filter_map(|r| r.ok())
@@ -474,11 +483,12 @@ impl Vein {
         };
 
         // Load all stored embeddings.
-        let rows: Vec<(String, i64, Vec<u8>)> = {
+        let rows: Vec<(String, i64, Vec<u8>, i64, String)> = {
             let db = self.db.lock().unwrap();
             let mut stmt = match db.prepare(
-                "SELECT cv.path, cv.chunk_idx, cv.embedding
-                 FROM chunks_vec cv",
+                "SELECT cv.path, cv.chunk_idx, cv.embedding, cm.last_modified, cm.room
+                 FROM chunks_vec cv
+                 JOIN chunks_meta cm ON cm.path = cv.path",
             ) {
                 Ok(s) => s,
                 Err(_) => return Vec::new(),
@@ -488,6 +498,8 @@ impl Vein {
                     row.get::<_, String>(0)?,
                     row.get::<_, i64>(1)?,
                     row.get::<_, Vec<u8>>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, String>(4)?,
                 ))
             })
             .ok()
@@ -500,12 +512,12 @@ impl Vein {
         }
 
         // Score each chunk.
-        let mut scored: Vec<(f32, String, i64)> = rows
+        let mut scored: Vec<(f32, String, i64, i64, String)> = rows
             .into_iter()
-            .filter_map(|(path, idx, blob)| {
+            .filter_map(|(path, idx, blob, last_modified, room)| {
                 let vec = blob_to_floats(&blob);
                 let sim = cosine_similarity(&query_vec, &vec);
-                Some((sim, path, idx))
+                Some((sim, path, idx, last_modified, room))
             })
             .collect();
 
@@ -516,7 +528,7 @@ impl Vein {
         let db = self.db.lock().unwrap();
         scored
             .into_iter()
-            .filter_map(|(score, path, idx)| {
+            .filter_map(|(score, path, idx, last_modified, room)| {
                 // chunks_fts rows for this path are indexed in insertion order = chunk order.
                 // We use LIMIT/OFFSET to fetch the chunk at position `idx`.
                 let content: Option<String> = db
@@ -526,14 +538,12 @@ impl Vein {
                         |r| r.get(0),
                     )
                     .ok();
-                content.map(|c| {
-                    let room = detect_room(&path);
-                    SearchResult {
-                        path,
-                        content: c,
-                        score,
-                        room,
-                    }
+                content.map(|c| SearchResult {
+                    path,
+                    content: c,
+                    score,
+                    room,
+                    last_modified,
                 })
             })
             .collect()
@@ -1220,6 +1230,7 @@ impl QuerySignals {
             exact_phrases: extract_exact_phrases(query),
             standout_terms: extract_standout_terms(query),
             historical_memory_hint,
+            temporal_reference: extract_temporal_reference(query),
         }
     }
 }
@@ -1248,7 +1259,9 @@ fn reranked_score(
     } else {
         (result.score / 10.0).clamp(0.0, 1.0)
     };
-    base + room_bias(active_room, result) + retrieval_signal_boost(signals, result)
+    base + room_bias(active_room, result)
+        + retrieval_signal_boost(signals, result)
+        + temporal_memory_boost(signals, result)
 }
 
 fn room_bias(active_room: Option<&str>, result: &SearchResult) -> f32 {
@@ -1289,6 +1302,32 @@ fn retrieval_signal_boost(signals: &QuerySignals, result: &SearchResult) -> f32 
     }
 
     boost
+}
+
+fn temporal_memory_boost(signals: &QuerySignals, result: &SearchResult) -> f32 {
+    if result.room != "session" {
+        return 0.0;
+    }
+    let Some(reference) = signals.temporal_reference else {
+        return 0.0;
+    };
+    let Some(memory_ts) = session_memory_timestamp(result) else {
+        return 0.0;
+    };
+
+    let span = reference.window_secs.max(86_400);
+    let full_fade = span.saturating_mul(8);
+    if full_fade <= 0 {
+        return 0.0;
+    }
+
+    let distance = (memory_ts - reference.target_ts).abs();
+    let closeness = 1.0 - (distance as f32 / full_fade as f32).min(1.0);
+    if closeness <= 0.0 {
+        0.0
+    } else {
+        0.22 * closeness
+    }
 }
 
 fn extract_exact_phrases(query: &str) -> Vec<String> {
@@ -1357,6 +1396,102 @@ fn extract_standout_terms(query: &str) -> Vec<String> {
     }
 
     standout
+}
+
+fn extract_temporal_reference(query: &str) -> Option<TemporalReference> {
+    if let Some(ts) = extract_iso_date_from_query(query) {
+        return Some(TemporalReference {
+            target_ts: ts,
+            window_secs: 86_400,
+        });
+    }
+
+    let now = current_unix_timestamp();
+    let lower = query.to_ascii_lowercase();
+    if lower.contains("yesterday") {
+        Some(TemporalReference {
+            target_ts: now.saturating_sub(86_400),
+            window_secs: 86_400,
+        })
+    } else if lower.contains("today") || lower.contains("earlier today") {
+        Some(TemporalReference {
+            target_ts: now,
+            window_secs: 86_400,
+        })
+    } else if lower.contains("last week") {
+        Some(TemporalReference {
+            target_ts: now.saturating_sub(7 * 86_400),
+            window_secs: 7 * 86_400,
+        })
+    } else if lower.contains("last month") {
+        Some(TemporalReference {
+            target_ts: now.saturating_sub(30 * 86_400),
+            window_secs: 30 * 86_400,
+        })
+    } else {
+        None
+    }
+}
+
+fn extract_iso_date_from_query(query: &str) -> Option<i64> {
+    query
+        .split(|ch: char| !(ch.is_ascii_digit() || ch == '-'))
+        .find_map(parse_iso_date_token)
+}
+
+fn parse_iso_date_token(token: &str) -> Option<i64> {
+    if token.len() != 10 {
+        return None;
+    }
+    let bytes = token.as_bytes();
+    if bytes.get(4) != Some(&b'-') || bytes.get(7) != Some(&b'-') {
+        return None;
+    }
+
+    let year = token.get(0..4)?.parse::<i32>().ok()?;
+    let month = token.get(5..7)?.parse::<u32>().ok()?;
+    let day = token.get(8..10)?.parse::<u32>().ok()?;
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+
+    Some(days_from_civil(year, month, day).saturating_mul(86_400))
+}
+
+fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
+    let year = year - if month <= 2 { 1 } else { 0 };
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let yoe = year - era * 400;
+    let month_prime = month as i32 + if month > 2 { -3 } else { 9 };
+    let doy = (153 * month_prime + 2) / 5 + day as i32 - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era as i64 * 146_097 + doe as i64 - 719_468
+}
+
+fn current_unix_timestamp() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
+fn session_memory_timestamp(result: &SearchResult) -> Option<i64> {
+    extract_session_path_timestamp(&result.path).or_else(|| {
+        if result.last_modified > 0 {
+            Some(result.last_modified)
+        } else {
+            None
+        }
+    })
+}
+
+fn extract_session_path_timestamp(path: &str) -> Option<i64> {
+    let normalized = path.replace('\\', "/");
+    let mut parts = normalized.split('/');
+    if parts.next()? != "session" {
+        return None;
+    }
+    parse_iso_date_token(parts.next()?)
 }
 
 fn session_speaker_kind(speaker: &str) -> SessionSpeakerKind {

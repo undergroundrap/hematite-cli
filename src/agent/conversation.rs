@@ -2207,10 +2207,13 @@ impl ConversationManager {
         }
         self.transcript.log_user(&transcript_user_input);
 
-        // Incremental re-index and Vein context injection — skipped in chat mode
-        // (code snippets are noise in a conversational surface).
+        // Incremental re-index and Vein context injection. Ordinary chat mode
+        // still skips repo-snippet noise, but docs-only workspaces and explicit
+        // session-recall prompts should keep Vein memory available.
         let vein_docs_only = self.vein_docs_only_mode();
-        let (vein_context, vein_paths) = if !self.workflow_mode.is_chat() {
+        let allow_vein_context = !self.workflow_mode.is_chat()
+            || should_use_vein_in_chat(&effective_user_input, vein_docs_only);
+        let (vein_context, vein_paths) = if allow_vein_context {
             self.refresh_vein_index();
             let _ = tx
                 .send(InferenceEvent::VeinStatus {
@@ -4566,6 +4569,33 @@ fn is_parallel_safe(name: &str) -> bool {
     !metadata.mutates_workspace && !metadata.external_surface
 }
 
+fn should_use_vein_in_chat(query: &str, docs_only_mode: bool) -> bool {
+    if docs_only_mode {
+        return true;
+    }
+
+    let lower = query.to_ascii_lowercase();
+    [
+        "what did we decide",
+        "why did we decide",
+        "what did we say",
+        "what did we do",
+        "earlier today",
+        "yesterday",
+        "last week",
+        "last month",
+        "earlier",
+        "remember",
+        "session",
+        "import",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+        || lower
+            .split(|ch: char| !(ch.is_ascii_digit() || ch == '-'))
+            .any(|token| token.len() == 10 && token.chars().nth(4) == Some('-'))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4685,6 +4715,16 @@ mod tests {
             ),
             Some("summary")
         );
+    }
+
+    #[test]
+    fn chat_mode_uses_vein_for_historical_or_docs_only_queries() {
+        assert!(should_use_vein_in_chat(
+            "What did we decide on 2026-04-09 about docs-only mode?",
+            false
+        ));
+        assert!(should_use_vein_in_chat("Summarize these local notes", true));
+        assert!(!should_use_vein_in_chat("Tell me a joke", false));
     }
 
     #[test]

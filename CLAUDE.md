@@ -268,8 +268,9 @@ retrieval boost, and a compact hot-files block grouped by room is injected into 
 model stays oriented toward the part of the codebase you're actively editing.
 
 **Ranking cues:** reranking adds small boosts for exact quoted phrases, standout tokens such as
-filenames/commands/tool IDs, and "what did we decide earlier" style prompts that should prefer
-session/import memory over generic source overlap.
+filenames/commands/tool IDs, "what did we decide earlier" style prompts that should prefer
+session/import memory over generic source overlap, and time-anchored memory prompts such as
+explicit dates, "yesterday", or "last week" so the right session period outranks stale matches.
 
 **Room taxonomy:** room detection is also rule-based across path segments and filenames now, so
 runtime/config/release/integration/doc files do not all collapse into generic folder labels.

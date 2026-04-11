@@ -608,7 +608,7 @@ Hybrid results are merged and ranked: semantic hits score higher when the embedd
 
 **Active-room memory bias:** Hematite tracks which files you edit most, groups those hot files by subsystem, injects a compact "hot files" block into the prompt, and gives retrieval a small score boost toward the currently hottest room. That keeps the model leaning toward the part of the codebase you're actively changing without hard-pinning stale context.
 
-**Ranking cues:** Vein reranking gives extra weight to exact quoted phrases, standout tokens like filenames, commands, codenames, and tool IDs, and memory-style prompts such as "what did we decide earlier" that should lean toward session/import memory instead of generic source overlap.
+**Ranking cues:** Vein reranking gives extra weight to exact quoted phrases, standout tokens like filenames, commands, codenames, and tool IDs, memory-style prompts such as "what did we decide earlier" that should lean toward session/import memory instead of generic source overlap, and time-anchored memory questions such as explicit dates, "yesterday", or "last week" so the right session period outranks stale matches.
 
 **Room taxonomy:** Vein room detection is now rule-based across path segments and filenames, so files like `Cargo.toml`, `runtime.rs`, `mcp_manager.rs`, GitHub workflow YAML, installer assets, and top-level docs land in more useful rooms such as `config`, `runtime`, `integration`, `automation`, `release`, and `docs` instead of collapsing into generic folder names.
 

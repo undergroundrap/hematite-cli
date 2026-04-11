@@ -639,6 +639,57 @@ fn test_vein_search_context_prefers_session_memory_for_historical_queries() {
 }
 
 #[test]
+fn test_vein_search_context_biases_session_memory_by_explicit_date() {
+    use hematite::memory::vein::Vein;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    let reports_dir = workspace.path().join(".hematite").join("reports");
+    fs::create_dir_all(&reports_dir).expect("create reports dir");
+
+    let older_report = serde_json::json!({
+        "session_start": "2026-04-08_09-00-00",
+        "transcript": [
+            { "speaker": "You", "text": "What should we do about quartzharbor docs-only rollout?" },
+            { "speaker": "Hematite", "text": "On April 8 we delayed the quartzharbor docs-only rollout. Quartzharbor docs-only rollout delay remained the plan." }
+        ]
+    });
+    fs::write(
+        reports_dir.join("session_2026-04-08_09-00-00.json"),
+        serde_json::to_string_pretty(&older_report).expect("serialize older report"),
+    )
+    .expect("write older report");
+
+    let newer_report = serde_json::json!({
+        "session_start": "2026-04-09_09-00-00",
+        "transcript": [
+            { "speaker": "You", "text": "What should we do about quartzharbor docs-only rollout?" },
+            { "speaker": "Hematite", "text": "On April 9 we decided to keep the quartzharbor docs-only rollout live." }
+        ]
+    });
+    fs::write(
+        reports_dir.join("session_2026-04-09_09-00-00.json"),
+        serde_json::to_string_pretty(&newer_report).expect("serialize newer report"),
+    )
+    .expect("write newer report");
+
+    let db = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let indexed = vein.index_recent_session_reports(workspace.path());
+    assert_eq!(indexed, 2, "two session exchanges should be indexed");
+
+    let results = vein
+        .search_context(
+            "what did we decide on 2026-04-09 about quartzharbor docs-only rollout?",
+            2,
+        )
+        .expect("search dated session context");
+    assert!(
+        results[0].path.starts_with("session/2026-04-09/"),
+        "explicit date query should favor the matching session date even when another session has heavier lexical overlap"
+    );
+}
+
+#[test]
 fn test_vein_indexes_imported_marker_transcript_exchanges() {
     use hematite::memory::vein::Vein;
 
