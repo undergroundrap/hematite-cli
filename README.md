@@ -803,6 +803,8 @@ The endpoint line shows exactly where Hematite is connecting — immediately vis
 
 The build label matters during development. A local pre-release build may still carry the current release version from `Cargo.toml`, but the bracketed build state tells you whether the binary was built from an exact release tag or from a local dev snapshot such as `dev+c828436` or `dev+c828436-dirty`.
 
+Practical rule: the build label reflects git state at compile time. If you make a new commit or tag and want Hematite to report that updated commit, tag, or dirty/clean state, rebuild the binary first. For the real local app, that usually means rerunning `pwsh ./scripts/package-windows.ps1 -AddToPath`.
+
 ### Background Audio Engine
 
 Press `Ctrl+T` to enable real-time text-to-speech. Hematite ships a **self-contained voice engine** — no install, no downloads, no Python. The Kokoro model (311 MB), all 54 voices, and ONNX Runtime 1.24.2 are statically linked into the binary at compile time. On first start the voice engine loads in the background (~10–30s on an RTX 4070); you'll see "Vibrant & Ready" in the chat when it's done. Responses spoken during that window are buffered and played back once the engine is ready.

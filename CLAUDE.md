@@ -67,6 +67,8 @@ pwsh ./clean.ps1
 
 Requires LM Studio running locally with a model loaded and the server started on port `1234`.
 
+Practical rule: the version/build label is compile-time metadata. A new commit or tag does not change what the already-built binary reports. Rebuild the binary or rerun `pwsh ./scripts/package-windows.ps1 -AddToPath` if you want `/version` and the startup banner to reflect the latest commit, tag, or dirty/clean state.
+
 For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, desktop/downloads, listening ports, repo-doctor summaries, and arbitrary directory or disk inspections before falling back to raw shell.
 
 ## Hardware Intent
