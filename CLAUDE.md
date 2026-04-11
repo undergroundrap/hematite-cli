@@ -396,7 +396,8 @@ Hematite follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`
 **When to bump:**
 - Never bump mid-development. Version numbers live in `Cargo.toml` and are baked into the binary at compile time.
 - `Cargo.toml` is the Rust package manifest and the release version source of truth. Other release surfaces are updated to match it.
-- Bump immediately before running `scripts/package-windows.ps1` — not after features land, not speculatively.
+- For unreleased work, validate the change in a rebuilt local portable first: `pwsh ./scripts/package-windows.ps1 -AddToPath`, restart the terminal, and test the live behavior.
+- Bump only after the feature work is committed and the local portable has already proven the behavior. Do not bump just to test whether a fix might work.
 - Always use `bump-version.ps1` — never edit version strings by hand across files.
 - `bump-version.ps1` now self-verifies the static release surfaces immediately after replacement. After `cargo build`, run `pwsh ./scripts/verify-version-sync.ps1 -Version X.Y.Z -RequireCargoLock` before committing the bump.
 - After bumping, run `cargo build` (this also regenerates `Cargo.lock`), then commit **exactly these five files** and nothing else:

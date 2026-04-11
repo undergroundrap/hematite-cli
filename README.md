@@ -341,7 +341,7 @@ Hematite follows [Semantic Versioning](https://semver.org/): `PATCH` for bug fix
 
 `Cargo.toml` is the Rust package manifest for Hematite. In practice, treat it as the source-of-truth app version: build metadata, package names, and release scripts read from it.
 
-**Always run this before cutting a release.** It updates the tracked version surfaces in one shot and immediately verifies the static release metadata:
+**Run this when you are actually cutting a release, not while you are still validating a local fix.** It updates the tracked version surfaces in one shot and immediately verifies the static release metadata:
 
 ```powershell
 pwsh ./bump-version.ps1 -Version X.Y.Z

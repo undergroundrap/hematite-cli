@@ -9,10 +9,10 @@ Managed in `src/memory/vein.rs`. The Vein is a SQLite-backed hybrid retrieval en
 - **Database:** stored at `.hematite/vein.db` inside the workspace root. Per-project — each folder gets its own index.
 - **BM25 (always active):** SQLite FTS5 full-text search with Porter stemming. Works with no embedding model loaded.
 - **Semantic (optional):** calls LM Studio's `/v1/embeddings` endpoint using `nomic-embed-text-v2`. Stores vectors in SQLite; reused across sessions.
-- **Non-project directories:** indexing is skipped entirely when launched outside a real project (no `Cargo.toml`, `package.json`, `go.mod`, etc.). `VN:--` is the correct status in this case.
+- **Non-project directories:** source-file indexing is skipped when launched outside a real project (no `Cargo.toml`, `package.json`, `go.mod`, etc.), but The Vein stays active in docs-only mode. `.hematite/docs/`, `.hematite/imports/`, and recent local session reports remain searchable, and the status badge shows `VN:DOC`.
 - **Retrieval:** at the start of each turn, changed files are re-indexed and a hybrid BM25+semantic query is run against the user's message. Top results are injected into the system prompt.
 
-Status bar: `VN:SEM` (semantic active) / `VN:FTS` (BM25 only) / `VN:--` (no project or not yet indexed).
+Status bar: `VN:SEM` (semantic active) / `VN:FTS` (BM25 only) / `VN:DOC` (docs/session memory only outside a project) / `VN:--` (not yet indexed or after a reset).
 
 ## 2. Context Compaction (Short-Term Context)
 

@@ -86,9 +86,11 @@ For behavior regressions and prompt-quality checks, use the benchmark prompts un
 ## Versioning and Releases
 
 - Package version comes from `Cargo.toml` — see `CLAUDE.md` for the full versioning policy
-- **Always bump the version with `pwsh ./bump-version.ps1 -Version X.Y.Z` before releasing** — never edit version strings by hand
-- Local Windows release is built with `pwsh ./scripts/package-windows.ps1`
+- For unreleased work, test the rebuilt local portable first with `pwsh ./scripts/package-windows.ps1 -AddToPath`
+- When the behavior is proven, cut the release with `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` or the right `-Bump` variant from a clean tree
+- If you need the manual path, always bump the version with `pwsh ./bump-version.ps1 -Version X.Y.Z` before the public release commit — never edit version strings by hand
+- Local Windows release artifacts are built with `pwsh ./scripts/package-windows.ps1`
 - Add `-Installer` for the Inno Setup installer, `-AddToPath` to register in user PATH
 - Pushing a tag (`git push origin vX.Y.Z`) triggers CI automatically — `windows-release.yml` builds the Windows portable zip and installer, `unix-release.yml` builds Linux and macOS archives; both attach artifacts to the GitHub Release when they go green
 
-Before a public release, verify `cargo build` is clean, bump the version, commit `Cargo.toml Cargo.lock README.md CLAUDE.md installer/hematite.iss`, tag, and push. Do not manually upload release artifacts — CI handles that.
+Before a public release, validate the change in the local portable first, commit the feature work, then bump/tag/push from the clean known-good state. Do not manually upload release artifacts — CI handles that.
