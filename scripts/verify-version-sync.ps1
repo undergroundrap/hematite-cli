@@ -40,18 +40,28 @@ if (-not $Version) {
     }
     $Version = $versionMatch.Groups[1].Value
 }
+else {
+    $cargoToml = Get-FileText "Cargo.toml"
+}
+
+$packageNameMatch = [regex]::Match($cargoToml, '(?m)^name\s*=\s*"([^"]+)"')
+if (-not $packageNameMatch.Success) {
+    throw "Could not determine package name from Cargo.toml."
+}
+$packageName = $packageNameMatch.Groups[1].Value
 
 $escapedVersion = [regex]::Escape($Version)
+$escapedPackageName = [regex]::Escape($packageName)
 $installerPattern = "(?m)^\s*#define AppVersion\s+`"$escapedVersion`"\r?$"
 $readmeBadgePattern = [regex]::Escape("version-$Version")
-$cargoLockPattern = "(?ms)\[\[package\]\]\s*name = `"hematite`"\s*version = `"$escapedVersion`""
+$cargoLockPattern = "(?ms)\[\[package\]\]\s*name = `"$escapedPackageName`"\s*version = `"$escapedVersion`""
 
 Require-Match "Cargo.toml" "(?m)^version\s*=\s*`"$escapedVersion`"$" "Cargo.toml package version $Version"
 Require-Match "installer\hematite.iss" $installerPattern "installer AppVersion $Version"
 Require-Match "README.md" $readmeBadgePattern "README version badge for $Version"
 
 if ($RequireCargoLock) {
-    Require-Match "Cargo.lock" $cargoLockPattern "Cargo.lock hematite package version $Version"
+    Require-Match "Cargo.lock" $cargoLockPattern "Cargo.lock $packageName package version $Version"
 }
 
 if ($PreviousVersion) {
