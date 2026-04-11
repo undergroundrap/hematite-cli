@@ -312,6 +312,19 @@ Load both in LM Studio at the same time. The embedding model stays resident but 
 
 When published on crates.io, the package name should be `hematite-cli` while the installed command remains `hematite`. That gives you a distinct package namespace without changing the terminal command people actually use.
 
+### crates.io Install
+
+If you want Hematite to show up on crates.io search and install flows, the package to install is:
+
+```powershell
+cargo install hematite-cli
+```
+
+That package still installs the `hematite` command. The crates.io package name and the terminal command are intentionally different:
+
+- crates.io package: `hematite-cli`
+- installed command: `hematite`
+
 ### Developer Mode
 
 ```powershell
@@ -356,7 +369,23 @@ If you publish to crates.io, publish the voice dependency fork first, then the m
 
 `hematite-cli` depends on the published `hematite-kokoros` package while keeping the in-code crate path as `kokoros`.
 
-The crates.io build is intentionally publish-safe and does not bake the large voice assets into the default source build. GitHub release bundles and local packaging scripts still ship the full baked-in voice engine.
+Why the split exists:
+
+- `hematite-cli` gives the main app a distinct crates.io namespace without changing the end-user command.
+- `hematite-kokoros` is a separately named, Hematite-maintained fork of the vendored Kokoros voice crate. That keeps attribution and publish ownership explicit instead of pretending the fork is the original crate.
+- the crates.io build is intentionally publish-safe and does not bake the large voice assets into the default source build.
+- GitHub release bundles and local packaging scripts still ship the full baked-in voice engine, so the real packaged app behavior does not regress.
+
+### Updating crates.io Releases
+
+When you ship a new Hematite release, update crates.io like this:
+
+1. Finish the feature work and test the local portable first.
+2. Bump and cut the normal Hematite release (`release.ps1`, tag, installers, GitHub release).
+3. Publish `hematite-cli` for that same version.
+4. Only publish `hematite-kokoros` again if the vendored voice fork itself changed.
+
+Practical rule: you do **not** republish both crates every time. `hematite-cli` should track each public app release you want discoverable on crates.io. `hematite-kokoros` only needs a new publish when the forked voice dependency changes.
 
 **Run this when you are actually cutting a release, not while you are still validating a local fix.** It updates the tracked version surfaces in one shot and immediately verifies the static release metadata:
 
@@ -828,6 +857,8 @@ Press `Ctrl+T` to enable real-time text-to-speech. Hematite ships a **self-conta
 
 For packaged releases, that voice engine is baked in. The crates.io/source build defaults to a publish-safe no-embedded-voice build unless you compile it yourself with `--features embedded-voice-assets` and provide the voice assets locally.
 
+That split is deliberate. The packaged Hematite releases are the full product: built-in voice, single-binary packaging, and no extra model download. The crates.io package exists for discoverability and source installs, so it uses a lighter default build that does not try to ship hundreds of megabytes of embedded model assets through the crate tarball.
+
 Voice settings are configurable via `/voice` or `settings.json`:
 
 - `/voice` — list all 54 voices
@@ -926,6 +957,12 @@ No setup required. Voice is built in.
 The full Kokoro TTS engine — model weights, all 54 voices, and ONNX Runtime 1.24.2 — is baked into the packaged Hematite binary at compile time. Press `Ctrl+T` to toggle it on.
 
 **Why this matters:** most local TTS tools require a separate Python runtime, manual model downloads, or specific system DLL versions. Hematite's packaged releases ship everything in one binary. The only runtime dependency is `DirectML.dll`, which is bundled in the portable release and ships with Windows 10 1903+.
+
+For crates.io/source builds, voice is intentionally treated differently:
+
+- default published builds are source-friendly and omit the embedded Kokoro weights
+- packaged releases built by Hematite's release scripts opt back into `embedded-voice-assets`
+- the vendored voice engine is published separately as `hematite-kokoros` so the forked dependency has a clean package identity and attribution trail
 
 **54 voices** across American English, British English, Spanish, French, Hindi, Italian, Japanese, and Chinese. Recommended: `af_heart`, `af_bella`, `am_michael`, `bf_emma`, `bm_george`.
 

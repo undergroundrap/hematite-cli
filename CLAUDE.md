@@ -75,6 +75,8 @@ Crates.io publish order: publish `hematite-kokoros` first, then publish `hematit
 
 Crates.io compatibility rule: the default published/source build does not embed the large Kokoro voice assets. Packaged releases and local packaging scripts must build with `--features embedded-voice-assets` so the shipped Windows/macOS/Linux bundles keep the baked-in voice engine.
 
+Crates.io update rule: republish `hematite-cli` when you want a new public app version discoverable on crates.io. Republish `hematite-kokoros` only when the vendored fork itself changes. Do not bump the voice fork just because the main app shipped a new release.
+
 For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, desktop/downloads, listening ports, repo-doctor summaries, and arbitrary directory or disk inspections before falling back to raw shell.
 
 ## Hardware Intent
