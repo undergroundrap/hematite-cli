@@ -13,6 +13,7 @@ pub(crate) enum QueryIntentClass {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum DirectAnswerKind {
+    About,
     LanguageCapability,
     UnsafeWorkflowPressure,
     SessionMemory,
@@ -141,6 +142,29 @@ fn mentions_capability_question(lower: &str) -> bool {
             "can you use the internet",
             "internet research capabilities",
             "what tools do you have",
+        ],
+    )
+}
+
+fn mentions_creator_question(lower: &str) -> bool {
+    contains_any(
+        lower,
+        &[
+            "who created you",
+            "who built you",
+            "who made you",
+            "who developed you",
+            "who engineered you",
+            "who engineered your architecture",
+            "who created hematite",
+            "who built hematite",
+            "who developed hematite",
+            "who engineered hematite",
+            "who maintains hematite",
+            "who authored hematite",
+            "who is the author",
+            "who wrote this",
+            "who made this app",
         ],
     )
 }
@@ -448,7 +472,9 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
             || mentions_broad_system_walkthrough(&lower)
     };
 
-    let direct_answer = if matches!(
+    let direct_answer = if trimmed == "/about" || mentions_creator_question(&lower) {
+        Some(DirectAnswerKind::About)
+    } else if matches!(
         trimmed.as_str(),
         "who are you" | "who are you?" | "what are you" | "what are you?"
     ) || (lower.contains("what is hematite") && !lower.contains("lm studio"))
@@ -739,4 +765,18 @@ pub(crate) fn is_capability_probe_tool(name: &str) -> bool {
             | "auto_pin_context"
             | "list_pinned"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classify_query_intent_routes_creator_questions_to_about() {
+        let intent = classify_query_intent(WorkflowMode::Auto, "Who created Hematite?");
+        assert_eq!(intent.direct_answer, Some(DirectAnswerKind::About));
+
+        let intent = classify_query_intent(WorkflowMode::Auto, "/about");
+        assert_eq!(intent.direct_answer, Some(DirectAnswerKind::About));
+    }
 }

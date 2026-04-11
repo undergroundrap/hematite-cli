@@ -6,6 +6,10 @@ pub mod tools;
 pub mod ui;
 
 pub const HEMATITE_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const HEMATITE_AUTHOR: &str = "Ocean Bennett";
+pub const HEMATITE_REPOSITORY_URL: &str = "https://github.com/undergroundrap/hematite-cli";
+pub const HEMATITE_SHORT_DESCRIPTION: &str =
+    "Local-first AI coding and workstation assistant for real developer workflows.";
 const HEMATITE_GIT_COMMIT_SHORT_RAW: &str = env!("HEMATITE_GIT_COMMIT_SHORT");
 const HEMATITE_GIT_EXACT_TAG_RAW: &str = env!("HEMATITE_GIT_EXACT_TAG");
 const HEMATITE_GIT_DIRTY_RAW: &str = env!("HEMATITE_GIT_DIRTY");
@@ -59,6 +63,24 @@ pub fn hematite_version_report() -> String {
         hematite_git_exact_tag().unwrap_or("none")
     ));
     lines.join("\n")
+}
+
+pub fn hematite_about_report() -> String {
+    [
+        format!("Hematite v{}", HEMATITE_VERSION),
+        format!("Build: {}", hematite_build_descriptor()),
+        format!("Created and maintained by {}", HEMATITE_AUTHOR),
+        HEMATITE_SHORT_DESCRIPTION.to_string(),
+        format!("Repo: {}", HEMATITE_REPOSITORY_URL),
+    ]
+    .join("\n")
+}
+
+pub fn hematite_identity_answer() -> String {
+    format!(
+        "Hematite was created and is maintained by {}.\n\n{}\n\nThe running assistant uses a local model runtime, but Hematite itself is the local harness: the TUI, tool use, file editing, workflow control, voice integration, and workstation-assistant architecture.\n\nRepo: {}",
+        HEMATITE_AUTHOR, HEMATITE_SHORT_DESCRIPTION, HEMATITE_REPOSITORY_URL
+    )
 }
 
 // Standard imports for library users
@@ -138,5 +160,12 @@ mod tests {
         let report = crate::hematite_version_report();
         assert!(report.contains(crate::HEMATITE_VERSION));
         assert!(report.contains("Build:"));
+    }
+
+    #[test]
+    fn about_report_contains_author_and_repo() {
+        let report = crate::hematite_about_report();
+        assert!(report.contains(crate::HEMATITE_AUTHOR));
+        assert!(report.contains(crate::HEMATITE_REPOSITORY_URL));
     }
 }

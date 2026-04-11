@@ -39,7 +39,11 @@ pub(crate) fn build_product_surface_answer() -> String {
 }
 
 pub(crate) fn build_identity_answer() -> String {
-    "Hematite is the local coding harness and agent running on your machine. It owns the TUI, tool use, file editing, workflow control, and local context management while LM Studio serves the model runtime underneath it.".to_string()
+    crate::hematite_identity_answer()
+}
+
+pub(crate) fn build_about_answer() -> String {
+    crate::hematite_about_report()
 }
 
 pub(crate) fn build_reasoning_split_answer() -> String {

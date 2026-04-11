@@ -1196,6 +1196,7 @@ fn show_help_message(app: &mut App) {
          /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
          /workspace-profile - (Profile) Show the auto-generated workspace profile\n\
          /version          - (Build) Show the running Hematite version\n\
+         /about            - (Info) Show author, repo, and product info\n\
          /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
            /clear            - (UI) Clear dialogue display only\n\
          /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
@@ -1259,6 +1260,7 @@ fn show_help_message_legacy(app: &mut App) {
            /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
            /workspace-profile — (Profile) Show the auto-generated workspace profile\n\
            /version          — (Build) Show the running Hematite version\n\
+           /about            — (Info) Show author, repo, and product info\n\
            /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
            /clear            — (UI) Clear dialogue display only\n\
          /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
@@ -2273,6 +2275,7 @@ pub async fn run_app<B: Backend>(
                                                        /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
                                                        /workspace-profile — (Profile) Show the auto-generated workspace profile\n\
                                                        /version          — (Build) Show the running Hematite version\n\
+                                                       /about            — (Info) Show author, repo, and product info\n\
                                                        /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
                                                        /clear            — (UI) Clear dialogue display only\n\
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
@@ -2342,6 +2345,14 @@ pub async fn run_app<B: Backend>(
                                                 app.push_message(
                                                     "System",
                                                     &crate::hematite_version_report(),
+                                                );
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/about" => {
+                                                app.push_message(
+                                                    "System",
+                                                    &crate::hematite_about_report(),
                                                 );
                                                 app.history_idx = None;
                                                 continue;

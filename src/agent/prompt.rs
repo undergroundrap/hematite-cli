@@ -107,6 +107,14 @@ impl SystemPromptBuilder {
             "- Running Hematite build: {}",
             crate::hematite_version_display()
         ));
+        static_sections.push(format!(
+            "- Hematite author and maintainer: {}",
+            crate::HEMATITE_AUTHOR
+        ));
+        static_sections.push(format!(
+            "- Hematite repository: {}",
+            crate::HEMATITE_REPOSITORY_URL
+        ));
 
         static_sections.push(format!("\n# BASE INSTRUCTIONS\n{base_instructions}"));
 

@@ -4,7 +4,7 @@ use crate::agent::architecture_summary::{
     summarize_project_map_output, summarize_runtime_trace_output,
 };
 use crate::agent::direct_answers::{
-    build_architect_session_reset_plan, build_authorization_policy_answer,
+    build_about_answer, build_architect_session_reset_plan, build_authorization_policy_answer,
     build_gemma_native_answer, build_gemma_native_settings_answer, build_identity_answer,
     build_language_capability_answer, build_mcp_lifecycle_answer, build_product_surface_answer,
     build_reasoning_split_answer, build_recovery_recipes_answer, build_session_memory_answer,
@@ -1748,6 +1748,12 @@ impl ConversationManager {
         // ── /think / /no_think: reasoning budget toggle ──────────────────────
         if let Some(answer_kind) = intent.direct_answer {
             match answer_kind {
+                DirectAnswerKind::About => {
+                    let response = build_about_answer();
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
                 DirectAnswerKind::LanguageCapability => {
                     let response = build_language_capability_answer();
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)

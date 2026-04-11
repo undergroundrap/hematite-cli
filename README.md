@@ -927,6 +927,7 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 /vein-inspect     Show indexed Vein memory, hot files, and active room bias
 /workspace-profile Show the auto-generated workspace profile
 /version          Show the running Hematite release version plus build state
+/about            Show author, repo, and product info
 hematite --version Show the same build report from the CLI
 /vein-reset       Wipe the RAG index; rebuilds automatically on next turn
 /think            Enable Gemma-4 native reasoning channel
@@ -959,6 +960,11 @@ Workflow note:
 - `/read-only` is the hard no-mutation workflow
 - `/auto` returns Hematite to normal behavior
 - each of those workflow commands can also take an inline prompt, for example `/ask why is this failing?` or `/code fix the startup banner`
+
+Attribution note:
+
+- `/about` is the fixed metadata path for Hematite identity and authorship
+- creator and authorship questions such as `who created you` or `who built Hematite` should resolve to Hematite's product metadata instead of model improvisation
 
 **Hotkeys:** `Ctrl+B` brief mode, `Ctrl+P` professional mode, `Ctrl+Y` approvals off, `Ctrl+T` voice toggle, `Ctrl+O` attach document, `Ctrl+I` attach image, `Ctrl+Z` undo, `Ctrl+Q`/`Ctrl+C` quit, `ESC` cancel
 
