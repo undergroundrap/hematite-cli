@@ -385,7 +385,7 @@ When you ship a new Hematite release, update crates.io like this:
 3. Publish `hematite-cli` for that same version.
 4. Only publish `hematite-kokoros` again if the vendored voice fork itself changed.
 
-Practical rule: you do **not** republish both crates every time. `hematite-cli` should track each public app release you want discoverable on crates.io. `hematite-kokoros` only needs a new publish when the forked voice dependency changes.
+Practical rule: you do **not** republish both crates every time. In normal use, almost every public tagged release should publish a new `hematite-cli` version, while `hematite-kokoros` should stay unchanged unless the forked voice dependency itself changed.
 
 **Run this when you are actually cutting a release, not while you are still validating a local fix.** It updates the tracked version surfaces in one shot and immediately verifies the static release metadata:
 
