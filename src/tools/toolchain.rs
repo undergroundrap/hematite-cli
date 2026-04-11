@@ -44,6 +44,11 @@ fn is_host_inspection_question(question: &str) -> bool {
     let lower = question.to_lowercase();
     let host_terms = [
         "path",
+        "network",
+        "adapter",
+        "dns",
+        "gateway",
+        "ip address",
         "desktop",
         "downloads",
         "toolchain",
@@ -156,7 +161,7 @@ Vision\n\
   Conditional: only relevant when an image is available and the vision path is enabled.\n\n\
 Shell and context management\n\
 - `inspect_host`\n\
-  Good for: structured read-only inspection of the current machine such as common developer tool versions, PATH analysis, process snapshots, desktop items, Downloads summaries, listening ports, repo-doctor checks, and arbitrary directory or disk-size reports.\n\
+  Good for: structured read-only inspection of the current machine such as common developer tool versions, PATH analysis, network snapshots, process snapshots, desktop items, Downloads summaries, listening ports, repo-doctor checks, and arbitrary directory or disk-size reports.\n\
   Bad for: custom build commands, arbitrary process control, or any mutation.\n\
   Choose it over another tool when: the user is asking about the host machine rather than repo internals and the question fits one of its built-in topics.\n\
 - `shell`\n\
@@ -182,7 +187,7 @@ Best Read-Only Toolchain\n\
 - Use `map_project` only when ownership or structure is still unclear.\n\
 - Use `grep_files` for textual discovery, then switch to `read_file` or `inspect_lines` for exact local context.\n\
 - Use `lsp_search_symbol`, `lsp_definitions`, `lsp_references`, and `lsp_hover` for semantic confirmation once you know the area.\n\
-- Use `inspect_host` before `shell` for read-only questions about PATH, installed tools, running processes, desktop items, Downloads size, listening ports, repo-health summaries, or directory/disk summaries.\n\
+- Use `inspect_host` before `shell` for read-only questions about PATH, installed tools, network state, running processes, desktop items, Downloads size, listening ports, repo-health summaries, or directory/disk summaries.\n\
 - Use `shell` only when the answer requires runtime verification or host-state information beyond `inspect_host`.\n\
 - Use `research_web`, `fetch_docs`, and `vision_analyze` only when the question truly depends on external docs or images."
         .to_string()
@@ -282,7 +287,7 @@ Tools I would not start with\n\
 
 fn describe_host_inspection_plan(question: &str) -> String {
     let label = if question.trim().is_empty() {
-        "What is the best read-only tool order for checking my machine state, installed tools, PATH, desktop items, or folder sizes?"
+        "What is the best read-only tool order for checking my machine state, installed tools, PATH, network adapters, desktop items, or folder sizes?"
     } else {
         question
     };
@@ -291,7 +296,7 @@ fn describe_host_inspection_plan(question: &str) -> String {
         "Concrete read-only investigation plan for: {:?}\n\n\
 1. `inspect_host`\n\
    Why first: it is the built-in structured host-inspection tool, so it can answer common machine-state questions without forcing the model to invent shell commands.\n\
-   Use: start with the closest topic such as `summary`, `toolchains`, `path`, `processes`, `desktop`, `downloads`, `ports`, `repo_doctor`, `directory`, or `disk`.\n\
+   Use: start with the closest topic such as `summary`, `toolchains`, `path`, `network`, `processes`, `desktop`, `downloads`, `ports`, `repo_doctor`, `directory`, or `disk`.\n\
 2. `shell`\n\
    Why second and only if needed: shell is still the fallback for custom host checks that go beyond `inspect_host`, but it should not be the first move for routine read-only inspection.\n\
    Use: confirm a special case, run a project-specific command, or inspect host state that has no structured built-in topic yet.\n\

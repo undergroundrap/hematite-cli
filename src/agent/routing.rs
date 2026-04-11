@@ -164,6 +164,14 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
         lower,
         &[
             "path",
+            "network",
+            "adapter",
+            "dns",
+            "gateway",
+            "ip address",
+            "ipconfig",
+            "wifi",
+            "ethernet",
             "process",
             "processes",
             "task manager",
@@ -204,6 +212,15 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
 pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str> {
     let lower = user_input.to_lowercase();
     let asks_path = lower.contains("path");
+    let asks_network = lower.contains("network")
+        || lower.contains("adapter")
+        || lower.contains("dns")
+        || lower.contains("gateway")
+        || lower.contains("ip address")
+        || lower.contains("ipconfig")
+        || lower.contains("wifi")
+        || lower.contains("ethernet")
+        || lower.contains("subnet");
     let asks_processes = lower.contains("process")
         || lower.contains("processes")
         || lower.contains("task manager")
@@ -249,6 +266,8 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || (mentions_host_inspection_question(&lower) && asks_broad_readiness)
     {
         Some("summary")
+    } else if asks_network {
+        Some("network")
     } else if asks_processes {
         Some("processes")
     } else if asks_ports {

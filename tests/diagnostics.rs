@@ -926,6 +926,37 @@ async fn test_inspect_host_processes_can_filter_current_binary() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_network_reports_adapter_summary() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "network",
+        "max_entries": 5
+    });
+
+    let output = match hematite::tools::host_inspect::inspect_host(&args).await {
+        Ok(output) => output,
+        Err(err)
+            if err.contains("Failed to run ipconfig")
+                || err.contains("ipconfig returned a non-success status")
+                || err.contains("Failed to run ip addr")
+                || err.contains("ip addr returned a non-success status")
+                || err.contains("Failed to run ip route")
+                || err.contains("ip route returned a non-success status") =>
+        {
+            println!("Skipping network test on this host: {}", err);
+            return;
+        }
+        Err(err) => panic!("inspect host network failed: {}", err),
+    };
+
+    assert!(output.contains("Host inspection: network"));
+    assert!(output.contains("Adapters found:"));
+    assert!(output.contains("Listener exposure:"));
+    assert!(output.contains("Adapter summary:"));
+}
+
+#[tokio::test]
 async fn test_inspect_host_disk_reports_size_summary() {
     use serde_json::json;
 

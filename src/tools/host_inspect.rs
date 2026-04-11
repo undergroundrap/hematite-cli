@@ -19,6 +19,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "summary" => inspect_summary(max_entries),
         "toolchains" => inspect_toolchains(),
         "path" => inspect_path(max_entries),
+        "network" => inspect_network(max_entries),
         "processes" => inspect_processes(parse_name_filter(args), max_entries),
         "desktop" => inspect_known_directory("Desktop", desktop_dir(), max_entries).await,
         "downloads" => inspect_known_directory("Downloads", downloads_dir(), max_entries).await,
@@ -43,7 +44,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, processes, desktop, downloads, directory, disk, ports, repo_doctor.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, network, processes, desktop, downloads, directory, disk, ports, repo_doctor.",
             other
         )),
     }
@@ -282,6 +283,61 @@ fn inspect_processes(name_filter: Option<String>, max_entries: usize) -> Result<
         out.push_str(&format!(
             "- ... {} more processes omitted\n",
             processes.len() - max_entries
+        ));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_network(max_entries: usize) -> Result<String, String> {
+    let adapters = collect_network_adapters()?;
+    let active_count = adapters
+        .iter()
+        .filter(|adapter| adapter.is_active())
+        .count();
+    let exposure = listener_exposure_summary(collect_listening_ports().ok().unwrap_or_default());
+
+    let mut out = String::from("Host inspection: network\n\n");
+    out.push_str(&format!("- Adapters found: {}\n", adapters.len()));
+    out.push_str(&format!("- Active adapters: {}\n", active_count));
+    out.push_str(&format!(
+        "- Listener exposure: {} loopback-only, {} wildcard/public, {} specific-bind\n",
+        exposure.loopback_only, exposure.wildcard_public, exposure.specific_bind
+    ));
+
+    if adapters.is_empty() {
+        out.push_str("\nNo adapter details were detected.");
+        return Ok(out);
+    }
+
+    out.push_str("\nAdapter summary:\n");
+    for adapter in adapters.iter().take(max_entries) {
+        let status = if adapter.is_active() {
+            "active"
+        } else if adapter.disconnected {
+            "disconnected"
+        } else {
+            "idle"
+        };
+        let mut details = vec![status.to_string()];
+        if !adapter.ipv4.is_empty() {
+            details.push(format!("ipv4 {}", adapter.ipv4.join(", ")));
+        }
+        if !adapter.ipv6.is_empty() {
+            details.push(format!("ipv6 {}", adapter.ipv6.join(", ")));
+        }
+        if !adapter.gateways.is_empty() {
+            details.push(format!("gateway {}", adapter.gateways.join(", ")));
+        }
+        if !adapter.dns_servers.is_empty() {
+            details.push(format!("dns {}", adapter.dns_servers.join(", ")));
+        }
+        out.push_str(&format!("- {} - {}\n", adapter.name, details.join(" | ")));
+    }
+    if adapters.len() > max_entries {
+        out.push_str(&format!(
+            "- ... {} more adapters omitted\n",
+            adapters.len() - max_entries
         ));
     }
 
@@ -757,6 +813,30 @@ struct ProcessEntry {
     detail: Option<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+struct NetworkAdapter {
+    name: String,
+    ipv4: Vec<String>,
+    ipv6: Vec<String>,
+    gateways: Vec<String>,
+    dns_servers: Vec<String>,
+    disconnected: bool,
+}
+
+impl NetworkAdapter {
+    fn is_active(&self) -> bool {
+        !self.disconnected
+            && (!self.ipv4.is_empty() || !self.ipv6.is_empty() || !self.gateways.is_empty())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct ListenerExposureSummary {
+    loopback_only: usize,
+    wildcard_public: usize,
+    specific_bind: usize,
+}
+
 #[derive(Debug, Clone)]
 struct ListeningPort {
     protocol: String,
@@ -774,6 +854,17 @@ fn collect_listening_ports() -> Result<Vec<ListeningPort>, String> {
     #[cfg(not(target_os = "windows"))]
     {
         collect_unix_listening_ports()
+    }
+}
+
+fn collect_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        collect_windows_network_adapters()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        collect_unix_network_adapters()
     }
 }
 
@@ -857,6 +948,48 @@ fn collect_processes() -> Result<Vec<ProcessEntry>, String> {
 }
 
 #[cfg(target_os = "windows")]
+fn collect_windows_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
+    let output = Command::new("ipconfig")
+        .args(["/all"])
+        .output()
+        .map_err(|e| format!("Failed to run ipconfig: {e}"))?;
+    if !output.status.success() {
+        return Err("ipconfig returned a non-success status.".to_string());
+    }
+
+    Ok(parse_windows_ipconfig_all(&String::from_utf8_lossy(
+        &output.stdout,
+    )))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn collect_unix_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
+    let addr_output = Command::new("ip")
+        .args(["-o", "addr", "show", "up"])
+        .output()
+        .map_err(|e| format!("Failed to run ip addr: {e}"))?;
+    if !addr_output.status.success() {
+        return Err("ip addr returned a non-success status.".to_string());
+    }
+
+    let route_output = Command::new("ip")
+        .args(["route", "show", "default"])
+        .output()
+        .map_err(|e| format!("Failed to run ip route: {e}"))?;
+    if !route_output.status.success() {
+        return Err("ip route returned a non-success status.".to_string());
+    }
+
+    let mut adapters = parse_unix_ip_addr(&String::from_utf8_lossy(&addr_output.stdout));
+    apply_unix_default_routes(
+        &mut adapters,
+        &String::from_utf8_lossy(&route_output.stdout),
+    );
+    apply_unix_dns_servers(&mut adapters);
+    Ok(adapters)
+}
+
+#[cfg(target_os = "windows")]
 fn collect_windows_processes() -> Result<Vec<ProcessEntry>, String> {
     let output = Command::new("tasklist")
         .args(["/FO", "CSV", "/NH"])
@@ -923,6 +1056,35 @@ fn extract_port_from_socket(value: &str) -> Option<u16> {
     let cleaned = value.trim().trim_matches(['[', ']']);
     let port_str = cleaned.rsplit(':').next()?;
     port_str.parse::<u16>().ok()
+}
+
+fn listener_exposure_summary(listeners: Vec<ListeningPort>) -> ListenerExposureSummary {
+    let mut summary = ListenerExposureSummary::default();
+    for entry in listeners {
+        let local = entry.local.to_ascii_lowercase();
+        if is_loopback_listener(&local) {
+            summary.loopback_only += 1;
+        } else if is_wildcard_listener(&local) {
+            summary.wildcard_public += 1;
+        } else {
+            summary.specific_bind += 1;
+        }
+    }
+    summary
+}
+
+fn is_loopback_listener(local: &str) -> bool {
+    local.starts_with("127.")
+        || local.starts_with("[::1]")
+        || local.starts_with("::1")
+        || local.starts_with("localhost:")
+}
+
+fn is_wildcard_listener(local: &str) -> bool {
+    local.starts_with("0.0.0.0:")
+        || local.starts_with("[::]:")
+        || local.starts_with(":::")
+        || local == "*:*"
 }
 
 struct GitState {
@@ -1173,6 +1335,164 @@ fn human_bytes(bytes: u64) -> String {
 }
 
 #[cfg(target_os = "windows")]
+fn parse_windows_ipconfig_all(text: &str) -> Vec<NetworkAdapter> {
+    let mut adapters = Vec::new();
+    let mut current: Option<NetworkAdapter> = None;
+    let mut pending_dns = false;
+
+    for raw_line in text.lines() {
+        let line = raw_line.trim_end();
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            pending_dns = false;
+            continue;
+        }
+
+        if !line.starts_with(' ') && trimmed.ends_with(':') && trimmed.contains("adapter") {
+            if let Some(adapter) = current.take() {
+                adapters.push(adapter);
+            }
+            current = Some(NetworkAdapter {
+                name: trimmed.trim_end_matches(':').to_string(),
+                ..NetworkAdapter::default()
+            });
+            pending_dns = false;
+            continue;
+        }
+
+        let Some(adapter) = current.as_mut() else {
+            continue;
+        };
+
+        if trimmed.contains("Media State") && trimmed.contains("disconnected") {
+            adapter.disconnected = true;
+        }
+
+        if let Some(value) = value_after_colon(trimmed) {
+            let normalized = normalize_ipconfig_value(value);
+            if trimmed.starts_with("IPv4 Address") && !normalized.is_empty() {
+                adapter.ipv4.push(normalized);
+                pending_dns = false;
+            } else if trimmed.starts_with("IPv6 Address")
+                || trimmed.starts_with("Temporary IPv6 Address")
+                || trimmed.starts_with("Link-local IPv6 Address")
+            {
+                if !normalized.is_empty() {
+                    adapter.ipv6.push(normalized);
+                }
+                pending_dns = false;
+            } else if trimmed.starts_with("Default Gateway") {
+                if !normalized.is_empty() {
+                    adapter.gateways.push(normalized);
+                }
+                pending_dns = false;
+            } else if trimmed.starts_with("DNS Servers") {
+                if !normalized.is_empty() {
+                    adapter.dns_servers.push(normalized);
+                }
+                pending_dns = true;
+            } else {
+                pending_dns = false;
+            }
+        } else if pending_dns {
+            let normalized = normalize_ipconfig_value(trimmed);
+            if !normalized.is_empty() {
+                adapter.dns_servers.push(normalized);
+            }
+        }
+    }
+
+    if let Some(adapter) = current.take() {
+        adapters.push(adapter);
+    }
+
+    for adapter in &mut adapters {
+        dedup_vec(&mut adapter.ipv4);
+        dedup_vec(&mut adapter.ipv6);
+        dedup_vec(&mut adapter.gateways);
+        dedup_vec(&mut adapter.dns_servers);
+    }
+
+    adapters
+}
+
+#[cfg(not(target_os = "windows"))]
+fn parse_unix_ip_addr(text: &str) -> Vec<NetworkAdapter> {
+    let mut adapters = std::collections::BTreeMap::<String, NetworkAdapter>::new();
+
+    for line in text.lines() {
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        if cols.len() < 4 {
+            continue;
+        }
+        let name = cols[1].trim_end_matches(':').to_string();
+        let family = cols[2];
+        let addr = cols[3].split('/').next().unwrap_or("").to_string();
+        let entry = adapters
+            .entry(name.clone())
+            .or_insert_with(|| NetworkAdapter {
+                name,
+                ..NetworkAdapter::default()
+            });
+        match family {
+            "inet" if !addr.is_empty() => entry.ipv4.push(addr),
+            "inet6" if !addr.is_empty() => entry.ipv6.push(addr),
+            _ => {}
+        }
+    }
+
+    adapters.into_values().collect()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn apply_unix_default_routes(adapters: &mut [NetworkAdapter], text: &str) {
+    for line in text.lines() {
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        if cols.len() < 5 {
+            continue;
+        }
+        let gateway = cols
+            .windows(2)
+            .find(|pair| pair[0] == "via")
+            .map(|pair| pair[1].to_string());
+        let dev = cols
+            .windows(2)
+            .find(|pair| pair[0] == "dev")
+            .map(|pair| pair[1]);
+        if let (Some(gateway), Some(dev)) = (gateway, dev) {
+            if let Some(adapter) = adapters.iter_mut().find(|adapter| adapter.name == dev) {
+                adapter.gateways.push(gateway);
+            }
+        }
+    }
+
+    for adapter in adapters {
+        dedup_vec(&mut adapter.gateways);
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn apply_unix_dns_servers(adapters: &mut [NetworkAdapter]) {
+    let Ok(text) = fs::read_to_string("/etc/resolv.conf") else {
+        return;
+    };
+    let mut dns_servers = text
+        .lines()
+        .filter_map(|line| line.strip_prefix("nameserver "))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
+    dedup_vec(&mut dns_servers);
+    if dns_servers.is_empty() {
+        return;
+    }
+    for adapter in adapters.iter_mut().filter(|adapter| adapter.is_active()) {
+        adapter.dns_servers = dns_servers.clone();
+    }
+}
+
+#[cfg(target_os = "windows")]
 fn parse_tasklist_memory_kib(raw: &str) -> Option<u64> {
     let digits: String = raw.chars().filter(|ch| ch.is_ascii_digit()).collect();
     if digits.is_empty() {
@@ -1208,4 +1528,22 @@ fn parse_csv_row(line: &str) -> Vec<String> {
     }
     cols.push(current.trim().to_string());
     cols
+}
+
+fn value_after_colon(line: &str) -> Option<&str> {
+    line.split_once(':').map(|(_, value)| value.trim())
+}
+
+fn normalize_ipconfig_value(value: &str) -> String {
+    value
+        .trim()
+        .trim_matches(['(', ')'])
+        .trim_end_matches("(Preferred)")
+        .trim()
+        .to_string()
+}
+
+fn dedup_vec(values: &mut Vec<String>) {
+    let mut seen = HashSet::new();
+    values.retain(|value| seen.insert(value.clone()));
 }

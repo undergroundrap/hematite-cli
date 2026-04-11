@@ -66,7 +66,7 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 
 - **Proven tool loop** — read → grep → edit → verify → undo. Tested on real Rust codebases. The model finds the right line, makes the right change, catches its own errors, and recovers without prompting.
 - **Sandboxed code execution** — the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation — not training-data guesses. Hematite automatically uses Deno from LM Studio's install — no extra setup required. Not using LM Studio? Install Deno globally: `winget install DenoLand.Deno`.
-- **Grounded terminal execution** — Hematite can inspect the real machine through native shell tools, files, and project commands. That means it can answer from observed state — installed toolchains, running ports, desktop files, build output, repo status — instead of making generic guesses.
+- **Grounded terminal execution** — Hematite can inspect the real machine through native shell tools, files, and project commands. That means it can answer from observed state — installed toolchains, active network adapters, running ports, desktop files, build output, repo status — instead of making generic guesses.
 - **Hybrid RAG built in** — The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, not hunting for it with five read_file calls.
 - **Built-in voice, zero install** — 54-voice Kokoro TTS in the packaged releases. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run in the packaged builds.
 - **Windows-first** — CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
@@ -166,11 +166,12 @@ Useful examples:
 
 This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
 
-For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH analysis, toolchain detection, process snapshots, desktop inspection, Downloads summaries, listening-port checks, repo-doctor summaries, and arbitrary directory or disk reports. `shell` remains the fallback for custom checks that do not fit a built-in inspection topic.
+For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH analysis, toolchain detection, network snapshots, process snapshots, desktop inspection, Downloads summaries, listening-port checks, repo-doctor summaries, and arbitrary directory or disk reports. `shell` remains the fallback for custom checks that do not fit a built-in inspection topic.
 
 Try these prompts:
 
 - `Inspect my PATH, tell me which developer tools you detect with versions, point out any duplicate or missing PATH entries, then give me a one-paragraph summary of whether this machine looks ready for local development.`
+- `Show me my active network adapters, IP addresses, gateways, and DNS servers, then tell me whether anything looks off for a normal dev machine.`
 - `Show me what processes are using the most RAM right now and whether anything looks unusual.`
 - `Count and name the items on my desktop.`
 - `Inspect my Downloads folder and tell me the top-level item count, the biggest entries, and whether anything there looks unusually large.`
@@ -600,7 +601,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
 | `map_project` | Compact architecture map with config markers, likely entrypoints, core owner files, and a bounded directory tree |
-| `inspect_host` | Structured read-only inspection of PATH, common toolchains, process snapshots, desktop items, Downloads, ports, repo health, and arbitrary directories |
+| `inspect_host` | Structured read-only inspection of PATH, common toolchains, network snapshots, process snapshots, desktop items, Downloads, ports, repo health, and arbitrary directories |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
 | `fetch_docs` | Fetch and convert documentation pages into readable Markdown for follow-up analysis |
@@ -614,7 +615,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `run_code` | Execute JavaScript/TypeScript (Deno) or Python in a zero-trust sandbox — real output, not model guesses |
 | `clarify` | Ask the user a question when genuinely blocked |
 
-Use `inspect_host` first for structured host questions like installed tool versions, PATH drift, desktop item counts, or Downloads size. That keeps routine workstation inspection grounded without forcing the model to improvise shell commands. `shell` is still there for the cases that really do need a custom command.
+Use `inspect_host` first for structured host questions like installed tool versions, PATH drift, network state, desktop item counts, or Downloads size. That keeps routine workstation inspection grounded without forcing the model to improvise shell commands. `shell` is still there for the cases that really do need a custom command.
 
 ---
 
