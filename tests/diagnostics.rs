@@ -987,6 +987,26 @@ async fn test_inspect_host_services_reports_status_summary() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_env_doctor_reports_package_manager_health() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "env_doctor",
+        "max_entries": 5
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host env doctor");
+
+    assert!(output.contains("Host inspection: env_doctor"));
+    assert!(output.contains("PATH health:"));
+    assert!(output.contains("Package managers found:"));
+    assert!(output.contains("Findings:"));
+    assert!(output.contains("Guidance:"));
+}
+
+#[tokio::test]
 async fn test_inspect_host_disk_reports_size_summary() {
     use serde_json::json;
 

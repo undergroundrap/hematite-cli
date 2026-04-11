@@ -19,6 +19,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "summary" => inspect_summary(max_entries),
         "toolchains" => inspect_toolchains(),
         "path" => inspect_path(max_entries),
+        "env_doctor" => inspect_env_doctor(max_entries),
         "network" => inspect_network(max_entries),
         "services" => inspect_services(parse_name_filter(args), max_entries),
         "processes" => inspect_processes(parse_name_filter(args), max_entries),
@@ -45,7 +46,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor.",
             other
         )),
     }
@@ -232,6 +233,85 @@ fn inspect_path(max_entries: usize) -> Result<String, String> {
             ));
         }
     }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_env_doctor(max_entries: usize) -> Result<String, String> {
+    let path_stats = analyze_path_env();
+    let toolchains = collect_toolchains();
+    let package_managers = collect_package_managers();
+    let findings = build_env_doctor_findings(&toolchains, &package_managers, &path_stats);
+
+    let mut out = String::from("Host inspection: env_doctor\n\n");
+    out.push_str(&format!(
+        "- PATH health: {} duplicates, {} missing entries\n",
+        path_stats.duplicate_entries.len(),
+        path_stats.missing_entries.len()
+    ));
+    out.push_str(&format!("- Toolchains found: {}\n", toolchains.found.len()));
+    out.push_str(&format!(
+        "- Package managers found: {}\n",
+        package_managers.found.len()
+    ));
+
+    if !package_managers.found.is_empty() {
+        out.push_str("\nPackage managers:\n");
+        for (label, version) in package_managers.found.iter().take(max_entries) {
+            out.push_str(&format!("- {}: {}\n", label, version));
+        }
+        if package_managers.found.len() > max_entries {
+            out.push_str(&format!(
+                "- ... {} more package managers omitted\n",
+                package_managers.found.len() - max_entries
+            ));
+        }
+    }
+
+    if !path_stats.duplicate_entries.is_empty() {
+        out.push_str("\nDuplicate PATH entries:\n");
+        for entry in path_stats.duplicate_entries.iter().take(max_entries.min(5)) {
+            out.push_str(&format!("- {}\n", entry));
+        }
+        if path_stats.duplicate_entries.len() > max_entries.min(5) {
+            out.push_str(&format!(
+                "- ... {} more duplicate entries omitted\n",
+                path_stats.duplicate_entries.len() - max_entries.min(5)
+            ));
+        }
+    }
+
+    if !path_stats.missing_entries.is_empty() {
+        out.push_str("\nMissing PATH entries:\n");
+        for entry in path_stats.missing_entries.iter().take(max_entries.min(5)) {
+            out.push_str(&format!("- {}\n", entry));
+        }
+        if path_stats.missing_entries.len() > max_entries.min(5) {
+            out.push_str(&format!(
+                "- ... {} more missing entries omitted\n",
+                path_stats.missing_entries.len() - max_entries.min(5)
+            ));
+        }
+    }
+
+    if !findings.is_empty() {
+        out.push_str("\nFindings:\n");
+        for finding in findings.iter().take(max_entries.max(5)) {
+            out.push_str(&format!("- {}\n", finding));
+        }
+        if findings.len() > max_entries.max(5) {
+            out.push_str(&format!(
+                "- ... {} more findings omitted\n",
+                findings.len() - max_entries.max(5)
+            ));
+        }
+    } else {
+        out.push_str("\nFindings:\n- No obvious environment drift was detected from PATH and package-manager checks.");
+    }
+
+    out.push_str(
+        "\nGuidance:\n- This report already includes the PATH and package-manager health details. Do not call `inspect_host(path)` next unless the user explicitly asks for the raw PATH list.",
+    );
 
     Ok(out.trim_end().to_string())
 }
@@ -884,6 +964,10 @@ struct ToolchainReport {
     missing: Vec<String>,
 }
 
+struct PackageManagerReport {
+    found: Vec<(String, String)>,
+}
+
 #[derive(Debug, Clone)]
 struct ProcessEntry {
     name: String,
@@ -1421,6 +1505,57 @@ fn collect_toolchains() -> ToolchainReport {
     ToolchainReport { found, missing }
 }
 
+fn collect_package_managers() -> PackageManagerReport {
+    let checks = [
+        ToolCheck::new("cargo", &[CommandProbe::new("cargo", &["--version"])]),
+        ToolCheck::new(
+            "npm",
+            &[
+                CommandProbe::new("npm", &["--version"]),
+                CommandProbe::new("npm.cmd", &["--version"]),
+            ],
+        ),
+        ToolCheck::new(
+            "pnpm",
+            &[
+                CommandProbe::new("pnpm", &["--version"]),
+                CommandProbe::new("pnpm.cmd", &["--version"]),
+            ],
+        ),
+        ToolCheck::new(
+            "pip",
+            &[
+                CommandProbe::new("python", &["-m", "pip", "--version"]),
+                CommandProbe::new("python3", &["-m", "pip", "--version"]),
+                CommandProbe::new("py", &["-3", "-m", "pip", "--version"]),
+                CommandProbe::new("py", &["-m", "pip", "--version"]),
+                CommandProbe::new("pip", &["--version"]),
+            ],
+        ),
+        ToolCheck::new("pipx", &[CommandProbe::new("pipx", &["--version"])]),
+        ToolCheck::new("uv", &[CommandProbe::new("uv", &["--version"])]),
+        ToolCheck::new("winget", &[CommandProbe::new("winget", &["--version"])]),
+        ToolCheck::new(
+            "choco",
+            &[
+                CommandProbe::new("choco", &["--version"]),
+                CommandProbe::new("choco.exe", &["--version"]),
+            ],
+        ),
+        ToolCheck::new("scoop", &[CommandProbe::new("scoop", &["--version"])]),
+    ];
+
+    let mut found = Vec::new();
+    for check in checks {
+        match check.detect() {
+            Some(version) => found.push((check.label.to_string(), version)),
+            None => {}
+        }
+    }
+
+    PackageManagerReport { found }
+}
+
 #[derive(Clone)]
 struct ToolCheck {
     label: &'static str,
@@ -1455,6 +1590,81 @@ impl CommandProbe {
     const fn new(program: &'static str, args: &'static [&'static str]) -> Self {
         Self { program, args }
     }
+}
+
+fn build_env_doctor_findings(
+    toolchains: &ToolchainReport,
+    package_managers: &PackageManagerReport,
+    path_stats: &PathAnalysis,
+) -> Vec<String> {
+    let found_tools = toolchains
+        .found
+        .iter()
+        .map(|(label, _)| label.as_str())
+        .collect::<HashSet<_>>();
+    let found_managers = package_managers
+        .found
+        .iter()
+        .map(|(label, _)| label.as_str())
+        .collect::<HashSet<_>>();
+
+    let mut findings = Vec::new();
+
+    if path_stats.duplicate_entries.len() > 0 {
+        findings.push(format!(
+            "PATH contains {} duplicate entries. That is usually harmless but worth cleaning up.",
+            path_stats.duplicate_entries.len()
+        ));
+    }
+    if path_stats.missing_entries.len() > 0 {
+        findings.push(format!(
+            "PATH contains {} entries that do not exist on disk.",
+            path_stats.missing_entries.len()
+        ));
+    }
+    if found_tools.contains("rustc") && !found_managers.contains("cargo") {
+        findings.push(
+            "Rust is present but Cargo was not detected. That is an incomplete Rust toolchain."
+                .to_string(),
+        );
+    }
+    if found_tools.contains("node")
+        && !found_managers.contains("npm")
+        && !found_managers.contains("pnpm")
+    {
+        findings.push(
+            "Node is present but no JavaScript package manager was detected (npm or pnpm)."
+                .to_string(),
+        );
+    }
+    if found_tools.contains("python")
+        && !found_managers.contains("pip")
+        && !found_managers.contains("uv")
+        && !found_managers.contains("pipx")
+    {
+        findings.push(
+            "Python is present but no Python package manager was detected (pip, uv, or pipx)."
+                .to_string(),
+        );
+    }
+    let windows_manager_count = ["winget", "choco", "scoop"]
+        .iter()
+        .filter(|label| found_managers.contains(**label))
+        .count();
+    if windows_manager_count > 1 {
+        findings.push(
+            "Multiple Windows package managers are installed. That is workable, but it can create overlap in update paths."
+                .to_string(),
+        );
+    }
+    if findings.is_empty() && !found_managers.is_empty() {
+        findings.push(
+            "Core package-manager coverage looks healthy for a normal developer workstation."
+                .to_string(),
+        );
+    }
+
+    findings
 }
 
 fn capture_first_line(program: &str, args: &[&str]) -> Option<String> {

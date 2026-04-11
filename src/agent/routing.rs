@@ -164,6 +164,14 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
         lower,
         &[
             "path",
+            "package manager",
+            "package managers",
+            "env doctor",
+            "environment doctor",
+            "pip",
+            "winget",
+            "choco",
+            "scoop",
             "network",
             "adapter",
             "dns",
@@ -216,6 +224,14 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
 pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str> {
     let lower = user_input.to_lowercase();
     let asks_path = lower.contains("path");
+    let asks_env_doctor = lower.contains("env doctor")
+        || lower.contains("environment doctor")
+        || lower.contains("package manager")
+        || lower.contains("package managers")
+        || lower.contains("shims")
+        || lower.contains("path drift")
+        || (lower.contains("dev machine") && lower.contains("off"))
+        || (lower.contains("environment") && lower.contains("sane"));
     let asks_network = lower.contains("network")
         || lower.contains("adapter")
         || lower.contains("dns")
@@ -278,6 +294,8 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || (mentions_host_inspection_question(&lower) && asks_broad_readiness)
     {
         Some("summary")
+    } else if asks_env_doctor {
+        Some("env_doctor")
     } else if asks_network {
         Some("network")
     } else if asks_services {

@@ -159,8 +159,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         make_tool(
             "inspect_host",
             "Return a structured read-only inspection of the current machine and environment. \
-             Prefer this over raw shell for questions about installed developer tools, PATH issues, network state, service state, running processes, desktop items, Downloads size, open listening ports, repo health, or directory/disk summaries. \
-             Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=network for adapters/IPs/gateways/DNS, topic=services for service status and startup mode, \
+             Prefer this over raw shell for questions about installed developer tools, PATH issues, package-manager and environment health, network state, service state, running processes, desktop items, Downloads size, open listening ports, repo health, or directory/disk summaries. \
+             Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=env_doctor for package-manager and PATH health, topic=network for adapters/IPs/gateways/DNS, topic=services for service status and startup mode, \
              topic=processes for running-process snapshots, topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
@@ -168,7 +168,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor"],
+                        "enum": ["summary", "toolchains", "path", "env_doctor", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor"],
                         "description": "Which structured host inspection to run."
                     },
                     "name": {

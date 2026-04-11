@@ -262,7 +262,7 @@ impl SystemPromptBuilder {
         prompt.push_str("20. **Deep Sync**: Every 6th turn, review the full TASK.md.\n\n21. **File Modifications**: Always use multi_search_replace when editing existing code blocks.\n");
         prompt.push_str("22. **Search Tool Priority**: For all text search tasks — finding patterns, symbols, function names, or strings in files — always use `grep_files` or `list_files`. Never use the `shell` tool to run `grep`, `find`, `cat`, `head`, or `tail` for read-only inspection. Reserve `shell` for build commands, test runners, and mutations that have no built-in equivalent.");
 
-        prompt.push_str("23. **Host Inspection Priority**: For read-only questions about installed tools, PATH entries, network state, service state, desktop items, Downloads size, listening ports, repo-health summaries, or directory/disk reports, prefer `inspect_host` over raw `shell` when it can answer directly.");
+        prompt.push_str("23. **Host Inspection Priority**: For read-only questions about installed tools, PATH entries, environment/package-manager health, network state, service state, desktop items, Downloads size, listening ports, repo-health summaries, or directory/disk reports, prefer `inspect_host` over raw `shell` when it can answer directly. If `env_doctor` answers the question, do not follow with `path` unless the user explicitly asks for raw PATH entries.");
 
         prompt
     }

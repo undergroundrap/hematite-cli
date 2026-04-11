@@ -1198,7 +1198,7 @@ impl InferenceEngine {
                       20. RISKY SHELL DISCIPLINE: Risky `shell` calls must include a concrete `reason` argument explaining what is being verified or changed.\n\
                       21. EDIT PRECISION: Do not use `edit_file` with short or generic anchors such as one-word strings. Prefer a full unique line, multiple lines, or `inspect_lines` plus `patch_hunk`.\n\
                       22. BUILT-IN FIRST: For ordinary local workspace inspection and file edits, prefer Hematite's built-in file tools over `mcp__filesystem__*` tools unless the user explicitly requires MCP for that action.\n\
-                      22a. HOST INSPECTION PRIORITY: For read-only questions about installed tools, PATH entries, desktop items, Downloads size, or directory summaries, prefer `inspect_host` over raw `shell` when it can answer directly.");
+                      22a. HOST INSPECTION PRIORITY: For read-only questions about installed tools, PATH entries, environment/package-manager health, network state, service state, running processes, desktop items, Downloads size, listening ports, repo-health summaries, or directory/disk reports, prefer `inspect_host` over raw `shell` when it can answer directly. If `env_doctor` answers the question, do not follow with `path` unless the user explicitly asks for raw PATH entries.");
 
         // Scaffolding protocol — enforces build validation after project creation.
         sys.push_str("\n## SCAFFOLDING PROTOCOL\n\
