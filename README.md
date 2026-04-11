@@ -20,6 +20,8 @@ Local AI coding agent for LM Studio. Runs entirely on your hardware. No API key,
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding agent when you need it, clean conversation when you don't. LM Studio handles model serving. Hematite handles everything else.
 
 ![Version](https://img.shields.io/badge/version-0.4.3-orange?style=flat-square)
+[![crate hematite-cli](https://img.shields.io/crates/v/hematite-cli?style=flat-square&label=crate%20hematite-cli)](https://crates.io/crates/hematite-cli)
+[![crate hematite-kokoros](https://img.shields.io/crates/v/hematite-kokoros?style=flat-square&label=crate%20hematite-kokoros)](https://crates.io/crates/hematite-kokoros)
 ![Windows](https://img.shields.io/badge/Windows-native-blue?style=flat-square)
 ![Linux](https://img.shields.io/badge/Linux-supported-green?style=flat-square)
 ![macOS](https://img.shields.io/badge/macOS-supported-lightgrey?style=flat-square)
