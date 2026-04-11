@@ -1007,6 +1007,63 @@ async fn test_inspect_host_env_doctor_reports_package_manager_health() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_fix_plan_for_path_reports_grounded_steps() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "fix_plan",
+        "issue": "How do I fix cargo not found on this machine?"
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host fix plan env");
+
+    assert!(output.contains("Host inspection: fix_plan"));
+    assert!(output.contains("Fix-plan type: environment/path"));
+    assert!(output.contains("Fix plan:"));
+    assert!(output.contains("Why this works:"));
+}
+
+#[tokio::test]
+async fn test_inspect_host_fix_plan_for_port_mentions_requested_port() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "fix_plan",
+        "issue": "How do I fix port 3000 already in use?",
+        "port": 3000
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host fix plan port");
+
+    assert!(output.contains("Host inspection: fix_plan"));
+    assert!(output.contains("Fix-plan type: port_conflict"));
+    assert!(output.contains("Requested port: 3000"));
+}
+
+#[tokio::test]
+async fn test_inspect_host_fix_plan_for_lm_studio_mentions_configured_endpoint() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "fix_plan",
+        "issue": "How do I fix Hematite when LM Studio is not reachable on localhost:1234?"
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host fix plan lm studio");
+
+    assert!(output.contains("Host inspection: fix_plan"));
+    assert!(output.contains("Fix-plan type: lm_studio"));
+    assert!(output.contains("Configured API URL:"));
+    assert!(output.contains("Fix plan:"));
+}
+
+#[tokio::test]
 async fn test_inspect_host_disk_reports_size_summary() {
     use serde_json::json;
 

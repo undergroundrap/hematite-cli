@@ -84,7 +84,7 @@ impl VoiceManager {
                     include_bytes!("../../.hematite/assets/voice/voices.bin");
 
                 let _ = event_tx.blocking_send(InferenceEvent::VoiceStatus(
-                    "Voice Engine: Loading model (first start may take ~30s)...".into(),
+                    "Voice Engine: Loading voice model...".into(),
                 ));
 
                 // Catch panics from ONNX Runtime init (e.g. API version mismatch with system DLL)

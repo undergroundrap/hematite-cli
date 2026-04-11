@@ -160,7 +160,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "inspect_host",
             "Return a structured read-only inspection of the current machine and environment. \
              Prefer this over raw shell for questions about installed developer tools, PATH issues, package-manager and environment health, network state, service state, running processes, desktop items, Downloads size, open listening ports, repo health, or directory/disk summaries. \
-             Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=env_doctor for package-manager and PATH health, topic=network for adapters/IPs/gateways/DNS, topic=services for service status and startup mode, \
+             For remediation questions phrased like 'how do I fix cargo not found', 'how do I fix port 3000 already in use', or 'how do I fix LM Studio not reachable', use topic=fix_plan instead of diagnosis-only topics like env_doctor, path, or ports. \
+             Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=env_doctor for package-manager and PATH health, topic=fix_plan for structured remediation plans, topic=network for adapters/IPs/gateways/DNS, topic=services for service status and startup mode, \
              topic=processes for running-process snapshots, topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
@@ -168,12 +169,16 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "env_doctor", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor"],
+                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor"],
                         "description": "Which structured host inspection to run."
                     },
                     "name": {
                         "type": "string",
                         "description": "Optional when topic=processes or topic=services. Case-insensitive substring filter for process or service names."
+                    },
+                    "issue": {
+                        "type": "string",
+                        "description": "Optional when topic=fix_plan. Plain-English issue description such as 'cargo not found', 'port 3000 already in use', or 'LM Studio not reachable on localhost:1234'."
                     },
                     "path": {
                         "type": "string",
@@ -181,7 +186,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                     },
                     "port": {
                         "type": "integer",
-                        "description": "Optional when topic=ports. Filter the result to one listening TCP port."
+                        "description": "Optional when topic=ports or topic=fix_plan. Filter the result to one listening TCP port or anchor a port-conflict fix plan."
                     },
                     "max_entries": {
                         "type": "integer",

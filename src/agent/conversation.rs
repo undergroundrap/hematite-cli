@@ -2009,6 +2009,8 @@ impl ConversationManager {
         let toolchain_mode =
             intent.toolchain_mode || intent.primary_class == QueryIntentClass::Toolchain;
         let host_inspection_mode = intent.host_inspection_mode;
+        let fix_plan_mode =
+            preferred_host_inspection_topic(&effective_user_input) == Some("fix_plan");
         let project_map_mode = intent.preserve_project_map_output
             || intent.primary_class == QueryIntentClass::RepoArchitecture;
         let architecture_overview_mode = intent.architecture_overview_mode;
@@ -2071,11 +2073,21 @@ impl ConversationManager {
             system_msg.push_str(
                  "\n\n# HOST INSPECTION MODE\n\
                    This turn is about the local machine and environment, not repository architecture.\n\
-                 Prefer `inspect_host` before raw `shell` for PATH analysis, installed developer tool versions, environment/package-manager health, network snapshots, service snapshots, process snapshots, desktop item counts, Downloads summaries, listening ports, repo-doctor checks, and directory/disk-size reports.\n\
-                 Use the closest built-in topic first: `summary`, `toolchains`, `path`, `env_doctor`, `network`, `services`, `processes`, `desktop`, `downloads`, `ports`, `repo_doctor`, `directory`, or `disk`.\n\
+                 Prefer `inspect_host` before raw `shell` for PATH analysis, installed developer tool versions, environment/package-manager health, grounded fix plans, network snapshots, service snapshots, process snapshots, desktop item counts, Downloads summaries, listening ports, repo-doctor checks, and directory/disk-size reports.\n\
+                 Use the closest built-in topic first: `summary`, `toolchains`, `path`, `env_doctor`, `fix_plan`, `network`, `services`, `processes`, `desktop`, `downloads`, `ports`, `repo_doctor`, `directory`, or `disk`.\n\
+                 If the user asks how to fix a common workstation problem such as `cargo not found`, `port 3000 already in use`, or `LM Studio not reachable`, use `fix_plan` first instead of `env_doctor`, `path`, or `ports`.\n\
                  If `env_doctor` answers the question, stop there. Do not follow with `path` unless the user explicitly asks for raw PATH entries.\n\
                  Only use `shell` if the host question truly goes beyond `inspect_host`.\n"
               );
+        }
+        if !tiny_context_mode && fix_plan_mode {
+            system_msg.push_str(
+                "\n\n# FIX PLAN MODE\n\
+                 This turn is a workstation remediation question, not just a diagnosis question.\n\
+                 Call `inspect_host` with `topic=fix_plan` first.\n\
+                 Do not start with `path`, `toolchains`, `env_doctor`, or `ports` unless the user explicitly asks for diagnosis details instead of a fix plan.\n\
+                 Keep the answer grounded, stepwise, and approval-aware.\n"
+            );
         }
         if !tiny_context_mode && project_map_mode {
             system_msg.push_str(
@@ -2262,6 +2274,8 @@ impl ConversationManager {
             std::collections::HashMap::new();
         // Track the count of identical (name, args) calls to detect infinite tool loops.
         let mut repeat_counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
+        let mut completed_tool_cache: std::collections::HashMap<String, CachedToolResult> =
             std::collections::HashMap::new();
         let mut successful_read_targets: std::collections::HashSet<String> =
             std::collections::HashSet::new();
@@ -2569,10 +2583,54 @@ impl ConversationManager {
 
                 // ── LAYER 4: Parallel Tool Orchestration (Batching) ────────────────────
                 let mut results = Vec::new();
+                let gemma4_model =
+                    crate::agent::inference::is_gemma4_model_name(&self.engine.current_model());
+                let latest_user_prompt = self.latest_user_prompt();
+                let mut seen_call_keys = std::collections::HashSet::new();
+                let mut deduped_calls = Vec::new();
+                for call in calls.clone() {
+                    let (normalized_name, normalized_args) = normalized_tool_call_for_execution(
+                        &call.function.name,
+                        &call.function.arguments,
+                        gemma4_model,
+                        latest_user_prompt,
+                    );
+                    let key = canonical_tool_call_key(&normalized_name, &normalized_args);
+                    if seen_call_keys.insert(key) {
+                        let repeat_guard_exempt = matches!(
+                            normalized_name.as_str(),
+                            "verify_build" | "git_commit" | "git_push"
+                        );
+                        if !repeat_guard_exempt {
+                            if let Some(cached) = completed_tool_cache
+                                .get(&canonical_tool_call_key(&normalized_name, &normalized_args))
+                            {
+                                let _ = tx
+                                    .send(InferenceEvent::Thought(
+                                        "Cached tool result reused: identical built-in invocation already completed earlier in this turn."
+                                            .to_string(),
+                                    ))
+                                    .await;
+                                loop_intervention = Some(format!(
+                                    "STOP. You already called `{}` with identical arguments earlier in this turn and already have that result in conversation history. Do not call it again. Use the existing result to answer or choose a different next step.",
+                                    cached.tool_name
+                                ));
+                                continue;
+                            }
+                        }
+                        deduped_calls.push(call);
+                    } else {
+                        let _ = tx
+                            .send(InferenceEvent::Thought(
+                                "Duplicate tool call skipped: identical built-in invocation already ran this turn."
+                                    .to_string(),
+                            ))
+                            .await;
+                    }
+                }
 
                 // Partition tool calls: Parallel Read vs Serial Mutating
-                let (parallel_calls, serial_calls): (Vec<_>, Vec<_>) = calls
-                    .clone()
+                let (parallel_calls, serial_calls): (Vec<_>, Vec<_>) = deduped_calls
                     .into_iter()
                     .partition(|c| is_parallel_safe(&c.function.name));
 
@@ -2719,6 +2777,19 @@ impl ConversationManager {
                             is_error,
                         })
                         .await;
+
+                    let repeat_guard_exempt = matches!(
+                        tool_name.as_str(),
+                        "verify_build" | "git_commit" | "git_push"
+                    );
+                    if !repeat_guard_exempt {
+                        completed_tool_cache.insert(
+                            canonical_tool_call_key(&tool_name, &res.args),
+                            CachedToolResult {
+                                tool_name: tool_name.clone(),
+                            },
+                        );
+                    }
 
                     // Cap output before history
                     let compact_ctx = crate::agent::inference::is_compact_context_window_pub(
@@ -3612,6 +3683,129 @@ pub async fn dispatch_tool(name: &str, args: &Value) -> Result<String, String> {
     dispatch_builtin_tool(name, args).await
 }
 
+fn normalize_fix_plan_issue_text(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    let stripped = trimmed
+        .strip_prefix("/think")
+        .or_else(|| trimmed.strip_prefix("/no_think"))
+        .map(str::trim)
+        .unwrap_or(trimmed)
+        .trim_start_matches('\n')
+        .trim();
+    (!stripped.is_empty()).then(|| stripped.to_string())
+}
+
+fn fill_missing_fix_plan_issue(tool_name: &str, args: &mut Value, fallback_issue: Option<&str>) {
+    if tool_name != "inspect_host" {
+        return;
+    }
+
+    let Some(topic) = args.get("topic").and_then(|v| v.as_str()) else {
+        return;
+    };
+    if topic != "fix_plan" {
+        return;
+    }
+
+    let issue_missing = args
+        .get("issue")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .is_none_or(|value| value.is_empty());
+    if !issue_missing {
+        return;
+    }
+
+    let Some(fallback_issue) = fallback_issue.and_then(normalize_fix_plan_issue_text) else {
+        return;
+    };
+
+    let Value::Object(map) = args else {
+        return;
+    };
+    map.insert(
+        "issue".to_string(),
+        Value::String(fallback_issue.to_string()),
+    );
+}
+
+fn should_rewrite_shell_to_fix_plan(
+    tool_name: &str,
+    args: &Value,
+    latest_user_prompt: Option<&str>,
+) -> bool {
+    if tool_name != "shell" {
+        return false;
+    }
+    let Some(prompt) = latest_user_prompt else {
+        return false;
+    };
+    if preferred_host_inspection_topic(prompt) != Some("fix_plan") {
+        return false;
+    }
+    let command = args
+        .get("command")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    shell_looks_like_structured_host_inspection(command)
+}
+
+fn rewrite_host_tool_call(
+    tool_name: &mut String,
+    args: &mut Value,
+    latest_user_prompt: Option<&str>,
+) {
+    if should_rewrite_shell_to_fix_plan(tool_name, args, latest_user_prompt) {
+        *tool_name = "inspect_host".to_string();
+        *args = serde_json::json!({
+            "topic": "fix_plan"
+        });
+    }
+    fill_missing_fix_plan_issue(tool_name, args, latest_user_prompt);
+}
+
+fn canonical_tool_call_key(tool_name: &str, args: &Value) -> String {
+    format!(
+        "{}:{}",
+        tool_name,
+        serde_json::to_string(args).unwrap_or_default()
+    )
+}
+
+fn normalized_tool_call_for_execution(
+    tool_name: &str,
+    raw_arguments: &str,
+    gemma4_model: bool,
+    latest_user_prompt: Option<&str>,
+) -> (String, Value) {
+    let normalized_arguments = if gemma4_model {
+        crate::agent::inference::normalize_tool_argument_string(tool_name, raw_arguments)
+    } else {
+        raw_arguments.to_string()
+    };
+    let mut normalized_name = tool_name.to_string();
+    let mut args = serde_json::from_str::<Value>(&normalized_arguments)
+        .unwrap_or(Value::Object(Default::default()));
+    rewrite_host_tool_call(&mut normalized_name, &mut args, latest_user_prompt);
+    (normalized_name, args)
+}
+
+#[cfg(test)]
+fn normalized_tool_call_key_for_dedupe(
+    tool_name: &str,
+    raw_arguments: &str,
+    gemma4_model: bool,
+    latest_user_prompt: Option<&str>,
+) -> String {
+    let (normalized_name, args) = normalized_tool_call_for_execution(
+        tool_name,
+        raw_arguments,
+        gemma4_model,
+        latest_user_prompt,
+    );
+    canonical_tool_call_key(&normalized_name, &args)
+}
+
 impl ConversationManager {
     /// Checks if a tool call is authorized given the current configuration and mode.
     fn check_authorization(
@@ -3627,7 +3821,7 @@ impl ConversationManager {
     /// Layer 4: Isolated tool execution logic. Does not mutate 'self' to allow parallelism.
     async fn process_tool_call(
         &self,
-        call: ToolCallFn,
+        mut call: ToolCallFn,
         config: crate::agent::config::HematiteConfig,
         yolo: bool,
         tx: mpsc::Sender<InferenceEvent>,
@@ -3663,6 +3857,13 @@ impl ConversationManager {
                 }
             }
         };
+        let last_user_prompt = self
+            .history
+            .iter()
+            .rev()
+            .find(|message| message.role == "user")
+            .map(|message| message.content.as_str());
+        rewrite_host_tool_call(&mut call.name, &mut args, last_user_prompt);
 
         if call.name == "map_project" && self.workflow_mode == WorkflowMode::Architect {
             if let Some(obj) = args.as_object_mut() {
@@ -4083,6 +4284,11 @@ struct ToolExecutionOutcome {
     is_error: bool,
     blocked_by_policy: bool,
     msg_results: Vec<ChatMessage>,
+}
+
+#[derive(Clone)]
+struct CachedToolResult {
+    tool_name: String,
 }
 
 fn is_code_like_path(path: &str) -> bool {
@@ -4830,6 +5036,70 @@ mod tests {
             ),
             Some("env_doctor")
         );
+    }
+
+    #[test]
+    fn intent_router_picks_fix_plan_for_host_remediation_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("How do I fix cargo not found on this machine?"),
+            Some("fix_plan")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic(
+                "How do I fix Hematite when LM Studio is not reachable on localhost:1234?"
+            ),
+            Some("fix_plan")
+        );
+    }
+
+    #[test]
+    fn fill_missing_fix_plan_issue_backfills_last_user_prompt() {
+        let mut args = serde_json::json!({
+            "topic": "fix_plan"
+        });
+
+        fill_missing_fix_plan_issue(
+            "inspect_host",
+            &mut args,
+            Some("/think\nHow do I fix cargo not found on this machine?"),
+        );
+
+        assert_eq!(
+            args.get("issue").and_then(|value| value.as_str()),
+            Some("How do I fix cargo not found on this machine?")
+        );
+    }
+
+    #[test]
+    fn shell_fix_question_rewrites_to_fix_plan() {
+        let args = serde_json::json!({
+            "command": "where cargo"
+        });
+
+        assert!(should_rewrite_shell_to_fix_plan(
+            "shell",
+            &args,
+            Some("How do I fix cargo not found on this machine?")
+        ));
+    }
+
+    #[test]
+    fn fix_plan_dedupe_key_matches_rewritten_shell_probe() {
+        let latest_user_prompt = Some("How do I fix cargo not found on this machine?");
+        let shell_key = normalized_tool_call_key_for_dedupe(
+            "shell",
+            r#"{"command":"where cargo"}"#,
+            false,
+            latest_user_prompt,
+        );
+        let fix_plan_key = normalized_tool_call_key_for_dedupe(
+            "inspect_host",
+            r#"{"topic":"fix_plan"}"#,
+            false,
+            latest_user_prompt,
+        );
+
+        assert_eq!(shell_key, fix_plan_key);
     }
 
     #[test]

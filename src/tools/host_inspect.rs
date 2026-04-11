@@ -20,6 +20,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "toolchains" => inspect_toolchains(),
         "path" => inspect_path(max_entries),
         "env_doctor" => inspect_env_doctor(max_entries),
+        "fix_plan" => inspect_fix_plan(parse_issue_text(args), parse_port_filter(args), max_entries).await,
         "network" => inspect_network(max_entries),
         "services" => inspect_services(parse_name_filter(args), max_entries),
         "processes" => inspect_processes(parse_name_filter(args), max_entries),
@@ -46,7 +47,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor.",
             other
         )),
     }
@@ -68,6 +69,14 @@ fn parse_port_filter(args: &Value) -> Option<u16> {
 
 fn parse_name_filter(args: &Value) -> Option<String> {
     args.get("name")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string())
+}
+
+fn parse_issue_text(args: &Value) -> Option<String> {
+    args.get("issue")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -314,6 +323,358 @@ fn inspect_env_doctor(max_entries: usize) -> Result<String, String> {
     );
 
     Ok(out.trim_end().to_string())
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FixPlanKind {
+    EnvPath,
+    PortConflict,
+    LmStudio,
+    Generic,
+}
+
+async fn inspect_fix_plan(
+    issue: Option<String>,
+    port_filter: Option<u16>,
+    max_entries: usize,
+) -> Result<String, String> {
+    let issue = issue.unwrap_or_else(|| {
+        "Help me fix PATH, toolchain, port-conflict, or LM Studio connectivity problems."
+            .to_string()
+    });
+    let plan_kind = classify_fix_plan_kind(&issue, port_filter);
+    match plan_kind {
+        FixPlanKind::EnvPath => inspect_env_fix_plan(&issue, max_entries),
+        FixPlanKind::PortConflict => inspect_port_fix_plan(&issue, port_filter, max_entries),
+        FixPlanKind::LmStudio => inspect_lm_studio_fix_plan(&issue, max_entries).await,
+        FixPlanKind::Generic => inspect_generic_fix_plan(&issue),
+    }
+}
+
+fn classify_fix_plan_kind(issue: &str, port_filter: Option<u16>) -> FixPlanKind {
+    let lower = issue.to_ascii_lowercase();
+    if port_filter.is_some()
+        || lower.contains("port ")
+        || lower.contains("address already in use")
+        || lower.contains("already in use")
+        || lower.contains("what owns port")
+        || lower.contains("listening on port")
+    {
+        FixPlanKind::PortConflict
+    } else if lower.contains("lm studio")
+        || lower.contains("localhost:1234")
+        || lower.contains("/v1/models")
+        || lower.contains("no coding model loaded")
+        || lower.contains("embedding model")
+        || lower.contains("server on port 1234")
+        || lower.contains("runtime refresh")
+    {
+        FixPlanKind::LmStudio
+    } else if lower.contains("cargo")
+        || lower.contains("rustc")
+        || lower.contains("path")
+        || lower.contains("package manager")
+        || lower.contains("package managers")
+        || lower.contains("toolchain")
+        || lower.contains("winget")
+        || lower.contains("choco")
+        || lower.contains("scoop")
+        || lower.contains("python")
+        || lower.contains("node")
+    {
+        FixPlanKind::EnvPath
+    } else {
+        FixPlanKind::Generic
+    }
+}
+
+fn inspect_env_fix_plan(issue: &str, max_entries: usize) -> Result<String, String> {
+    let path_stats = analyze_path_env();
+    let toolchains = collect_toolchains();
+    let package_managers = collect_package_managers();
+    let findings = build_env_doctor_findings(&toolchains, &package_managers, &path_stats);
+    let found_tools = toolchains
+        .found
+        .iter()
+        .map(|(label, _)| label.as_str())
+        .collect::<HashSet<_>>();
+    let found_managers = package_managers
+        .found
+        .iter()
+        .map(|(label, _)| label.as_str())
+        .collect::<HashSet<_>>();
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: environment/path\n");
+    out.push_str(&format!(
+        "- PATH health: {} duplicates, {} missing entries\n",
+        path_stats.duplicate_entries.len(),
+        path_stats.missing_entries.len()
+    ));
+    out.push_str(&format!("- Toolchains found: {}\n", toolchains.found.len()));
+    out.push_str(&format!(
+        "- Package managers found: {}\n",
+        package_managers.found.len()
+    ));
+
+    out.push_str("\nLikely causes:\n");
+    if found_tools.contains("rustc") && !found_managers.contains("cargo") {
+        out.push_str(
+            "- Rust is present but Cargo is not. The most common cause is a missing Rustup bin path such as `%USERPROFILE%\\.cargo\\bin` on Windows or `$HOME/.cargo/bin` on Unix.\n",
+        );
+    }
+    if path_stats.duplicate_entries.is_empty()
+        && path_stats.missing_entries.is_empty()
+        && !findings.is_empty()
+    {
+        for finding in findings.iter().take(max_entries.max(4)) {
+            out.push_str(&format!("- {}\n", finding));
+        }
+    } else {
+        if !path_stats.duplicate_entries.is_empty() {
+            out.push_str("- Duplicate PATH rows create clutter and can hide which install path is actually winning.\n");
+        }
+        if !path_stats.missing_entries.is_empty() {
+            out.push_str("- Stale PATH rows point at directories that no longer exist, which makes environment drift harder to reason about.\n");
+        }
+    }
+    if found_tools.contains("node")
+        && !found_managers.contains("npm")
+        && !found_managers.contains("pnpm")
+    {
+        out.push_str("- Node is present without a detected package manager. That usually means a partial install or PATH drift.\n");
+    }
+    if found_tools.contains("python")
+        && !found_managers.contains("pip")
+        && !found_managers.contains("uv")
+        && !found_managers.contains("pipx")
+    {
+        out.push_str("- Python is present without a detected package manager. That usually means the launcher works but Scripts/bin is not discoverable.\n");
+    }
+
+    out.push_str("\nFix plan:\n");
+    out.push_str("- Verify the command resolution first with `where cargo`, `where rustc`, `where python`, or `Get-Command cargo` so you know whether the tool is missing or just hidden behind PATH drift.\n");
+    if found_tools.contains("rustc") && !found_managers.contains("cargo") {
+        out.push_str("- Add the Rustup bin directory to your user PATH, then restart the terminal. On Windows that is usually `%USERPROFILE%\\.cargo\\bin`.\n");
+    } else if !found_tools.contains("rustc") && !found_managers.contains("cargo") {
+        out.push_str("- If Rust is not installed at all, install Rustup first, then reopen the terminal. On Windows the clean path is `winget install Rustlang.Rustup`.\n");
+    }
+    if !path_stats.duplicate_entries.is_empty() || !path_stats.missing_entries.is_empty() {
+        out.push_str("- Clean duplicate or dead PATH rows in Environment Variables so the winning toolchain path is obvious and stable.\n");
+    }
+    if found_tools.contains("node")
+        && !found_managers.contains("npm")
+        && !found_managers.contains("pnpm")
+    {
+        out.push_str("- Repair the Node install or reinstall Node so `npm` is restored. If you prefer `pnpm`, install it after Node is healthy.\n");
+    }
+    if found_tools.contains("python")
+        && !found_managers.contains("pip")
+        && !found_managers.contains("uv")
+        && !found_managers.contains("pipx")
+    {
+        out.push_str("- Repair Python or install a Python package manager explicitly. `py -m ensurepip --upgrade` is the least-invasive first check on Windows.\n");
+    }
+
+    if !path_stats.duplicate_entries.is_empty() {
+        out.push_str("\nExample duplicate PATH rows:\n");
+        for entry in path_stats.duplicate_entries.iter().take(max_entries.min(5)) {
+            out.push_str(&format!("- {}\n", entry));
+        }
+    }
+    if !path_stats.missing_entries.is_empty() {
+        out.push_str("\nExample missing PATH rows:\n");
+        for entry in path_stats.missing_entries.iter().take(max_entries.min(5)) {
+            out.push_str(&format!("- {}\n", entry));
+        }
+    }
+
+    out.push_str(
+        "\nWhy this works:\n- PATH problems are usually resolution problems, not mysterious tool failures. Verify the executable path, repair the install only when needed, then restart the shell so the environment is rebuilt cleanly.",
+    );
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_port_fix_plan(
+    issue: &str,
+    port_filter: Option<u16>,
+    max_entries: usize,
+) -> Result<String, String> {
+    let requested_port = port_filter.or_else(|| first_port_in_text(issue));
+    let listeners = collect_listening_ports().unwrap_or_default();
+    let mut matching = listeners;
+    if let Some(port) = requested_port {
+        matching.retain(|entry| entry.port == port);
+    }
+    let processes = collect_processes().unwrap_or_default();
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: port_conflict\n");
+    if let Some(port) = requested_port {
+        out.push_str(&format!("- Requested port: {}\n", port));
+    } else {
+        out.push_str("- Requested port: not parsed from the issue text\n");
+    }
+    out.push_str(&format!("- Matching listeners found: {}\n", matching.len()));
+
+    if !matching.is_empty() {
+        out.push_str("\nCurrent listeners:\n");
+        for entry in matching.iter().take(max_entries.min(5)) {
+            let process_name = entry
+                .pid
+                .as_deref()
+                .and_then(|pid| pid.parse::<u32>().ok())
+                .and_then(|pid| {
+                    processes
+                        .iter()
+                        .find(|process| process.pid == pid)
+                        .map(|process| process.name.as_str())
+                })
+                .unwrap_or("unknown");
+            let pid = entry.pid.as_deref().unwrap_or("unknown");
+            out.push_str(&format!(
+                "- {} {} ({}) pid {} process {}\n",
+                entry.protocol, entry.local, entry.state, pid, process_name
+            ));
+        }
+    }
+
+    out.push_str("\nFix plan:\n");
+    out.push_str("- Identify whether the existing listener is expected. If it is your dev server, reuse it or change your app config instead of killing it blindly.\n");
+    if !matching.is_empty() {
+        out.push_str("- If the listener is stale, stop the owning process by PID or close the parent app cleanly. On Windows, `taskkill /PID <pid> /F` is the blunt option, but closing the app normally is safer.\n");
+    } else {
+        out.push_str("- Re-run a listener check right before changing anything. Port conflicts can disappear if a stale dev process exits between checks.\n");
+    }
+    out.push_str("- If the port is intentionally occupied, move your app to another port instead of fighting the existing process.\n");
+    out.push_str("- If the port keeps getting reclaimed after you kill it, inspect startup services or background tools rather than repeating `taskkill` loops.\n");
+    out.push_str(
+        "\nWhy this works:\n- Port conflicts are ownership problems. Once you know which PID owns the listener, the clean fix is either stop that owner or move your app to a different port.",
+    );
+    Ok(out.trim_end().to_string())
+}
+
+async fn inspect_lm_studio_fix_plan(issue: &str, max_entries: usize) -> Result<String, String> {
+    let config = crate::agent::config::load_config();
+    let configured_api = config
+        .api_url
+        .unwrap_or_else(|| "http://localhost:1234/v1".to_string());
+    let models_url = format!("{}/models", configured_api.trim_end_matches('/'));
+    let reachability = probe_http_endpoint(&models_url).await;
+    let embed_model = detect_loaded_embed_model(&configured_api).await;
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: lm_studio\n");
+    out.push_str(&format!("- Configured API URL: {}\n", configured_api));
+    out.push_str(&format!("- Probe URL: {}\n", models_url));
+    match &reachability {
+        EndpointProbe::Reachable(status) => {
+            out.push_str(&format!("- Endpoint reachable: yes (HTTP {})\n", status))
+        }
+        EndpointProbe::Unreachable(detail) => {
+            out.push_str(&format!("- Endpoint reachable: no ({})\n", detail))
+        }
+    }
+    out.push_str(&format!(
+        "- Embedding model loaded: {}\n",
+        embed_model.as_deref().unwrap_or("none detected")
+    ));
+
+    out.push_str("\nFix plan:\n");
+    match reachability {
+        EndpointProbe::Reachable(_) => {
+            out.push_str("- LM Studio is reachable, so the first fix step is model state, not networking. Check whether a chat model is actually loaded and whether the local server is still serving the model you expect.\n");
+        }
+        EndpointProbe::Unreachable(_) => {
+            out.push_str("- Start LM Studio and make sure the local server is running on the configured endpoint. Hematite defaults to `http://localhost:1234/v1` unless `.hematite/settings.json` overrides `api_url`.\n");
+        }
+    }
+    out.push_str("- If Hematite is pointed at the wrong endpoint, fix `api_url` in `.hematite/settings.json` and restart or run `/runtime-refresh`.\n");
+    out.push_str("- If chat works but semantic search does not, load the embedding model as a second resident model in LM Studio. Hematite expects a `nomic-embed` style model there.\n");
+    out.push_str("- If LM Studio keeps responding with no model loaded, load the coding model first, then start the server again before blaming Hematite.\n");
+    out.push_str("- If the server is up but turns still fail, narrow the prompt or refresh the runtime profile so Hematite picks up the live model and context budget.\n");
+    if let Some(model) = embed_model {
+        out.push_str(&format!(
+            "- Current embedding model already visible: {}. That means the embeddings lane is configured, so focus on the chat model or endpoint next.\n",
+            model
+        ));
+    }
+    if max_entries > 0 {
+        out.push_str(
+            "\nWhy this works:\n- LM Studio failures usually collapse into three buckets: wrong endpoint, server not running, or models not loaded. Confirm the endpoint first, then fix model state instead of guessing.",
+        );
+    }
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_generic_fix_plan(issue: &str) -> Result<String, String> {
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: generic\n");
+    out.push_str(
+        "\nGuidance:\n- Use `fix_plan` for one of the current structured remediation lanes: PATH/toolchain drift, port conflicts, or LM Studio connectivity.\n- If your issue is outside those lanes, run the closest `inspect_host` topic first to ground the diagnosis before proposing changes.",
+    );
+    Ok(out.trim_end().to_string())
+}
+
+#[derive(Debug)]
+enum EndpointProbe {
+    Reachable(u16),
+    Unreachable(String),
+}
+
+async fn probe_http_endpoint(url: &str) -> EndpointProbe {
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(3))
+        .build()
+    {
+        Ok(client) => client,
+        Err(err) => return EndpointProbe::Unreachable(err.to_string()),
+    };
+
+    match client.get(url).send().await {
+        Ok(resp) => EndpointProbe::Reachable(resp.status().as_u16()),
+        Err(err) => EndpointProbe::Unreachable(err.to_string()),
+    }
+}
+
+async fn detect_loaded_embed_model(configured_api: &str) -> Option<String> {
+    let base = configured_api.trim_end_matches("/v1").trim_end_matches('/');
+    let url = format!("{}/api/v0/models", base);
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(3))
+        .build()
+        .ok()?;
+
+    #[derive(serde::Deserialize)]
+    struct ModelList {
+        data: Vec<ModelEntry>,
+    }
+    #[derive(serde::Deserialize)]
+    struct ModelEntry {
+        id: String,
+        #[serde(rename = "type", default)]
+        model_type: String,
+        #[serde(default)]
+        state: String,
+    }
+
+    let response = client.get(url).send().await.ok()?;
+    let models = response.json::<ModelList>().await.ok()?;
+    models
+        .data
+        .into_iter()
+        .find(|model| model.model_type == "embeddings" && model.state == "loaded")
+        .map(|model| model.id)
+}
+
+fn first_port_in_text(text: &str) -> Option<u16> {
+    text.split(|c: char| !c.is_ascii_digit())
+        .find(|fragment| !fragment.is_empty())
+        .and_then(|fragment| fragment.parse::<u16>().ok())
 }
 
 fn inspect_processes(name_filter: Option<String>, max_entries: usize) -> Result<String, String> {

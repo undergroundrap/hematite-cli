@@ -78,7 +78,7 @@ Crates.io compatibility rule: the default published/source build does not embed 
 
 Crates.io update rule: in normal use, almost every public tagged Hematite release should republish `hematite-cli`. Republish `hematite-kokoros` only when the vendored fork itself changes. Do not bump the voice fork just because the main app shipped a new release.
 
-For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, environment/package-manager health, network snapshots, service snapshots, process snapshots, desktop/downloads, listening ports, repo-doctor summaries, and arbitrary directory or disk inspections before falling back to raw shell.
+For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, environment/package-manager health, grounded fix plans for common workstation failures, network snapshots, service snapshots, process snapshots, desktop/downloads, listening ports, repo-doctor summaries, and arbitrary directory or disk inspections before falling back to raw shell.
 
 ## Hardware Intent
 

@@ -215,6 +215,10 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "duplicate",
             "missing",
             "ready",
+            "fix",
+            "repair",
+            "resolve",
+            "troubleshoot",
         ],
     );
 
@@ -223,6 +227,20 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
 
 pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str> {
     let lower = user_input.to_lowercase();
+    let asks_fix_plan = (lower.contains("fix")
+        || lower.contains("repair")
+        || lower.contains("resolve")
+        || lower.contains("troubleshoot"))
+        && (lower.contains("cargo")
+            || lower.contains("path")
+            || lower.contains("package manager")
+            || lower.contains("toolchain")
+            || lower.contains("port ")
+            || lower.contains("already in use")
+            || lower.contains("lm studio")
+            || lower.contains("localhost:1234")
+            || lower.contains("embedding model")
+            || lower.contains("no coding model loaded"));
     let asks_path = lower.contains("path");
     let asks_env_doctor = lower.contains("env doctor")
         || lower.contains("environment doctor")
@@ -290,7 +308,9 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || (lower.contains("machine") && lower.contains("ready"))
         || (lower.contains("computer") && lower.contains("ready"));
 
-    if (asks_path && asks_toolchains)
+    if asks_fix_plan {
+        Some("fix_plan")
+    } else if (asks_path && asks_toolchains)
         || (mentions_host_inspection_question(&lower) && asks_broad_readiness)
     {
         Some("summary")
