@@ -73,6 +73,8 @@ Package naming rule: the crates.io package is `hematite-cli`, but the executable
 
 Crates.io publish order: publish `hematite-kokoros` first, then publish `hematite-cli`. The main package depends on the forked voice crate by published package name while keeping the source-level crate path as `kokoros`.
 
+Crates.io compatibility rule: the default published/source build does not embed the large Kokoro voice assets. Packaged releases and local packaging scripts must build with `--features embedded-voice-assets` so the shipped Windows/macOS/Linux bundles keep the baked-in voice engine.
+
 For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, desktop/downloads, listening ports, repo-doctor summaries, and arbitrary directory or disk inspections before falling back to raw shell.
 
 ## Hardware Intent

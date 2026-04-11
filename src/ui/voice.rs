@@ -1,6 +1,9 @@
 use crate::agent::inference::InferenceEvent;
+#[cfg(feature = "embedded-voice-assets")]
 use kokoros::tts::koko::TTSKoko;
-use rodio::{OutputStream, Sink};
+#[cfg(feature = "embedded-voice-assets")]
+use rodio::OutputStream;
+use rodio::Sink;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
@@ -11,6 +14,7 @@ use tokio::sync::mpsc as tokio_mpsc;
 pub struct VoiceManager {
     sender: mpsc::SyncSender<String>,
     enabled: Arc<AtomicBool>,
+    available: Arc<AtomicBool>,
     cancelled: Arc<AtomicBool>, // Immediate abort flag
     sink: Arc<tokio::sync::Mutex<Option<Sink>>>,
     /// Currently active voice ID — updated live by /voice command.
@@ -30,16 +34,18 @@ impl VoiceManager {
         // Large buffer so tokens arriving during model load (~30-60s) aren't dropped.
         let (tx, rx) = mpsc::sync_channel::<String>(1024);
         let enabled = Arc::new(AtomicBool::new(true));
+        let available = Arc::new(AtomicBool::new(cfg!(feature = "embedded-voice-assets")));
         let cancelled = Arc::new(AtomicBool::new(false));
         let enabled_ctx = enabled.clone();
-        let cancelled_ctx = cancelled.clone();
+        let available_ctx = available.clone();
+        let _cancelled_ctx = cancelled.clone();
         let sink_shared = Arc::new(tokio::sync::Mutex::new(None));
         let current_voice = Arc::new(std::sync::Mutex::new(initial_voice));
         let current_speed = Arc::new(std::sync::Mutex::new(initial_speed));
         let current_volume = Arc::new(std::sync::Mutex::new(initial_volume));
-        let voice_synth = Arc::clone(&current_voice);
-        let speed_synth = Arc::clone(&current_speed);
-        let volume_synth = Arc::clone(&current_volume);
+        let _voice_synth = Arc::clone(&current_voice);
+        let _speed_synth = Arc::clone(&current_speed);
+        let _volume_synth = Arc::clone(&current_volume);
         let sink_manager_clone = Arc::clone(&sink_shared);
 
         // Dedicated thread for voice synthesis and playback
@@ -48,6 +54,19 @@ impl VoiceManager {
             .name("VoiceManager".into())
             .stack_size(32 * 1024 * 1024) // 32MB Stack for deep ONNX graph optimization
             .spawn(move || {
+                #[cfg(not(feature = "embedded-voice-assets"))]
+                {
+                    enabled_ctx.store(false, Ordering::SeqCst);
+                    available_ctx.store(false, Ordering::SeqCst);
+                    let _ = event_tx.blocking_send(InferenceEvent::VoiceStatus(
+                        "Voice Engine: Disabled in crates.io/source build (use packaged releases for baked-in voice).".into(),
+                    ));
+                    while rx.recv().is_ok() {}
+                    return;
+                }
+
+                #[cfg(feature = "embedded-voice-assets")]
+                {
                 let mut _stream: Option<OutputStream> = None;
 
                 let _ = event_tx.blocking_send(InferenceEvent::VoiceStatus(
@@ -129,12 +148,12 @@ impl VoiceManager {
                         while let Some(to_speak) = synth_rx.recv().await {
                             let mut engine_opt = tts_synth_clone.lock().await;
                             if let Some(ref mut engine) = *engine_opt {
-                                let voice_id = voice_synth
+                                let voice_id = _voice_synth
                                     .lock()
                                     .map(|v| v.clone())
                                     .unwrap_or_else(|_| "af_sky".to_string());
-                                let speed = speed_synth.lock().map(|v| *v).unwrap_or(1.0);
-                                let volume = volume_synth.lock().map(|v| *v).unwrap_or(1.0);
+                                let speed = _speed_synth.lock().map(|v| *v).unwrap_or(1.0);
+                                let volume = _volume_synth.lock().map(|v| *v).unwrap_or(1.0);
                                 let res = engine.tts_raw_audio_streaming(
                                     &to_speak,
                                     "en-us",
@@ -145,7 +164,7 @@ impl VoiceManager {
                                     None,
                                     None,
                                     |chunk| {
-                                        if cancelled_ctx.load(Ordering::SeqCst) {
+                                        if _cancelled_ctx.load(Ordering::SeqCst) {
                                             return Err(Box::new(std::io::Error::new(
                                                 std::io::ErrorKind::Interrupted,
                                                 "Silenced",
@@ -243,11 +262,13 @@ impl VoiceManager {
                         let _ = synth_tx.blocking_send(to_speak);
                     }
                 }
+                }
             });
 
         Self {
             sender: tx,
             enabled,
+            available,
             cancelled,
             sink: sink_manager_clone,
             current_voice,
@@ -284,6 +305,10 @@ impl VoiceManager {
     }
 
     pub fn toggle(&self) -> bool {
+        if !self.available.load(Ordering::Relaxed) {
+            self.enabled.store(false, Ordering::Relaxed);
+            return false;
+        }
         let current = self.enabled.load(Ordering::Relaxed);
         let next = !current;
         self.enabled.store(next, Ordering::Relaxed);
@@ -291,7 +316,11 @@ impl VoiceManager {
     }
 
     pub fn is_enabled(&self) -> bool {
-        self.enabled.load(Ordering::Relaxed)
+        self.available.load(Ordering::Relaxed) && self.enabled.load(Ordering::Relaxed)
+    }
+
+    pub fn is_available(&self) -> bool {
+        self.available.load(Ordering::Relaxed)
     }
 
     /// Change the active voice. Takes effect on the next spoken sentence.

@@ -10,6 +10,10 @@ license-file = "LICENSE"
 keywords = ["ai", "cli", "coding-agent", "lm-studio", "tui"]
 categories = ["command-line-utilities", "development-tools"]
 
+[features]
+default = []
+embedded-voice-assets = []
+
 [lib]
 name = "hematite"
 path = "src/lib.rs"

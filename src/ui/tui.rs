@@ -1754,8 +1754,12 @@ pub async fn run_app<B: Backend>(
                                 app.push_message("System", &format!("Approvals Off: {}", if app.yolo_mode { "ON — all tools auto-approved" } else { "OFF" }));
                             }
                             KeyCode::Char('t') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
-                                let enabled = app.voice_manager.toggle();
-                                app.push_message("System", &format!("Voice of Hematite: {}", if enabled { "VIBRANT" } else { "SILENCED" }));
+                                if !app.voice_manager.is_available() {
+                                    app.push_message("System", "Voice is not available in this build. Use a packaged release for baked-in voice.");
+                                } else {
+                                    let enabled = app.voice_manager.toggle();
+                                    app.push_message("System", &format!("Voice of Hematite: {}", if enabled { "VIBRANT" } else { "SILENCED" }));
+                                }
                             }
                             KeyCode::Char('o') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
                                 match pick_attachment_path(AttachmentPickerKind::Document) {
@@ -2038,6 +2042,8 @@ pub async fn run_app<B: Backend>(
                                                 let text = parts[1..].join(" ");
                                                 if text.is_empty() {
                                                     app.push_message("System", "Usage: /read <text to speak>");
+                                                } else if !app.voice_manager.is_available() {
+                                                    app.push_message("System", "Voice is not available in this build. Use a packaged release for baked-in voice.");
                                                 } else if !app.voice_manager.is_enabled() {
                                                     app.push_message("System", "Voice is off. Press Ctrl+T to enable, then /read again.");
                                                 } else {

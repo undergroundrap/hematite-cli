@@ -66,7 +66,7 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 - **Sandboxed code execution** — the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation — not training-data guesses. Hematite automatically uses Deno from LM Studio's install — no extra setup required. Not using LM Studio? Install Deno globally: `winget install DenoLand.Deno`.
 - **Grounded terminal execution** — Hematite can inspect the real machine through native shell tools, files, and project commands. That means it can answer from observed state — installed toolchains, running ports, desktop files, build output, repo status — instead of making generic guesses.
 - **Hybrid RAG built in** — The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, not hunting for it with five read_file calls.
-- **Built-in voice, zero install** — 54-voice Kokoro TTS, statically linked. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run.
+- **Built-in voice, zero install** — 54-voice Kokoro TTS in the packaged releases. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run in the packaged builds.
 - **Windows-first** — CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
 - **Honest about hardware** — VRAM usage in the status bar, context budget visible, compaction triggered before you hit the ceiling. No silent failures.
 - **Zero ongoing cost** — no API key, no subscription, no per-token billing. Run it all day.
@@ -331,6 +331,8 @@ cargo run --release -- --yolo
 cargo run --release -- --stats
 ```
 
+Source-build note: the publish-safe default build does not embed the 300MB+ voice assets. Hematite's packaged releases and local packaging scripts opt back into baked-in voice automatically with `--features embedded-voice-assets`.
+
 ---
 
 ## Distribution
@@ -353,6 +355,8 @@ If you publish to crates.io, publish the voice dependency fork first, then the m
 2. `hematite-cli`
 
 `hematite-cli` depends on the published `hematite-kokoros` package while keeping the in-code crate path as `kokoros`.
+
+The crates.io build is intentionally publish-safe and does not bake the large voice assets into the default source build. GitHub release bundles and local packaging scripts still ship the full baked-in voice engine.
 
 **Run this when you are actually cutting a release, not while you are still validating a local fix.** It updates the tracked version surfaces in one shot and immediately verifies the static release metadata:
 
@@ -822,6 +826,8 @@ Practical rule: the build label reflects git state at compile time. If you make 
 
 Press `Ctrl+T` to enable real-time text-to-speech. Hematite ships a **self-contained voice engine** — no install, no downloads, no Python. The Kokoro model (311 MB), all 54 voices, and ONNX Runtime 1.24.2 are statically linked into the binary at compile time. On first start the voice engine loads in the background (~10–30s on an RTX 4070); you'll see "Vibrant & Ready" in the chat when it's done. Responses spoken during that window are buffered and played back once the engine is ready.
 
+For packaged releases, that voice engine is baked in. The crates.io/source build defaults to a publish-safe no-embedded-voice build unless you compile it yourself with `--features embedded-voice-assets` and provide the voice assets locally.
+
 Voice settings are configurable via `/voice` or `settings.json`:
 
 - `/voice` — list all 54 voices
@@ -917,9 +923,9 @@ Workflow note:
 
 No setup required. Voice is built in.
 
-The full Kokoro TTS engine — model weights, all 54 voices, and ONNX Runtime 1.24.2 — is baked into the Hematite binary at compile time. Press `Ctrl+T` to toggle it on.
+The full Kokoro TTS engine — model weights, all 54 voices, and ONNX Runtime 1.24.2 — is baked into the packaged Hematite binary at compile time. Press `Ctrl+T` to toggle it on.
 
-**Why this matters:** most local TTS tools require a separate Python runtime, manual model downloads, or specific system DLL versions. Hematite ships everything in one binary. The only runtime dependency is `DirectML.dll`, which is bundled in the portable release and ships with Windows 10 1903+.
+**Why this matters:** most local TTS tools require a separate Python runtime, manual model downloads, or specific system DLL versions. Hematite's packaged releases ship everything in one binary. The only runtime dependency is `DirectML.dll`, which is bundled in the portable release and ships with Windows 10 1903+.
 
 **54 voices** across American English, British English, Spanish, French, Hindi, Italian, Japanese, and Chinese. Recommended: `af_heart`, `af_bella`, `am_michael`, `bf_emma`, `bm_george`.
 

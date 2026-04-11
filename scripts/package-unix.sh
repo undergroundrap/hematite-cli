@@ -32,7 +32,7 @@ install_template="$repo_root/scripts/install-unix.sh"
 install_out="$bundle_dir/install.sh"
 
 echo "Building release binary (v$version) for $platform-$arch..."
-cargo build --release
+cargo build --release --features embedded-voice-assets
 
 if [[ ! -f "$binary_path" ]]; then
   echo "Required release artifact missing: $binary_path" >&2

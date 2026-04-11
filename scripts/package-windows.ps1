@@ -51,7 +51,7 @@ $previousOffline = $env:CARGO_NET_OFFLINE
 if (Test-Path Env:CARGO_NET_OFFLINE) { Remove-Item Env:CARGO_NET_OFFLINE }
 
 try {
-    cargo build --release
+    cargo build --release --features embedded-voice-assets
     if ($LASTEXITCODE -ne 0) { throw "cargo build --release failed." }
 } finally {
     if ($null -ne $previousOffline) { $env:CARGO_NET_OFFLINE = $previousOffline }
