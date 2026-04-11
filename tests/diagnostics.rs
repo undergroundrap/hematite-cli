@@ -890,6 +890,100 @@ async fn test_inspect_host_path_reports_path_summary() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_disk_reports_size_summary() {
+    use serde_json::json;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    let nested = workspace.path().join("nested");
+    fs::create_dir_all(&nested).expect("create nested dir");
+    fs::write(workspace.path().join("alpha.bin"), vec![0u8; 2048]).expect("write alpha");
+    fs::write(nested.join("beta.bin"), vec![0u8; 1024]).expect("write beta");
+
+    let args = json!({
+        "topic": "disk",
+        "path": workspace.path().display().to_string(),
+        "max_entries": 5
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host disk");
+
+    assert!(output.contains("Directory inspection: Disk"));
+    assert!(output.contains("Total size:"));
+    assert!(output.contains("Largest top-level entries:"));
+}
+
+#[tokio::test]
+async fn test_inspect_host_repo_doctor_reports_workspace_state() {
+    use serde_json::json;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    fs::write(
+        workspace.path().join("Cargo.toml"),
+        "[package]\nname = \"sample\"\nversion = \"0.9.0\"\nedition = \"2021\"\n",
+    )
+    .expect("write cargo manifest");
+    fs::create_dir_all(workspace.path().join(".hematite").join("docs")).expect("docs dir");
+    fs::create_dir_all(workspace.path().join(".hematite").join("imports")).expect("imports dir");
+    fs::create_dir_all(workspace.path().join(".hematite").join("reports")).expect("reports dir");
+    fs::write(
+        workspace
+            .path()
+            .join(".hematite")
+            .join("workspace_profile.json"),
+        "{}",
+    )
+    .expect("write workspace profile");
+
+    let args = json!({
+        "topic": "repo_doctor",
+        "path": workspace.path().display().to_string(),
+        "max_entries": 5
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host repo doctor");
+
+    assert!(output.contains("Host inspection: repo_doctor"));
+    assert!(output.contains("Workspace mode: project"));
+    assert!(output.contains("Project markers:"));
+    assert!(output.contains("Cargo.toml"));
+    assert!(output.contains("Hematite docs/imports/reports: 0/0/0"));
+    assert!(output.contains("Workspace profile: present"));
+    assert!(output.contains("Cargo version: 0.9.0"));
+}
+
+#[tokio::test]
+async fn test_inspect_host_ports_can_filter_single_listener() {
+    use serde_json::json;
+    use std::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+    let port = listener.local_addr().expect("listener addr").port();
+
+    let args = json!({
+        "topic": "ports",
+        "port": port,
+        "max_entries": 5
+    });
+
+    let output = match hematite::tools::host_inspect::inspect_host(&args).await {
+        Ok(output) => output,
+        Err(err) if err.contains("Failed to run") || err.contains("non-success status") => {
+            println!("Skipping ports test on this host: {}", err);
+            return;
+        }
+        Err(err) => panic!("inspect host ports failed: {}", err),
+    };
+
+    assert!(output.contains("Host inspection: ports"));
+    assert!(output.contains(&format!("Filter port: {}", port)));
+    assert!(output.contains(&format!("127.0.0.1:{}", port)));
+}
+
+#[tokio::test]
 async fn test_describe_toolchain_host_inspection_plan_prefers_inspect_host() {
     use serde_json::json;
 

@@ -2,6 +2,7 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 const DEFAULT_MAX_ENTRIES: usize = 10;
 const MAX_ENTRIES_CAP: usize = 25;
@@ -20,6 +21,15 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "path" => inspect_path(max_entries),
         "desktop" => inspect_known_directory("Desktop", desktop_dir(), max_entries).await,
         "downloads" => inspect_known_directory("Downloads", downloads_dir(), max_entries).await,
+        "disk" => {
+            let path = resolve_optional_path(args)?;
+            inspect_disk(path, max_entries).await
+        }
+        "ports" => inspect_ports(parse_port_filter(args), max_entries),
+        "repo_doctor" => {
+            let path = resolve_optional_path(args)?;
+            inspect_repo_doctor(path, max_entries)
+        }
         "directory" => {
             let raw_path = args
                 .get("path")
@@ -32,7 +42,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, desktop, downloads, directory.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, desktop, downloads, directory, disk, ports, repo_doctor.",
             other
         )),
     }
@@ -44,6 +54,21 @@ fn parse_max_entries(args: &Value) -> usize {
         .map(|n| n as usize)
         .unwrap_or(DEFAULT_MAX_ENTRIES)
         .clamp(1, MAX_ENTRIES_CAP)
+}
+
+fn parse_port_filter(args: &Value) -> Option<u16> {
+    args.get("port")
+        .and_then(|v| v.as_u64())
+        .and_then(|n| u16::try_from(n).ok())
+}
+
+fn resolve_optional_path(args: &Value) -> Result<PathBuf, String> {
+    match args.get("path").and_then(|v| v.as_str()) {
+        Some(raw_path) => resolve_path(raw_path),
+        None => {
+            std::env::current_dir().map_err(|e| format!("Failed to get current directory: {e}"))
+        }
+    }
 }
 
 fn inspect_summary(max_entries: usize) -> Result<String, String> {
@@ -200,6 +225,114 @@ fn inspect_path(max_entries: usize) -> Result<String, String> {
     Ok(out.trim_end().to_string())
 }
 
+async fn inspect_disk(path: PathBuf, max_entries: usize) -> Result<String, String> {
+    inspect_directory("Disk", path, max_entries).await
+}
+
+fn inspect_ports(port_filter: Option<u16>, max_entries: usize) -> Result<String, String> {
+    let mut listeners = collect_listening_ports()?;
+    if let Some(port) = port_filter {
+        listeners.retain(|entry| entry.port == port);
+    }
+    listeners.sort_by(|a, b| a.port.cmp(&b.port).then_with(|| a.local.cmp(&b.local)));
+
+    let mut out = String::from("Host inspection: ports\n\n");
+    if let Some(port) = port_filter {
+        out.push_str(&format!("- Filter port: {}\n", port));
+    }
+    out.push_str(&format!(
+        "- Listening endpoints found: {}\n",
+        listeners.len()
+    ));
+
+    if listeners.is_empty() {
+        out.push_str("\nNo listening endpoints matched.");
+        return Ok(out);
+    }
+
+    out.push_str("\nListening endpoints:\n");
+    for entry in listeners.iter().take(max_entries) {
+        let pid = entry
+            .pid
+            .as_deref()
+            .map(|pid| format!(" pid {}", pid))
+            .unwrap_or_default();
+        out.push_str(&format!(
+            "- {} {} ({}){}\n",
+            entry.protocol, entry.local, entry.state, pid
+        ));
+    }
+    if listeners.len() > max_entries {
+        out.push_str(&format!(
+            "- ... {} more listening endpoints omitted\n",
+            listeners.len() - max_entries
+        ));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_repo_doctor(path: PathBuf, max_entries: usize) -> Result<String, String> {
+    if !path.exists() {
+        return Err(format!("Path does not exist: {}", path.display()));
+    }
+    if !path.is_dir() {
+        return Err(format!("Path is not a directory: {}", path.display()));
+    }
+
+    let markers = collect_project_markers(&path);
+    let hematite_state = collect_hematite_state(&path);
+    let git_state = inspect_git_state(&path);
+    let release_state = inspect_release_artifacts(&path);
+
+    let mut out = String::from("Host inspection: repo_doctor\n\n");
+    out.push_str(&format!("- Path: {}\n", path.display()));
+    out.push_str(&format!(
+        "- Workspace mode: {}\n",
+        workspace_mode_for_path(&path)
+    ));
+
+    if markers.is_empty() {
+        out.push_str("- Project markers: none of Cargo.toml, package.json, pyproject.toml, go.mod, justfile, Makefile, or .git were found at this path\n");
+    } else {
+        out.push_str("- Project markers:\n");
+        for marker in markers.iter().take(max_entries) {
+            out.push_str(&format!("  - {}\n", marker));
+        }
+    }
+
+    match git_state {
+        Some(git) => {
+            out.push_str(&format!("- Git root: {}\n", git.root.display()));
+            out.push_str(&format!("- Git branch: {}\n", git.branch));
+            out.push_str(&format!("- Git status: {}\n", git.status_label()));
+        }
+        None => out.push_str("- Git: not inside a detected work tree\n"),
+    }
+
+    out.push_str(&format!(
+        "- Hematite docs/imports/reports: {}/{}/{}\n",
+        hematite_state.docs_count, hematite_state.import_count, hematite_state.report_count
+    ));
+    if hematite_state.workspace_profile {
+        out.push_str("- Workspace profile: present\n");
+    } else {
+        out.push_str("- Workspace profile: absent\n");
+    }
+
+    if let Some(release) = release_state {
+        out.push_str(&format!("- Cargo version: {}\n", release.version));
+        out.push_str(&format!(
+            "- Windows artifacts for current version: {}/{}/{}\n",
+            bool_label(release.portable_dir),
+            bool_label(release.portable_zip),
+            bool_label(release.setup_exe)
+        ));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
 async fn inspect_known_directory(
     label: &str,
     path: Option<PathBuf>,
@@ -337,13 +470,36 @@ fn resolve_path(raw: &str) -> Result<PathBuf, String> {
 }
 
 fn workspace_mode_label(workspace_root: &Path) -> &'static str {
-    if crate::tools::file_ops::is_project_workspace() {
+    workspace_mode_for_path(workspace_root)
+}
+
+fn workspace_mode_for_path(path: &Path) -> &'static str {
+    if is_project_marker_path(path) {
         "project"
-    } else if workspace_root.join(".hematite").join("docs").exists() {
+    } else if path.join(".hematite").join("docs").exists()
+        || path.join(".hematite").join("imports").exists()
+        || path.join(".hematite").join("reports").exists()
+    {
         "docs-only"
     } else {
         "general directory"
     }
+}
+
+fn is_project_marker_path(path: &Path) -> bool {
+    [
+        "Cargo.toml",
+        "package.json",
+        "pyproject.toml",
+        "go.mod",
+        "composer.json",
+        "requirements.txt",
+        "Makefile",
+        "justfile",
+    ]
+    .iter()
+    .any(|name| path.join(name).exists())
+        || path.join(".git").exists()
 }
 
 fn preferred_shell_label() -> &'static str {
@@ -528,6 +684,224 @@ fn normalize_path_entry(value: &str) -> String {
 struct ToolchainReport {
     found: Vec<(String, String)>,
     missing: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ListeningPort {
+    protocol: String,
+    local: String,
+    port: u16,
+    state: String,
+    pid: Option<String>,
+}
+
+fn collect_listening_ports() -> Result<Vec<ListeningPort>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        collect_windows_listening_ports()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        collect_unix_listening_ports()
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn collect_windows_listening_ports() -> Result<Vec<ListeningPort>, String> {
+    let output = Command::new("netstat")
+        .args(["-ano", "-p", "tcp"])
+        .output()
+        .map_err(|e| format!("Failed to run netstat: {e}"))?;
+    if !output.status.success() {
+        return Err("netstat returned a non-success status.".to_string());
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut listeners = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with("TCP") {
+            continue;
+        }
+        let cols: Vec<&str> = trimmed.split_whitespace().collect();
+        if cols.len() < 5 || cols[3] != "LISTENING" {
+            continue;
+        }
+        let Some(port) = extract_port_from_socket(cols[1]) else {
+            continue;
+        };
+        listeners.push(ListeningPort {
+            protocol: cols[0].to_string(),
+            local: cols[1].to_string(),
+            port,
+            state: cols[3].to_string(),
+            pid: Some(cols[4].to_string()),
+        });
+    }
+
+    Ok(listeners)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn collect_unix_listening_ports() -> Result<Vec<ListeningPort>, String> {
+    let output = Command::new("ss")
+        .args(["-ltn"])
+        .output()
+        .map_err(|e| format!("Failed to run ss: {e}"))?;
+    if !output.status.success() {
+        return Err("ss returned a non-success status.".to_string());
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut listeners = Vec::new();
+    for line in text.lines().skip(1) {
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        if cols.len() < 4 {
+            continue;
+        }
+        let Some(port) = extract_port_from_socket(cols[3]) else {
+            continue;
+        };
+        listeners.push(ListeningPort {
+            protocol: "tcp".to_string(),
+            local: cols[3].to_string(),
+            port,
+            state: cols[0].to_string(),
+            pid: None,
+        });
+    }
+
+    Ok(listeners)
+}
+
+fn extract_port_from_socket(value: &str) -> Option<u16> {
+    let cleaned = value.trim().trim_matches(['[', ']']);
+    let port_str = cleaned.rsplit(':').next()?;
+    port_str.parse::<u16>().ok()
+}
+
+struct GitState {
+    root: PathBuf,
+    branch: String,
+    dirty_entries: usize,
+}
+
+impl GitState {
+    fn status_label(&self) -> String {
+        if self.dirty_entries == 0 {
+            "clean".to_string()
+        } else {
+            format!("dirty ({} changed path(s))", self.dirty_entries)
+        }
+    }
+}
+
+fn inspect_git_state(path: &Path) -> Option<GitState> {
+    let root = capture_first_line(
+        "git",
+        &["-C", path.to_str()?, "rev-parse", "--show-toplevel"],
+    )?;
+    let branch = capture_first_line("git", &["-C", path.to_str()?, "branch", "--show-current"])
+        .unwrap_or_else(|| "detached".to_string());
+    let output = Command::new("git")
+        .args(["-C", path.to_str()?, "status", "--short"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let dirty_entries = String::from_utf8_lossy(&output.stdout).lines().count();
+    Some(GitState {
+        root: PathBuf::from(root),
+        branch,
+        dirty_entries,
+    })
+}
+
+struct HematiteState {
+    docs_count: usize,
+    import_count: usize,
+    report_count: usize,
+    workspace_profile: bool,
+}
+
+fn collect_hematite_state(path: &Path) -> HematiteState {
+    let root = path.join(".hematite");
+    HematiteState {
+        docs_count: count_entries_if_exists(&root.join("docs")),
+        import_count: count_entries_if_exists(&root.join("imports")),
+        report_count: count_entries_if_exists(&root.join("reports")),
+        workspace_profile: root.join("workspace_profile.json").exists(),
+    }
+}
+
+fn count_entries_if_exists(path: &Path) -> usize {
+    if !path.exists() || !path.is_dir() {
+        return 0;
+    }
+    fs::read_dir(path)
+        .ok()
+        .map(|iter| iter.filter(|entry| entry.is_ok()).count())
+        .unwrap_or(0)
+}
+
+fn collect_project_markers(path: &Path) -> Vec<String> {
+    [
+        "Cargo.toml",
+        "package.json",
+        "pyproject.toml",
+        "go.mod",
+        "justfile",
+        "Makefile",
+        ".git",
+    ]
+    .iter()
+    .filter_map(|name| path.join(name).exists().then(|| (*name).to_string()))
+    .collect()
+}
+
+struct ReleaseArtifactState {
+    version: String,
+    portable_dir: bool,
+    portable_zip: bool,
+    setup_exe: bool,
+}
+
+fn inspect_release_artifacts(path: &Path) -> Option<ReleaseArtifactState> {
+    let cargo_toml = path.join("Cargo.toml");
+    if !cargo_toml.exists() {
+        return None;
+    }
+    let cargo_text = fs::read_to_string(cargo_toml).ok()?;
+    let version = [regex_line_capture(
+        &cargo_text,
+        r#"(?m)^version\s*=\s*"([^"]+)""#,
+    )?]
+    .concat();
+    let dist_windows = path.join("dist").join("windows");
+    let prefix = format!("Hematite-{}", version);
+    Some(ReleaseArtifactState {
+        version,
+        portable_dir: dist_windows.join(format!("{}-portable", prefix)).exists(),
+        portable_zip: dist_windows
+            .join(format!("{}-portable.zip", prefix))
+            .exists(),
+        setup_exe: dist_windows.join(format!("{}-Setup.exe", prefix)).exists(),
+    })
+}
+
+fn regex_line_capture(text: &str, pattern: &str) -> Option<String> {
+    let regex = regex::Regex::new(pattern).ok()?;
+    let captures = regex.captures(text)?;
+    captures.get(1).map(|m| m.as_str().to_string())
+}
+
+fn bool_label(value: bool) -> &'static str {
+    if value {
+        "yes"
+    } else {
+        "no"
+    }
 }
 
 fn collect_toolchains() -> ToolchainReport {

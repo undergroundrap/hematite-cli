@@ -202,6 +202,23 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || lower.contains("toolchains")
         || (lower.contains("installed") && lower.contains("version"))
         || (lower.contains("detect") && lower.contains("version"));
+    let asks_ports = lower.contains("listening on port")
+        || lower.contains("listening port")
+        || lower.contains("open port")
+        || lower.contains("port 3000")
+        || lower.contains("port ")
+        || lower.contains("listening on ")
+        || lower.contains("exposed")
+        || lower.contains("what is listening");
+    let asks_repo_doctor = lower.contains("repo doctor")
+        || lower.contains("repository doctor")
+        || lower.contains("workspace health")
+        || lower.contains("repo health")
+        || lower.contains("workspace sanity")
+        || (lower.contains("git state")
+            && (lower.contains("release artifacts")
+                || lower.contains("build markers")
+                || lower.contains("hematite memory")));
     let asks_directory = lower.contains("directory")
         || lower.contains("folder")
         || lower.contains("how big")
@@ -215,6 +232,10 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || (mentions_host_inspection_question(&lower) && asks_broad_readiness)
     {
         Some("summary")
+    } else if asks_ports {
+        Some("ports")
+    } else if asks_repo_doctor {
+        Some("repo_doctor")
     } else if lower.contains("desktop") {
         Some("desktop")
     } else if lower.contains("downloads") {

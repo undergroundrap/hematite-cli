@@ -164,13 +164,15 @@ Useful examples:
 
 This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
 
-For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH analysis, toolchain detection, desktop inspection, Downloads summaries, and arbitrary directory reports. `shell` remains the fallback for custom checks that do not fit a built-in inspection topic.
+For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH analysis, toolchain detection, desktop inspection, Downloads summaries, listening-port checks, repo-doctor summaries, and arbitrary directory or disk reports. `shell` remains the fallback for custom checks that do not fit a built-in inspection topic.
 
 Try these prompts:
 
 - `Inspect my PATH, tell me which developer tools you detect with versions, point out any duplicate or missing PATH entries, then give me a one-paragraph summary of whether this machine looks ready for local development.`
 - `Count and name the items on my desktop.`
 - `Inspect my Downloads folder and tell me the top-level item count, the biggest entries, and whether anything there looks unusually large.`
+- `Show me what is listening on port 3000 and whether anything unexpected is exposed.`
+- `Run a repo doctor on this workspace and tell me whether the git state, build markers, Hematite memory folders, and current release artifacts look sane.`
 
 The shell path is still bounded like the rest of the harness: commands run through Hematite's tool layer with timeout limits, output capping, workspace awareness, and approval controls for risky actions.
 
@@ -388,13 +390,16 @@ By default, the wrapper stops after the local commit, packaging, and local tag c
 **Practical release order:**
 
 1. Make the feature or fix.
-2. Rebuild the local Windows portable without bumping yet:
+2. Add or update diagnostics coverage if the change affects behavior.
+3. Rebuild the local Windows portable without bumping yet:
    `pwsh ./scripts/package-windows.ps1 -AddToPath`
-3. Restart your terminal, run the local portable, and confirm the behavior is actually good.
-4. Commit the feature work as a normal commit.
-5. Only then run `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` or a `-Bump` variant.
+4. Restart your terminal, run the local portable, and confirm the behavior is actually good.
+5. Commit the feature work as a normal commit.
+6. Only then run `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` or a `-Bump` variant.
 
 That keeps unproven work off a public version number. If a fix is still under live testing, keep working on the current local build first and wait to bump until it is ready to ship.
+
+For Hematite, diagnostics are part of the feature, not an afterthought. If a new tool, retrieval rule, workflow, or routing behavior changes what the harness does, add or update focused coverage in `tests/diagnostics.rs` before you ship it.
 
 **Agent note:** if this repo is being operated through an external AI harness such as Codex or Claude, treat the Windows build/package/install path as a real local-machine workflow, not a sandbox-first task. `cargo build --release`, `scripts/package-windows.ps1`, installer generation, and `-AddToPath` can touch the local ORT cache under `AppData`, native release sidecars, `dist/`, and the real user `PATH`. Run those steps with full local access first; reserve sandboxed runs for source inspection, lightweight checks, and isolated code execution.
 

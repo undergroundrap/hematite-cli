@@ -66,6 +66,8 @@ pwsh ./clean.ps1
 
 Requires LM Studio running locally with a model loaded and the server started on port `1234`.
 
+For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, desktop/downloads, listening ports, repo-doctor summaries, and arbitrary directory or disk inspections before falling back to raw shell.
+
 ## Hardware Intent
 
 Hematite is not trying to outscale cloud agents. It is trying to make a single local consumer GPU perform as well as possible for real coding work.
@@ -427,15 +429,18 @@ For solo use, prefer `release.ps1` over manually retyping the release sequence. 
 **Practical operator order:**
 
 1. Land the actual feature or fix first.
-2. Rebuild the local Windows portable without bumping:
+2. Add or update diagnostics coverage when the change introduces or materially changes behavior.
+3. Rebuild the local Windows portable without bumping:
    `pwsh ./scripts/package-windows.ps1 -AddToPath`
-3. Restart the terminal, run the local portable, and test the live behavior.
-4. Commit the feature work as a normal commit.
-5. When the work is proven, run `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` or the appropriate `-Bump` variant from a clean tree.
+4. Restart the terminal, run the local portable, and test the live behavior.
+5. Commit the feature work as a normal commit.
+6. When the work is proven, run `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` or the appropriate `-Bump` variant from a clean tree.
 
 Do not bump just to test whether a feature works. For Hematite, the local portable is the pre-release smoke test. Public version bumps happen after the live local test passes.
 
 `release.ps1` is for cutting a release from a known-good state. It is not a substitute for first validating an unshipped fix in the local portable.
+
+For behavioral changes, diagnostics are part of the change, not optional cleanup. Prefer adding or updating focused coverage in `tests/diagnostics.rs` as you land the work so the live portable test is not your only proof.
 
 **Step 1 — bump the version** (updates tracked release metadata and verifies the static surfaces):
 

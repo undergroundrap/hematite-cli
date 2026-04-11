@@ -52,6 +52,7 @@ If a tool changes files or shells out, assume it needs careful review.
 - Do not weaken path safety or approval behavior without a strong reason.
 - Avoid UI labels that sound theatrical. Labels should describe what Hematite is actually doing.
 - Update docs when behavior changes in a user-visible way.
+- If a change adds or meaningfully changes behavior, add or update diagnostics coverage in `tests/diagnostics.rs` unless there is a clear reason not to.
 
 ## Verification
 
@@ -68,6 +69,8 @@ pwsh ./scripts/package-windows.ps1
 ```
 
 This is the real gate — it runs `cargo build --release` and proves the binary links and packages correctly. The portable zip in `dist/windows/` must be newer than the commit you are tagging.
+
+For the solo Codex workflow, the practical order is: implement the change, add or update diagnostics, rebuild the local portable, test the live behavior, commit the feature work, then run the release flow.
 
 If your change affects packaging or release behavior, also run:
 

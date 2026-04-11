@@ -159,20 +159,25 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         make_tool(
             "inspect_host",
             "Return a structured read-only inspection of the current machine and environment. \
-             Prefer this over raw shell for questions about installed developer tools, PATH issues, desktop items, Downloads size, or directory summaries. \
+             Prefer this over raw shell for questions about installed developer tools, PATH issues, desktop items, Downloads size, open listening ports, repo health, or directory/disk summaries. \
              Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, \
-             topic=desktop or topic=downloads for known folders, and topic=directory for an arbitrary directory path.",
+             topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
+             and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "desktop", "downloads", "directory"],
+                        "enum": ["summary", "toolchains", "path", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor"],
                         "description": "Which structured host inspection to run."
                     },
                     "path": {
                         "type": "string",
-                        "description": "Required when topic=directory. Absolute or relative directory path to inspect."
+                        "description": "Required when topic=directory. Optional for topic=disk or topic=repo_doctor. Absolute or relative path to inspect."
+                    },
+                    "port": {
+                        "type": "integer",
+                        "description": "Optional when topic=ports. Filter the result to one listening TCP port."
                     },
                     "max_entries": {
                         "type": "integer",
