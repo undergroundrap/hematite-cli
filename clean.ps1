@@ -1,7 +1,8 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [switch]$Deep,
-    [switch]$Reset   # Full blank-slate: everything Deep does + wipes settings.json, PLAN.md, TASK.md
+    [switch]$Reset,      # Full blank-slate: everything Deep does + wipes settings.json, PLAN.md, TASK.md
+    [switch]$PruneDist   # Keep only the current Cargo.toml version under dist/
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,6 +11,21 @@ $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $repoRoot
 
 $removed = New-Object System.Collections.Generic.List[string]
+
+function Get-CurrentVersion {
+    $cargoTomlPath = Join-Path $repoRoot "Cargo.toml"
+    if (-not (Test-Path -LiteralPath $cargoTomlPath)) {
+        throw "Cargo.toml not found at repo root."
+    }
+
+    $cargoToml = Get-Content -LiteralPath $cargoTomlPath -Raw
+    $match = [regex]::Match($cargoToml, '(?m)^version\s*=\s*"([^"]+)"')
+    if (-not $match.Success) {
+        throw "Could not determine package version from Cargo.toml."
+    }
+
+    $match.Groups[1].Value
+}
 
 function Remove-TreeContents {
     param(
@@ -58,6 +74,32 @@ function Remove-Matches {
         if ($PSCmdlet.ShouldProcess($_.FullName, "Remove")) {
             Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
             $removed.Add($_.FullName) | Out-Null
+        }
+    }
+}
+
+function Remove-StaleDistArtifacts {
+    $distRoot = Join-Path $repoRoot "dist"
+    if (-not (Test-Path -LiteralPath $distRoot)) {
+        return
+    }
+
+    $currentVersion = Get-CurrentVersion
+    $keepPrefix = "Hematite-$currentVersion"
+
+    $candidateParents = @($distRoot)
+    $candidateParents += Get-ChildItem -LiteralPath $distRoot -Directory -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        $_.FullName
+    }
+
+    foreach ($parent in $candidateParents | Select-Object -Unique) {
+        Get-ChildItem -LiteralPath $parent -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_.Name -like "Hematite-*" -and $_.Name -notlike "$keepPrefix*") {
+                if ($PSCmdlet.ShouldProcess($_.FullName, "Remove stale dist artifact")) {
+                    Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                    $removed.Add($_.FullName) | Out-Null
+                }
+            }
         }
     }
 }
@@ -134,6 +176,10 @@ if ($Reset) {
     foreach ($target in $resetTargets) {
         Remove-IfExists -LiteralPath $target
     }
+}
+
+if ($PruneDist) {
+    Remove-StaleDistArtifacts
 }
 
 $summary = if ($WhatIfPreference) {

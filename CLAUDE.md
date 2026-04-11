@@ -478,9 +478,10 @@ pwsh ./scripts/package-windows.ps1
 ```powershell
 pwsh ./clean.ps1           # ghost, scratch, memories, sandbox, reports, logs
 pwsh ./clean.ps1 -Deep    # + target/, onnx_lib/, vein.db
+pwsh ./clean.ps1 -Deep -PruneDist   # + old dist/ artifacts, keeps only current Cargo.toml version
 pwsh ./clean.ps1 -Reset   # + PLAN.md, TASK.md (full blank-slate, simulates new user)
 ```
 
-Regular clean removes runtime artifacts: ghost backups, scratch files, session memories, sandbox output, reports, and logs. Deep also removes build outputs and the vein database. Reset goes further and wipes session state files — use this to simulate a first-run experience without touching `settings.json` or `mcp_servers.json`.
+Regular clean removes runtime artifacts: ghost backups, scratch files, session memories, sandbox output, reports, and logs. Deep also removes build outputs and the vein database. `-PruneDist` is opt-in and removes stale packaged artifacts under `dist/` while keeping only the current `Cargo.toml` version. Reset goes further and wipes session state files — use this to simulate a first-run experience without touching `settings.json` or `mcp_servers.json`.
 
-For Hematite, disk growth is a normal maintenance concern. This is a heavy native Rust project with release packaging, ORT/DirectML sidecars, tests, and repeated debug/release builds. `target/` can climb into the tens of gigabytes quickly, and after enough iteration it is believable to hit 50-100 GB of local build output. Treat periodic deep cleanup as part of the normal workflow. Keep only the current release artifacts in `dist/windows/`, run `pwsh ./clean.ps1 -Deep` when disk pressure matters, and remember that the next full rebuild will be slower because you deliberately wiped cached build state.
+For Hematite, disk growth is a normal maintenance concern. This is a heavy native Rust project with release packaging, ORT/DirectML sidecars, tests, and repeated debug/release builds. `target/` can climb into the tens of gigabytes quickly, and after enough iteration it is believable to hit 50-100 GB of local build output. Treat periodic deep cleanup as part of the normal workflow. When disk pressure matters, run `pwsh ./clean.ps1 -Deep`; if you also want to keep only the latest packaged release artifacts, use `pwsh ./clean.ps1 -Deep -PruneDist`. Remember that the next full rebuild will be slower because you deliberately wiped cached build state.

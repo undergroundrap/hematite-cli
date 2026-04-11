@@ -1010,9 +1010,10 @@ Run with `--rusty` to enable the Rusty personality system. Your companion is det
 ```powershell
 pwsh ./clean.ps1
 pwsh ./clean.ps1 -Deep
+pwsh ./clean.ps1 -Deep -PruneDist
 ```
 
-This removes ghost backups, scratch diffs, Hematite logs, runtime session files, temporary files, and old generated reports. Voice assets, settings, MCP config, and the Vein RAG database are preserved. Use `-Deep` if you also want to remove build artifacts (`target/`, `onnx_lib/`) and the Vein index (`vein.db`).
+This removes ghost backups, scratch diffs, Hematite logs, runtime session files, temporary files, and old generated reports. Voice assets, settings, MCP config, and the Vein RAG database are preserved. Use `-Deep` if you also want to remove build artifacts (`target/`, `onnx_lib/`) and the Vein index (`vein.db`). Add `-PruneDist` when you also want to prune old packaged artifacts under `dist/` and keep only the current `Cargo.toml` version.
 
 ---
 
