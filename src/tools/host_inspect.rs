@@ -19,6 +19,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "summary" => inspect_summary(max_entries),
         "toolchains" => inspect_toolchains(),
         "path" => inspect_path(max_entries),
+        "processes" => inspect_processes(parse_name_filter(args), max_entries),
         "desktop" => inspect_known_directory("Desktop", desktop_dir(), max_entries).await,
         "downloads" => inspect_known_directory("Downloads", downloads_dir(), max_entries).await,
         "disk" => {
@@ -42,7 +43,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, desktop, downloads, directory, disk, ports, repo_doctor.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, processes, desktop, downloads, directory, disk, ports, repo_doctor.",
             other
         )),
     }
@@ -60,6 +61,14 @@ fn parse_port_filter(args: &Value) -> Option<u16> {
     args.get("port")
         .and_then(|v| v.as_u64())
         .and_then(|n| u16::try_from(n).ok())
+}
+
+fn parse_name_filter(args: &Value) -> Option<String> {
+    args.get("name")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string())
 }
 
 fn resolve_optional_path(args: &Value) -> Result<PathBuf, String> {
@@ -220,6 +229,60 @@ fn inspect_path(max_entries: usize) -> Result<String, String> {
                 path_stats.missing_entries.len() - max_entries
             ));
         }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_processes(name_filter: Option<String>, max_entries: usize) -> Result<String, String> {
+    let mut processes = collect_processes()?;
+    if let Some(filter) = name_filter.as_deref() {
+        let lowered = filter.to_ascii_lowercase();
+        processes.retain(|entry| entry.name.to_ascii_lowercase().contains(&lowered));
+    }
+    processes.sort_by(|a, b| {
+        b.memory_bytes
+            .cmp(&a.memory_bytes)
+            .then_with(|| a.name.cmp(&b.name))
+            .then_with(|| a.pid.cmp(&b.pid))
+    });
+
+    let total_memory: u64 = processes.iter().map(|entry| entry.memory_bytes).sum();
+
+    let mut out = String::from("Host inspection: processes\n\n");
+    if let Some(filter) = name_filter.as_deref() {
+        out.push_str(&format!("- Filter name: {}\n", filter));
+    }
+    out.push_str(&format!("- Processes found: {}\n", processes.len()));
+    out.push_str(&format!(
+        "- Total reported working set: {}\n",
+        human_bytes(total_memory)
+    ));
+
+    if processes.is_empty() {
+        out.push_str("\nNo running processes matched.");
+        return Ok(out);
+    }
+
+    out.push_str("\nTop processes by memory:\n");
+    for entry in processes.iter().take(max_entries) {
+        out.push_str(&format!(
+            "- {} (pid {}) - {}{}\n",
+            entry.name,
+            entry.pid,
+            human_bytes(entry.memory_bytes),
+            entry
+                .detail
+                .as_deref()
+                .map(|detail| format!(" [{}]", detail))
+                .unwrap_or_default()
+        ));
+    }
+    if processes.len() > max_entries {
+        out.push_str(&format!(
+            "- ... {} more processes omitted\n",
+            processes.len() - max_entries
+        ));
     }
 
     Ok(out.trim_end().to_string())
@@ -687,6 +750,14 @@ struct ToolchainReport {
 }
 
 #[derive(Debug, Clone)]
+struct ProcessEntry {
+    name: String,
+    pid: u32,
+    memory_bytes: u64,
+    detail: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 struct ListeningPort {
     protocol: String,
     local: String,
@@ -772,6 +843,80 @@ fn collect_unix_listening_ports() -> Result<Vec<ListeningPort>, String> {
     }
 
     Ok(listeners)
+}
+
+fn collect_processes() -> Result<Vec<ProcessEntry>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        collect_windows_processes()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        collect_unix_processes()
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn collect_windows_processes() -> Result<Vec<ProcessEntry>, String> {
+    let output = Command::new("tasklist")
+        .args(["/FO", "CSV", "/NH"])
+        .output()
+        .map_err(|e| format!("Failed to run tasklist: {e}"))?;
+    if !output.status.success() {
+        return Err("tasklist returned a non-success status.".to_string());
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut processes = Vec::new();
+    for line in text.lines() {
+        let cols = parse_csv_row(line);
+        if cols.len() < 5 {
+            continue;
+        }
+        let Some(pid) = cols[1].trim().parse::<u32>().ok() else {
+            continue;
+        };
+        processes.push(ProcessEntry {
+            name: cols[0].trim().to_string(),
+            pid,
+            memory_bytes: parse_tasklist_memory_kib(&cols[4]).unwrap_or(0) * 1024,
+            detail: Some(format!("session {}", cols[2].trim())),
+        });
+    }
+
+    Ok(processes)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn collect_unix_processes() -> Result<Vec<ProcessEntry>, String> {
+    let output = Command::new("ps")
+        .args(["-eo", "pid=,rss=,comm="])
+        .output()
+        .map_err(|e| format!("Failed to run ps: {e}"))?;
+    if !output.status.success() {
+        return Err("ps returned a non-success status.".to_string());
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut processes = Vec::new();
+    for line in text.lines() {
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        if cols.len() < 3 {
+            continue;
+        }
+        let (Some(pid), Some(rss_kib)) = (cols[0].parse::<u32>().ok(), cols[1].parse::<u64>().ok())
+        else {
+            continue;
+        };
+        processes.push(ProcessEntry {
+            name: cols[2..].join(" "),
+            pid,
+            memory_bytes: rss_kib * 1024,
+            detail: None,
+        });
+    }
+
+    Ok(processes)
 }
 
 fn extract_port_from_socket(value: &str) -> Option<u16> {
@@ -1025,4 +1170,42 @@ fn human_bytes(bytes: u64) -> String {
     } else {
         format!("{value:.1} {}", UNITS[unit_index])
     }
+}
+
+#[cfg(target_os = "windows")]
+fn parse_tasklist_memory_kib(raw: &str) -> Option<u64> {
+    let digits: String = raw.chars().filter(|ch| ch.is_ascii_digit()).collect();
+    if digits.is_empty() {
+        None
+    } else {
+        digits.parse::<u64>().ok()
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn parse_csv_row(line: &str) -> Vec<String> {
+    let mut cols = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+    let mut chars = line.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' => {
+                if in_quotes && chars.peek() == Some(&'"') {
+                    current.push('"');
+                    chars.next();
+                } else {
+                    in_quotes = !in_quotes;
+                }
+            }
+            ',' if !in_quotes => {
+                cols.push(current.trim().to_string());
+                current.clear();
+            }
+            _ => current.push(ch),
+        }
+    }
+    cols.push(current.trim().to_string());
+    cols
 }

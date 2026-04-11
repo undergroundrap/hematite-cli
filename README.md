@@ -166,11 +166,12 @@ Useful examples:
 
 This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
 
-For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH analysis, toolchain detection, desktop inspection, Downloads summaries, listening-port checks, repo-doctor summaries, and arbitrary directory or disk reports. `shell` remains the fallback for custom checks that do not fit a built-in inspection topic.
+For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH analysis, toolchain detection, process snapshots, desktop inspection, Downloads summaries, listening-port checks, repo-doctor summaries, and arbitrary directory or disk reports. `shell` remains the fallback for custom checks that do not fit a built-in inspection topic.
 
 Try these prompts:
 
 - `Inspect my PATH, tell me which developer tools you detect with versions, point out any duplicate or missing PATH entries, then give me a one-paragraph summary of whether this machine looks ready for local development.`
+- `Show me what processes are using the most RAM right now and whether anything looks unusual.`
 - `Count and name the items on my desktop.`
 - `Inspect my Downloads folder and tell me the top-level item count, the biggest entries, and whether anything there looks unusually large.`
 - `Show me what is listening on port 3000 and whether anything unexpected is exposed.`
@@ -599,7 +600,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
 | `map_project` | Compact architecture map with config markers, likely entrypoints, core owner files, and a bounded directory tree |
-| `inspect_host` | Structured read-only inspection of PATH, common toolchains, desktop items, Downloads, and arbitrary directories |
+| `inspect_host` | Structured read-only inspection of PATH, common toolchains, process snapshots, desktop items, Downloads, ports, repo health, and arbitrary directories |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
 | `fetch_docs` | Fetch and convert documentation pages into readable Markdown for follow-up analysis |

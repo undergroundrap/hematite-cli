@@ -164,6 +164,12 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
         lower,
         &[
             "path",
+            "process",
+            "processes",
+            "task manager",
+            "ram",
+            "cpu",
+            "memory",
             "developer tools",
             "toolchains",
             "installed",
@@ -198,6 +204,17 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
 pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str> {
     let lower = user_input.to_lowercase();
     let asks_path = lower.contains("path");
+    let asks_processes = lower.contains("process")
+        || lower.contains("processes")
+        || lower.contains("task manager")
+        || lower.contains("what is running")
+        || lower.contains("what's running")
+        || lower.contains("using my ram")
+        || lower.contains("using ram")
+        || lower.contains("using my cpu")
+        || lower.contains("top memory")
+        || lower.contains("top ram")
+        || lower.contains("high memory");
     let asks_toolchains = lower.contains("developer tools")
         || lower.contains("toolchains")
         || (lower.contains("installed") && lower.contains("version"))
@@ -232,6 +249,8 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || (mentions_host_inspection_question(&lower) && asks_broad_readiness)
     {
         Some("summary")
+    } else if asks_processes {
+        Some("processes")
     } else if asks_ports {
         Some("ports")
     } else if asks_repo_doctor {

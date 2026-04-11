@@ -37,6 +37,7 @@ impl VoiceManager {
         let available = Arc::new(AtomicBool::new(cfg!(feature = "embedded-voice-assets")));
         let cancelled = Arc::new(AtomicBool::new(false));
         let enabled_ctx = enabled.clone();
+        #[cfg(not(feature = "embedded-voice-assets"))]
         let available_ctx = available.clone();
         let _cancelled_ctx = cancelled.clone();
         let sink_shared = Arc::new(tokio::sync::Mutex::new(None));

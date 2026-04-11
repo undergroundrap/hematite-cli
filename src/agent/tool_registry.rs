@@ -159,17 +159,21 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         make_tool(
             "inspect_host",
             "Return a structured read-only inspection of the current machine and environment. \
-             Prefer this over raw shell for questions about installed developer tools, PATH issues, desktop items, Downloads size, open listening ports, repo health, or directory/disk summaries. \
+             Prefer this over raw shell for questions about installed developer tools, PATH issues, running processes, desktop items, Downloads size, open listening ports, repo health, or directory/disk summaries. \
              Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, \
-             topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
+             topic=processes for running-process snapshots, topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor"],
+                        "enum": ["summary", "toolchains", "path", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor"],
                         "description": "Which structured host inspection to run."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Optional when topic=processes. Case-insensitive substring filter for process names."
                     },
                     "path": {
                         "type": "string",

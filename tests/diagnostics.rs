@@ -890,6 +890,42 @@ async fn test_inspect_host_path_reports_path_summary() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_processes_can_filter_current_binary() {
+    use serde_json::json;
+
+    let process_name = std::env::current_exe()
+        .expect("current exe")
+        .file_stem()
+        .expect("file stem")
+        .to_string_lossy()
+        .to_string();
+
+    let args = json!({
+        "topic": "processes",
+        "name": process_name,
+        "max_entries": 5
+    });
+
+    let output = match hematite::tools::host_inspect::inspect_host(&args).await {
+        Ok(output) => output,
+        Err(err)
+            if err.contains("Failed to run tasklist")
+                || err.contains("tasklist returned a non-success status")
+                || err.contains("Failed to run ps")
+                || err.contains("ps returned a non-success status") =>
+        {
+            println!("Skipping processes test on this host: {}", err);
+            return;
+        }
+        Err(err) => panic!("inspect host processes failed: {}", err),
+    };
+
+    assert!(output.contains("Host inspection: processes"));
+    assert!(output.contains("Filter name:"));
+    assert!(output.contains("Processes found:"));
+}
+
+#[tokio::test]
 async fn test_inspect_host_disk_reports_size_summary() {
     use serde_json::json;
 

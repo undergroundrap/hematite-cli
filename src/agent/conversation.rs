@@ -1286,7 +1286,7 @@ impl ConversationManager {
                 if let Some(topic) = preferred_host_inspection_topic(prompt) {
                     if shell_looks_like_structured_host_inspection(command) {
                         return Err(format!(
-                            "Action blocked: this is a host-inspection question. Prefer `inspect_host(topic: \"{}\")` instead of raw `shell` for PATH, toolchains, desktop, Downloads, listening ports, repo-doctor checks, or directory/disk summaries. Use `shell` only if `inspect_host` cannot answer the question directly.",
+                            "Action blocked: this is a host-inspection question. Prefer `inspect_host(topic: \"{}\")` instead of raw `shell` for PATH, toolchains, running processes, desktop, Downloads, listening ports, repo-doctor checks, or directory/disk summaries. Use `shell` only if `inspect_host` cannot answer the question directly.",
                             topic
                         ));
                     }
@@ -2069,12 +2069,12 @@ impl ConversationManager {
         }
         if !tiny_context_mode && host_inspection_mode {
             system_msg.push_str(
-                "\n\n# HOST INSPECTION MODE\n\
-                 This turn is about the local machine and environment, not repository architecture.\n\
-                 Prefer `inspect_host` before raw `shell` for PATH analysis, installed developer tool versions, desktop item counts, Downloads summaries, listening ports, repo-doctor checks, and directory/disk-size reports.\n\
-                 Use the closest built-in topic first: `summary`, `toolchains`, `path`, `desktop`, `downloads`, `ports`, `repo_doctor`, `directory`, or `disk`.\n\
+                 "\n\n# HOST INSPECTION MODE\n\
+                   This turn is about the local machine and environment, not repository architecture.\n\
+                 Prefer `inspect_host` before raw `shell` for PATH analysis, installed developer tool versions, process snapshots, desktop item counts, Downloads summaries, listening ports, repo-doctor checks, and directory/disk-size reports.\n\
+                 Use the closest built-in topic first: `summary`, `toolchains`, `path`, `processes`, `desktop`, `downloads`, `ports`, `repo_doctor`, `directory`, or `disk`.\n\
                  Only use `shell` if the host question truly goes beyond `inspect_host`.\n"
-            );
+              );
         }
         if !tiny_context_mode && project_map_mode {
             system_msg.push_str(
@@ -4163,6 +4163,11 @@ fn shell_looks_like_structured_host_inspection(command: &str) -> bool {
         "ss -",
         "ss ",
         "lsof",
+        "tasklist",
+        "get-process",
+        "working set",
+        "ps -eo",
+        "ps aux",
         "desktop",
         "downloads",
     ]
@@ -4749,6 +4754,9 @@ mod tests {
         assert!(shell_looks_like_structured_host_inspection(
             "netstat -ano | findstr :3000"
         ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-Process | Sort-Object WS -Descending"
+        ));
     }
 
     #[test]
@@ -4758,6 +4766,16 @@ mod tests {
                 "Show me what is listening on port 3000 and whether anything unexpected is exposed."
             ),
             Some("ports")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_processes_for_host_process_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic(
+                "Show me what processes are using the most RAM right now."
+            ),
+            Some("processes")
         );
     }
 
