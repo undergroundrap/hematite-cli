@@ -25,6 +25,11 @@ Requirements:
 - LM Studio running locally with a model loaded on port `1234`
 - Inno Setup if you want to build the Windows installer
 
+Package naming note:
+
+- crates.io package: `hematite-cli`
+- installed executable: `hematite`
+
 ## Project Areas
 
 - `src/agent/`: prompting, orchestration, conversation flow, MCP, compaction, LSP, model interaction

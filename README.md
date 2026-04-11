@@ -310,6 +310,8 @@ Load both in LM Studio at the same time. The embedding model stays resident but 
 6. On Windows, run `Setup.exe` or use the portable zip. On macOS/Linux, extract the archive and run `./install.sh`.
 7. Launch `hematite` from inside your project folder.
 
+When published on crates.io, the package name should be `hematite-cli` while the installed command remains `hematite`. That gives you a distinct package namespace without changing the terminal command people actually use.
+
 ### Developer Mode
 
 ```powershell
@@ -342,6 +344,8 @@ Hematite follows [Semantic Versioning](https://semver.org/): `PATCH` for bug fix
 ### Bumping the Version
 
 `Cargo.toml` is the Rust package manifest for Hematite. In practice, treat it as the source-of-truth app version: build metadata, package names, and release scripts read from it.
+
+Package naming is intentionally split: the crates.io package is `hematite-cli`, but the shipped executable stays `hematite`. Users install the package name and run the binary name.
 
 **Run this when you are actually cutting a release, not while you are still validating a local fix.** It updates the tracked version surfaces in one shot and immediately verifies the static release metadata:
 
