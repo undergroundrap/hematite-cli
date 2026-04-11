@@ -5,6 +5,8 @@ pub mod telemetry;
 pub mod tools;
 pub mod ui;
 
+pub const HEMATITE_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 // Standard imports for library users
 pub use agent::config::HematiteConfig;
 pub use agent::conversation::ConversationManager;

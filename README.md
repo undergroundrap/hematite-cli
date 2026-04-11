@@ -401,6 +401,34 @@ That keeps unproven work off a public version number. If a fix is still under li
 
 For Hematite, diagnostics are part of the feature, not an afterthought. If a new tool, retrieval rule, workflow, or routing behavior changes what the harness does, add or update focused coverage in `tests/diagnostics.rs` before you ship it.
 
+**Solo verification loop:**
+
+```powershell
+cargo fmt
+cargo check --tests
+cargo test --test diagnostics
+pwsh ./scripts/package-windows.ps1 -AddToPath
+```
+
+What those commands mean if you are not deep into Rust yet:
+
+- `cargo fmt`
+  Clean up the Rust formatting so the code matches the project's standard style automatically.
+- `cargo check --tests`
+  Ask Rust to make sure the app code and test code still compile. This is the fast "did I break the project?" pass.
+- `cargo test --test diagnostics`
+  Run Hematite's focused behavior checks. This is where features like routing, memory rules, host inspection, and workflow regressions should be proved, not just assumed.
+- `pwsh ./scripts/package-windows.ps1 -AddToPath`
+  Build the real local portable you actually run, update the PATH-backed copy, restart the terminal, and test the feature like a real user would.
+
+If you only changed one small behavior, it is fine to run a named diagnostics test instead of the whole diagnostics file:
+
+```powershell
+cargo test --test diagnostics test_name_here -- --exact
+```
+
+That tells Cargo to run just one exact test by name, which is faster during iteration.
+
 **Agent note:** if this repo is being operated through an external AI harness such as Codex or Claude, treat the Windows build/package/install path as a real local-machine workflow, not a sandbox-first task. `cargo build --release`, `scripts/package-windows.ps1`, installer generation, and `-AddToPath` can touch the local ORT cache under `AppData`, native release sidecars, `dist/`, and the real user `PATH`. Run those steps with full local access first; reserve sandboxed runs for source inspection, lightweight checks, and isolated code execution.
 
 **Codex note:** Codex in particular may require explicit elevation for Git writes and other real-machine operations such as `git add`, `git commit`, `git tag`, `git push`, release packaging, and PATH updates. That is expected behavior from the harness, not a Hematite issue. If a Git or packaging step needs approval, approve it once and continue with the unrestricted path instead of retrying inside the sandbox.
@@ -827,6 +855,7 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 /forget           Hard forget; purge saved memory and the Vein index too
 /vein-inspect     Show indexed Vein memory, hot files, and active room bias
 /workspace-profile Show the auto-generated workspace profile
+/version          Show the running Hematite build version
 /vein-reset       Wipe the RAG index; rebuilds automatically on next turn
 /think            Enable Gemma-4 native reasoning channel
 /no_think         Enable lower-effort reasoning

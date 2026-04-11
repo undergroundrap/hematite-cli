@@ -259,7 +259,8 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         }
     };
     let greeting = format!(
-        "Hematite Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\n{}\n{}\n/chat - conversation mode | /agent - full coding harness{}",
+        "Hematite v{} Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\n{}\n{}\n/chat - conversation mode | /agent - full coding harness | /version - current build{}",
+        crate::HEMATITE_VERSION,
         display_model,
         manager.engine.current_context_length(),
         gpu_name,

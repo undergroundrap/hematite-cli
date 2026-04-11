@@ -62,6 +62,7 @@ pwsh ./clean.ps1
 - `/new`: reset session history while keeping project memory
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/workspace-profile`: inspect the auto-generated workspace profile
+- `/version`: show the running Hematite build version
 - `/swarm`: trigger parallel worker agents
 
 Requires LM Studio running locally with a model loaded and the server started on port `1234`.
@@ -441,6 +442,34 @@ Do not bump just to test whether a feature works. For Hematite, the local portab
 `release.ps1` is for cutting a release from a known-good state. It is not a substitute for first validating an unshipped fix in the local portable.
 
 For behavioral changes, diagnostics are part of the change, not optional cleanup. Prefer adding or updating focused coverage in `tests/diagnostics.rs` as you land the work so the live portable test is not your only proof.
+
+**Solo verification loop (Codex/operator path):**
+
+```powershell
+cargo fmt
+cargo check --tests
+cargo test --test diagnostics
+pwsh ./scripts/package-windows.ps1 -AddToPath
+```
+
+Why these exist:
+
+- `cargo fmt`
+  Normalizes Rust formatting so the diff stays readable and consistent.
+- `cargo check --tests`
+  Fast compile check for both app code and test code without paying the full release-build cost yet.
+- `cargo test --test diagnostics`
+  Runs the focused behavior checks where tool routing, Vein behavior, host inspection, and other product-level regressions are usually covered.
+- `pwsh ./scripts/package-windows.ps1 -AddToPath`
+  Rebuilds the actual portable build you run locally, updates the PATH-backed copy, and gives you the real pre-release smoke test.
+
+When the change is narrow, prefer a targeted diagnostics test instead of the full file:
+
+```powershell
+cargo test --test diagnostics test_name_here -- --exact
+```
+
+For a new contributor or non-technical operator, the short explanation is: format the code, make sure it still compiles, make sure the behavior test passes, then rebuild the real app and try it live.
 
 **Step 1 — bump the version** (updates tracked release metadata and verifies the static surfaces):
 

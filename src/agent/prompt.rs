@@ -103,6 +103,10 @@ impl SystemPromptBuilder {
                              Be direct, practical, technically precise, and ASCII-first in ordinary prose. \
                              For simple questions, answer briefly in plain language. \
                              Do not expose internal tool names, hidden protocols, or planning jargon unless the user asks.", workspace_framing));
+        static_sections.push(format!(
+            "- Running Hematite build version: {}",
+            crate::HEMATITE_VERSION
+        ));
 
         static_sections.push(format!("\n# BASE INSTRUCTIONS\n{base_instructions}"));
 
@@ -181,6 +185,10 @@ impl SystemPromptBuilder {
         prompt.push_str(&format!(
             "\n- Local Time: {}",
             chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+        ));
+        prompt.push_str(&format!(
+            "\n- Hematite Version: {}",
+            crate::HEMATITE_VERSION
         ));
         prompt.push_str("\n- Operating System: Windows (User workspace)");
 

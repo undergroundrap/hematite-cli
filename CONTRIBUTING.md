@@ -72,6 +72,36 @@ This is the real gate — it runs `cargo build --release` and proves the binary 
 
 For the solo Codex workflow, the practical order is: implement the change, add or update diagnostics, rebuild the local portable, test the live behavior, commit the feature work, then run the release flow.
 
+### Solo Verification Loop
+
+Use this loop for normal feature work before you commit:
+
+```powershell
+cargo fmt
+cargo check --tests
+cargo test --test diagnostics
+pwsh ./scripts/package-windows.ps1 -AddToPath
+```
+
+What each command is doing, in plain English:
+
+- `cargo fmt`
+  This rewrites the Rust code into the project's standard style so you do not end up committing messy formatting differences.
+- `cargo check --tests`
+  This is the fast "does the project still compile?" pass. It checks normal code and test code without doing the slow full release link step.
+- `cargo test --test diagnostics`
+  This runs the focused diagnostics suite where a lot of Hematite's behavior checks live. If you changed a tool, routing rule, memory behavior, or workflow, this is the fastest proof that the feature still behaves the way you think it does.
+- `pwsh ./scripts/package-windows.ps1 -AddToPath`
+  This builds the real local portable you actually run from the terminal. In practice, this is the closest thing to "test the real app like a user would use it" before you commit or release.
+
+If you only touched one narrow area, it is fine to run a targeted diagnostics test instead of the whole file, for example:
+
+```powershell
+cargo test --test diagnostics test_inspect_host_repo_doctor_reports_workspace_state -- --exact
+```
+
+That means "run only this one named test" instead of the whole diagnostics file.
+
 If your change affects packaging or release behavior, also run:
 
 ```powershell

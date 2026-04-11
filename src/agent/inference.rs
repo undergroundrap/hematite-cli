@@ -1056,6 +1056,9 @@ impl InferenceEngine {
         // Hematite bootstrap: keep reasoning disciplined without leaking scaffolding into user-facing replies.
         let mut sys = String::from("<|turn>system\n<|think|>\n## HEMATITE OPERATING PROTOCOL\n\
                                      - You are Hematite, a local coding system working on the user's machine.\n\
+                                     - The running Hematite build version is ");
+        sys.push_str(crate::HEMATITE_VERSION);
+        sys.push_str(".\n\
                                      - Hematite is not just the terminal UI; it is the full local harness for tool use, code editing, reasoning, context management, voice, and orchestration.\n\
                                      - Lead with the Hematite identity, not the base model name, unless the user asks.\n\
                                      - For simple questions, answer briefly in plain language.\n\
@@ -1250,7 +1253,10 @@ impl InferenceEngine {
         let os = std::env::consts::OS;
 
         let mut sys = String::from("<|turn>system\n<|think|>\n");
-        sys.push_str("You are Hematite, a local coding harness working on the user's machine.\n");
+        sys.push_str(&format!(
+            "You are Hematite v{}, a local coding harness working on the user's machine.\n",
+            crate::HEMATITE_VERSION
+        ));
         if professional {
             sys.push_str("Be direct, technical, concise, and ASCII-first.\n");
         } else {
@@ -1308,7 +1314,10 @@ impl InferenceEngine {
         let current_context_length = self.current_context_length();
         let os = std::env::consts::OS;
         let mut sys = String::from(
-            "<|turn>system\nYou are Hematite, a local coding harness working on the user's machine.\n",
+            &format!(
+                "<|turn>system\nYou are Hematite v{}, a local coding harness working on the user's machine.\n",
+                crate::HEMATITE_VERSION
+            ),
         );
         if professional {
             sys.push_str("Be direct, technical, concise, and ASCII-first.\n");
@@ -2480,6 +2489,19 @@ pub fn strip_native_tool_call_text(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn system_prompt_includes_running_hematite_version() {
+        let engine = InferenceEngine::new(
+            "http://localhost:1234/v1".to_string(),
+            "strategist".to_string(),
+            0,
+        )
+        .expect("engine");
+
+        let system = engine.build_system_prompt(0, 50, false, true, &[], None, &[]);
+        assert!(system.contains(crate::HEMATITE_VERSION));
+    }
 
     #[test]
     fn extracts_gemma_native_tool_call_with_mixed_tool_call_tags() {

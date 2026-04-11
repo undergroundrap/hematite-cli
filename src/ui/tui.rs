@@ -744,7 +744,7 @@ fn is_copyable_hematite_reply(speaker: &str, content: &str) -> bool {
 
     if trimmed == "Initialising Engine & Hardware..."
         || trimmed == "Swarm engaged."
-        || trimmed.starts_with("Hematite Online | Model:")
+        || trimmed.starts_with("Hematite v")
         || trimmed.starts_with("Swarm analyzing: '")
         || trimmed.ends_with("Standing by for review...")
         || trimmed.ends_with("conflict - review required.")
@@ -1193,9 +1193,10 @@ fn show_help_message(app: &mut App) {
            /read-only [prompt] - (Flow) Hard read-only mode; optional inline prompt\n\
            /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
            /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
-           /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
-           /workspace-profile - (Profile) Show the auto-generated workspace profile\n\
-           /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
+         /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
+         /workspace-profile - (Profile) Show the auto-generated workspace profile\n\
+         /version          - (Build) Show the running Hematite version\n\
+         /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
            /clear            - (UI) Clear dialogue display only\n\
          /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
          /runtime-refresh  - (Model) Re-read LM Studio model + CTX now\n\
@@ -1257,6 +1258,7 @@ fn show_help_message_legacy(app: &mut App) {
            /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
            /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
            /workspace-profile — (Profile) Show the auto-generated workspace profile\n\
+           /version          — (Build) Show the running Hematite version\n\
            /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
            /clear            — (UI) Clear dialogue display only\n\
          /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
@@ -2264,6 +2266,7 @@ pub async fn run_app<B: Backend>(
                                                        /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
                                                        /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
                                                        /workspace-profile — (Profile) Show the auto-generated workspace profile\n\
+                                                       /version          — (Build) Show the running Hematite version\n\
                                                        /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
                                                        /clear            — (UI) Clear dialogue display only\n\
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
@@ -2333,8 +2336,8 @@ pub async fn run_app<B: Backend>(
                                                 app.push_message(
                                                     "System",
                                                     &format!(
-                                                        "Hematite v{} - strategist",
-                                                        env!("CARGO_PKG_VERSION")
+                                                        "Hematite v{} - running build",
+                                                        crate::HEMATITE_VERSION
                                                     ),
                                                 );
                                                 app.history_idx = None;
