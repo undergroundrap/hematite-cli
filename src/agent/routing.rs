@@ -172,6 +172,10 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "ipconfig",
             "wifi",
             "ethernet",
+            "service",
+            "services",
+            "daemon",
+            "startup type",
             "process",
             "processes",
             "task manager",
@@ -221,6 +225,14 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || lower.contains("wifi")
         || lower.contains("ethernet")
         || lower.contains("subnet");
+    let asks_services = lower.contains("service")
+        || lower.contains("services")
+        || lower.contains("daemon")
+        || lower.contains("startup type")
+        || lower.contains("background service")
+        || lower.contains("windows service")
+        || lower.contains("systemctl")
+        || lower.contains("get-service");
     let asks_processes = lower.contains("process")
         || lower.contains("processes")
         || lower.contains("task manager")
@@ -268,6 +280,8 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         Some("summary")
     } else if asks_network {
         Some("network")
+    } else if asks_services {
+        Some("services")
     } else if asks_processes {
         Some("processes")
     } else if asks_ports {

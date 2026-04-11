@@ -957,6 +957,36 @@ async fn test_inspect_host_network_reports_adapter_summary() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_services_reports_status_summary() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "services",
+        "max_entries": 5
+    });
+
+    let output = match hematite::tools::host_inspect::inspect_host(&args).await {
+        Ok(output) => output,
+        Err(err)
+            if err.contains("Failed to run PowerShell service inspection")
+                || err.contains("PowerShell service inspection returned a non-success status")
+                || err.contains("Failed to run systemctl list-units")
+                || err.contains("systemctl list-units returned a non-success status")
+                || err.contains("Failed to run systemctl list-unit-files")
+                || err.contains("systemctl list-unit-files returned a non-success status") =>
+        {
+            println!("Skipping services test on this host: {}", err);
+            return;
+        }
+        Err(err) => panic!("inspect host services failed: {}", err),
+    };
+
+    assert!(output.contains("Host inspection: services"));
+    assert!(output.contains("Services found:"));
+    assert!(output.contains("Service summary:"));
+}
+
+#[tokio::test]
 async fn test_inspect_host_disk_reports_size_summary() {
     use serde_json::json;
 

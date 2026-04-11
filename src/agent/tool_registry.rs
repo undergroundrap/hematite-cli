@@ -159,8 +159,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         make_tool(
             "inspect_host",
             "Return a structured read-only inspection of the current machine and environment. \
-             Prefer this over raw shell for questions about installed developer tools, PATH issues, network state, running processes, desktop items, Downloads size, open listening ports, repo health, or directory/disk summaries. \
-             Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=network for adapters/IPs/gateways/DNS, \
+             Prefer this over raw shell for questions about installed developer tools, PATH issues, network state, service state, running processes, desktop items, Downloads size, open listening ports, repo health, or directory/disk summaries. \
+             Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=network for adapters/IPs/gateways/DNS, topic=services for service status and startup mode, \
              topic=processes for running-process snapshots, topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
@@ -168,12 +168,12 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "network", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor"],
+                        "enum": ["summary", "toolchains", "path", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor"],
                         "description": "Which structured host inspection to run."
                     },
                     "name": {
                         "type": "string",
-                        "description": "Optional when topic=processes. Case-insensitive substring filter for process names."
+                        "description": "Optional when topic=processes or topic=services. Case-insensitive substring filter for process or service names."
                     },
                     "path": {
                         "type": "string",

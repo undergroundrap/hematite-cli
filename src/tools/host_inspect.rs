@@ -20,6 +20,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "toolchains" => inspect_toolchains(),
         "path" => inspect_path(max_entries),
         "network" => inspect_network(max_entries),
+        "services" => inspect_services(parse_name_filter(args), max_entries),
         "processes" => inspect_processes(parse_name_filter(args), max_entries),
         "desktop" => inspect_known_directory("Desktop", desktop_dir(), max_entries).await,
         "downloads" => inspect_known_directory("Downloads", downloads_dir(), max_entries).await,
@@ -44,7 +45,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, network, processes, desktop, downloads, directory, disk, ports, repo_doctor.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor.",
             other
         )),
     }
@@ -338,6 +339,84 @@ fn inspect_network(max_entries: usize) -> Result<String, String> {
         out.push_str(&format!(
             "- ... {} more adapters omitted\n",
             adapters.len() - max_entries
+        ));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_services(name_filter: Option<String>, max_entries: usize) -> Result<String, String> {
+    let mut services = collect_services()?;
+    if let Some(filter) = name_filter.as_deref() {
+        let lowered = filter.to_ascii_lowercase();
+        services.retain(|entry| {
+            entry.name.to_ascii_lowercase().contains(&lowered)
+                || entry
+                    .display_name
+                    .as_deref()
+                    .unwrap_or("")
+                    .to_ascii_lowercase()
+                    .contains(&lowered)
+        });
+    }
+
+    services.sort_by(|a, b| {
+        service_status_rank(&a.status)
+            .cmp(&service_status_rank(&b.status))
+            .then_with(|| a.name.cmp(&b.name))
+    });
+
+    let running = services
+        .iter()
+        .filter(|entry| {
+            entry.status.eq_ignore_ascii_case("running")
+                || entry.status.eq_ignore_ascii_case("active")
+        })
+        .count();
+    let failed = services
+        .iter()
+        .filter(|entry| {
+            entry.status.eq_ignore_ascii_case("failed")
+                || entry.status.eq_ignore_ascii_case("error")
+                || entry.status.eq_ignore_ascii_case("stopped")
+        })
+        .count();
+
+    let mut out = String::from("Host inspection: services\n\n");
+    if let Some(filter) = name_filter.as_deref() {
+        out.push_str(&format!("- Filter name: {}\n", filter));
+    }
+    out.push_str(&format!("- Services found: {}\n", services.len()));
+    out.push_str(&format!("- Running/active: {}\n", running));
+    out.push_str(&format!("- Failed/stopped: {}\n", failed));
+
+    if services.is_empty() {
+        out.push_str("\nNo services matched.");
+        return Ok(out);
+    }
+
+    out.push_str("\nService summary:\n");
+    for entry in services.iter().take(max_entries) {
+        let startup = entry
+            .startup
+            .as_deref()
+            .map(|value| format!(" | startup {}", value))
+            .unwrap_or_default();
+        let display = entry
+            .display_name
+            .as_deref()
+            .filter(|value| *value != &entry.name)
+            .map(|value| format!(" [{}]", value))
+            .unwrap_or_default();
+        out.push_str(&format!(
+            "- {}{} - {}{}\n",
+            entry.name, display, entry.status, startup
+        ));
+    }
+    if services.len() > max_entries {
+        out.push_str(&format!(
+            "- ... {} more services omitted\n",
+            services.len() - max_entries
         ));
     }
 
@@ -813,6 +892,14 @@ struct ProcessEntry {
     detail: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+struct ServiceEntry {
+    name: String,
+    status: String,
+    startup: Option<String>,
+    display_name: Option<String>,
+}
+
 #[derive(Debug, Clone, Default)]
 struct NetworkAdapter {
     name: String,
@@ -865,6 +952,17 @@ fn collect_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
     #[cfg(not(target_os = "windows"))]
     {
         collect_unix_network_adapters()
+    }
+}
+
+fn collect_services() -> Result<Vec<ServiceEntry>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        collect_windows_services()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        collect_unix_services()
     }
 }
 
@@ -945,6 +1043,57 @@ fn collect_processes() -> Result<Vec<ProcessEntry>, String> {
     {
         collect_unix_processes()
     }
+}
+
+#[cfg(target_os = "windows")]
+fn collect_windows_services() -> Result<Vec<ServiceEntry>, String> {
+    let command = "Get-CimInstance Win32_Service | Select-Object Name,State,StartMode,DisplayName | ConvertTo-Json -Compress";
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-Command", command])
+        .output()
+        .map_err(|e| format!("Failed to run PowerShell service inspection: {e}"))?;
+    if !output.status.success() {
+        return Err("PowerShell service inspection returned a non-success status.".to_string());
+    }
+
+    parse_windows_services_json(&String::from_utf8_lossy(&output.stdout))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn collect_unix_services() -> Result<Vec<ServiceEntry>, String> {
+    let status_output = Command::new("systemctl")
+        .args([
+            "list-units",
+            "--type=service",
+            "--all",
+            "--no-pager",
+            "--no-legend",
+            "--plain",
+        ])
+        .output()
+        .map_err(|e| format!("Failed to run systemctl list-units: {e}"))?;
+    if !status_output.status.success() {
+        return Err("systemctl list-units returned a non-success status.".to_string());
+    }
+
+    let startup_output = Command::new("systemctl")
+        .args([
+            "list-unit-files",
+            "--type=service",
+            "--no-legend",
+            "--no-pager",
+            "--plain",
+        ])
+        .output()
+        .map_err(|e| format!("Failed to run systemctl list-unit-files: {e}"))?;
+    if !startup_output.status.success() {
+        return Err("systemctl list-unit-files returned a non-success status.".to_string());
+    }
+
+    Ok(parse_unix_services(
+        &String::from_utf8_lossy(&status_output.stdout),
+        &String::from_utf8_lossy(&startup_output.stdout),
+    ))
 }
 
 #[cfg(target_os = "windows")]
@@ -1071,6 +1220,19 @@ fn listener_exposure_summary(listeners: Vec<ListeningPort>) -> ListenerExposureS
         }
     }
     summary
+}
+
+fn service_status_rank(status: &str) -> u8 {
+    let lower = status.to_ascii_lowercase();
+    if lower == "failed" || lower == "error" {
+        0
+    } else if lower == "running" || lower == "active" {
+        1
+    } else if lower == "starting" || lower == "activating" {
+        2
+    } else {
+        3
+    }
 }
 
 fn is_loopback_listener(local: &str) -> bool {
@@ -1546,4 +1708,84 @@ fn normalize_ipconfig_value(value: &str) -> String {
 fn dedup_vec(values: &mut Vec<String>) {
     let mut seen = HashSet::new();
     values.retain(|value| seen.insert(value.clone()));
+}
+
+#[cfg(target_os = "windows")]
+fn parse_windows_services_json(text: &str) -> Result<Vec<ServiceEntry>, String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let value: Value = serde_json::from_str(trimmed)
+        .map_err(|e| format!("Failed to parse PowerShell service JSON: {e}"))?;
+    let entries = match value {
+        Value::Array(items) => items,
+        other => vec![other],
+    };
+
+    let mut services = Vec::new();
+    for entry in entries {
+        let Some(name) = entry.get("Name").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        services.push(ServiceEntry {
+            name: name.to_string(),
+            status: entry
+                .get("State")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            startup: entry
+                .get("StartMode")
+                .and_then(|v| v.as_str())
+                .map(|value| value.to_string()),
+            display_name: entry
+                .get("DisplayName")
+                .and_then(|v| v.as_str())
+                .map(|value| value.to_string()),
+        });
+    }
+
+    Ok(services)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn parse_unix_services(status_text: &str, startup_text: &str) -> Vec<ServiceEntry> {
+    let mut startup_modes = std::collections::HashMap::<String, String>::new();
+    for line in startup_text.lines() {
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        if cols.len() < 2 {
+            continue;
+        }
+        startup_modes.insert(cols[0].to_string(), cols[1].to_string());
+    }
+
+    let mut services = Vec::new();
+    for line in status_text.lines() {
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        if cols.len() < 4 {
+            continue;
+        }
+        let unit = cols[0];
+        let load = cols[1];
+        let active = cols[2];
+        let sub = cols[3];
+        let description = if cols.len() > 4 {
+            Some(cols[4..].join(" "))
+        } else {
+            None
+        };
+        services.push(ServiceEntry {
+            name: unit.to_string(),
+            status: format!("{}/{}", active, sub),
+            startup: startup_modes
+                .get(unit)
+                .cloned()
+                .or_else(|| Some(load.to_string())),
+            display_name: description,
+        });
+    }
+
+    services
 }
