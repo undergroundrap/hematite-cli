@@ -427,9 +427,11 @@ chore: bump version to X.Y.Z
 pwsh ./release.ps1 -Version X.Y.Z
 ```
 
-For solo use, prefer `release.ps1` over manually retyping the release sequence. It refuses to run from a dirty worktree, sets the exact release version when you use `-Version X.Y.Z`, rebuilds `Cargo.lock`, verifies version sync, commits the version files, builds release artifacts, and creates the annotated tag. Add `-Push` to also push `main` and the tag automatically. Use `-Bump patch|minor|major` when you want the script to calculate the next semantic version for you.
+For solo use, prefer `release.ps1` over manually retyping the release sequence. It refuses to run from a dirty worktree, sets the exact release version when you use `-Version X.Y.Z`, rebuilds `Cargo.lock`, verifies version sync, commits the version files, creates the annotated tag, then builds release artifacts from that tagged commit. Add `-Push` to also push `main` and the tag automatically. Use `-Bump patch|minor|major` when you want the script to calculate the next semantic version for you.
 
 `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` is the full Windows publish path: local bump commit, local tag, rebuilt portable bundle, rebuilt installer, PATH update, then push of both `main` and the new tag.
+
+That order is intentional. Hematite's startup banner and `/version` only show `release` when the binary is compiled from the exact matching tag, so local release artifacts must be built after the tag exists.
 
 **Practical operator order:**
 

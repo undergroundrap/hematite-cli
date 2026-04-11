@@ -387,9 +387,11 @@ pwsh ./release.ps1 -Bump patch -Push
 pwsh ./release.ps1 -Version X.Y.Z -Push -AddToPath
 ```
 
-`pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` is the closest thing to a full "ship it" command for Hematite on Windows: it creates the local version-bump commit, builds the portable bundle and installer, updates your PATH to the new portable directory, creates the local annotated tag, and then pushes both `main` and the new tag to GitHub.
+`pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` is the closest thing to a full "ship it" command for Hematite on Windows: it creates the local version-bump commit, creates the local annotated tag, builds the portable bundle and installer from that tagged commit, updates your PATH to the new portable directory, and then pushes both `main` and the new tag to GitHub.
 
-By default, the wrapper stops after the local commit, packaging, and local tag creation. Add `-Push` if you want it to push `main` and the new tag to GitHub automatically.
+By default, the wrapper stops after the local commit, local tag creation, and packaging. Add `-Push` if you want it to push `main` and the new tag to GitHub automatically.
+
+That order matters for Hematite's build label logic: release artifacts should be compiled after the exact `vX.Y.Z` tag exists, so the local portable and installer identify themselves as `release` instead of a `dev+<commit>` snapshot.
 
 **Practical release order:**
 

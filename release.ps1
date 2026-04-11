@@ -159,18 +159,18 @@ Invoke-Step "Creating version bump commit" {
     }
 }
 
+Invoke-Step "Creating release tag" {
+    git tag -a $tagName -m "Release $tagName"
+    if ($LASTEXITCODE -ne 0) {
+        throw "git tag failed."
+    }
+}
+
 Invoke-Step "Building release artifacts" {
     if ($IsWindows -or $env:OS -eq "Windows_NT") {
         Invoke-WindowsPackage -IncludeInstaller:(-not $SkipInstaller) -RegisterPath:$AddToPath
     } else {
         Invoke-UnixPackage
-    }
-}
-
-Invoke-Step "Creating release tag" {
-    git tag -a $tagName -m "Release $tagName"
-    if ($LASTEXITCODE -ne 0) {
-        throw "git tag failed."
     }
 }
 
