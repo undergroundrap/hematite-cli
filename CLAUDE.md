@@ -71,6 +71,8 @@ Practical rule: the version/build label is compile-time metadata. A new commit o
 
 Package naming rule: the crates.io package is `hematite-cli`, but the executable name stays `hematite`. Keep that split so the package namespace is distinct while the operator command stays short.
 
+Crates.io publish order: publish `hematite-kokoros` first, then publish `hematite-cli`. The main package depends on the forked voice crate by published package name while keeping the source-level crate path as `kokoros`.
+
 For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, desktop/downloads, listening ports, repo-doctor summaries, and arbitrary directory or disk inspections before falling back to raw shell.
 
 ## Hardware Intent

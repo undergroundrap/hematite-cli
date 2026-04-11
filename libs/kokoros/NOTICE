@@ -1,0 +1,15 @@
+This package contains a Hematite-maintained fork of code derived from:
+
+  lucasjinreal/Kokoros
+  https://github.com/lucasjinreal/Kokoros
+
+Upstream README copyright note:
+
+  "Copyright reserved by Lucas Jin under Apache License."
+
+Hematite-specific modifications include:
+
+- removing upstream C++/system dependency assumptions from the vendored fork
+- aligning ONNX Runtime setup with Hematite's local Windows packaging flow
+- packaging the fork under the distinct crates.io package name `hematite-kokoros`
+  while preserving the Rust library crate path `kokoros`

@@ -38,7 +38,7 @@ chrono = "0.4"
 percent-encoding = "2.3"
 
 # Voice & Audio Synthesis
-kokoros = { version = "0.1.0", path = "libs/kokoros" }
+kokoros = { package = "hematite-kokoros", version = "0.1.0", path = "libs/kokoros" }
 rodio = "0.19"
 base64 = "0.22.1"
 home = "0.5.12"
@@ -57,7 +57,7 @@ winres = "0.1"
 [profile.dev.package.ort]
 opt-level = 3
 codegen-units = 1
-[profile.dev.package.kokoros]
+[profile.dev.package.hematite-kokoros]
 opt-level = 3
 codegen-units = 1
 [profile.dev.package.ndarray]

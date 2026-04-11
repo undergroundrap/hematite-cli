@@ -1,7 +1,18 @@
 [package]
-name = "kokoros"
+name = "hematite-kokoros"
 version = "0.1.0"
 edition = "2021"
+description = "Hematite-maintained fork of the Kokoros Rust text-to-speech engine"
+readme = "README.md"
+repository = "https://github.com/undergroundrap/hematite-cli"
+homepage = "https://github.com/undergroundrap/hematite-cli"
+license = "Apache-2.0"
+keywords = ["tts", "kokoro", "voice", "onnx"]
+categories = ["multimedia::audio"]
+
+[lib]
+name = "kokoros"
+path = "src/lib.rs"
 
 [dependencies]
 # NLP & Phonemization (G2P)

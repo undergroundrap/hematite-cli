@@ -347,6 +347,13 @@ Hematite follows [Semantic Versioning](https://semver.org/): `PATCH` for bug fix
 
 Package naming is intentionally split: the crates.io package is `hematite-cli`, but the shipped executable stays `hematite`. Users install the package name and run the binary name.
 
+If you publish to crates.io, publish the voice dependency fork first, then the main CLI:
+
+1. `hematite-kokoros`
+2. `hematite-cli`
+
+`hematite-cli` depends on the published `hematite-kokoros` package while keeping the in-code crate path as `kokoros`.
+
 **Run this when you are actually cutting a release, not while you are still validating a local fix.** It updates the tracked version surfaces in one shot and immediately verifies the static release metadata:
 
 ```powershell
