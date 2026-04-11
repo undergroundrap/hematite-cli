@@ -423,6 +423,19 @@ For solo use, prefer `release.ps1` over manually retyping the release sequence. 
 
 `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` is the full Windows publish path: local bump commit, local tag, rebuilt portable bundle, rebuilt installer, PATH update, then push of both `main` and the new tag.
 
+**Practical operator order:**
+
+1. Land the actual feature or fix first.
+2. Rebuild the local Windows portable without bumping:
+   `pwsh ./scripts/package-windows.ps1 -AddToPath`
+3. Restart the terminal, run the local portable, and test the live behavior.
+4. Commit the feature work as a normal commit.
+5. When the work is proven, run `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` or the appropriate `-Bump` variant from a clean tree.
+
+Do not bump just to test whether a feature works. For Hematite, the local portable is the pre-release smoke test. Public version bumps happen after the live local test passes.
+
+`release.ps1` is for cutting a release from a known-good state. It is not a substitute for first validating an unshipped fix in the local portable.
+
 **Step 1 — bump the version** (updates tracked release metadata and verifies the static surfaces):
 
 ```powershell

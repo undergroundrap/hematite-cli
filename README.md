@@ -385,9 +385,22 @@ pwsh ./release.ps1 -Version X.Y.Z -Push -AddToPath
 
 By default, the wrapper stops after the local commit, packaging, and local tag creation. Add `-Push` if you want it to push `main` and the new tag to GitHub automatically.
 
+**Practical release order:**
+
+1. Make the feature or fix.
+2. Rebuild the local Windows portable without bumping yet:
+   `pwsh ./scripts/package-windows.ps1 -AddToPath`
+3. Restart your terminal, run the local portable, and confirm the behavior is actually good.
+4. Commit the feature work as a normal commit.
+5. Only then run `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` or a `-Bump` variant.
+
+That keeps unproven work off a public version number. If a fix is still under live testing, keep working on the current local build first and wait to bump until it is ready to ship.
+
 **Agent note:** if this repo is being operated through an external AI harness such as Codex or Claude, treat the Windows build/package/install path as a real local-machine workflow, not a sandbox-first task. `cargo build --release`, `scripts/package-windows.ps1`, installer generation, and `-AddToPath` can touch the local ORT cache under `AppData`, native release sidecars, `dist/`, and the real user `PATH`. Run those steps with full local access first; reserve sandboxed runs for source inspection, lightweight checks, and isolated code execution.
 
 **Codex note:** Codex in particular may require explicit elevation for Git writes and other real-machine operations such as `git add`, `git commit`, `git tag`, `git push`, release packaging, and PATH updates. That is expected behavior from the harness, not a Hematite issue. If a Git or packaging step needs approval, approve it once and continue with the unrestricted path instead of retrying inside the sandbox.
+
+**When to use `release.ps1`:** use it after the feature work is already committed and the tree is clean, or when you are intentionally cutting a release from a known-good state. Do not use it as a substitute for live testing an unproven fix, because it will create the bump commit and tag-facing metadata as part of the release flow.
 
 ### Building a Release
 
