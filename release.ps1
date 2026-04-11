@@ -9,7 +9,9 @@ param(
 
     [switch]$Push,
     [switch]$AddToPath,
-    [switch]$SkipInstaller
+    [switch]$SkipInstaller,
+    [switch]$PublishCrates,
+    [switch]$PublishVoiceCrate
 )
 
 $ErrorActionPreference = "Stop"
@@ -112,9 +114,29 @@ function Invoke-UnixPackage {
     }
 }
 
+function Invoke-CargoPublish([string]$WorkingDirectory) {
+    Push-Location $WorkingDirectory
+    try {
+        & cargo publish
+        if ($LASTEXITCODE -ne 0) {
+            throw "cargo publish failed in $WorkingDirectory."
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
 $currentVersion = Get-CurrentVersion
 if ($PSCmdlet.ParameterSetName -eq "ByBump") {
     $Version = Get-BumpedVersion -CurrentVersion $currentVersion -BumpKind $Bump
+}
+
+if ($PublishVoiceCrate -and -not $PublishCrates) {
+    throw "-PublishVoiceCrate requires -PublishCrates."
+}
+
+if ($PublishCrates -and -not $Push) {
+    throw "-PublishCrates requires -Push so the published crates match a pushed commit and tag."
 }
 
 $tagName = "v$Version"
@@ -186,10 +208,32 @@ if ($Push) {
             throw "git push origin $tagName failed."
         }
     }
-} else {
+}
+
+if ($PublishCrates) {
+    if ($PublishVoiceCrate) {
+        Invoke-Step "Publishing hematite-kokoros to crates.io" {
+            Invoke-CargoPublish (Join-Path $repoRoot "libs\kokoros")
+        }
+    }
+
+    Invoke-Step "Publishing hematite-cli to crates.io" {
+        Invoke-CargoPublish $repoRoot
+    }
+}
+
+if (-not $Push) {
     Write-Host ""
     Write-Host "Release $Version is ready locally." -ForegroundColor Green
     Write-Host "Push when ready:" -ForegroundColor Green
     Write-Host "  git push origin main"
     Write-Host "  git push origin $tagName"
+} elseif ($PublishCrates) {
+    Write-Host ""
+    Write-Host "Release $Version is published and pushed." -ForegroundColor Green
+    Write-Host "Published crates:" -ForegroundColor Green
+    if ($PublishVoiceCrate) {
+        Write-Host "  hematite-kokoros"
+    }
+    Write-Host "  hematite-cli"
 }

@@ -425,6 +425,8 @@ pwsh ./release.ps1 -Bump minor
 pwsh ./release.ps1 -Version X.Y.Z
 pwsh ./release.ps1 -Bump patch -Push
 pwsh ./release.ps1 -Version X.Y.Z -Push -AddToPath
+pwsh ./release.ps1 -Version X.Y.Z -Push -AddToPath -PublishCrates
+pwsh ./release.ps1 -Version X.Y.Z -Push -AddToPath -PublishCrates -PublishVoiceCrate
 ```
 
 `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` is the closest thing to a full "ship it" command for Hematite on Windows: it creates the local version-bump commit, creates the local annotated tag, builds the portable bundle and installer from that tagged commit, updates your PATH to the new portable directory, and then pushes both `main` and the new tag to GitHub.
@@ -432,6 +434,13 @@ pwsh ./release.ps1 -Version X.Y.Z -Push -AddToPath
 By default, the wrapper stops after the local commit, local tag creation, and packaging. Add `-Push` if you want it to push `main` and the new tag to GitHub automatically.
 
 That order matters for Hematite's build label logic: release artifacts should be compiled after the exact `vX.Y.Z` tag exists, so the local portable and installer identify themselves as `release` instead of a `dev+<commit>` snapshot.
+
+If you also want crates.io updated as part of the same release routine:
+
+- add `-PublishCrates` to publish `hematite-cli` after the push succeeds
+- add `-PublishVoiceCrate` only when the vendored voice fork changed and `hematite-kokoros` needs a new version first
+
+The release wrapper intentionally requires `-Push` before it will publish crates. That keeps crates.io versions aligned with a real pushed commit and tag instead of a local-only state.
 
 **Practical release order:**
 

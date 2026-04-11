@@ -439,6 +439,12 @@ For solo use, prefer `release.ps1` over manually retyping the release sequence. 
 
 That order is intentional. Hematite's startup banner and `/version` only show `release` when the binary is compiled from the exact matching tag, so local release artifacts must be built after the tag exists.
 
+For crates.io automation:
+
+- add `-PublishCrates` to publish `hematite-cli` after the push succeeds
+- add `-PublishVoiceCrate` only when `hematite-kokoros` changed and must be published first
+- `-PublishCrates` requires `-Push`; do not publish crates from a local-only release state
+
 **Practical operator order:**
 
 1. Land the actual feature or fix first.
