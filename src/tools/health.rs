@@ -10,7 +10,8 @@ pub async fn execute(_args: &Value) -> Result<String, String> {
     Ok(json!({
         "status": "healthy",
         "engine": "Hematite",
-        "version": env!("CARGO_PKG_VERSION"),
+        "version": crate::HEMATITE_VERSION,
+        "build": crate::hematite_build_descriptor(),
         "time": format!("{}", now.format("%Y-%m-%d %H:%M:%S UTC")),
         "src_file_count": file_count
     })

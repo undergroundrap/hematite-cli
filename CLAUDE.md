@@ -62,7 +62,7 @@ pwsh ./clean.ps1
 - `/new`: reset session history while keeping project memory
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/workspace-profile`: inspect the auto-generated workspace profile
-- `/version`: show the running Hematite build version
+- `/version`: show the running Hematite release version plus build state
 - `/swarm`: trigger parallel worker agents
 
 Requires LM Studio running locally with a model loaded and the server started on port `1234`.

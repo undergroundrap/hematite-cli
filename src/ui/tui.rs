@@ -2335,10 +2335,7 @@ pub async fn run_app<B: Backend>(
                                             "/version" => {
                                                 app.push_message(
                                                     "System",
-                                                    &format!(
-                                                        "Hematite v{} - running build",
-                                                        crate::HEMATITE_VERSION
-                                                    ),
+                                                    &crate::hematite_version_report(),
                                                 );
                                                 app.history_idx = None;
                                                 continue;

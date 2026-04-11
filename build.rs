@@ -1,7 +1,10 @@
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 
 fn main() {
+    emit_git_build_info();
+
     // Dynamically target standard Windows CUDA implementations
     let base_cuda_path = PathBuf::from("C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA");
 
@@ -49,4 +52,63 @@ fn main() {
     // Auto-Rerun on build constraint updates
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=assets/hematite.ico");
+}
+
+fn emit_git_build_info() {
+    let repo_root = std::env::var_os("CARGO_MANIFEST_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    let git_dir = resolve_git_dir(&repo_root);
+    if let Some(git_dir) = git_dir.as_ref() {
+        println!("cargo:rerun-if-changed={}", git_dir.join("HEAD").display());
+        println!("cargo:rerun-if-changed={}", git_dir.join("index").display());
+        if let Ok(head) = fs::read_to_string(git_dir.join("HEAD")) {
+            if let Some(reference) = head.trim().strip_prefix("ref: ") {
+                println!(
+                    "cargo:rerun-if-changed={}",
+                    git_dir.join(reference).display()
+                );
+            }
+        }
+    }
+
+    let commit = git_output(&repo_root, &["rev-parse", "--short", "HEAD"]).unwrap_or_default();
+    let exact_tag =
+        git_output(&repo_root, &["describe", "--tags", "--exact-match"]).unwrap_or_default();
+    let dirty = git_output(&repo_root, &["status", "--porcelain"])
+        .map(|out| (!out.trim().is_empty()).to_string())
+        .unwrap_or_else(|| "false".to_string());
+
+    println!("cargo:rustc-env=HEMATITE_GIT_COMMIT_SHORT={}", commit);
+    println!("cargo:rustc-env=HEMATITE_GIT_EXACT_TAG={}", exact_tag);
+    println!("cargo:rustc-env=HEMATITE_GIT_DIRTY={}", dirty);
+}
+
+fn resolve_git_dir(repo_root: &PathBuf) -> Option<PathBuf> {
+    let dot_git = repo_root.join(".git");
+    if dot_git.is_dir() {
+        return Some(dot_git);
+    }
+    let content = fs::read_to_string(&dot_git).ok()?;
+    let gitdir = content.trim().strip_prefix("gitdir:")?.trim();
+    let path = PathBuf::from(gitdir);
+    if path.is_absolute() {
+        Some(path)
+    } else {
+        Some(repo_root.join(path))
+    }
+}
+
+fn git_output(repo_root: &PathBuf, args: &[&str]) -> Option<String> {
+    let output = Command::new("git")
+        .current_dir(repo_root)
+        .args(args)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Some(text)
 }

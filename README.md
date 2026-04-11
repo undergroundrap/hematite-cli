@@ -794,12 +794,14 @@ If you need industrial-strength PDF ingestion or OCR-heavy document workflows, a
 On launch, Hematite prints a one-line status block:
 
 ```
-Hematite Online | Model: qwen/qwen3.5-9b | CTX: 32000 | GPU: NVIDIA GeForce RTX 4070 | VRAM: 9.3 GB / 12.0 GB
+Hematite vX.Y.Z [release|dev+abcdef[-dirty]] Online | Model: qwen/qwen3.5-9b | CTX: 32000 | GPU: NVIDIA GeForce RTX 4070 | VRAM: 9.3 GB / 12.0 GB
 Endpoint: http://localhost:1234/v1
 Embed: nomic active (semantic search ready)
 ```
 
 The endpoint line shows exactly where Hematite is connecting — immediately visible if you're using Ollama, a remote machine, or any non-default server instead of LM Studio.
+
+The build label matters during development. A local pre-release build may still carry the current release version from `Cargo.toml`, but the bracketed build state tells you whether the binary was built from an exact release tag or from a local dev snapshot such as `dev+c828436` or `dev+c828436-dirty`.
 
 ### Background Audio Engine
 
@@ -855,7 +857,7 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 /forget           Hard forget; purge saved memory and the Vein index too
 /vein-inspect     Show indexed Vein memory, hot files, and active room bias
 /workspace-profile Show the auto-generated workspace profile
-/version          Show the running Hematite build version
+/version          Show the running Hematite release version plus build state
 /vein-reset       Wipe the RAG index; rebuilds automatically on next turn
 /think            Enable Gemma-4 native reasoning channel
 /no_think         Enable lower-effort reasoning

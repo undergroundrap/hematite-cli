@@ -6,6 +6,60 @@ pub mod tools;
 pub mod ui;
 
 pub const HEMATITE_VERSION: &str = env!("CARGO_PKG_VERSION");
+const HEMATITE_GIT_COMMIT_SHORT_RAW: &str = env!("HEMATITE_GIT_COMMIT_SHORT");
+const HEMATITE_GIT_EXACT_TAG_RAW: &str = env!("HEMATITE_GIT_EXACT_TAG");
+const HEMATITE_GIT_DIRTY_RAW: &str = env!("HEMATITE_GIT_DIRTY");
+
+pub fn hematite_git_commit_short() -> Option<&'static str> {
+    (!HEMATITE_GIT_COMMIT_SHORT_RAW.is_empty()).then_some(HEMATITE_GIT_COMMIT_SHORT_RAW)
+}
+
+pub fn hematite_git_exact_tag() -> Option<&'static str> {
+    (!HEMATITE_GIT_EXACT_TAG_RAW.is_empty()).then_some(HEMATITE_GIT_EXACT_TAG_RAW)
+}
+
+pub fn hematite_git_dirty() -> bool {
+    HEMATITE_GIT_DIRTY_RAW.eq_ignore_ascii_case("true")
+}
+
+pub fn hematite_build_descriptor() -> String {
+    let release_tag = format!("v{}", HEMATITE_VERSION);
+    let exact_release = matches!(hematite_git_exact_tag(), Some(tag) if tag == release_tag);
+
+    if exact_release && !hematite_git_dirty() {
+        "release".to_string()
+    } else {
+        match (hematite_git_commit_short(), hematite_git_dirty()) {
+            (Some(commit), true) => format!("dev+{}-dirty", commit),
+            (Some(commit), false) => format!("dev+{}", commit),
+            (None, true) => "dev-dirty".to_string(),
+            (None, false) => "dev".to_string(),
+        }
+    }
+}
+
+pub fn hematite_version_display() -> String {
+    format!("v{} [{}]", HEMATITE_VERSION, hematite_build_descriptor())
+}
+
+pub fn hematite_version_report() -> String {
+    let mut lines = vec![
+        format!("Hematite v{}", HEMATITE_VERSION),
+        format!("Build: {}", hematite_build_descriptor()),
+    ];
+    if let Some(commit) = hematite_git_commit_short() {
+        lines.push(format!("Commit: {}", commit));
+    }
+    lines.push(format!(
+        "Built from a dirty worktree: {}",
+        if hematite_git_dirty() { "yes" } else { "no" }
+    ));
+    lines.push(format!(
+        "Exact release tag at build time: {}",
+        hematite_git_exact_tag().unwrap_or("none")
+    ));
+    lines.join("\n")
+}
 
 // Standard imports for library users
 pub use agent::config::HematiteConfig;
@@ -75,4 +129,14 @@ pub struct CliCockpit {
 
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn version_report_contains_release_version() {
+        let report = crate::hematite_version_report();
+        assert!(report.contains(crate::HEMATITE_VERSION));
+        assert!(report.contains("Build:"));
+    }
 }
