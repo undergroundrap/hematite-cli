@@ -2,7 +2,7 @@
 
 **Your RTX 4070 is a serious coding machine. Hematite makes it one.**
 
-Local AI coding harness and workstation assistant for LM Studio. Runs entirely on your hardware. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, inspects the machine it is running on, and speaks responses out loud — all from a single binary that boots in seconds.
+Local AI coding harness and natural-language workstation assistant for LM Studio. Runs entirely on your hardware. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, inspects the machine it is running on, and speaks responses out loud — all from a single binary that boots in seconds.
 
 **What it actually does:**
 - Detects the workspace automatically — coding project, document folder, or general directory — and adjusts its behavior accordingly. No flags, no config.
@@ -17,7 +17,7 @@ Local AI coding harness and workstation assistant for LM Studio. Runs entirely o
 - Speaks every response through a built-in 54-voice TTS engine — statically linked, zero install, works offline
 - Clean conversational chat mode alongside the full agent mode — terminal-native, no Electron, no browser
 
-`hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, workstation assistant when you need one, clean conversation when you do not. LM Studio handles model serving. Hematite handles the grounded local workflow around it.
+`hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, natural-language workstation/sysadmin assistant when you need one, clean conversation when you do not. LM Studio handles model serving. Hematite handles the grounded local workflow around it.
 
 ![Version](https://img.shields.io/badge/version-0.4.3-orange?style=flat-square)
 [![crate hematite-cli](https://img.shields.io/crates/v/hematite-cli?style=flat-square&label=crate%20hematite-cli)](https://crates.io/crates/hematite-cli)
@@ -67,6 +67,7 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 - **Proven tool loop** — read → grep → edit → verify → undo. Tested on real Rust codebases. The model finds the right line, makes the right change, catches its own errors, and recovers without prompting.
 - **Sandboxed code execution** — the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation — not training-data guesses. Hematite automatically uses Deno from LM Studio's install — no extra setup required. Not using LM Studio? Install Deno globally: `winget install DenoLand.Deno`.
 - **Grounded terminal execution** — Hematite can inspect the real machine through native shell tools, files, and project commands. That means it can answer from observed state — installed toolchains, active network adapters, running ports, desktop files, build output, repo status — instead of making generic guesses.
+- **Natural-language workstation admin** — Hematite can inspect processes, services, PATH health, package managers, network state, ports, and fix-plan lanes in plain English, so it behaves less like a blind chat UI and more like a grounded developer workstation operator.
 - **Hybrid RAG built in** — The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, not hunting for it with five read_file calls.
 - **Built-in voice, zero install** — 54-voice Kokoro TTS in the packaged releases. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run in the packaged builds.
 - **Windows-first** — CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
@@ -88,6 +89,7 @@ Hematite is for developers who want a **local coding CLI that behaves like a ser
 - You want a **local coding CLI for RTX 4070-class hardware** that admits hardware limits and engineers around them.
 - You want a harness that exposes **runtime truth**: live model context, budget pressure, recovery steps, blocker states, session carry-forward, and observed workstation state.
 - You want a **developer workstation assistant** that can inspect PATH, package managers, services, processes, ports, network state, and grounded fix plans instead of only talking about code.
+- You want something that feels like a **natural-language sysadmin for your dev machine**, not just another coding chatbot.
 
 If your goal is cloud-scale autonomous orchestration, Hematite is not trying to win that game. If your goal is the best practical local coding harness and workstation assistant for repo work on consumer hardware, that is exactly the category it is trying to own.
 
