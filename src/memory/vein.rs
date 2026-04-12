@@ -166,7 +166,7 @@ pub fn detect_room(path: &str) -> String {
         || filename == ".pre-commit-config.yml"
         || filename.contains("hook")
     {
-        consider("automation", 78);
+        consider("automation", 84);
     }
 
     if lower.starts_with("installer/")
@@ -1289,16 +1289,22 @@ fn retrieval_signal_boost(signals: &QuerySignals, result: &SearchResult) -> f32 
         boost += 0.35 + ((phrase_matches.saturating_sub(1)) as f32 * 0.1);
     }
 
-    let standout_matches = signals
-        .standout_terms
-        .iter()
-        .filter(|term| haystack.contains(term.as_str()))
-        .count()
-        .min(3);
-    boost += standout_matches as f32 * 0.12;
+    let mut standout_matches = 0;
+    for term in &signals.standout_terms {
+        if result.path.to_ascii_lowercase().contains(term.as_str()) {
+            boost += 0.40;
+            standout_matches += 1;
+        } else if result.content.to_ascii_lowercase().contains(term.as_str()) {
+            boost += 0.12;
+            standout_matches += 1;
+        }
+        if standout_matches >= 3 {
+            break;
+        }
+    }
 
     if signals.historical_memory_hint && result.room == "session" {
-        boost += 0.1;
+        boost += 0.45;
     }
 
     boost

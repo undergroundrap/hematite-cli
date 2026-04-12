@@ -142,7 +142,7 @@ fn test_vein_bm25_index_and_search() {
     use hematite::memory::vein::Vein;
 
     let tmp = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(tmp.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(tmp.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     let doc = "fn authenticate(token: &str) -> bool {\n    token == \"secret\"\n}\n\n\
                fn logout(user: &str) {\n    println!(\"Logging out {}\", user);\n}";
@@ -171,7 +171,7 @@ fn test_vein_reset_clears_index() {
     use hematite::memory::vein::Vein;
 
     let tmp = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(tmp.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(tmp.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     vein.index_document("src/lib.rs", 1, "pub fn foo() {}")
         .unwrap();
@@ -189,7 +189,7 @@ fn test_vein_l1_no_heat_returns_none() {
     use hematite::memory::vein::Vein;
 
     let tmp = tempfile::NamedTempFile::new().expect("temp db");
-    let vein = Vein::new(tmp.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let vein = Vein::new(tmp.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     // Fresh vein with no edits — l1_context should be None.
     assert!(vein.l1_context().is_none(), "no edits means no L1 block");
@@ -200,7 +200,7 @@ fn test_vein_l1_bump_and_retrieve() {
     use hematite::memory::vein::Vein;
 
     let tmp = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(tmp.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(tmp.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     // Index a file so it appears in chunks_meta (required for L1 join).
     vein.index_document(
@@ -228,7 +228,7 @@ fn test_vein_l1_ranks_by_heat() {
     use hematite::memory::vein::Vein;
 
     let tmp = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(tmp.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(tmp.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     vein.index_document("src/cold.rs", 1_000, "pub fn cold() {}")
         .unwrap();
@@ -297,7 +297,7 @@ fn test_vein_l1_grouped_by_room() {
     use hematite::memory::vein::Vein;
 
     let tmp = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(tmp.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(tmp.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     vein.index_document("src/agent/conversation.rs", 1_000, "pub fn run() {}")
         .unwrap();
@@ -341,7 +341,7 @@ fn test_vein_inspection_snapshot_reports_counts_and_hot_files() {
     .expect("write report");
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
     vein.index_document("src/agent/conversation.rs", 1_000, "pub fn run_turn() {}")
         .unwrap();
     let indexed = vein.index_workspace_artifacts(workspace.path());
@@ -381,7 +381,7 @@ fn test_vein_indexes_workspace_artifacts_without_project_source() {
     .expect("write docs");
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     let indexed = vein.index_workspace_artifacts(workspace.path());
     assert_eq!(indexed, 1, "should index the docs artifact");
@@ -424,7 +424,7 @@ fn test_vein_indexes_recent_session_reports_by_exchange_pair() {
     .expect("write report");
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     let indexed = vein.index_recent_session_reports(workspace.path());
     assert_eq!(indexed, 2, "two exchange pairs should be indexed");
@@ -491,7 +491,7 @@ fn test_vein_session_report_caps_to_recent_sessions_and_turns() {
     }
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     let indexed = vein.index_recent_session_reports(workspace.path());
     assert_eq!(
@@ -537,7 +537,7 @@ fn test_vein_search_context_boosts_exact_phrases() {
     use hematite::memory::vein::Vein;
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     vein.index_document(
         "src/ui/startup.rs",
@@ -566,7 +566,7 @@ fn test_vein_search_context_boosts_standout_query_tokens() {
     use hematite::memory::vein::Vein;
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     vein.index_document(
         "src/release.rs",
@@ -622,7 +622,7 @@ fn test_vein_search_context_prefers_session_memory_for_historical_queries() {
     .expect("write report");
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
     let indexed = vein.index_workspace_artifacts(workspace.path());
     assert_eq!(indexed, 2, "should index one doc and one session exchange");
 
@@ -673,7 +673,7 @@ fn test_vein_search_context_biases_session_memory_by_explicit_date() {
     .expect("write newer report");
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
     let indexed = vein.index_recent_session_reports(workspace.path());
     assert_eq!(indexed, 2, "two session exchanges should be indexed");
 
@@ -704,7 +704,7 @@ fn test_vein_indexes_imported_marker_transcript_exchanges() {
     .expect("write transcript");
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     let indexed = vein.index_imported_session_exports(workspace.path());
     assert_eq!(indexed, 2, "two imported exchange pairs should be indexed");
@@ -740,7 +740,7 @@ fn test_vein_indexes_imported_codex_jsonl_exchanges() {
     fs::write(imports_dir.join("codex-rollout.jsonl"), jsonl).expect("write jsonl");
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     let indexed = vein.index_imported_session_exports(workspace.path());
     assert_eq!(indexed, 2, "two codex exchange pairs should be indexed");
@@ -768,7 +768,7 @@ fn test_vein_indexes_imported_claude_code_jsonl_exchanges() {
     fs::write(imports_dir.join("claude-code.jsonl"), jsonl).expect("write claude jsonl");
 
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut vein = Vein::new(db.path(), "http://localhost:1234".to_string()).expect("vein init");
+    let mut vein = Vein::new(db.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
 
     let indexed = vein.index_imported_session_exports(workspace.path());
     assert_eq!(

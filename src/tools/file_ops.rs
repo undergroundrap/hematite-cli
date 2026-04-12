@@ -496,7 +496,12 @@ pub async fn list_files(args: &Value) -> Result<String, String> {
     let base = safe_path(base_str)?;
 
     let mut files: Vec<PathBuf> = Vec::new();
+    let mut scanned_count = 0;
     for entry in WalkDir::new(&base).follow_links(false) {
+        scanned_count += 1;
+        if scanned_count > 25_000 {
+            return Err("list_files: Too many files scanned (>25,000). The path is too broad. Narrow your search path or run Hematite directly in a project directory.".into());
+        }
         let entry = entry.map_err(|e| format!("list_files: {e}"))?;
         if !entry.file_type().is_file() {
             continue;
@@ -578,8 +583,13 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
     // ── files_only mode ───────────────────────────────────────────────────────
     if files_only {
         let mut matched_files: Vec<String> = Vec::new();
+        let mut scanned_count = 0;
 
         for entry in WalkDir::new(&base).follow_links(false) {
+            scanned_count += 1;
+            if scanned_count > 25_000 {
+                return Err("grep_files: Too many files scanned (>25,000). The path is too broad. Narrow your search path or run Hematite directly in a project directory.".into());
+            }
             let entry = entry.map_err(|e| format!("grep_files: {e}"))?;
             if !entry.file_type().is_file() {
                 continue;
@@ -637,8 +647,13 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
     let mut hunks: Vec<Hunk> = Vec::new();
     let mut total_matches = 0usize;
     let mut files_matched = 0usize;
+    let mut scanned_count = 0;
 
     for entry in WalkDir::new(&base).follow_links(false) {
+        scanned_count += 1;
+        if scanned_count > 25_000 {
+            return Err("grep_files: Too many files scanned (>25,000). The path is too broad. Narrow your search path or run Hematite directly in a project directory.".into());
+        }
         let entry = entry.map_err(|e| format!("grep_files: {e}"))?;
         if !entry.file_type().is_file() {
             continue;

@@ -941,6 +941,7 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 /ask [prompt]     Sticky read-only analysis mode; optional inline prompt
 /code [prompt]    Sticky implementation mode; optional inline prompt
 /architect [prompt]  Sticky plan-first mode; optional inline prompt that can refresh `.hematite/PLAN.md`
+/implement-plan   Execute the saved architect handoff in `/code`
 /read-only [prompt]  Sticky hard read-only mode; optional inline prompt
 /gemma-native [auto|on|off|status]  Auto/force/disable Gemma 4 native formatting
 /new              Fresh task context; clear chat, pins, and task files
@@ -978,6 +979,7 @@ Workflow note:
 - `/ask` is for explanation and repo understanding without mutation
 - `/code` is for implementation work and should consume the current plan handoff when one exists
 - `/architect` is for planning and solution design before editing, and can persist a reusable implementation handoff
+- `/implement-plan` is the direct bridge from a saved architect handoff into execution
 - `/read-only` is the hard no-mutation workflow
 - `/auto` returns Hematite to normal behavior
 - each of those workflow commands can also take an inline prompt, for example `/ask why is this failing?` or `/code fix the startup banner`

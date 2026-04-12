@@ -1189,8 +1189,9 @@ fn show_help_message(app: &mut App) {
          /auto             - (Flow) Let Hematite choose the narrowest effective workflow\n\
          /ask [prompt]     - (Flow) Read-only analysis mode; optional inline prompt\n\
          /code [prompt]    - (Flow) Explicit implementation mode; optional inline prompt\n\
-           /architect [prompt] - (Flow) Plan-first mode; optional inline prompt\n\
-           /read-only [prompt] - (Flow) Hard read-only mode; optional inline prompt\n\
+         /architect [prompt] - (Flow) Plan-first mode; optional inline prompt\n\
+         /implement-plan   - (Flow) Execute the saved architect handoff in /code\n\
+         /read-only [prompt] - (Flow) Hard read-only mode; optional inline prompt\n\
            /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
            /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
          /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
@@ -1253,8 +1254,9 @@ fn show_help_message_legacy(app: &mut App) {
          /auto             — (Flow) Let Hematite choose the narrowest effective workflow\n\
          /ask [prompt]     — (Flow) Read-only analysis mode; optional inline prompt\n\
          /code [prompt]    — (Flow) Explicit implementation mode; optional inline prompt\n\
-           /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
-           /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
+         /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
+         /implement-plan   — (Flow) Execute the saved architect handoff in /code\n\
+         /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
            /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
            /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
            /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
@@ -2155,6 +2157,14 @@ pub async fn run_app<B: Backend>(
                                                 let _ = app.user_input_tx.try_send(UserTurn::text("/agent"));
                                                 continue;
                                             }
+                                            "/implement-plan" => {
+                                                app.workflow_mode = "CODE".into();
+                                                app.push_message("You", "/implement-plan");
+                                                app.agent_running = true;
+                                                let _ = app.user_input_tx.try_send(UserTurn::text("/implement-plan"));
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/ask" | "/code" | "/architect" | "/read-only" | "/auto" => {
                                                 let label = match cmd.as_str() {
                                                     "/ask" => "ASK",
@@ -2268,8 +2278,9 @@ pub async fn run_app<B: Backend>(
                                                      /auto             — (Flow) Let Hematite choose the narrowest effective workflow\n\
                                                      /ask [prompt]     — (Flow) Read-only analysis mode; optional inline prompt\n\
                                                      /code [prompt]    — (Flow) Explicit implementation mode; optional inline prompt\n\
-                                                       /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
-                                                       /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
+                                                     /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
+                                                     /implement-plan   — (Flow) Execute the saved architect handoff in /code\n\
+                                                     /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
                                                        /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
                                                        /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
                                                        /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\

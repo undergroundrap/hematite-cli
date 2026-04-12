@@ -454,6 +454,11 @@ struct ResponseChoice {
 struct ResponseMessage {
     content: Option<String>,
     tool_calls: Option<Vec<ToolCallResponse>>,
+    /// LM Studio routes Qwen3 thinking-mode output here instead of wrapping
+    /// it in <think> tags inside `content`. When tool calls are generated
+    /// inside a think block, they end up here rather than in `tool_calls`.
+    #[serde(default)]
+    reasoning_content: Option<String>,
 }
 
 const MIN_RESERVED_OUTPUT_TOKENS: usize = 1024;
@@ -1548,6 +1553,23 @@ impl InferenceEngine {
                         &call.function.arguments,
                     );
                 }
+            }
+        }
+
+        // Qwen3 Fallback: When the model generates tool calls inside a <think> block,
+        // LM Studio routes the entire thinking output (including <tool_call> XML) to
+        // `reasoning_content` instead of `tool_calls`. If content is empty and we have
+        // no tool calls yet, check reasoning_content for embedded tool call markup.
+        let reasoning_text = choice.message.reasoning_content.unwrap_or_default();
+        if tool_calls.as_ref().map(|v| v.is_empty()).unwrap_or(true)
+            && content.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true)
+            && !reasoning_text.is_empty()
+        {
+            let recovered = extract_native_tool_calls(&reasoning_text);
+            if !recovered.is_empty() {
+                tool_calls = Some(recovered);
+                // Clear content so downstream code doesn't see an empty string.
+                content = None;
             }
         }
 

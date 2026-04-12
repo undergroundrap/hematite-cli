@@ -252,10 +252,25 @@ fn parse_bullets(section: &str) -> Vec<String> {
             {
                 None
             } else {
-                Some(stripped.to_string())
+                Some(clean_bullet_path(stripped))
             }
         })
+        .filter(|s| !s.is_empty())
         .collect()
+}
+
+/// Strip markdown formatting and parenthetical annotations from a bullet path.
+/// e.g. "`src/runtime.rs` (startup greeting)" → "src/runtime.rs"
+fn clean_bullet_path(raw: &str) -> String {
+    // Strip all backticks.
+    let no_backticks = raw.replace('`', "");
+    // Truncate at " (" — everything after is a human-readable annotation.
+    let clean = if let Some(idx) = no_backticks.find(" (") {
+        no_backticks[..idx].trim()
+    } else {
+        no_backticks.trim()
+    };
+    clean.to_string()
 }
 
 fn parse_ordered(section: &str) -> Vec<String> {

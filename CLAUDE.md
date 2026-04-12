@@ -60,6 +60,12 @@ pwsh ./clean.ps1
 - `/clear`: clear visible dialogue and side-panel session state
 - `/forget`: purge saved conversation memory and wipe visible session state
 - `/new`: reset session history while keeping project memory
+- `/ask [prompt]`: sticky read-only analysis mode
+- `/code [prompt]`: sticky implementation mode
+- `/architect [prompt]`: sticky plan-first mode that persists a reusable handoff
+- `/implement-plan`: execute the saved architect handoff in `/code`
+- `/read-only [prompt]`: sticky hard no-mutation mode
+- `/auto`: return to the narrowest-effective workflow mode
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/workspace-profile`: inspect the auto-generated workspace profile
 - `/version`: show the running Hematite release version plus build state

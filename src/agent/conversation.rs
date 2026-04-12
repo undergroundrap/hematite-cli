@@ -488,10 +488,26 @@ Use these exact ASCII headings and keep each section short:\n\
 Keep the whole handoff concise and implementation-oriented."
 }
 
+fn implement_current_plan_prompt() -> &'static str {
+    "Implement the current plan."
+}
+
+fn architect_handoff_operator_note(plan: &crate::tools::plan::PlanHandoff) -> String {
+    format!(
+        "Implementation handoff saved to `.hematite/PLAN.md`.\nNext step: run `/implement-plan` to execute it in `/code`, or use `/code {}` directly.\nPlan: {}",
+        implement_current_plan_prompt().to_ascii_lowercase(),
+        plan.summary_line()
+    )
+}
+
 fn is_current_plan_execution_request(user_input: &str) -> bool {
     let lower = user_input.trim().to_ascii_lowercase();
-    lower == "implement the current plan."
-        || lower == "implement the current plan"
+    lower == "/implement-plan"
+        || lower == implement_current_plan_prompt().to_ascii_lowercase()
+        || lower
+            == implement_current_plan_prompt()
+                .trim_end_matches('.')
+                .to_ascii_lowercase()
         || lower.contains("implement the current plan")
 }
 
@@ -998,15 +1014,19 @@ impl ConversationManager {
             .unwrap_or_default()
     }
 
-    fn persist_architect_handoff(&mut self, response: &str) {
+    fn persist_architect_handoff(
+        &mut self,
+        response: &str,
+    ) -> Option<crate::tools::plan::PlanHandoff> {
         if self.workflow_mode != WorkflowMode::Architect {
-            return;
+            return None;
         }
         let Some(plan) = crate::tools::plan::parse_plan_handoff(response) else {
-            return;
+            return None;
         };
         let _ = crate::tools::plan::save_plan_handoff(&plan);
-        self.session_memory.current_plan = Some(plan);
+        self.session_memory.current_plan = Some(plan.clone());
+        Some(plan)
     }
 
     async fn begin_grounded_turn(&self) -> u64 {
@@ -1639,7 +1659,7 @@ impl ConversationManager {
         if user_input.trim() == "/architect" {
             self.set_workflow_mode(WorkflowMode::Architect);
             let mut message =
-                "Workflow mode: ARCHITECT. Plan, inspect, and shape the approach first. Do not mutate code unless the user explicitly asks to implement.".to_string();
+                "Workflow mode: ARCHITECT. Plan, inspect, and shape the approach first. Do not mutate code unless the user explicitly asks to implement. When the handoff is ready, use `/implement-plan` or switch to `/code` to execute it.".to_string();
             if let Some(plan) = self.current_plan_summary() {
                 message.push_str(&format!(" Existing plan: {plan}."));
             }
@@ -1724,12 +1744,40 @@ impl ConversationManager {
             return Ok(());
         }
 
-        let mut effective_user_input = user_input.trim().to_string();
+        let implement_plan_alias = user_input.trim() == "/implement-plan";
+        if implement_plan_alias
+            && !self
+                .session_memory
+                .current_plan
+                .as_ref()
+                .map(|plan| plan.has_signal())
+                .unwrap_or(false)
+        {
+            for chunk in chunk_text(
+                "No saved architect handoff is active. Run `/architect` first, or switch to `/code` with an explicit implementation request.",
+                8,
+            ) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        let mut effective_user_input = if implement_plan_alias {
+            self.set_workflow_mode(WorkflowMode::Code);
+            implement_current_plan_prompt().to_string()
+        } else {
+            user_input.trim().to_string()
+        };
         if let Some((mode, rest)) = parse_inline_workflow_prompt(user_input) {
             self.set_workflow_mode(mode);
             effective_user_input = rest.to_string();
         }
-        let transcript_user_input = transcript_user_turn_text(user_turn, &effective_user_input);
+        let transcript_user_input = if implement_plan_alias {
+            transcript_user_turn_text(user_turn, "/implement-plan")
+        } else {
+            transcript_user_turn_text(user_turn, &effective_user_input)
+        };
         effective_user_input = apply_turn_attachments(user_turn, &effective_user_input);
         let implement_current_plan = self.workflow_mode == WorkflowMode::Code
             && is_current_plan_execution_request(&effective_user_input)
@@ -3258,13 +3306,18 @@ impl ConversationManager {
                 }
 
                 // [Hardened Interface] Strictly respect the stripper.
-                // If it's empty, we stay silent in the chat area (reasoning is in SPECULAR).
+                // If it's empty after stripping think blocks, the model thought through its
+                // answer but forgot to emit it (common with Qwen3 models in architect/ask mode).
+                // Nudge it rather than silently dropping the turn.
                 if cleaned.is_empty() {
-                    let _ = tx.send(InferenceEvent::Done).await;
-                    break;
+                    loop_intervention = Some(
+                        "Your response was empty after your reasoning. You must now emit your complete written response based on your analysis. Do not reason further — write your answer now."
+                            .to_string(),
+                    );
+                    continue;
                 }
 
-                self.persist_architect_handoff(&cleaned);
+                let architect_handoff = self.persist_architect_handoff(&cleaned);
                 self.history.push(ChatMessage::assistant_text(&cleaned));
                 self.transcript.log_agent(&cleaned);
 
@@ -3273,6 +3326,15 @@ impl ConversationManager {
                     if !chunk.is_empty() {
                         let _ = tx.send(InferenceEvent::Token(chunk.clone())).await;
                     }
+                }
+
+                if let Some(plan) = architect_handoff.as_ref() {
+                    let note = architect_handoff_operator_note(plan);
+                    self.history.push(ChatMessage::system(&note));
+                    self.transcript.log_system(&note);
+                    let _ = tx
+                        .send(InferenceEvent::MutedToken(format!("\n{}", note)))
+                        .await;
                 }
 
                 let _ = tx.send(InferenceEvent::Done).await;
@@ -5535,6 +5597,30 @@ mod tests {
             args.get("command").and_then(|value| value.as_str()),
             Some("cargo test")
         );
+    }
+
+    #[test]
+    fn current_plan_execution_request_accepts_saved_plan_command() {
+        assert!(is_current_plan_execution_request("/implement-plan"));
+        assert!(is_current_plan_execution_request(
+            "Implement the current plan."
+        ));
+    }
+
+    #[test]
+    fn architect_operator_note_points_to_execute_path() {
+        let plan = crate::tools::plan::PlanHandoff {
+            goal: "Tighten startup workflow guidance".into(),
+            target_files: vec!["src/runtime.rs".into()],
+            ordered_steps: vec!["Update the startup banner".into()],
+            verification: "cargo check --tests".into(),
+            risks: vec![],
+            open_questions: vec![],
+        };
+        let note = architect_handoff_operator_note(&plan);
+        assert!(note.contains("`.hematite/PLAN.md`"));
+        assert!(note.contains("/implement-plan"));
+        assert!(note.contains("/code implement the current plan"));
     }
 
     #[test]
