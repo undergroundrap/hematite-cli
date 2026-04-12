@@ -1721,11 +1721,21 @@ impl InferenceEngine {
         let mut emitted_any_content = false;
         let mut emitted_live_status = false;
 
-        while let Some(item) = byte_stream.next().await {
-            // Rapid hardware interrupt check
-            if self.cancel_token.load(std::sync::atomic::Ordering::SeqCst) {
-                break;
-            }
+        // Immediate cancel gate: break *before* awaiting the stream
+        // so Escape works even when LM Studio is silent between chunks.
+        loop {
+            let next = tokio::select! {
+                // Race: next SSE chunk vs cancel poll
+                chunk = byte_stream.next() => chunk,
+                _ = tokio::time::sleep(std::time::Duration::from_millis(50)) => {
+                    if self.cancel_token.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
+                    }
+                    continue;
+                }
+            };
+
+            let Some(item) = next else { break };
 
             let chunk = match item {
                 Ok(chunk) => chunk,
