@@ -1184,7 +1184,7 @@ fn show_help_message(app: &mut App) {
         "System",
         "Hematite Commands:\n\
          /chat             - (Mode) Conversation mode - clean chat, no tool noise\n\
-         /agent            - (Mode) Full coding harness - tools, file edits, builds\n\
+         /agent            - (Mode) Full coding harness + workstation mode - tools, file edits, builds, inspection\n\
          /reroll           - (Soul) Hatch a new companion mid-session\n\
          /auto             - (Flow) Let Hematite choose the narrowest effective workflow\n\
          /ask [prompt]     - (Flow) Read-only analysis mode; optional inline prompt\n\
@@ -1238,7 +1238,7 @@ fn show_help_message(app: &mut App) {
          ERR   - Session error count (runtime, tool, or SPECULAR failures)\n\
          CTX   - Live context window currently reported by LM Studio\n\
          VOICE - Local speech output state\n\
-         \nDocument note: `/attach` supports PDF/markdown/txt, but PDF parsing is best-effort by design so Hematite can stay a lightweight single-binary local coding harness. If a PDF fails, export it to text/markdown or attach page images instead.\n\
+         \nDocument note: `/attach` supports PDF/markdown/txt, but PDF parsing is best-effort by design so Hematite can stay a lightweight single-binary local coding harness and workstation assistant. If a PDF fails, export it to text/markdown or attach page images instead.\n\
          ",
     );
 }
@@ -1248,7 +1248,7 @@ fn show_help_message_legacy(app: &mut App) {
     app.push_message("System",
         "Hematite Commands:\n\
          /chat             — (Mode) Conversation mode — clean chat, no tool noise\n\
-         /agent            — (Mode) Full coding harness — tools, file edits, builds\n\
+         /agent            — (Mode) Full coding harness + workstation mode — tools, file edits, builds, inspection\n\
          /reroll           — (Soul) Hatch a new companion mid-session\n\
          /auto             — (Flow) Let Hematite choose the narrowest effective workflow\n\
          /ask [prompt]     — (Flow) Read-only analysis mode; optional inline prompt\n\
@@ -1304,7 +1304,7 @@ fn show_help_message_legacy(app: &mut App) {
     );
     app.push_message(
         "System",
-        "Document note: `/attach` supports PDF/markdown/txt, but PDF parsing is best-effort by design so Hematite can stay a lightweight single-binary local coding harness. If a PDF fails, export it to text/markdown or attach page images instead.",
+        "Document note: `/attach` supports PDF/markdown/txt, but PDF parsing is best-effort by design so Hematite can stay a lightweight single-binary local coding harness and workstation assistant. If a PDF fails, export it to text/markdown or attach page images instead.",
     );
 }
 
@@ -2150,7 +2150,7 @@ pub async fn run_app<B: Backend>(
                                             }
                                             "/agent" => {
                                                 app.workflow_mode = "AUTO".into();
-                                                app.push_message("System", "Agent mode — full coding harness active. Use /chat for clean conversation.");
+                                                app.push_message("System", "Agent mode — full coding harness and workstation assistant active. Use /chat for clean conversation.");
                                                 app.history_idx = None;
                                                 let _ = app.user_input_tx.try_send(UserTurn::text("/agent"));
                                                 continue;
@@ -2263,7 +2263,7 @@ pub async fn run_app<B: Backend>(
                                                 app.push_message("System",
                                                     "Hematite Commands:\n\
                                                      /chat             — (Mode) Conversation mode — clean chat, no tool noise\n\
-                                                     /agent            — (Mode) Full coding harness — tools, file edits, builds\n\
+                                                     /agent            — (Mode) Full coding harness + workstation mode — tools, file edits, builds, inspection\n\
                                                      /reroll           — (Soul) Hatch a new companion mid-session\n\
                                                      /auto             — (Flow) Let Hematite choose the narrowest effective workflow\n\
                                                      /ask [prompt]     — (Flow) Read-only analysis mode; optional inline prompt\n\
@@ -3967,7 +3967,7 @@ fn draw_splash<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), Box<dyn std
 
         // Tagline
         lines.push(Line::from(vec![Span::styled(
-            "Local AI coding harness",
+            "Local AI coding harness + workstation assistant",
             Style::default()
                 .fg(Color::DarkGray)
                 .add_modifier(Modifier::DIM),

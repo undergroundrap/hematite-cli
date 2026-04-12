@@ -9,7 +9,7 @@ pub const HEMATITE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const HEMATITE_AUTHOR: &str = "Ocean Bennett";
 pub const HEMATITE_REPOSITORY_URL: &str = "https://github.com/undergroundrap/hematite-cli";
 pub const HEMATITE_SHORT_DESCRIPTION: &str =
-    "Local-first AI coding and workstation assistant for real developer workflows.";
+    "Local-first AI coding harness and workstation assistant for real developer workflows.";
 const HEMATITE_GIT_COMMIT_SHORT_RAW: &str = env!("HEMATITE_GIT_COMMIT_SHORT");
 const HEMATITE_GIT_EXACT_TAG_RAW: &str = env!("HEMATITE_GIT_EXACT_TAG");
 const HEMATITE_GIT_DIRTY_RAW: &str = env!("HEMATITE_GIT_DIRTY");
@@ -78,7 +78,7 @@ pub fn hematite_about_report() -> String {
 
 pub fn hematite_identity_answer() -> String {
     format!(
-        "Hematite was created and is maintained by {}.\n\n{}\n\nThe running assistant uses a local model runtime, but Hematite itself is the local harness: the TUI, tool use, file editing, workflow control, voice integration, and workstation-assistant architecture.\n\nRepo: {}",
+        "Hematite was created and is maintained by {}.\n\n{}\n\nThe running assistant uses a local model runtime, but Hematite itself is the local coding harness: the TUI, tool use, file editing, workflow control, voice integration, and workstation-assistant architecture.\n\nRepo: {}",
         HEMATITE_AUTHOR, HEMATITE_SHORT_DESCRIPTION, HEMATITE_REPOSITORY_URL
     )
 }
@@ -91,7 +91,12 @@ pub use agent::inference::InferenceEngine;
 use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
-#[command(author, version, about = "Hematite CLI - Local AI Pair Programmer", long_about = None)]
+#[command(
+    author,
+    version,
+    about = "Hematite CLI - Local-first AI coding harness and workstation assistant",
+    long_about = None
+)]
 pub struct CliCockpit {
     #[arg(long, help = "Bypasses the high-risk modal (Danger mode)")]
     pub yolo: bool,
