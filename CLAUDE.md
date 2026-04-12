@@ -196,6 +196,7 @@ src/
     hatch.rs            Rusty personality generation.
   memory/
     vein.rs             Vein RAG: SQLite FTS5 BM25 + semantic embedding retrieval.
+    repo_map.rs         PageRank-powered structural overview of the codebase.
     deep_reflect.rs     Idle-triggered session memory synthesis.
 libs/
   kokoros/              Vendored voice synthesis library.
@@ -289,6 +290,8 @@ paths not already covered. Results are deduplicated by file path and capped at 1
 **Active-room bias:** file edit heat is tracked per path. The hottest subsystem room gets a small
 retrieval boost, and a compact hot-files block grouped by room is injected into the prompt so the
 model stays oriented toward the part of the codebase you're actively editing.
+
+**PageRank Repo Maps:** at startup and after every file edit, Hematite builds a `tree-sitter` definition/reference graph across all source files and runs PageRank (via `petgraph`) to rank files by structural importance. The ranked map is injected into the system prompt so the model immediately knows which files are architecturally central — no tool calls needed for basic orientation. Hot-file personalization from The Vein's heat tracker biases the ranking toward active code.
 
 **Ranking cues:** reranking adds small boosts for exact quoted phrases, standout tokens such as
 filenames/commands/tool IDs, "what did we decide earlier" style prompts that should prefer

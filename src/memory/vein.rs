@@ -1133,6 +1133,15 @@ impl Vein {
         .unwrap_or_default()
     }
 
+    /// Return the paths of the top hot files (most edited).
+    /// Used by RepoMapGenerator to bias PageRank toward active files.
+    pub fn hot_file_paths(&self, n: usize) -> Vec<String> {
+        self.hot_files(n)
+            .into_iter()
+            .map(|(path, _, _, _)| path)
+            .collect()
+    }
+
     /// Build the L1 context block — a compact "hot files" summary injected into
     /// the system prompt at session start. Capped at ~150 tokens.
     /// Files are grouped by room so the model sees subsystem structure at a glance.

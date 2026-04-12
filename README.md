@@ -795,7 +795,17 @@ For architecture and control-flow questions, Hematite can use `trace_runtime_flo
 
 Supported topics: `user_turn`, `session_reset`, `reasoning_split`, `runtime_subsystems`, `startup`, `voice`. The `voice` topic covers the Ctrl+T toggle binding, `VoiceManager.toggle()`, and the speech pipeline — returning a grounded answer in a single tool call instead of burning multiple turns on grep searches that return empty.
 
-For broad read-only architecture walkthroughs, Hematite pairs `trace_runtime_flow` with the pre-injected AST structure instead of letting the model freestyle a long repo tour. The intended shape is: native AST for structure, one `trace_runtime_flow` topic for runtime or control flow, then a compact grounded overview.
+For broad read-only architecture walkthroughs, Hematite pairs `trace_runtime_flow` with the PageRank-powered repo map instead of letting the model freestyle a long repo tour. The intended shape is: repo map for structure (most important files ranked first), one `trace_runtime_flow` topic for runtime or control flow, then a compact grounded overview.
+
+### PageRank-Powered Repo Maps
+
+Hematite builds a structural overview of the entire codebase at startup using `tree-sitter` to extract definitions and references from every source file, then runs PageRank (via `petgraph`) on the resulting dependency graph. Files that are referenced by many other files rank highest — so the model wakes up already knowing that `conversation.rs` is the heart of the agent loop, not just another alphabetically-sorted filename.
+
+The repo map is injected directly into the system prompt alongside The Vein's hot-file context. This means the model can answer architectural questions ("what are the core modules?") on the first turn without calling any tools. For a 32K context window on consumer hardware, this is a significant token savings.
+
+**Hot-file personalization:** The Vein's heat tracker feeds into PageRank as a personalization signal. Files you've been editing get a ranking boost, so the model naturally focuses on your active working area.
+
+**Live refresh:** The repo map regenerates after every successful file edit (~100-200ms) so the ranking stays current throughout a session.
 
 ### Grounded Tool Selection
 

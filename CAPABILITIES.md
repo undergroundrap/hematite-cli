@@ -71,7 +71,7 @@ Hematite continuously adapts to the machine it is running on.
 Hematite is more than a chat shell around a local model.
 
 - **File and shell tools**: direct project reading, editing, search, and shell execution
-- **Syntax-aware Repo Maps**: Native context injection leverages `tree-sitter` for high-speed AST indexing instead of using context-heavy tool loops for broad exploration
+- **PageRank-powered Repo Maps**: Native context injection leverages `tree-sitter` for AST indexing and `petgraph` PageRank to surface the most structurally important files first — the model wakes up already knowing the architecture without burning tool calls
 - **Git-aware workflows**: worktrees, commit helpers, and rollback via hidden ghost snapshots
 - **Configurable verification**: `verify_build` can now use per-project build, test, lint, and fix profiles from `.hematite/settings.json` instead of relying only on stack autodetection
 - **Project retrieval**: SQLite FTS-backed memory helps recover relevant local context each turn

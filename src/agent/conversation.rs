@@ -907,7 +907,9 @@ impl ConversationManager {
     pub fn initialize_repo_map(&mut self) {
         if !self.vein_docs_only_mode() {
             let root = crate::tools::file_ops::workspace_root();
-            let gen = crate::memory::repo_map::RepoMapGenerator::new(&root);
+            let hot = self.vein.hot_file_paths(10);
+            let gen = crate::memory::repo_map::RepoMapGenerator::new(&root)
+                .with_hot_files(&hot);
             match tokio::task::block_in_place(|| gen.generate()) {
                 Ok(map) => self.repo_map = Some(map),
                 Err(e) => {
@@ -915,6 +917,12 @@ impl ConversationManager {
                 }
             }
         }
+    }
+
+    /// Re-generate the repo map after a file edit so rankings stay fresh.
+    /// Lightweight (~100-200ms) — called after successful mutations.
+    fn refresh_repo_map(&mut self) {
+        self.initialize_repo_map();
     }
 
     fn save_session(&self) {
@@ -2778,6 +2786,8 @@ impl ConversationManager {
                                 self.vein.bump_heat(path);
                                 self.l1_context = self.vein.l1_context();
                             }
+                            // Refresh repo map so PageRank accounts for the new edit.
+                            self.refresh_repo_map();
                         }
                     }
 
