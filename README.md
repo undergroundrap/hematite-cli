@@ -495,6 +495,10 @@ cargo test --test diagnostics test_name_here -- --exact
 
 That tells Cargo to run just one exact test by name, which is faster during iteration.
 
+Inside Hematite itself, explicit requests to run Hematite's own cleanup, packaging, or scripted release flow now have a structured path too. For those maintainer workflows, prefer the approval-gated Hematite maintainer workflow tool instead of improvising raw shell every time. This is intentionally separate from whatever scripts or build commands exist in the current project workspace.
+
+For normal project work, Hematite now has a separate workspace workflow path too. Use that lane for the active repo's build, test, lint, fix, package scripts, make/just/task targets, local repo scripts, or exact project commands. It runs from the locked workspace root, not from wherever the terminal happened to launch.
+
 **Agent note:** if this repo is being operated through an external AI harness such as Codex or Claude, treat the Windows build/package/install path as a real local-machine workflow, not a sandbox-first task. `cargo build --release`, `scripts/package-windows.ps1`, installer generation, and `-AddToPath` can touch the local ORT cache under `AppData`, native release sidecars, `dist/`, and the real user `PATH`. Run those steps with full local access first; reserve sandboxed runs for source inspection, lightweight checks, and isolated code execution.
 
 **Codex note:** Codex in particular may require explicit elevation for Git writes and other real-machine operations such as `git add`, `git commit`, `git tag`, `git push`, release packaging, and PATH updates. That is expected behavior from the harness, not a Hematite issue. If a Git or packaging step needs approval, approve it once and continue with the unrestricted path instead of retrying inside the sandbox.
@@ -528,6 +532,8 @@ pwsh ./scripts/package-windows.ps1 -AddToPath
 Restart your terminal after running this. From then on, `cd` into any project folder and type `hematite` — it picks up your project root automatically via `.git` or `Cargo.toml`/`package.json`. Works in PowerShell, CMD, Windows Terminal, VS Code's integrated terminal, and JetBrains IDEs.
 
 **One workspace per session.** Hematite locks onto the directory it was launched in — that's what gets indexed, and that's where all file tools operate. `cd`-ing inside the terminal after launch doesn't move the workspace. To switch projects, exit and relaunch in the new folder. This is intentional: a single locked workspace keeps the model's context clean and prevents tools from operating on the wrong directory. It also means you can run Hematite in a non-project folder — a downloads folder, a scripts directory, anywhere — and it adapts to what's there. Outside a project directory, Hematite skips the source-file walk but still keeps The Vein alive in docs-only mode: `.hematite/docs/`, imported chats in `.hematite/imports/`, and recent local session reports remain searchable, and the status badge shows `VN:DOC`.
+
+For project-specific questions or commands, launch Hematite in that project's directory before you ask. Hematite's own maintainer workflows are a separate built-in path for working on Hematite itself; they do not mean "run whatever script exists in the current folder."
 
 **Global settings.** Hematite loads `~/.hematite/settings.json` as a fallback when no workspace-level `.hematite/settings.json` exists. This means your model preference, voice settings, and API URL work from any directory — not just from inside a project. Workspace settings always win when both exist.
 

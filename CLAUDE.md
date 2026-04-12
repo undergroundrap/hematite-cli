@@ -491,6 +491,12 @@ When the change is narrow, prefer a targeted diagnostics test instead of the ful
 cargo test --test diagnostics test_name_here -- --exact
 ```
 
+Inside Hematite itself, explicit cleanup, local packaging, and scripted release requests should prefer the structured approval-gated Hematite maintainer workflow tool instead of falling back to raw shell. Use that path when the user is asking to run Hematite's own `clean.ps1`, `scripts/package-windows.ps1`, or `release.ps1` in natural language. Do not present it as a generic current-workspace script runner.
+
+For project-specific questions or commands, launch Hematite in the target project directory before asking. Hematite's own maintainer workflows are separate from whatever scripts exist in the current workspace.
+
+For normal project work, prefer the separate workspace workflow lane for the active repo's build, test, lint, fix, package scripts, make/just/task targets, local repo scripts, or exact project commands. That path is rooted to the locked workspace, not to Hematite's own source tree.
+
 For a new contributor or non-technical operator, the short explanation is: format the code, make sure it still compiles, make sure the behavior test passes, then rebuild the real app and try it live.
 
 **Step 1 — bump the version** (updates tracked release metadata and verifies the static surfaces):

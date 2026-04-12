@@ -23,6 +23,7 @@ pub enum AuthorizationSource {
     ShellRiskSafe,
     ShellRiskModerate,
     ShellRiskHigh,
+    StructuredWorkflowApproval,
     DefaultToolPolicy,
 }
 
@@ -178,12 +179,60 @@ pub fn authorize_tool_call(
         };
     }
 
+    if matches!(
+        name,
+        "run_hematite_maintainer_workflow" | "run_workspace_workflow"
+    ) {
+        return AuthorizationDecision::Ask {
+            source: AuthorizationSource::StructuredWorkflowApproval,
+            reason: structured_workflow_reason(name, args),
+        };
+    }
+
     AuthorizationDecision::Allow {
         source: if trust_sensitive_tool(name) {
             AuthorizationSource::WorkspaceTrusted
         } else {
             AuthorizationSource::DefaultToolPolicy
         },
+    }
+}
+
+fn structured_workflow_reason(name: &str, args: &Value) -> String {
+    if name == "run_workspace_workflow" {
+        return match args.get("workflow").and_then(|v| v.as_str()).unwrap_or("") {
+            "build" | "test" | "lint" | "fix" => {
+                "Workspace workflow execution can build, test, or mutate the current project, so it requires approval."
+                    .to_string()
+            }
+            "package_script" | "task" | "just" | "make" | "script_path" | "command" => {
+                "Workspace script execution runs commands from the locked project root and may change files, installs, dev servers, or build artifacts, so it requires approval."
+                    .to_string()
+            }
+            _ => {
+                "Structured workspace workflow execution changes local state and requires approval."
+                    .to_string()
+            }
+        };
+    }
+
+    match args.get("workflow").and_then(|v| v.as_str()).unwrap_or("") {
+        "clean" => {
+            "Repo cleanup changes build artifacts, local Hematite state, and possibly dist/ outputs, so it requires approval."
+                .to_string()
+        }
+        "package_windows" => {
+            "Windows packaging rebuilds release artifacts and may update the user PATH, so it requires approval."
+                .to_string()
+        }
+        "release" => {
+            "The release workflow can bump versions, commit, tag, push, build installers, and publish crates, so it requires approval."
+                .to_string()
+        }
+        _ => {
+            "Structured Hematite maintainer workflow execution changes local state and requires approval."
+                .to_string()
+        }
     }
 }
 

@@ -196,6 +196,102 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
         make_tool(
+            "run_hematite_maintainer_workflow",
+            "Run one of Hematite's known maintainer or release workflows with explicit approval. \
+             Prefer this over raw shell when the user explicitly asks to run one of Hematite's own scripts such as `clean.ps1`, `scripts/package-windows.ps1`, or `release.ps1`. \
+             Use workflow=clean for cleanup, workflow=package_windows for rebuilding the local Windows portable or installer, and workflow=release for the normal version bump/tag/push/publish flow. \
+             Keep this tool constrained to Hematite's own known workflows instead of inventing ad hoc shell commands or pretending to run arbitrary project scripts.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "workflow": {
+                        "type": "string",
+                        "enum": ["clean", "package_windows", "release"],
+                        "description": "Which known Hematite maintainer workflow to run."
+                    },
+                    "deep": {
+                        "type": "boolean",
+                        "description": "For workflow=clean. Also remove heavy build/runtime artifacts such as target/ and vein.db."
+                    },
+                    "reset": {
+                        "type": "boolean",
+                        "description": "For workflow=clean. Reset PLAN/TASK state in addition to normal cleanup."
+                    },
+                    "prune_dist": {
+                        "type": "boolean",
+                        "description": "For workflow=clean. Keep only the current Cargo.toml version under dist/."
+                    },
+                    "installer": {
+                        "type": "boolean",
+                        "description": "For workflow=package_windows. Also build the Windows installer."
+                    },
+                    "add_to_path": {
+                        "type": "boolean",
+                        "description": "For workflow=package_windows or workflow=release. Update the user PATH to the rebuilt portable."
+                    },
+                    "version": {
+                        "type": "string",
+                        "description": "For workflow=release. Exact semantic version such as 0.4.5."
+                    },
+                    "bump": {
+                        "type": "string",
+                        "enum": ["patch", "minor", "major"],
+                        "description": "For workflow=release. Ask release.ps1 to calculate the next version."
+                    },
+                    "push": {
+                        "type": "boolean",
+                        "description": "For workflow=release. Push main and the new tag."
+                    },
+                    "skip_installer": {
+                        "type": "boolean",
+                        "description": "For workflow=release. Skip the Windows installer build."
+                    },
+                    "publish_crates": {
+                        "type": "boolean",
+                        "description": "For workflow=release. Publish hematite-cli to crates.io after a successful push."
+                    },
+                    "publish_voice_crate": {
+                        "type": "boolean",
+                        "description": "For workflow=release. Publish hematite-kokoros first, then hematite-cli."
+                    }
+                },
+                "required": ["workflow"]
+            }),
+        ),
+        make_tool(
+            "run_workspace_workflow",
+            "Run an approval-gated workflow or script in the locked project workspace root. \
+             Use this for the current project's build, test, lint, fix, package.json scripts, just/task/make targets, explicit local script paths, or an exact workspace command. \
+             This tool is for the active workspace, not for Hematite's own maintainer scripts.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "workflow": {
+                        "type": "string",
+                        "enum": ["build", "test", "lint", "fix", "package_script", "task", "just", "make", "script_path", "command"],
+                        "description": "Which workspace workflow to run."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Required for workflow=package_script, task, just, or make. The script or target name."
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Required for workflow=script_path. Relative path to a script inside the locked workspace root."
+                    },
+                    "command": {
+                        "type": "string",
+                        "description": "Required for workflow=command. Exact command to execute from the locked workspace root."
+                    },
+                    "timeout_ms": {
+                        "type": "integer",
+                        "description": "Optional timeout override in milliseconds."
+                    }
+                },
+                "required": ["workflow"]
+            }),
+        ),
+        make_tool(
             "read_file",
             "Read the contents of a file. For large files, use 'offset' and 'limit' to navigate.",
             serde_json::json!({
@@ -688,6 +784,10 @@ pub async fn dispatch_builtin_tool(name: &str, args: &Value) -> Result<String, S
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
         "inspect_host" => crate::tools::host_inspect::inspect_host(args).await,
+        "run_hematite_maintainer_workflow" => {
+            crate::tools::repo_script::run_hematite_maintainer_workflow(args).await
+        }
+        "run_workspace_workflow" => crate::tools::workspace_workflow::run_workspace_workflow(args).await,
         "read_file" => crate::tools::file_ops::read_file(args).await,
         "inspect_lines" => crate::tools::file_ops::inspect_lines(args).await,
         "write_file" => crate::tools::file_ops::write_file(args).await,

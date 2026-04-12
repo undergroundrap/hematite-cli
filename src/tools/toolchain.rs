@@ -172,10 +172,18 @@ Shell and context management\n\
   Good for: structured read-only inspection of the current machine such as common developer tool versions, PATH analysis, environment/package-manager health, grounded fix plans for common workstation failures, network snapshots, service snapshots, process snapshots, desktop items, Downloads summaries, listening ports, repo-doctor checks, and arbitrary directory or disk-size reports.\n\
   Bad for: custom build commands, arbitrary process control, or any mutation.\n\
   Choose it over another tool when: the user is asking about the host machine rather than repo internals and the question fits one of its built-in topics.\n\
+- `run_hematite_maintainer_workflow`\n\
+  Good for: approval-gated execution of Hematite's own maintainer workflows such as cleanup, local Windows packaging, and the scripted release flow.\n\
+  Bad for: arbitrary shell commands, custom one-off scripts, or generic current-workspace script execution.\n\
+  Choose it over another tool when: the user explicitly asks to run Hematite's own `clean.ps1`, `scripts/package-windows.ps1`, `release.ps1`, or the natural-language equivalent of those workflows.\n\
+- `run_workspace_workflow`\n\
+  Good for: approval-gated execution of the active project's own build, test, lint, fix, package scripts, just/task/make targets, local scripts, or an exact workspace command.\n\
+  Bad for: Hematite's own maintainer workflows, host-only inspection, or commands that are not tied to the locked workspace root.\n\
+  Choose it over another tool when: the user wants something run in the current project and the command should be rooted to the locked workspace instead of the terminal launch directory.\n\
 - `shell`\n\
   Good for: builds, tests, environment checks, and OS-level read-only inspection.\n\
   Bad for: precise code understanding when built-in file and LSP tools are available.\n\
-  Choose it over another tool when: you need runtime verification, a custom command, or host information that `inspect_host` cannot answer directly.\n\
+  Choose it over another tool when: you need runtime verification, a custom command, or host information that `inspect_host`, `run_hematite_maintainer_workflow`, or `run_workspace_workflow` do not cover.\n\
 - `auto_pin_context`\n\
   Good for: keeping 1-3 critical files in active memory during a complex investigation.\n\
   Bad for: discovery by itself.\n\
@@ -197,6 +205,8 @@ Best Read-Only Toolchain\n\
 - Use `lsp_search_symbol`, `lsp_definitions`, `lsp_references`, and `lsp_hover` for semantic confirmation once you know the area.\n\
 - Use `inspect_host` before `shell` for read-only questions about PATH, installed tools, environment/package-manager health, grounded fix plans for common workstation failures, network state, service state, running processes, desktop items, Downloads size, listening ports, repo-health summaries, or directory/disk summaries.\n\
 - If the user asks how to fix a common workstation problem such as `cargo not found`, `port 3000 already in use`, or `LM Studio not reachable`, use `fix_plan` first instead of `env_doctor`, `path`, or `ports`.\n\
+- Use `run_hematite_maintainer_workflow` before raw `shell` when the user explicitly asks to run Hematite's own maintainer workflows like cleanup, local packaging, or the scripted release flow.\n\
+- Use `run_workspace_workflow` before raw `shell` when the user explicitly asks to run the current project's build, tests, package scripts, make/just/task targets, or local repo scripts.\n\
 - If `env_doctor` answers a PATH/package-manager sanity question, stop there unless the user explicitly asks for the raw PATH list.\n\
 - Use `shell` only when the answer requires runtime verification or host-state information beyond `inspect_host`.\n\
 - Use `research_web`, `fetch_docs`, and `vision_analyze` only when the question truly depends on external docs or images."

@@ -43,6 +43,8 @@ pub(crate) struct QueryIntent {
     pub(crate) capability_needs_repo: bool,
     pub(crate) toolchain_mode: bool,
     pub(crate) host_inspection_mode: bool,
+    pub(crate) maintainer_workflow_mode: bool,
+    pub(crate) workspace_workflow_mode: bool,
     pub(crate) preserve_project_map_output: bool,
     pub(crate) architecture_overview_mode: bool,
 }
@@ -367,6 +369,185 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
     }
 }
 
+pub(crate) fn preferred_maintainer_workflow(user_input: &str) -> Option<&'static str> {
+    let lower = user_input.to_ascii_lowercase();
+    let asks_cleanup = contains_any(
+        &lower,
+        &[
+            "run my cleanup",
+            "run the cleanup",
+            "run cleanup",
+            "deep clean",
+            "prune dist",
+            "clean.ps1",
+            "cleanup script",
+            "cleanup workflow",
+            "clean up scripts",
+        ],
+    );
+    let asks_package = contains_any(
+        &lower,
+        &[
+            "rebuild local portable",
+            "rebuild the portable",
+            "run the local build",
+            "run the portable",
+            "package-windows.ps1",
+            "package windows",
+            "build installer",
+            "overwrite the portable",
+            "refresh the portable",
+            "update path",
+            "update path with the portable",
+        ],
+    );
+    let asks_release = contains_any(
+        &lower,
+        &[
+            "run the release flow",
+            "regular workflow",
+            "cut the release",
+            "ship it",
+            "release.ps1",
+            "bump to ",
+            "tag it",
+            "full tag and everything",
+            "publish crates",
+        ],
+    );
+
+    if asks_cleanup {
+        Some("clean")
+    } else if asks_package {
+        Some("package_windows")
+    } else if asks_release {
+        Some("release")
+    } else {
+        None
+    }
+}
+
+pub(crate) fn preferred_workspace_workflow(user_input: &str) -> Option<&'static str> {
+    let lower = user_input.to_ascii_lowercase();
+    let asks_project_scope = contains_any(
+        &lower,
+        &[
+            "this repo",
+            "this repository",
+            "this project",
+            "current project",
+            "current repo",
+            "workspace",
+            "in this folder",
+            "here",
+        ],
+    );
+    let asks_build = contains_any(
+        &lower,
+        &[
+            "run the build",
+            "build this project",
+            "build this repo",
+            "run build",
+            "compile this project",
+            "cargo build",
+            "npm run build",
+            "pnpm run build",
+            "yarn build",
+            "go build",
+            "gradlew build",
+        ],
+    );
+    let asks_test = contains_any(
+        &lower,
+        &[
+            "run the tests",
+            "run tests",
+            "test this project",
+            "test this repo",
+            "run the test suite",
+            "cargo test",
+            "npm test",
+            "pnpm test",
+            "yarn test",
+            "pytest",
+            "go test",
+            "gradlew test",
+        ],
+    );
+    let asks_lint = contains_any(
+        &lower,
+        &[
+            "run lint",
+            "lint this project",
+            "lint this repo",
+            "cargo clippy",
+            "npm run lint",
+            "pnpm run lint",
+            "yarn lint",
+        ],
+    );
+    let asks_fix = contains_any(
+        &lower,
+        &[
+            "run fix",
+            "fix formatting",
+            "run formatter",
+            "cargo fmt",
+            "npm run fix",
+            "pnpm run fix",
+            "yarn fix",
+        ],
+    );
+    let asks_script = contains_any(
+        &lower,
+        &[
+            "npm run ",
+            "pnpm run ",
+            "yarn ",
+            "bun run ",
+            "make ",
+            "just ",
+            "task ",
+            "scripts/",
+            ".\\scripts\\",
+            "./scripts/",
+            ".ps1",
+            ".sh",
+            ".py",
+            ".cmd",
+            ".bat",
+        ],
+    );
+
+    if asks_build
+        && (asks_project_scope
+            || !contains_any(&lower, &["release.ps1", "package-windows.ps1", "clean.ps1"]))
+    {
+        Some("build")
+    } else if asks_test && asks_project_scope {
+        Some("test")
+    } else if asks_lint && asks_project_scope {
+        Some("lint")
+    } else if asks_fix && asks_project_scope {
+        Some("fix")
+    } else if asks_script && !preferred_maintainer_workflow(user_input).is_some() {
+        Some("script")
+    } else if (asks_test || asks_lint || asks_fix)
+        && !preferred_maintainer_workflow(user_input).is_some()
+    {
+        Some(if asks_test {
+            "test"
+        } else if asks_lint {
+            "lint"
+        } else {
+            "fix"
+        })
+    } else {
+        None
+    }
+}
+
 pub(crate) fn looks_like_mutation_request(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     [
@@ -414,6 +595,9 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
     let capability_needs_repo =
         capability_mode && capability_question_requires_repo_inspection(&lower);
     let host_inspection_mode = preferred_host_inspection_topic(&lower).is_some();
+    let maintainer_workflow_mode = preferred_maintainer_workflow(&lower).is_some();
+    let workspace_workflow_mode =
+        preferred_workspace_workflow(&lower).is_some() && !maintainer_workflow_mode;
     let toolchain_mode = contains_any(
         &lower,
         &[
@@ -743,6 +927,8 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         capability_needs_repo,
         toolchain_mode,
         host_inspection_mode,
+        maintainer_workflow_mode,
+        workspace_workflow_mode,
         preserve_project_map_output,
         architecture_overview_mode,
     }
@@ -778,5 +964,36 @@ mod tests {
 
         let intent = classify_query_intent(WorkflowMode::Auto, "/about");
         assert_eq!(intent.direct_answer, Some(DirectAnswerKind::About));
+    }
+
+    #[test]
+    fn classify_query_intent_marks_maintainer_workflow_requests() {
+        let intent = classify_query_intent(
+            WorkflowMode::Auto,
+            "Run my cleanup scripts and prune old artifacts.",
+        );
+        assert!(intent.maintainer_workflow_mode);
+        assert_eq!(
+            preferred_maintainer_workflow("Rebuild the local portable and update PATH."),
+            Some("package_windows")
+        );
+        assert_eq!(
+            preferred_maintainer_workflow("Run the release flow and publish crates."),
+            Some("release")
+        );
+    }
+
+    #[test]
+    fn classify_query_intent_marks_workspace_workflow_requests() {
+        let intent = classify_query_intent(WorkflowMode::Auto, "Run the tests in this project.");
+        assert!(intent.workspace_workflow_mode);
+        assert_eq!(
+            preferred_workspace_workflow("Run the tests in this project."),
+            Some("test")
+        );
+        assert_eq!(
+            preferred_workspace_workflow("Run npm run dev in this repo."),
+            Some("script")
+        );
     }
 }

@@ -26,7 +26,8 @@ use crate::agent::recovery_recipes::{
 };
 use crate::agent::routing::{
     classify_query_intent, is_capability_probe_tool, looks_like_mutation_request,
-    preferred_host_inspection_topic, DirectAnswerKind, QueryIntentClass,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
@@ -2015,6 +2016,10 @@ impl ConversationManager {
         let toolchain_mode =
             intent.toolchain_mode || intent.primary_class == QueryIntentClass::Toolchain;
         let host_inspection_mode = intent.host_inspection_mode;
+        let maintainer_workflow_mode = intent.maintainer_workflow_mode
+            || preferred_maintainer_workflow(&effective_user_input).is_some();
+        let workspace_workflow_mode = intent.workspace_workflow_mode
+            || preferred_workspace_workflow(&effective_user_input).is_some();
         let fix_plan_mode =
             preferred_host_inspection_topic(&effective_user_input) == Some("fix_plan");
         let project_map_mode = intent.preserve_project_map_output
@@ -2093,6 +2098,25 @@ impl ConversationManager {
                  Call `inspect_host` with `topic=fix_plan` first.\n\
                  Do not start with `path`, `toolchains`, `env_doctor`, or `ports` unless the user explicitly asks for diagnosis details instead of a fix plan.\n\
                  Keep the answer grounded, stepwise, and approval-aware.\n"
+            );
+        }
+        if !tiny_context_mode && maintainer_workflow_mode {
+            system_msg.push_str(
+                "\n\n# HEMATITE MAINTAINER WORKFLOW MODE\n\
+                 This turn asks Hematite to run one of Hematite's own maintainer workflows, not invent an ad hoc shell command.\n\
+                 Prefer `run_hematite_maintainer_workflow` for existing Hematite workflows such as `clean.ps1`, `scripts/package-windows.ps1`, or `release.ps1`.\n\
+                 Use workflow `clean` for cleanup, workflow `package_windows` for rebuilding the local portable or installer, and workflow `release` for the normal version bump/tag/push/publish flow.\n\
+                 Do not treat this as a generic current-workspace script runner. Only fall back to raw `shell` if the user asks for a script or command outside those Hematite maintainer workflows.\n"
+            );
+        }
+        if !tiny_context_mode && workspace_workflow_mode {
+            system_msg.push_str(
+                "\n\n# WORKSPACE WORKFLOW MODE\n\
+                 This turn asks Hematite to run something in the active project workspace, not in Hematite's own source tree.\n\
+                 Prefer `run_workspace_workflow` for the current project's build, test, lint, fix, package scripts, just/task/make targets, local repo scripts, or an exact workspace command.\n\
+                 This tool always runs from the locked workspace root.\n\
+                 If no real project workspace is locked, say so and tell the user to relaunch Hematite in the target project directory.\n\
+                 Do not use `run_hematite_maintainer_workflow` unless the request is specifically about Hematite's own cleanup, packaging, or release scripts.\n"
             );
         }
         if !tiny_context_mode && project_map_mode {
@@ -3756,11 +3780,324 @@ fn should_rewrite_shell_to_fix_plan(
     shell_looks_like_structured_host_inspection(command)
 }
 
+fn extract_release_arg(command: &str, flag: &str) -> Option<String> {
+    let pattern = format!(r#"(?i){}\s+['"]?([^'" \r\n]+)['"]?"#, regex::escape(flag));
+    let regex = regex::Regex::new(&pattern).ok()?;
+    let captures = regex.captures(command)?;
+    captures.get(1).map(|m| m.as_str().to_string())
+}
+
+fn infer_maintainer_workflow_args_from_prompt(prompt: &str) -> Option<Value> {
+    let workflow = preferred_maintainer_workflow(prompt)?;
+    let lower = prompt.to_ascii_lowercase();
+    match workflow {
+        "clean" => Some(serde_json::json!({
+            "workflow": "clean",
+            "deep": lower.contains("deep clean")
+                || lower.contains("deep cleanup")
+                || lower.contains("deep"),
+            "reset": lower.contains("reset"),
+            "prune_dist": lower.contains("prune dist")
+                || lower.contains("prune old dist")
+                || lower.contains("prune old artifacts")
+                || lower.contains("old dist artifacts")
+                || lower.contains("old artifacts"),
+        })),
+        "package_windows" => Some(serde_json::json!({
+            "workflow": "package_windows",
+            "installer": lower.contains("installer") || lower.contains("setup.exe"),
+            "add_to_path": lower.contains("addtopath")
+                || lower.contains("add to path")
+                || lower.contains("update path")
+                || lower.contains("refresh path"),
+        })),
+        "release" => {
+            let version = regex::Regex::new(r#"(?i)\b(\d+\.\d+\.\d+)\b"#)
+                .ok()
+                .and_then(|re| re.captures(prompt))
+                .and_then(|captures| captures.get(1).map(|m| m.as_str().to_string()));
+            let bump = if lower.contains("patch") {
+                Some("patch")
+            } else if lower.contains("minor") {
+                Some("minor")
+            } else if lower.contains("major") {
+                Some("major")
+            } else {
+                None
+            };
+            let mut args = serde_json::json!({
+                "workflow": "release",
+                "push": lower.contains(" push") || lower.starts_with("push ") || lower.contains(" and push"),
+                "add_to_path": lower.contains("addtopath")
+                    || lower.contains("add to path")
+                    || lower.contains("update path"),
+                "skip_installer": lower.contains("skip installer"),
+                "publish_crates": lower.contains("publish crates") || lower.contains("crates.io"),
+                "publish_voice_crate": lower.contains("publish voice crate")
+                    || lower.contains("publish hematite-kokoros"),
+            });
+            if let Some(version) = version {
+                args["version"] = Value::String(version);
+            }
+            if let Some(bump) = bump {
+                args["bump"] = Value::String(bump.to_string());
+            }
+            Some(args)
+        }
+        _ => None,
+    }
+}
+
+fn infer_workspace_workflow_args_from_prompt(prompt: &str) -> Option<Value> {
+    let workflow = preferred_workspace_workflow(prompt)?;
+    let lower = prompt.to_ascii_lowercase();
+    let trimmed = prompt.trim();
+
+    if let Some(command) = extract_workspace_command_from_prompt(trimmed) {
+        return Some(serde_json::json!({
+            "workflow": "command",
+            "command": command,
+        }));
+    }
+
+    if let Some(path) = extract_workspace_script_path_from_prompt(trimmed) {
+        return Some(serde_json::json!({
+            "workflow": "script_path",
+            "path": path,
+        }));
+    }
+
+    match workflow {
+        "build" | "test" | "lint" | "fix" => Some(serde_json::json!({
+            "workflow": workflow,
+        })),
+        "script" => {
+            let package_script = if lower.contains("npm run ") {
+                extract_word_after(&lower, "npm run ")
+            } else if lower.contains("pnpm run ") {
+                extract_word_after(&lower, "pnpm run ")
+            } else if lower.contains("bun run ") {
+                extract_word_after(&lower, "bun run ")
+            } else if lower.contains("yarn ") {
+                extract_word_after(&lower, "yarn ")
+            } else {
+                None
+            };
+
+            if let Some(name) = package_script {
+                return Some(serde_json::json!({
+                    "workflow": "package_script",
+                    "name": name,
+                }));
+            }
+
+            if let Some(name) = extract_word_after(&lower, "just ") {
+                return Some(serde_json::json!({
+                    "workflow": "just",
+                    "name": name,
+                }));
+            }
+            if let Some(name) = extract_word_after(&lower, "make ") {
+                return Some(serde_json::json!({
+                    "workflow": "make",
+                    "name": name,
+                }));
+            }
+            if let Some(name) = extract_word_after(&lower, "task ") {
+                return Some(serde_json::json!({
+                    "workflow": "task",
+                    "name": name,
+                }));
+            }
+
+            None
+        }
+        _ => None,
+    }
+}
+
+fn extract_workspace_command_from_prompt(prompt: &str) -> Option<String> {
+    let lower = prompt.to_ascii_lowercase();
+    for prefix in [
+        "cargo ",
+        "npm ",
+        "pnpm ",
+        "yarn ",
+        "bun ",
+        "pytest",
+        "go build",
+        "go test",
+        "make ",
+        "just ",
+        "task ",
+        "./gradlew",
+        ".\\gradlew",
+    ] {
+        if let Some(index) = lower.find(prefix) {
+            return Some(prompt[index..].trim().trim_matches('`').to_string());
+        }
+    }
+    None
+}
+
+fn extract_workspace_script_path_from_prompt(prompt: &str) -> Option<String> {
+    let normalized = prompt.replace('\\', "/");
+    for token in normalized.split_whitespace() {
+        let candidate = token
+            .trim_matches(|c: char| matches!(c, '`' | '"' | '\'' | ',' | '.' | ')' | '('))
+            .trim_start_matches("./");
+        if candidate.starts_with("scripts/")
+            && [".ps1", ".sh", ".py", ".cmd", ".bat", ".js", ".mjs", ".cjs"]
+                .iter()
+                .any(|ext| candidate.to_ascii_lowercase().ends_with(ext))
+        {
+            return Some(candidate.to_string());
+        }
+    }
+    None
+}
+
+fn extract_word_after(haystack: &str, prefix: &str) -> Option<String> {
+    let start = haystack.find(prefix)? + prefix.len();
+    let tail = &haystack[start..];
+    let word = tail
+        .split_whitespace()
+        .next()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    Some(
+        word.trim_matches(|c: char| matches!(c, '`' | '"' | '\'' | ',' | '.' | ')' | '('))
+            .to_string(),
+    )
+}
+
+fn rewrite_shell_to_maintainer_workflow_args(command: &str) -> Option<Value> {
+    let lower = command.to_ascii_lowercase();
+    if lower.contains("clean.ps1") {
+        return Some(serde_json::json!({
+            "workflow": "clean",
+            "deep": lower.contains("-deep"),
+            "reset": lower.contains("-reset"),
+            "prune_dist": lower.contains("-prunedist"),
+        }));
+    }
+    if lower.contains("package-windows.ps1") {
+        return Some(serde_json::json!({
+            "workflow": "package_windows",
+            "installer": lower.contains("-installer"),
+            "add_to_path": lower.contains("-addtopath"),
+        }));
+    }
+    if lower.contains("release.ps1") {
+        let version = extract_release_arg(command, "-Version");
+        let bump = extract_release_arg(command, "-Bump");
+        if version.is_none() && bump.is_none() {
+            return Some(serde_json::json!({
+                "workflow": "release"
+            }));
+        }
+        let mut args = serde_json::json!({
+            "workflow": "release",
+            "push": lower.contains("-push"),
+            "add_to_path": lower.contains("-addtopath"),
+            "skip_installer": lower.contains("-skipinstaller"),
+            "publish_crates": lower.contains("-publishcrates"),
+            "publish_voice_crate": lower.contains("-publishvoicecrate"),
+        });
+        if let Some(version) = version {
+            args["version"] = Value::String(version);
+        }
+        if let Some(bump) = bump {
+            args["bump"] = Value::String(bump);
+        }
+        return Some(args);
+    }
+    None
+}
+
+fn rewrite_shell_to_workspace_workflow_args(command: &str) -> Option<Value> {
+    let lower = command.to_ascii_lowercase();
+    if lower.contains("clean.ps1")
+        || lower.contains("package-windows.ps1")
+        || lower.contains("release.ps1")
+    {
+        return None;
+    }
+
+    if let Some(path) = extract_workspace_script_path_from_prompt(command) {
+        return Some(serde_json::json!({
+            "workflow": "script_path",
+            "path": path,
+        }));
+    }
+
+    let looks_like_workspace_command = [
+        "cargo ",
+        "npm ",
+        "pnpm ",
+        "yarn ",
+        "bun ",
+        "pytest",
+        "go build",
+        "go test",
+        "make ",
+        "just ",
+        "task ",
+        "./gradlew",
+        ".\\gradlew",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+
+    if looks_like_workspace_command {
+        Some(serde_json::json!({
+            "workflow": "command",
+            "command": command.trim(),
+        }))
+    } else {
+        None
+    }
+}
+
 fn rewrite_host_tool_call(
     tool_name: &mut String,
     args: &mut Value,
     latest_user_prompt: Option<&str>,
 ) {
+    if *tool_name == "shell" {
+        let command = args
+            .get("command")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        if let Some(maintainer_workflow_args) = rewrite_shell_to_maintainer_workflow_args(command) {
+            *tool_name = "run_hematite_maintainer_workflow".to_string();
+            *args = maintainer_workflow_args;
+            return;
+        }
+        if let Some(workspace_workflow_args) = rewrite_shell_to_workspace_workflow_args(command) {
+            *tool_name = "run_workspace_workflow".to_string();
+            *args = workspace_workflow_args;
+            return;
+        }
+    }
+    if *tool_name != "run_hematite_maintainer_workflow" {
+        if let Some(prompt_args) =
+            latest_user_prompt.and_then(infer_maintainer_workflow_args_from_prompt)
+        {
+            *tool_name = "run_hematite_maintainer_workflow".to_string();
+            *args = prompt_args;
+            return;
+        }
+    }
+    if *tool_name != "run_workspace_workflow" {
+        if let Some(prompt_args) =
+            latest_user_prompt.and_then(infer_workspace_workflow_args_from_prompt)
+        {
+            *tool_name = "run_workspace_workflow".to_string();
+            *args = prompt_args;
+            return;
+        }
+    }
     if should_rewrite_shell_to_fix_plan(tool_name, args, latest_user_prompt) {
         *tool_name = "inspect_host".to_string();
         *args = serde_json::json!({
@@ -5106,6 +5443,114 @@ mod tests {
         );
 
         assert_eq!(shell_key, fix_plan_key);
+    }
+
+    #[test]
+    fn shell_cleanup_script_rewrites_to_maintainer_workflow() {
+        let (tool_name, args) = normalized_tool_call_for_execution(
+            "shell",
+            r#"{"command":"pwsh ./clean.ps1 -Deep -PruneDist"}"#,
+            false,
+            Some("Run my cleanup scripts."),
+        );
+
+        assert_eq!(tool_name, "run_hematite_maintainer_workflow");
+        assert_eq!(
+            args.get("workflow").and_then(|value| value.as_str()),
+            Some("clean")
+        );
+        assert_eq!(
+            args.get("deep").and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            args.get("prune_dist").and_then(|value| value.as_bool()),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn shell_release_script_rewrites_to_maintainer_workflow() {
+        let (tool_name, args) = normalized_tool_call_for_execution(
+            "shell",
+            r#"{"command":"pwsh ./release.ps1 -Version 0.4.5 -Push -AddToPath"}"#,
+            false,
+            Some("Run the release flow."),
+        );
+
+        assert_eq!(tool_name, "run_hematite_maintainer_workflow");
+        assert_eq!(
+            args.get("workflow").and_then(|value| value.as_str()),
+            Some("release")
+        );
+        assert_eq!(
+            args.get("version").and_then(|value| value.as_str()),
+            Some("0.4.5")
+        );
+        assert_eq!(
+            args.get("push").and_then(|value| value.as_bool()),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn explicit_cleanup_prompt_rewrites_shell_to_maintainer_workflow() {
+        let (tool_name, args) = normalized_tool_call_for_execution(
+            "shell",
+            r#"{"command":"powershell -Command \"Get-ChildItem .\""}"#,
+            false,
+            Some("Run the deep cleanup and prune old dist artifacts."),
+        );
+
+        assert_eq!(tool_name, "run_hematite_maintainer_workflow");
+        assert_eq!(
+            args.get("workflow").and_then(|value| value.as_str()),
+            Some("clean")
+        );
+        assert_eq!(
+            args.get("deep").and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            args.get("prune_dist").and_then(|value| value.as_bool()),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn shell_cargo_test_rewrites_to_workspace_workflow() {
+        let (tool_name, args) = normalized_tool_call_for_execution(
+            "shell",
+            r#"{"command":"cargo test"}"#,
+            false,
+            Some("Run cargo test in this project."),
+        );
+
+        assert_eq!(tool_name, "run_workspace_workflow");
+        assert_eq!(
+            args.get("workflow").and_then(|value| value.as_str()),
+            Some("command")
+        );
+        assert_eq!(
+            args.get("command").and_then(|value| value.as_str()),
+            Some("cargo test")
+        );
+    }
+
+    #[test]
+    fn natural_language_test_prompt_rewrites_to_workspace_workflow() {
+        let (tool_name, args) = normalized_tool_call_for_execution(
+            "shell",
+            r#"{"command":"powershell -Command \"Get-ChildItem .\""}"#,
+            false,
+            Some("Run the tests in this project."),
+        );
+
+        assert_eq!(tool_name, "run_workspace_workflow");
+        assert_eq!(
+            args.get("workflow").and_then(|value| value.as_str()),
+            Some("test")
+        );
     }
 
     #[test]

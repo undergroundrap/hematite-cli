@@ -248,7 +248,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     let project_hint = if !docs_only_mode {
         String::new()
     } else {
-        "\nTip: source indexing is disabled outside a project folder. `.hematite/docs/`, `.hematite/imports/`, and recent local session reports remain searchable in docs-only vein mode.".to_string()
+        "\nTip: source indexing is disabled outside a project folder. Launch Hematite in the target project directory for project-specific work. `.hematite/docs/`, `.hematite/imports/`, and recent local session reports remain searchable in docs-only vein mode.".to_string()
     };
     let display_model = {
         let m = manager.engine.current_model();
