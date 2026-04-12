@@ -244,11 +244,22 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         Some(id) => format!("Embed: {} (semantic search ready)", id),
         None => "Embed: none loaded (load nomic-embed-text-v2 for semantic search)".to_string(),
     };
+    let workspace_root = crate::tools::file_ops::workspace_root();
     let docs_only_mode = !crate::tools::file_ops::is_project_workspace();
+    let workspace_mode = if docs_only_mode {
+        "docs-only"
+    } else {
+        "project"
+    };
+    let launched_from_home = home::home_dir()
+        .and_then(|home| std::env::current_dir().ok().map(|cwd| cwd == home))
+        .unwrap_or(false);
     let project_hint = if !docs_only_mode {
         String::new()
+    } else if launched_from_home {
+        "\nTip: you launched Hematite from your home directory. That is fine for workstation questions and docs-only memory, but for project-specific build, test, script, or repo work you should relaunch in the target project directory. `.hematite/docs/`, `.hematite/imports/`, and recent local session reports remain searchable in docs-only vein mode.".to_string()
     } else {
-        "\nTip: source indexing is disabled outside a project folder. Launch Hematite in the target project directory for project-specific work. `.hematite/docs/`, `.hematite/imports/`, and recent local session reports remain searchable in docs-only vein mode.".to_string()
+        "\nTip: source indexing is disabled outside a project folder. Launch Hematite in the target project directory for project-specific build, test, script, or repo work. `.hematite/docs/`, `.hematite/imports/`, and recent local session reports remain searchable in docs-only vein mode.".to_string()
     };
     let display_model = {
         let m = manager.engine.current_model();
@@ -259,13 +270,15 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         }
     };
     let greeting = format!(
-        "Hematite {} Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\n{}\n{}\n/chat - conversation mode | /agent - full coding harness + workstation mode | /version - current build | /about - app info{}",
+        "Hematite {} Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\nWorkspace: {} ({})\n{}\n{}\nModes: /chat | /auto | /ask | /code | /architect | /read-only | /agent\nInfo: /version | /about{}",
         crate::hematite_version_display(),
         display_model,
         manager.engine.current_context_length(),
         gpu_name,
         vram,
         format!("{}/v1", manager.engine.base_url),
+        workspace_root.display(),
+        workspace_mode,
         embed_status,
         voice_status,
         project_hint

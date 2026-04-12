@@ -495,6 +495,8 @@ Inside Hematite itself, explicit cleanup, local packaging, and scripted release 
 
 For project-specific questions or commands, launch Hematite in the target project directory before asking. Hematite's own maintainer workflows are separate from whatever scripts exist in the current workspace.
 
+Launching from the home directory is valid for workstation inspection, docs-only memory, and general machine questions. It is not the right default for project-specific build, test, script, or repo work.
+
 For normal project work, prefer the separate workspace workflow lane for the active repo's build, test, lint, fix, package scripts, make/just/task targets, local repo scripts, or exact project commands. That path is rooted to the locked workspace, not to Hematite's own source tree.
 
 For a new contributor or non-technical operator, the short explanation is: format the code, make sure it still compiles, make sure the behavior test passes, then rebuild the real app and try it live.

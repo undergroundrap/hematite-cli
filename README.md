@@ -148,6 +148,16 @@ Hematite lives where your code lives — in the terminal, inside your project fo
 
 Both modes. One binary. Voice in both. Switch with a command.
 
+Inside the harness, Hematite also has explicit workflow clamps:
+
+- `/auto` for the normal narrowest-effective path
+- `/ask` for read-only analysis
+- `/architect` for plan-first design work
+- `/code` for implementation
+- `/read-only` for a hard no-mutation lane
+
+That mode discipline is one of the places Hematite should feel closer to a serious engineering tool than a generic chat shell.
+
 ---
 
 ## Grounded Terminal Ops
@@ -532,6 +542,8 @@ pwsh ./scripts/package-windows.ps1 -AddToPath
 Restart your terminal after running this. From then on, `cd` into any project folder and type `hematite` — it picks up your project root automatically via `.git` or `Cargo.toml`/`package.json`. Works in PowerShell, CMD, Windows Terminal, VS Code's integrated terminal, and JetBrains IDEs.
 
 **One workspace per session.** Hematite locks onto the directory it was launched in — that's what gets indexed, and that's where all file tools operate. `cd`-ing inside the terminal after launch doesn't move the workspace. To switch projects, exit and relaunch in the new folder. This is intentional: a single locked workspace keeps the model's context clean and prevents tools from operating on the wrong directory. It also means you can run Hematite in a non-project folder — a downloads folder, a scripts directory, anywhere — and it adapts to what's there. Outside a project directory, Hematite skips the source-file walk but still keeps The Vein alive in docs-only mode: `.hematite/docs/`, imported chats in `.hematite/imports/`, and recent local session reports remain searchable, and the status badge shows `VN:DOC`.
+
+**Home-directory note.** Launching Hematite from your user home directory is valid for workstation inspection, docs-only memory, and general machine questions. It is not a good default for project-specific build, test, script, or repo work. For those, launch Hematite in the target project directory first.
 
 For project-specific questions or commands, launch Hematite in that project's directory before you ask. Hematite's own maintainer workflows are a separate built-in path for working on Hematite itself; they do not mean "run whatever script exists in the current folder."
 

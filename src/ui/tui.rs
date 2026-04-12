@@ -2138,7 +2138,7 @@ pub async fn run_app<B: Backend>(
                                             }
                                             "/chat" => {
                                                 app.workflow_mode = "CHAT".into();
-                                                app.push_message("System", "Chat mode — natural conversation, no agent scaffolding. Use /agent to switch back.");
+                                                app.push_message("System", "Chat mode — natural conversation, no agent scaffolding. Use /agent to return to the full harness, or /ask, /architect, or /code to jump straight into a narrower workflow.");
                                                 app.history_idx = None;
                                                 let _ = app.user_input_tx.try_send(UserTurn::text("/chat"));
                                                 continue;
@@ -2150,7 +2150,7 @@ pub async fn run_app<B: Backend>(
                                             }
                                             "/agent" => {
                                                 app.workflow_mode = "AUTO".into();
-                                                app.push_message("System", "Agent mode — full coding harness and workstation assistant active. Use /chat for clean conversation.");
+                                                app.push_message("System", "Agent mode — full coding harness and workstation assistant active. Use /auto for normal behavior, /ask for read-only analysis, /architect for plan-first work, /code for implementation, or /chat for clean conversation.");
                                                 app.history_idx = None;
                                                 let _ = app.user_input_tx.try_send(UserTurn::text("/agent"));
                                                 continue;
