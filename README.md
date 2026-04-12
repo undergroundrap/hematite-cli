@@ -625,7 +625,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `multi_search_replace` | Precision engine for bulk find-and-replace blocks |
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
-| `map_project` | Compact architecture map with config markers, likely entrypoints, core owner files, and a bounded directory tree |
+
 | `inspect_host` | Structured read-only inspection of PATH, common toolchains, environment/package-manager health, grounded fix plans, network snapshots, service snapshots, process snapshots, desktop items, Downloads, ports, repo health, and arbitrary directories |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
@@ -795,15 +795,12 @@ For architecture and control-flow questions, Hematite can use `trace_runtime_flo
 
 Supported topics: `user_turn`, `session_reset`, `reasoning_split`, `runtime_subsystems`, `startup`, `voice`. The `voice` topic covers the Ctrl+T toggle binding, `VoiceManager.toggle()`, and the speech pipeline — returning a grounded answer in a single tool call instead of burning multiple turns on grep searches that return empty.
 
-For broad read-only architecture walkthroughs, Hematite now pairs `trace_runtime_flow` with `map_project` instead of letting the model freestyle a long repo tour. The intended shape is: `map_project` for structure and owner files, one `trace_runtime_flow` topic for runtime or control flow, then a compact grounded overview.
+For broad read-only architecture walkthroughs, Hematite pairs `trace_runtime_flow` with the pre-injected AST structure instead of letting the model freestyle a long repo tour. The intended shape is: native AST for structure, one `trace_runtime_flow` topic for runtime or control flow, then a compact grounded overview.
 
 ### Grounded Tool Selection
 
 For tooling-discipline and investigation-plan questions, Hematite can use `describe_toolchain` to return the real built-in tool surface, what each tool is good or bad for, and a concrete read-only investigation order. This helps local open models avoid inventing fake helper tools or fake symbol names when explaining how they would inspect a Rust codebase.
 
-### Architecture-Aware Repo Mapping
-
-`map_project` is not just a file tree. It returns a compact repo map with configuration markers, likely entrypoints, core owner files, and extracted top symbols so smaller local models can get useful spatial awareness before spending turns on deeper file reads or LSP queries.
 
 ### Architect -> Code Handoff
 

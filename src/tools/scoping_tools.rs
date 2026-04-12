@@ -5,7 +5,7 @@ pub fn get_scoping_definitions() -> Vec<Value> {
         json!({
             "name": "auto_pin_context",
             "description": "Select 1-3 core files to 'Lock' into high-fidelity memory. \
-                             Use this after map_project to ensure the most important architecture files \
+                             Use this to ensure the most important architecture files \
                              are always visible during complex refactorings.",
             "parameters": {
                 "type": "object",

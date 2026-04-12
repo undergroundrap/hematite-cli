@@ -85,29 +85,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "required": ["language", "code"]
             }),
         ),
-        make_tool(
-            "map_project",
-            "Compact architecture-aware map of the project structure, key configuration files, \
-             likely entrypoints, and core owner files. Use this at the start of a task to gain \
-             spatial awareness before deeper file reads or LSP inspection.",
-            serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "focus": {
-                        "type": "string",
-                        "description": "Optional relative subpath to focus the map on instead of the whole workspace."
-                    },
-                    "include_symbols": {
-                        "type": "boolean",
-                        "description": "Whether to extract a small set of top symbols from core files. Defaults to true."
-                    },
-                    "max_depth": {
-                        "type": "integer",
-                        "description": "Optional tree depth cap for the directory section. Defaults to 4 and is capped internally."
-                    }
-                }
-            }),
-        ),
+
         make_tool(
             "trace_runtime_flow",
             "Return an authoritative read-only trace of Hematite runtime flow. \
@@ -496,7 +474,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         make_tool(
             "auto_pin_context",
             "Select 1-3 core files to 'Lock' into high-fidelity memory. \
-             Use this after map_project to ensure the most important architecture files \
+             Use this to ensure the most important architecture files \
              are always visible during complex refactorings.",
             serde_json::json!({
                 "type": "object",
@@ -780,7 +758,6 @@ pub async fn dispatch_builtin_tool(name: &str, args: &Value) -> Result<String, S
     match name {
         "shell" => crate::tools::shell::execute(args).await,
         "run_code" => crate::tools::code_sandbox::execute(args).await,
-        "map_project" => crate::tools::project_map::map_project(args).await,
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
         "inspect_host" => crate::tools::host_inspect::inspect_host(args).await,

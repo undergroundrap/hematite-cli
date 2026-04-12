@@ -71,13 +71,13 @@ Hematite continuously adapts to the machine it is running on.
 Hematite is more than a chat shell around a local model.
 
 - **File and shell tools**: direct project reading, editing, search, and shell execution
-- **Architecture-aware repo mapping**: `map_project` now returns likely entrypoints, core owner files, and extracted top symbols instead of just a raw file tree
+- **Syntax-aware Repo Maps**: Native context injection leverages `tree-sitter` for high-speed AST indexing instead of using context-heavy tool loops for broad exploration
 - **Git-aware workflows**: worktrees, commit helpers, and rollback via hidden ghost snapshots
 - **Configurable verification**: `verify_build` can now use per-project build, test, lint, and fix profiles from `.hematite/settings.json` instead of relying only on stack autodetection
 - **Project retrieval**: SQLite FTS-backed memory helps recover relevant local context each turn
 - **Built-in web research**: `research_web` and `fetch_docs` let the harness search for technical information and pull external docs into a readable form when local context is insufficient
 - **Grounded architecture tracing**: `trace_runtime_flow` gives the model a verified read-only path for exact runtime/control-flow questions instead of encouraging confident guessing
-- **Grounded architecture overviews**: broad read-only architecture questions now combine `map_project` structure with one authoritative `trace_runtime_flow` topic instead of drifting into long repo rewrites
+- **Grounded architecture overviews**: broad read-only architecture questions now combine the AST injection with one authoritative `trace_runtime_flow` topic instead of drifting into long repo rewrites
 - **Grounded toolchain guidance**: `describe_toolchain` gives the model a verified read-only map of Hematite's actual built-in tools, when to use them, and what investigation order makes sense
 - **Vision support**: screenshot and diagram analysis can flow through `vision_analyze` when a task benefits from visual inspection
 

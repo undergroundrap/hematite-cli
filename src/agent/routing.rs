@@ -45,7 +45,6 @@ pub(crate) struct QueryIntent {
     pub(crate) host_inspection_mode: bool,
     pub(crate) maintainer_workflow_mode: bool,
     pub(crate) workspace_workflow_mode: bool,
-    pub(crate) preserve_project_map_output: bool,
     pub(crate) architecture_overview_mode: bool,
 }
 
@@ -612,18 +611,11 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         ],
     ) || (lower.contains("which tools") && lower.contains("why"))
         || (lower.contains("when would you choose") && lower.contains("tool"));
-    let preserve_project_map_output = lower.contains("map_project")
-        || lower.contains("entrypoint")
-        || lower.contains("owner file")
-        || lower.contains("owner files")
-        || lower.contains("project structure")
-        || lower.contains("repository structure")
-        || (lower.contains("architecture")
-            && (lower.contains("repo") || lower.contains("repository")));
     let architecture_overview_mode = {
         let architecture_signals = contains_any(
             &lower,
             &[
+                "architecture overview",
                 "architecture walkthrough",
                 "full architecture",
                 "runtime walkthrough",
@@ -635,7 +627,9 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
                 "prompt budgeting",
                 "compaction",
                 "file ownership",
-                "owner files",
+                "owner file",
+                "project structure",
+                "repository structure",
             ],
         );
         let broad = contains_any(
@@ -647,6 +641,9 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
                 "walk me through",
                 "major runtime pieces",
                 "which files own",
+                "how",
+                "explain",
+                "overview",
             ],
         );
         (architecture_signals && broad)
@@ -905,7 +902,7 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         || mentions_product_truth_routing(&lower)
     {
         QueryIntentClass::ProductTruth
-    } else if architecture_overview_mode || preserve_project_map_output {
+    } else if architecture_overview_mode {
         QueryIntentClass::RepoArchitecture
     } else if toolchain_mode {
         QueryIntentClass::Toolchain
@@ -929,7 +926,6 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         host_inspection_mode,
         maintainer_workflow_mode,
         workspace_workflow_mode,
-        preserve_project_map_output,
         architecture_overview_mode,
     }
 }
@@ -937,8 +933,7 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
 pub(crate) fn is_capability_probe_tool(name: &str) -> bool {
     matches!(
         name,
-        "map_project"
-            | "read_file"
+        "read_file"
             | "inspect_lines"
             | "list_files"
             | "grep_files"

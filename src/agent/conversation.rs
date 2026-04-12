@@ -1,7 +1,7 @@
 use crate::agent::architecture_summary::{
     build_architecture_overview_answer, prune_architecture_trace_batch,
     prune_authoritative_tool_batch, prune_read_only_context_bloat_batch,
-    summarize_project_map_output, summarize_runtime_trace_output,
+    summarize_runtime_trace_output,
 };
 use crate::agent::direct_answers::{
     build_about_answer, build_architect_session_reset_plan, build_authorization_policy_answer,
@@ -476,8 +476,7 @@ fn architect_handoff_contract() -> &'static str {
 Use a compact implementation handoff, not a process narrative.\n\
 Do not say \"the first step\" or describe what you are about to do.\n\
 After one or two read-only inspection tools at most, stop and answer.\n\
-For runtime wiring, reset behavior, or control-flow questions, prefer `trace_runtime_flow` over a broad `map_project` scan.\n\
-If you do use `map_project`, keep it minimal and scoped.\n\
+For runtime wiring, reset behavior, or control-flow questions, prefer `trace_runtime_flow`.\n\
 Use these exact ASCII headings and keep each section short:\n\
 # Goal\n\
 # Target Files\n\
@@ -602,6 +601,8 @@ pub struct ConversationManager {
     /// L1 context block — hot files summary injected into the system prompt.
     /// Built once after vein init and updated as edits accumulate heat.
     pub l1_context: Option<String>,
+    /// Condensed AST repository layout for the active project.
+    pub repo_map: Option<String>,
 }
 
 impl ConversationManager {
@@ -892,6 +893,7 @@ impl ConversationManager {
             plan_execution_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             recovery_context: RecoveryContext::default(),
             l1_context: None,
+            repo_map: None,
         }
     }
 
@@ -899,6 +901,20 @@ impl ConversationManager {
     /// Uses block_in_place so the tokio runtime thread isn't parked.
     pub fn initialize_vein(&mut self) -> usize {
         self.refresh_vein_index()
+    }
+
+    /// Generate the AST Repo Map. Call once after construction or when resetting context.
+    pub fn initialize_repo_map(&mut self) {
+        if !self.vein_docs_only_mode() {
+            let root = crate::tools::file_ops::workspace_root();
+            let gen = crate::memory::repo_map::RepoMapGenerator::new(&root);
+            match tokio::task::block_in_place(|| gen.generate()) {
+                Ok(map) => self.repo_map = Some(map),
+                Err(e) => {
+                    self.repo_map = Some(format!("Repo Map generation failed: {}", e));
+                }
+            }
+        }
     }
 
     fn save_session(&self) {
@@ -1096,12 +1112,7 @@ impl ConversationManager {
                 ));
             }
 
-            if name == "map_project" {
-                return Err(
-                    "Action blocked: `map_project` is too broad for current-plan execution. Use the target files from the saved plan and inspect them directly with built-in workspace tools."
-                        .to_string(),
-                );
-            }
+
 
             if is_plan_scoped_tool(name) {
                 let allowed_paths = self.current_plan_allowed_paths();
@@ -2056,6 +2067,9 @@ impl ConversationManager {
             if let Some(ref l1) = self.l1_context {
                 base_prompt.push_str(&format!("\n\n{}", l1));
             }
+            if let Some(ref repo_map_block) = self.repo_map {
+                base_prompt.push_str(&format!("\n\n{}", repo_map_block));
+            }
         }
         let grounded_trace_mode = intent.grounded_trace_mode
             || intent.primary_class == QueryIntentClass::RuntimeDiagnosis;
@@ -2070,8 +2084,6 @@ impl ConversationManager {
             || preferred_workspace_workflow(&effective_user_input).is_some();
         let fix_plan_mode =
             preferred_host_inspection_topic(&effective_user_input) == Some("fix_plan");
-        let project_map_mode = intent.preserve_project_map_output
-            || intent.primary_class == QueryIntentClass::RepoArchitecture;
         let architecture_overview_mode = intent.architecture_overview_mode;
         let capability_needs_repo = intent.capability_needs_repo;
         let mut system_msg = build_system_with_corrections(
@@ -2107,7 +2119,7 @@ impl ConversationManager {
                  This is a product or capability question unless the user explicitly asks about repository implementation.\n\
                  Answer from stable Hematite capabilities and current runtime state.\n\
                  It is correct to mention that Hematite itself is built in Rust when relevant, but do not imply that its project support is limited to Rust.\n\
-                 Do NOT call repo-inspection tools like `map_project`, `read_file`, or LSP lookup tools unless the user explicitly asks about implementation or file ownership.\n\
+                 Do NOT call repo-inspection tools like `read_file` or LSP lookup tools unless the user explicitly asks about implementation or file ownership.\n\
                  Do NOT infer language or project support from unrelated dependencies, crates, or config files.\n\
                  Describe language and project support in terms of real mechanisms: reading files, editing code, searching the workspace, running shell commands, build verification, language-aware tooling when available, web research, vision analysis, and optional MCP tools if configured.\n\
                  If the user asks about languages, answer at the harness level: Hematite can help across many project languages even though Hematite itself is written in Rust.\n\
@@ -2167,19 +2179,11 @@ impl ConversationManager {
                  Do not use `run_hematite_maintainer_workflow` unless the request is specifically about Hematite's own cleanup, packaging, or release scripts.\n"
             );
         }
-        if !tiny_context_mode && project_map_mode {
-            system_msg.push_str(
-                "\n\n# PROJECT MAP DISCIPLINE MODE\n\
-                 For repository structure, entrypoint, owner-file, or architecture-map questions, prefer `map_project` first.\n\
-                 If `map_project` provides likely entrypoints and core owner files, preserve that grounded structure instead of rewriting it into broad prose.\n\
-                 Do not invent new entrypoints or owner files that are not present in the tool output.\n\
-                 Keep the final answer compact and architecture-first.\n"
-            );
-        }
+
         if !tiny_context_mode && architecture_overview_mode {
             system_msg.push_str(
                 "\n\n# ARCHITECTURE OVERVIEW DISCIPLINE MODE\n\
-                 For broad runtime or architecture walkthroughs, prefer authoritative tools first: `trace_runtime_flow` for control flow and `map_project` for compact structure.\n\
+                 For broad runtime or architecture walkthroughs, prefer authoritative tools first: `trace_runtime_flow` for control flow.\n\
                  Do not call `auto_pin_context` or `list_pinned` in read-only analysis. Avoid broad `read_file` calls unless the user explicitly asks for implementation detail in one named file.\n\
                  Preserve grounded tool output rather than restyling it into a larger answer.\n"
             );
@@ -2224,7 +2228,6 @@ impl ConversationManager {
                  The user explicitly asked you to implement the current saved plan.\n\
                  Do not restate the plan, do not provide preliminary contracts, and do not stop at analysis.\n\
                  Use the saved plan as the brief, gather only the minimum built-in file evidence you need, then start editing the target files.\n\
-                 Do not call `map_project` during current-plan execution.\n\
                  Every file inspection or edit call must be path-scoped to one of the saved target files.\n\
                  If a built-in workspace read tool gives you enough context, your next step should be mutation or a concrete blocking question, not another summary.\n",
             );
@@ -2339,7 +2342,6 @@ impl ConversationManager {
         let mut non_mutating_plan_steps = 0usize;
         let non_mutating_plan_soft_cap = 5usize;
         let non_mutating_plan_hard_cap = 8usize;
-        let mut overview_project_map: Option<String> = None;
         let mut overview_runtime_trace: Option<String> = None;
 
         // Safety cap – never spin forever on a broken model.
@@ -2875,12 +2877,6 @@ impl ConversationManager {
                     );
                     let capped = if implement_current_plan {
                         cap_output(&final_output, 1200)
-                    } else if tool_name == "map_project"
-                        && self.workflow_mode == WorkflowMode::Architect
-                    {
-                        cap_output(&final_output, 2500)
-                    } else if tool_name == "map_project" {
-                        cap_output(&final_output, 3500)
                     } else if compact_ctx
                         && (tool_name == "read_file" || tool_name == "inspect_lines")
                     {
@@ -2915,9 +2911,6 @@ impl ConversationManager {
                     {
                         overview_runtime_trace =
                             Some(summarize_runtime_trace_output(&final_output));
-                    } else if architecture_overview_mode && !is_error && tool_name == "map_project"
-                    {
-                        overview_project_map = Some(summarize_project_map_output(&final_output));
                     }
 
                     if !architecture_overview_mode
@@ -2926,14 +2919,6 @@ impl ConversationManager {
                             || (toolchain_mode && tool_name == "describe_toolchain"))
                     {
                         authoritative_tool_output = Some(final_output.clone());
-                    } else if !architecture_overview_mode
-                        && !is_error
-                        && tool_name == "map_project"
-                        && project_map_mode
-                        && authoritative_tool_output.is_none()
-                    {
-                        authoritative_tool_output =
-                            Some(summarize_project_map_output(&final_output));
                     }
 
                     if !is_error && tool_name == "read_file" {
@@ -2995,19 +2980,7 @@ impl ConversationManager {
                             "MCP workspace read blocked; rerouting to built-in file tools."
                                 .to_string(),
                         ));
-                    } else if res.blocked_by_policy
-                        && implement_current_plan
-                        && tool_name == "map_project"
-                        && recoverable_policy_intervention.is_none()
-                    {
-                        recoverable_policy_intervention = Some(
-                            "STOP. `map_project` is blocked during plan execution. Read your planned target files directly, then edit.".to_string(),
-                        );
-                        recoverable_policy_recipe = Some(RecoveryScenario::CurrentPlanScopeBlocked);
-                        recoverable_policy_checkpoint = Some((
-                            OperatorCheckpointState::BlockedPolicy,
-                            "`map_project` blocked for current-plan execution.".to_string(),
-                        ));
+
                     } else if res.blocked_by_policy
                         && implement_current_plan
                         && is_current_plan_irrelevant_tool(&tool_name)
@@ -3098,13 +3071,10 @@ impl ConversationManager {
                 }
 
                 if architecture_overview_mode {
-                    match (
-                        overview_project_map.as_deref(),
-                        overview_runtime_trace.as_deref(),
-                    ) {
-                        (Some(project_map), Some(runtime_trace)) => {
+                    match overview_runtime_trace.as_deref() {
+                        Some(runtime_trace) => {
                             let response =
-                                build_architecture_overview_answer(project_map, runtime_trace);
+                                build_architecture_overview_answer(runtime_trace);
                             self.history.push(ChatMessage::assistant_text(&response));
                             self.transcript.log_agent(&response);
 
@@ -3117,21 +3087,13 @@ impl ConversationManager {
                             let _ = tx.send(InferenceEvent::Done).await;
                             break;
                         }
-                        (Some(_), None) => {
+                        None => {
                             loop_intervention = Some(
                                 "Good. You now have the grounded repository structure. Next, call `trace_runtime_flow` for the runtime/control-flow half of the architecture overview. Prefer topic `user_turn` for the main execution path, or `runtime_subsystems` if that is more direct. Do not call `read_file`, `auto_pin_context`, or LSP tools here."
                                     .to_string(),
                             );
                             continue;
                         }
-                        (None, Some(_)) => {
-                            loop_intervention = Some(
-                                "Good. You now have the grounded runtime/control-flow trace. Next, call `map_project` once to capture entrypoints and core owner files. Keep it compact and do not call broad file-read tools in this architecture overview."
-                                    .to_string(),
-                            );
-                            continue;
-                        }
-                        (None, None) => {}
                     }
                 }
 
@@ -4270,22 +4232,6 @@ impl ConversationManager {
             .map(|message| message.content.as_str());
         rewrite_host_tool_call(&mut call.name, &mut args, last_user_prompt);
 
-        if call.name == "map_project" && self.workflow_mode == WorkflowMode::Architect {
-            if let Some(obj) = args.as_object_mut() {
-                obj.entry("include_symbols".to_string())
-                    .or_insert(Value::Bool(false));
-                obj.entry("max_depth".to_string())
-                    .or_insert(Value::Number(2_u64.into()));
-            }
-        } else if call.name == "map_project" && self.workflow_mode.is_read_only() {
-            if let Some(obj) = args.as_object_mut() {
-                obj.entry("include_symbols".to_string())
-                    .or_insert(Value::Bool(false));
-                obj.entry("max_depth".to_string())
-                    .or_insert(Value::Number(3_u64.into()));
-            }
-        }
-
         let display = format_tool_display(&call.name, &args);
         let precondition_result = self.validate_action_preconditions(&call.name, &args).await;
         let auth = self.check_authorization(&call.name, &args, &config, yolo);
@@ -4736,7 +4682,7 @@ pub fn format_tool_display(name: &str, args: &Value) -> String {
     };
     match name {
         "shell" => format!("$ {}", get("command")),
-        "map_project" => "map project architecture".to_string(),
+
         "trace_runtime_flow" => format!("trace runtime {}", get("topic")),
         "describe_toolchain" => format!("describe toolchain {}", get("topic")),
         "inspect_host" => format!("inspect host {}", get("topic")),

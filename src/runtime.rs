@@ -293,6 +293,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
             .await;
     }
     let indexed = manager.initialize_vein();
+    manager.initialize_repo_map();
     let _ = agent_tx
         .send(InferenceEvent::VeinStatus {
             file_count: manager.vein.file_count(),

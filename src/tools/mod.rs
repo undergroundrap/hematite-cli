@@ -10,7 +10,6 @@ pub mod health;
 pub mod host_inspect;
 pub mod lsp_tools;
 pub mod plan;
-pub mod project_map;
 pub mod repo_script;
 pub mod research;
 pub mod risk_evaluator;

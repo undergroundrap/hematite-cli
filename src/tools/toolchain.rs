@@ -103,10 +103,6 @@ fn normalize_question_label(question: &str) -> &str {
 fn describe_read_only_codebase_tools() -> String {
     "Verified Hematite read-only toolchain\n\n\
 Text search and file inspection\n\
-- `map_project`\n\
-  Good for: first-pass spatial awareness of the repository layout, likely entrypoints, core owner files, and a small set of extracted top symbols.\n\
-  Bad for: exact control flow, full call graphs, or precise line-level inspection.\n\
-  Choose it over another tool when: you need a compact architecture map before diving into files or LSP.\n\
 - `list_files`\n\
   Good for: enumerating files in a directory, optionally narrowed by extension.\n\
   Bad for: content search or semantic understanding.\n\
@@ -200,7 +196,6 @@ Optional external surface\n\
   Conditional: they only exist when MCP servers are configured and loaded.\n\n\
 Best Read-Only Toolchain\n\
 - Start with `trace_runtime_flow` for runtime wiring questions.\n\
-- Use `map_project` only when ownership or structure is still unclear.\n\
 - Use `grep_files` for textual discovery, then switch to `read_file` or `inspect_lines` for exact local context.\n\
 - Use `lsp_search_symbol`, `lsp_definitions`, `lsp_references`, and `lsp_hover` for semantic confirmation once you know the area.\n\
 - Use `inspect_host` before `shell` for read-only questions about PATH, installed tools, environment/package-manager health, grounded fix plans for common workstation failures, network state, service state, running processes, desktop items, Downloads size, listening ports, repo-health summaries, or directory/disk summaries.\n\
@@ -250,7 +245,6 @@ fn describe_user_turn_plan(question: &str) -> String {
    Why last and only if needed: runtime verification belongs after source truth, not before it.\n\
    Use: only when you need a build, a health check, or another host-level confirmation that the static code reading cannot provide.\n\n\
 Tools I would not start with\n\
-- `map_project`: useful for initial orientation, but unnecessary if `trace_runtime_flow` already identifies the owner files.\n\
 - `grep_files`: useful for fuzzy discovery, but weaker than `trace_runtime_flow` plus LSP once the target path is a known runtime flow.\n\
 - `research_web`, `fetch_docs`, `vision_analyze`: not first-choice tools for this repo-local runtime question.\n\
 \nBest Read-Only Toolchain\n\
@@ -298,7 +292,6 @@ Built-in authoritative tool note\n\
 Tools I would not start with\n\
 - `mcp__*` tools: optional external surface, not the baseline for this built-in voice investigation.\n\
 - `research_web`, `fetch_docs`, `vision_analyze`: not first-choice tools for a repo-local voice-latency question.\n\
-- `map_project`: useful if ownership were unclear, but unnecessary here because the runtime trace and symbol names already point to the likely owners.\n\
 \nInitial Investigation Order\n\
 `trace_runtime_flow` -> `read_file` -> `inspect_lines` -> `lsp_search_symbol` -> `lsp_references` -> `lsp_hover` -> `lsp_definitions` -> optional `shell`",
         label

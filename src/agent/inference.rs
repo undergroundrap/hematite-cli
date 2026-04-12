@@ -125,7 +125,7 @@ pub fn tool_metadata_for_name(name: &str) -> ToolMetadata {
             read_only_friendly: false,
             plan_scope: true,
         },
-        "map_project" | "trace_runtime_flow" => ToolMetadata {
+        "trace_runtime_flow" => ToolMetadata {
             category: ToolCategory::Architecture,
             mutates_workspace: false,
             external_surface: false,
@@ -1230,10 +1230,9 @@ impl InferenceEngine {
             4. Fix all errors before declaring success.\n\n\
             ## PRE-FLIGHT SCOPING PROTOCOL\n\
             Before attempting any multi-file task or complex refactor:\n\
-            1. Use `map_project` to understand the project structure.\n\
-            2. Identify 1-3 core files (entry-points, central models, or types) that drive the logic.\n\
-            3. Use `auto_pin_context` to keep those files in active context.\n\
-            4. Only then proceed to deeper edits or research.\n\n\
+            1. Identify 1-3 core files (entry-points, central models, or types) that drive the logic.\n\
+            2. Use `auto_pin_context` to keep those files in active context.\n\
+            3. Only then proceed to deeper edits or research.\n\n\
             ## REFACTORING PROTOCOL\n\
             When modifying existing code or renaming symbols:\n\
             1. Use `lsp_rename_symbol` for all variable/function renames to ensure project-wide safety.\n\
@@ -1441,7 +1440,6 @@ impl InferenceEngine {
             "list_files",
             "verify_build",
             "shell",
-            "map_project",
         ];
         let effective_tools = if is_compact_context_window(self.current_context_length()) {
             let core: Vec<_> = filtered_tools
@@ -2568,7 +2566,7 @@ Reading the next chunk.<channel|>The startup banner wording is likely defined wi
     fn strips_hallucinated_tool_responses_from_native_tool_transcript() {
         let text = r#"<|channel>thought
 Planning.
-<channel|><|tool_call>call:map_project{focus:<|\"|>src/<|\"|>,include_symbols:true}<tool_call|><|tool_response>thought
+<channel|><|tool_call>call:list_files{extension:<|\"|>rs<|\"|>,path:<|\"|>src/<|\"|>}<tool_call|><|tool_response>thought
 Mapped src.
 <channel|><|tool_call>call:read_file{limit:100,offset:0,path:<|\"|>src/main.rs<|\"|>}<tool_call|><|tool_response>thought
 Read main.
@@ -2576,7 +2574,7 @@ Read main.
 
         let calls = extract_native_tool_calls(text);
         assert_eq!(calls.len(), 2);
-        assert_eq!(calls[0].function.name, "map_project");
+        assert_eq!(calls[0].function.name, "list_files");
         assert_eq!(calls[1].function.name, "read_file");
 
         let stripped = strip_native_tool_call_text(text);

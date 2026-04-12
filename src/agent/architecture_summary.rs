@@ -162,92 +162,7 @@ pub(crate) fn prune_authoritative_tool_batch(
     )
 }
 
-fn collect_project_map_bullets(report: &str, header: &str, limit: usize) -> Vec<String> {
-    let mut in_section = false;
-    let mut bullets = Vec::new();
 
-    for line in report.lines() {
-        let trimmed = line.trim();
-        if trimmed == header {
-            in_section = true;
-            continue;
-        }
-
-        if !in_section {
-            continue;
-        }
-
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        if trimmed.starts_with("-- ")
-            || trimmed == "Likely entrypoints"
-            || trimmed == "Core owner files"
-        {
-            if !bullets.is_empty() {
-                break;
-            }
-            continue;
-        }
-
-        if trimmed.starts_with("- ") {
-            bullets.push(trimmed.to_string());
-            if bullets.len() >= limit {
-                break;
-            }
-            continue;
-        }
-
-        if !trimmed.starts_with("symbols:") {
-            break;
-        }
-    }
-
-    bullets
-}
-
-pub(crate) fn summarize_project_map_output(report: &str) -> String {
-    let mut entrypoints = collect_project_map_bullets(report, "Likely entrypoints", 4);
-    let mut owners = collect_project_map_bullets(report, "Core owner files", 8);
-
-    if owners.is_empty() {
-        let fallback: Vec<String> = report
-            .lines()
-            .map(str::trim)
-            .filter(|line| line.starts_with("- "))
-            .take(8)
-            .map(|line| line.to_string())
-            .collect();
-        owners = fallback;
-    }
-
-    if entrypoints.is_empty() {
-        entrypoints = owners
-            .iter()
-            .filter(|line| line.contains("[entrypoint]"))
-            .take(4)
-            .cloned()
-            .collect();
-    }
-
-    let mut lines =
-        vec!["Based on `map_project`, the grounded architecture summary is:".to_string()];
-
-    if !entrypoints.is_empty() {
-        lines.push(String::new());
-        lines.push("Likely entrypoints".to_string());
-        lines.extend(entrypoints);
-    }
-
-    if !owners.is_empty() {
-        lines.push(String::new());
-        lines.push("Core owner files".to_string());
-        lines.extend(owners);
-    }
-
-    lines.join("\n")
-}
 
 pub(crate) fn summarize_runtime_trace_output(report: &str) -> String {
     let mut lines = Vec::new();
@@ -294,13 +209,10 @@ pub(crate) fn summarize_runtime_trace_output(report: &str) -> String {
 }
 
 pub(crate) fn build_architecture_overview_answer(
-    project_map_summary: &str,
     runtime_trace_summary: &str,
 ) -> String {
     let mut out = String::new();
     out.push_str("Grounded architecture overview\n\n");
-    out.push_str("Structure and owner files\n");
-    out.push_str(project_map_summary.trim());
     out.push_str("\n\nRuntime control flow\n");
     out.push_str(runtime_trace_summary.trim());
     out.push_str("\n\nStable workflow contracts\n");
