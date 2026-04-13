@@ -1412,3 +1412,72 @@ fn test_multi_search_replace_fuzzy_corrects_indent() {
         content
     );
 }
+
+#[test]
+fn test_edit_file_rstrip_fallback_matches_trailing_spaces() {
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    // File has trailing spaces on some lines (common in editor artefacts)
+    let tmp = NamedTempFile::new().unwrap();
+    fs::write(
+        tmp.path(),
+        "fn greet() {   \n    println!(\"hello\");   \n}\n",
+    )
+    .unwrap();
+
+    let path = tmp.path().to_str().unwrap();
+
+    // Model's search string has no trailing spaces (clean) — rstrip should bridge this
+    let args = serde_json::json!({
+        "path": path,
+        "search": "fn greet() {\n    println!(\"hello\");\n}",
+        "replace": "fn greet() {\n    println!(\"world\");\n}",
+    });
+
+    let result = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::file_ops::edit_file(&args));
+
+    assert!(result.is_ok(), "rstrip fallback should match trailing-space file: {:?}", result);
+    let content = fs::read_to_string(tmp.path()).unwrap();
+    assert!(content.contains("world"), "replacement should have applied:\n{}", content);
+}
+
+#[test]
+fn test_edit_file_cross_file_hint_in_error() {
+    use std::fs;
+    use tempfile::TempDir;
+
+    // Two files: target is empty, sibling has the code the model is looking for
+    let dir = TempDir::new().unwrap();
+    let target = dir.path().join("empty.rs");
+    let sibling = dir.path().join("real.rs");
+    fs::write(&target, "// nothing here\n").unwrap();
+    fs::write(&sibling, "fn calculate() {\n    42\n}\n").unwrap();
+
+    // Temporarily set cwd to the temp dir so workspace_root() finds it
+    let original_dir = std::env::current_dir().unwrap();
+    std::env::set_current_dir(dir.path()).unwrap();
+
+    let path = target.to_str().unwrap();
+    let args = serde_json::json!({
+        "path": path,
+        "search": "fn calculate() {\n    42\n}",
+        "replace": "fn calculate() {\n    99\n}",
+    });
+
+    let result = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::file_ops::edit_file(&args));
+
+    std::env::set_current_dir(original_dir).unwrap();
+
+    assert!(result.is_err(), "should fail — search not in target file");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("real.rs"),
+        "error should mention the file that actually contains the search string:\n{}",
+        err
+    );
+}

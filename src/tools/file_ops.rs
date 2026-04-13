@@ -305,23 +305,27 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
         }
         (search.to_string(), false)
     } else {
-        // ── Fuzzy repair: try whitespace-normalised match ─────────────────
-        // Local models commonly produce search strings with wrong indentation,
-        // trailing spaces, or CRLF/LF mismatches.  We normalise both sides and
-        // find the real span in the file, then apply the replacement there.
-        match fuzzy_find_span(&original, search) {
+        // ── Fuzzy repair: progressive normalisation ───────────────────────
+        // Level 1: rstrip only — preserves indentation, strips trailing spaces.
+        // Level 2: full strip — corrects indentation mismatches.
+        // Level 3: cross-file hint — tells the model which file has the string.
+        let span = rstrip_find_span(&original, search)
+            .or_else(|| fuzzy_find_span(&original, search));
+        match span {
             Some(span) => {
-                // Extract the exact slice from the file so we can replace it.
                 let real_slice = original[span.clone()].to_string();
                 (real_slice, true)
             }
             None => {
                 let hint = nearest_lines(&original, search);
+                let cross_hint = find_search_in_workspace(search, path)
+                    .map(|found| format!("\nNote: search string found in '{found}' — did you mean to edit that file?"))
+                    .unwrap_or_default();
                 return Err(format!(
                     "edit_file: search string not found in {path}.\n\
                      The 'search' value must match the file content exactly \
                      (including whitespace/indentation).\n\
-                     {hint}"
+                     {hint}{cross_hint}"
                 ));
             }
         }
@@ -471,8 +475,10 @@ pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
             // Exact match — use as-is.
             (hunk.search.clone(), hunk.replace.clone())
         } else if match_count == 0 {
-            // Try fuzzy whitespace-normalised match before giving up.
-            match fuzzy_find_span(&current_content, &hunk.search) {
+            // Progressive fuzzy fallback: rstrip → full-strip.
+            let span = rstrip_find_span(&current_content, &hunk.search)
+                .or_else(|| fuzzy_find_span(&current_content, &hunk.search));
+            match span {
                 Some(span) => {
                     let real_slice = current_content[span].to_string();
                     let adjusted_replace =
@@ -949,17 +955,15 @@ fn nearest_lines(content: &str, search: &str) -> String {
     )
 }
 
-/// Fuzzy match: normalise both sides (trim trailing whitespace per line,
-/// unify CRLF→LF) and return the byte range of the real match in `content`.
-///
-/// Only considers indentation-style differences — it does NOT tolerate
-/// changed content, only changed surrounding whitespace.
-fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>> {
-    // Normalise a string: CRLF→LF, trim both leading and trailing whitespace on each line.
-    fn normalise(s: &str) -> String {
-        s.lines().map(|l| l.trim()).collect::<Vec<_>>().join("\n")
-    }
-
+/// Core span-mapping logic shared by both fuzzy match levels.
+/// Given a normalisation function, finds `search` inside `content` after
+/// applying that function to both, then maps the result back to a byte
+/// range in the original (un-normalised) `content`.
+fn find_span_normalised(
+    content: &str,
+    search: &str,
+    normalise: impl Fn(&str) -> String,
+) -> Option<std::ops::Range<usize>> {
     let norm_content = normalise(content);
     let norm_search = normalise(search)
         .trim_start_matches('\n')
@@ -970,11 +974,8 @@ fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>
         return None;
     }
 
-    // Find where the normalised search appears in the normalised content.
     let norm_pos = norm_content.find(&norm_search)?;
 
-    // Map the byte position back into the original (non-normalised) content.
-    // We do this by counting newlines up to norm_pos and replaying through original.
     let lines_before = norm_content[..norm_pos]
         .as_bytes()
         .iter()
@@ -989,28 +990,25 @@ fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>
 
     let orig_lines: Vec<&str> = content.lines().collect();
 
-    // Byte start of the first line in original.
     let mut current_pos = 0;
     for i in 0..lines_before {
         if i < orig_lines.len() {
-            current_pos += orig_lines[i].len() + 1; // +1 for newline
+            current_pos += orig_lines[i].len() + 1;
         }
     }
     let byte_start = current_pos;
 
-    // Byte end: sum of original line lengths for the matched span.
     let mut byte_len = 0;
     for i in 0..search_lines {
         let idx = lines_before + i;
         if idx < orig_lines.len() {
             byte_len += orig_lines[idx].len();
             if i < search_lines - 1 {
-                byte_len += 1; // newline
+                byte_len += 1;
             }
         }
     }
 
-    // Validate: normalised forms must actually match (guards against false positives).
     if byte_start + byte_len > content.len() {
         return None;
     }
@@ -1021,6 +1019,70 @@ fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>
     } else {
         None
     }
+}
+
+/// Level 1 fuzzy: rstrip only — removes trailing whitespace per line but
+/// preserves leading indentation. Catches trailing-space mismatches where
+/// the model's indentation is actually correct.
+fn rstrip_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>> {
+    find_span_normalised(content, search, |s| {
+        s.lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n")
+    })
+}
+
+/// Level 2 fuzzy: full strip — trims all leading and trailing whitespace
+/// per line. Catches indentation mismatches where the model wrote the
+/// correct content but with wrong indent level.
+fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>> {
+    find_span_normalised(content, search, |s| {
+        s.lines().map(|l| l.trim()).collect::<Vec<_>>().join("\n")
+    })
+}
+
+/// Scan source files in the workspace for a search string that failed to
+/// match in the intended target file. Returns the first file path where
+/// the string is found (after CRLF normalisation), capped at 100 files.
+/// Used to generate a "did you mean this file?" hint in edit errors.
+fn find_search_in_workspace(search: &str, skip_path: &str) -> Option<String> {
+    let root = workspace_root();
+    let norm_search = search.replace("\r\n", "\n");
+    let mut checked = 0usize;
+
+    let walker = ignore::WalkBuilder::new(&root)
+        .hidden(true)
+        .ignore(true)
+        .git_ignore(true)
+        .build();
+
+    for entry in walker.flatten() {
+        if checked >= 100 {
+            break;
+        }
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if !matches!(ext, "rs" | "py" | "ts" | "tsx" | "js" | "jsx" | "go" | "c" | "cpp" | "h") {
+            continue;
+        }
+        let rel = path
+            .strip_prefix(&root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if rel == skip_path {
+            continue;
+        }
+        checked += 1;
+        if let Ok(content) = std::fs::read_to_string(path) {
+            let normalised = content.replace("\r\n", "\n");
+            if normalised.contains(&norm_search) {
+                return Some(rel);
+            }
+        }
+    }
+    None
 }
 
 // ── Indent-aware replacement ──────────────────────────────────────────────────
@@ -1087,7 +1149,9 @@ pub fn compute_edit_file_diff(args: &Value) -> Result<String, String> {
     let (effective_search, effective_replace): (String, String) = if original.contains(search) {
         (search.to_string(), replace.to_string())
     } else {
-        match fuzzy_find_span(&original, search) {
+        let span = rstrip_find_span(&original, search)
+            .or_else(|| fuzzy_find_span(&original, search));
+        match span {
             Some(span) => {
                 let real_slice = original[span].to_string();
                 let adjusted = adjust_replace_indent(search, &real_slice, replace);
