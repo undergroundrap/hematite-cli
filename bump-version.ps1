@@ -18,7 +18,7 @@ Write-Host "Bumping $old -> $Version" -ForegroundColor Cyan
 
 # Cargo.toml (first occurrence = package version, not deps)
 $content = Get-Content "Cargo.toml" -Raw
-$content = $content -replace "(?m)^version = `"$([regex]::Escape($old))`"$", "version = `"$Version`""
+$content = $content -replace "(?m)^version = `"$([regex]::Escape($old))`"\r?$", "version = `"$Version`""
 Set-Content "Cargo.toml" $content -NoNewline
 
 # README.md

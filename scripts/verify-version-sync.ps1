@@ -56,7 +56,7 @@ $installerPattern = "(?m)^\s*#define AppVersion\s+`"$escapedVersion`"\r?$"
 $readmeBadgePattern = [regex]::Escape("version-$Version")
 $cargoLockPattern = "(?ms)\[\[package\]\]\s*name = `"$escapedPackageName`"\s*version = `"$escapedVersion`""
 
-Require-Match "Cargo.toml" "(?m)^version\s*=\s*`"$escapedVersion`"$" "Cargo.toml package version $Version"
+Require-Match "Cargo.toml" "(?m)^version\s*=\s*`"$escapedVersion`"\r?$" "Cargo.toml package version $Version"
 Require-Match "installer\hematite.iss" $installerPattern "installer AppVersion $Version"
 Require-Match "README.md" $readmeBadgePattern "README version badge for $Version"
 
