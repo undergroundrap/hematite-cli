@@ -649,15 +649,22 @@ fn inspect_resource_load() -> Result<String, String> {
 
         let text = String::from_utf8_lossy(&output.stdout);
         let mut lines = text.lines().map(str::trim).filter(|l| !l.is_empty());
-        
-        let cpu_load = lines.next().and_then(|l| l.parse::<u32>().ok()).unwrap_or(0);
+
+        let cpu_load = lines
+            .next()
+            .and_then(|l| l.parse::<u32>().ok())
+            .unwrap_or(0);
         let mem_json = lines.collect::<Vec<_>>().join("");
         let mem_val: Value = serde_json::from_str(&mem_json).unwrap_or(Value::Null);
 
         let total_kb = mem_val["TotalVisibleMemorySize"].as_u64().unwrap_or(1);
         let free_kb = mem_val["FreePhysicalMemory"].as_u64().unwrap_or(0);
         let used_kb = total_kb.saturating_sub(free_kb);
-        let mem_percent = if total_kb > 0 { (used_kb * 100) / total_kb } else { 0 };
+        let mem_percent = if total_kb > 0 {
+            (used_kb * 100) / total_kb
+        } else {
+            0
+        };
 
         let mut out = String::from("Host inspection: resource_load\n\n");
         out.push_str("**System Performance Summary:**\n");
@@ -2316,7 +2323,6 @@ fn apply_unix_dns_servers(adapters: &mut [NetworkAdapter]) {
     }
 }
 
-
 fn value_after_colon(line: &str) -> Option<&str> {
     line.split_once(':').map(|(_, value)| value.trim())
 }
@@ -3004,8 +3010,12 @@ fn inspect_os_config() -> Result<String, String> {
         }
 
         // Firewall Status
-        let fw_script = "Get-NetFirewallProfile | Format-Table -Property Name, Enabled -AutoSize | Out-String";
-        if let Ok(fw_out) = Command::new("powershell").args(["-NoProfile", "-Command", fw_script]).output() {
+        let fw_script =
+            "Get-NetFirewallProfile | Format-Table -Property Name, Enabled -AutoSize | Out-String";
+        if let Ok(fw_out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", fw_script])
+            .output()
+        {
             let fw_str = String::from_utf8_lossy(&fw_out.stdout);
             out.push_str("=== Firewall Profiles ===\n");
             out.push_str(fw_str.trim());
@@ -3013,8 +3023,12 @@ fn inspect_os_config() -> Result<String, String> {
         }
 
         // System Uptime
-        let uptime_script = "(Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime.ToString()";
-        if let Ok(uptime_out) = Command::new("powershell").args(["-NoProfile", "-Command", uptime_script]).output() {
+        let uptime_script =
+            "(Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime.ToString()";
+        if let Ok(uptime_out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", uptime_script])
+            .output()
+        {
             let uptime_str = String::from_utf8_lossy(&uptime_out.stdout);
             out.push_str("=== System Uptime (Last Boot) ===\n");
             out.push_str(uptime_str.trim());
@@ -3031,7 +3045,7 @@ fn inspect_os_config() -> Result<String, String> {
             out.push_str(uptime_str.trim());
             out.push_str("\n\n");
         }
-        
+
         // Firewall (ufw status if available)
         if let Ok(ufw_out) = Command::new("ufw").arg("status").output() {
             let ufw_str = String::from_utf8_lossy(&ufw_out.stdout);
@@ -3066,21 +3080,33 @@ pub async fn resolve_host_issue(args: &Value) -> Result<String, String> {
             #[cfg(target_os = "windows")]
             {
                 let cmd = format!("winget install --id {} -e --accept-package-agreements --accept-source-agreements", target);
-                match Command::new("powershell").args(["-NoProfile", "-Command", &cmd]).output() {
-                    Ok(out) => Ok(format!("Executed remediation (winget install):\n{}", String::from_utf8_lossy(&out.stdout))),
+                match Command::new("powershell")
+                    .args(["-NoProfile", "-Command", &cmd])
+                    .output()
+                {
+                    Ok(out) => Ok(format!(
+                        "Executed remediation (winget install):\n{}",
+                        String::from_utf8_lossy(&out.stdout)
+                    )),
                     Err(e) => Err(format!("Failed to run winget: {}", e)),
                 }
             }
             #[cfg(not(target_os = "windows"))]
             {
-                Err("install_package via wrapper is only supported on Windows currently (winget)".to_string())
+                Err(
+                    "install_package via wrapper is only supported on Windows currently (winget)"
+                        .to_string(),
+                )
             }
         }
         "restart_service" => {
             #[cfg(target_os = "windows")]
             {
                 let cmd = format!("Restart-Service -Name {} -Force", target);
-                match Command::new("powershell").args(["-NoProfile", "-Command", &cmd]).output() {
+                match Command::new("powershell")
+                    .args(["-NoProfile", "-Command", &cmd])
+                    .output()
+                {
                     Ok(out) => {
                         let err_str = String::from_utf8_lossy(&out.stderr);
                         if !err_str.is_empty() {
@@ -3093,14 +3119,20 @@ pub async fn resolve_host_issue(args: &Value) -> Result<String, String> {
             }
             #[cfg(not(target_os = "windows"))]
             {
-                Err("restart_service via wrapper is only supported on Windows currently".to_string())
+                Err(
+                    "restart_service via wrapper is only supported on Windows currently"
+                        .to_string(),
+                )
             }
         }
         "clear_temp" => {
             #[cfg(target_os = "windows")]
             {
                 let cmd = "Remove-Item -Path \"$env:TEMP\\*\" -Recurse -Force -ErrorAction SilentlyContinue";
-                match Command::new("powershell").args(["-NoProfile", "-Command", cmd]).output() {
+                match Command::new("powershell")
+                    .args(["-NoProfile", "-Command", cmd])
+                    .output()
+                {
                     Ok(_) => Ok("Successfully cleared temporary files".to_string()),
                     Err(e) => Err(format!("Failed to clear temp: {}", e)),
                 }
@@ -3177,7 +3209,10 @@ fn inspect_storage(_max_entries: usize) -> Result<String, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        match Command::new("df").args(["-h", "--output=target,size,avail,pcent"]).output() {
+        match Command::new("df")
+            .args(["-h", "--output=target,size,avail,pcent"])
+            .output()
+        {
             Ok(o) => {
                 let text = String::from_utf8_lossy(&o.stdout);
                 let mut count = 0usize;
@@ -3289,14 +3324,20 @@ fn inspect_hardware() -> Result<String, String> {
         let cpu_script = r#"Get-CimInstance Win32_Processor | ForEach-Object {
     "$($_.Name.Trim())|$($_.NumberOfCores)|$($_.NumberOfLogicalProcessors)|$([math]::Round($_.MaxClockSpeed/1000,1))"
 } | Select-Object -First 1"#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", cpu_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", cpu_script])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             let text = text.trim();
             let parts: Vec<&str> = text.split('|').collect();
             if parts.len() == 4 {
                 out.push_str(&format!(
                     "CPU: {}\n  {} physical cores, {} logical processors, {:.1} GHz\n\n",
-                    parts[0], parts[1], parts[2], parts[3].parse::<f32>().unwrap_or(0.0)
+                    parts[0],
+                    parts[1],
+                    parts[2],
+                    parts[3].parse::<f32>().unwrap_or(0.0)
                 ));
             } else {
                 out.push_str(&format!("CPU: {text}\n\n"));
@@ -3308,7 +3349,10 @@ fn inspect_hardware() -> Result<String, String> {
 $total = ($sticks | Measure-Object Capacity -Sum).Sum / 1GB
 $speed = ($sticks | Select-Object -First 1).Speed
 "$([math]::Round($total,0)) GB @ $($speed) MHz ($($sticks.Count) stick(s))""#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", ram_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", ram_script])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             out.push_str(&format!("RAM: {}\n\n", text.trim().trim_matches('"')));
         }
@@ -3317,7 +3361,10 @@ $speed = ($sticks | Select-Object -First 1).Speed
         let gpu_script = r#"Get-CimInstance Win32_VideoController | ForEach-Object {
     "$($_.Name)|$($_.DriverVersion)|$($_.CurrentHorizontalResolution)x$($_.CurrentVerticalResolution)"
 }"#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", gpu_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", gpu_script])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             let lines: Vec<&str> = text.lines().collect();
             if !lines.is_empty() {
@@ -3330,7 +3377,10 @@ $speed = ($sticks | Select-Object -First 1).Speed
                         } else {
                             format!(" — {}@display", parts[2])
                         };
-                        out.push_str(&format!("  {}\n    Driver: {}{}\n", parts[0], parts[1], res));
+                        out.push_str(&format!(
+                            "  {}\n    Driver: {}{}\n",
+                            parts[0], parts[1], res
+                        ));
                     } else {
                         out.push_str(&format!("  {}\n", line.trim()));
                     }
@@ -3343,12 +3393,19 @@ $speed = ($sticks | Select-Object -First 1).Speed
         let mb_script = r#"$mb = Get-CimInstance Win32_BaseBoard
 $bios = Get-CimInstance Win32_BIOS
 "$($mb.Manufacturer.Trim()) $($mb.Product.Trim())|BIOS: $($bios.Manufacturer.Trim()) $($bios.SMBIOSBIOSVersion.Trim()) ($($bios.ReleaseDate))""#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", mb_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", mb_script])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             let text = text.trim().trim_matches('"');
             let parts: Vec<&str> = text.split('|').collect();
             if parts.len() == 2 {
-                out.push_str(&format!("Motherboard: {}\n{}\n\n", parts[0].trim(), parts[1].trim()));
+                out.push_str(&format!(
+                    "Motherboard: {}\n{}\n\n",
+                    parts[0].trim(),
+                    parts[1].trim()
+                ));
             }
         }
 
@@ -3356,7 +3413,10 @@ $bios = Get-CimInstance Win32_BIOS
         let disp_script = r#"Get-CimInstance Win32_DesktopMonitor | Where-Object {$_.ScreenWidth -gt 0} | ForEach-Object {
     "$($_.Name)|$($_.ScreenWidth)x$($_.ScreenHeight)"
 }"#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", disp_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", disp_script])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
             if !lines.is_empty() {
@@ -3375,18 +3435,23 @@ $bios = Get-CimInstance Win32_BIOS
     {
         // CPU via /proc/cpuinfo
         if let Ok(content) = std::fs::read_to_string("/proc/cpuinfo") {
-            let model = content.lines()
+            let model = content
+                .lines()
                 .find(|l| l.starts_with("model name"))
                 .and_then(|l| l.split(':').nth(1))
                 .map(str::trim)
                 .unwrap_or("unknown");
-            let cores = content.lines().filter(|l| l.starts_with("processor")).count();
+            let cores = content
+                .lines()
+                .filter(|l| l.starts_with("processor"))
+                .count();
             out.push_str(&format!("CPU: {model}\n  {cores} logical processors\n\n"));
         }
 
         // RAM
         if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
-            let total_kb: u64 = content.lines()
+            let total_kb: u64 = content
+                .lines()
                 .find(|l| l.starts_with("MemTotal:"))
                 .and_then(|l| l.split_whitespace().nth(1))
                 .and_then(|v| v.parse().ok())
@@ -3398,7 +3463,8 @@ $bios = Get-CimInstance Win32_BIOS
         // GPU via lspci
         if let Ok(o) = Command::new("lspci").args(["-vmm"]).output() {
             let text = String::from_utf8_lossy(&o.stdout);
-            let gpu_lines: Vec<&str> = text.lines()
+            let gpu_lines: Vec<&str> = text
+                .lines()
                 .filter(|l| l.contains("VGA") || l.contains("Display") || l.contains("3D"))
                 .collect();
             if !gpu_lines.is_empty() {
@@ -3411,12 +3477,21 @@ $bios = Get-CimInstance Win32_BIOS
         }
 
         // DMI/BIOS info
-        if let Ok(o) = Command::new("dmidecode").args(["-t", "baseboard", "-t", "bios"]).output() {
+        if let Ok(o) = Command::new("dmidecode")
+            .args(["-t", "baseboard", "-t", "bios"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             out.push_str("Motherboard/BIOS:\n");
-            for line in text.lines().filter(|l| {
-                l.contains("Manufacturer:") || l.contains("Product Name:") || l.contains("Version:")
-            }).take(6) {
+            for line in text
+                .lines()
+                .filter(|l| {
+                    l.contains("Manufacturer:")
+                        || l.contains("Product Name:")
+                        || l.contains("Version:")
+                })
+                .take(6)
+            {
                 out.push_str(&format!("  {}\n", line.trim()));
             }
         }
@@ -3444,7 +3519,10 @@ try {
     } else { "NONE|LAST_INSTALL" }
 } catch { "ERROR:" + $_.Exception.Message + "|LAST_INSTALL" }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
             let raw = String::from_utf8_lossy(&o.stdout);
             let text = raw.trim();
             if text.starts_with("ERROR:") {
@@ -3466,7 +3544,10 @@ try {
     $results.Updates.Count.ToString() + "|PENDING"
 } catch { "ERROR:" + $_.Exception.Message + "|PENDING" }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", pending_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", pending_script])
+            .output()
+        {
             let raw = String::from_utf8_lossy(&o.stdout);
             let text = raw.trim();
             if text.starts_with("ERROR:") {
@@ -3477,7 +3558,9 @@ try {
                     out.push_str("Pending updates: Up to date — no updates waiting\n");
                 } else if count > 0 {
                     out.push_str(&format!("Pending updates: {count} update(s) available\n"));
-                    out.push_str("  → Open Windows Update (Settings > Windows Update) to install\n");
+                    out.push_str(
+                        "  → Open Windows Update (Settings > Windows Update) to install\n",
+                    );
                 }
             }
         }
@@ -3487,7 +3570,10 @@ try {
 $svc = Get-Service -Name wuauserv -ErrorAction SilentlyContinue
 if ($svc) { $svc.Status.ToString() } else { "NOT_FOUND" }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", svc_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", svc_script])
+            .output()
+        {
             let raw = String::from_utf8_lossy(&o.stdout);
             let status = raw.trim();
             out.push_str(&format!("Windows Update service: {status}\n"));
@@ -3500,19 +3586,29 @@ if ($svc) { $svc.Status.ToString() } else { "NOT_FOUND" }
         let mut found = false;
         if let Ok(o) = apt_out {
             let text = String::from_utf8_lossy(&o.stdout);
-            let lines: Vec<&str> = text.lines()
+            let lines: Vec<&str> = text
+                .lines()
                 .filter(|l| l.contains('/') && !l.contains("Listing"))
                 .collect();
             if !lines.is_empty() {
-                out.push_str(&format!("{} package(s) can be upgraded (apt)\n", lines.len()));
+                out.push_str(&format!(
+                    "{} package(s) can be upgraded (apt)\n",
+                    lines.len()
+                ));
                 out.push_str("  → Run: sudo apt upgrade\n");
                 found = true;
             }
         }
         if !found {
-            if let Ok(o) = Command::new("dnf").args(["check-update", "--quiet"]).output() {
+            if let Ok(o) = Command::new("dnf")
+                .args(["check-update", "--quiet"])
+                .output()
+            {
                 let text = String::from_utf8_lossy(&o.stdout);
-                let count = text.lines().filter(|l| !l.is_empty() && !l.starts_with('!')).count();
+                let count = text
+                    .lines()
+                    .filter(|l| !l.is_empty() && !l.starts_with('!'))
+                    .count();
                 if count > 0 {
                     out.push_str(&format!("{count} package(s) can be upgraded (dnf)\n"));
                     out.push_str("  → Run: sudo dnf upgrade\n");
@@ -3542,7 +3638,10 @@ try {
     "RTP:" + $status.RealTimeProtectionEnabled + "|SCAN:" + $status.QuickScanEndTime.ToString("yyyy-MM-dd HH:mm") + "|VER:" + $status.AntivirusSignatureVersion + "|AGE:" + $status.AntivirusSignatureAge
 } catch { "ERROR:" + $_.Exception.Message }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", defender_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", defender_script])
+            .output()
+        {
             let raw = String::from_utf8_lossy(&o.stdout);
             let text = raw.trim();
             if text.starts_with("ERROR:") {
@@ -3567,20 +3666,35 @@ try {
                 let def_ver = get("VER");
                 let age_days: i64 = get("AGE").parse().unwrap_or(-1);
 
-                let rtp_label = if rtp == "True" { "ENABLED" } else { "DISABLED [!]" };
-                out.push_str(&format!("Windows Defender real-time protection: {rtp_label}\n"));
+                let rtp_label = if rtp == "True" {
+                    "ENABLED"
+                } else {
+                    "DISABLED [!]"
+                };
+                out.push_str(&format!(
+                    "Windows Defender real-time protection: {rtp_label}\n"
+                ));
                 out.push_str(&format!("Last quick scan: {last_scan}\n"));
                 out.push_str(&format!("Signature version: {def_ver}\n"));
                 if age_days >= 0 {
-                    let freshness = if age_days == 0 { "up to date".to_string() }
-                        else if age_days <= 3 { format!("{age_days} day(s) old — OK") }
-                        else if age_days <= 7 { format!("{age_days} day(s) old — consider updating") }
-                        else { format!("{age_days} day(s) old — [!] STALE, run Windows Update") };
+                    let freshness = if age_days == 0 {
+                        "up to date".to_string()
+                    } else if age_days <= 3 {
+                        format!("{age_days} day(s) old — OK")
+                    } else if age_days <= 7 {
+                        format!("{age_days} day(s) old — consider updating")
+                    } else {
+                        format!("{age_days} day(s) old — [!] STALE, run Windows Update")
+                    };
                     out.push_str(&format!("Signature age: {freshness}\n"));
                 }
                 if rtp != "True" {
-                    out.push_str("\n[!] Real-time protection is OFF — your PC is not actively protected.\n");
-                    out.push_str("    → Open Windows Security > Virus & threat protection to re-enable.\n");
+                    out.push_str(
+                        "\n[!] Real-time protection is OFF — your PC is not actively protected.\n",
+                    );
+                    out.push_str(
+                        "    → Open Windows Security > Virus & threat protection to re-enable.\n",
+                    );
                 }
             }
         }
@@ -3593,14 +3707,21 @@ try {
     Get-NetFirewallProfile -ErrorAction Stop | ForEach-Object { $_.Name + ":" + $_.Enabled }
 } catch { "ERROR:" + $_.Exception.Message }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", fw_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", fw_script])
+            .output()
+        {
             let raw = String::from_utf8_lossy(&o.stdout);
             let text = raw.trim();
             if !text.starts_with("ERROR:") && !text.is_empty() {
                 out.push_str("Windows Firewall:\n");
                 for line in text.lines() {
                     if let Some((name, enabled)) = line.split_once(':') {
-                        let state = if enabled.trim() == "True" { "ON" } else { "OFF [!]" };
+                        let state = if enabled.trim() == "True" {
+                            "ON"
+                        } else {
+                            "OFF [!]"
+                        };
                         out.push_str(&format!("  {name}: {state}\n"));
                     }
                 }
@@ -3615,7 +3736,10 @@ try {
     if ($lic) { "ACTIVATED" } else { "NOT_ACTIVATED" }
 } catch { "UNKNOWN" }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", act_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", act_script])
+            .output()
+        {
             let raw = String::from_utf8_lossy(&o.stdout);
             match raw.trim() {
                 "ACTIVATED" => out.push_str("Windows activation: Activated\n"),
@@ -3629,10 +3753,17 @@ try {
 $val = Get-ItemPropertyValue 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name EnableLUA -ErrorAction SilentlyContinue
 if ($val -eq 1) { "ON" } else { "OFF" }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", uac_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", uac_script])
+            .output()
+        {
             let raw = String::from_utf8_lossy(&o.stdout);
             let state = raw.trim();
-            let label = if state == "ON" { "Enabled" } else { "DISABLED [!] — recommended to re-enable via secpol.msc" };
+            let label = if state == "ON" {
+                "Enabled"
+            } else {
+                "DISABLED [!] — recommended to re-enable via secpol.msc"
+            };
             out.push_str(&format!("UAC (User Account Control): {label}\n"));
         }
     }
@@ -3641,7 +3772,10 @@ if ($val -eq 1) { "ON" } else { "OFF" }
     {
         if let Ok(o) = Command::new("ufw").arg("status").output() {
             let text = String::from_utf8_lossy(&o.stdout);
-            out.push_str(&format!("UFW: {}\n", text.lines().next().unwrap_or("unknown")));
+            out.push_str(&format!(
+                "UFW: {}\n",
+                text.lines().next().unwrap_or("unknown")
+            ));
         }
         if let Ok(cfg) = std::fs::read_to_string("/etc/selinux/config") {
             if let Some(line) = cfg.lines().find(|l| l.starts_with("SELINUX=")) {
@@ -3776,7 +3910,10 @@ try {
         ForEach-Object { $_.InstanceName + "|" + $_.PredictFailure }
 } catch { "" }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", smart_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", smart_script])
+            .output()
+        {
             let raw2 = String::from_utf8_lossy(&o.stdout);
             let text2 = raw2.trim();
             if !text2.is_empty() {
@@ -3789,7 +3926,9 @@ try {
                         let name = f.split('|').next().unwrap_or(f);
                         out.push_str(&format!("  • {name}\n"));
                     }
-                    out.push_str("\nBack up your data immediately and replace the failing drive.\n");
+                    out.push_str(
+                        "\nBack up your data immediately and replace the failing drive.\n",
+                    );
                 }
             }
         }
@@ -3797,7 +3936,10 @@ try {
 
     #[cfg(not(target_os = "windows"))]
     {
-        if let Ok(o) = Command::new("lsblk").args(["-d", "-o", "NAME,SIZE,TYPE,ROTA,MODEL"]).output() {
+        if let Ok(o) = Command::new("lsblk")
+            .args(["-d", "-o", "NAME,SIZE,TYPE,ROTA,MODEL"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             out.push_str("Block devices:\n");
             out.push_str(text.trim());
@@ -3807,10 +3949,13 @@ try {
             let devices = String::from_utf8_lossy(&scan.stdout);
             for dev_line in devices.lines().take(4) {
                 let dev = dev_line.split_whitespace().next().unwrap_or("");
-                if dev.is_empty() { continue; }
+                if dev.is_empty() {
+                    continue;
+                }
                 if let Ok(o) = Command::new("smartctl").args(["-H", dev]).output() {
                     let health = String::from_utf8_lossy(&o.stdout);
-                    if let Some(line) = health.lines().find(|l| l.contains("SMART overall-health")) {
+                    if let Some(line) = health.lines().find(|l| l.contains("SMART overall-health"))
+                    {
                         out.push_str(&format!("{dev}: {}\n", line.trim()));
                     }
                 }
@@ -3875,7 +4020,8 @@ try {
                 out.push_str(&format!("Battery: {name}\n"));
                 if charge >= 0 {
                     let bar_filled = (charge as usize * 20) / 100;
-                    out.push_str(&format!("  Charge: [{}{}] {}%\n",
+                    out.push_str(&format!(
+                        "  Charge: [{}{}] {}%\n",
                         "#".repeat(bar_filled),
                         ".".repeat(20 - bar_filled),
                         charge
@@ -3903,7 +4049,10 @@ try {
     } else { "UNKNOWN" }
 } catch { "UNKNOWN" }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", wear_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", wear_script])
+            .output()
+        {
             let raw2 = String::from_utf8_lossy(&o.stdout);
             let t = raw2.trim();
             if t != "UNKNOWN" && !t.is_empty() {
@@ -3912,8 +4061,12 @@ try {
                     let full: i64 = parts[0].parse().unwrap_or(0);
                     let design: i64 = parts[1].parse().unwrap_or(0);
                     let pct: f64 = parts[2].parse().unwrap_or(0.0);
-                    out.push_str(&format!("Battery wear level: {pct:.1}% of original capacity\n"));
-                    out.push_str(&format!("  Current full charge: {full} mWh / Design: {design} mWh\n"));
+                    out.push_str(&format!(
+                        "Battery wear level: {pct:.1}% of original capacity\n"
+                    ));
+                    out.push_str(&format!(
+                        "  Current full charge: {full} mWh / Design: {design} mWh\n"
+                    ));
                     if pct < 50.0 {
                         out.push_str("  [!] Significantly degraded — consider replacement\n");
                     } else if pct < 75.0 {
@@ -3937,16 +4090,33 @@ try {
                     if let Ok(t) = std::fs::read_to_string(p.join("type")) {
                         if t.trim() == "Battery" {
                             found = true;
-                            let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+                            let name = p
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
                             out.push_str(&format!("Battery: {name}\n"));
-                            let read = |f: &str| std::fs::read_to_string(p.join(f))
-                                .ok().map(|s| s.trim().to_string());
-                            if let Some(cap) = read("capacity") { out.push_str(&format!("  Charge: {cap}%\n")); }
-                            if let Some(status) = read("status") { out.push_str(&format!("  Status: {status}\n")); }
-                            if let (Some(full), Some(design)) = (read("energy_full"), read("energy_full_design")) {
-                                if let (Ok(f), Ok(d)) = (full.parse::<f64>(), design.parse::<f64>()) {
+                            let read = |f: &str| {
+                                std::fs::read_to_string(p.join(f))
+                                    .ok()
+                                    .map(|s| s.trim().to_string())
+                            };
+                            if let Some(cap) = read("capacity") {
+                                out.push_str(&format!("  Charge: {cap}%\n"));
+                            }
+                            if let Some(status) = read("status") {
+                                out.push_str(&format!("  Status: {status}\n"));
+                            }
+                            if let (Some(full), Some(design)) =
+                                (read("energy_full"), read("energy_full_design"))
+                            {
+                                if let (Ok(f), Ok(d)) = (full.parse::<f64>(), design.parse::<f64>())
+                                {
                                     if d > 0.0 {
-                                        out.push_str(&format!("  Wear level: {:.1}% of design capacity\n", (f / d) * 100.0));
+                                        out.push_str(&format!(
+                                            "  Wear level: {:.1}% of design capacity\n",
+                                            (f / d) * 100.0
+                                        ));
                                     }
                                 }
                             }
@@ -3972,7 +4142,8 @@ fn inspect_recent_crashes(max_entries: usize) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         // BSODs / unexpected shutdowns (EventID 41 = kernel power, 1001 = BugCheck)
-        let bsod_script = format!(r#"
+        let bsod_script = format!(
+            r#"
 try {{
     $events = Get-WinEvent -FilterHashtable @{{LogName='System'; Id=41,1001}} -MaxEvents {n} -ErrorAction SilentlyContinue
     if ($events) {{
@@ -3980,9 +4151,13 @@ try {{
             $_.TimeCreated.ToString("yyyy-MM-dd HH:mm") + "|" + $_.Id + "|" + (($_.Message -split "[\r\n]")[0].Trim())
         }}
     }} else {{ "NO_BSOD" }}
-}} catch {{ "ERROR:" + $_.Exception.Message }}"#);
+}} catch {{ "ERROR:" + $_.Exception.Message }}"#
+        );
 
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", &bsod_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &bsod_script])
+            .output()
+        {
             let raw = String::from_utf8_lossy(&o.stdout);
             let text = raw.trim();
             if text == "NO_BSOD" {
@@ -3997,7 +4172,11 @@ try {{
                         let time = parts[0];
                         let id = parts[1];
                         let msg = parts[2];
-                        let label = if id == "41" { "Unexpected shutdown" } else { "BSOD (BugCheck)" };
+                        let label = if id == "41" {
+                            "Unexpected shutdown"
+                        } else {
+                            "BSOD (BugCheck)"
+                        };
                         out.push_str(&format!("  [{time}] {label}: {msg}\n"));
                     }
                 }
@@ -4006,7 +4185,8 @@ try {{
         }
 
         // Application crashes (EventID 1000 = app crash, 1002 = app hang)
-        let app_script = format!(r#"
+        let app_script = format!(
+            r#"
 try {{
     $crashes = Get-WinEvent -FilterHashtable @{{LogName='Application'; Id=1000,1002}} -MaxEvents {n} -ErrorAction SilentlyContinue
     if ($crashes) {{
@@ -4014,9 +4194,13 @@ try {{
             $_.TimeCreated.ToString("yyyy-MM-dd HH:mm") + "|" + (($_.Message -split "[\r\n]")[0].Trim())
         }}
     }} else {{ "NO_CRASHES" }}
-}} catch {{ "ERROR_APP:" + $_.Exception.Message }}"#);
+}} catch {{ "ERROR_APP:" + $_.Exception.Message }}"#
+        );
 
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", &app_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &app_script])
+            .output()
+        {
             let raw = String::from_utf8_lossy(&o.stdout);
             let text = raw.trim();
             if text == "NO_CRASHES" {
@@ -4038,7 +4222,10 @@ try {{
     #[cfg(not(target_os = "windows"))]
     {
         let n_str = n.to_string();
-        if let Ok(o) = Command::new("journalctl").args(["-k", "--no-pager", "-n", &n_str, "-p", "0..2"]).output() {
+        if let Ok(o) = Command::new("journalctl")
+            .args(["-k", "--no-pager", "-n", &n_str, "-p", "0..2"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             let trimmed = text.trim();
             if trimmed.is_empty() || trimmed.contains("No entries") {
@@ -4049,11 +4236,19 @@ try {{
                 out.push('\n');
             }
         }
-        if let Ok(o) = Command::new("coredumpctl").args(["list", "--no-pager"]).output() {
+        if let Ok(o) = Command::new("coredumpctl")
+            .args(["list", "--no-pager"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
-            let count = text.lines().filter(|l| !l.trim().is_empty() && !l.starts_with("TIME")).count();
+            let count = text
+                .lines()
+                .filter(|l| !l.trim().is_empty() && !l.starts_with("TIME"))
+                .count();
             if count > 0 {
-                out.push_str(&format!("\nCore dumps on file: {count}\n  → Run: coredumpctl list\n"));
+                out.push_str(&format!(
+                    "\nCore dumps on file: {count}\n  → Run: coredumpctl list\n"
+                ));
             }
         }
     }
@@ -4069,7 +4264,8 @@ fn inspect_scheduled_tasks(max_entries: usize) -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        let script = format!(r#"
+        let script = format!(
+            r#"
 try {{
     $tasks = Get-ScheduledTask -ErrorAction Stop |
         Where-Object {{ $_.State -ne 'Disabled' }} |
@@ -4083,7 +4279,8 @@ try {{
             $_.TaskName + "|" + $_.TaskPath + "|" + $_.State + "|" + $lastRun + "|" + $exec
         }}
     $tasks | Select-Object -First {n}
-}} catch {{ "ERROR:" + $_.Exception.Message }}"#);
+}} catch {{ "ERROR:" + $_.Exception.Message }}"#
+        );
 
         let output = Command::new("powershell")
             .args(["-NoProfile", "-Command", &script])
@@ -4108,7 +4305,11 @@ try {{
                     let last = parts[3];
                     let exec = parts.get(4).unwrap_or(&"").trim();
                     let display_path = path.trim_matches('\\');
-                    let display_path = if display_path.is_empty() { "Root" } else { display_path };
+                    let display_path = if display_path.is_empty() {
+                        "Root"
+                    } else {
+                        display_path
+                    };
                     out.push_str(&format!("  {name} [{display_path}]\n"));
                     out.push_str(&format!("    State: {state} | Last run: {last}\n"));
                     if !exec.is_empty() && exec != "(no exec)" {
@@ -4122,11 +4323,17 @@ try {{
 
     #[cfg(not(target_os = "windows"))]
     {
-        if let Ok(o) = Command::new("systemctl").args(["list-timers", "--no-pager", "--all"]).output() {
+        if let Ok(o) = Command::new("systemctl")
+            .args(["list-timers", "--no-pager", "--all"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             out.push_str("Systemd timers:\n");
-            for l in text.lines()
-                .filter(|l| !l.trim().is_empty() && !l.starts_with("NEXT") && !l.starts_with("timers"))
+            for l in text
+                .lines()
+                .filter(|l| {
+                    !l.trim().is_empty() && !l.starts_with("NEXT") && !l.starts_with("timers")
+                })
                 .take(n)
             {
                 out.push_str(&format!("  {l}\n"));
@@ -4135,12 +4342,15 @@ try {{
         }
         if let Ok(o) = Command::new("crontab").arg("-l").output() {
             let text = String::from_utf8_lossy(&o.stdout);
-            let jobs: Vec<&str> = text.lines()
+            let jobs: Vec<&str> = text
+                .lines()
                 .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
                 .collect();
             if !jobs.is_empty() {
                 out.push_str("User crontab:\n");
-                for j in jobs.iter().take(n) { out.push_str(&format!("  {j}\n")); }
+                for j in jobs.iter().take(n) {
+                    out.push_str(&format!("  {j}\n"));
+                }
             }
         }
     }
@@ -4157,18 +4367,30 @@ fn inspect_dev_conflicts() -> Result<String, String> {
 
     // ── Node.js / version managers ────────────────────────────────────────────
     {
-        let node_ver = Command::new("node").arg("--version").output().ok()
+        let node_ver = Command::new("node")
+            .arg("--version")
+            .output()
+            .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string());
-        let nvm_active = Command::new("nvm").arg("current").output().ok()
+        let nvm_active = Command::new("nvm")
+            .arg("current")
+            .output()
+            .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty() && !s.contains("none") && !s.contains("No current"));
-        let fnm_active = Command::new("fnm").arg("current").output().ok()
+        let fnm_active = Command::new("fnm")
+            .arg("current")
+            .output()
+            .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty() && !s.contains("none"));
-        let volta_active = Command::new("volta").args(["which", "node"]).output().ok()
+        let volta_active = Command::new("volta")
+            .args(["which", "node"])
+            .output()
+            .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
@@ -4183,7 +4405,10 @@ fn inspect_dev_conflicts() -> Result<String, String> {
             nvm_active.as_deref(),
             fnm_active.as_deref(),
             volta_active.as_deref(),
-        ].iter().filter_map(|x| *x).collect();
+        ]
+        .iter()
+        .filter_map(|x| *x)
+        .collect();
         if managers.len() > 1 {
             conflicts.push(format!(
                 "Multiple Node.js version managers detected (nvm/fnm/volta). Only one should be active to avoid PATH conflicts."
@@ -4196,21 +4421,38 @@ fn inspect_dev_conflicts() -> Result<String, String> {
 
     // ── Python ────────────────────────────────────────────────────────────────
     {
-        let py3 = Command::new("python3").arg("--version").output().ok()
+        let py3 = Command::new("python3")
+            .arg("--version")
+            .output()
+            .ok()
             .and_then(|o| {
                 let stdout = String::from_utf8_lossy(&o.stdout).trim().to_string();
                 let stderr = String::from_utf8_lossy(&o.stderr).trim().to_string();
                 let v = if stdout.is_empty() { stderr } else { stdout };
-                if v.is_empty() { None } else { Some(v) }
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
             });
-        let py = Command::new("python").arg("--version").output().ok()
+        let py = Command::new("python")
+            .arg("--version")
+            .output()
+            .ok()
             .and_then(|o| {
                 let stdout = String::from_utf8_lossy(&o.stdout).trim().to_string();
                 let stderr = String::from_utf8_lossy(&o.stderr).trim().to_string();
                 let v = if stdout.is_empty() { stderr } else { stdout };
-                if v.is_empty() { None } else { Some(v) }
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
             });
-        let pyenv = Command::new("pyenv").arg("version").output().ok()
+        let pyenv = Command::new("pyenv")
+            .arg("version")
+            .output()
+            .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
@@ -4225,7 +4467,9 @@ fn inspect_dev_conflicts() -> Result<String, String> {
                         "python and python3 point to different major versions (2.x vs 3.x). Scripts using 'python' may break unexpectedly.".to_string()
                     );
                 } else {
-                    notes.push("python and python3 resolve to different minor versions.".to_string());
+                    notes.push(
+                        "python and python3 resolve to different minor versions.".to_string(),
+                    );
                 }
             }
             (Some(v3), None) => out.push_str(&format!("  python3: {v3}\n")),
@@ -4233,7 +4477,9 @@ fn inspect_dev_conflicts() -> Result<String, String> {
             (Some(v3), Some(_)) => out.push_str(&format!("  {v3}\n")),
             (None, None) => out.push_str("  Not installed\n"),
         }
-        if let Some(ref pe) = pyenv { out.push_str(&format!("  pyenv: {pe}\n")); }
+        if let Some(ref pe) = pyenv {
+            out.push_str(&format!("  pyenv: {pe}\n"));
+        }
         if let Some(env) = conda_env {
             if env == "base" {
                 notes.push("Conda base environment is active — may shadow system Python. Run 'conda deactivate' if unexpected.".to_string());
@@ -4246,22 +4492,39 @@ fn inspect_dev_conflicts() -> Result<String, String> {
 
     // ── Rust / Cargo ──────────────────────────────────────────────────────────
     {
-        let toolchain = Command::new("rustup").args(["show", "active-toolchain"]).output().ok()
+        let toolchain = Command::new("rustup")
+            .args(["show", "active-toolchain"])
+            .output()
+            .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
-        let cargo_ver = Command::new("cargo").arg("--version").output().ok()
+        let cargo_ver = Command::new("cargo")
+            .arg("--version")
+            .output()
+            .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string());
-        let rustc_ver = Command::new("rustc").arg("--version").output().ok()
+        let rustc_ver = Command::new("rustc")
+            .arg("--version")
+            .output()
+            .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string());
 
         out.push_str("Rust:\n");
-        if let Some(ref t) = toolchain { out.push_str(&format!("  Active toolchain: {t}\n")); }
-        if let Some(ref c) = cargo_ver { out.push_str(&format!("  {c}\n")); }
-        if let Some(ref r) = rustc_ver { out.push_str(&format!("  {r}\n")); }
-        if cargo_ver.is_none() && rustc_ver.is_none() { out.push_str("  Not installed\n"); }
+        if let Some(ref t) = toolchain {
+            out.push_str(&format!("  Active toolchain: {t}\n"));
+        }
+        if let Some(ref c) = cargo_ver {
+            out.push_str(&format!("  {c}\n"));
+        }
+        if let Some(ref r) = rustc_ver {
+            out.push_str(&format!("  {r}\n"));
+        }
+        if cargo_ver.is_none() && rustc_ver.is_none() {
+            out.push_str("  Not installed\n");
+        }
 
         // Detect system rust that might shadow rustup
         #[cfg(not(target_os = "windows"))]
@@ -4278,13 +4541,19 @@ fn inspect_dev_conflicts() -> Result<String, String> {
 
     // ── Git ───────────────────────────────────────────────────────────────────
     {
-        let git_ver = Command::new("git").arg("--version").output().ok()
+        let git_ver = Command::new("git")
+            .arg("--version")
+            .output()
+            .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string());
         out.push_str("Git:\n");
         if let Some(ref v) = git_ver {
             out.push_str(&format!("  {v}\n"));
-            let email = Command::new("git").args(["config", "--global", "user.email"]).output().ok()
+            let email = Command::new("git")
+                .args(["config", "--global", "user.email"])
+                .output()
+                .ok()
                 .and_then(|o| String::from_utf8(o.stdout).ok())
                 .map(|s| s.trim().to_string());
             if let Some(ref e) = email {
@@ -4294,11 +4563,17 @@ fn inspect_dev_conflicts() -> Result<String, String> {
                     out.push_str(&format!("  user.email: {e}\n"));
                 }
             }
-            let gpg_sign = Command::new("git").args(["config", "--global", "commit.gpgsign"]).output().ok()
+            let gpg_sign = Command::new("git")
+                .args(["config", "--global", "commit.gpgsign"])
+                .output()
+                .ok()
                 .and_then(|o| String::from_utf8(o.stdout).ok())
                 .map(|s| s.trim().to_string());
             if gpg_sign.as_deref() == Some("true") {
-                let key = Command::new("git").args(["config", "--global", "user.signingkey"]).output().ok()
+                let key = Command::new("git")
+                    .args(["config", "--global", "user.signingkey"])
+                    .output()
+                    .ok()
                     .and_then(|o| String::from_utf8(o.stdout).ok())
                     .map(|s| s.trim().to_string());
                 if key.as_deref().map(|k| k.is_empty()).unwrap_or(true) {
@@ -4328,7 +4603,11 @@ fn inspect_dev_conflicts() -> Result<String, String> {
             notes.push(format!(
                 "Duplicate PATH entries: {} {}",
                 shown.join(", "),
-                if dupes.len() > 3 { format!("+{} more", dupes.len() - 3) } else { String::new() }
+                if dupes.len() > 3 {
+                    format!("+{} more", dupes.len() - 3)
+                } else {
+                    String::new()
+                }
             ));
         }
     }
@@ -4339,12 +4618,16 @@ fn inspect_dev_conflicts() -> Result<String, String> {
     } else {
         if !conflicts.is_empty() {
             out.push_str("CONFLICTS:\n");
-            for c in &conflicts { out.push_str(&format!("  [!] {c}\n")); }
+            for c in &conflicts {
+                out.push_str(&format!("  [!] {c}\n"));
+            }
             out.push('\n');
         }
         if !notes.is_empty() {
             out.push_str("NOTES:\n");
-            for n in &notes { out.push_str(&format!("  [-] {n}\n")); }
+            for n in &notes {
+                out.push_str(&format!("  [-] {n}\n"));
+            }
         }
     }
 

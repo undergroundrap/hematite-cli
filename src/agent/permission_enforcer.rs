@@ -133,6 +133,16 @@ pub fn authorize_tool_call(
 
     if name == "shell" {
         let cmd = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
+
+        // Auto-deny any shell call that looks like a host-inspection question.
+        // validate_action_preconditions will auto-redirect it to inspect_host.
+        if crate::agent::conversation::shell_looks_like_structured_host_inspection(cmd) {
+            return AuthorizationDecision::Deny {
+                source: AuthorizationSource::ShellBlacklist,
+                reason: "Action blocked: use inspect_host instead of shell for host-inspection questions.".to_string(),
+            };
+        }
+
         match permission_for_shell(cmd, config) {
             PermissionDecision::Allow => {
                 return AuthorizationDecision::Allow {

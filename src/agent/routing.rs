@@ -353,6 +353,75 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || lower.contains("system health")
         || (lower.contains("how") && lower.contains("machine") && lower.contains("doing"))
         || (lower.contains("status") && lower.contains("report") && !lower.contains("git"));
+    let asks_updates = lower.contains("up to date")
+        || lower.contains("windows update")
+        || lower.contains("pending update")
+        || lower.contains("update available")
+        || lower.contains("check for update")
+        || lower.contains("latest update")
+        || (lower.contains("update") && (lower.contains("my pc") || lower.contains("my computer") || lower.contains("my machine")));
+    let asks_security = lower.contains("antivirus")
+        || lower.contains("defender")
+        || lower.contains("virus protection")
+        || lower.contains("malware")
+        || lower.contains("windows security")
+        || lower.contains("uac")
+        || lower.contains("windows activated")
+        || lower.contains("activation status")
+        || (lower.contains("protected") && (lower.contains("pc") || lower.contains("computer")))
+        || (lower.contains("security") && !lower.contains("git") && !lower.contains("ssh") && !lower.contains("token"));
+    let asks_pending_reboot = lower.contains("need to restart")
+        || lower.contains("need to reboot")
+        || lower.contains("requires restart")
+        || lower.contains("requires a reboot")
+        || lower.contains("reboot required")
+        || lower.contains("restart required")
+        || lower.contains("pending restart")
+        || lower.contains("pending reboot")
+        || (lower.contains("restart") && (lower.contains("waiting") || lower.contains("queued") || lower.contains("required")))
+        || (lower.contains("reboot") && lower.contains("required"));
+    let asks_disk_health = lower.contains("disk health")
+        || lower.contains("drive health")
+        || lower.contains("hard drive dying")
+        || lower.contains("smart status")
+        || lower.contains("drive failing")
+        || lower.contains("drive fail")
+        || (lower.contains("dying") && (lower.contains("drive") || lower.contains("disk")))
+        || (lower.contains("healthy") && (lower.contains("drive") || lower.contains("disk") || lower.contains("ssd") || lower.contains("hdd")));
+    let asks_battery = lower.contains("battery")
+        || lower.contains("battery life")
+        || lower.contains("battery health")
+        || lower.contains("battery wear")
+        || lower.contains("charge level")
+        || lower.contains("how long until")
+        || (lower.contains("dying") && lower.contains("batter"));
+    let asks_recent_crashes = lower.contains("crash")
+        || lower.contains("bsod")
+        || lower.contains("blue screen")
+        || lower.contains("why did my pc restart")
+        || lower.contains("unexpected restart")
+        || lower.contains("sudden restart")
+        || lower.contains("kernel panic")
+        || lower.contains("app crash")
+        || (lower.contains("restart") && lower.contains("itself"))
+        || (lower.contains("restart") && lower.contains("by itself"));
+    let asks_scheduled_tasks = lower.contains("scheduled task")
+        || lower.contains("scheduled tasks")
+        || lower.contains("task scheduler")
+        || lower.contains("what runs on a timer")
+        || lower.contains("what runs at")
+        || lower.contains("cron job")
+        || lower.contains("background task");
+    let asks_dev_conflicts = lower.contains("dev conflict")
+        || lower.contains("environment conflict")
+        || lower.contains("toolchain conflict")
+        || lower.contains("version conflict")
+        || lower.contains("path conflict")
+        || lower.contains("duplicate path")
+        || (lower.contains("python") && lower.contains("wrong version"))
+        || (lower.contains("node") && lower.contains("wrong version"))
+        || lower.contains("conda shadow")
+        || lower.contains("dev environment clean");
     let asks_resource_load = lower.contains("resource load")
         || lower.contains("system load")
         || lower.contains("performance")
@@ -372,6 +441,22 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
 
     if asks_fix_plan {
         Some("fix_plan")
+    } else if asks_updates {
+        Some("updates")
+    } else if asks_security {
+        Some("security")
+    } else if asks_pending_reboot {
+        Some("pending_reboot")
+    } else if asks_disk_health {
+        Some("disk_health")
+    } else if asks_battery {
+        Some("battery")
+    } else if asks_recent_crashes {
+        Some("recent_crashes")
+    } else if asks_scheduled_tasks {
+        Some("scheduled_tasks")
+    } else if asks_dev_conflicts {
+        Some("dev_conflicts")
     } else if (asks_path && asks_toolchains)
         || (mentions_host_inspection_question(&lower) && asks_broad_readiness)
     {

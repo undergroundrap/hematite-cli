@@ -1371,17 +1371,23 @@ impl ConversationManager {
         if name == "shell" {
             let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
             if shell_looks_like_structured_host_inspection(command) {
-                // If it looks like host inspection, block it and find the best topic for redirection.
+                // Auto-redirect: silently call inspect_host with the right topic instead of
+                // returning a block error that the model may fail to recover from.
                 let topic = if let Some(prompt) = self.latest_user_prompt() {
                     preferred_host_inspection_topic(prompt).unwrap_or("resource_load")
                 } else {
                     "resource_load"
                 };
-
-                return Err(format!(
-                    "Action blocked: this is a host-inspection question. Prefer `inspect_host(topic: \"{}\")` instead of raw `shell` for PATH, toolchains, environment/package-manager health, network state, service state, running processes, performance metrics, desktop, Downloads, listening ports, repo-doctor checks, or directory/disk summaries. Use `shell` only if `inspect_host` cannot answer the question directly.",
-                    topic
-                ));
+                let redirect_args = serde_json::json!({ "topic": topic });
+                let result = crate::tools::host_inspect::inspect_host(&redirect_args).await;
+                return match result {
+                    Ok(output) => Err(format!(
+                        "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}"
+                    )),
+                    Err(_) => Err(format!(
+                        "Action blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan.",
+                    )),
+                };
             }
             let reason = args
                 .get("reason")
@@ -3094,7 +3100,8 @@ impl ConversationManager {
                             format!("Edit blocked on `{target}`; exact line window required."),
                         ));
                     } else if res.blocked_by_policy
-                        && (final_output.contains("Prefer `") || final_output.contains("Prefer tool"))
+                        && (final_output.contains("Prefer `")
+                            || final_output.contains("Prefer tool"))
                         && recoverable_policy_intervention.is_none()
                     {
                         recoverable_policy_intervention = Some(final_output.clone());
@@ -4777,7 +4784,7 @@ pub fn format_tool_display(name: &str, args: &Value) -> String {
 
 // ── Text utilities ────────────────────────────────────────────────────────────
 
-fn shell_looks_like_structured_host_inspection(command: &str) -> bool {
+pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool {
     let lower = command.to_ascii_lowercase();
     [
         "$env:path",
@@ -4849,6 +4856,65 @@ fn shell_looks_like_structured_host_inspection(command: &str) -> bool {
         "powercfg",
         "uptime",
         "lastbootuptime",
+        // registry reads for OS/version/update/security info — always use inspect_host
+        "hklm:",
+        "hkcu:",
+        "hklm:\\",
+        "hkcu:\\",
+        "currentversion",
+        "productname",
+        "displayversion",
+        "get-itemproperty",
+        "get-itempropertyvalue",
+        // updates
+        "get-windowsupdatelog",
+        "windowsupdatelog",
+        "microsoft.update.session",
+        "createupdatesearcher",
+        "wuauserv",
+        "usoclient",
+        "get-hotfix",
+        "wu_",
+        // security / defender
+        "get-mpcomputerstatus",
+        "get-mppreference",
+        "get-mpthreat",
+        "start-mpscan",
+        "win32_computersecurity",
+        "softwarelicensingproduct",
+        "enablelua",
+        "get-netfirewallrule",
+        "netfirewallprofile",
+        "antivirus",
+        "defenderstatus",
+        // disk health / smart
+        "get-physicaldisk",
+        "get-disk",
+        "msstoragedriver_failurepredic",
+        "win32_diskdrive",
+        "smartstatus",
+        "diskstatus",
+        // battery
+        "win32_battery",
+        "batterystaticdata",
+        "batteryfullchargedcapacity",
+        "batterystatus",
+        "estimatedchargeremaining",
+        // crashes / event log (broader)
+        "get-winevent",
+        "eventid",
+        "bugcheck",
+        "kernelpower",
+        "win32_ntlogevent",
+        "filterhashtable",
+        // scheduled tasks
+        "get-scheduledtask",
+        "get-scheduledtaskinfo",
+        "schtasks",
+        "taskscheduler",
+        // general cim/wmi diagnostic queries — always use inspect_host
+        "get-ciminstance win32",
+        "get-wmiobject win32",
     ]
     .iter()
     .any(|needle| lower.contains(needle))
@@ -5774,5 +5840,153 @@ error[E0308]: mismatched types
         let paths = parse_failing_paths_from_build_output(output);
         assert_eq!(paths.len(), 1);
         assert!(paths[0].contains("file.rs"));
+    }
+
+    #[test]
+    fn intent_router_picks_updates_for_update_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("is my PC up to date?"),
+            Some("updates")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("are there any pending Windows updates?"),
+            Some("updates")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("check for updates on my computer"),
+            Some("updates")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_security_for_antivirus_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("is my antivirus on?"),
+            Some("security")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("is Windows Defender running?"),
+            Some("security")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("is my PC protected?"),
+            Some("security")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_pending_reboot_for_restart_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("do I need to restart my PC?"),
+            Some("pending_reboot")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("is a reboot required?"),
+            Some("pending_reboot")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("is there a pending restart waiting?"),
+            Some("pending_reboot")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_disk_health_for_drive_health_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("is my hard drive dying?"),
+            Some("disk_health")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("check the disk health and SMART status"),
+            Some("disk_health")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("is my SSD healthy?"),
+            Some("disk_health")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_battery_for_battery_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("check my battery"),
+            Some("battery")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("how is my battery life?"),
+            Some("battery")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("what is my battery wear level?"),
+            Some("battery")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_recent_crashes_for_bsod_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("why did my PC restart by itself?"),
+            Some("recent_crashes")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("did my computer BSOD recently?"),
+            Some("recent_crashes")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("show me any recent app crashes"),
+            Some("recent_crashes")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_scheduled_tasks_for_task_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("what scheduled tasks are running on this PC?"),
+            Some("scheduled_tasks")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("show me the task scheduler"),
+            Some("scheduled_tasks")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_dev_conflicts_for_conflict_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("are there any dev environment conflicts?"),
+            Some("dev_conflicts")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("why is python pointing to the wrong version?"),
+            Some("dev_conflicts")
+        );
+    }
+
+    #[test]
+    fn shell_guard_catches_windows_update_commands() {
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-WindowsUpdateLog | Select-Object -Last 50"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "$sess = New-Object -ComObject Microsoft.Update.Session"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-Service wuauserv"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-MpComputerStatus"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-PhysicalDisk"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-CimInstance Win32_Battery"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-WinEvent -FilterHashtable @{Id=41}"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-ScheduledTask | Where-Object State -ne Disabled"
+        ));
     }
 }

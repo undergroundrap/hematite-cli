@@ -270,7 +270,30 @@ impl SystemPromptBuilder {
         prompt.push_str("20. **Deep Sync**: Every 6th turn, review the full TASK.md.\n\n21. **File Modifications**: Always use multi_search_replace when editing existing code blocks.\n");
         prompt.push_str("22. **Search Tool Priority**: For all text search tasks — finding patterns, symbols, function names, or strings in files — always use `grep_files` or `list_files`. Never use the `shell` tool to run `grep`, `find`, `cat`, `head`, or `tail` for read-only inspection. Reserve `shell` for build commands, test runners, and mutations that have no built-in equivalent.");
 
-        prompt.push_str("23. **Host Inspection Priority**: For read-only questions about installed tools, PATH entries, environment/package-manager health, grounded fix plans for common workstation failures, network state, service state, desktop items, Downloads size, listening ports, repo-health summaries, or directory/disk reports, prefer `inspect_host` over raw `shell` when it can answer directly. If the user asks how to fix a common workstation problem such as `cargo not found`, `port 3000 already in use`, or `LM Studio not reachable`, use `fix_plan` first instead of `env_doctor`, `path`, or `ports`. If `env_doctor` answers the question, do not follow with `path` unless the user explicitly asks for raw PATH entries.");
+        prompt.push_str(concat!(
+            "23. **Host Inspection Priority**: NEVER use `shell` for any read-only question about the machine or operating system. ",
+            "Always use `inspect_host` with the correct topic. Topic routing rules (MANDATORY — no exceptions):\n",
+            "  - 'is my PC up to date?' / 'pending updates?' / 'Windows Update' → topic='updates'\n",
+            "  - 'is antivirus on?' / 'Defender running?' / 'is my PC protected?' / 'Windows activated?' / 'UAC' → topic='security'\n",
+            "  - 'do I need to restart?' / 'reboot required?' / 'pending restart?' → topic='pending_reboot'\n",
+            "  - 'is my drive healthy?' / 'SMART status' / 'hard drive dying?' / 'SSD healthy?' → topic='disk_health'\n",
+            "  - 'battery' / 'battery life' / 'charge level' / 'battery wear' → topic='battery'\n",
+            "  - 'why did PC restart?' / 'BSOD?' / 'blue screen' / 'app crash' / 'crash history' → topic='recent_crashes'\n",
+            "  - 'scheduled tasks' / 'task scheduler' / 'what runs on a timer?' → topic='scheduled_tasks'\n",
+            "  - 'dev conflict' / 'toolchain conflict' / 'python wrong version' / 'duplicate PATH' → topic='dev_conflicts'\n",
+            "  - 'disk space' / 'drive capacity' / 'cache size' / 'storage' → topic='storage'\n",
+            "  - 'CPU model' / 'RAM size' / 'GPU' / 'hardware specs' / 'what hardware do I have?' → topic='hardware'\n",
+            "  - 'system health' / 'overall status' → topic='health_report'\n",
+            "  - 'network adapters' / 'IP address' / 'DNS' / 'wifi' → topic='network'\n",
+            "  - 'running services' / 'service status' → topic='services'\n",
+            "  - 'running processes' / 'what is using RAM?' / 'CPU usage by process' → topic='processes'\n",
+            "  - 'listening ports' / 'what is on port 3000?' → topic='ports'\n",
+            "  - 'resource load' / 'CPU %' / 'RAM %' / 'performance' → topic='resource_load'\n",
+            "  - 'fix cargo not found' / 'fix port in use' → topic='fix_plan'\n",
+            "  - 'PATH entries' / 'which tools are installed?' → topic='toolchains' or 'path'\n",
+            "  Do NOT use shell, Get-ItemProperty, registry reads, wmic, Get-CimInstance, Get-WinEvent, Get-PhysicalDisk, Get-MpComputerStatus, Get-ScheduledTask, or any PowerShell diagnostic command. ",
+            "Use inspect_host exclusively. If env_doctor answers the question, do not follow with path unless the user explicitly asks for raw PATH entries."
+        ));
 
         prompt
     }
