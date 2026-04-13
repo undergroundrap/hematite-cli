@@ -306,6 +306,8 @@ explicit dates, "yesterday", or "last week" so the right session period outranks
 **Room taxonomy:** room detection is also rule-based across path segments and filenames now, so
 runtime/config/release/integration/doc files do not all collapse into generic folder labels.
 
+**Memory-type tagging:** session-room chunks (local session reports and imported chat exports) are classified by `detect_memory_type(text)` — a zero-cost regex pass in `src/memory/vein.rs` that tags each chunk as `decision`, `problem`, `milestone`, `preference`, or `""`. The tag is stored in `chunks_meta.memory_type`. `QuerySignals::from_query` sets `query_memory_type` by detecting intent words in the query. During retrieval, matching chunks receive a `+0.35` score boost via `retrieval_signal_boost`. This lets session memory surface by intent (an architectural decision vs. a reported bug vs. a style preference) without the operator using special syntax.
+
 **Operator inspection:** `/vein-inspect` prints a compact report of the current Vein state:
 workspace mode, indexed source/docs/session counts, embedding availability, active room bias, and
 the current hot files grouped by room. Use it when you want to inspect what memory Hematite is
@@ -340,8 +342,9 @@ fall back to a sliding window. This ensures each retrieved chunk is a coherent, 
 - Turn-level transient retry budget (3 per turn) caps runaway retry loops on Channel Errors; budget resets on successful inference
 - Repeat guard: if the same `(tool_name, args)` is called 3+ times in a turn, a hard stop intervention is injected; `verify_build` and git tools are exempt (fix-verify loops are legitimate)
 - Naked reasoning prose leaked without `<think>` tags is stripped from visible output before it reaches chat; stray `</think>`, `</function>`, `</tool_call>`, and similar XML artifacts are also stripped
-- `edit_file` and `multi_search_replace` normalize CRLF → LF before matching so model search strings (always LF) work correctly on Windows files
+- `edit_file` and `multi_search_replace` normalize CRLF → LF before matching so model search strings (always LF) work correctly on Windows files; on exact-match failure, Hematite escalates through: (1) rstrip-only match — strips trailing whitespace, preserves indentation; (2) full-strip match — strips all surrounding whitespace; if both fail, scans up to 100 workspace source files for the search string and names the matching file in the error message (cross-file hint); on any fuzzy match, replace-string indentation is delta-corrected automatically
 - Diff preview: before `edit_file`, `patch_hunk`, or `multi_search_replace` is applied, a coloured before/after diff modal is shown in the TUI; user presses Y to apply or N to skip; model is told "Edit declined by user." on N; bypassed in `--yolo` mode
+- Tool output overflow: when a tool result exceeds 8 KB, `cap_output_for_tool` writes the full text to `.hematite/scratch/<tool>_<timestamp>.txt` and returns a truncation notice with the scratch path; the model recovers the full content with `read_file` without repeating the original tool call; large `read_file` results under compact-context mode follow the same scratch path
 - `read_file` satisfies the line-inspection grounding check so the model can go `read_file → edit_file` without a separate `inspect_lines` call
 - Context compaction warnings fire as visible System messages at 70% and 90% context fill; the warning resets below 60% so it only fires once per pressure band
 - Embed model load/unload is detected mid-session: when LM Studio swaps the embedding model (or unloads it), Hematite fires a System message in the TUI immediately so the operator knows semantic search state changed
@@ -567,3 +570,31 @@ pwsh ./clean.ps1 -Reset   # + PLAN.md, TASK.md (full blank-slate, simulates new 
 Regular clean removes runtime artifacts: ghost backups, scratch files, session memories, sandbox output, reports, and logs. Deep also removes build outputs and the vein database. `-PruneDist` is opt-in and removes stale packaged artifacts under `dist/` while keeping only the current `Cargo.toml` version. Reset goes further and wipes session state files — use this to simulate a first-run experience without touching `settings.json` or `mcp_servers.json`.
 
 For Hematite, disk growth is a normal maintenance concern. This is a heavy native Rust project with release packaging, ORT/DirectML sidecars, tests, and repeated debug/release builds. `target/` can climb into the tens of gigabytes quickly, and after enough iteration it is believable to hit 50-100 GB of local build output. Treat periodic deep cleanup as part of the normal workflow. When disk pressure matters, run `pwsh ./clean.ps1 -Deep`; if you also want to keep only the latest packaged release artifacts, use `pwsh ./clean.ps1 -Deep -PruneDist`. Remember that the next full rebuild will be slower because you deliberately wiped cached build state.
+
+## Contributor Roadmap
+
+Hematite is designed around the real constraint of a single consumer GPU running 9B-class open models. The goal is not to pretend the local model is smarter than it is. The goal is to make the harness so tight that a 9B model on a 4070 can do real work.
+
+This roadmap reflects that design philosophy: things that are worth doing now because they work with the model's actual capability, and things to revisit when local models improve.
+
+### Tier 1 — High value, local models ready today
+
+- **Streaming shell output** — `shell` blocks until completion; streaming would make long builds and test runs interactive and let the model see live output as it arrives.
+- **Turn checkpointing** — persist a recovery spine (last goal, last tool call, last verification result) so a mid-session crash or `/new` does not silently erase context the model needed.
+- **Whisper voice input** — Hematite already has a TTS output pipeline; Whisper for STT input would close the voice loop and make the harness hands-free.
+- **Per-workspace model profiles** — let `.hematite/settings.json` specify a preferred model, context ceiling, and embed model per project; useful when different repos need different size/speed tradeoffs.
+- **Smarter compaction** — current summary chaining loses ordering fidelity; a structured ledger (goal + tool sequence + verification result per turn) would compress more faithfully and survive longer sessions.
+
+### Tier 2 — Worth doing when local models handle it reliably
+
+- **Workflow engine** — encode multi-step coding workflows (read → edit → verify → commit) as explicit typed state machines that the harness drives, not the model re-plans each turn.
+- **Tool dependency graph** — before executing a plan, check whether its tool sequence is valid (no write before read, no verify before edit). Block impossible plans before they waste a turn.
+- **Context budget ledger** — track token cost per tool call and per turn; surface a real budget breakdown so the operator can see why a session hit the ceiling, not just that it did.
+- **Multi-model routing** — for tasks that need a faster or smaller model (search, classification, label generation), route specific tool calls to a lightweight model while keeping the main session on the primary coding model.
+
+### Tier 3 — Revisit when local 9B models catch frontier capability
+
+- **The Vein as an explicit knowledge base** — manual `remember this` and `forget this` operator commands with durable, typed knowledge entries that survive `/new` and workspace resets.
+- **Hardware-aware autonomy** — let the harness self-limit swarm fanout, tool parallelism, and context depth based on live VRAM and context-pressure readings without requiring operator intervention.
+- **Privacy audit layer** — before `shell` or `run_code` runs, scan for credential patterns (API keys, tokens, env vars) in arguments and offer a redact-and-confirm path.
+- **Session continuity across restarts** — a first-class carry-forward mechanism that resumes not just the transcript but the typed checkpoint state (goal, working set, last verification result) from the previous session in the same workspace.

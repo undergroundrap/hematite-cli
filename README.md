@@ -8,10 +8,11 @@ Local AI coding harness and natural-language workstation assistant for LM Studio
 - Detects the workspace automatically — coding project, document folder, or general directory — and adjusts its behavior accordingly. No flags, no config.
 - Reads any file, grepping for the right location before touching anything
 - Shows a coloured diff preview before every edit — press Y to apply, N to skip
-- Edits with exact-match precision, CRLF-safe on Windows
+- Edits with exact-match precision, CRLF-safe on Windows; if exact match fails, applies three levels of fuzzy recovery (rstrip → full-strip → cross-file workspace scan hint) and auto-corrects replace-string indentation on fuzzy match
 - Runs `verify_build` after every change and feeds errors back to the model automatically
 - Ghost-snapshots every edit so `Ctrl+Z` restores the previous state instantly
-- Indexes your codebase with hybrid BM25 + semantic search so the model starts each turn with the right code already in view
+- Indexes your codebase with hybrid BM25 + semantic search so the model starts each turn with the right code already in view; session memory is automatically classified by type (decision, problem, milestone, preference) and retrieval boosts matching chunks based on query intent
+- Writes large tool outputs to a scratch file and tells the model where to find them — nothing silently dropped, always recoverable via `read_file`
 - Attaches images and documents to any turn — vision-capable models see screenshots, diagrams, and specs directly
 - Runs JavaScript and Python in a zero-trust sandbox and returns real output, not training-data guesses
 - Speaks every response through a built-in 54-voice TTS engine — statically linked, zero install, works offline
@@ -621,7 +622,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 |---|---|
 | `read_file` | Read any file with offset/limit pagination for large files |
 | `write_file` | Write or overwrite files |
-| `edit_file` | Find-and-replace edits with fuzzy whitespace matching |
+| `edit_file` | Find-and-replace edits with three-level fuzzy recovery (rstrip → full-strip → cross-file hint) and indent auto-correction |
 | `multi_search_replace` | Precision engine for bulk find-and-replace blocks |
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
@@ -739,6 +740,8 @@ Hybrid results are merged and ranked: semantic hits score higher when the embedd
 **Active-room memory bias:** Hematite tracks which files you edit most, groups those hot files by subsystem, injects a compact "hot files" block into the prompt, and gives retrieval a small score boost toward the currently hottest room. That keeps the model leaning toward the part of the codebase you're actively changing without hard-pinning stale context.
 
 **Ranking cues:** Vein reranking gives extra weight to exact quoted phrases, standout tokens like filenames, commands, codenames, and tool IDs, memory-style prompts such as "what did we decide earlier" that should lean toward session/import memory instead of generic source overlap, and time-anchored memory questions such as explicit dates, "yesterday", or "last week" so the right session period outranks stale matches.
+
+**Memory-type tagging:** session memory chunks (local session reports and imported chat exports) are automatically classified as `decision`, `problem`, `milestone`, or `preference` using zero-cost pattern matching. Tags are stored alongside each chunk. When your query matches a memory intent — e.g. "what did we decide about auth" skews toward `decision` chunks, "what broke last time" toward `problem` — those matching chunks receive a retrieval boost. This surfaces the right kind of memory (an architectural decision vs. a known bug vs. a style preference) without any special query syntax.
 
 **Room taxonomy:** Vein room detection is now rule-based across path segments and filenames, so files like `Cargo.toml`, `runtime.rs`, `mcp_manager.rs`, GitHub workflow YAML, installer assets, and top-level docs land in more useful rooms such as `config`, `runtime`, `integration`, `automation`, `release`, and `docs` instead of collapsing into generic folder names.
 
@@ -931,13 +934,24 @@ Reports are gitignored — they are local runtime artifacts for your own review.
 
 Hematite also reuses those reports as local retrieval memory. The Vein indexes recent reports by exchange pair — one user message plus Hematite's reply — under `session/.../turn-N`, capped to the last 5 sessions and last 50 turns per session. These chunks are tagged as `session` memory so they stay available when relevant without inflating normal source-file counts in the status bar.
 
+### Tool Output Overflow to Scratch
+
+When a tool returns more than 8 KB of output, Hematite writes the full content to `.hematite/scratch/<tool>_<timestamp>.txt` and delivers a truncation notice that includes the scratch path. The model can recover the full result with a single `read_file` call without repeating the original tool call. Nothing is silently discarded — large shell outputs, long grep results, and verbose build logs are always retrievable.
+
 ### Tool Loop Guard
 
 If the model calls the same tool with identical arguments 3 or more times in a single turn, Hematite injects a hard stop and tells the model to change approach. This prevents runaway grep/shell spirals that burn context without making progress. `verify_build` and git tools are exempt since repeated verification calls are legitimate in fix-verify loops.
 
-### Windows Edit Reliability
+### Progressive Edit Recovery
 
-`edit_file` and `multi_search_replace` normalize CRLF line endings before matching, so model-generated search strings (always LF) work correctly against Windows files. Prior to this fix, edits on CRLF files would fail the exact-match check and require multiple retries or fallback to `patch_hunk`.
+`edit_file` and `multi_search_replace` normalize CRLF → LF before matching so model search strings (always LF) work on Windows files. When exact matching still fails, Hematite escalates through three recovery levels automatically:
+
+- **Level 0 — exact match** (CRLF-normalized): the model's search string matched as-is against the file.
+- **Level 1 — rstrip fallback**: strips trailing whitespace from each line but preserves leading indentation. Catches edits where the model included trailing spaces the file does not have.
+- **Level 2 — full-strip fallback**: strips all surrounding whitespace. Catches minor indent drift between the model's search string and the file's actual indentation.
+- **Cross-file hint**: if all three levels fail, Hematite scans up to 100 source files in the workspace looking for the search string. If it finds a match in a different file, the error message names that file — so the model can immediately retry against the correct target instead of looping on the wrong one.
+
+On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected automatically: the indent difference between the model's search string and the file's actual span is measured and applied to the replace block, so inserted code lands with the right indentation rather than whatever the model happened to generate.
 
 ---
 
