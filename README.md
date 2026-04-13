@@ -994,6 +994,8 @@ hematite --version Show the same build report from the CLI
 /copy-clean       Copy the chat transcript without help/debug boilerplate
 /undo             Undo last file edit
 /clear            Clear visible dialogue and side-panel session state
+/health           Run a synthesized plain-English system health report
+/explain <text>   Paste an error to get a non-technical breakdown
 /help             Show all commands
 ```
 
