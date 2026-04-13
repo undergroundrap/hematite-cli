@@ -634,7 +634,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
 
-| `inspect_host` | Structured read-only inspection of PATH, toolchains, OS Config (Firewall/Power/Uptime), **Resource Load (CPU/RAM %)**, System Health Reports, environment/package-manager health, grounded fix plans, network, services, processes, desktop/downloads, ports, repo health, recent system log errors (`log_check`), boot-time startup items (`startup_items`), and arbitrary directories |
+| `inspect_host` | Structured read-only inspection of PATH, toolchains, OS Config (Firewall/Power/Uptime), **Resource Load (CPU/RAM %)**, System Health Reports, environment/package-manager health, grounded fix plans, network, services, processes, desktop/downloads, ports, repo health, recent system log errors (`log_check`), boot-time startup items (`startup_items`), all drives + developer cache sizing (`storage`), full hardware DNA — CPU/RAM/GPU/motherboard/BIOS/display (`hardware`), and tiered health verdict across disk/RAM/tools/errors (`health_report`) |
 | `resolve_host_issue` | Safe, user-gated remediation actions: `install_package` (winget), `restart_service`, and `clear_temp`. |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
@@ -649,7 +649,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `run_code` | Execute JavaScript/TypeScript (Deno) or Python in a zero-trust sandbox — real output, not model guesses |
 | `clarify` | Ask the user a question when genuinely blocked |
 
-Use `inspect_host` first for structured host questions like installed tool versions, PATH drift, environment/package-manager health, common workstation fix plans, network state, service state, recent system log errors, boot-time startup items, desktop item counts, or Downloads size. That keeps routine workstation inspection grounded without forcing the model to improvise shell commands. `shell` is still there for the cases that really do need a custom command.
+Use `inspect_host` first for structured host questions like installed tool versions, PATH drift, environment/package-manager health, common workstation fix plans, network state, service state, recent system log errors, boot-time startup items, desktop item counts, Downloads size, drive capacity and developer cache sizing, or a full hardware inventory. That keeps routine workstation inspection grounded without forcing the model to improvise shell commands. `shell` is still there for the cases that really do need a custom command.
 
 ---
 

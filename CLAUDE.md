@@ -91,6 +91,9 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Global Guard Enforcement**: Any raw shell diagnostic (wmic, Get-Process, tasklist) is blocked by a global linter in `conversation.rs` and redirected to `inspect_host`.
 - **Telemetry Precision**: Use `topic: "resource_load"` for real-time CPU/RAM summaries and `topic: "processes"` for per-process cumulative CPU/Memory analytics.
 - **Self-Correction Strategy**: When a diagnostic `shell` call is blocked, the agent must immediately self-correct to the designated `inspect_host` topic.
+- **Storage Inspection**: Use `topic: "storage"` for all-drives capacity with ASCII bar charts and developer cache directory sizing (npm, cargo, pip, yarn, rustup, node_modules).
+- **Hardware Inventory**: Use `topic: "hardware"` for full hardware DNA — CPU model/cores/clock, RAM total/speed/sticks, GPU name/driver/resolution, motherboard/BIOS, and display configuration.
+- **Health Report**: Use `topic: "health_report"` (or alias `"system_health"`) for a tiered plain-English verdict (ALL GOOD / WORTH A LOOK / ACTION REQUIRED) across disk, RAM, tools, and recent error events.
 
 ## Hardware Intent
 

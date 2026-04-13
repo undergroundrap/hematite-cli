@@ -34,6 +34,8 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "log_check" => inspect_log_check(max_entries),
         "startup_items" => inspect_startup_items(max_entries),
         "health_report" | "system_health" => inspect_health_report(),
+        "storage" => inspect_storage(max_entries),
+        "hardware" => inspect_hardware(),
         "os_config" | "system_config" => inspect_os_config(),
         "resource_load" | "performance" | "system_load" | "performance_diagnosis" => inspect_resource_load(),
         "repo_doctor" => {
@@ -52,7 +54,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, os_config, resource_load.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, os_config, resource_load.",
             other
         )),
     }
@@ -3102,4 +3104,315 @@ pub async fn resolve_host_issue(args: &Value) -> Result<String, String> {
         }
         other => Err(format!("Unknown remediation action: {}", other)),
     }
+}
+
+// ── storage ───────────────────────────────────────────────────────────────────
+
+fn inspect_storage(_max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: storage\n\n");
+
+    // ── Drive overview ────────────────────────────────────────────────────────
+    out.push_str("Drives:\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"Get-PSDrive -PSProvider 'FileSystem' | ForEach-Object {
+    $free = $_.Free
+    $used = $_.Used
+    if ($free -eq $null) { $free = 0 }
+    if ($used -eq $null) { $used = 0 }
+    $total = $free + $used
+    "$($_.Name)|$free|$used|$total"
+}"#;
+        match Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            Ok(o) => {
+                let text = String::from_utf8_lossy(&o.stdout);
+                let mut drive_count = 0usize;
+                for line in text.lines() {
+                    let parts: Vec<&str> = line.trim().split('|').collect();
+                    if parts.len() == 4 {
+                        let name = parts[0];
+                        let free: u64 = parts[1].parse().unwrap_or(0);
+                        let total: u64 = parts[3].parse().unwrap_or(0);
+                        if total == 0 {
+                            continue;
+                        }
+                        let free_gb = free / 1_073_741_824;
+                        let total_gb = total / 1_073_741_824;
+                        let used_pct = ((total - free) as f64 / total as f64 * 100.0) as u64;
+                        let bar_len = 20usize;
+                        let filled = (used_pct as usize * bar_len / 100).min(bar_len);
+                        let bar: String = "#".repeat(filled) + &".".repeat(bar_len - filled);
+                        let warn = if free_gb < 5 {
+                            " [!] CRITICALLY LOW"
+                        } else if free_gb < 15 {
+                            " [-] LOW"
+                        } else {
+                            ""
+                        };
+                        out.push_str(&format!(
+                            "  {name}:  [{bar}] {used_pct}% used — {free_gb} GB free of {total_gb} GB{warn}\n"
+                        ));
+                        drive_count += 1;
+                    }
+                }
+                if drive_count == 0 {
+                    out.push_str("  (could not enumerate drives)\n");
+                }
+            }
+            Err(e) => out.push_str(&format!("  (drive scan failed: {e})\n")),
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        match Command::new("df").args(["-h", "--output=target,size,avail,pcent"]).output() {
+            Ok(o) => {
+                let text = String::from_utf8_lossy(&o.stdout);
+                let mut count = 0usize;
+                for line in text.lines().skip(1) {
+                    let cols: Vec<&str> = line.split_whitespace().collect();
+                    if cols.len() >= 4 && !cols[0].starts_with("tmpfs") {
+                        out.push_str(&format!(
+                            "  {}  size: {}  avail: {}  used: {}\n",
+                            cols[0], cols[1], cols[2], cols[3]
+                        ));
+                        count += 1;
+                        if count >= max_entries {
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(e) => out.push_str(&format!("  (df failed: {e})\n")),
+        }
+    }
+
+    // ── Large developer cache directories ─────────────────────────────────────
+    out.push_str("\nLarge developer cache directories (if present):\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let home = std::env::var("USERPROFILE").unwrap_or_default();
+        let check_dirs: &[(&str, &str)] = &[
+            ("Temp", r"AppData\Local\Temp"),
+            ("npm cache", r"AppData\Roaming\npm-cache"),
+            ("Cargo registry", r".cargo\registry"),
+            ("Cargo git", r".cargo\git"),
+            ("pip cache", r"AppData\Local\pip\cache"),
+            ("Yarn cache", r"AppData\Local\Yarn\Cache"),
+            (".rustup toolchains", r".rustup\toolchains"),
+            ("node_modules (home)", r"node_modules"),
+        ];
+
+        let mut found_any = false;
+        for (label, rel) in check_dirs {
+            let full = format!(r"{}\{}", home, rel);
+            let path = std::path::Path::new(&full);
+            if path.exists() {
+                // Quick size estimate via PowerShell (non-blocking cap at 5s)
+                let size_script = format!(
+                    r#"try {{ $s = (Get-ChildItem -Path '{}' -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum; [math]::Round($s/1MB,0) }} catch {{ '?' }}"#,
+                    full.replace('\'', "''")
+                );
+                let size_mb = Command::new("powershell")
+                    .args(["-NoProfile", "-Command", &size_script])
+                    .output()
+                    .ok()
+                    .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                    .unwrap_or_else(|| "?".to_string());
+                out.push_str(&format!("  {label}: {size_mb} MB  ({full})\n"));
+                found_any = true;
+            }
+        }
+        if !found_any {
+            out.push_str("  (none of the common cache directories found)\n");
+        }
+
+        out.push_str("\nTip: to reclaim space, run inspect_host(topic=\"fix_plan\", issue=\"free up disk space\")\n");
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let check_dirs: &[(&str, &str)] = &[
+            ("npm cache", ".npm"),
+            ("Cargo registry", ".cargo/registry"),
+            ("pip cache", ".cache/pip"),
+            (".rustup toolchains", ".rustup/toolchains"),
+            ("Yarn cache", ".cache/yarn"),
+        ];
+        let mut found_any = false;
+        for (label, rel) in check_dirs {
+            let full = format!("{}/{}", home, rel);
+            if std::path::Path::new(&full).exists() {
+                let size = Command::new("du")
+                    .args(["-sh", &full])
+                    .output()
+                    .ok()
+                    .map(|o| {
+                        let s = String::from_utf8_lossy(&o.stdout);
+                        s.split_whitespace().next().unwrap_or("?").to_string()
+                    })
+                    .unwrap_or_else(|| "?".to_string());
+                out.push_str(&format!("  {label}: {size}  ({full})\n"));
+                found_any = true;
+            }
+        }
+        if !found_any {
+            out.push_str("  (none of the common cache directories found)\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── hardware ──────────────────────────────────────────────────────────────────
+
+fn inspect_hardware() -> Result<String, String> {
+    let mut out = String::from("Host inspection: hardware\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        // CPU
+        let cpu_script = r#"Get-CimInstance Win32_Processor | ForEach-Object {
+    "$($_.Name.Trim())|$($_.NumberOfCores)|$($_.NumberOfLogicalProcessors)|$([math]::Round($_.MaxClockSpeed/1000,1))"
+} | Select-Object -First 1"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", cpu_script]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let text = text.trim();
+            let parts: Vec<&str> = text.split('|').collect();
+            if parts.len() == 4 {
+                out.push_str(&format!(
+                    "CPU: {}\n  {} physical cores, {} logical processors, {:.1} GHz\n\n",
+                    parts[0], parts[1], parts[2], parts[3].parse::<f32>().unwrap_or(0.0)
+                ));
+            } else {
+                out.push_str(&format!("CPU: {text}\n\n"));
+            }
+        }
+
+        // RAM (total installed + speed)
+        let ram_script = r#"$sticks = Get-CimInstance Win32_PhysicalMemory
+$total = ($sticks | Measure-Object Capacity -Sum).Sum / 1GB
+$speed = ($sticks | Select-Object -First 1).Speed
+"$([math]::Round($total,0)) GB @ $($speed) MHz ($($sticks.Count) stick(s))""#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", ram_script]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            out.push_str(&format!("RAM: {}\n\n", text.trim().trim_matches('"')));
+        }
+
+        // GPU(s)
+        let gpu_script = r#"Get-CimInstance Win32_VideoController | ForEach-Object {
+    "$($_.Name)|$($_.DriverVersion)|$($_.CurrentHorizontalResolution)x$($_.CurrentVerticalResolution)"
+}"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", gpu_script]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let lines: Vec<&str> = text.lines().collect();
+            if !lines.is_empty() {
+                out.push_str("GPU(s):\n");
+                for line in lines.iter().filter(|l| !l.trim().is_empty()) {
+                    let parts: Vec<&str> = line.trim().split('|').collect();
+                    if parts.len() == 3 {
+                        let res = if parts[2] == "x" || parts[2].starts_with('0') {
+                            String::new()
+                        } else {
+                            format!(" — {}@display", parts[2])
+                        };
+                        out.push_str(&format!("  {}\n    Driver: {}{}\n", parts[0], parts[1], res));
+                    } else {
+                        out.push_str(&format!("  {}\n", line.trim()));
+                    }
+                }
+                out.push('\n');
+            }
+        }
+
+        // Motherboard + BIOS
+        let mb_script = r#"$mb = Get-CimInstance Win32_BaseBoard
+$bios = Get-CimInstance Win32_BIOS
+"$($mb.Manufacturer.Trim()) $($mb.Product.Trim())|BIOS: $($bios.Manufacturer.Trim()) $($bios.SMBIOSBIOSVersion.Trim()) ($($bios.ReleaseDate))""#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", mb_script]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let text = text.trim().trim_matches('"');
+            let parts: Vec<&str> = text.split('|').collect();
+            if parts.len() == 2 {
+                out.push_str(&format!("Motherboard: {}\n{}\n\n", parts[0].trim(), parts[1].trim()));
+            }
+        }
+
+        // Display(s)
+        let disp_script = r#"Get-CimInstance Win32_DesktopMonitor | Where-Object {$_.ScreenWidth -gt 0} | ForEach-Object {
+    "$($_.Name)|$($_.ScreenWidth)x$($_.ScreenHeight)"
+}"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", disp_script]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+            if !lines.is_empty() {
+                out.push_str("Display(s):\n");
+                for line in &lines {
+                    let parts: Vec<&str> = line.trim().split('|').collect();
+                    if parts.len() == 2 {
+                        out.push_str(&format!("  {} — {}\n", parts[0].trim(), parts[1]));
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // CPU via /proc/cpuinfo
+        if let Ok(content) = std::fs::read_to_string("/proc/cpuinfo") {
+            let model = content.lines()
+                .find(|l| l.starts_with("model name"))
+                .and_then(|l| l.split(':').nth(1))
+                .map(str::trim)
+                .unwrap_or("unknown");
+            let cores = content.lines().filter(|l| l.starts_with("processor")).count();
+            out.push_str(&format!("CPU: {model}\n  {cores} logical processors\n\n"));
+        }
+
+        // RAM
+        if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+            let total_kb: u64 = content.lines()
+                .find(|l| l.starts_with("MemTotal:"))
+                .and_then(|l| l.split_whitespace().nth(1))
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
+            let total_gb = total_kb / 1_048_576;
+            out.push_str(&format!("RAM: {total_gb} GB total\n\n"));
+        }
+
+        // GPU via lspci
+        if let Ok(o) = Command::new("lspci").args(["-vmm"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let gpu_lines: Vec<&str> = text.lines()
+                .filter(|l| l.contains("VGA") || l.contains("Display") || l.contains("3D"))
+                .collect();
+            if !gpu_lines.is_empty() {
+                out.push_str("GPU(s):\n");
+                for l in gpu_lines {
+                    out.push_str(&format!("  {l}\n"));
+                }
+                out.push('\n');
+            }
+        }
+
+        // DMI/BIOS info
+        if let Ok(o) = Command::new("dmidecode").args(["-t", "baseboard", "-t", "bios"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            out.push_str("Motherboard/BIOS:\n");
+            for line in text.lines().filter(|l| {
+                l.contains("Manufacturer:") || l.contains("Product Name:") || l.contains("Version:")
+            }).take(6) {
+                out.push_str(&format!("  {}\n", line.trim()));
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
 }

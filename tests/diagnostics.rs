@@ -2194,5 +2194,132 @@ fn test_inspect_host_unknown_topic_includes_new_topics_in_error() {
             err.contains("startup_items"),
             "unknown-topic error must mention startup_items; got:\n{err}"
         );
+        assert!(
+            err.contains("storage"),
+            "unknown-topic error must mention storage; got:\n{err}"
+        );
+        assert!(
+            err.contains("hardware"),
+            "unknown-topic error must mention hardware; got:\n{err}"
+        );
+        assert!(
+            err.contains("health_report"),
+            "unknown-topic error must mention health_report; got:\n{err}"
+        );
+    });
+}
+
+// ── inspect_host: health_report, storage, hardware ────────────────────────────
+
+#[test]
+fn test_inspect_host_health_report_returns_verdict() {
+    // health_report must return Ok with a recognizable verdict header.
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "health_report" });
+        let output = inspect_host(&args).await.expect("health_report must return Ok");
+        // Must contain the verdict marker regardless of machine state.
+        let has_verdict = output.contains("ALL GOOD")
+            || output.contains("WORTH A LOOK")
+            || output.contains("ACTION REQUIRED");
+        assert!(has_verdict, "health_report must include a verdict; got:\n{output}");
+        assert!(
+            output.contains("System Health Report"),
+            "health_report must include the header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_health_report_sections_are_non_empty() {
+    // health_report should always populate at least one section (good/watch/fix).
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "health_report" });
+        let output = inspect_host(&args).await.expect("health_report must return Ok");
+        let has_section = output.contains("Looking good:")
+            || output.contains("Worth watching:")
+            || output.contains("Needs fixing:");
+        assert!(
+            has_section,
+            "health_report must include at least one categorized section; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_storage_returns_drive_info() {
+    // storage must return Ok with a "Drives:" section.
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "storage" });
+        let output = inspect_host(&args).await.expect("storage must return Ok");
+        assert!(
+            output.contains("storage"),
+            "storage output must contain topic header; got:\n{output}"
+        );
+        assert!(
+            output.contains("Drives:") || output.contains("drive") || output.contains("GB"),
+            "storage output must describe drive capacity; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_storage_includes_cache_section() {
+    // storage must always include the developer cache section header.
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "storage" });
+        let output = inspect_host(&args).await.expect("storage must return Ok");
+        assert!(
+            output.contains("cache") || output.contains("Cache"),
+            "storage output must include a cache directory section; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_hardware_returns_cpu_info() {
+    // hardware must return Ok and include CPU information.
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "hardware" });
+        let output = inspect_host(&args).await.expect("hardware must return Ok");
+        assert!(
+            output.contains("hardware"),
+            "hardware output must contain topic header; got:\n{output}"
+        );
+        assert!(
+            output.contains("CPU") || output.contains("processor") || output.contains("core"),
+            "hardware output must include CPU information; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_hardware_returns_gpu_or_ram() {
+    // hardware must include either GPU or RAM information.
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "hardware" });
+        let output = inspect_host(&args).await.expect("hardware must return Ok");
+        let has_gpu_or_ram = output.contains("GPU") || output.contains("RAM") || output.contains("GB");
+        assert!(
+            has_gpu_or_ram,
+            "hardware output must include GPU or RAM details; got:\n{output}"
+        );
     });
 }

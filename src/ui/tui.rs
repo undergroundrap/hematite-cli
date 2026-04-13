@@ -1214,6 +1214,8 @@ fn show_help_message(app: &mut App) {
          /voice            - (TTS) List all available voices\n\
          /voice N          - (TTS) Select voice by number\n\
          /read <text>      - (TTS) Speak text aloud directly, bypassing the model. ESC to stop.\n\
+         /explain <text>   - (Plain English) Paste any error or output; Hematite explains it in plain English.\n\
+         /health           - (SysAdmin) Run a full system health report (disk, RAM, tools, recent errors).\n\
          /attach <path>    - (Docs) Attach a PDF/markdown/txt file for next message (PDF best-effort)\n\
          /attach-pick      - (Docs) Open a file picker and attach a document\n\
          /image <path>     - (Vision) Attach an image for the next message\n\
@@ -1281,6 +1283,8 @@ fn show_help_message_legacy(app: &mut App) {
          /voice            — (TTS) List all available voices\n\
          /voice N          — (TTS) Select voice by number\n\
          /read <text>      — (TTS) Speak text aloud directly, bypassing the model. ESC to stop.\n\
+         /explain <text>   — (Plain English) Paste any error or output; Hematite explains it in plain English.\n\
+         /health           — (SysAdmin) Run a full system health report (disk, RAM, tools, recent errors).\n\
          /attach <path>    — (Docs) Attach a PDF/markdown/txt file for next message\n\
          /attach-pick      — (Docs) Open a file picker and attach a document\n\
          /image <path>     — (Vision) Attach an image for the next message\n\

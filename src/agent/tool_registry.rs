@@ -142,13 +142,16 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=env_doctor for package-manager and PATH health, topic=fix_plan for structured remediation plans, topic=network for adapters/IPs/gateways/DNS, topic=services for service status and startup mode, \
              topic=processes for running-process snapshots, topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
              topic=log_check for recent critical/error events from system event logs or journalctl, topic=startup_items for programs and services that run at boot (registry Run keys and startup folders on Windows; systemd enabled units on Linux), \
+             topic=health_report for a plain-English tiered system health verdict (disk, RAM, tools, recent errors), \
+             topic=storage for all drives with capacity/free space plus large developer cache directories, \
+             topic=hardware for CPU model/cores, RAM size/speed, GPU name/driver, motherboard, BIOS, and display configuration, \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "os_config"],
+                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "os_config"],
                         "description": "Which structured host inspection to run."
                     },
                     "name": {
