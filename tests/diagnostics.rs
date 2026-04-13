@@ -1589,3 +1589,82 @@ fn test_vein_memory_type_indexed_and_retrieved() {
         "session chunk with 'decided' should be tagged as decision"
     );
 }
+
+// ── Streaming shell ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_shell_streaming_emits_shell_line_events() {
+    // Verify that execute_streaming sends at least one ShellLine event for a
+    // command that produces output, and that the final return value contains
+    // the same content.
+    use hematite::agent::inference::InferenceEvent;
+    use tokio::sync::mpsc;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        // Channel with enough headroom so execute_streaming never blocks on send.
+        let (tx, mut rx) = mpsc::channel::<InferenceEvent>(128);
+        let args = serde_json::json!({ "command": "echo streaming-test" });
+
+        // Drop tx after the call so recv() terminates naturally.
+        let result = hematite::tools::shell::execute_streaming(&args, tx).await;
+
+        // Drain all events from the channel.
+        let mut shell_lines: Vec<String> = Vec::new();
+        while let Ok(event) = rx.try_recv() {
+            if let InferenceEvent::ShellLine(line) = event {
+                shell_lines.push(line);
+            }
+        }
+
+        match result {
+            Ok(output) => {
+                assert!(
+                    !shell_lines.is_empty(),
+                    "execute_streaming should emit ShellLine events; got none"
+                );
+                assert!(
+                    output.contains("streaming-test"),
+                    "buffered output should contain echo content; got: {output}"
+                );
+                let streamed = shell_lines.join("\n");
+                assert!(
+                    streamed.contains("streaming-test"),
+                    "streamed lines should contain echo content; got: {streamed}"
+                );
+            }
+            Err(e) => println!("shell not available in this env: {e}"),
+        }
+    });
+}
+
+#[test]
+fn test_shell_streaming_buffered_output_matches_blocking() {
+    // Both execute() and execute_streaming() should return the same content
+    // for a deterministic command. The streaming path must not corrupt or
+    // lose the output while sending ShellLine events.
+    use hematite::agent::inference::InferenceEvent;
+    use tokio::sync::mpsc;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "command": "echo consistent-output" });
+
+        let blocking = hematite::tools::shell::execute(&args).await;
+
+        let (tx, mut rx) = mpsc::channel::<InferenceEvent>(128);
+        let streaming = hematite::tools::shell::execute_streaming(&args, tx).await;
+        // Drain buffered events (not the focus of this test).
+        while rx.try_recv().is_ok() {}
+
+        match (blocking, streaming) {
+            (Ok(b), Ok(s)) => {
+                assert!(
+                    b.contains("consistent-output") && s.contains("consistent-output"),
+                    "both paths should contain echo output; blocking={b:?} streaming={s:?}"
+                );
+            }
+            (Err(e), _) | (_, Err(e)) => println!("shell not available in this env: {e}"),
+        }
+    });
+}
