@@ -234,10 +234,7 @@ impl RepoMapGenerator {
                                         all_tags.push(Tag {
                                             rel_path: rel_path.clone(),
                                         });
-                                        references
-                                            .entry(name)
-                                            .or_default()
-                                            .push(rel_path.clone());
+                                        references.entry(name).or_default().push(rel_path.clone());
                                     }
                                 }
                             }
@@ -263,7 +260,8 @@ impl RepoMapGenerator {
         // ── Pass 2: Build the PageRank graph ──────────────────────────────
         let defined_names: HashSet<&String> = defines.keys().collect();
         let referenced_names: HashSet<&String> = references.keys().collect();
-        let shared_idents: HashSet<&&String> = defined_names.intersection(&referenced_names).collect();
+        let shared_idents: HashSet<&&String> =
+            defined_names.intersection(&referenced_names).collect();
 
         // Collect all file paths that appear as nodes
         let mut all_files: HashSet<String> = HashSet::new();
@@ -294,8 +292,8 @@ impl RepoMapGenerator {
             // Weight multiplier based on identifier quality
             let mut mul: f64 = 1.0;
             let is_snake = ident.contains('_') && ident.chars().any(|c| c.is_alphabetic());
-            let is_camel = ident.chars().any(|c| c.is_uppercase())
-                && ident.chars().any(|c| c.is_lowercase());
+            let is_camel =
+                ident.chars().any(|c| c.is_uppercase()) && ident.chars().any(|c| c.is_lowercase());
             if (is_snake || is_camel) && ident.len() >= 8 {
                 mul *= 10.0;
             }
@@ -324,7 +322,10 @@ impl RepoMapGenerator {
         // ── Pass 3: PageRank ──────────────────────────────────────────────
         let node_count = graph.node_count();
         if node_count == 0 {
-            return Ok("=== Repository Map (Structural Overview) ===\n(no parseable source files found)\n".to_string());
+            return Ok(
+                "=== Repository Map (Structural Overview) ===\n(no parseable source files found)\n"
+                    .to_string(),
+            );
         }
 
         let damping = 0.85;
@@ -358,11 +359,7 @@ impl RepoMapGenerator {
                 let (src, dst) = graph.edge_endpoints(edge).unwrap();
                 let weight = graph[edge];
                 // Total outgoing weight from src
-                let out_weight: f64 = graph
-                    .edges(src)
-                    .map(|e| *e.weight())
-                    .sum::<f64>()
-                    .max(1.0);
+                let out_weight: f64 = graph.edges(src).map(|e| *e.weight()).sum::<f64>().max(1.0);
                 let contrib = damping * scores[&src] * (weight / out_weight);
                 *new_scores.entry(dst).or_default() += contrib;
             }

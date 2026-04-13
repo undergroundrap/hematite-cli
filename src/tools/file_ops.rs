@@ -262,11 +262,7 @@ pub async fn tail_file(args: &Value) -> Result<String, String> {
             .map(|(i, l)| (i, *l))
             .collect()
     } else {
-        all_lines
-            .iter()
-            .enumerate()
-            .map(|(i, l)| (i, *l))
-            .collect()
+        all_lines.iter().enumerate().map(|(i, l)| (i, *l)).collect()
     };
 
     let total_filtered = filtered.len();
@@ -372,8 +368,8 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
         // Level 1: rstrip only — preserves indentation, strips trailing spaces.
         // Level 2: full strip — corrects indentation mismatches.
         // Level 3: cross-file hint — tells the model which file has the string.
-        let span = rstrip_find_span(&original, search)
-            .or_else(|| fuzzy_find_span(&original, search));
+        let span =
+            rstrip_find_span(&original, search).or_else(|| fuzzy_find_span(&original, search));
         match span {
             Some(span) => {
                 let real_slice = original[span.clone()].to_string();
@@ -1089,7 +1085,10 @@ fn find_span_normalised(
 /// the model's indentation is actually correct.
 fn rstrip_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>> {
     find_span_normalised(content, search, |s| {
-        s.lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n")
+        s.lines()
+            .map(|l| l.trim_end())
+            .collect::<Vec<_>>()
+            .join("\n")
     })
 }
 
@@ -1126,7 +1125,10 @@ fn find_search_in_workspace(search: &str, skip_path: &str) -> Option<String> {
             continue;
         }
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-        if !matches!(ext, "rs" | "py" | "ts" | "tsx" | "js" | "jsx" | "go" | "c" | "cpp" | "h") {
+        if !matches!(
+            ext,
+            "rs" | "py" | "ts" | "tsx" | "js" | "jsx" | "go" | "c" | "cpp" | "h"
+        ) {
             continue;
         }
         let rel = path
@@ -1212,8 +1214,8 @@ pub fn compute_edit_file_diff(args: &Value) -> Result<String, String> {
     let (effective_search, effective_replace): (String, String) = if original.contains(search) {
         (search.to_string(), replace.to_string())
     } else {
-        let span = rstrip_find_span(&original, search)
-            .or_else(|| fuzzy_find_span(&original, search));
+        let span =
+            rstrip_find_span(&original, search).or_else(|| fuzzy_find_span(&original, search));
         match span {
             Some(span) => {
                 let real_slice = original[span].to_string();
@@ -1327,4 +1329,3 @@ pub fn is_project_workspace() -> bool {
         || root.join("CMakeLists.txt").exists();
     has_explicit_marker || (root.join(".git").exists() && root.join("src").exists())
 }
-

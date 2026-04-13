@@ -288,9 +288,19 @@ pub fn detect_memory_type(text: &str) -> &'static str {
 
     // Decision markers — architectural choices, agreed approaches, "let's use X"
     let decision_patterns = [
-        "let's use ", "we'll use ", "decided to ", "going with ", "we agreed ",
-        "the plan is", "we're going to", "switching to", "we chose", "final decision",
-        "we settled on", "agreed on", "we decided",
+        "let's use ",
+        "we'll use ",
+        "decided to ",
+        "going with ",
+        "we agreed ",
+        "the plan is",
+        "we're going to",
+        "switching to",
+        "we chose",
+        "final decision",
+        "we settled on",
+        "agreed on",
+        "we decided",
     ];
     for pat in &decision_patterns {
         if lower.contains(pat) {
@@ -300,10 +310,24 @@ pub fn detect_memory_type(text: &str) -> &'static str {
 
     // Problem markers — bugs, errors, failures, blockers
     let problem_patterns = [
-        "bug fixed", "bug was", "the issue was", "root cause", "error was",
-        "turned out to be", "the fix was", "was caused by", "broken because",
-        "fixed by", "the problem was", "found the bug", "port conflict",
-        "crash", "panicked", "segfault", "oom", "out of memory",
+        "bug fixed",
+        "bug was",
+        "the issue was",
+        "root cause",
+        "error was",
+        "turned out to be",
+        "the fix was",
+        "was caused by",
+        "broken because",
+        "fixed by",
+        "the problem was",
+        "found the bug",
+        "port conflict",
+        "crash",
+        "panicked",
+        "segfault",
+        "oom",
+        "out of memory",
     ];
     for pat in &problem_patterns {
         if lower.contains(pat) {
@@ -313,9 +337,20 @@ pub fn detect_memory_type(text: &str) -> &'static str {
 
     // Milestone markers — shipped, completed, working
     let milestone_patterns = [
-        "now working", "successfully", "shipped", "deployed", "it works",
-        "tests pass", "all green", "breakthrough", "finally got", "got it working",
-        "completed", "finished", "done with", "landed",
+        "now working",
+        "successfully",
+        "shipped",
+        "deployed",
+        "it works",
+        "tests pass",
+        "all green",
+        "breakthrough",
+        "finally got",
+        "got it working",
+        "completed",
+        "finished",
+        "done with",
+        "landed",
     ];
     for pat in &milestone_patterns {
         if lower.contains(pat) {
@@ -325,8 +360,16 @@ pub fn detect_memory_type(text: &str) -> &'static str {
 
     // Preference markers — personal/operator preferences for style or workflow
     let preference_patterns = [
-        "i prefer", "i like", "i don't like", "i want", "always use",
-        "never use", "i usually", "my preference", "keep it", "avoid using",
+        "i prefer",
+        "i like",
+        "i don't like",
+        "i want",
+        "always use",
+        "never use",
+        "i usually",
+        "my preference",
+        "keep it",
+        "avoid using",
     ];
     for pat in &preference_patterns {
         if lower.contains(pat) {
@@ -1230,7 +1273,12 @@ impl Vein {
         if files.is_empty() {
             return vec![];
         }
-        let max_heat = files.iter().map(|(_, h, _, _)| *h).max().unwrap_or(1).max(1) as f64;
+        let max_heat = files
+            .iter()
+            .map(|(_, h, _, _)| *h)
+            .max()
+            .unwrap_or(1)
+            .max(1) as f64;
         files
             .into_iter()
             .map(|(path, heat, _, _)| {
@@ -1334,13 +1382,31 @@ impl QuerySignals {
         .any(|needle| lower.contains(needle));
 
         // Detect what memory type the query is asking about.
-        let query_memory_type = if lower.contains("decide") || lower.contains("decision") || lower.contains("we agreed") || lower.contains("we chose") {
+        let query_memory_type = if lower.contains("decide")
+            || lower.contains("decision")
+            || lower.contains("we agreed")
+            || lower.contains("we chose")
+        {
             Some("decision")
-        } else if lower.contains("bug") || lower.contains("error") || lower.contains("issue") || lower.contains("problem") || lower.contains("fix") || lower.contains("broken") {
+        } else if lower.contains("bug")
+            || lower.contains("error")
+            || lower.contains("issue")
+            || lower.contains("problem")
+            || lower.contains("fix")
+            || lower.contains("broken")
+        {
             Some("problem")
-        } else if lower.contains("shipped") || lower.contains("milestone") || lower.contains("finished") || lower.contains("working now") {
+        } else if lower.contains("shipped")
+            || lower.contains("milestone")
+            || lower.contains("finished")
+            || lower.contains("working now")
+        {
             Some("milestone")
-        } else if lower.contains("prefer") || lower.contains("my preference") || lower.contains("i like") || lower.contains("i want") {
+        } else if lower.contains("prefer")
+            || lower.contains("my preference")
+            || lower.contains("i like")
+            || lower.contains("i want")
+        {
             Some("preference")
         } else {
             None

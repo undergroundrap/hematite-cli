@@ -100,13 +100,14 @@ pub fn load_checkpoint() -> Option<CheckpointResume> {
     if saved.turn_count == 0 {
         return None;
     }
-    let mut working_files: Vec<String> =
-        saved.session_memory.working_set.into_iter().take(4).collect();
-    working_files.sort();
-    let last_verify_ok = saved
+    let mut working_files: Vec<String> = saved
         .session_memory
-        .last_verification
-        .map(|v| v.successful);
+        .working_set
+        .into_iter()
+        .take(4)
+        .collect();
+    working_files.sort();
+    let last_verify_ok = saved.session_memory.last_verification.map(|v| v.successful);
     Some(CheckpointResume {
         last_goal: goal,
         turn_count: saved.turn_count,
@@ -954,8 +955,7 @@ impl ConversationManager {
         if !self.vein_docs_only_mode() {
             let root = crate::tools::file_ops::workspace_root();
             let hot = self.vein.hot_files_weighted(10);
-            let gen = crate::memory::repo_map::RepoMapGenerator::new(&root)
-                .with_hot_files(&hot);
+            let gen = crate::memory::repo_map::RepoMapGenerator::new(&root).with_hot_files(&hot);
             match tokio::task::block_in_place(|| gen.generate()) {
                 Ok(map) => self.repo_map = Some(map),
                 Err(e) => {
@@ -1169,8 +1169,6 @@ impl ConversationManager {
                     name
                 ));
             }
-
-
 
             if is_plan_scoped_tool(name) {
                 let allowed_paths = self.current_plan_allowed_paths();
@@ -3044,7 +3042,6 @@ impl ConversationManager {
                             "MCP workspace read blocked; rerouting to built-in file tools."
                                 .to_string(),
                         ));
-
                     } else if res.blocked_by_policy
                         && implement_current_plan
                         && is_current_plan_irrelevant_tool(&tool_name)
@@ -3137,8 +3134,7 @@ impl ConversationManager {
                 if architecture_overview_mode {
                     match overview_runtime_trace.as_deref() {
                         Some(runtime_trace) => {
-                            let response =
-                                build_architecture_overview_answer(runtime_trace);
+                            let response = build_architecture_overview_answer(runtime_trace);
                             self.history.push(ChatMessage::assistant_text(&response));
                             self.transcript.log_agent(&response);
 
@@ -4876,7 +4872,13 @@ fn write_output_to_scratch(text: &str, tool_name: &str) -> Option<String> {
     // Sanitize tool name for use in filename
     let safe_name: String = tool_name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     let filename = format!("{}_{}.txt", safe_name, ts);
     let abs_path = scratch_dir.join(&filename);

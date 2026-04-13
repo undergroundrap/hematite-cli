@@ -436,9 +436,7 @@ pub fn extract_memory(messages: &[ChatMessage]) -> SessionMemory {
     let mut all_files: Vec<String> = Vec::new();
     for msg in messages {
         for call in &msg.tool_calls {
-            if let Ok(args) =
-                serde_json::from_str::<serde_json::Value>(&call.function.arguments)
-            {
+            if let Ok(args) = serde_json::from_str::<serde_json::Value>(&call.function.arguments) {
                 if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
                     // Push in traversal order so later (more recent) entries
                     // win deduplication when we reverse below.
@@ -517,9 +515,7 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
         // Precise file extraction from tool call arguments.
         for call in &m.tool_calls {
             tools.insert(call.function.name.clone());
-            if let Ok(args) =
-                serde_json::from_str::<serde_json::Value>(&call.function.arguments)
-            {
+            if let Ok(args) = serde_json::from_str::<serde_json::Value>(&call.function.arguments) {
                 if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
                     files.insert(path.to_string());
                 }
@@ -538,8 +534,7 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
             // Capture first error line from any tool result.
             if text.contains("Error:") || text.contains("error:") {
                 if let Some(err_line) = text.lines().find(|l| {
-                    l.trim_start().starts_with("Error:")
-                        || l.trim_start().starts_with("error:")
+                    l.trim_start().starts_with("Error:") || l.trim_start().starts_with("error:")
                 }) {
                     let snippet: String = err_line.chars().take(100).collect();
                     error_snippets.push(snippet);

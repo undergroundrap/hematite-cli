@@ -1564,7 +1564,10 @@ impl InferenceEngine {
         // no tool calls yet, check reasoning_content for embedded tool call markup.
         let reasoning_text = choice.message.reasoning_content.unwrap_or_default();
         if tool_calls.as_ref().map(|v| v.is_empty()).unwrap_or(true)
-            && content.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true)
+            && content
+                .as_ref()
+                .map(|s| s.trim().is_empty())
+                .unwrap_or(true)
             && !reasoning_text.is_empty()
         {
             let recovered = extract_native_tool_calls(&reasoning_text);

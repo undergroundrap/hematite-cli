@@ -32,14 +32,8 @@ pub async fn execute_streaming(
             let timeout_secs = timeout_override
                 .or(profile.timeout_secs)
                 .unwrap_or(BUILD_TIMEOUT_SECS);
-            return run_profile_command_streaming(
-                profile_name,
-                action,
-                command,
-                timeout_secs,
-                tx,
-            )
-            .await;
+            return run_profile_command_streaming(profile_name, action, command, timeout_secs, tx)
+                .await;
         }
 
         return Err(format!(
