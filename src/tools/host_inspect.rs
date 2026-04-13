@@ -44,6 +44,12 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "recent_crashes" | "crashes" | "bsod" => inspect_recent_crashes(max_entries),
         "scheduled_tasks" | "tasks" => inspect_scheduled_tasks(max_entries),
         "dev_conflicts" | "dev_environment" => inspect_dev_conflicts(),
+        "connectivity" | "internet" | "internet_check" => inspect_connectivity(),
+        "wifi" | "wi-fi" | "wireless" | "wlan" => inspect_wifi(),
+        "connections" | "tcp_connections" | "active_connections" => inspect_connections(max_entries),
+        "vpn" => inspect_vpn(),
+        "proxy" | "proxy_settings" => inspect_proxy(),
+        "firewall_rules" | "firewall-rules" => inspect_firewall_rules(max_entries),
         "os_config" | "system_config" => inspect_os_config(),
         "resource_load" | "performance" | "system_load" | "performance_diagnosis" => inspect_resource_load(),
         "repo_doctor" => {
@@ -62,7 +68,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, os_config, resource_load.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, os_config, resource_load.",
             other
         )),
     }
@@ -4628,6 +4634,459 @@ fn inspect_dev_conflicts() -> Result<String, String> {
             for n in &notes {
                 out.push_str(&format!("  [-] {n}\n"));
             }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── connectivity ──────────────────────────────────────────────────────────────
+
+fn inspect_connectivity() -> Result<String, String> {
+    let mut out = String::from("Host inspection: connectivity\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let inet_script = r#"
+try {
+    $r = Test-NetConnection -ComputerName 8.8.8.8 -Port 53 -InformationLevel Quiet -WarningAction SilentlyContinue
+    if ($r) { "REACHABLE" } else { "UNREACHABLE" }
+} catch { "ERROR:" + $_.Exception.Message }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", inet_script]).output() {
+            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            match text.as_str() {
+                "REACHABLE" => out.push_str("Internet: reachable\n"),
+                "UNREACHABLE" => out.push_str("Internet: unreachable [!]\n"),
+                _ => out.push_str(&format!("Internet: {}\n", text.trim_start_matches("ERROR:").trim())),
+            }
+        }
+
+        let dns_script = r#"
+try {
+    Resolve-DnsName -Name "dns.google" -Type A -ErrorAction Stop | Out-Null
+    "DNS:ok"
+} catch { "DNS:fail:" + $_.Exception.Message }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", dns_script]).output() {
+            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if text == "DNS:ok" {
+                out.push_str("DNS: resolving correctly\n");
+            } else {
+                let detail = text.trim_start_matches("DNS:fail:").trim();
+                out.push_str(&format!("DNS: failed — {}\n", detail));
+            }
+        }
+
+        let gw_script = r#"
+(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -First 1).NextHop
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", gw_script]).output() {
+            let gw = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if !gw.is_empty() && gw != "0.0.0.0" {
+                out.push_str(&format!("Default gateway: {}\n", gw));
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let reachable = Command::new("ping").args(["-c", "1", "-W", "2", "8.8.8.8"]).output()
+            .map(|o| o.status.success()).unwrap_or(false);
+        out.push_str(if reachable { "Internet: reachable\n" } else { "Internet: unreachable\n" });
+        let dns_ok = Command::new("getent").args(["hosts", "dns.google"]).output()
+            .map(|o| o.status.success()).unwrap_or(false);
+        out.push_str(if dns_ok { "DNS: resolving correctly\n" } else { "DNS: failed\n" });
+        if let Ok(o) = Command::new("ip").args(["route", "show", "default"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            if let Some(line) = text.lines().next() {
+                out.push_str(&format!("Default gateway: {}\n", line.trim()));
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── wifi ──────────────────────────────────────────────────────────────────────
+
+fn inspect_wifi() -> Result<String, String> {
+    let mut out = String::from("Host inspection: wifi\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let output = Command::new("netsh").args(["wlan", "show", "interfaces"]).output()
+            .map_err(|e| format!("wifi: {e}"))?;
+        let text = String::from_utf8_lossy(&output.stdout).to_string();
+
+        if text.contains("There is no wireless interface") || text.trim().is_empty() {
+            out.push_str("No wireless interface detected on this machine.\n");
+            return Ok(out.trim_end().to_string());
+        }
+
+        let fields = [
+            ("SSID", "SSID"),
+            ("State", "State"),
+            ("Signal", "Signal"),
+            ("Radio type", "Radio type"),
+            ("Channel", "Channel"),
+            ("Receive rate (Mbps)", "Download speed (Mbps)"),
+            ("Transmit rate (Mbps)", "Upload speed (Mbps)"),
+            ("Authentication", "Authentication"),
+            ("Network type", "Network type"),
+        ];
+
+        let mut any = false;
+        for line in text.lines() {
+            let trimmed = line.trim();
+            for (key, label) in &fields {
+                if trimmed.starts_with(key) && trimmed.contains(':') {
+                    let val = trimmed.splitn(2, ':').nth(1).unwrap_or("").trim();
+                    if !val.is_empty() {
+                        out.push_str(&format!("  {label}: {val}\n"));
+                        any = true;
+                    }
+                }
+            }
+        }
+        if !any {
+            out.push_str("  (Wi-Fi adapter disconnected or no active connection)\n");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("nmcli").args(["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout).to_string();
+            let lines: Vec<&str> = text.lines().filter(|l| l.contains(":wifi:")).collect();
+            if lines.is_empty() { out.push_str("No Wi-Fi devices found.\n"); }
+            else { for l in lines { out.push_str(&format!("  {l}\n")); } }
+        } else if let Ok(o) = Command::new("iwconfig").output() {
+            let text = String::from_utf8_lossy(&o.stdout).to_string();
+            if !text.trim().is_empty() { out.push_str(text.trim()); out.push('\n'); }
+        } else {
+            out.push_str("No wireless tool available (install nmcli or wireless-tools).\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── connections ───────────────────────────────────────────────────────────────
+
+fn inspect_connections(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: connections\n\n");
+    let n = max_entries.clamp(1, 25);
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(r#"
+try {{
+    $procs = @{{}}
+    Get-Process -ErrorAction SilentlyContinue | ForEach-Object {{ $procs[$_.Id] = $_.Name }}
+    $all = Get-NetTCPConnection -State Established -ErrorAction Stop |
+        Sort-Object RemoteAddress
+    "TOTAL:" + $all.Count
+    $all | Select-Object -First {n} | ForEach-Object {{
+        $pname = if ($procs.ContainsKey($_.OwningProcess)) {{ $procs[$_.OwningProcess] }} else {{ "pid:" + $_.OwningProcess }}
+        $pname + "|" + $_.LocalAddress + ":" + $_.LocalPort + "|" + $_.RemoteAddress + ":" + $_.RemotePort
+    }}
+}} catch {{ "ERROR:" + $_.Exception.Message }}"#);
+
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("connections: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        if text.starts_with("ERROR:") {
+            out.push_str(&format!("Unable to query connections: {text}\n"));
+        } else {
+            let mut total = 0usize;
+            let mut rows = Vec::new();
+            for line in text.lines() {
+                if let Some(rest) = line.strip_prefix("TOTAL:") {
+                    total = rest.trim().parse().unwrap_or(0);
+                } else {
+                    rows.push(line);
+                }
+            }
+            out.push_str(&format!("Established TCP connections: {total}\n\n"));
+            for row in &rows {
+                let parts: Vec<&str> = row.splitn(3, '|').collect();
+                if parts.len() == 3 {
+                    out.push_str(&format!("  {} | {} → {}\n", parts[0], parts[1], parts[2]));
+                }
+            }
+            if total > n {
+                out.push_str(&format!("\n  ... {} more connections not shown\n", total.saturating_sub(n)));
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("ss").args(["-tnp", "state", "established"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let lines: Vec<&str> = text.lines().skip(1).filter(|l| !l.trim().is_empty()).collect();
+            out.push_str(&format!("Established TCP connections: {}\n\n", lines.len()));
+            for line in lines.iter().take(n) { out.push_str(&format!("  {}\n", line.trim())); }
+            if lines.len() > n {
+                out.push_str(&format!("\n  ... {} more not shown\n", lines.len() - n));
+            }
+        } else {
+            out.push_str("ss not available — install iproute2\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── vpn ───────────────────────────────────────────────────────────────────────
+
+fn inspect_vpn() -> Result<String, String> {
+    let mut out = String::from("Host inspection: vpn\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+try {
+    $vpn = Get-NetAdapter -ErrorAction Stop | Where-Object {
+        $_.InterfaceDescription -match 'VPN|TAP|WireGuard|OpenVPN|Cisco|Palo Alto|GlobalProtect|Juniper|Pulse|NordVPN|ExpressVPN|Mullvad|ProtonVPN' -or
+        $_.Name -match 'VPN|TAP|WireGuard|tun|ppp|wg\d'
+    }
+    if ($vpn) {
+        foreach ($a in $vpn) {
+            $a.Name + "|" + $a.InterfaceDescription + "|" + $a.Status + "|" + $a.MediaConnectionState
+        }
+    } else { "NONE" }
+} catch { "ERROR:" + $_.Exception.Message }
+"#;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+            .map_err(|e| format!("vpn: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        if text == "NONE" {
+            out.push_str("No VPN adapters detected — no active VPN connection found.\n");
+        } else if text.starts_with("ERROR:") {
+            out.push_str(&format!("Unable to query adapters: {text}\n"));
+        } else {
+            out.push_str("VPN adapters:\n\n");
+            for line in text.lines() {
+                let parts: Vec<&str> = line.splitn(4, '|').collect();
+                if parts.len() >= 3 {
+                    let name = parts[0];
+                    let desc = parts[1];
+                    let status = parts[2];
+                    let media = parts.get(3).unwrap_or(&"unknown");
+                    let label = if status.trim() == "Up" { "CONNECTED" } else { "disconnected" };
+                    out.push_str(&format!("  {name} [{label}]\n    {desc}\n    Status: {status} | Media: {media}\n\n"));
+                }
+            }
+        }
+
+        // Windows built-in VPN connections
+        let ras_script = r#"
+try {
+    $c = Get-VpnConnection -ErrorAction Stop
+    if ($c) { foreach ($v in $c) { $v.Name + "|" + $v.ConnectionStatus + "|" + $v.ServerAddress } }
+    else { "NO_RAS" }
+} catch { "NO_RAS" }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", ras_script]).output() {
+            let t = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if t != "NO_RAS" && !t.is_empty() {
+                out.push_str("Windows VPN connections:\n");
+                for line in t.lines() {
+                    let parts: Vec<&str> = line.splitn(3, '|').collect();
+                    if parts.len() >= 2 {
+                        let name = parts[0];
+                        let status = parts[1];
+                        let server = parts.get(2).unwrap_or(&"");
+                        out.push_str(&format!("  {name} → {server} [{status}]\n"));
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("ip").args(["link", "show"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let vpn_ifaces: Vec<&str> = text.lines()
+                .filter(|l| l.contains("tun") || l.contains("tap") || l.contains(" wg") || l.contains("ppp"))
+                .collect();
+            if vpn_ifaces.is_empty() {
+                out.push_str("No VPN interfaces (tun/tap/wg/ppp) detected.\n");
+            } else {
+                out.push_str(&format!("VPN-like interfaces ({}):\n", vpn_ifaces.len()));
+                for l in vpn_ifaces { out.push_str(&format!("  {}\n", l.trim())); }
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── proxy ─────────────────────────────────────────────────────────────────────
+
+fn inspect_proxy() -> Result<String, String> {
+    let mut out = String::from("Host inspection: proxy\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+$ie = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction SilentlyContinue
+if ($ie) {
+    "ENABLE:" + $ie.ProxyEnable + "|SERVER:" + $ie.ProxyServer + "|OVERRIDE:" + $ie.ProxyOverride
+} else { "NONE" }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", script]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let text = raw.trim();
+            if text != "NONE" && !text.is_empty() {
+                let get = |key: &str| -> &str {
+                    text.split('|')
+                        .find(|s| s.starts_with(key))
+                        .and_then(|s| s.splitn(2, ':').nth(1))
+                        .unwrap_or("")
+                };
+                let enabled = get("ENABLE");
+                let server = get("SERVER");
+                let overrides = get("OVERRIDE");
+                out.push_str("WinINET / IE proxy:\n");
+                out.push_str(&format!("  Enabled: {}\n", if enabled == "1" { "yes" } else { "no" }));
+                if !server.is_empty() && server != "None" {
+                    out.push_str(&format!("  Proxy server: {server}\n"));
+                }
+                if !overrides.is_empty() && overrides != "None" {
+                    out.push_str(&format!("  Bypass list: {overrides}\n"));
+                }
+                out.push('\n');
+            }
+        }
+
+        if let Ok(o) = Command::new("netsh").args(["winhttp", "show", "proxy"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            out.push_str("WinHTTP proxy:\n");
+            for line in text.lines() {
+                let l = line.trim();
+                if !l.is_empty() { out.push_str(&format!("  {l}\n")); }
+            }
+            out.push('\n');
+        }
+
+        let mut env_found = false;
+        for var in &["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "no_proxy", "NO_PROXY"] {
+            if let Ok(val) = std::env::var(var) {
+                if !env_found { out.push_str("Environment proxy variables:\n"); env_found = true; }
+                out.push_str(&format!("  {var}: {val}\n"));
+            }
+        }
+        if !env_found { out.push_str("No proxy environment variables set.\n"); }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut found = false;
+        for var in &["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "no_proxy", "NO_PROXY", "ALL_PROXY", "all_proxy"] {
+            if let Ok(val) = std::env::var(var) {
+                if !found { out.push_str("Proxy environment variables:\n"); found = true; }
+                out.push_str(&format!("  {var}: {val}\n"));
+            }
+        }
+        if !found { out.push_str("No proxy environment variables set.\n"); }
+        if let Ok(content) = std::fs::read_to_string("/etc/environment") {
+            let proxy_lines: Vec<&str> = content.lines()
+                .filter(|l| l.to_lowercase().contains("proxy"))
+                .collect();
+            if !proxy_lines.is_empty() {
+                out.push_str("\nSystem proxy (/etc/environment):\n");
+                for l in proxy_lines { out.push_str(&format!("  {l}\n")); }
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── firewall_rules ────────────────────────────────────────────────────────────
+
+fn inspect_firewall_rules(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: firewall_rules\n\n");
+    let n = max_entries.clamp(1, 20);
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(r#"
+try {{
+    $rules = Get-NetFirewallRule -Enabled True -ErrorAction Stop |
+        Where-Object {{
+            $_.DisplayGroup -notmatch '^(@|Core Networking|Windows|File and Printer)' -and
+            $_.Owner -eq $null
+        }} | Select-Object -First {n} DisplayName, Direction, Action, Profile
+    "TOTAL:" + $rules.Count
+    $rules | ForEach-Object {{
+        $dir = switch ($_.Direction) {{ 1 {{ "Inbound" }}; 2 {{ "Outbound" }}; default {{ "?" }} }}
+        $act = switch ($_.Action) {{ 2 {{ "Allow" }}; 4 {{ "Block" }}; default {{ "?" }} }}
+        $_.DisplayName + "|" + $dir + "|" + $act + "|" + $_.Profile
+    }}
+}} catch {{ "ERROR:" + $_.Exception.Message }}"#);
+
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("firewall_rules: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        if text.starts_with("ERROR:") {
+            out.push_str(&format!("Unable to query firewall rules: {}\n", text.trim_start_matches("ERROR:").trim()));
+            out.push_str("This query may require running as administrator.\n");
+        } else if text.is_empty() {
+            out.push_str("No non-default enabled firewall rules found.\n");
+        } else {
+            let mut total = 0usize;
+            for line in text.lines() {
+                if let Some(rest) = line.strip_prefix("TOTAL:") {
+                    total = rest.trim().parse().unwrap_or(0);
+                    out.push_str(&format!("Non-default enabled rules (showing up to {n}):\n\n"));
+                } else {
+                    let parts: Vec<&str> = line.splitn(4, '|').collect();
+                    if parts.len() >= 3 {
+                        let name = parts[0];
+                        let dir = parts[1];
+                        let action = parts[2];
+                        let profile = parts.get(3).unwrap_or(&"Any");
+                        let icon = if action == "Block" { "[!]" } else { "   " };
+                        out.push_str(&format!("  {icon} [{dir}] {action}: {name} (profile: {profile})\n"));
+                    }
+                }
+            }
+            if total == 0 {
+                out.push_str("No non-default enabled rules found.\n");
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("ufw").args(["status", "numbered"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if !text.is_empty() { out.push_str(&text); out.push('\n'); }
+        } else if let Ok(o) = Command::new("iptables").args(["-L", "-n", "--line-numbers"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            for l in text.lines().take(n * 2) { out.push_str(&format!("  {l}\n")); }
+        } else {
+            out.push_str("ufw and iptables not available or insufficient permissions.\n");
         }
     }
 

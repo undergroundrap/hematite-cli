@@ -10,6 +10,15 @@ license-file = "LICENSE"
 keywords = ["ai", "cli", "coding-agent", "lm-studio", "tui"]
 categories = ["command-line-utilities", "development-tools"]
 
+[package.metadata.docs.rs]
+# Hematite is a Windows-primary crate; default docs to the Windows target.
+# List Linux explicitly so docs.rs also builds the platform-independent paths.
+default-target = "x86_64-pc-windows-msvc"
+targets = [
+    "x86_64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+]
+
 [features]
 default = []
 embedded-voice-assets = []

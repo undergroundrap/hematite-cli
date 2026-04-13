@@ -961,6 +961,97 @@ async fn test_inspect_host_network_reports_adapter_summary() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_connectivity_returns_header() {
+    use serde_json::json;
+    let args = json!({ "topic": "connectivity" });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host connectivity should not hard-error");
+    assert!(
+        output.contains("Host inspection: connectivity"),
+        "unexpected output: {output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_connectivity_reports_internet_status() {
+    use serde_json::json;
+    let args = json!({ "topic": "connectivity" });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host connectivity should not hard-error");
+    assert!(
+        output.contains("Internet:") || output.contains("internet"),
+        "expected internet status in output: {output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_wifi_returns_header() {
+    use serde_json::json;
+    let args = json!({ "topic": "wifi" });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host wifi should not hard-error");
+    assert!(
+        output.contains("Host inspection: wifi"),
+        "unexpected output: {output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_connections_returns_header() {
+    use serde_json::json;
+    let args = json!({ "topic": "connections", "max_entries": 10 });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host connections should not hard-error");
+    assert!(
+        output.contains("Host inspection: connections"),
+        "unexpected output: {output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_vpn_returns_header() {
+    use serde_json::json;
+    let args = json!({ "topic": "vpn" });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host vpn should not hard-error");
+    assert!(
+        output.contains("Host inspection: vpn"),
+        "unexpected output: {output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_proxy_returns_header() {
+    use serde_json::json;
+    let args = json!({ "topic": "proxy" });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host proxy should not hard-error");
+    assert!(
+        output.contains("Host inspection: proxy"),
+        "unexpected output: {output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_firewall_rules_returns_header() {
+    use serde_json::json;
+    let args = json!({ "topic": "firewall_rules", "max_entries": 10 });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host firewall_rules should not hard-error");
+    assert!(
+        output.contains("Host inspection: firewall_rules"),
+        "unexpected output: {output}"
+    );
+}
+
+#[tokio::test]
 async fn test_inspect_host_services_reports_status_summary() {
     use serde_json::json;
 

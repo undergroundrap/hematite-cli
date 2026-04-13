@@ -226,6 +226,15 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "machine",
             "computer",
             "firewall",
+            "vpn",
+            "proxy",
+            "internet",
+            "online",
+            "connectivity",
+            "ssid",
+            "wireless",
+            "tcp connection",
+            "active connection",
             "power plan",
             "power settings",
             "uptime",
@@ -438,6 +447,47 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || lower.contains("cpu load")
         || lower.contains("heavy hitters")
         || (lower.contains("resource") && lower.contains("usage"));
+    let asks_connectivity = lower.contains("internet")
+        || lower.contains("online")
+        || lower.contains("connectivity")
+        || lower.contains("am i connected")
+        || lower.contains("ping google")
+        || lower.contains("reach the internet")
+        || lower.contains("internet access")
+        || lower.contains("no internet")
+        || lower.contains("internet down")
+        || (lower.contains("check") && lower.contains("connection"))
+        || (lower.contains("dns") && (lower.contains("resolv") || lower.contains("working")));
+    let asks_wifi = lower.contains("wi-fi")
+        || lower.contains("wifi")
+        || lower.contains("wireless")
+        || lower.contains("wlan")
+        || lower.contains("signal strength")
+        || lower.contains("ssid")
+        || lower.contains("access point")
+        || (lower.contains("wireless") && lower.contains("connect"));
+    let asks_connections = lower.contains("tcp connection")
+        || lower.contains("active connection")
+        || lower.contains("established connection")
+        || lower.contains("socket")
+        || lower.contains("netstat")
+        || (lower.contains("connection") && lower.contains("active"))
+        || (lower.contains("connection") && lower.contains("open"));
+    let asks_vpn = lower.contains("vpn")
+        || lower.contains("virtual private network")
+        || (lower.contains("tunnel") && (lower.contains("network") || lower.contains("vpn")));
+    let asks_proxy = lower.contains("proxy")
+        || lower.contains("proxy setting")
+        || lower.contains("winhttp proxy")
+        || lower.contains("system proxy")
+        || (lower.contains("routed") && lower.contains("proxy"));
+    let asks_firewall_rules = (lower.contains("firewall") && (lower.contains("rule")
+        || lower.contains("block")
+        || lower.contains("allow")
+        || lower.contains("inbound")
+        || lower.contains("outbound")))
+        || lower.contains("blocked port")
+        || lower.contains("firewall rule");
 
     if asks_fix_plan {
         Some("fix_plan")
@@ -463,6 +513,18 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         Some("summary")
     } else if asks_env_doctor {
         Some("env_doctor")
+    } else if asks_connectivity {
+        Some("connectivity")
+    } else if asks_wifi {
+        Some("wifi")
+    } else if asks_connections {
+        Some("connections")
+    } else if asks_vpn {
+        Some("vpn")
+    } else if asks_proxy {
+        Some("proxy")
+    } else if asks_firewall_rules {
+        Some("firewall_rules")
     } else if asks_network {
         Some("network")
     } else if asks_services {

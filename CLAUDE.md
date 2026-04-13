@@ -102,6 +102,12 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Crash History**: Use `topic: "recent_crashes"` for BSOD/unexpected shutdown events and application crash/hang events from the Windows event log.
 - **Scheduled Tasks**: Use `topic: "scheduled_tasks"` for all non-disabled scheduled tasks with name, path, last run time, and executable.
 - **Dev Conflicts**: Use `topic: "dev_conflicts"` for cross-tool environment conflict detection — Node.js version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, and duplicate PATH entries.
+- **Connectivity Check**: Use `topic: "connectivity"` to test internet reachability and DNS resolution — reports REACHABLE/UNREACHABLE with DNS pass/fail and gateway/VPN context.
+- **Wi-Fi Status**: Use `topic: "wifi"` for wireless adapter state, SSID, signal strength (RSSI/quality), band, channel, and negotiated speed.
+- **Active TCP Connections**: Use `topic: "connections"` for active/established TCP connections — remote address, port, process name, and connection state.
+- **VPN Status**: Use `topic: "vpn"` to detect active VPN adapters, tunnel IPs, and any recognized VPN client services.
+- **Proxy Settings**: Use `topic: "proxy"` for WinHTTP system proxy, Internet Options proxy, and environment variable proxy config.
+- **Firewall Rules**: Use `topic: "firewall_rules"` for non-default enabled Windows Firewall rules — direction, action (Allow/Block), and profile.
 
 ## Hardware Intent
 
