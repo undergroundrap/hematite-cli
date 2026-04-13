@@ -1191,49 +1191,21 @@ impl InferenceEngine {
             );
         }
 
-        if cfg!(target_os = "windows") {
-            sys.push_str("Shell Protocol: You are running on WINDOWS. You MUST NOT use 'bash' or '/dev/null'. \
-                          You MUST use 'powershell' (pwsh) for all shell tasks. \
-                          DO NOT attempt to manipulate Linux-style paths like /dev, /etc, or /sys.\n\n");
-        } else if cfg!(target_os = "macos") {
-            sys.push_str(
-                "Shell Protocol: You are running on macOS. Use 'bash' or 'zsh' for shell tasks. \
-                          Standard Unix paths apply.\n\n",
-            );
-        } else {
-            sys.push_str(
-                "Shell Protocol: You are running on Linux. Use 'bash' for shell tasks. \
-                          Standard Unix paths apply.\n\n",
-            );
-        }
-
-        sys.push_str("OUTPUT RULES:\n\
-                      1. Your internal reasoning goes in <think>...</think> blocks. Do NOT output reasoning as plain text.\n\
-                      2. After your <think> block, output ONE concise technical sentence or code block. Nothing else.\n\
-                      3. Do NOT call tools named 'thought', 'think', 'reasoning', or any meta-cognitive name. These are not tools.\n\
-                      4. NEGATIVE CONSTRAINT: Never use a string containing a dot (.), slash (/), or backslash (\\) as a tool name. Paths are NOT tools.\n\
-                      5. NEGATIVE CONSTRAINT: Never use the name of a class, struct, or module as a tool name unless it is explicitly in the tool list.\n\
-                      6. GROUNDEDNESS: Never invent channels, event types, functions, tools, or files. If a detail is not verified from the repo or tool output, say `uncertain`.\n\
-                      7. TRACE QUESTIONS: For architecture or control-flow questions, prefer verified file and function names over high-level summaries.\n\
-                      8. If `trace_runtime_flow` fully answers the runtime question, preserve its identifiers exactly. Do not restyle or rename symbols from that tool output.\n\
-                      9. For generic capability questions, answer from stable Hematite capabilities. Do not inspect the repo unless the user explicitly asks about implementation.\n\
-                      10. Never infer language support, project support, or internet capability from unrelated crates or config files.\n\
-                      11. It is fine to say Hematite itself is written in Rust when relevant, but do not imply that capability is limited to Rust projects.\n\
-                      12. For language questions, answer at the harness level: file operations, shell, build verification, language-aware tooling when available, and multi-language project work.\n\
-                      13. Prefer real programming language examples like Python, JavaScript, TypeScript, Go, and C# over file extensions when answering language questions.\n\
-                      14. For project-building questions, talk about scaffolding, implementation, builds, tests, and iteration across different stacks instead of defaulting to a Rust-only example like `cargo build`.\n\
-                      15. Never mention raw `mcp__*` tool names unless those tools are active this turn and directly relevant.\n\
-                      16. For tooling-discipline or best-tool-selection questions, prefer `describe_toolchain` over improvising the tool surface from memory.\n\
-                      17. If `describe_toolchain` fully answers the tooling question, preserve its tool names and investigation order exactly.\n\
-                      18. PROOF BEFORE ACTION: Before editing an existing file, gather recent evidence with `read_file` or `inspect_lines` on that path or keep it pinned in active context.\n\
-                      18a. GREP BEFORE READ: For files over ~200 lines, always `grep_files` for a specific pattern to find the target line range BEFORE calling `read_file`. Never read a large file top-to-bottom — use offset+limit to read only the relevant window once grep gives you the line number.\n\
-                      19. PROOF BEFORE COMMIT: After code edits, do not `git_commit` or `git_push` until a successful `verify_build` exists for the latest code changes.\n\
-                      20. RISKY SHELL DISCIPLINE: Risky `shell` calls must include a concrete `reason` argument explaining what is being verified or changed.\n\
-                      21. EDIT PRECISION: Do not use `edit_file` with short or generic anchors such as one-word strings. Prefer a full unique line, multiple lines, or `inspect_lines` plus `patch_hunk`.\n\
-                      22. BUILT-IN FIRST: For ordinary local workspace inspection and file edits, prefer Hematite's built-in file tools over `mcp__filesystem__*` tools unless the user explicitly requires MCP for that action.\n\
-                      22a. HOST INSPECTION PRIORITY: For read-only questions about installed tools, PATH entries, environment/package-manager health, grounded fix plans for common workstation failures, network state, service state, running processes, desktop items, Downloads size, listening ports, repo-health summaries, OS configuration (firewall, power, uptime), Resource Load (CPU/RAM %), Performance Metrics, or plain-English system health reports, prefer `inspect_host` over raw `shell` when it can answer directly. If the user asks how to fix a common workstation problem such as `cargo not found`, `port 3000 already in use`, or `LM Studio not reachable`, use `fix_plan` first instead of `env_doctor`, `path`, or `ports`. If `env_doctor` answers the question, do not follow with `path` unless the user explicitly asks for raw PATH entries.\n\
-                      22b. HEMATITE MAINTAINER WORKFLOW PRIORITY: When the user explicitly asks to run Hematite's own cleanup, packaging, or release scripts, prefer `run_hematite_maintainer_workflow` over raw `shell`. This tool is for Hematite's own maintainer workflows, not for arbitrary scripts in the active workspace.\n\
-                      22c. WORKSPACE WORKFLOW PRIORITY: When the user asks to run the current project's build, test, lint, fix, package scripts, just/task/make targets, local scripts, or an exact workspace command, prefer `run_workspace_workflow` over raw `shell`. This tool always runs from the locked workspace root. If no real project workspace is locked, say so and tell the user to relaunch Hematite in the target project directory.");
+        sys.push_str("## CORE DIRECTIVES\n\
+                       1. REASONING: Your internal reasoning goes in <think>...</think> blocks. Do NOT output reasoning as plain text.\n\
+                       2. CONCISENESS: After <think>, output ONE concise technical sentence or code block. Nothing else.\n\
+                       3. GROUNDEDNESS: Never invent tools, channels, or files. If a detail is not verified from tool output, say `uncertain`. Answer from stable Hematite capabilities unless repo implementation is requested.\n\n\
+                       ## ARCHITECTURAL DISCIPLINE\n\
+                       - HOST INSPECTION PRIORITY: MANDATORY. For all diagnostic questions (load, CPU/RAM, processes, toolchains, network, ports, OS config, log-checks), prefer `inspect_host` over raw `shell`. If `env_doctor` answers, do not follow with `path` unless requested.\n\
+                       - WORKFLOW PRIORITY: Prefer `run_workspace_workflow` for project builds/tests and `run_hematite_maintainer_workflow` for app-level scripts over raw `shell`.\n\
+                       - PROOF BEFORE ACTION: `read_file` or `inspect_lines` before editing. For files >200 lines, `grep_files` for a pattern BEFORE reading.\n\
+                       - PROOF BEFORE COMMIT: Do not `git_commit` until a successful `verify_build` exists for the latest changes.\n\
+                       - BUILT-IN FIRST: Prefer internal file tools over `mcp__filesystem__*` unless MCP is explicitly required.\n\n\
+                       ## TECHNIQUE & SAFETY\n\
+                       - SHELL DISCIPLINE: Risky `shell` calls REQUIRE a `reason` argument. Always use `powershell` on Windows; never `bash` or `/dev/null`.\n\
+                       - EDIT & TOOL PRECISION: Use unique lines/anchors for `edit_file`. Do not call tools like 'think' or 'reasoning'. Paths and symbols are NOT tool names.\n\
+                       - CONTEXT AWARENESS: Answer at the harness level (file ops, shell, build). Prefer real language examples (Python, C#, TS, Go). Never mention `mcp__*` tools unless active and relevant.\n\
+                       - TOOLING DISCIPLINE: Prefer `describe_toolchain` over improvising tool surface from memory; preserve its identifiers exactly.");
 
         // Scaffolding protocol — enforces build validation after project creation.
         sys.push_str("\n## SCAFFOLDING PROTOCOL\n\

@@ -87,7 +87,10 @@ Crates.io compatibility rule: the default published/source build does not embed 
 
 Crates.io update rule: in normal use, almost every public tagged Hematite release should republish `hematite-cli`. Republish `hematite-kokoros` only when the vendored fork itself changes. Do not bump the voice fork just because the main app shipped a new release.
 
-For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, environment/package-manager health, **OS configuration (Firewall/Power/Uptime)**, **Resource Load (CPU/RAM %)**, **System Health Reports**, grounded fix plans for common workstation failures, network snapshots, service snapshots, process snapshots, desktop/downloads, listening ports, repo-doctor summaries, recent system log errors (`log_check`), boot-time startup items (`startup_items`), and arbitrary directory or disk inspections before falling back to raw shell. For active changes, use `resolve_host_issue` to safely remediate detected problems.
+- **Host Inspection Priority**: For all diagnostic questions (load, network, processes, log-checks), the agent **MUST** prefer `inspect_host` over raw `shell`.
+- **Global Guard Enforcement**: Any raw shell diagnostic (wmic, Get-Process, tasklist) is blocked by a global linter in `conversation.rs` and redirected to `inspect_host`.
+- **Telemetry Precision**: Use `topic: "resource_load"` for real-time CPU/RAM summaries and `topic: "processes"` for per-process cumulative CPU/Memory analytics.
+- **Self-Correction Strategy**: When a diagnostic `shell` call is blocked, the agent must immediately self-correct to the designated `inspect_host` topic.
 
 ## Hardware Intent
 

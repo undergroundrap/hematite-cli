@@ -76,7 +76,10 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 - **Honest about hardware** — VRAM usage in the status bar, context budget visible, compaction triggered before you hit the ceiling. No silent failures.
 - **Zero ongoing cost** — no API key, no subscription, no per-token billing. Run it all day.
 - **Private by default** — nothing leaves your machine. No telemetry, no cloud fallback.
-
+  - [x] Host Inspection (SysAdmin Telemetry)
+  - [x] Global Enforcement Guard (Shell Redirection)
+  - [x] CPU/RAM Real-time Tracking
+  - [x] Process Cumulative CPU Time Analytics
 **Windows is the primary development target.** PowerShell integration, path handling, shell behavior, and sandbox isolation receive the most polish there. Linux and macOS are supported.
 
 ---
@@ -181,7 +184,7 @@ Useful examples:
 
 This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
 
-For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, environment/package-manager health, **OS configuration (Firewall/Power/Uptime)**, **Resource Load (CPU/RAM %)**, **System Health Reports**, grounded fix plans for common workstation failures, network snapshots, service snapshots, process snapshots, desktop/downloads, listening ports, repo-doctor summaries, recent system log errors (`log_check`), boot-time startup items (`startup_items`), and arbitrary directory or disk inspections before falling back to raw shell. For active changes, use `resolve_host_issue` to safely remediate detected problems.
+For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, environment/package-manager health, OS configuration (Firewall/Power/Uptime), **Resource Load (CPU/RAM %)**, **System Health Reports**, grounded fix plans for common workstation failures, network snapshots, service snapshots, process snapshots, desktop/downloads, listening ports, repo-doctor summaries, recent system log errors (`log_check`), boot-time startup items (`startup_items`), and arbitrary directory or disk inspections before falling back to raw shell.
 
 - **Safe Remediation**: Use `resolve_host_issue` for bounded, user-gated fixes like installing missing packages (winget), restarting services, or clearing caches.
 
