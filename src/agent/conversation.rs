@@ -907,7 +907,7 @@ impl ConversationManager {
     pub fn initialize_repo_map(&mut self) {
         if !self.vein_docs_only_mode() {
             let root = crate::tools::file_ops::workspace_root();
-            let hot = self.vein.hot_file_paths(10);
+            let hot = self.vein.hot_files_weighted(10);
             let gen = crate::memory::repo_map::RepoMapGenerator::new(&root)
                 .with_hot_files(&hot);
             match tokio::task::block_in_place(|| gen.generate()) {

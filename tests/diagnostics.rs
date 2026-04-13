@@ -1239,3 +1239,97 @@ async fn test_sandbox_javascript_sha256() {
         "SHA-256 of 'Hematite' should match known hash"
     );
 }
+
+// ── Heat-weighted PageRank personalization ────────────────────────────────────
+
+#[test]
+fn test_vein_hot_files_weighted_normalizes_to_one() {
+    use hematite::memory::vein::Vein;
+
+    let tmp = tempfile::NamedTempFile::new().expect("temp db");
+    let mut vein = Vein::new(tmp.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
+
+    vein.index_document("src/core.rs", 1_000, "pub fn core() {}")
+        .unwrap();
+    vein.index_document("src/util.rs", 2_000, "pub fn util() {}")
+        .unwrap();
+
+    // core: 4 edits, util: 2 edits — core should have weight 1.0, util 0.5
+    for _ in 0..4 {
+        vein.bump_heat("src/core.rs");
+    }
+    for _ in 0..2 {
+        vein.bump_heat("src/util.rs");
+    }
+
+    let weighted = vein.hot_files_weighted(10);
+    assert!(!weighted.is_empty(), "should return weighted hot files");
+
+    let core_weight = weighted
+        .iter()
+        .find(|(p, _)| p == "src/core.rs")
+        .map(|(_, w)| *w);
+    let util_weight = weighted
+        .iter()
+        .find(|(p, _)| p == "src/util.rs")
+        .map(|(_, w)| *w);
+
+    assert_eq!(core_weight, Some(1.0), "hottest file should have weight 1.0");
+    let util_w = util_weight.expect("util.rs should appear");
+    assert!(
+        (util_w - 0.5).abs() < 0.01,
+        "util.rs with half the edits should have weight ~0.5, got {}",
+        util_w
+    );
+}
+
+#[test]
+fn test_pagerank_heat_weighted_ranks_active_file_higher() {
+    use hematite::memory::repo_map::RepoMapGenerator;
+    use std::fs;
+
+    let dir = tempfile::tempdir().unwrap();
+
+    // core.rs defines a struct referenced by user.rs and admin.rs
+    fs::write(
+        dir.path().join("core.rs"),
+        "pub struct Engine {}\npub fn init_engine() -> Engine { Engine {} }\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("user.rs"),
+        "use crate::core::Engine;\nfn use_engine(e: Engine) { let _ = e; }\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("admin.rs"),
+        "use crate::core::Engine;\nfn admin_engine(e: Engine) { let _ = e; }\n",
+    )
+    .unwrap();
+    // leaf.rs: no references from anyone
+    fs::write(
+        dir.path().join("leaf.rs"),
+        "fn unused_leaf_function() {}\nstruct OrphanStruct {}\n",
+    )
+    .unwrap();
+
+    // Simulate heavy heat on leaf.rs — heat-weighted boost should still not
+    // outrank a file that is architecturally central AND has heat.
+    // But core.rs with full heat (1.0) should beat leaf.rs with full heat.
+    let hot = vec![
+        ("core.rs".to_string(), 1.0_f64), // hottest
+        ("leaf.rs".to_string(), 0.5_f64), // warm but isolated
+    ];
+
+    let gen = RepoMapGenerator::new(dir.path()).with_hot_files(&hot);
+    let map = gen.generate().unwrap();
+
+    let core_pos = map.find("core.rs:").unwrap_or(usize::MAX);
+    let leaf_pos = map.find("leaf.rs:").unwrap_or(usize::MAX);
+
+    assert!(
+        core_pos < leaf_pos,
+        "core.rs (heat=1.0, referenced by 2 files) should rank before leaf.rs (heat=0.5, isolated). Map:\n{}",
+        map
+    );
+}

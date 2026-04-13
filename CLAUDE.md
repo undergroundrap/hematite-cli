@@ -291,7 +291,12 @@ paths not already covered. Results are deduplicated by file path and capped at 1
 retrieval boost, and a compact hot-files block grouped by room is injected into the prompt so the
 model stays oriented toward the part of the codebase you're actively editing.
 
-**PageRank Repo Maps:** at startup and after every file edit, Hematite builds a `tree-sitter` definition/reference graph across all source files and runs PageRank (via `petgraph`) to rank files by structural importance. The ranked map is injected into the system prompt so the model immediately knows which files are architecturally central — no tool calls needed for basic orientation. Hot-file personalization from The Vein's heat tracker biases the ranking toward active code.
+**L1 hot-files context:** the top 8 hottest files (by edit count) are grouped by room and injected
+as a compact block near the top of the system prompt every turn. This gives the model immediate
+structural orientation — which subsystems are active — before it reads any retrieval results or
+repo map output. Returns `None` and injects nothing on a fresh project with no heat records.
+
+**PageRank Repo Maps:** at startup and after every file edit, Hematite builds a `tree-sitter` definition/reference graph across all source files and runs PageRank (via `petgraph`) to rank files by structural importance. The ranked map is injected into the system prompt so the model immediately knows which files are architecturally central — no tool calls needed for basic orientation. Hot-file personalization uses heat-weighted scores from The Vein: the hottest file gets a 100× boost; others scale proportionally (e.g. half the edits → 50× boost). This means files that are both architecturally central *and* actively edited float to the top.
 
 **Ranking cues:** reranking adds small boosts for exact quoted phrases, standout tokens such as
 filenames/commands/tool IDs, "what did we decide earlier" style prompts that should prefer
@@ -338,6 +343,9 @@ fall back to a sliding window. This ensures each retrieved chunk is a coherent, 
 - `edit_file` and `multi_search_replace` normalize CRLF → LF before matching so model search strings (always LF) work correctly on Windows files
 - Diff preview: before `edit_file`, `patch_hunk`, or `multi_search_replace` is applied, a coloured before/after diff modal is shown in the TUI; user presses Y to apply or N to skip; model is told "Edit declined by user." on N; bypassed in `--yolo` mode
 - `read_file` satisfies the line-inspection grounding check so the model can go `read_file → edit_file` without a separate `inspect_lines` call
+- Context compaction warnings fire as visible System messages at 70% and 90% context fill; the warning resets below 60% so it only fires once per pressure band
+- Embed model load/unload is detected mid-session: when LM Studio swaps the embedding model (or unloads it), Hematite fires a System message in the TUI immediately so the operator knows semantic search state changed
+- Startup CWD guard: if Hematite is launched from an inaccessible system folder (e.g. via a Windows shortcut pointing to a system path), it silently relocates to the user's home directory before any workspace detection runs, preventing a hung startup
 
 ## Commit Style
 
@@ -394,6 +402,7 @@ Hematite supports attaching files to any conversation turn via hotkeys or slash 
 **Document attachment (`Ctrl+O` / `/attach <path>`):**
 - Supported types: PDF (text-based), markdown, plain text
 - PDF extraction is best-effort using pure-Rust `pdf-extract` — works for standard PDFs (Word exports, LaTeX, API docs); rejects with a clear error if words are smashed together or text is too short (common with academic publisher PDFs using custom embedded fonts like EBSCO, Elsevier, Springer)
+- Size feedback: after loading, Hematite estimates the token cost (chars/4) and warns if the attachment exceeds 40% of the active context window (yellow warning) or 75% (red warning), so the operator knows before sending
 - Permanent indexing: drop files in `.hematite/docs/` and the Vein indexes them alongside source code — hybrid BM25+semantic retrieval, no separate step required
 - One-shot: `/attach` injects content as a context prefix on the next message then clears
 

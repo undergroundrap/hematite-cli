@@ -97,7 +97,8 @@ fn get_js_ref_query() -> Result<(Language, Query)> {
 
 pub struct RepoMapGenerator {
     root: std::path::PathBuf,
-    hot_files: Vec<String>,
+    /// Hot files with normalized heat weights in [0.0, 1.0].
+    hot_files: Vec<(String, f64)>,
     max_symbols: usize,
 }
 
@@ -111,8 +112,10 @@ impl RepoMapGenerator {
     }
 
     /// Bias PageRank toward files the user is actively editing.
-    pub fn with_hot_files(mut self, paths: &[String]) -> Self {
-        self.hot_files = paths.to_vec();
+    /// Accepts paths with normalized heat weights [0.0, 1.0].
+    /// Hottest file gets 100x boost; others scale proportionally.
+    pub fn with_hot_files(mut self, files: &[(String, f64)]) -> Self {
+        self.hot_files = files.to_vec();
         self
     }
 
@@ -328,13 +331,13 @@ impl RepoMapGenerator {
         let iterations = 30;
         let base_score = 1.0 / node_count as f64;
 
-        // Personalization: boost hot files
+        // Personalization: boost hot files proportional to heat weight.
+        // Hottest file (weight 1.0) gets 100x boost; others scale down linearly.
         let mut personalization: HashMap<petgraph::graph::NodeIndex, f64> = HashMap::new();
-        let hot_set: HashSet<&str> = self.hot_files.iter().map(|s| s.as_str()).collect();
-        let boost = 100.0 / node_count.max(1) as f64;
-        for (file, &idx) in &node_map {
-            if hot_set.contains(file.as_str()) {
-                personalization.insert(idx, boost);
+        let base_boost = 100.0 / node_count.max(1) as f64;
+        for (file, weight) in &self.hot_files {
+            if let Some(&idx) = node_map.get(file.as_str()) {
+                personalization.insert(idx, base_boost * weight);
             }
         }
 

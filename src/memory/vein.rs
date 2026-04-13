@@ -1142,6 +1142,24 @@ impl Vein {
             .collect()
     }
 
+    /// Return hot files with normalized heat weights in [0.0, 1.0].
+    /// The hottest file gets weight 1.0; others are scaled proportionally.
+    /// Used by RepoMapGenerator to apply heat-weighted PageRank personalization.
+    pub fn hot_files_weighted(&self, n: usize) -> Vec<(String, f64)> {
+        let files = self.hot_files(n);
+        if files.is_empty() {
+            return vec![];
+        }
+        let max_heat = files.iter().map(|(_, h, _, _)| *h).max().unwrap_or(1).max(1) as f64;
+        files
+            .into_iter()
+            .map(|(path, heat, _, _)| {
+                let weight = (heat as f64) / max_heat;
+                (path, weight)
+            })
+            .collect()
+    }
+
     /// Build the L1 context block — a compact "hot files" summary injected into
     /// the system prompt at session start. Capped at ~150 tokens.
     /// Files are grouped by room so the model sees subsystem structure at a glance.
