@@ -225,6 +225,13 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "local development",
             "machine",
             "computer",
+            "firewall",
+            "power plan",
+            "power settings",
+            "uptime",
+            "reboot",
+            "health",
+            "report",
         ],
     );
     let host_action = contains_any(
@@ -332,6 +339,18 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || lower.contains("ready for local development")
         || (lower.contains("machine") && lower.contains("ready"))
         || (lower.contains("computer") && lower.contains("ready"));
+    let asks_os_config = lower.contains("firewall")
+        || lower.contains("power plan")
+        || lower.contains("power settings")
+        || lower.contains("powercfg")
+        || lower.contains("uptime")
+        || lower.contains("reboot")
+        || lower.contains("boot time")
+        || lower.contains("last boot");
+    let asks_health_report = lower.contains("health report")
+        || lower.contains("system health")
+        || (lower.contains("how") && lower.contains("machine") && lower.contains("doing"))
+        || (lower.contains("status") && lower.contains("report") && !lower.contains("git"));
 
     if asks_fix_plan {
         Some("fix_plan")
@@ -359,6 +378,10 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         Some("path")
     } else if asks_toolchains {
         Some("toolchains")
+    } else if asks_os_config {
+        Some("os_config")
+    } else if asks_health_report {
+        Some("health_report")
     } else if asks_directory {
         Some("directory")
     } else if mentions_host_inspection_question(&lower) {

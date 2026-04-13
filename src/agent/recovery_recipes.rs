@@ -14,6 +14,7 @@ pub enum RecoveryScenario {
     ExactLineWindowRequired,
     ToolLoop,
     VerificationFailed,
+    PolicyCorrection,
 }
 
 impl RecoveryScenario {
@@ -30,6 +31,7 @@ impl RecoveryScenario {
             RecoveryScenario::ExactLineWindowRequired => "exact_line_window_required",
             RecoveryScenario::ToolLoop => "tool_loop",
             RecoveryScenario::VerificationFailed => "verification_failed",
+            RecoveryScenario::PolicyCorrection => "policy_correction",
         }
     }
 }
@@ -48,6 +50,7 @@ pub enum RecoveryStep {
     InspectExactLineWindow,
     StopRepeatingToolPattern,
     FixVerificationFailure,
+    SelfCorrectToolSelection,
 }
 
 impl RecoveryStep {
@@ -64,6 +67,7 @@ impl RecoveryStep {
             RecoveryStep::InspectExactLineWindow => "inspect_exact_line_window",
             RecoveryStep::StopRepeatingToolPattern => "stop_repeating_tool_pattern",
             RecoveryStep::FixVerificationFailure => "fix_verification_failure",
+            RecoveryStep::SelfCorrectToolSelection => "self_correct_tool_selection",
         }
     }
 }
@@ -231,6 +235,11 @@ pub fn recipe_for(scenario: RecoveryScenario) -> RecoveryRecipe {
         RecoveryScenario::VerificationFailed => RecoveryRecipe {
             scenario,
             steps: vec![RecoveryStep::FixVerificationFailure],
+            max_attempts: 1,
+        },
+        RecoveryScenario::PolicyCorrection => RecoveryRecipe {
+            scenario,
+            steps: vec![RecoveryStep::SelfCorrectToolSelection],
             max_attempts: 1,
         },
     }

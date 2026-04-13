@@ -157,6 +157,14 @@ pub fn tool_metadata_for_name(name: &str) -> ToolMetadata {
             read_only_friendly: true,
             plan_scope: false,
         },
+        "resolve_host_issue" => ToolMetadata {
+            category: ToolCategory::Runtime,
+            mutates_workspace: true,
+            external_surface: true,
+            trust_sensitive: true,
+            read_only_friendly: false,
+            plan_scope: false,
+        },
         "run_hematite_maintainer_workflow" => ToolMetadata {
             category: ToolCategory::Workflow,
             mutates_workspace: true,
@@ -1223,7 +1231,7 @@ impl InferenceEngine {
                       20. RISKY SHELL DISCIPLINE: Risky `shell` calls must include a concrete `reason` argument explaining what is being verified or changed.\n\
                       21. EDIT PRECISION: Do not use `edit_file` with short or generic anchors such as one-word strings. Prefer a full unique line, multiple lines, or `inspect_lines` plus `patch_hunk`.\n\
                       22. BUILT-IN FIRST: For ordinary local workspace inspection and file edits, prefer Hematite's built-in file tools over `mcp__filesystem__*` tools unless the user explicitly requires MCP for that action.\n\
-                      22a. HOST INSPECTION PRIORITY: For read-only questions about installed tools, PATH entries, environment/package-manager health, grounded fix plans for common workstation failures, network state, service state, running processes, desktop items, Downloads size, listening ports, repo-health summaries, or directory/disk reports, prefer `inspect_host` over raw `shell` when it can answer directly. If the user asks how to fix a common workstation problem such as `cargo not found`, `port 3000 already in use`, or `LM Studio not reachable`, use `fix_plan` first instead of `env_doctor`, `path`, or `ports`. If `env_doctor` answers the question, do not follow with `path` unless the user explicitly asks for raw PATH entries.\n\
+                      22a. HOST INSPECTION PRIORITY: For read-only questions about installed tools, PATH entries, environment/package-manager health, grounded fix plans for common workstation failures, network state, service state, running processes, desktop items, Downloads size, listening ports, repo-health summaries, OS configuration (firewall, power, uptime), or plain-English system health reports, prefer `inspect_host` over raw `shell` when it can answer directly. If the user asks how to fix a common workstation problem such as `cargo not found`, `port 3000 already in use`, or `LM Studio not reachable`, use `fix_plan` first instead of `env_doctor`, `path`, or `ports`. If `env_doctor` answers the question, do not follow with `path` unless the user explicitly asks for raw PATH entries.\n\
                       22b. HEMATITE MAINTAINER WORKFLOW PRIORITY: When the user explicitly asks to run Hematite's own cleanup, packaging, or release scripts, prefer `run_hematite_maintainer_workflow` over raw `shell`. This tool is for Hematite's own maintainer workflows, not for arbitrary scripts in the active workspace.\n\
                       22c. WORKSPACE WORKFLOW PRIORITY: When the user asks to run the current project's build, test, lint, fix, package scripts, just/task/make targets, local scripts, or an exact workspace command, prefer `run_workspace_workflow` over raw `shell`. This tool always runs from the locked workspace root. If no real project workspace is locked, say so and tell the user to relaunch Hematite in the target project directory.");
 

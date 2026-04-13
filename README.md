@@ -8,9 +8,10 @@ Local AI coding harness and natural-language workstation assistant for LM Studio
 - Detects the workspace automatically — coding project, document folder, or general directory — and adjusts its behavior accordingly. No flags, no config.
 - Reads any file, grepping for the right location before touching anything
 - Shows a coloured diff preview before every edit — press Y to apply, N to skip
-- Edits with exact-match precision, CRLF-safe on Windows; if exact match fails, applies three levels of fuzzy recovery (rstrip → full-strip → cross-file workspace scan hint) and auto-corrects replace-string indentation on fuzzy match
-- Runs `verify_build` after every change and feeds errors back to the model automatically
-- Ghost-snapshots every edit so `Ctrl+Z` restores the previous state instantly
+- Edits with exact-match precision, CRLF-safe on Windows; if exact match fails, applies three levels of fuzzy recovery (rstrip → full-strip → cross-file workspace scan hint).
+- Runs `verify_build` after every change and feeds errors back to the model automatically.
+- **Self-Correcting Runtime Guards**: Automatically catches and blocks raw shell commands for standard tasks (PATH, Firewall, Power, Uptime), nudging the model to use optimized tools and retrying the turn automatically.
+- Ghost-snapshots every edit so `Ctrl+Z` restores the previous state instantly.
 - Indexes your codebase with hybrid BM25 + semantic search so the model starts each turn with the right code already in view; session memory is automatically classified by type (decision, problem, milestone, preference) and retrieval boosts matching chunks based on query intent
 - Writes large tool outputs to a scratch file and tells the model where to find them — nothing silently dropped, always recoverable via `read_file`
 - Attaches images and documents to any turn — vision-capable models see screenshots, diagrams, and specs directly
@@ -180,7 +181,14 @@ Useful examples:
 
 This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
 
-For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH analysis, toolchain detection, environment/package-manager health, grounded fix plans for common workstation failures, network snapshots, service snapshots, process snapshots, desktop inspection, Downloads summaries, listening-port checks, repo-doctor summaries, and arbitrary directory or disk reports. `shell` remains the fallback for custom checks that do not fit a built-in inspection topic.
+For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH 
+analysis, toolchain detection, environment/package-manager health, **OS configuration** (Firewall, Power Plan, Uptime), 
+**System Health Synthesis**, grounded fix plans for common workstation failures, 
+network snapshots, service snapshots, process snapshots, desktop inspection, Downloads summaries, listening-port 
+checks, repo-doctor summaries, and arbitrary directory or disk reports. `shell` remains the fallback for custom checks 
+that do not fit a built-in inspection topic.
+
+- **Safe Remediation**: Use `resolve_host_issue` for bounded, user-gated fixes like installing missing packages (winget), restarting services, or clearing caches.
 
 Try these prompts:
 
@@ -628,7 +636,8 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
 
-| `inspect_host` | Structured read-only inspection of PATH, toolchains, environment/package-manager health, grounded fix plans, network, services, processes, desktop/downloads, ports, repo health, recent system log errors (`log_check`), boot-time startup items (`startup_items`), and arbitrary directories |
+| `inspect_host` | Structured read-only inspection of PATH, toolchains, OS Config (Firewall/Power/Uptime), System Health Reports, environment/package-manager health, grounded fix plans, network, services, processes, desktop/downloads, ports, repo health, recent system log errors (`log_check`), boot-time startup items (`startup_items`), and arbitrary directories |
+| `resolve_host_issue` | Safe, user-gated remediation actions: `install_package` (winget), `restart_service`, and `clear_temp`. |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
 | `fetch_docs` | Fetch and convert documentation pages into readable Markdown for follow-up analysis |

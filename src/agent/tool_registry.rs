@@ -137,7 +137,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         make_tool(
             "inspect_host",
             "Return a structured read-only inspection of the current machine and environment. \
-             Prefer this over raw shell for questions about installed developer tools, PATH issues, package-manager and environment health, network state, service state, running processes, desktop items, Downloads size, open listening ports, repo health, or directory/disk summaries. \
+             Prefer this over raw shell for questions about OS configuration (firewall, power, uptime), plain-English system health reports, installed developer tools, PATH issues, package-manager and environment health, network state, service state, running processes, desktop items, Downloads size, listening ports, repo health, or directory/disk summaries. \
              For remediation questions phrased like 'how do I fix cargo not found', 'how do I fix port 3000 already in use', or 'how do I fix LM Studio not reachable', use topic=fix_plan instead of diagnosis-only topics like env_doctor, path, or ports. \
              Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=env_doctor for package-manager and PATH health, topic=fix_plan for structured remediation plans, topic=network for adapters/IPs/gateways/DNS, topic=services for service status and startup mode, \
              topic=processes for running-process snapshots, topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
@@ -148,7 +148,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report"],
+                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "os_config"],
                         "description": "Which structured host inspection to run."
                     },
                     "name": {
@@ -172,6 +172,27 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                         "description": "Optional cap for listed entries. Defaults to 10 and is capped internally."
                     }
                 }
+            }),
+        ),
+        make_tool(
+            "resolve_host_issue",
+            "A safe, bounded tool for remediating OS and environment issues automatically with user approval. \
+             Use this to fix missing dependencies, restart stuck services, or clear disk space instead of using raw shell. \
+             The user will be prompted to approve the action. Keep targets exact.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["install_package", "restart_service", "clear_temp"],
+                        "description": "The type of remediation to perform."
+                    },
+                    "target": {
+                        "type": "string",
+                        "description": "The specific target (e.g., 'python' for install_package, or 'docker' for restart_service). Optional for clear_temp."
+                    }
+                },
+                "required": ["action"]
             }),
         ),
         make_tool(
@@ -787,6 +808,7 @@ pub async fn dispatch_builtin_tool(name: &str, args: &Value) -> Result<String, S
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
         "inspect_host" => crate::tools::host_inspect::inspect_host(args).await,
+        "resolve_host_issue" => crate::tools::host_inspect::resolve_host_issue(args).await,
         "run_hematite_maintainer_workflow" => {
             crate::tools::repo_script::run_hematite_maintainer_workflow(args).await
         }

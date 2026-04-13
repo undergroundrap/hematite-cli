@@ -33,7 +33,8 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "ports" => inspect_ports(parse_port_filter(args), max_entries),
         "log_check" => inspect_log_check(max_entries),
         "startup_items" => inspect_startup_items(max_entries),
-        "health_report" => inspect_health_report(),
+        "health_report" | "system_health" => inspect_health_report(),
+        "os_config" | "system_config" => inspect_os_config(),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -50,7 +51,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, os_config.",
             other
         )),
     }
@@ -2937,4 +2938,128 @@ foreach ($p in $paths) {
     }
 
     Ok(out.trim_end().to_string())
+}
+
+fn inspect_os_config() -> Result<String, String> {
+    let mut out = String::from("Host inspection: OS Configuration\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        // Power Plan
+        if let Ok(power_out) = Command::new("powercfg").args(["/getactivescheme"]).output() {
+            let power_str = String::from_utf8_lossy(&power_out.stdout);
+            out.push_str("=== Power Plan ===\n");
+            out.push_str(power_str.trim());
+            out.push_str("\n\n");
+        }
+
+        // Firewall Status
+        let fw_script = "Get-NetFirewallProfile | Format-Table -Property Name, Enabled -AutoSize | Out-String";
+        if let Ok(fw_out) = Command::new("powershell").args(["-NoProfile", "-Command", fw_script]).output() {
+            let fw_str = String::from_utf8_lossy(&fw_out.stdout);
+            out.push_str("=== Firewall Profiles ===\n");
+            out.push_str(fw_str.trim());
+            out.push_str("\n\n");
+        }
+
+        // System Uptime
+        let uptime_script = "(Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime.ToString()";
+        if let Ok(uptime_out) = Command::new("powershell").args(["-NoProfile", "-Command", uptime_script]).output() {
+            let uptime_str = String::from_utf8_lossy(&uptime_out.stdout);
+            out.push_str("=== System Uptime (Last Boot) ===\n");
+            out.push_str(uptime_str.trim());
+            out.push_str("\n\n");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Uptime
+        if let Ok(uptime_out) = Command::new("uptime").args(["-p"]).output() {
+            let uptime_str = String::from_utf8_lossy(&uptime_out.stdout);
+            out.push_str("=== System Uptime ===\n");
+            out.push_str(uptime_str.trim());
+            out.push_str("\n\n");
+        }
+        
+        // Firewall (ufw status if available)
+        if let Ok(ufw_out) = Command::new("ufw").arg("status").output() {
+            let ufw_str = String::from_utf8_lossy(&ufw_out.stdout);
+            if !ufw_str.trim().is_empty() {
+                out.push_str("=== Firewall (UFW) ===\n");
+                out.push_str(ufw_str.trim());
+                out.push_str("\n\n");
+            }
+        }
+    }
+    Ok(out.trim_end().to_string())
+}
+
+pub async fn resolve_host_issue(args: &Value) -> Result<String, String> {
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Missing required argument: 'action'".to_string())?;
+
+    let target = args
+        .get("target")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+
+    if target.is_empty() && action != "clear_temp" {
+        return Err("Missing required argument: 'target' for this action".to_string());
+    }
+
+    match action {
+        "install_package" => {
+            #[cfg(target_os = "windows")]
+            {
+                let cmd = format!("winget install --id {} -e --accept-package-agreements --accept-source-agreements", target);
+                match Command::new("powershell").args(["-NoProfile", "-Command", &cmd]).output() {
+                    Ok(out) => Ok(format!("Executed remediation (winget install):\n{}", String::from_utf8_lossy(&out.stdout))),
+                    Err(e) => Err(format!("Failed to run winget: {}", e)),
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                Err("install_package via wrapper is only supported on Windows currently (winget)".to_string())
+            }
+        }
+        "restart_service" => {
+            #[cfg(target_os = "windows")]
+            {
+                let cmd = format!("Restart-Service -Name {} -Force", target);
+                match Command::new("powershell").args(["-NoProfile", "-Command", &cmd]).output() {
+                    Ok(out) => {
+                        let err_str = String::from_utf8_lossy(&out.stderr);
+                        if !err_str.is_empty() {
+                            return Err(format!("Error restarting service:\n{}", err_str));
+                        }
+                        Ok(format!("Successfully restarted service: {}", target))
+                    }
+                    Err(e) => Err(format!("Failed to restart service: {}", e)),
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                Err("restart_service via wrapper is only supported on Windows currently".to_string())
+            }
+        }
+        "clear_temp" => {
+            #[cfg(target_os = "windows")]
+            {
+                let cmd = "Remove-Item -Path \"$env:TEMP\\*\" -Recurse -Force -ErrorAction SilentlyContinue";
+                match Command::new("powershell").args(["-NoProfile", "-Command", cmd]).output() {
+                    Ok(_) => Ok("Successfully cleared temporary files".to_string()),
+                    Err(e) => Err(format!("Failed to clear temp: {}", e)),
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                Err("clear_temp via wrapper is only supported on Windows currently".to_string())
+            }
+        }
+        other => Err(format!("Unknown remediation action: {}", other)),
+    }
 }

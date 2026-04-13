@@ -3090,6 +3090,17 @@ impl ConversationManager {
                             OperatorCheckpointState::BlockedExactLineWindow,
                             format!("Edit blocked on `{target}`; exact line window required."),
                         ));
+                    } else if res.blocked_by_policy
+                        && (final_output.contains("Prefer `") || final_output.contains("Prefer tool"))
+                        && recoverable_policy_intervention.is_none()
+                    {
+                        recoverable_policy_intervention = Some(final_output.clone());
+                        recoverable_policy_recipe = Some(RecoveryScenario::PolicyCorrection);
+                        recoverable_policy_checkpoint = Some((
+                            OperatorCheckpointState::BlockedPolicy,
+                            "Action blocked by policy; self-correction triggered using tool recommendation."
+                                .to_string(),
+                        ));
                     } else if res.blocked_by_policy && blocked_policy_output.is_none() {
                         blocked_policy_output = Some(final_output.clone());
                     }
@@ -4816,6 +4827,12 @@ fn shell_looks_like_structured_host_inspection(command: &str) -> bool {
         "ps aux",
         "desktop",
         "downloads",
+        "get-netfirewallprofile",
+        "win32_powerplan",
+        "win32_operatingsystem",
+        "powercfg",
+        "uptime",
+        "lastbootuptime",
     ]
     .iter()
     .any(|needle| lower.contains(needle))
