@@ -309,7 +309,9 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || lower.contains("using my cpu")
         || lower.contains("top memory")
         || lower.contains("top ram")
-        || lower.contains("high memory");
+        || lower.contains("high memory")
+        || lower.contains("resource-heavy processes")
+        || lower.contains("heavy hitters");
     let asks_toolchains = lower.contains("developer tools")
         || lower.contains("toolchains")
         || (lower.contains("installed") && lower.contains("version"))
@@ -351,6 +353,22 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || lower.contains("system health")
         || (lower.contains("how") && lower.contains("machine") && lower.contains("doing"))
         || (lower.contains("status") && lower.contains("report") && !lower.contains("git"));
+    let asks_resource_load = lower.contains("resource load")
+        || lower.contains("system load")
+        || lower.contains("performance")
+        || lower.contains("utilization")
+        || lower.contains("usage report")
+        || lower.contains("performance report")
+        || lower.contains("what is my load")
+        || lower.contains("current load")
+        || lower.contains("why is it slow")
+        || lower.contains("why is it laggy")
+        || lower.contains("is it working hard")
+        || lower.contains("high cpu")
+        || lower.contains("high ram")
+        || lower.contains("cpu load")
+        || lower.contains("heavy hitters")
+        || (lower.contains("resource") && lower.contains("usage"));
 
     if asks_fix_plan {
         Some("fix_plan")
@@ -380,6 +398,8 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         Some("toolchains")
     } else if asks_os_config {
         Some("os_config")
+    } else if asks_resource_load {
+        Some("resource_load")
     } else if asks_health_report {
         Some("health_report")
     } else if asks_directory {

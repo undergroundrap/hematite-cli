@@ -1370,15 +1370,18 @@ impl ConversationManager {
 
         if name == "shell" {
             let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
-            if let Some(prompt) = self.latest_user_prompt() {
-                if let Some(topic) = preferred_host_inspection_topic(prompt) {
-                    if shell_looks_like_structured_host_inspection(command) {
-                        return Err(format!(
-                            "Action blocked: this is a host-inspection question. Prefer `inspect_host(topic: \"{}\")` instead of raw `shell` for PATH, toolchains, environment/package-manager health, network state, service state, running processes, desktop, Downloads, listening ports, repo-doctor checks, or directory/disk summaries. Use `shell` only if `inspect_host` cannot answer the question directly.",
-                            topic
-                        ));
-                    }
-                }
+            if shell_looks_like_structured_host_inspection(command) {
+                // If it looks like host inspection, block it and find the best topic for redirection.
+                let topic = if let Some(prompt) = self.latest_user_prompt() {
+                    preferred_host_inspection_topic(prompt).unwrap_or("resource_load")
+                } else {
+                    "resource_load"
+                };
+
+                return Err(format!(
+                    "Action blocked: this is a host-inspection question. Prefer `inspect_host(topic: \"{}\")` instead of raw `shell` for PATH, toolchains, environment/package-manager health, network state, service state, running processes, performance metrics, desktop, Downloads, listening ports, repo-doctor checks, or directory/disk summaries. Use `shell` only if `inspect_host` cannot answer the question directly.",
+                    topic
+                ));
             }
             let reason = args
                 .get("reason")
@@ -4830,6 +4833,19 @@ fn shell_looks_like_structured_host_inspection(command: &str) -> bool {
         "get-netfirewallprofile",
         "win32_powerplan",
         "win32_operatingsystem",
+        "win32_processor",
+        "wmic",
+        "loadpercentage",
+        "totalvisiblememory",
+        "freephysicalmemory",
+        "get-wmiobject",
+        "get-ciminstance",
+        "get-cpu",
+        "processorname",
+        "clockspeed",
+        "top memory",
+        "top cpu",
+        "resource usage",
         "powercfg",
         "uptime",
         "lastbootuptime",

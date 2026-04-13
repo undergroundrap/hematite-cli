@@ -35,6 +35,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "startup_items" => inspect_startup_items(max_entries),
         "health_report" | "system_health" => inspect_health_report(),
         "os_config" | "system_config" => inspect_os_config(),
+        "resource_load" | "performance" | "system_load" | "performance_diagnosis" => inspect_resource_load(),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -51,7 +52,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, os_config.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, os_config, resource_load.",
             other
         )),
     }
@@ -624,6 +625,55 @@ fn inspect_generic_fix_plan(issue: &str) -> Result<String, String> {
     Ok(out.trim_end().to_string())
 }
 
+fn inspect_resource_load() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let output = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_Processor).LoadPercentage; Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory | ConvertTo-Json -Compress",
+            ])
+            .output()
+            .map_err(|e| format!("Failed to run powershell: {e}"))?;
+
+        let text = String::from_utf8_lossy(&output.stdout);
+        let mut lines = text.lines().map(str::trim).filter(|l| !l.is_empty());
+        
+        let cpu_load = lines.next().and_then(|l| l.parse::<u32>().ok()).unwrap_or(0);
+        let mem_json = lines.collect::<Vec<_>>().join("");
+        let mem_val: Value = serde_json::from_str(&mem_json).unwrap_or(Value::Null);
+
+        let total_kb = mem_val["TotalVisibleMemorySize"].as_u64().unwrap_or(1);
+        let free_kb = mem_val["FreePhysicalMemory"].as_u64().unwrap_or(0);
+        let used_kb = total_kb.saturating_sub(free_kb);
+        let mem_percent = if total_kb > 0 { (used_kb * 100) / total_kb } else { 0 };
+
+        let mut out = String::from("Host inspection: resource_load\n\n");
+        out.push_str("**System Performance Summary:**\n");
+        out.push_str(&format!("- CPU Load: {}%\n", cpu_load));
+        out.push_str(&format!(
+            "- Memory Usage: {} / {} ({}%)\n",
+            human_bytes(used_kb * 1024),
+            human_bytes(total_kb * 1024),
+            mem_percent
+        ));
+
+        if cpu_load > 85 {
+            out.push_str("\n[Warning] CPU load is extremely high. System may be unresponsive.\n");
+        }
+        if mem_percent > 90 {
+            out.push_str("\n[Warning] Memory usage is near capacity. Swap activity may slow down the machine.\n");
+        }
+
+        Ok(out)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok("Resource load inspection is not yet implemented for this platform.".to_string())
+    }
+}
+
 #[derive(Debug)]
 enum EndpointProbe {
     Reachable(u16),
@@ -641,7 +691,7 @@ async fn probe_http_endpoint(url: &str) -> EndpointProbe {
 
     match client.get(url).send().await {
         Ok(resp) => EndpointProbe::Reachable(resp.status().as_u16()),
-        Err(err) => EndpointProbe::Unreachable(err.to_string()),
+        Err(err) => return EndpointProbe::Unreachable(err.to_string()),
     }
 }
 
@@ -711,13 +761,18 @@ fn inspect_processes(name_filter: Option<String>, max_entries: usize) -> Result<
         return Ok(out);
     }
 
-    out.push_str("\nTop processes by memory:\n");
+    out.push_str("\nTop processes by resource usage:\n");
     for entry in processes.iter().take(max_entries) {
+        let cpu_str = entry
+            .cpu_seconds
+            .map(|s| format!(" [CPU: {:.1}s]", s))
+            .unwrap_or_default();
         out.push_str(&format!(
-            "- {} (pid {}) - {}{}\n",
+            "- {} (pid {}) - {}{}{}\n",
             entry.name,
             entry.pid,
             human_bytes(entry.memory_bytes),
+            cpu_str,
             entry
                 .detail
                 .as_deref()
@@ -1338,6 +1393,7 @@ struct ProcessEntry {
     name: String,
     pid: u32,
     memory_bytes: u64,
+    cpu_seconds: Option<f64>,
     detail: Option<String>,
 }
 
@@ -1589,33 +1645,53 @@ fn collect_unix_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
 
 #[cfg(target_os = "windows")]
 fn collect_windows_processes() -> Result<Vec<ProcessEntry>, String> {
-    let output = Command::new("tasklist")
-        .args(["/FO", "CSV", "/NH"])
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "Get-Process | Select-Object Name, Id, WorkingSet64, CPU | ConvertTo-Json -Compress",
+        ])
         .output()
-        .map_err(|e| format!("Failed to run tasklist: {e}"))?;
+        .map_err(|e| format!("Failed to run powershell Get-Process: {e}"))?;
+
     if !output.status.success() {
-        return Err("tasklist returned a non-success status.".to_string());
+        return Err("powershell Get-Process returned a non-success status.".to_string());
     }
 
-    let text = String::from_utf8_lossy(&output.stdout);
-    let mut processes = Vec::new();
-    for line in text.lines() {
-        let cols = parse_csv_row(line);
-        if cols.len() < 5 {
-            continue;
+    let json_text = String::from_utf8_lossy(&output.stdout);
+    let values: Value = serde_json::from_str(&json_text)
+        .map_err(|e| format!("Failed to parse process JSON: {e}"))?;
+
+    let mut out = Vec::new();
+    if let Some(arr) = values.as_array() {
+        for v in arr {
+            let name = v["Name"].as_str().unwrap_or("unknown").to_string();
+            let pid = v["Id"].as_u64().unwrap_or(0) as u32;
+            let memory_bytes = v["WorkingSet64"].as_u64().unwrap_or(0);
+            let cpu_seconds = v["CPU"].as_f64();
+            out.push(ProcessEntry {
+                name,
+                pid,
+                memory_bytes,
+                cpu_seconds,
+                detail: None,
+            });
         }
-        let Some(pid) = cols[1].trim().parse::<u32>().ok() else {
-            continue;
-        };
-        processes.push(ProcessEntry {
-            name: cols[0].trim().to_string(),
+    } else if let Some(v) = values.as_object() {
+        let name = v["Name"].as_str().unwrap_or("unknown").to_string();
+        let pid = v["Id"].as_u64().unwrap_or(0) as u32;
+        let memory_bytes = v["WorkingSet64"].as_u64().unwrap_or(0);
+        let cpu_seconds = v["CPU"].as_f64();
+        out.push(ProcessEntry {
+            name,
             pid,
-            memory_bytes: parse_tasklist_memory_kib(&cols[4]).unwrap_or(0) * 1024,
-            detail: Some(format!("session {}", cols[2].trim())),
+            memory_bytes,
+            cpu_seconds,
+            detail: None,
         });
     }
 
-    Ok(processes)
+    Ok(out)
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -1643,6 +1719,7 @@ fn collect_unix_processes() -> Result<Vec<ProcessEntry>, String> {
             name: cols[2..].join(" "),
             pid,
             memory_bytes: rss_kib * 1024,
+            cpu_seconds: None,
             detail: None,
         });
     }
@@ -2229,43 +2306,6 @@ fn apply_unix_dns_servers(adapters: &mut [NetworkAdapter]) {
     }
 }
 
-#[cfg(target_os = "windows")]
-fn parse_tasklist_memory_kib(raw: &str) -> Option<u64> {
-    let digits: String = raw.chars().filter(|ch| ch.is_ascii_digit()).collect();
-    if digits.is_empty() {
-        None
-    } else {
-        digits.parse::<u64>().ok()
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn parse_csv_row(line: &str) -> Vec<String> {
-    let mut cols = Vec::new();
-    let mut current = String::new();
-    let mut in_quotes = false;
-    let mut chars = line.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        match ch {
-            '"' => {
-                if in_quotes && chars.peek() == Some(&'"') {
-                    current.push('"');
-                    chars.next();
-                } else {
-                    in_quotes = !in_quotes;
-                }
-            }
-            ',' if !in_quotes => {
-                cols.push(current.trim().to_string());
-                current.clear();
-            }
-            _ => current.push(ch),
-        }
-    }
-    cols.push(current.trim().to_string());
-    cols
-}
 
 fn value_after_colon(line: &str) -> Option<&str> {
     line.split_once(':').map(|(_, value)| value.trim())

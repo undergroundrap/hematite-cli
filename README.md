@@ -181,12 +181,7 @@ Useful examples:
 
 This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
 
-For the most common machine-state questions, Hematite now has a structured `inspect_host` tool for PATH 
-analysis, toolchain detection, environment/package-manager health, **OS configuration** (Firewall, Power Plan, Uptime), 
-**System Health Synthesis**, grounded fix plans for common workstation failures, 
-network snapshots, service snapshots, process snapshots, desktop inspection, Downloads summaries, listening-port 
-checks, repo-doctor summaries, and arbitrary directory or disk reports. `shell` remains the fallback for custom checks 
-that do not fit a built-in inspection topic.
+For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, environment/package-manager health, **OS configuration (Firewall/Power/Uptime)**, **Resource Load (CPU/RAM %)**, **System Health Reports**, grounded fix plans for common workstation failures, network snapshots, service snapshots, process snapshots, desktop/downloads, listening ports, repo-doctor summaries, recent system log errors (`log_check`), boot-time startup items (`startup_items`), and arbitrary directory or disk inspections before falling back to raw shell. For active changes, use `resolve_host_issue` to safely remediate detected problems.
 
 - **Safe Remediation**: Use `resolve_host_issue` for bounded, user-gated fixes like installing missing packages (winget), restarting services, or clearing caches.
 
@@ -636,7 +631,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
 
-| `inspect_host` | Structured read-only inspection of PATH, toolchains, OS Config (Firewall/Power/Uptime), System Health Reports, environment/package-manager health, grounded fix plans, network, services, processes, desktop/downloads, ports, repo health, recent system log errors (`log_check`), boot-time startup items (`startup_items`), and arbitrary directories |
+| `inspect_host` | Structured read-only inspection of PATH, toolchains, OS Config (Firewall/Power/Uptime), **Resource Load (CPU/RAM %)**, System Health Reports, environment/package-manager health, grounded fix plans, network, services, processes, desktop/downloads, ports, repo health, recent system log errors (`log_check`), boot-time startup items (`startup_items`), and arbitrary directories |
 | `resolve_host_issue` | Safe, user-gated remediation actions: `install_package` (winget), `restart_service`, and `clear_temp`. |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
