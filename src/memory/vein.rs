@@ -45,6 +45,9 @@ pub struct SearchResult {
     pub room: String,
     /// Last-modified timestamp from chunks_meta (unix seconds).
     pub last_modified: i64,
+    /// Semantic memory type tagged at index time: "decision", "problem",
+    /// "milestone", "preference", or "" for unclassified/source/doc chunks.
+    pub memory_type: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,6 +76,9 @@ struct QuerySignals {
     standout_terms: Vec<String>,
     historical_memory_hint: bool,
     temporal_reference: Option<TemporalReference>,
+    /// Memory type the query is asking about — boosts matching chunks.
+    /// e.g. "what did we decide" → "decision", "what was the bug" → "problem"
+    query_memory_type: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -272,6 +278,65 @@ pub fn detect_room(path: &str) -> String {
         .to_string()
 }
 
+/// Classify session memory text into a semantic type using zero-cost regex patterns.
+/// Returns one of: "decision", "problem", "milestone", "preference", or "" (unclassified).
+///
+/// Applied only to session/import chunks at index time. Source and doc chunks always get "".
+/// Used by reranking to boost chunks whose type matches the query's implied intent.
+pub fn detect_memory_type(text: &str) -> &'static str {
+    let lower = text.to_lowercase();
+
+    // Decision markers — architectural choices, agreed approaches, "let's use X"
+    let decision_patterns = [
+        "let's use ", "we'll use ", "decided to ", "going with ", "we agreed ",
+        "the plan is", "we're going to", "switching to", "we chose", "final decision",
+        "we settled on", "agreed on", "we decided",
+    ];
+    for pat in &decision_patterns {
+        if lower.contains(pat) {
+            return "decision";
+        }
+    }
+
+    // Problem markers — bugs, errors, failures, blockers
+    let problem_patterns = [
+        "bug fixed", "bug was", "the issue was", "root cause", "error was",
+        "turned out to be", "the fix was", "was caused by", "broken because",
+        "fixed by", "the problem was", "found the bug", "port conflict",
+        "crash", "panicked", "segfault", "oom", "out of memory",
+    ];
+    for pat in &problem_patterns {
+        if lower.contains(pat) {
+            return "problem";
+        }
+    }
+
+    // Milestone markers — shipped, completed, working
+    let milestone_patterns = [
+        "now working", "successfully", "shipped", "deployed", "it works",
+        "tests pass", "all green", "breakthrough", "finally got", "got it working",
+        "completed", "finished", "done with", "landed",
+    ];
+    for pat in &milestone_patterns {
+        if lower.contains(pat) {
+            return "milestone";
+        }
+    }
+
+    // Preference markers — personal/operator preferences for style or workflow
+    let preference_patterns = [
+        "i prefer", "i like", "i don't like", "i want", "always use",
+        "never use", "i usually", "my preference", "keep it", "avoid using",
+    ];
+    for pat in &preference_patterns {
+        if lower.contains(pat) {
+            return "preference";
+        }
+    }
+
+    ""
+}
+
 impl Vein {
     const SESSION_REPORT_LIMIT: usize = 5;
     const SESSION_TURN_LIMIT: usize = 50;
@@ -320,6 +385,9 @@ impl Vein {
         let _ = db.execute_batch(
             "ALTER TABLE file_heat ADD COLUMN last_edit INTEGER NOT NULL DEFAULT 0;",
         );
+        let _ = db.execute_batch(
+            "ALTER TABLE chunks_meta ADD COLUMN memory_type TEXT NOT NULL DEFAULT '';",
+        );
 
         Ok(Self {
             db: std::sync::Arc::new(std::sync::Mutex::new(db)),
@@ -343,7 +411,13 @@ impl Vein {
             .and_then(|e| e.to_str())
             .unwrap_or("");
         let chunks = chunk_by_symbols(ext, full_text);
-        self.index_chunks_with_room(path, last_modified, &room, &chunks)
+        // Tag session memory with semantic type; source/doc chunks leave it empty.
+        let memory_type = if room == "session" {
+            detect_memory_type(full_text)
+        } else {
+            ""
+        };
+        self.index_chunks_with_room_and_type(path, last_modified, &room, memory_type, &chunks)
     }
 
     fn index_chunks_with_room(
@@ -351,6 +425,17 @@ impl Vein {
         path: &str,
         last_modified: i64,
         room: &str,
+        chunks: &[String],
+    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        self.index_chunks_with_room_and_type(path, last_modified, room, "", chunks)
+    }
+
+    fn index_chunks_with_room_and_type(
+        &mut self,
+        path: &str,
+        last_modified: i64,
+        room: &str,
+        memory_type: &str,
         chunks: &[String],
     ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         let db = self.db.lock().unwrap();
@@ -372,8 +457,8 @@ impl Vein {
         db.execute("DELETE FROM chunks_fts WHERE path = ?1", params![path])?;
         db.execute("DELETE FROM chunks_vec WHERE path = ?1", params![path])?;
         db.execute(
-            "INSERT OR REPLACE INTO chunks_meta (path, last_modified, room) VALUES (?1, ?2, ?3)",
-            params![path, last_modified, room],
+            "INSERT OR REPLACE INTO chunks_meta (path, last_modified, room, memory_type) VALUES (?1, ?2, ?3, ?4)",
+            params![path, last_modified, room, memory_type],
         )?;
 
         drop(db);
@@ -450,7 +535,7 @@ impl Vein {
 
         let db = self.db.lock().unwrap();
         let mut stmt = db.prepare(
-            "SELECT chunks_fts.path, chunks_fts.content, rank, cm.last_modified, cm.room
+            "SELECT chunks_fts.path, chunks_fts.content, rank, cm.last_modified, cm.room, cm.memory_type
              FROM chunks_fts
              JOIN chunks_meta cm ON cm.path = chunks_fts.path
              WHERE chunks_fts MATCH ?1
@@ -466,6 +551,7 @@ impl Vein {
                     score: -(row.get::<_, f64>(2).unwrap_or(0.0) as f32),
                     last_modified: row.get(3)?,
                     room: row.get(4)?,
+                    memory_type: row.get::<_, String>(5).unwrap_or_default(),
                 })
             })?
             .filter_map(|r| r.ok())
@@ -483,10 +569,10 @@ impl Vein {
         };
 
         // Load all stored embeddings.
-        let rows: Vec<(String, i64, Vec<u8>, i64, String)> = {
+        let rows: Vec<(String, i64, Vec<u8>, i64, String, String)> = {
             let db = self.db.lock().unwrap();
             let mut stmt = match db.prepare(
-                "SELECT cv.path, cv.chunk_idx, cv.embedding, cm.last_modified, cm.room
+                "SELECT cv.path, cv.chunk_idx, cv.embedding, cm.last_modified, cm.room, cm.memory_type
                  FROM chunks_vec cv
                  JOIN chunks_meta cm ON cm.path = cv.path",
             ) {
@@ -500,6 +586,7 @@ impl Vein {
                     row.get::<_, Vec<u8>>(2)?,
                     row.get::<_, i64>(3)?,
                     row.get::<_, String>(4)?,
+                    row.get::<_, String>(5).unwrap_or_default(),
                 ))
             })
             .ok()
@@ -512,12 +599,12 @@ impl Vein {
         }
 
         // Score each chunk.
-        let mut scored: Vec<(f32, String, i64, i64, String)> = rows
+        let mut scored: Vec<(f32, String, i64, i64, String, String)> = rows
             .into_iter()
-            .filter_map(|(path, idx, blob, last_modified, room)| {
+            .filter_map(|(path, idx, blob, last_modified, room, memory_type)| {
                 let vec = blob_to_floats(&blob);
                 let sim = cosine_similarity(&query_vec, &vec);
-                Some((sim, path, idx, last_modified, room))
+                Some((sim, path, idx, last_modified, room, memory_type))
             })
             .collect();
 
@@ -528,9 +615,7 @@ impl Vein {
         let db = self.db.lock().unwrap();
         scored
             .into_iter()
-            .filter_map(|(score, path, idx, last_modified, room)| {
-                // chunks_fts rows for this path are indexed in insertion order = chunk order.
-                // We use LIMIT/OFFSET to fetch the chunk at position `idx`.
+            .filter_map(|(score, path, idx, last_modified, room, memory_type)| {
                 let content: Option<String> = db
                     .query_row(
                         "SELECT content FROM chunks_fts WHERE path = ?1 LIMIT 1 OFFSET ?2",
@@ -544,6 +629,7 @@ impl Vein {
                     score,
                     room,
                     last_modified,
+                    memory_type,
                 })
             })
             .collect()
@@ -817,10 +903,12 @@ impl Vein {
 
                 for exchange in load_session_exchanges(&report_path, mtime) {
                     desired_paths.insert(exchange.path.clone());
-                    match self.index_chunks_with_room(
+                    let mtype = detect_memory_type(&exchange.content);
+                    match self.index_chunks_with_room_and_type(
                         &exchange.path,
                         exchange.last_modified,
                         "session",
+                        mtype,
                         std::slice::from_ref(&exchange.content),
                     ) {
                         Ok(new_chunks) if !new_chunks.is_empty() => {
@@ -889,10 +977,12 @@ impl Vein {
             for (import_path, mtime) in imports {
                 for exchange in load_imported_session_exchanges(&import_path, &imports_dir, mtime) {
                     desired_paths.insert(exchange.path.clone());
-                    match self.index_chunks_with_room(
+                    let mtype = detect_memory_type(&exchange.content);
+                    match self.index_chunks_with_room_and_type(
                         &exchange.path,
                         exchange.last_modified,
                         "session",
+                        mtype,
                         std::slice::from_ref(&exchange.content),
                     ) {
                         Ok(new_chunks) if !new_chunks.is_empty() => {
@@ -1253,11 +1343,25 @@ impl QuerySignals {
         .iter()
         .any(|needle| lower.contains(needle));
 
+        // Detect what memory type the query is asking about.
+        let query_memory_type = if lower.contains("decide") || lower.contains("decision") || lower.contains("we agreed") || lower.contains("we chose") {
+            Some("decision")
+        } else if lower.contains("bug") || lower.contains("error") || lower.contains("issue") || lower.contains("problem") || lower.contains("fix") || lower.contains("broken") {
+            Some("problem")
+        } else if lower.contains("shipped") || lower.contains("milestone") || lower.contains("finished") || lower.contains("working now") {
+            Some("milestone")
+        } else if lower.contains("prefer") || lower.contains("my preference") || lower.contains("i like") || lower.contains("i want") {
+            Some("preference")
+        } else {
+            None
+        };
+
         Self {
             exact_phrases: extract_exact_phrases(query),
             standout_terms: extract_standout_terms(query),
             historical_memory_hint,
             temporal_reference: extract_temporal_reference(query),
+            query_memory_type,
         }
     }
 }
@@ -1332,6 +1436,13 @@ fn retrieval_signal_boost(signals: &QuerySignals, result: &SearchResult) -> f32 
 
     if signals.historical_memory_hint && result.room == "session" {
         boost += 0.45;
+    }
+
+    // Boost session chunks whose tagged memory type matches the query's intent.
+    if let Some(qtype) = signals.query_memory_type {
+        if !result.memory_type.is_empty() && result.memory_type == qtype {
+            boost += 0.35;
+        }
     }
 
     boost

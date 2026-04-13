@@ -1523,3 +1523,69 @@ fn test_shell_execute_large_output_accessible() {
         Err(e) => println!("shell not available in this env: {}", e),
     }
 }
+
+// ── Memory-type tagging ───────────────────────────────────────────────────────
+
+#[test]
+fn test_detect_memory_type_decision() {
+    use hematite::memory::vein::detect_memory_type;
+    assert_eq!(detect_memory_type("we decided to use SQLite for the vein database"), "decision");
+    assert_eq!(detect_memory_type("let's use petgraph for the repo map"), "decision");
+    assert_eq!(detect_memory_type("going with AGPL for the license"), "decision");
+}
+
+#[test]
+fn test_detect_memory_type_problem() {
+    use hematite::memory::vein::detect_memory_type;
+    assert_eq!(detect_memory_type("the issue was that embed model state was not strict"), "problem");
+    assert_eq!(detect_memory_type("root cause was a missing CRLF normalization"), "problem");
+    assert_eq!(detect_memory_type("fixed by adding the rstrip fallback before full strip"), "problem");
+}
+
+#[test]
+fn test_detect_memory_type_milestone() {
+    use hematite::memory::vein::detect_memory_type;
+    assert_eq!(detect_memory_type("voice pipeline now working without LM Studio"), "milestone");
+    assert_eq!(detect_memory_type("successfully shipped v0.4.5 to crates.io"), "milestone");
+}
+
+#[test]
+fn test_detect_memory_type_preference() {
+    use hematite::memory::vein::detect_memory_type;
+    assert_eq!(detect_memory_type("i prefer lowercase conventional commits"), "preference");
+    assert_eq!(detect_memory_type("i like the diff preview before every edit"), "preference");
+}
+
+#[test]
+fn test_detect_memory_type_unclassified() {
+    use hematite::memory::vein::detect_memory_type;
+    assert_eq!(detect_memory_type("how does the vein indexing work"), "");
+    assert_eq!(detect_memory_type("read the file and check the output"), "");
+}
+
+#[test]
+fn test_vein_memory_type_indexed_and_retrieved() {
+    use hematite::memory::vein::Vein;
+
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    let mut vein = Vein::new(tmp.path(), "http://127.0.0.1:0".to_string()).expect("vein init");
+
+    // Index a decision chunk as a session exchange
+    vein.index_document(
+        "session/2026-04-12/turn-1",
+        1_000,
+        "we decided to use SQLite for local storage because it requires no server",
+    ).unwrap();
+
+    // BM25 search should find it
+    let results = vein.search_bm25("decided SQLite storage", 10).unwrap();
+    assert!(!results.is_empty(), "should find the session chunk");
+
+    // The memory_type field should be "decision"
+    let hit = results.iter().find(|r| r.path.contains("turn-1"));
+    assert!(hit.is_some(), "should find the specific turn");
+    assert_eq!(
+        hit.unwrap().memory_type, "decision",
+        "session chunk with 'decided' should be tagged as decision"
+    );
+}
