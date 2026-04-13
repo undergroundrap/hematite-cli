@@ -420,16 +420,6 @@ impl Vein {
         self.index_chunks_with_room_and_type(path, last_modified, &room, memory_type, &chunks)
     }
 
-    fn index_chunks_with_room(
-        &mut self,
-        path: &str,
-        last_modified: i64,
-        room: &str,
-        chunks: &[String],
-    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-        self.index_chunks_with_room_and_type(path, last_modified, room, "", chunks)
-    }
-
     fn index_chunks_with_room_and_type(
         &mut self,
         path: &str,

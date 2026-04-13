@@ -623,7 +623,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `read_file` | Read any file with offset/limit pagination for large files |
 | `write_file` | Write or overwrite files |
 | `edit_file` | Find-and-replace edits with three-level fuzzy recovery (rstrip → full-strip → cross-file hint) and indent auto-correction |
-| `multi_search_replace` | Precision engine for bulk find-and-replace blocks |
+| `multi_search_replace` | Bulk find-and-replace with per-hunk fuzzy fallback |
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
 
@@ -875,6 +875,7 @@ What that means in practice:
 - Text PDFs with usable embedded text often work.
 - Some PDFs still fail, especially scanned/image-only files, encrypted files, and files with unsupported or broken font encodings.
 - Hematite will fail cleanly and tell you when the PDF could not be parsed safely.
+- After loading, Hematite estimates the token cost of the attachment and warns you before sending: yellow if it exceeds 40% of your active context window, red if it exceeds 75%. Large attachments that crowd out the model's working context are visible before they cause a failure.
 
 If a PDF does not attach cleanly, the recommended fallback is:
 
