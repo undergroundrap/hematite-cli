@@ -2323,3 +2323,331 @@ fn test_inspect_host_hardware_returns_gpu_or_ram() {
         );
     });
 }
+
+// ── updates ───────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_updates_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "updates" });
+        let output = inspect_host(&args).await.expect("updates must return Ok");
+        assert!(
+            output.contains("updates"),
+            "updates output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_updates_contains_update_info() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "updates" });
+        let output = inspect_host(&args).await.expect("updates must return Ok");
+        // Should report last install, pending count, or WU service state
+        let has_info = output.contains("Last update") || output.contains("Pending") ||
+            output.contains("service") || output.contains("up to date") ||
+            output.contains("unable") || output.contains("package");
+        assert!(
+            has_info,
+            "updates output must contain meaningful update info; got:\n{output}"
+        );
+    });
+}
+
+// ── security ──────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_security_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "security" });
+        let output = inspect_host(&args).await.expect("security must return Ok");
+        assert!(
+            output.contains("security"),
+            "security output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_security_reports_protection_status() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "security" });
+        let output = inspect_host(&args).await.expect("security must return Ok");
+        // Should report Defender, Firewall, or activation status
+        let has_info = output.contains("Defender") || output.contains("Firewall") ||
+            output.contains("activation") || output.contains("UAC") ||
+            output.contains("protection") || output.contains("UFW") ||
+            output.contains("unable");
+        assert!(
+            has_info,
+            "security output must report protection status; got:\n{output}"
+        );
+    });
+}
+
+// ── pending_reboot ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_pending_reboot_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "pending_reboot" });
+        let output = inspect_host(&args).await.expect("pending_reboot must return Ok");
+        assert!(
+            output.contains("pending_reboot"),
+            "pending_reboot output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_pending_reboot_gives_verdict() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "pending_reboot" });
+        let output = inspect_host(&args).await.expect("pending_reboot must return Ok");
+        // Must say either no restart needed or that one is pending
+        let has_verdict = output.contains("No restart") || output.contains("restart is pending") ||
+            output.contains("Could not") || output.contains("reboot-required");
+        assert!(
+            has_verdict,
+            "pending_reboot must give a clear verdict; got:\n{output}"
+        );
+    });
+}
+
+// ── disk_health ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_disk_health_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "disk_health" });
+        let output = inspect_host(&args).await.expect("disk_health must return Ok");
+        assert!(
+            output.contains("disk_health"),
+            "disk_health output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_disk_health_reports_drive_info() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "disk_health" });
+        let output = inspect_host(&args).await.expect("disk_health must return Ok");
+        // Should find drives or report gracefully
+        let has_info = output.contains("Health") || output.contains("Drive") ||
+            output.contains("GB") || output.contains("No physical") ||
+            output.contains("Unable") || output.contains("NAME") ||
+            output.contains("smartmontools");
+        assert!(
+            has_info,
+            "disk_health must report drive info or explain unavailability; got:\n{output}"
+        );
+    });
+}
+
+// ── battery ───────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_battery_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "battery" });
+        let output = inspect_host(&args).await.expect("battery must return Ok");
+        assert!(
+            output.contains("battery"),
+            "battery output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_battery_reports_status_or_no_battery() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "battery" });
+        let output = inspect_host(&args).await.expect("battery must return Ok");
+        // Either finds a battery or reports no battery on desktop
+        let has_info = output.contains("Battery:") || output.contains("No battery") ||
+            output.contains("desktop") || output.contains("Charge") ||
+            output.contains("Unable") || output.contains("AC-only");
+        assert!(
+            has_info,
+            "battery must report charge status or explain no battery; got:\n{output}"
+        );
+    });
+}
+
+// ── recent_crashes ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_recent_crashes_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "recent_crashes" });
+        let output = inspect_host(&args).await.expect("recent_crashes must return Ok");
+        assert!(
+            output.contains("recent_crashes"),
+            "recent_crashes output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_recent_crashes_reports_crash_info_or_none() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "recent_crashes" });
+        let output = inspect_host(&args).await.expect("recent_crashes must return Ok");
+        // Must give some verdict on crashes
+        let has_info = output.contains("None in recent") || output.contains("crashes") ||
+            output.contains("BSOD") || output.contains("shutdown") ||
+            output.contains("unable") || output.contains("No kernel");
+        assert!(
+            has_info,
+            "recent_crashes must report crash history or explain unavailability; got:\n{output}"
+        );
+    });
+}
+
+// ── scheduled_tasks ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_scheduled_tasks_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "scheduled_tasks" });
+        let output = inspect_host(&args).await.expect("scheduled_tasks must return Ok");
+        assert!(
+            output.contains("scheduled_tasks"),
+            "scheduled_tasks output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_scheduled_tasks_reports_tasks_or_explains() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "scheduled_tasks" });
+        let output = inspect_host(&args).await.expect("scheduled_tasks must return Ok");
+        // Should list tasks or explain
+        let has_info = output.contains("State:") || output.contains("Last run:") ||
+            output.contains("No active") || output.contains("Unable") ||
+            output.contains("timers") || output.contains("crontab");
+        assert!(
+            has_info,
+            "scheduled_tasks must list tasks or explain availability; got:\n{output}"
+        );
+    });
+}
+
+// ── dev_conflicts ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_dev_conflicts_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "dev_conflicts" });
+        let output = inspect_host(&args).await.expect("dev_conflicts must return Ok");
+        assert!(
+            output.contains("dev_conflicts"),
+            "dev_conflicts output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_dev_conflicts_checks_major_runtimes() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "dev_conflicts" });
+        let output = inspect_host(&args).await.expect("dev_conflicts must return Ok");
+        // Must check at minimum Node and Python and Git
+        let checks_node = output.contains("Node.js");
+        let checks_python = output.contains("Python");
+        let checks_git = output.contains("Git");
+        assert!(
+            checks_node && checks_python && checks_git,
+            "dev_conflicts must check Node.js, Python, and Git; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_dev_conflicts_gives_summary_verdict() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "dev_conflicts" });
+        let output = inspect_host(&args).await.expect("dev_conflicts must return Ok");
+        // Must conclude with a summary (conflict found or clean)
+        let has_verdict = output.contains("No conflicts") || output.contains("CONFLICTS") ||
+            output.contains("NOTES") || output.contains("[!]") || output.contains("[-]");
+        assert!(
+            has_verdict,
+            "dev_conflicts must end with a summary verdict; got:\n{output}"
+        );
+    });
+}
+
+// ── unknown topic now includes new topics in error ─────────────────────────────
+
+#[test]
+fn test_inspect_host_unknown_topic_includes_all_new_topics_in_error() {
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "nonexistent_topic_xyz" });
+        let err = inspect_host(&args).await.expect_err("unknown topic must return Err");
+        let new_topics = ["updates", "security", "pending_reboot", "disk_health",
+                         "battery", "recent_crashes", "scheduled_tasks", "dev_conflicts"];
+        for topic in new_topics {
+            assert!(
+                err.contains(topic),
+                "error message must list '{topic}' as a valid topic; got:\n{err}"
+            );
+        }
+    });
+}

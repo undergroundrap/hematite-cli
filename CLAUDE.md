@@ -94,6 +94,14 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Storage Inspection**: Use `topic: "storage"` for all-drives capacity with ASCII bar charts and developer cache directory sizing (npm, cargo, pip, yarn, rustup, node_modules).
 - **Hardware Inventory**: Use `topic: "hardware"` for full hardware DNA — CPU model/cores/clock, RAM total/speed/sticks, GPU name/driver/resolution, motherboard/BIOS, and display configuration.
 - **Health Report**: Use `topic: "health_report"` (or alias `"system_health"`) for a tiered plain-English verdict (ALL GOOD / WORTH A LOOK / ACTION REQUIRED) across disk, RAM, tools, and recent error events.
+- **Windows Update**: Use `topic: "updates"` for last install date, pending update count, and Windows Update service state.
+- **Security Status**: Use `topic: "security"` for Defender real-time protection, last scan age, signature freshness, firewall profile states, Windows activation, and UAC state.
+- **Pending Reboot**: Use `topic: "pending_reboot"` to check if a restart is queued (Windows Update, CBS, file rename operations) and why.
+- **Drive SMART Health**: Use `topic: "disk_health"` for physical drive health via Get-PhysicalDisk and SMART failure prediction.
+- **Battery**: Use `topic: "battery"` for charge level, status, estimated runtime, and wear level — reports no battery gracefully on desktops.
+- **Crash History**: Use `topic: "recent_crashes"` for BSOD/unexpected shutdown events and application crash/hang events from the Windows event log.
+- **Scheduled Tasks**: Use `topic: "scheduled_tasks"` for all non-disabled scheduled tasks with name, path, last run time, and executable.
+- **Dev Conflicts**: Use `topic: "dev_conflicts"` for cross-tool environment conflict detection — Node.js version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, and duplicate PATH entries.
 
 ## Hardware Intent
 

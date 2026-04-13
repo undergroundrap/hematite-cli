@@ -36,6 +36,14 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "health_report" | "system_health" => inspect_health_report(),
         "storage" => inspect_storage(max_entries),
         "hardware" => inspect_hardware(),
+        "updates" | "windows_update" => inspect_updates(),
+        "security" | "antivirus" | "defender" => inspect_security(),
+        "pending_reboot" | "reboot_required" => inspect_pending_reboot(),
+        "disk_health" | "smart" | "drive_health" => inspect_disk_health(),
+        "battery" => inspect_battery(),
+        "recent_crashes" | "crashes" | "bsod" => inspect_recent_crashes(max_entries),
+        "scheduled_tasks" | "tasks" => inspect_scheduled_tasks(max_entries),
+        "dev_conflicts" | "dev_environment" => inspect_dev_conflicts(),
         "os_config" | "system_config" => inspect_os_config(),
         "resource_load" | "performance" | "system_load" | "performance_diagnosis" => inspect_resource_load(),
         "repo_doctor" => {
@@ -54,7 +62,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, os_config, resource_load.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, os_config, resource_load.",
             other
         )),
     }
@@ -3411,6 +3419,932 @@ $bios = Get-CimInstance Win32_BIOS
             }).take(6) {
                 out.push_str(&format!("  {}\n", line.trim()));
             }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── updates ───────────────────────────────────────────────────────────────────
+
+fn inspect_updates() -> Result<String, String> {
+    let mut out = String::from("Host inspection: updates\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        // Last installed update via COM
+        let script = r#"
+try {
+    $sess = New-Object -ComObject Microsoft.Update.Session
+    $searcher = $sess.CreateUpdateSearcher()
+    $count = $searcher.GetTotalHistoryCount()
+    if ($count -gt 0) {
+        $latest = $searcher.QueryHistory(0, 1) | Select-Object -First 1
+        $latest.Date.ToString("yyyy-MM-dd HH:mm") + "|LAST_INSTALL"
+    } else { "NONE|LAST_INSTALL" }
+} catch { "ERROR:" + $_.Exception.Message + "|LAST_INSTALL" }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", script]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let text = raw.trim();
+            if text.starts_with("ERROR:") {
+                out.push_str("Last update install: (unable to query)\n");
+            } else if text.contains("NONE") {
+                out.push_str("Last update install: No update history found\n");
+            } else {
+                let date = text.replace("|LAST_INSTALL", "");
+                out.push_str(&format!("Last update install: {date}\n"));
+            }
+        }
+
+        // Pending updates count
+        let pending_script = r#"
+try {
+    $sess = New-Object -ComObject Microsoft.Update.Session
+    $searcher = $sess.CreateUpdateSearcher()
+    $results = $searcher.Search("IsInstalled=0 and IsHidden=0 and Type='Software'")
+    $results.Updates.Count.ToString() + "|PENDING"
+} catch { "ERROR:" + $_.Exception.Message + "|PENDING" }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", pending_script]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let text = raw.trim();
+            if text.starts_with("ERROR:") {
+                out.push_str("Pending updates: (unable to query via COM — try opening Windows Update manually)\n");
+            } else {
+                let count: i64 = text.replace("|PENDING", "").trim().parse().unwrap_or(-1);
+                if count == 0 {
+                    out.push_str("Pending updates: Up to date — no updates waiting\n");
+                } else if count > 0 {
+                    out.push_str(&format!("Pending updates: {count} update(s) available\n"));
+                    out.push_str("  → Open Windows Update (Settings > Windows Update) to install\n");
+                }
+            }
+        }
+
+        // Windows Update service state
+        let svc_script = r#"
+$svc = Get-Service -Name wuauserv -ErrorAction SilentlyContinue
+if ($svc) { $svc.Status.ToString() } else { "NOT_FOUND" }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", svc_script]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let status = raw.trim();
+            out.push_str(&format!("Windows Update service: {status}\n"));
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let apt_out = Command::new("apt").args(["list", "--upgradable"]).output();
+        let mut found = false;
+        if let Ok(o) = apt_out {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let lines: Vec<&str> = text.lines()
+                .filter(|l| l.contains('/') && !l.contains("Listing"))
+                .collect();
+            if !lines.is_empty() {
+                out.push_str(&format!("{} package(s) can be upgraded (apt)\n", lines.len()));
+                out.push_str("  → Run: sudo apt upgrade\n");
+                found = true;
+            }
+        }
+        if !found {
+            if let Ok(o) = Command::new("dnf").args(["check-update", "--quiet"]).output() {
+                let text = String::from_utf8_lossy(&o.stdout);
+                let count = text.lines().filter(|l| !l.is_empty() && !l.starts_with('!')).count();
+                if count > 0 {
+                    out.push_str(&format!("{count} package(s) can be upgraded (dnf)\n"));
+                    out.push_str("  → Run: sudo dnf upgrade\n");
+                } else {
+                    out.push_str("System is up to date.\n");
+                }
+            } else {
+                out.push_str("Could not query package manager for updates.\n");
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── security ──────────────────────────────────────────────────────────────────
+
+fn inspect_security() -> Result<String, String> {
+    let mut out = String::from("Host inspection: security\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        // Windows Defender status
+        let defender_script = r#"
+try {
+    $status = Get-MpComputerStatus -ErrorAction Stop
+    "RTP:" + $status.RealTimeProtectionEnabled + "|SCAN:" + $status.QuickScanEndTime.ToString("yyyy-MM-dd HH:mm") + "|VER:" + $status.AntivirusSignatureVersion + "|AGE:" + $status.AntivirusSignatureAge
+} catch { "ERROR:" + $_.Exception.Message }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", defender_script]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let text = raw.trim();
+            if text.starts_with("ERROR:") {
+                out.push_str(&format!("Windows Defender: unable to query — {text}\n"));
+            } else {
+                let get = |key: &str| -> String {
+                    text.split('|')
+                        .find(|s| s.starts_with(key))
+                        .and_then(|s| s.splitn(2, ':').nth(1))
+                        .unwrap_or("unknown")
+                        .to_string()
+                };
+                let rtp = get("RTP");
+                let last_scan = {
+                    // SCAN field has a colon in the time, so grab everything after "SCAN:"
+                    text.split('|')
+                        .find(|s| s.starts_with("SCAN:"))
+                        .and_then(|s| s.get(5..))
+                        .unwrap_or("unknown")
+                        .to_string()
+                };
+                let def_ver = get("VER");
+                let age_days: i64 = get("AGE").parse().unwrap_or(-1);
+
+                let rtp_label = if rtp == "True" { "ENABLED" } else { "DISABLED [!]" };
+                out.push_str(&format!("Windows Defender real-time protection: {rtp_label}\n"));
+                out.push_str(&format!("Last quick scan: {last_scan}\n"));
+                out.push_str(&format!("Signature version: {def_ver}\n"));
+                if age_days >= 0 {
+                    let freshness = if age_days == 0 { "up to date".to_string() }
+                        else if age_days <= 3 { format!("{age_days} day(s) old — OK") }
+                        else if age_days <= 7 { format!("{age_days} day(s) old — consider updating") }
+                        else { format!("{age_days} day(s) old — [!] STALE, run Windows Update") };
+                    out.push_str(&format!("Signature age: {freshness}\n"));
+                }
+                if rtp != "True" {
+                    out.push_str("\n[!] Real-time protection is OFF — your PC is not actively protected.\n");
+                    out.push_str("    → Open Windows Security > Virus & threat protection to re-enable.\n");
+                }
+            }
+        }
+
+        out.push('\n');
+
+        // Windows Firewall state
+        let fw_script = r#"
+try {
+    Get-NetFirewallProfile -ErrorAction Stop | ForEach-Object { $_.Name + ":" + $_.Enabled }
+} catch { "ERROR:" + $_.Exception.Message }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", fw_script]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let text = raw.trim();
+            if !text.starts_with("ERROR:") && !text.is_empty() {
+                out.push_str("Windows Firewall:\n");
+                for line in text.lines() {
+                    if let Some((name, enabled)) = line.split_once(':') {
+                        let state = if enabled.trim() == "True" { "ON" } else { "OFF [!]" };
+                        out.push_str(&format!("  {name}: {state}\n"));
+                    }
+                }
+                out.push('\n');
+            }
+        }
+
+        // Windows activation status
+        let act_script = r#"
+try {
+    $lic = Get-CimInstance SoftwareLicensingProduct -Filter "Name like 'Windows%' and LicenseStatus=1" -ErrorAction Stop | Select-Object -First 1
+    if ($lic) { "ACTIVATED" } else { "NOT_ACTIVATED" }
+} catch { "UNKNOWN" }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", act_script]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            match raw.trim() {
+                "ACTIVATED" => out.push_str("Windows activation: Activated\n"),
+                "NOT_ACTIVATED" => out.push_str("Windows activation: [!] NOT ACTIVATED\n"),
+                _ => out.push_str("Windows activation: Unable to determine\n"),
+            }
+        }
+
+        // UAC state
+        let uac_script = r#"
+$val = Get-ItemPropertyValue 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name EnableLUA -ErrorAction SilentlyContinue
+if ($val -eq 1) { "ON" } else { "OFF" }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", uac_script]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let state = raw.trim();
+            let label = if state == "ON" { "Enabled" } else { "DISABLED [!] — recommended to re-enable via secpol.msc" };
+            out.push_str(&format!("UAC (User Account Control): {label}\n"));
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("ufw").arg("status").output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            out.push_str(&format!("UFW: {}\n", text.lines().next().unwrap_or("unknown")));
+        }
+        if let Ok(cfg) = std::fs::read_to_string("/etc/selinux/config") {
+            if let Some(line) = cfg.lines().find(|l| l.starts_with("SELINUX=")) {
+                out.push_str(&format!("{line}\n"));
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── pending_reboot ────────────────────────────────────────────────────────────
+
+fn inspect_pending_reboot() -> Result<String, String> {
+    let mut out = String::from("Host inspection: pending_reboot\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+$reasons = @()
+if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') {
+    $reasons += "Windows Update requires a restart"
+}
+if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') {
+    $reasons += "Windows component install/update requires a restart"
+}
+$pfro = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue
+if ($pfro -and $pfro.PendingFileRenameOperations) {
+    $reasons += "Pending file rename operations (driver or system file replacement)"
+}
+if ($reasons.Count -eq 0) { "NO_REBOOT_NEEDED" } else { $reasons -join "|REASON|" }
+"#;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+            .map_err(|e| format!("pending_reboot: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        if text == "NO_REBOOT_NEEDED" {
+            out.push_str("No restart required — system is up to date and stable.\n");
+        } else if text.is_empty() {
+            out.push_str("Could not determine reboot status.\n");
+        } else {
+            out.push_str("[!] A system restart is pending:\n\n");
+            for reason in text.split("|REASON|") {
+                out.push_str(&format!("  • {}\n", reason.trim()));
+            }
+            out.push_str("\nRecommendation: Save your work and restart when convenient.\n");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if std::path::Path::new("/var/run/reboot-required").exists() {
+            out.push_str("[!] A restart is required (see /var/run/reboot-required)\n");
+            if let Ok(pkgs) = std::fs::read_to_string("/var/run/reboot-required.pkgs") {
+                out.push_str("Packages requiring restart:\n");
+                for p in pkgs.lines().take(10) {
+                    out.push_str(&format!("  • {p}\n"));
+                }
+            }
+        } else {
+            out.push_str("No restart required.\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── disk_health ───────────────────────────────────────────────────────────────
+
+fn inspect_disk_health() -> Result<String, String> {
+    let mut out = String::from("Host inspection: disk_health\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+try {
+    $disks = Get-PhysicalDisk -ErrorAction Stop
+    foreach ($d in $disks) {
+        $size_gb = [math]::Round($d.Size / 1GB, 0)
+        $d.FriendlyName + "|" + $d.MediaType + "|" + $size_gb + "GB|" + $d.HealthStatus + "|" + $d.OperationalStatus
+    }
+} catch { "ERROR:" + $_.Exception.Message }
+"#;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+            .map_err(|e| format!("disk_health: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        if text.starts_with("ERROR:") {
+            out.push_str(&format!("Unable to query disk health: {text}\n"));
+            out.push_str("This may require running as administrator.\n");
+        } else if text.is_empty() {
+            out.push_str("No physical disks found.\n");
+        } else {
+            out.push_str("Physical Drive Health:\n\n");
+            for line in text.lines() {
+                let parts: Vec<&str> = line.splitn(5, '|').collect();
+                if parts.len() >= 4 {
+                    let name = parts[0];
+                    let media = parts[1];
+                    let size = parts[2];
+                    let health = parts[3];
+                    let op_status = parts.get(4).unwrap_or(&"");
+                    let health_label = match health.trim() {
+                        "Healthy" => "OK",
+                        "Warning" => "[!] WARNING",
+                        "Unhealthy" => "[!!] UNHEALTHY — BACK UP YOUR DATA NOW",
+                        other => other,
+                    };
+                    out.push_str(&format!("  {name}\n"));
+                    out.push_str(&format!("    Type: {media} | Size: {size}\n"));
+                    out.push_str(&format!("    Health: {health_label}\n"));
+                    if !op_status.is_empty() {
+                        out.push_str(&format!("    Status: {op_status}\n"));
+                    }
+                    out.push('\n');
+                }
+            }
+        }
+
+        // SMART failure prediction (best-effort, may need admin)
+        let smart_script = r#"
+try {
+    Get-WmiObject -Class MSStorageDriver_FailurePredictStatus -Namespace root\wmi -ErrorAction Stop |
+        ForEach-Object { $_.InstanceName + "|" + $_.PredictFailure }
+} catch { "" }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", smart_script]).output() {
+            let raw2 = String::from_utf8_lossy(&o.stdout);
+            let text2 = raw2.trim();
+            if !text2.is_empty() {
+                let failures: Vec<&str> = text2.lines().filter(|l| l.contains("|True")).collect();
+                if failures.is_empty() {
+                    out.push_str("SMART failure prediction: No failures predicted\n");
+                } else {
+                    out.push_str("[!!] SMART failure predicted on one or more drives:\n");
+                    for f in failures {
+                        let name = f.split('|').next().unwrap_or(f);
+                        out.push_str(&format!("  • {name}\n"));
+                    }
+                    out.push_str("\nBack up your data immediately and replace the failing drive.\n");
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("lsblk").args(["-d", "-o", "NAME,SIZE,TYPE,ROTA,MODEL"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            out.push_str("Block devices:\n");
+            out.push_str(text.trim());
+            out.push('\n');
+        }
+        if let Ok(scan) = Command::new("smartctl").args(["--scan"]).output() {
+            let devices = String::from_utf8_lossy(&scan.stdout);
+            for dev_line in devices.lines().take(4) {
+                let dev = dev_line.split_whitespace().next().unwrap_or("");
+                if dev.is_empty() { continue; }
+                if let Ok(o) = Command::new("smartctl").args(["-H", dev]).output() {
+                    let health = String::from_utf8_lossy(&o.stdout);
+                    if let Some(line) = health.lines().find(|l| l.contains("SMART overall-health")) {
+                        out.push_str(&format!("{dev}: {}\n", line.trim()));
+                    }
+                }
+            }
+        } else {
+            out.push_str("(install smartmontools for SMART health data)\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── battery ───────────────────────────────────────────────────────────────────
+
+fn inspect_battery() -> Result<String, String> {
+    let mut out = String::from("Host inspection: battery\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+try {
+    $bats = Get-CimInstance -ClassName Win32_Battery -ErrorAction Stop
+    if (-not $bats) { "NO_BATTERY"; exit }
+    foreach ($b in $bats) {
+        $status = switch ($b.BatteryStatus) {
+            1 { "Discharging (on battery)" }
+            2 { "AC power - fully charged" }
+            3 { "AC power - charging" }
+            6 { "AC power - charging" }
+            7 { "AC power - charging" }
+            default { "Status $($b.BatteryStatus)" }
+        }
+        $b.Name + "|" + $b.EstimatedChargeRemaining + "|" + $status + "|" + $b.EstimatedRunTime
+    }
+} catch { "ERROR:" + $_.Exception.Message }
+"#;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+            .map_err(|e| format!("battery: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        if text == "NO_BATTERY" {
+            out.push_str("No battery detected — desktop or AC-only system.\n");
+            return Ok(out.trim_end().to_string());
+        }
+        if text.starts_with("ERROR:") {
+            out.push_str(&format!("Unable to query battery: {text}\n"));
+            return Ok(out.trim_end().to_string());
+        }
+
+        for line in text.lines() {
+            let parts: Vec<&str> = line.splitn(4, '|').collect();
+            if parts.len() >= 3 {
+                let name = parts[0];
+                let charge: i64 = parts[1].parse().unwrap_or(-1);
+                let status = parts[2];
+                let time_rem: i64 = parts.get(3).and_then(|v| v.parse().ok()).unwrap_or(-1);
+
+                out.push_str(&format!("Battery: {name}\n"));
+                if charge >= 0 {
+                    let bar_filled = (charge as usize * 20) / 100;
+                    out.push_str(&format!("  Charge: [{}{}] {}%\n",
+                        "#".repeat(bar_filled),
+                        ".".repeat(20 - bar_filled),
+                        charge
+                    ));
+                }
+                out.push_str(&format!("  Status: {status}\n"));
+                // Windows returns 71582788 as "unknown remaining time"
+                if time_rem > 0 && time_rem < 71_582_788 {
+                    let hours = time_rem / 60;
+                    let mins = time_rem % 60;
+                    out.push_str(&format!("  Estimated time remaining: {hours}h {mins}m\n"));
+                }
+                out.push('\n');
+            }
+        }
+
+        // Battery wear level (requires admin for CIM battery namespace)
+        let wear_script = r#"
+try {
+    $full = Get-CimInstance -Namespace root\cimv2 -ClassName BatteryFullChargedCapacity -ErrorAction Stop | Select-Object -First 1
+    $static = Get-CimInstance -Namespace root\cimv2 -ClassName BatteryStaticData -ErrorAction Stop | Select-Object -First 1
+    if ($full -and $static -and $static.DesignedCapacity -gt 0) {
+        $pct = [math]::Round(($full.FullChargedCapacity / $static.DesignedCapacity) * 100, 1)
+        $full.FullChargedCapacity.ToString() + "|" + $static.DesignedCapacity.ToString() + "|" + $pct.ToString()
+    } else { "UNKNOWN" }
+} catch { "UNKNOWN" }
+"#;
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", wear_script]).output() {
+            let raw2 = String::from_utf8_lossy(&o.stdout);
+            let t = raw2.trim();
+            if t != "UNKNOWN" && !t.is_empty() {
+                let parts: Vec<&str> = t.splitn(3, '|').collect();
+                if parts.len() == 3 {
+                    let full: i64 = parts[0].parse().unwrap_or(0);
+                    let design: i64 = parts[1].parse().unwrap_or(0);
+                    let pct: f64 = parts[2].parse().unwrap_or(0.0);
+                    out.push_str(&format!("Battery wear level: {pct:.1}% of original capacity\n"));
+                    out.push_str(&format!("  Current full charge: {full} mWh / Design: {design} mWh\n"));
+                    if pct < 50.0 {
+                        out.push_str("  [!] Significantly degraded — consider replacement\n");
+                    } else if pct < 75.0 {
+                        out.push_str("  [-] Noticeable wear\n");
+                    } else {
+                        out.push_str("  Battery health is good\n");
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let power_path = std::path::Path::new("/sys/class/power_supply");
+        let mut found = false;
+        if power_path.exists() {
+            if let Ok(entries) = std::fs::read_dir(power_path) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if let Ok(t) = std::fs::read_to_string(p.join("type")) {
+                        if t.trim() == "Battery" {
+                            found = true;
+                            let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+                            out.push_str(&format!("Battery: {name}\n"));
+                            let read = |f: &str| std::fs::read_to_string(p.join(f))
+                                .ok().map(|s| s.trim().to_string());
+                            if let Some(cap) = read("capacity") { out.push_str(&format!("  Charge: {cap}%\n")); }
+                            if let Some(status) = read("status") { out.push_str(&format!("  Status: {status}\n")); }
+                            if let (Some(full), Some(design)) = (read("energy_full"), read("energy_full_design")) {
+                                if let (Ok(f), Ok(d)) = (full.parse::<f64>(), design.parse::<f64>()) {
+                                    if d > 0.0 {
+                                        out.push_str(&format!("  Wear level: {:.1}% of design capacity\n", (f / d) * 100.0));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if !found {
+            out.push_str("No battery found.\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── recent_crashes ────────────────────────────────────────────────────────────
+
+fn inspect_recent_crashes(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: recent_crashes\n\n");
+    let n = max_entries.clamp(1, 30);
+
+    #[cfg(target_os = "windows")]
+    {
+        // BSODs / unexpected shutdowns (EventID 41 = kernel power, 1001 = BugCheck)
+        let bsod_script = format!(r#"
+try {{
+    $events = Get-WinEvent -FilterHashtable @{{LogName='System'; Id=41,1001}} -MaxEvents {n} -ErrorAction SilentlyContinue
+    if ($events) {{
+        $events | ForEach-Object {{
+            $_.TimeCreated.ToString("yyyy-MM-dd HH:mm") + "|" + $_.Id + "|" + (($_.Message -split "[\r\n]")[0].Trim())
+        }}
+    }} else {{ "NO_BSOD" }}
+}} catch {{ "ERROR:" + $_.Exception.Message }}"#);
+
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", &bsod_script]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let text = raw.trim();
+            if text == "NO_BSOD" {
+                out.push_str("System crashes (BSOD/kernel): None in recent history\n");
+            } else if text.starts_with("ERROR:") {
+                out.push_str("System crashes: unable to query\n");
+            } else {
+                out.push_str("System crashes / unexpected shutdowns:\n");
+                for line in text.lines() {
+                    let parts: Vec<&str> = line.splitn(3, '|').collect();
+                    if parts.len() >= 3 {
+                        let time = parts[0];
+                        let id = parts[1];
+                        let msg = parts[2];
+                        let label = if id == "41" { "Unexpected shutdown" } else { "BSOD (BugCheck)" };
+                        out.push_str(&format!("  [{time}] {label}: {msg}\n"));
+                    }
+                }
+                out.push('\n');
+            }
+        }
+
+        // Application crashes (EventID 1000 = app crash, 1002 = app hang)
+        let app_script = format!(r#"
+try {{
+    $crashes = Get-WinEvent -FilterHashtable @{{LogName='Application'; Id=1000,1002}} -MaxEvents {n} -ErrorAction SilentlyContinue
+    if ($crashes) {{
+        $crashes | ForEach-Object {{
+            $_.TimeCreated.ToString("yyyy-MM-dd HH:mm") + "|" + (($_.Message -split "[\r\n]")[0].Trim())
+        }}
+    }} else {{ "NO_CRASHES" }}
+}} catch {{ "ERROR_APP:" + $_.Exception.Message }}"#);
+
+        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", &app_script]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let text = raw.trim();
+            if text == "NO_CRASHES" {
+                out.push_str("Application crashes: None in recent history\n");
+            } else if text.starts_with("ERROR_APP:") {
+                out.push_str("Application crashes: unable to query\n");
+            } else {
+                out.push_str("Application crashes:\n");
+                for line in text.lines().take(n) {
+                    let parts: Vec<&str> = line.splitn(2, '|').collect();
+                    if parts.len() >= 2 {
+                        out.push_str(&format!("  [{}] {}\n", parts[0], parts[1]));
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let n_str = n.to_string();
+        if let Ok(o) = Command::new("journalctl").args(["-k", "--no-pager", "-n", &n_str, "-p", "0..2"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let trimmed = text.trim();
+            if trimmed.is_empty() || trimmed.contains("No entries") {
+                out.push_str("No kernel panics or critical crashes found.\n");
+            } else {
+                out.push_str("Kernel critical events:\n");
+                out.push_str(trimmed);
+                out.push('\n');
+            }
+        }
+        if let Ok(o) = Command::new("coredumpctl").args(["list", "--no-pager"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let count = text.lines().filter(|l| !l.trim().is_empty() && !l.starts_with("TIME")).count();
+            if count > 0 {
+                out.push_str(&format!("\nCore dumps on file: {count}\n  → Run: coredumpctl list\n"));
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── scheduled_tasks ───────────────────────────────────────────────────────────
+
+fn inspect_scheduled_tasks(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: scheduled_tasks\n\n");
+    let n = max_entries.clamp(1, 30);
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(r#"
+try {{
+    $tasks = Get-ScheduledTask -ErrorAction Stop |
+        Where-Object {{ $_.State -ne 'Disabled' }} |
+        ForEach-Object {{
+            $info = $_ | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue
+            $lastRun = if ($info -and $info.LastRunTime -and $info.LastRunTime.Year -gt 2000) {{
+                $info.LastRunTime.ToString("yyyy-MM-dd HH:mm")
+            }} else {{ "never" }}
+            $exec = ($_.Actions | Select-Object -First 1).Execute
+            if (-not $exec) {{ $exec = "(no exec)" }}
+            $_.TaskName + "|" + $_.TaskPath + "|" + $_.State + "|" + $lastRun + "|" + $exec
+        }}
+    $tasks | Select-Object -First {n}
+}} catch {{ "ERROR:" + $_.Exception.Message }}"#);
+
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("scheduled_tasks: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        if text.starts_with("ERROR:") {
+            out.push_str(&format!("Unable to query scheduled tasks: {text}\n"));
+        } else if text.is_empty() {
+            out.push_str("No active scheduled tasks found.\n");
+        } else {
+            out.push_str(&format!("Active scheduled tasks (up to {n}):\n\n"));
+            for line in text.lines() {
+                let parts: Vec<&str> = line.splitn(5, '|').collect();
+                if parts.len() >= 4 {
+                    let name = parts[0];
+                    let path = parts[1];
+                    let state = parts[2];
+                    let last = parts[3];
+                    let exec = parts.get(4).unwrap_or(&"").trim();
+                    let display_path = path.trim_matches('\\');
+                    let display_path = if display_path.is_empty() { "Root" } else { display_path };
+                    out.push_str(&format!("  {name} [{display_path}]\n"));
+                    out.push_str(&format!("    State: {state} | Last run: {last}\n"));
+                    if !exec.is_empty() && exec != "(no exec)" {
+                        let short = if exec.len() > 80 { &exec[..80] } else { exec };
+                        out.push_str(&format!("    Runs: {short}\n"));
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("systemctl").args(["list-timers", "--no-pager", "--all"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            out.push_str("Systemd timers:\n");
+            for l in text.lines()
+                .filter(|l| !l.trim().is_empty() && !l.starts_with("NEXT") && !l.starts_with("timers"))
+                .take(n)
+            {
+                out.push_str(&format!("  {l}\n"));
+            }
+            out.push('\n');
+        }
+        if let Ok(o) = Command::new("crontab").arg("-l").output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let jobs: Vec<&str> = text.lines()
+                .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+                .collect();
+            if !jobs.is_empty() {
+                out.push_str("User crontab:\n");
+                for j in jobs.iter().take(n) { out.push_str(&format!("  {j}\n")); }
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── dev_conflicts ─────────────────────────────────────────────────────────────
+
+fn inspect_dev_conflicts() -> Result<String, String> {
+    let mut out = String::from("Host inspection: dev_conflicts\n\n");
+    let mut conflicts: Vec<String> = Vec::new();
+    let mut notes: Vec<String> = Vec::new();
+
+    // ── Node.js / version managers ────────────────────────────────────────────
+    {
+        let node_ver = Command::new("node").arg("--version").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string());
+        let nvm_active = Command::new("nvm").arg("current").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty() && !s.contains("none") && !s.contains("No current"));
+        let fnm_active = Command::new("fnm").arg("current").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty() && !s.contains("none"));
+        let volta_active = Command::new("volta").args(["which", "node"]).output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        out.push_str("Node.js:\n");
+        if let Some(ref v) = node_ver {
+            out.push_str(&format!("  Active: {v}\n"));
+        } else {
+            out.push_str("  Not installed\n");
+        }
+        let managers: Vec<&str> = [
+            nvm_active.as_deref(),
+            fnm_active.as_deref(),
+            volta_active.as_deref(),
+        ].iter().filter_map(|x| *x).collect();
+        if managers.len() > 1 {
+            conflicts.push(format!(
+                "Multiple Node.js version managers detected (nvm/fnm/volta). Only one should be active to avoid PATH conflicts."
+            ));
+        } else if !managers.is_empty() {
+            out.push_str(&format!("  Version manager: {}\n", managers[0]));
+        }
+        out.push('\n');
+    }
+
+    // ── Python ────────────────────────────────────────────────────────────────
+    {
+        let py3 = Command::new("python3").arg("--version").output().ok()
+            .and_then(|o| {
+                let stdout = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                let stderr = String::from_utf8_lossy(&o.stderr).trim().to_string();
+                let v = if stdout.is_empty() { stderr } else { stdout };
+                if v.is_empty() { None } else { Some(v) }
+            });
+        let py = Command::new("python").arg("--version").output().ok()
+            .and_then(|o| {
+                let stdout = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                let stderr = String::from_utf8_lossy(&o.stderr).trim().to_string();
+                let v = if stdout.is_empty() { stderr } else { stdout };
+                if v.is_empty() { None } else { Some(v) }
+            });
+        let pyenv = Command::new("pyenv").arg("version").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+        let conda_env = std::env::var("CONDA_DEFAULT_ENV").ok();
+
+        out.push_str("Python:\n");
+        match (&py3, &py) {
+            (Some(v3), Some(v)) if v3 != v => {
+                out.push_str(&format!("  python3: {v3}\n  python:  {v}\n"));
+                if v.contains("2.") {
+                    conflicts.push(
+                        "python and python3 point to different major versions (2.x vs 3.x). Scripts using 'python' may break unexpectedly.".to_string()
+                    );
+                } else {
+                    notes.push("python and python3 resolve to different minor versions.".to_string());
+                }
+            }
+            (Some(v3), None) => out.push_str(&format!("  python3: {v3}\n")),
+            (None, Some(v)) => out.push_str(&format!("  python: {v}\n")),
+            (Some(v3), Some(_)) => out.push_str(&format!("  {v3}\n")),
+            (None, None) => out.push_str("  Not installed\n"),
+        }
+        if let Some(ref pe) = pyenv { out.push_str(&format!("  pyenv: {pe}\n")); }
+        if let Some(env) = conda_env {
+            if env == "base" {
+                notes.push("Conda base environment is active — may shadow system Python. Run 'conda deactivate' if unexpected.".to_string());
+            } else {
+                out.push_str(&format!("  conda env: {env}\n"));
+            }
+        }
+        out.push('\n');
+    }
+
+    // ── Rust / Cargo ──────────────────────────────────────────────────────────
+    {
+        let toolchain = Command::new("rustup").args(["show", "active-toolchain"]).output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+        let cargo_ver = Command::new("cargo").arg("--version").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string());
+        let rustc_ver = Command::new("rustc").arg("--version").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string());
+
+        out.push_str("Rust:\n");
+        if let Some(ref t) = toolchain { out.push_str(&format!("  Active toolchain: {t}\n")); }
+        if let Some(ref c) = cargo_ver { out.push_str(&format!("  {c}\n")); }
+        if let Some(ref r) = rustc_ver { out.push_str(&format!("  {r}\n")); }
+        if cargo_ver.is_none() && rustc_ver.is_none() { out.push_str("  Not installed\n"); }
+
+        // Detect system rust that might shadow rustup
+        #[cfg(not(target_os = "windows"))]
+        if let Ok(o) = Command::new("which").arg("rustc").output() {
+            let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if !path.is_empty() && !path.contains(".cargo") && !path.contains("rustup") {
+                conflicts.push(format!(
+                    "rustc found at non-rustup path '{path}' — may conflict with rustup-managed toolchain"
+                ));
+            }
+        }
+        out.push('\n');
+    }
+
+    // ── Git ───────────────────────────────────────────────────────────────────
+    {
+        let git_ver = Command::new("git").arg("--version").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string());
+        out.push_str("Git:\n");
+        if let Some(ref v) = git_ver {
+            out.push_str(&format!("  {v}\n"));
+            let email = Command::new("git").args(["config", "--global", "user.email"]).output().ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string());
+            if let Some(ref e) = email {
+                if e.is_empty() {
+                    notes.push("Git user.email is not configured globally — commits may fail or use wrong identity.".to_string());
+                } else {
+                    out.push_str(&format!("  user.email: {e}\n"));
+                }
+            }
+            let gpg_sign = Command::new("git").args(["config", "--global", "commit.gpgsign"]).output().ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string());
+            if gpg_sign.as_deref() == Some("true") {
+                let key = Command::new("git").args(["config", "--global", "user.signingkey"]).output().ok()
+                    .and_then(|o| String::from_utf8(o.stdout).ok())
+                    .map(|s| s.trim().to_string());
+                if key.as_deref().map(|k| k.is_empty()).unwrap_or(true) {
+                    conflicts.push("Git commit signing is enabled but no signing key is configured — commits will fail.".to_string());
+                }
+            }
+        } else {
+            out.push_str("  Not installed\n");
+        }
+        out.push('\n');
+    }
+
+    // ── PATH duplicates ───────────────────────────────────────────────────────
+    {
+        let path_env = std::env::var("PATH").unwrap_or_default();
+        let sep = if cfg!(windows) { ';' } else { ':' };
+        let mut seen = HashSet::new();
+        let mut dupes: Vec<String> = Vec::new();
+        for p in path_env.split(sep) {
+            let norm = p.trim().to_lowercase();
+            if !norm.is_empty() && !seen.insert(norm) {
+                dupes.push(p.to_string());
+            }
+        }
+        if !dupes.is_empty() {
+            let shown: Vec<&str> = dupes.iter().take(3).map(|s| s.as_str()).collect();
+            notes.push(format!(
+                "Duplicate PATH entries: {} {}",
+                shown.join(", "),
+                if dupes.len() > 3 { format!("+{} more", dupes.len() - 3) } else { String::new() }
+            ));
+        }
+    }
+
+    // ── Summary ───────────────────────────────────────────────────────────────
+    if conflicts.is_empty() && notes.is_empty() {
+        out.push_str("No conflicts detected — dev environment looks clean.\n");
+    } else {
+        if !conflicts.is_empty() {
+            out.push_str("CONFLICTS:\n");
+            for c in &conflicts { out.push_str(&format!("  [!] {c}\n")); }
+            out.push('\n');
+        }
+        if !notes.is_empty() {
+            out.push_str("NOTES:\n");
+            for n in &notes { out.push_str(&format!("  [-] {n}\n")); }
         }
     }
 

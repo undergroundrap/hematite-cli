@@ -145,13 +145,21 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              topic=health_report for a plain-English tiered system health verdict (disk, RAM, tools, recent errors), \
              topic=storage for all drives with capacity/free space plus large developer cache directories, \
              topic=hardware for CPU model/cores, RAM size/speed, GPU name/driver, motherboard, BIOS, and display configuration, \
+             topic=updates for Windows Update status (last install date, pending update count, WU service state), \
+             topic=security for Windows Defender real-time protection status, last scan date, signature age, firewall profile states, Windows activation, and UAC state, \
+             topic=pending_reboot to check whether a system restart is required and why (Windows Update, CBS, file rename operations), \
+             topic=disk_health for physical drive health via Get-PhysicalDisk and SMART failure prediction, \
+             topic=battery for charge level, status, estimated runtime, and wear level (laptops only — reports no battery on desktops), \
+             topic=recent_crashes for BSOD and unexpected shutdown events plus application crash/hang events from the Windows event log, \
+             topic=scheduled_tasks for all non-disabled scheduled tasks including name, path, last run time, and executable, \
+             topic=dev_conflicts for cross-tool environment conflict detection (Node.js version managers, Python 2 vs 3 ambiguity, conda env shadowing, Rust toolchain path conflicts, Git identity/signing config, duplicate PATH entries), \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "os_config"],
+                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "updates", "security", "pending_reboot", "disk_health", "battery", "recent_crashes", "scheduled_tasks", "dev_conflicts", "os_config"],
                         "description": "Which structured host inspection to run."
                     },
                     "name": {

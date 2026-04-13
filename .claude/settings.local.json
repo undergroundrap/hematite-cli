@@ -5,7 +5,8 @@
       "Bash(wc -l \"C:\\\\Users\\\\ocean\\\\Downloads\\\\claw-code-dev-rust\\\\claw-code-dev-rust\"/rust/crates/**/*.rs)",
       "Read(//c/Users/ocean/Downloads/claw-code-dev-rust/**)",
       "Read(//c/Users/ocean/Downloads/**)",
-      "Bash(cargo check:*)"
+      "Bash(cargo check:*)",
+      "Bash(cargo test:*)"
     ]
   }
 }
