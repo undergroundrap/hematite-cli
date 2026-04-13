@@ -233,6 +233,69 @@ pub async fn inspect_lines(args: &Value) -> Result<String, String> {
     Ok(output)
 }
 
+// ── tail_file ─────────────────────────────────────────────────────────────────
+
+pub async fn tail_file(args: &Value) -> Result<String, String> {
+    let path = require_str(args, "path")?;
+    let n = args
+        .get("lines")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(50)
+        .min(500) as usize;
+    let grep_pat = args.get("grep").and_then(|v| v.as_str());
+
+    let abs = safe_path(path)?;
+    let raw = fs::read_to_string(&abs).map_err(|e| format!("tail_file: {e} ({path})"))?;
+
+    let all_lines: Vec<&str> = raw.lines().collect();
+    let total = all_lines.len();
+
+    // Apply optional grep filter before slicing — model asks for the last N
+    // matching lines, not the last N lines containing maybe 0 matches.
+    let filtered: Vec<(usize, &str)> = if let Some(pat) = grep_pat {
+        let re = regex::Regex::new(pat)
+            .map_err(|e| format!("tail_file: invalid grep pattern '{pat}': {e}"))?;
+        all_lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| re.is_match(l))
+            .map(|(i, l)| (i, *l))
+            .collect()
+    } else {
+        all_lines
+            .iter()
+            .enumerate()
+            .map(|(i, l)| (i, *l))
+            .collect()
+    };
+
+    let total_filtered = filtered.len();
+    let skip = total_filtered.saturating_sub(n);
+    let window = &filtered[skip..];
+
+    if window.is_empty() {
+        let note = if grep_pat.is_some() {
+            format!(" matching '{}'", grep_pat.unwrap())
+        } else {
+            String::new()
+        };
+        return Ok(format!(
+            "[tail_file: {path} — no lines{note} found (total {total} lines)]"
+        ));
+    }
+
+    let first_abs = window[0].0 + 1;
+    let last_abs = window[window.len() - 1].0 + 1;
+    let mut out = format!(
+        "[tail_file: {path} — lines {first_abs}–{last_abs} of {total} (last {n} of {total_filtered} matched)]\n"
+    );
+    for (abs_idx, line) in window {
+        out.push_str(&format!("[{:>5}] {}\n", abs_idx + 1, line));
+    }
+
+    Ok(out)
+}
+
 // ── write_file ────────────────────────────────────────────────────────────────
 
 pub async fn write_file(args: &Value) -> Result<String, String> {

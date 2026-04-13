@@ -1,7 +1,85 @@
 use crate::agent::config;
+use crate::agent::inference::InferenceEvent;
 use serde_json::Value;
+use tokio::sync::mpsc;
 
 const BUILD_TIMEOUT_SECS: u64 = 120;
+
+/// Streaming variant — emits live shell lines to the SPECULAR panel while buffering
+/// the final combined output for the tool result returned to the model.
+pub async fn execute_streaming(
+    args: &Value,
+    tx: mpsc::Sender<InferenceEvent>,
+) -> Result<String, String> {
+    let cwd =
+        std::env::current_dir().map_err(|e| format!("Cannot determine working directory: {e}"))?;
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("build");
+    let explicit_profile = args.get("profile").and_then(|v| v.as_str());
+    let timeout_override = args.get("timeout_secs").and_then(|v| v.as_u64());
+
+    let config = config::load_config();
+    if let Some(profile_name) = explicit_profile {
+        let profile = config.verify.profiles.get(profile_name).ok_or_else(|| {
+            format!(
+                "Unknown verify profile `{}`. Define it in `.hematite/settings.json` or omit the profile argument.",
+                profile_name
+            )
+        })?;
+        if let Some(command) = profile_command(profile, action) {
+            let timeout_secs = timeout_override
+                .or(profile.timeout_secs)
+                .unwrap_or(BUILD_TIMEOUT_SECS);
+            return run_profile_command_streaming(
+                profile_name,
+                action,
+                command,
+                timeout_secs,
+                tx,
+            )
+            .await;
+        }
+
+        return Err(format!(
+            "VERIFY PROFILE MISSING [{profile_name}] action `{action}`.\n\
+             Configure `.hematite/settings.json` with a `{action}` command for this profile, \
+             or call `verify_build` with a different action/profile."
+        ));
+    }
+
+    if let Some(default_profile) = config.verify.default_profile.as_deref() {
+        let profile = config.verify.profiles.get(default_profile).ok_or_else(|| {
+            format!(
+                "Configured default verify profile `{}` was not found in `.hematite/settings.json`.",
+                default_profile
+            )
+        })?;
+        if let Some(command) = profile_command(profile, action) {
+            let timeout_secs = timeout_override
+                .or(profile.timeout_secs)
+                .unwrap_or(BUILD_TIMEOUT_SECS);
+            return run_profile_command_streaming(
+                default_profile,
+                action,
+                command,
+                timeout_secs,
+                tx,
+            )
+            .await;
+        }
+
+        return Err(format!(
+            "VERIFY PROFILE MISSING [{default_profile}] action `{action}`.\n\
+             Configure `.hematite/settings.json` with a `{action}` command for the default profile, \
+             or call `verify_build` with an explicit profile."
+        ));
+    }
+
+    let (label, command, timeout_secs) = autodetect_command(&cwd, action, timeout_override)?;
+    run_profile_command_streaming(label, action, &command, timeout_secs, tx).await
+}
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let cwd =
@@ -168,6 +246,100 @@ async fn run_profile_command(
             action,
             command,
             output.trim()
+        ))
+    }
+}
+
+async fn run_profile_command_streaming(
+    profile_name: &str,
+    action: &str,
+    command: &str,
+    timeout_secs: u64,
+    tx: mpsc::Sender<InferenceEvent>,
+) -> Result<String, String> {
+    let output = crate::tools::shell::execute_streaming(
+        &serde_json::json!({
+            "command": command,
+            "timeout_secs": timeout_secs,
+            "reason": format!("verify_build:{}:{}", profile_name, action),
+        }),
+        tx.clone(),
+    )
+    .await?;
+
+    if output.contains("[exit code: 0]") || !output.contains("[exit code:") {
+        Ok(format!(
+            "BUILD OK [{}:{}]\ncommand: {}\n{}",
+            profile_name,
+            action,
+            command,
+            output.trim()
+        ))
+    } else if should_fallback_to_cargo_check(action, command, &output) {
+        run_windows_self_hosted_check_fallback_streaming(
+            profile_name,
+            action,
+            command,
+            timeout_secs,
+            &output,
+            tx,
+        )
+        .await
+    } else {
+        Err(format!(
+            "BUILD FAILED [{}:{}]\ncommand: {}\n{}",
+            profile_name,
+            action,
+            command,
+            output.trim()
+        ))
+    }
+}
+
+async fn run_windows_self_hosted_check_fallback_streaming(
+    profile_name: &str,
+    action: &str,
+    original_command: &str,
+    timeout_secs: u64,
+    original_output: &str,
+    tx: mpsc::Sender<InferenceEvent>,
+) -> Result<String, String> {
+    let fallback_command = "cargo check --color never";
+    let fallback_output = crate::tools::shell::execute_streaming(
+        &serde_json::json!({
+            "command": fallback_command,
+            "timeout_secs": timeout_secs,
+            "reason": format!("verify_build:{}:{}:self_hosted_windows_fallback", profile_name, action),
+        }),
+        tx,
+    )
+    .await?;
+
+    if fallback_output.contains("[exit code: 0]") || !fallback_output.contains("[exit code:") {
+        Ok(format!(
+            "BUILD OK [{}:{}]\ncommand: {}\n\
+             Windows self-hosted note: `cargo build` could not replace the running `target\\\\debug\\\\hematite.exe`, so Hematite fell back to `cargo check` to verify code health without deleting the live binary.\n\
+             original build output:\n{}\n\
+             fallback command: {}\n{}",
+            profile_name,
+            action,
+            original_command,
+            original_output.trim(),
+            fallback_command,
+            fallback_output.trim()
+        ))
+    } else {
+        Err(format!(
+            "BUILD FAILED [{}:{}]\ncommand: {}\n\
+             Windows self-hosted note: `cargo build` could not replace the running `target\\\\debug\\\\hematite.exe`, and the fallback `cargo check` also failed.\n\
+             original build output:\n{}\n\
+             fallback command: {}\n{}",
+            profile_name,
+            action,
+            original_command,
+            original_output.trim(),
+            fallback_command,
+            fallback_output.trim()
         ))
     }
 }

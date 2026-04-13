@@ -31,6 +31,8 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_disk(path, max_entries).await
         }
         "ports" => inspect_ports(parse_port_filter(args), max_entries),
+        "log_check" => inspect_log_check(max_entries),
+        "startup_items" => inspect_startup_items(max_entries),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -47,7 +49,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items.",
             other
         )),
     }
@@ -2359,4 +2361,265 @@ fn parse_unix_services(status_text: &str, startup_text: &str) -> Vec<ServiceEntr
     }
 
     services
+}
+
+// ── log_check ─────────────────────────────────────────────────────────────────
+
+fn inspect_log_check(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: log_check\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        // Pull recent critical/error events from Windows Application and System logs.
+        let n = max_entries.clamp(1, 50);
+        let script = format!(
+            r#"try {{
+    $events = Get-WinEvent -FilterHashtable @{{LogName='Application','System'; Level=1,2,3}} -MaxEvents 100 -ErrorAction SilentlyContinue
+    if (-not $events) {{ "NO_EVENTS"; exit }}
+    $events | Select-Object -First {n} | ForEach-Object {{
+        $line = $_.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss') + '|' + $_.LevelDisplayName + '|' + $_.ProviderName + '|' + (($_.Message -split '[\r\n]')[0].Trim())
+        $line
+    }}
+}} catch {{ "ERROR:" + $_.Exception.Message }}"#,
+            n = n
+        );
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("log_check: failed to run PowerShell: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        if text.is_empty() || text == "NO_EVENTS" {
+            out.push_str("No critical or error events found in Application/System logs.\n");
+            return Ok(out.trim_end().to_string());
+        }
+        if text.starts_with("ERROR:") {
+            out.push_str(&format!("Warning: event log query returned: {text}\n"));
+            return Ok(out.trim_end().to_string());
+        }
+
+        let mut count = 0usize;
+        for line in text.lines() {
+            let parts: Vec<&str> = line.splitn(4, '|').collect();
+            if parts.len() == 4 {
+                let (time, level, source, msg) = (parts[0], parts[1], parts[2], parts[3]);
+                out.push_str(&format!("[{time}] [{level}] {source}: {msg}\n"));
+                count += 1;
+            }
+        }
+        out.push_str(&format!("\nEvents shown: {count} (critical/error from Application + System logs)\n"));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Use journalctl on Linux/macOS if available.
+        let n = max_entries.clamp(1, 50).to_string();
+        let output = Command::new("journalctl")
+            .args(["-p", "3", "-n", &n, "--no-pager", "--output=short-precise"])
+            .output();
+
+        match output {
+            Ok(o) if o.status.success() => {
+                let text = String::from_utf8_lossy(&o.stdout);
+                let trimmed = text.trim();
+                if trimmed.is_empty() || trimmed.contains("No entries") {
+                    out.push_str("No critical or error entries found in the system journal.\n");
+                } else {
+                    out.push_str(trimmed);
+                    out.push('\n');
+                    out.push_str("\n(source: journalctl -p 3 = critical/alert/emergency/error)\n");
+                }
+            }
+            _ => {
+                // Fallback: check /var/log/syslog or /var/log/messages
+                let log_paths = ["/var/log/syslog", "/var/log/messages"];
+                let mut found = false;
+                for log_path in &log_paths {
+                    if let Ok(content) = std::fs::read_to_string(log_path) {
+                        let lines: Vec<&str> = content.lines().collect();
+                        let tail: Vec<&str> = lines
+                            .iter()
+                            .rev()
+                            .filter(|l| {
+                                let l_lower = l.to_ascii_lowercase();
+                                l_lower.contains("error") || l_lower.contains("crit")
+                            })
+                            .take(max_entries)
+                            .copied()
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            .rev()
+                            .collect();
+                        if !tail.is_empty() {
+                            out.push_str(&format!("Source: {log_path}\n"));
+                            for l in &tail {
+                                out.push_str(l);
+                                out.push('\n');
+                            }
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if !found {
+                    out.push_str("journalctl not found and no readable syslog detected on this system.\n");
+                }
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── startup_items ─────────────────────────────────────────────────────────────
+
+fn inspect_startup_items(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: startup_items\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        // Query both HKLM and HKCU Run keys.
+        let script = r#"
+$hives = @(
+    @{Hive='HKLM'; Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'},
+    @{Hive='HKCU'; Path='HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'},
+    @{Hive='HKLM (32-bit)'; Path='HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run'}
+)
+foreach ($h in $hives) {
+    try {
+        $props = Get-ItemProperty -Path $h.Path -ErrorAction Stop
+        $props.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' } | ForEach-Object {
+            "$($h.Hive)|$($_.Name)|$($_.Value)"
+        }
+    } catch {}
+}
+"#;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+            .map_err(|e| format!("startup_items: failed to run PowerShell: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        let entries: Vec<(String, String, String)> = text
+            .lines()
+            .filter_map(|l| {
+                let parts: Vec<&str> = l.splitn(3, '|').collect();
+                if parts.len() == 3 {
+                    Some((parts[0].to_string(), parts[1].to_string(), parts[2].to_string()))
+                } else {
+                    None
+                }
+            })
+            .take(max_entries)
+            .collect();
+
+        if entries.is_empty() {
+            out.push_str("No startup entries found in the Windows Run registry keys.\n");
+        } else {
+            out.push_str("Registry run keys (programs that start with Windows):\n\n");
+            let mut last_hive = String::new();
+            for (hive, name, value) in &entries {
+                if *hive != last_hive {
+                    out.push_str(&format!("[{}]\n", hive));
+                    last_hive = hive.clone();
+                }
+                // Truncate very long values (paths with many args)
+                let display = if value.len() > 100 {
+                    format!("{}…", &value[..100])
+                } else {
+                    value.clone()
+                };
+                out.push_str(&format!("  {name}: {display}\n"));
+            }
+            out.push_str(&format!("\nTotal startup entries: {}\n", entries.len()));
+        }
+
+        // Also show Startup folder items.
+        let startup_script = r#"
+$paths = @(
+    [System.Environment]::GetFolderPath('Startup'),
+    [System.Environment]::GetFolderPath('CommonStartup')
+)
+foreach ($p in $paths) {
+    if (Test-Path $p) {
+        $items = Get-ChildItem $p -File -ErrorAction SilentlyContinue
+        if ($items) {
+            "$p"
+            $items | ForEach-Object { "  " + $_.Name }
+        }
+    }
+}
+"#;
+        if let Ok(folder_out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", startup_script])
+            .output()
+        {
+            let folder_text = String::from_utf8_lossy(&folder_out.stdout);
+            let trimmed = folder_text.trim();
+            if !trimmed.is_empty() {
+                out.push_str("\nStartup folders:\n");
+                out.push_str(trimmed);
+                out.push('\n');
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // On Linux: systemd enabled services + cron @reboot entries.
+        let output = Command::new("systemctl")
+            .args([
+                "list-unit-files",
+                "--type=service",
+                "--state=enabled",
+                "--no-legend",
+                "--no-pager",
+                "--plain",
+            ])
+            .output();
+
+        match output {
+            Ok(o) if o.status.success() => {
+                let text = String::from_utf8_lossy(&o.stdout);
+                let services: Vec<&str> = text
+                    .lines()
+                    .filter(|l| !l.trim().is_empty())
+                    .take(max_entries)
+                    .collect();
+                if services.is_empty() {
+                    out.push_str("No enabled systemd services found.\n");
+                } else {
+                    out.push_str("Enabled systemd services (run at boot):\n\n");
+                    for s in &services {
+                        out.push_str(&format!("  {s}\n"));
+                    }
+                    out.push_str(&format!("\nShowing {} of enabled services.\n", services.len()));
+                }
+            }
+            _ => {
+                out.push_str("systemctl not found on this system. Cannot enumerate startup services.\n");
+            }
+        }
+
+        // Check @reboot cron entries.
+        if let Ok(cron_out) = Command::new("crontab").args(["-l"]).output() {
+            let cron_text = String::from_utf8_lossy(&cron_out.stdout);
+            let reboot_entries: Vec<&str> = cron_text
+                .lines()
+                .filter(|l| l.trim_start().starts_with("@reboot"))
+                .collect();
+            if !reboot_entries.is_empty() {
+                out.push_str("\nCron @reboot entries:\n");
+                for e in reboot_entries {
+                    out.push_str(&format!("  {e}\n"));
+                }
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
 }

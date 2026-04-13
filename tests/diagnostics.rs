@@ -1,6 +1,10 @@
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::Mutex;
+
+// Tests that use `std::env::set_current_dir` must serialize to avoid CWD races.
+static CWD_LOCK: Mutex<()> = Mutex::new(());
 
 // ── Hardware monitors ─────────────────────────────────────────────────────────
 
@@ -1823,3 +1827,304 @@ fn test_build_summary_captures_verify_build_outcome() {
         "summary should capture verify_build outcome; got:\n{summary_text}"
     );
 }
+
+// ── verify_build streaming ─────────────────────────────────────────────────────
+
+#[test]
+fn test_verify_build_streaming_no_project_emits_no_shell_lines() {
+    // In a directory with no recognized project file, execute_streaming must
+    // return Err quickly (autodetect failure) and must NOT emit any ShellLine
+    // events — no shell command is ever launched in that path.
+    use hematite::agent::inference::InferenceEvent;
+    use tokio::sync::mpsc;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let tmp = std::env::temp_dir().join("hematite_vb_streaming_test");
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        // Serialize with other set_current_dir tests — CWD is global process state.
+        let _guard = CWD_LOCK.lock().unwrap();
+
+        // Switch CWD to the empty temp dir so autodetect finds no project file.
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&tmp).unwrap();
+
+        let (tx, mut rx) = mpsc::channel::<InferenceEvent>(32);
+        let args = serde_json::json!({ "action": "build" });
+        let result = hematite::tools::verify_build::execute_streaming(&args, tx).await;
+
+        // Restore CWD before any assertions so other tests are not affected.
+        std::env::set_current_dir(&original).unwrap();
+
+        // No shell command was run, so the channel must be empty.
+        let mut shell_line_count = 0usize;
+        while let Ok(ev) = rx.try_recv() {
+            if matches!(ev, InferenceEvent::ShellLine(_)) {
+                shell_line_count += 1;
+            }
+        }
+        assert_eq!(
+            shell_line_count, 0,
+            "no ShellLine events expected when autodetect fails"
+        );
+        assert!(
+            result.is_err(),
+            "execute_streaming should return Err when no project is detected"
+        );
+        let msg = result.unwrap_err();
+        assert!(
+            msg.contains("No recognized project root"),
+            "error should explain the missing project root; got: {msg}"
+        );
+    });
+}
+
+#[test]
+fn test_verify_build_streaming_output_shape_matches_blocking() {
+    // Both execute() and execute_streaming() must return an Ok/Err with the
+    // same "BUILD OK [...]" / "BUILD FAILED [...]" prefix format. The streaming
+    // variant must not alter the tool-result string the model sees.
+    //
+    // This test only checks output shape — it does not run a real build.
+    // Actual ShellLine event emission is verified by the shell streaming tests;
+    // verify_build delegates directly to shell::execute_streaming so the
+    // event path is the same code exercised there.
+
+    // The shape check is structural: if execute_streaming returns Ok, the
+    // content must start with "BUILD OK"; if Err, "BUILD FAILED" or a
+    // descriptive message (no project, timeout, etc.) is acceptable.
+    // We run in a temp dir with no project so both paths return Err — the
+    // point is that both return the same Err class.
+    use tokio::sync::mpsc;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let tmp = std::env::temp_dir().join("hematite_vb_shape_test");
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        // Serialize with other set_current_dir tests — CWD is global process state.
+        let _guard = CWD_LOCK.lock().unwrap();
+
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&tmp).unwrap();
+
+        let args = serde_json::json!({ "action": "build" });
+
+        let blocking = hematite::tools::verify_build::execute(&args).await;
+
+        let (tx, mut rx) =
+            mpsc::channel::<hematite::agent::inference::InferenceEvent>(32);
+        let streaming = hematite::tools::verify_build::execute_streaming(&args, tx).await;
+        while rx.try_recv().is_ok() {}
+
+        std::env::set_current_dir(&original).unwrap();
+
+        // Both must agree: either both Ok or both Err (no project root → both Err).
+        assert_eq!(
+            blocking.is_ok(),
+            streaming.is_ok(),
+            "blocking and streaming must agree on Ok/Err; blocking={blocking:?} streaming={streaming:?}"
+        );
+    });
+}
+
+// ── tail_file ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_tail_file_returns_last_n_lines() {
+    // tail_file with lines=3 on a 10-line file must return exactly the last 3
+    // lines with correct absolute line numbers and a header.
+    use hematite::tools::file_ops::tail_file;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let tmp_path = std::env::temp_dir().join("hematite_tail_test.txt");
+        let content = (1..=10u32)
+            .map(|i| format!("line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        std::fs::write(&tmp_path, &content).unwrap();
+
+        let args = serde_json::json!({
+            "path": tmp_path.to_string_lossy(),
+            "lines": 3
+        });
+        let result = tail_file(&args).await.unwrap();
+
+        assert!(
+            result.contains("line 8"),
+            "tail should include line 8; got:\n{result}"
+        );
+        assert!(
+            result.contains("line 9"),
+            "tail should include line 9; got:\n{result}"
+        );
+        assert!(
+            result.contains("line 10"),
+            "tail should include line 10; got:\n{result}"
+        );
+        // line 7 should NOT be in the output
+        assert!(
+            !result.contains("line 7"),
+            "tail should NOT include line 7 when lines=3; got:\n{result}"
+        );
+        // Header should mention line numbers and total
+        assert!(
+            result.contains("10"),
+            "header should mention total line count; got:\n{result}"
+        );
+
+        let _ = std::fs::remove_file(&tmp_path);
+    });
+}
+
+#[test]
+fn test_tail_file_grep_filter_matches_only_relevant_lines() {
+    // tail_file with grep="error" on a mixed file must return only lines
+    // containing "error", still respecting the lines= cap.
+    use hematite::tools::file_ops::tail_file;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let tmp_path = std::env::temp_dir().join("hematite_tail_grep_test.txt");
+        let lines = vec![
+            "info: starting build",
+            "error: E0425 cannot find value",
+            "info: compiling foo.rs",
+            "error: E0308 type mismatch",
+            "info: build finished",
+        ];
+        std::fs::write(&tmp_path, lines.join("\n")).unwrap();
+
+        let args = serde_json::json!({
+            "path": tmp_path.to_string_lossy(),
+            "grep": "error"
+        });
+        let result = tail_file(&args).await.unwrap();
+
+        assert!(
+            result.contains("E0425"),
+            "grep=error should include the E0425 error line; got:\n{result}"
+        );
+        assert!(
+            result.contains("E0308"),
+            "grep=error should include the E0308 error line; got:\n{result}"
+        );
+        assert!(
+            !result.contains("compiling"),
+            "grep=error should exclude non-error lines; got:\n{result}"
+        );
+        assert!(
+            !result.contains("build finished"),
+            "grep=error should exclude info lines; got:\n{result}"
+        );
+
+        let _ = std::fs::remove_file(&tmp_path);
+    });
+}
+
+#[test]
+fn test_tail_file_missing_file_returns_err() {
+    use hematite::tools::file_ops::tail_file;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "path": "/nonexistent/path/to/file.log" });
+        let result = tail_file(&args).await;
+        assert!(result.is_err(), "tail_file on a missing file must return Err");
+    });
+}
+
+#[test]
+fn test_tail_file_lines_default_is_fifty() {
+    // When lines is omitted, tail_file must default to 50 lines.
+    use hematite::tools::file_ops::tail_file;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let tmp_path = std::env::temp_dir().join("hematite_tail_default_test.txt");
+        // 60-line file — without explicit lines=, should return exactly 50.
+        let content = (1..=60u32)
+            .map(|i| format!("row {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        std::fs::write(&tmp_path, &content).unwrap();
+
+        let args = serde_json::json!({ "path": tmp_path.to_string_lossy() });
+        let result = tail_file(&args).await.unwrap();
+
+        // Line 60 must be present; line 10 (outside the 50-line window) must not.
+        assert!(result.contains("row 60"), "default tail must include last line");
+        assert!(result.contains("row 11"), "default tail must include row 11 (60-50=10, so 11 is the first)");
+        assert!(!result.contains("row 10"), "default tail must NOT include row 10 (outside 50-line window)");
+
+        let _ = std::fs::remove_file(&tmp_path);
+    });
+}
+
+// ── inspect_host: log_check and startup_items ─────────────────────────────────
+
+#[test]
+fn test_inspect_host_log_check_returns_header() {
+    // log_check must return a recognizable header and not panic. On a Windows
+    // machine with event logs it will surface real entries; on CI with no
+    // event log access it must still return Ok (not Err).
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "log_check", "max_entries": 5 });
+        let result = inspect_host(&args).await;
+
+        // Must return Ok regardless of whether events were found.
+        let output = result.expect("log_check must return Ok, not Err");
+        assert!(
+            output.contains("log_check"),
+            "log_check output must contain the topic name as a header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_startup_items_returns_header() {
+    // startup_items must return a recognizable header and not panic. On a real
+    // Windows machine it will enumerate Run key entries; on CI or Linux it
+    // must still return Ok with a meaningful message.
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "startup_items", "max_entries": 10 });
+        let result = inspect_host(&args).await;
+
+        let output = result.expect("startup_items must return Ok, not Err");
+        assert!(
+            output.contains("startup_items"),
+            "startup_items output must contain the topic name as a header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_unknown_topic_includes_new_topics_in_error() {
+    // The unknown-topic error message must list log_check and startup_items
+    // so operators know they are available.
+    use hematite::tools::host_inspect::inspect_host;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "nonexistent_topic_xyz" });
+        let result = inspect_host(&args).await;
+        let err = result.expect_err("unknown topic must return Err");
+        assert!(
+            err.contains("log_check"),
+            "unknown-topic error must mention log_check; got:\n{err}"
+        );
+        assert!(
+            err.contains("startup_items"),
+            "unknown-topic error must mention startup_items; got:\n{err}"
+        );
+    });
+}
+

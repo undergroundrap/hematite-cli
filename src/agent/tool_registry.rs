@@ -141,13 +141,14 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              For remediation questions phrased like 'how do I fix cargo not found', 'how do I fix port 3000 already in use', or 'how do I fix LM Studio not reachable', use topic=fix_plan instead of diagnosis-only topics like env_doctor, path, or ports. \
              Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=env_doctor for package-manager and PATH health, topic=fix_plan for structured remediation plans, topic=network for adapters/IPs/gateways/DNS, topic=services for service status and startup mode, \
              topic=processes for running-process snapshots, topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
+             topic=log_check for recent critical/error events from system event logs or journalctl, topic=startup_items for programs and services that run at boot (registry Run keys and startup folders on Windows; systemd enabled units on Linux), \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor"],
+                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items"],
                         "description": "Which structured host inspection to run."
                     },
                     "name": {
@@ -515,6 +516,31 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
         make_tool(
+            "tail_file",
+            "Read the last N lines of a file — useful for log files, test output, \
+             build artifacts, and any large file where only the tail is relevant. \
+             Supports an optional grep filter to show only matching lines from the tail. \
+             Use this instead of read_file when you only need the end of a large file.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file, relative to the project root"
+                    },
+                    "lines": {
+                        "type": "integer",
+                        "description": "Number of lines to return from the end (default: 50, max: 500)"
+                    },
+                    "grep": {
+                        "type": "string",
+                        "description": "Optional regex pattern — only return lines matching this pattern (applied before the tail slice)"
+                    }
+                },
+                "required": ["path"]
+            }),
+        ),
+        make_tool(
             "grep_files",
             "Search file contents for a regex pattern. Supports context lines, files-only mode, \
              and pagination. Returns file:line:content format by default.",
@@ -767,6 +793,7 @@ pub async fn dispatch_builtin_tool(name: &str, args: &Value) -> Result<String, S
         "run_workspace_workflow" => crate::tools::workspace_workflow::run_workspace_workflow(args).await,
         "read_file" => crate::tools::file_ops::read_file(args).await,
         "inspect_lines" => crate::tools::file_ops::inspect_lines(args).await,
+        "tail_file" => crate::tools::file_ops::tail_file(args).await,
         "write_file" => crate::tools::file_ops::write_file(args).await,
         "edit_file" => crate::tools::file_ops::edit_file(args).await,
         "patch_hunk" => crate::tools::file_ops::patch_hunk(args).await,
