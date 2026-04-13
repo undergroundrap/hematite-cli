@@ -19,7 +19,7 @@ Local AI coding harness and natural-language workstation assistant for LM Studio
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, natural-language workstation/sysadmin assistant when you need one, clean conversation when you do not. LM Studio handles model serving. Hematite handles the grounded local workflow around it.
 
-![Version](https://img.shields.io/badge/version-0.4.4-orange?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.4.5-orange?style=flat-square)
 [![crate hematite-cli](https://img.shields.io/crates/v/hematite-cli?style=flat-square&label=crate%20hematite-cli)](https://crates.io/crates/hematite-cli)
 [![crate hematite-kokoros](https://img.shields.io/crates/v/hematite-kokoros?style=flat-square&label=crate%20hematite-kokoros)](https://crates.io/crates/hematite-kokoros)
 ![Windows](https://img.shields.io/badge/Windows-native-blue?style=flat-square)
