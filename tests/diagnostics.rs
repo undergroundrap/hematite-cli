@@ -1278,7 +1278,11 @@ fn test_vein_hot_files_weighted_normalizes_to_one() {
         .find(|(p, _)| p == "src/util.rs")
         .map(|(_, w)| *w);
 
-    assert_eq!(core_weight, Some(1.0), "hottest file should have weight 1.0");
+    assert_eq!(
+        core_weight,
+        Some(1.0),
+        "hottest file should have weight 1.0"
+    );
     let util_w = util_weight.expect("util.rs should appear");
     assert!(
         (util_w - 0.5).abs() < 0.01,
@@ -1366,7 +1370,11 @@ fn test_edit_file_fuzzy_corrects_indent_on_replace() {
         .unwrap()
         .block_on(hematite::tools::file_ops::edit_file(&args));
 
-    assert!(result.is_ok(), "edit should succeed via fuzzy match: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "edit should succeed via fuzzy match: {:?}",
+        result
+    );
 
     let content = fs::read_to_string(tmp.path()).unwrap();
     // Model's replace had 4-space relative indent for body; file base is 8 spaces.
@@ -1407,7 +1415,11 @@ fn test_multi_search_replace_fuzzy_corrects_indent() {
         .unwrap()
         .block_on(hematite::tools::file_ops::multi_search_replace(&args));
 
-    assert!(result.is_ok(), "multi_search_replace should succeed via fuzzy: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "multi_search_replace should succeed via fuzzy: {:?}",
+        result
+    );
 
     let content = fs::read_to_string(tmp.path()).unwrap();
     assert!(
@@ -1443,9 +1455,17 @@ fn test_edit_file_rstrip_fallback_matches_trailing_spaces() {
         .unwrap()
         .block_on(hematite::tools::file_ops::edit_file(&args));
 
-    assert!(result.is_ok(), "rstrip fallback should match trailing-space file: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "rstrip fallback should match trailing-space file: {:?}",
+        result
+    );
     let content = fs::read_to_string(tmp.path()).unwrap();
-    assert!(content.contains("world"), "replacement should have applied:\n{}", content);
+    assert!(
+        content.contains("world"),
+        "replacement should have applied:\n{}",
+        content
+    );
 }
 
 #[test]
@@ -1533,31 +1553,61 @@ fn test_shell_execute_large_output_accessible() {
 #[test]
 fn test_detect_memory_type_decision() {
     use hematite::memory::vein::detect_memory_type;
-    assert_eq!(detect_memory_type("we decided to use SQLite for the vein database"), "decision");
-    assert_eq!(detect_memory_type("let's use petgraph for the repo map"), "decision");
-    assert_eq!(detect_memory_type("going with AGPL for the license"), "decision");
+    assert_eq!(
+        detect_memory_type("we decided to use SQLite for the vein database"),
+        "decision"
+    );
+    assert_eq!(
+        detect_memory_type("let's use petgraph for the repo map"),
+        "decision"
+    );
+    assert_eq!(
+        detect_memory_type("going with AGPL for the license"),
+        "decision"
+    );
 }
 
 #[test]
 fn test_detect_memory_type_problem() {
     use hematite::memory::vein::detect_memory_type;
-    assert_eq!(detect_memory_type("the issue was that embed model state was not strict"), "problem");
-    assert_eq!(detect_memory_type("root cause was a missing CRLF normalization"), "problem");
-    assert_eq!(detect_memory_type("fixed by adding the rstrip fallback before full strip"), "problem");
+    assert_eq!(
+        detect_memory_type("the issue was that embed model state was not strict"),
+        "problem"
+    );
+    assert_eq!(
+        detect_memory_type("root cause was a missing CRLF normalization"),
+        "problem"
+    );
+    assert_eq!(
+        detect_memory_type("fixed by adding the rstrip fallback before full strip"),
+        "problem"
+    );
 }
 
 #[test]
 fn test_detect_memory_type_milestone() {
     use hematite::memory::vein::detect_memory_type;
-    assert_eq!(detect_memory_type("voice pipeline now working without LM Studio"), "milestone");
-    assert_eq!(detect_memory_type("successfully shipped v0.4.5 to crates.io"), "milestone");
+    assert_eq!(
+        detect_memory_type("voice pipeline now working without LM Studio"),
+        "milestone"
+    );
+    assert_eq!(
+        detect_memory_type("successfully shipped v0.4.5 to crates.io"),
+        "milestone"
+    );
 }
 
 #[test]
 fn test_detect_memory_type_preference() {
     use hematite::memory::vein::detect_memory_type;
-    assert_eq!(detect_memory_type("i prefer lowercase conventional commits"), "preference");
-    assert_eq!(detect_memory_type("i like the diff preview before every edit"), "preference");
+    assert_eq!(
+        detect_memory_type("i prefer lowercase conventional commits"),
+        "preference"
+    );
+    assert_eq!(
+        detect_memory_type("i like the diff preview before every edit"),
+        "preference"
+    );
 }
 
 #[test]
@@ -1579,7 +1629,8 @@ fn test_vein_memory_type_indexed_and_retrieved() {
         "session/2026-04-12/turn-1",
         1_000,
         "we decided to use SQLite for local storage because it requires no server",
-    ).unwrap();
+    )
+    .unwrap();
 
     // BM25 search should find it
     let results = vein.search_bm25("decided SQLite storage", 10).unwrap();
@@ -1589,7 +1640,8 @@ fn test_vein_memory_type_indexed_and_retrieved() {
     let hit = results.iter().find(|r| r.path.contains("turn-1"));
     assert!(hit.is_some(), "should find the specific turn");
     assert_eq!(
-        hit.unwrap().memory_type, "decision",
+        hit.unwrap().memory_type,
+        "decision",
         "session chunk with 'decided' should be tagged as decision"
     );
 }
@@ -1720,7 +1772,9 @@ fn test_checkpoint_roundtrip_via_session_json() {
     // Restore previous session.json (or remove the fake one).
     match existing {
         Some(prev) => std::fs::write(&session_path, prev).unwrap(),
-        None => { let _ = std::fs::remove_file(&session_path); }
+        None => {
+            let _ = std::fs::remove_file(&session_path);
+        }
     }
 
     let cp = cp.expect("load_checkpoint should return Some for a valid prior session");
@@ -1729,7 +1783,9 @@ fn test_checkpoint_roundtrip_via_session_json() {
     assert_eq!(cp.last_verify_ok, Some(true));
     assert!(
         cp.working_files.contains(&"src/tools/shell.rs".to_string())
-            || cp.working_files.contains(&"src/agent/conversation.rs".to_string()),
+            || cp
+                .working_files
+                .contains(&"src/agent/conversation.rs".to_string()),
         "working_files should include files from working_set"
     );
 }
@@ -1814,9 +1870,10 @@ fn test_build_summary_captures_verify_build_outcome() {
     let result = compact_history(&messages, None, config, Some(1));
 
     // The compacted summary message should mention BUILD OK.
-    let summary_msg = result.messages.iter().find(|m| {
-        m.role == "system" && m.content.as_str().contains("CONTEXT SUMMARY")
-    });
+    let summary_msg = result
+        .messages
+        .iter()
+        .find(|m| m.role == "system" && m.content.as_str().contains("CONTEXT SUMMARY"));
     assert!(
         summary_msg.is_some(),
         "compaction should produce a summary system message"
@@ -2032,7 +2089,10 @@ fn test_tail_file_missing_file_returns_err() {
     rt.block_on(async {
         let args = serde_json::json!({ "path": "/nonexistent/path/to/file.log" });
         let result = tail_file(&args).await;
-        assert!(result.is_err(), "tail_file on a missing file must return Err");
+        assert!(
+            result.is_err(),
+            "tail_file on a missing file must return Err"
+        );
     });
 }
 
@@ -2055,9 +2115,18 @@ fn test_tail_file_lines_default_is_fifty() {
         let result = tail_file(&args).await.unwrap();
 
         // Line 60 must be present; line 10 (outside the 50-line window) must not.
-        assert!(result.contains("row 60"), "default tail must include last line");
-        assert!(result.contains("row 11"), "default tail must include row 11 (60-50=10, so 11 is the first)");
-        assert!(!result.contains("row 10"), "default tail must NOT include row 10 (outside 50-line window)");
+        assert!(
+            result.contains("row 60"),
+            "default tail must include last line"
+        );
+        assert!(
+            result.contains("row 11"),
+            "default tail must include row 11 (60-50=10, so 11 is the first)"
+        );
+        assert!(
+            !result.contains("row 10"),
+            "default tail must NOT include row 10 (outside 50-line window)"
+        );
 
         let _ = std::fs::remove_file(&tmp_path);
     });
@@ -2127,4 +2196,3 @@ fn test_inspect_host_unknown_topic_includes_new_topics_in_error() {
         );
     });
 }
-

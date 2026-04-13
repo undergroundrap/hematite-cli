@@ -33,6 +33,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "ports" => inspect_ports(parse_port_filter(args), max_entries),
         "log_check" => inspect_log_check(max_entries),
         "startup_items" => inspect_startup_items(max_entries),
+        "health_report" => inspect_health_report(),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -49,7 +50,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report.",
             other
         )),
     }
@@ -2363,6 +2364,307 @@ fn parse_unix_services(status_text: &str, startup_text: &str) -> Vec<ServiceEntr
     services
 }
 
+// ── health_report ─────────────────────────────────────────────────────────────
+
+/// Synthesized system health report — runs multiple checks and returns a
+/// plain-English tiered verdict suitable for both developers and non-technical
+/// users who just want to know if their machine is okay.
+fn inspect_health_report() -> Result<String, String> {
+    let mut needs_fix: Vec<String> = Vec::new();
+    let mut watch: Vec<String> = Vec::new();
+    let mut good: Vec<String> = Vec::new();
+    let mut tips: Vec<String> = Vec::new();
+
+    health_check_disk(&mut needs_fix, &mut watch, &mut good);
+    health_check_memory(&mut watch, &mut good);
+    health_check_tools(&mut watch, &mut good, &mut tips);
+    health_check_recent_errors(&mut watch, &mut tips);
+
+    let overall = if !needs_fix.is_empty() {
+        "ACTION REQUIRED"
+    } else if !watch.is_empty() {
+        "WORTH A LOOK"
+    } else {
+        "ALL GOOD"
+    };
+
+    let mut out = format!("System Health Report — {overall}\n\n");
+
+    if !needs_fix.is_empty() {
+        out.push_str("Needs fixing:\n");
+        for item in &needs_fix {
+            out.push_str(&format!("  [!] {item}\n"));
+        }
+        out.push('\n');
+    }
+    if !watch.is_empty() {
+        out.push_str("Worth watching:\n");
+        for item in &watch {
+            out.push_str(&format!("  [-] {item}\n"));
+        }
+        out.push('\n');
+    }
+    if !good.is_empty() {
+        out.push_str("Looking good:\n");
+        for item in &good {
+            out.push_str(&format!("  [+] {item}\n"));
+        }
+        out.push('\n');
+    }
+    if !tips.is_empty() {
+        out.push_str("To dig deeper:\n");
+        for tip in &tips {
+            out.push_str(&format!("  {tip}\n"));
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn health_check_disk(needs_fix: &mut Vec<String>, watch: &mut Vec<String>, good: &mut Vec<String>) {
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"try {
+    $d = Get-PSDrive C -ErrorAction Stop
+    "$($d.Free)|$($d.Used)"
+} catch { "ERR" }"#;
+        if let Ok(out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let text = text.trim();
+            if !text.starts_with("ERR") {
+                let parts: Vec<&str> = text.split('|').collect();
+                if parts.len() == 2 {
+                    let free_bytes: u64 = parts[0].trim().parse().unwrap_or(0);
+                    let used_bytes: u64 = parts[1].trim().parse().unwrap_or(0);
+                    let total = free_bytes + used_bytes;
+                    let free_gb = free_bytes / 1_073_741_824;
+                    let pct_free = if total > 0 {
+                        (free_bytes as f64 / total as f64 * 100.0) as u64
+                    } else {
+                        0
+                    };
+                    let msg = format!("Disk: {free_gb} GB free on C: ({pct_free}% available)");
+                    if free_gb < 5 {
+                        needs_fix.push(format!(
+                            "{msg} — very low. Free up space or your system may slow down or stop working."
+                        ));
+                    } else if free_gb < 15 {
+                        watch.push(format!("{msg} — getting low, consider cleaning up."));
+                    } else {
+                        good.push(msg);
+                    }
+                    return;
+                }
+            }
+        }
+        watch.push("Disk: could not read free space from C: drive.".to_string());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(out) = Command::new("df").args(["-BG", "/"]).output() {
+            let text = String::from_utf8_lossy(&out.stdout);
+            for line in text.lines().skip(1) {
+                let cols: Vec<&str> = line.split_whitespace().collect();
+                if cols.len() >= 5 {
+                    let avail_str = cols[3].trim_end_matches('G');
+                    let use_pct = cols[4].trim_end_matches('%');
+                    let avail_gb: u64 = avail_str.parse().unwrap_or(0);
+                    let used_pct: u64 = use_pct.parse().unwrap_or(0);
+                    let msg = format!("Disk: {avail_gb} GB free on / ({used_pct}% used)");
+                    if avail_gb < 5 {
+                        needs_fix.push(format!(
+                            "{msg} — very low. Free up space to prevent system issues."
+                        ));
+                    } else if avail_gb < 15 {
+                        watch.push(format!("{msg} — getting low."));
+                    } else {
+                        good.push(msg);
+                    }
+                    return;
+                }
+            }
+        }
+        watch.push("Disk: could not determine free space.".to_string());
+    }
+}
+
+fn health_check_memory(watch: &mut Vec<String>, good: &mut Vec<String>) {
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"try {
+    $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+    "$($os.FreePhysicalMemory)|$($os.TotalVisibleMemorySize)"
+} catch { "ERR" }"#;
+        if let Ok(out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let text = text.trim();
+            if !text.starts_with("ERR") {
+                let parts: Vec<&str> = text.split('|').collect();
+                if parts.len() == 2 {
+                    let free_kb: u64 = parts[0].trim().parse().unwrap_or(0);
+                    let total_kb: u64 = parts[1].trim().parse().unwrap_or(0);
+                    if total_kb > 0 {
+                        let free_gb = free_kb / 1_048_576;
+                        let total_gb = total_kb / 1_048_576;
+                        let free_pct = free_kb * 100 / total_kb;
+                        let msg = format!(
+                            "RAM: {free_gb} GB free of {total_gb} GB ({free_pct}% available)"
+                        );
+                        if free_pct < 10 {
+                            watch.push(format!(
+                                "{msg} — very low. Close unused apps to free up memory."
+                            ));
+                        } else if free_pct < 25 {
+                            watch.push(format!("{msg} — running a bit low."));
+                        } else {
+                            good.push(msg);
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+            let mut total_kb = 0u64;
+            let mut avail_kb = 0u64;
+            for line in content.lines() {
+                if line.starts_with("MemTotal:") {
+                    total_kb = line
+                        .split_whitespace()
+                        .nth(1)
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(0);
+                } else if line.starts_with("MemAvailable:") {
+                    avail_kb = line
+                        .split_whitespace()
+                        .nth(1)
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(0);
+                }
+            }
+            if total_kb > 0 {
+                let free_gb = avail_kb / 1_048_576;
+                let total_gb = total_kb / 1_048_576;
+                let free_pct = avail_kb * 100 / total_kb;
+                let msg =
+                    format!("RAM: {free_gb} GB free of {total_gb} GB ({free_pct}% available)");
+                if free_pct < 10 {
+                    watch.push(format!("{msg} — very low. Close unused apps."));
+                } else if free_pct < 25 {
+                    watch.push(format!("{msg} — running a bit low."));
+                } else {
+                    good.push(msg);
+                }
+            }
+        }
+    }
+}
+
+fn health_check_tools(watch: &mut Vec<String>, good: &mut Vec<String>, tips: &mut Vec<String>) {
+    let tool_checks: &[(&str, &str, &str)] = &[
+        ("git", "--version", "Git"),
+        ("cargo", "--version", "Rust / Cargo"),
+        ("node", "--version", "Node.js"),
+        ("python", "--version", "Python"),
+        ("python3", "--version", "Python 3"),
+        ("npm", "--version", "npm"),
+    ];
+
+    let mut found: Vec<String> = Vec::new();
+    let mut missing: Vec<String> = Vec::new();
+    let mut python_found = false;
+
+    for (cmd, arg, label) in tool_checks {
+        if cmd.starts_with("python") && python_found {
+            continue;
+        }
+        let ok = Command::new(cmd)
+            .arg(arg)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if ok {
+            found.push((*label).to_string());
+            if cmd.starts_with("python") {
+                python_found = true;
+            }
+        } else if !cmd.starts_with("python") || !python_found {
+            missing.push((*label).to_string());
+        }
+    }
+
+    if !found.is_empty() {
+        good.push(format!("Dev tools found: {}", found.join(", ")));
+    }
+    if !missing.is_empty() {
+        watch.push(format!(
+            "Not installed (or not on PATH): {} — only matters if you need them",
+            missing.join(", ")
+        ));
+        tips.push(
+            "Run inspect_host(topic=\"toolchains\") for exact version details on all dev tools."
+                .to_string(),
+        );
+    }
+}
+
+fn health_check_recent_errors(watch: &mut Vec<String>, tips: &mut Vec<String>) {
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"try {
+    $cutoff = (Get-Date).AddHours(-24)
+    $count = (Get-WinEvent -FilterHashtable @{LogName='Application','System'; Level=1,2,3; StartTime=$cutoff} -MaxEvents 200 -ErrorAction SilentlyContinue | Measure-Object).Count
+    $count
+} catch { "0" }"#;
+        if let Ok(out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let count: u64 = text.trim().parse().unwrap_or(0);
+            if count > 0 {
+                watch.push(format!(
+                    "{count} critical/error event{} in Windows event logs in the last 24 hours.",
+                    if count == 1 { "" } else { "s" }
+                ));
+                tips.push(
+                    "Run inspect_host(topic=\"log_check\") to see the actual error messages."
+                        .to_string(),
+                );
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(out) = Command::new("journalctl")
+            .args(["-p", "3", "-n", "1", "--no-pager", "--quiet"])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            if !text.trim().is_empty() {
+                watch.push("Critical/error entries found in the system journal.".to_string());
+                tips.push(
+                    "Run inspect_host(topic=\"log_check\") to see recent errors.".to_string(),
+                );
+            }
+        }
+    }
+}
+
 // ── log_check ─────────────────────────────────────────────────────────────────
 
 fn inspect_log_check(max_entries: usize) -> Result<String, String> {
@@ -2409,7 +2711,9 @@ fn inspect_log_check(max_entries: usize) -> Result<String, String> {
                 count += 1;
             }
         }
-        out.push_str(&format!("\nEvents shown: {count} (critical/error from Application + System logs)\n"));
+        out.push_str(&format!(
+            "\nEvents shown: {count} (critical/error from Application + System logs)\n"
+        ));
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -2464,7 +2768,9 @@ fn inspect_log_check(max_entries: usize) -> Result<String, String> {
                     }
                 }
                 if !found {
-                    out.push_str("journalctl not found and no readable syslog detected on this system.\n");
+                    out.push_str(
+                        "journalctl not found and no readable syslog detected on this system.\n",
+                    );
                 }
             }
         }
@@ -2509,7 +2815,11 @@ foreach ($h in $hives) {
             .filter_map(|l| {
                 let parts: Vec<&str> = l.splitn(3, '|').collect();
                 if parts.len() == 3 {
-                    Some((parts[0].to_string(), parts[1].to_string(), parts[2].to_string()))
+                    Some((
+                        parts[0].to_string(),
+                        parts[1].to_string(),
+                        parts[2].to_string(),
+                    ))
                 } else {
                     None
                 }
@@ -2597,11 +2907,16 @@ foreach ($p in $paths) {
                     for s in &services {
                         out.push_str(&format!("  {s}\n"));
                     }
-                    out.push_str(&format!("\nShowing {} of enabled services.\n", services.len()));
+                    out.push_str(&format!(
+                        "\nShowing {} of enabled services.\n",
+                        services.len()
+                    ));
                 }
             }
             _ => {
-                out.push_str("systemctl not found on this system. Cannot enumerate startup services.\n");
+                out.push_str(
+                    "systemctl not found on this system. Cannot enumerate startup services.\n",
+                );
             }
         }
 

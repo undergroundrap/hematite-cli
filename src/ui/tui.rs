@@ -1200,6 +1200,8 @@ fn show_help_message(app: &mut App) {
          /about            - (Info) Show author, repo, and product info\n\
          /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
            /clear            - (UI) Clear dialogue display only\n\
+         /health           - (Diag) Run a synthesized plain-English system health report\n\
+         /explain <text>   - (Help) Paste an error to get a non-technical breakdown\n\
          /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
          /runtime-refresh  - (Model) Re-read LM Studio model + CTX now\n\
          /undo             - (Ghost) Revert last file change\n\
@@ -1265,6 +1267,8 @@ fn show_help_message_legacy(app: &mut App) {
            /about            — (Info) Show author, repo, and product info\n\
            /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
            /clear            — (UI) Clear dialogue display only\n\
+         /health           — (Diag) Run a synthesized plain-English system health report\n\
+         /explain <text>   — (Help) Paste an error to get a non-technical breakdown\n\
          /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
          /runtime-refresh  — (Model) Re-read LM Studio model + CTX now\n\
          /undo             — (Ghost) Revert last file change\n\
@@ -2365,6 +2369,42 @@ pub async fn run_app<B: Backend>(
                                                     "System",
                                                     &crate::hematite_about_report(),
                                                 );
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/explain" => {
+                                                let error_text = parts[1..].join(" ");
+                                                if error_text.trim().is_empty() {
+                                                    app.push_message("System", "Usage: /explain <error message or text>\n\nPaste any error, warning, or confusing message and Hematite will explain it in plain English — what it means, why it happened, and what to do about it.");
+                                                } else {
+                                                    let framed = format!(
+                                                        "The user pasted the following error or message and needs a plain-English explanation. \
+                                                         Explain what this means, why it happened, and what to do about it. \
+                                                         Use simple, non-technical language. Avoid jargon. \
+                                                         Structure your response as:\n\
+                                                         1. What happened (one sentence)\n\
+                                                         2. Why it happened\n\
+                                                         3. How to fix it (step by step)\n\
+                                                         4. How to prevent it next time (optional, if relevant)\n\n\
+                                                         Error/message to explain:\n```\n{}\n```",
+                                                        error_text
+                                                    );
+                                                    app.push_message("You", &format!("/explain {}", error_text));
+                                                    app.agent_running = true;
+                                                    let _ = app.user_input_tx.try_send(UserTurn::text(framed));
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/health" => {
+                                                app.push_message("You", "/health");
+                                                app.agent_running = true;
+                                                let _ = app.user_input_tx.try_send(UserTurn::text(
+                                                    "Run inspect_host with topic=health_report. \
+                                                     After getting the report, summarize it in plain English for a non-technical user. \
+                                                     Use the tier labels (Needs fixing / Worth watching / Looking good) and \
+                                                     give specific, actionable next steps for any items that need attention."
+                                                ));
                                                 app.history_idx = None;
                                                 continue;
                                             }

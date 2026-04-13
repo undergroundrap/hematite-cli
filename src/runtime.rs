@@ -331,9 +331,24 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
             goal_preview,
             trail,
         );
-        let _ = agent_tx
-            .send(InferenceEvent::Thought(resume_msg))
-            .await;
+        let _ = agent_tx.send(InferenceEvent::Thought(resume_msg)).await;
+    } else {
+        let session_path = crate::tools::file_ops::workspace_root()
+            .join(".hematite")
+            .join("session.json");
+        if !session_path.exists() {
+            let first_run_msg = "\nWelcome to Hematite! I'm your local AI workstation assistant.\n\n\
+                                 Since this is your first time here, what would you like to do?\n\
+                                 - System Check: Wondering if your tools are working? Run `/health`\n\
+                                 - Code: Ready to build something? Run `/architect Let's build a new feature`\n\
+                                 - Setup: Need help configuring Git or the workspace? Run `/ask What should I set up first?`\n\
+                                 - Help: Have a weird error? Type `/explain ` and paste it.\n\n\
+                                 Just type \"hello\" to start a normal conversation!".to_string();
+            let _ = agent_tx.send(InferenceEvent::Thought(first_run_msg)).await;
+
+            // Create a minimal empty session struct so we don't show this again until they intentionally /forget
+            let _ = std::fs::write(&session_path, "{\"turn_count\": 0}");
+        }
     }
 
     let _ = agent_tx.send(InferenceEvent::Done).await;
