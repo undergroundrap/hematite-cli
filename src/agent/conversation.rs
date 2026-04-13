@@ -73,6 +73,46 @@ struct SavedSession {
     running_summary: Option<String>,
     #[serde(default)]
     session_memory: crate::agent::compaction::SessionMemory,
+    /// Last user message from the previous session — shown as resume hint on startup.
+    #[serde(default)]
+    last_goal: Option<String>,
+    /// Number of real inference turns completed in the previous session.
+    #[serde(default)]
+    turn_count: u32,
+}
+
+/// Snapshot of the previous session, surfaced on startup when a workspace is
+/// resumed after a restart or crash.
+pub struct CheckpointResume {
+    pub last_goal: String,
+    pub turn_count: u32,
+    pub working_files: Vec<String>,
+    pub last_verify_ok: Option<bool>,
+}
+
+/// Load the prior-session checkpoint from `.hematite/session.json`.
+/// Returns `None` when there is no prior session or it has no real turns.
+pub fn load_checkpoint() -> Option<CheckpointResume> {
+    let path = session_path();
+    let data = std::fs::read_to_string(&path).ok()?;
+    let saved: SavedSession = serde_json::from_str(&data).ok()?;
+    let goal = saved.last_goal.filter(|g| !g.trim().is_empty())?;
+    if saved.turn_count == 0 {
+        return None;
+    }
+    let mut working_files: Vec<String> =
+        saved.session_memory.working_set.into_iter().take(4).collect();
+    working_files.sort();
+    let last_verify_ok = saved
+        .session_memory
+        .last_verification
+        .map(|v| v.successful);
+    Some(CheckpointResume {
+        last_goal: goal,
+        turn_count: saved.turn_count,
+        working_files,
+        last_verify_ok,
+    })
 }
 
 #[derive(Default)]
@@ -603,6 +643,10 @@ pub struct ConversationManager {
     pub l1_context: Option<String>,
     /// Condensed AST repository layout for the active project.
     pub repo_map: Option<String>,
+    /// Number of real inference turns completed this session.
+    pub turn_count: u32,
+    /// Last user message sent to the model — persisted as checkpoint goal.
+    pub last_goal: Option<String>,
 }
 
 impl ConversationManager {
@@ -894,6 +938,8 @@ impl ConversationManager {
             recovery_context: RecoveryContext::default(),
             l1_context: None,
             repo_map: None,
+            turn_count: 0,
+            last_goal: None,
         }
     }
 
@@ -933,6 +979,8 @@ impl ConversationManager {
         let saved = SavedSession {
             running_summary: self.running_summary.clone(),
             session_memory: self.session_memory.clone(),
+            last_goal: self.last_goal.clone(),
+            turn_count: self.turn_count,
         };
         if let Ok(json) = serde_json::to_string(&saved) {
             let _ = std::fs::write(&path, json);
@@ -947,6 +995,8 @@ impl ConversationManager {
         let saved = SavedSession {
             running_summary: None,
             session_memory: crate::agent::compaction::SessionMemory::default(),
+            last_goal: None,
+            turn_count: 0,
         };
         if let Ok(json) = serde_json::to_string(&saved) {
             let _ = std::fs::write(&path, json);
@@ -3356,6 +3406,9 @@ impl ConversationManager {
 
         self.trim_history(80);
         self.refresh_session_memory();
+        // Record the goal and increment the turn counter before persisting.
+        self.last_goal = Some(user_input.chars().take(300).collect());
+        self.turn_count = self.turn_count.saturating_add(1);
         self.save_session();
         self.emit_compaction_pressure(&tx).await;
         Ok(())

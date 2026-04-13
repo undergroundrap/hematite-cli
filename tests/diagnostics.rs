@@ -1668,3 +1668,64 @@ fn test_shell_streaming_buffered_output_matches_blocking() {
         }
     });
 }
+
+// ── Turn checkpointing ────────────────────────────────────────────────────────
+
+#[test]
+fn test_checkpoint_load_returns_none_when_no_session_file() {
+    // load_checkpoint() must return None gracefully when .hematite/session.json
+    // does not exist or has no real turns — not panic.
+    // We test this by checking the result type alone (the real file may or
+    // may not exist in the test environment).
+    let result = std::panic::catch_unwind(hematite::agent::conversation::load_checkpoint);
+    assert!(result.is_ok(), "load_checkpoint should never panic");
+}
+
+#[test]
+fn test_checkpoint_roundtrip_via_session_json() {
+    // Write a session.json that looks like a real prior session, then verify
+    // load_checkpoint() surfaces the right fields.
+    use std::io::Write;
+
+    let root = hematite::tools::file_ops::workspace_root();
+    let hematite_dir = root.join(".hematite");
+    let _ = std::fs::create_dir_all(&hematite_dir);
+    let session_path = hematite_dir.join("session.json");
+
+    // Snapshot any existing session.json so we can restore it.
+    let existing = std::fs::read_to_string(&session_path).ok();
+
+    // Write a fake prior session.
+    let fake = serde_json::json!({
+        "running_summary": null,
+        "session_memory": {
+            "current_task": "implement streaming shell output",
+            "working_set": ["src/tools/shell.rs", "src/agent/conversation.rs"],
+            "learnings": [],
+            "last_verification": { "successful": true, "summary": "cargo test ok" }
+        },
+        "last_goal": "add streaming shell and diagnostics",
+        "turn_count": 7
+    });
+    let mut f = std::fs::File::create(&session_path).unwrap();
+    write!(f, "{}", fake).unwrap();
+    drop(f);
+
+    let cp = hematite::agent::conversation::load_checkpoint();
+
+    // Restore previous session.json (or remove the fake one).
+    match existing {
+        Some(prev) => std::fs::write(&session_path, prev).unwrap(),
+        None => { let _ = std::fs::remove_file(&session_path); }
+    }
+
+    let cp = cp.expect("load_checkpoint should return Some for a valid prior session");
+    assert_eq!(cp.turn_count, 7);
+    assert_eq!(cp.last_goal, "add streaming shell and diagnostics");
+    assert_eq!(cp.last_verify_ok, Some(true));
+    assert!(
+        cp.working_files.contains(&"src/tools/shell.rs".to_string())
+            || cp.working_files.contains(&"src/agent/conversation.rs".to_string()),
+        "working_files should include files from working_set"
+    );
+}

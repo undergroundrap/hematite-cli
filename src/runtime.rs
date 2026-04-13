@@ -307,6 +307,35 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
             indexed
         )))
         .await;
+
+    // Show a compact resume line if a prior session left a checkpoint.
+    if let Some(cp) = crate::agent::conversation::load_checkpoint() {
+        let verify_tag = match cp.last_verify_ok {
+            Some(true) => " | last verify: PASS",
+            Some(false) => " | last verify: FAIL",
+            None => "",
+        };
+        let files_tag = if cp.working_files.is_empty() {
+            String::new()
+        } else {
+            format!(" | files: {}", cp.working_files.join(", "))
+        };
+        let goal_preview: String = cp.last_goal.chars().take(120).collect();
+        let trail = if cp.last_goal.len() > 120 { "…" } else { "" };
+        let resume_msg = format!(
+            "Resumed: {} turn{}{}{} — last goal: \"{}{}\"",
+            cp.turn_count,
+            if cp.turn_count == 1 { "" } else { "s" },
+            verify_tag,
+            files_tag,
+            goal_preview,
+            trail,
+        );
+        let _ = agent_tx
+            .send(InferenceEvent::Thought(resume_msg))
+            .await;
+    }
+
     let _ = agent_tx.send(InferenceEvent::Done).await;
     let startup_config = crate::agent::config::load_config();
     manager.engine.set_gemma_native_formatting(
