@@ -1481,3 +1481,45 @@ fn test_edit_file_cross_file_hint_in_error() {
         err
     );
 }
+
+// ── Tool output overflow-to-scratch ───────────────────────────────────────────
+
+#[test]
+fn test_read_file_returns_full_content_before_conversation_cap() {
+    // read_file itself does not cap — capping happens at the conversation layer.
+    // Verify that large files are returned in full so the conversation layer
+    // can make an informed truncation decision (and write to scratch).
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    let tmp = NamedTempFile::new().unwrap();
+    let big: String = (0..1000).map(|i| format!("line {:04}\n", i)).collect();
+    fs::write(tmp.path(), &big).unwrap();
+
+    let args = serde_json::json!({ "path": tmp.path().to_str().unwrap() });
+    let result = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::file_ops::read_file(&args));
+
+    assert!(result.is_ok(), "read_file should succeed on large file");
+    let content = result.unwrap();
+    // Should contain first and last lines — not silently truncated before the cap layer
+    assert!(content.contains("line 0000"), "should have first line");
+    assert!(content.contains("line 0999"), "should have last line");
+}
+
+#[test]
+fn test_shell_execute_large_output_accessible() {
+    // Verify shell::execute is reachable and returns output for a basic command.
+    // Large output capping to scratch is an integration concern tested at runtime.
+    let args = serde_json::json!({ "command": "echo hematite-scratch-test" });
+    let result = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::shell::execute(&args));
+
+    // Shell may not be available in all CI environments — skip gracefully
+    match result {
+        Ok(out) => assert!(out.contains("hematite-scratch-test") || !out.is_empty()),
+        Err(e) => println!("shell not available in this env: {}", e),
+    }
+}

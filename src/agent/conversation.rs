@@ -2898,17 +2898,21 @@ impl ConversationManager {
                             while !final_output.is_char_boundary(split_at) && split_at > 0 {
                                 split_at -= 1;
                             }
+                            let scratch = write_output_to_scratch(&final_output, &tool_name)
+                                .map(|p| format!(" Full file also saved to '{p}'."))
+                                .unwrap_or_default();
                             format!(
-                                "{}\n... [file truncated — {} total lines. Use `inspect_lines` with start_line near {} to reach the end of the file.]",
+                                "{}\n... [file truncated — {} total lines. Use `inspect_lines` with start_line near {} to reach the end of the file.{}]",
                                 &final_output[..split_at],
                                 total_lines,
                                 total_lines.saturating_sub(150),
+                                scratch,
                             )
                         } else {
                             final_output.clone()
                         }
                     } else {
-                        cap_output(&final_output, 8000)
+                        cap_output_for_tool(&final_output, 8000, &tool_name)
                     };
                     self.history.push(ChatMessage::tool_result_for_model(
                         &call_id,
@@ -4763,20 +4767,62 @@ fn shell_looks_like_structured_host_inspection(command: &str) -> bool {
 // Moved strip_think_blocks to inference.rs
 
 fn cap_output(text: &str, max_bytes: usize) -> String {
+    cap_output_for_tool(text, max_bytes, "output")
+}
+
+/// Cap tool output at `max_bytes`. When the output exceeds the cap, write the
+/// full content to `.hematite/scratch/<tool_name>_<timestamp>.txt` and include
+/// the path in the truncation notice so the model can read the rest with
+/// `read_file` instead of losing it entirely.
+fn cap_output_for_tool(text: &str, max_bytes: usize, tool_name: &str) -> String {
     if text.len() <= max_bytes {
-        text.to_string()
-    } else {
-        // Find the largest byte index <= max_bytes that is a valid char boundary.
-        let mut split_at = max_bytes;
-        while !text.is_char_boundary(split_at) && split_at > 0 {
-            split_at -= 1;
-        }
-        format!(
-            "{}\n... [output capped at {}B]",
-            &text[..split_at],
-            max_bytes
-        )
+        return text.to_string();
     }
+
+    // Write full output to scratch so the model can access it.
+    let scratch_path = write_output_to_scratch(text, tool_name);
+
+    let mut split_at = max_bytes;
+    while !text.is_char_boundary(split_at) && split_at > 0 {
+        split_at -= 1;
+    }
+
+    let tail = match &scratch_path {
+        Some(p) => format!(
+            "\n... [output truncated — full output ({} bytes, {} lines) saved to '{}' — use read_file to access the rest]",
+            text.len(),
+            text.lines().count(),
+            p
+        ),
+        None => format!("\n... [output capped at {}B]", max_bytes),
+    };
+
+    format!("{}{}", &text[..split_at], tail)
+}
+
+/// Write text to `.hematite/scratch/<tool>_<timestamp>.txt`.
+/// Returns the relative path on success, None if the write fails.
+fn write_output_to_scratch(text: &str, tool_name: &str) -> Option<String> {
+    let root = crate::tools::file_ops::workspace_root();
+    let scratch_dir = root.join(".hematite").join("scratch");
+    if std::fs::create_dir_all(&scratch_dir).is_err() {
+        return None;
+    }
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    // Sanitize tool name for use in filename
+    let safe_name: String = tool_name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .collect();
+    let filename = format!("{}_{}.txt", safe_name, ts);
+    let abs_path = scratch_dir.join(&filename);
+    if std::fs::write(&abs_path, text).is_err() {
+        return None;
+    }
+    Some(format!(".hematite/scratch/{}", filename))
 }
 
 #[derive(Default)]
