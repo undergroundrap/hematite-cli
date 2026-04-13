@@ -4540,6 +4540,10 @@ impl ConversationManager {
                         // fall through and let the tool return its own error.
                         Err(_) => dispatch_tool(&call.name, &args).await,
                     }
+                } else if call.name == "shell" {
+                    // Stream shell output line-by-line to the SPECULAR panel so
+                    // the operator sees live progress during long commands.
+                    crate::tools::shell::execute_streaming(&args, tx.clone()).await
                 } else {
                     dispatch_tool(&call.name, &args).await
                 };

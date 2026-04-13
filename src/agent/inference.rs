@@ -725,6 +725,10 @@ pub enum InferenceEvent {
     },
     /// Embed model loaded/unloaded mid-session.
     EmbedProfile { model_id: Option<String> },
+    /// A single line of live shell output, streamed while the command runs.
+    /// Displayed in the SPECULAR panel so the operator sees progress without
+    /// waiting for the full command to finish.
+    ShellLine(String),
 }
 
 // ── Engine implementation ─────────────────────────────────────────────────────

@@ -2789,6 +2789,12 @@ pub async fn run_app<B: Backend>(
                             &format!("[{}{}] {} has awakened.", rarity, shiny_tag, species),
                         );
                     }
+                    InferenceEvent::ShellLine(line) => {
+                        // Stream shell output into the SPECULAR side panel as it
+                        // arrives so the operator sees live progress.
+                        app.current_thought.push_str(&line);
+                        app.current_thought.push('\n');
+                    }
                 }
             }
 
