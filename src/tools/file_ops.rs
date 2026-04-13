@@ -327,10 +327,18 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
         }
     };
 
-    let updated = if replace_all {
-        original.replace(effective_search.as_str(), replace)
+    // When a fuzzy match was used, adjust the replace string's indentation to
+    // match the file's actual indent level (not the model's potentially-wrong indent).
+    let effective_replace = if was_repaired {
+        adjust_replace_indent(search, effective_search.as_str(), replace)
     } else {
-        original.replacen(effective_search.as_str(), replace, 1)
+        replace.to_string()
+    };
+
+    let updated = if replace_all {
+        original.replace(effective_search.as_str(), effective_replace.as_str())
+    } else {
+        original.replacen(effective_search.as_str(), effective_replace.as_str(), 1)
     };
 
     fs::write(&abs, &updated).map_err(|e| format!("edit_file: write failed: {e}"))?;
@@ -338,7 +346,7 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
     let removed = original.lines().count();
     let added = updated.lines().count();
     let repair_note = if was_repaired {
-        "  [whitespace auto-corrected]"
+        "  [indent auto-corrected]"
     } else {
         ""
     };
@@ -348,7 +356,7 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
     for line in effective_search.lines() {
         diff_block.push_str(&format!("- {}\n", line));
     }
-    for line in replace.lines() {
+    for line in effective_replace.lines() {
         diff_block.push_str(&format!("+ {}\n", line));
     }
 
@@ -458,22 +466,42 @@ pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
 
     for (i, hunk) in hunks.iter().enumerate() {
         let match_count = current_content.matches(&hunk.search).count();
-        if match_count == 0 {
-            return Err(format!("multi_search_replace: hunk {} search string not found in file. Ensure exact whitespace match.", i));
-        }
-        if match_count > 1 {
-            return Err(format!("multi_search_replace: hunk {} search string matched {} times. Provide more context to make it unique.", i, match_count));
-        }
+
+        let (effective_search, effective_replace) = if match_count == 1 {
+            // Exact match — use as-is.
+            (hunk.search.clone(), hunk.replace.clone())
+        } else if match_count == 0 {
+            // Try fuzzy whitespace-normalised match before giving up.
+            match fuzzy_find_span(&current_content, &hunk.search) {
+                Some(span) => {
+                    let real_slice = current_content[span].to_string();
+                    let adjusted_replace =
+                        adjust_replace_indent(&hunk.search, &real_slice, &hunk.replace);
+                    (real_slice, adjusted_replace)
+                }
+                None => {
+                    return Err(format!(
+                        "multi_search_replace: hunk {} search string not found in file.",
+                        i
+                    ));
+                }
+            }
+        } else {
+            return Err(format!(
+                "multi_search_replace: hunk {} search string matched {} times. Provide more context to make it unique.",
+                i, match_count
+            ));
+        };
 
         diff.push_str(&format!("\n@@ Hunk {} @@\n", i + 1));
-        for line in hunk.search.lines() {
+        for line in effective_search.lines() {
             diff.push_str(&format!("- {}\n", line.trim_end()));
         }
-        for line in hunk.replace.lines() {
+        for line in effective_replace.lines() {
             diff.push_str(&format!("+ {}\n", line.trim_end()));
         }
 
-        current_content = current_content.replace(&hunk.search, &hunk.replace);
+        current_content = current_content.replacen(&effective_search, &effective_replace, 1);
         patched_hunks += 1;
     }
 
@@ -995,6 +1023,53 @@ fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>
     }
 }
 
+// ── Indent-aware replacement ──────────────────────────────────────────────────
+
+/// When the model's search string has different indentation than the actual file
+/// content (fuzzy match succeeded), apply the same indentation delta to the
+/// replace string so the replacement lands with correct indentation.
+///
+/// Example: model wrote search/replace with 0-space indent, file uses 8 spaces.
+/// Delta = +8. Every line of replace gets 8 spaces prepended.
+fn adjust_replace_indent(search: &str, file_span: &str, replace: &str) -> String {
+    fn first_indent(s: &str) -> usize {
+        s.lines()
+            .find(|l| !l.trim().is_empty())
+            .map(|l| l.len() - l.trim_start_matches(' ').len())
+            .unwrap_or(0)
+    }
+
+    let search_indent = first_indent(search);
+    let file_indent = first_indent(file_span);
+
+    if search_indent == file_indent {
+        return replace.to_string();
+    }
+
+    let delta: i64 = file_indent as i64 - search_indent as i64;
+    let trailing_newline = replace.ends_with('\n');
+
+    let adjusted: Vec<String> = replace
+        .lines()
+        .map(|line| {
+            if line.trim().is_empty() {
+                // Preserve blank lines as-is
+                line.to_string()
+            } else {
+                let current_indent = line.len() - line.trim_start_matches(' ').len();
+                let new_indent = (current_indent as i64 + delta).max(0) as usize;
+                format!("{}{}", " ".repeat(new_indent), line.trim_start_matches(' '))
+            }
+        })
+        .collect();
+
+    let mut result = adjusted.join("\n");
+    if trailing_newline {
+        result.push('\n');
+    }
+    result
+}
+
 // ── Diff preview helpers (read-only, no writes) ───────────────────────────────
 
 /// Return a formatted diff string for an edit_file operation without applying it.
@@ -1009,11 +1084,15 @@ pub fn compute_edit_file_diff(args: &Value) -> Result<String, String> {
     let raw = fs::read_to_string(&abs).map_err(|e| format!("diff preview read: {e}"))?;
     let original = raw.replace("\r\n", "\n");
 
-    let effective_search: String = if original.contains(search) {
-        search.to_string()
+    let (effective_search, effective_replace): (String, String) = if original.contains(search) {
+        (search.to_string(), replace.to_string())
     } else {
         match fuzzy_find_span(&original, search) {
-            Some(span) => original[span].to_string(),
+            Some(span) => {
+                let real_slice = original[span].to_string();
+                let adjusted = adjust_replace_indent(search, &real_slice, replace);
+                (real_slice, adjusted)
+            }
             None => return Err("search string not found — diff preview unavailable".into()),
         }
     };
@@ -1022,7 +1101,7 @@ pub fn compute_edit_file_diff(args: &Value) -> Result<String, String> {
     for line in effective_search.lines() {
         diff.push_str(&format!("- {}\n", line));
     }
-    for line in replace.lines() {
+    for line in effective_replace.lines() {
         diff.push_str(&format!("+ {}\n", line));
     }
     Ok(diff)

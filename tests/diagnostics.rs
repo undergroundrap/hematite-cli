@@ -1333,3 +1333,82 @@ fn test_pagerank_heat_weighted_ranks_active_file_higher() {
         map
     );
 }
+
+// ── Indent-normalization in edit_file / multi_search_replace ──────────────────
+
+#[test]
+fn test_edit_file_fuzzy_corrects_indent_on_replace() {
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    // File uses 8-space indentation
+    let tmp = NamedTempFile::new().unwrap();
+    fs::write(
+        tmp.path(),
+        "fn outer() {\n        fn inner() {\n                let x = 1;\n        }\n}\n",
+    )
+    .unwrap();
+
+    let path = tmp.path().to_str().unwrap();
+
+    // Model supplies search/replace with 0-space indentation (wrong)
+    let args = serde_json::json!({
+        "path": path,
+        "search": "fn inner() {\n    let x = 1;\n}",
+        "replace": "fn inner() {\n    let x = 2;\n}",
+    });
+
+    let result = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::file_ops::edit_file(&args));
+
+    assert!(result.is_ok(), "edit should succeed via fuzzy match: {:?}", result);
+
+    let content = fs::read_to_string(tmp.path()).unwrap();
+    // Model's replace had 4-space relative indent for body; file base is 8 spaces.
+    // Adjusted: 8 (base) + 4 (relative) = 12 spaces for the body line.
+    assert!(
+        content.contains("        fn inner() {\n            let x = 2;\n        }"),
+        "replace should be indent-adjusted to match file indentation:\n{}",
+        content
+    );
+}
+
+#[test]
+fn test_multi_search_replace_fuzzy_corrects_indent() {
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    let tmp = NamedTempFile::new().unwrap();
+    fs::write(
+        tmp.path(),
+        "impl Foo {\n    fn bar(&self) -> u32 {\n        42\n    }\n}\n",
+    )
+    .unwrap();
+
+    let path = tmp.path().to_str().unwrap();
+
+    // Model supplies search with no indentation (wrong)
+    let args = serde_json::json!({
+        "path": path,
+        "hunks": [
+            {
+                "search": "fn bar(&self) -> u32 {\n    42\n}",
+                "replace": "fn bar(&self) -> u32 {\n    99\n}"
+            }
+        ]
+    });
+
+    let result = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::file_ops::multi_search_replace(&args));
+
+    assert!(result.is_ok(), "multi_search_replace should succeed via fuzzy: {:?}", result);
+
+    let content = fs::read_to_string(tmp.path()).unwrap();
+    assert!(
+        content.contains("        99"),
+        "replacement value should be at correct 8-space indent:\n{}",
+        content
+    );
+}
