@@ -1729,3 +1729,97 @@ fn test_checkpoint_roundtrip_via_session_json() {
         "working_files should include files from working_set"
     );
 }
+
+// ── Compaction improvements ───────────────────────────────────────────────────
+
+#[test]
+fn test_extract_memory_working_set_spans_all_turns() {
+    // Files touched in earlier turns must survive in the working_set, not just
+    // files from the most recent user turn.
+    use hematite::agent::compaction::extract_memory;
+    use hematite::agent::inference::ChatMessage;
+
+    fn tool_call_msg(path: &str) -> ChatMessage {
+        let mut m = ChatMessage::assistant_text("");
+        m.tool_calls = vec![hematite::agent::inference::ToolCallResponse {
+            id: "x".into(),
+            call_type: "function".into(),
+            function: hematite::agent::inference::ToolCallFn {
+                name: "edit_file".into(),
+                arguments: format!(r#"{{"path": "{path}", "search": "a", "replace": "b"}}"#),
+            },
+        }];
+        m
+    }
+
+    let messages = vec![
+        ChatMessage::system("sys"),
+        ChatMessage::user("first turn"),
+        tool_call_msg("src/early_file.rs"),
+        ChatMessage::user("second turn"),
+        tool_call_msg("src/later_file.rs"),
+        ChatMessage::user("third turn — most recent"),
+        tool_call_msg("src/newest_file.rs"),
+    ];
+
+    let mem = extract_memory(&messages);
+
+    // All three files should appear in the working set.
+    assert!(
+        mem.working_set.contains("src/early_file.rs"),
+        "early file should survive across turns; got {:?}",
+        mem.working_set
+    );
+    assert!(mem.working_set.contains("src/later_file.rs"));
+    assert!(mem.working_set.contains("src/newest_file.rs"));
+    // Current task should be from the last user message.
+    assert!(mem.current_task.contains("most recent"));
+}
+
+#[test]
+fn test_build_summary_captures_verify_build_outcome() {
+    // build_technical_summary must surface the verify_build result so the model
+    // knows whether the build was passing when context was compacted.
+    use hematite::agent::compaction::compact_history;
+    use hematite::agent::compaction::CompactionConfig;
+    use hematite::agent::inference::ChatMessage;
+
+    // Build a history long enough to trigger compaction.
+    let mut messages = vec![ChatMessage::system("sys")];
+    for i in 0..30 {
+        messages.push(ChatMessage::user(&format!("do task {i}")));
+        let mut assistant = ChatMessage::assistant_text("");
+        assistant.tool_calls = vec![hematite::agent::inference::ToolCallResponse {
+            id: format!("c{i}"),
+            call_type: "function".into(),
+            function: hematite::agent::inference::ToolCallFn {
+                name: "verify_build".into(),
+                arguments: "{}".into(),
+            },
+        }];
+        messages.push(assistant);
+        let mut tool_result = ChatMessage::user("BUILD OK — cargo build passed");
+        tool_result.role = "tool".into();
+        messages.push(tool_result);
+    }
+
+    let config = CompactionConfig {
+        preserve_recent_messages: 6,
+        max_estimated_tokens: 100, // force compaction
+    };
+    let result = compact_history(&messages, None, config, Some(1));
+
+    // The compacted summary message should mention BUILD OK.
+    let summary_msg = result.messages.iter().find(|m| {
+        m.role == "system" && m.content.as_str().contains("CONTEXT SUMMARY")
+    });
+    assert!(
+        summary_msg.is_some(),
+        "compaction should produce a summary system message"
+    );
+    let summary_text = summary_msg.unwrap().content.as_str();
+    assert!(
+        summary_text.contains("BUILD OK") || summary_text.contains("verify_build"),
+        "summary should capture verify_build outcome; got:\n{summary_text}"
+    );
+}

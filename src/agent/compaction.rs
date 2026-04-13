@@ -44,9 +44,9 @@ pub struct CompactionResult {
     pub summary: Option<String>,
 }
 
-const DEFAULT_MAX_SUMMARY_CHARS: usize = 1_400;
-const DEFAULT_MAX_SUMMARY_LINES: usize = 28;
-const DEFAULT_MAX_SUMMARY_LINE_CHARS: usize = 180;
+const DEFAULT_MAX_SUMMARY_CHARS: usize = 2_000;
+const DEFAULT_MAX_SUMMARY_LINES: usize = 40;
+const DEFAULT_MAX_SUMMARY_LINE_CHARS: usize = 200;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SummaryCompressionBudget {
@@ -415,9 +415,9 @@ pub fn compact_history(
 pub fn extract_memory(messages: &[ChatMessage]) -> SessionMemory {
     let mut mem = SessionMemory::default();
 
-    // We only care about the MOST RECENT task boundary.
-    // If we find multiple user messages, we only use the last one's intent
-    // to avoid "Topic Pollution" (e.g. keeping Tokio context during a Ratatui research).
+    // Use the most recent user message for current_task to avoid topic pollution,
+    // but scan ALL turns for working_set so files touched earlier in the session
+    // are not silently dropped after the first compaction pass.
     let last_user_idx = messages.iter().rposition(|m| m.role == "user");
 
     if let Some(idx) = last_user_idx {
@@ -428,23 +428,39 @@ pub fn extract_memory(messages: &[ChatMessage]) -> SessionMemory {
         if content_str.len() > limit {
             mem.current_task.push_str("...");
         }
+    }
 
-        // Smart Pivot: Only extract files/learnings from THIS turn's tool calls
-        // if the turn has already started. This prevents "Ghost Files" from
-        // lingering in the working set.
-        for turn_msg in &messages[idx..] {
-            // Working Set (from Tool calls)
-            for call in &turn_msg.tool_calls {
-                if let Ok(args) =
-                    serde_json::from_str::<serde_json::Value>(&call.function.arguments)
-                {
-                    if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
-                        mem.working_set.insert(path.to_string());
-                    }
+    // Working set: collect path args from every tool call across all turns,
+    // giving higher priority to tool calls in the most recent user turn.
+    // Cap at 12 files; most-recently-touched files survive longest.
+    let mut all_files: Vec<String> = Vec::new();
+    for msg in messages {
+        for call in &msg.tool_calls {
+            if let Ok(args) =
+                serde_json::from_str::<serde_json::Value>(&call.function.arguments)
+            {
+                if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
+                    // Push in traversal order so later (more recent) entries
+                    // win deduplication when we reverse below.
+                    all_files.push(path.to_string());
                 }
             }
+        }
+    }
+    // Keep unique files, most-recent first, capped at 12.
+    let mut seen = HashSet::new();
+    for path in all_files.into_iter().rev() {
+        if seen.insert(path.clone()) {
+            mem.working_set.insert(path);
+            if mem.working_set.len() >= 12 {
+                break;
+            }
+        }
+    }
 
-            // Learnings
+    // Learnings: scan the most recent user turn only to avoid stale signals.
+    if let Some(idx) = last_user_idx {
+        for turn_msg in &messages[idx..] {
             if turn_msg.role == "tool" {
                 let content_str = turn_msg.content.as_str();
                 if content_str.contains("Error:")
@@ -458,10 +474,10 @@ pub fn extract_memory(messages: &[ChatMessage]) -> SessionMemory {
         }
     }
 
-    // De-duplicate and cap learnings
+    // De-duplicate and cap learnings.
     mem.learnings.dedup();
     if mem.learnings.len() > 5 {
-        mem.learnings.remove(0);
+        mem.learnings.truncate(5);
     }
 
     mem
@@ -488,60 +504,113 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
         messages.len()
     )];
 
-    // 1. Extract Key Files
-    let mut files = HashSet::new();
-    let mut tools = HashSet::new();
-    let mut requests = Vec::new();
+    // 1. Extract files from tool-call path args (precise) then fall back to
+    //    word-scan for any path-like tokens not captured that way.
+    let mut files: IndexedSet = IndexedSet::default();
+    let mut tools: HashSet<String> = HashSet::new();
+    let mut requests: Vec<String> = Vec::new();
+    // Tool results: verify_build, edit outcomes, notable errors.
+    let mut verify_outcome: Option<bool> = None;
+    let mut error_snippets: Vec<String> = Vec::new();
 
     for m in messages {
+        // Precise file extraction from tool call arguments.
+        for call in &m.tool_calls {
+            tools.insert(call.function.name.clone());
+            if let Ok(args) =
+                serde_json::from_str::<serde_json::Value>(&call.function.arguments)
+            {
+                if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
+                    files.insert(path.to_string());
+                }
+            }
+        }
+
+        // Tool result signals.
+        if m.role == "tool" {
+            let text = m.content.as_str();
+            // verify_build result — last one wins.
+            if text.contains("BUILD OK") || text.contains("BUILD SUCCESS") {
+                verify_outcome = Some(true);
+            } else if text.contains("BUILD FAIL") || text.contains("error[") {
+                verify_outcome = Some(false);
+            }
+            // Capture first error line from any tool result.
+            if text.contains("Error:") || text.contains("error:") {
+                if let Some(err_line) = text.lines().find(|l| {
+                    l.trim_start().starts_with("Error:")
+                        || l.trim_start().starts_with("error:")
+                }) {
+                    let snippet: String = err_line.chars().take(100).collect();
+                    error_snippets.push(snippet);
+                }
+            }
+        }
+
+        // User requests (up to 4, most recent last).
+        if m.role == "user" && !m.content.as_str().trim().is_empty() && requests.len() < 4 {
+            requests.push(truncate_summary_line(
+                &collapse_inline_whitespace(m.content.as_str()),
+                140,
+            ));
+        }
+
+        // Word-scan fallback for path-like tokens not in tool args.
         for word in m.content.as_str().split_whitespace() {
             let clean = word.trim_matches(|c: char| {
                 matches!(c, ',' | '.' | ':' | ';' | ')' | '(' | '"' | '\'' | '`')
             });
-            if clean.contains('.') && (clean.contains('/') || clean.contains('\\')) {
+            if clean.len() > 4
+                && clean.contains('.')
+                && (clean.contains('/') || clean.contains('\\'))
+            {
                 files.insert(clean.to_string());
             }
         }
-        if m.role == "user" && !m.content.as_str().trim().is_empty() && requests.len() < 3 {
-            requests.push(truncate_summary_line(
-                &collapse_inline_whitespace(m.content.as_str()),
-                120,
-            ));
-        }
-        for call in &m.tool_calls {
-            tools.insert(call.function.name.clone());
-        }
     }
-    if !files.is_empty() {
-        let list: Vec<String> = files.into_iter().take(8).collect();
-        lines.push(format!("- Key files referenced: {}.", list.join(", ")));
+
+    if !files.0.is_empty() {
+        let list: Vec<String> = files.0.into_iter().take(10).collect();
+        lines.push(format!("- Key files: {}.", list.join(", ")));
     }
     if !tools.is_empty() {
         let list: Vec<String> = tools.into_iter().take(8).collect();
-        lines.push(format!("- Tools mentioned: {}.", list.join(", ")));
+        lines.push(format!("- Tools used: {}.", list.join(", ")));
+    }
+    if let Some(ok) = verify_outcome {
+        lines.push(format!(
+            "- Last verify_build: {}.",
+            if ok { "BUILD OK" } else { "BUILD FAILED" }
+        ));
+    }
+    // Include up to 2 unique error snippets.
+    error_snippets.dedup();
+    for snippet in error_snippets.into_iter().take(2) {
+        lines.push(format!("- Error seen: {}", snippet));
     }
     if !requests.is_empty() {
-        lines.push("- Recent user requests:".to_string());
-        for request in requests.into_iter().rev() {
+        lines.push("- User requests (oldest→newest):".to_string());
+        for request in &requests {
             lines.push(format!("  - {}", request));
         }
     }
 
-    // 2. Extract Timeline
-    lines.push("- Newly compacted context:".to_string());
+    // 2. Timeline: last 6 messages for context.
+    lines.push("- Compacted context:".to_string());
     for m in messages.iter().rev().take(6).rev() {
         let content_str = m.content.as_str();
-        let preview = if content_str.len() > 100 {
-            let mut s: String = content_str.chars().take(97).collect();
+        let preview = if content_str.len() > 120 {
+            let mut s: String = content_str.chars().take(117).collect();
             s.push_str("...");
             s
         } else if content_str.is_empty() && !m.tool_calls.is_empty() {
             format!(
-                "Executing tools: {:?}",
+                "Executing: {}",
                 m.tool_calls
                     .iter()
-                    .map(|c| &c.function.name)
+                    .map(|c| c.function.name.as_str())
                     .collect::<Vec<_>>()
+                    .join(", ")
             )
         } else {
             content_str.to_string()
@@ -554,6 +623,19 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
     }
 
     compress_summary_text(&lines.join("\n"))
+}
+
+/// Insertion-ordered set: tracks insertion order for deterministic file output
+/// while deduplicating entries.
+#[derive(Default)]
+struct IndexedSet(Vec<String>);
+
+impl IndexedSet {
+    fn insert(&mut self, s: String) {
+        if !self.0.contains(&s) {
+            self.0.push(s);
+        }
+    }
 }
 
 fn merge_summaries(existing: &str, new: &str) -> String {
