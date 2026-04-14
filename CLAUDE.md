@@ -650,8 +650,11 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 
 ### Tier 1 — High value, local models ready today
 
-- **Whisper voice input** — Hematite already has a TTS output pipeline; Whisper for STT input would close the voice loop and make the harness hands-free.
-- **Per-workspace model profiles** — let `.hematite/settings.json` specify a preferred model, context ceiling, and embed model per project; useful when different repos need different size/speed tradeoffs.
+- **Per-workspace model profiles** — let `.hematite/settings.json` specify a preferred model, context ceiling, and embed model per project; useful when different repos need different size/speed tradeoffs. LM Studio makes manual model swaps easy and Hematite detects the active model automatically, so this is low priority until users hit the friction.
+
+### Deferred — implement if users request it
+
+- **Whisper voice input** — closes the voice loop (TTS out already ships; this adds STT in). Deferred because Hematite's primary users are keyboard-comfortable developers where typing is faster and more accurate than voice for code-specific terminology. If you want to add it: use `whisper-rs` (Rust bindings to `whisper.cpp`, statically linked — no extra DLLs), `cpal` for audio capture, and embed the `tiny.en` or `base.en` GGUF model via `include_bytes!` at compile time following the same pattern as Kokoro's ONNX model. Wire a `Ctrl+M` hotkey in `tui.rs`, add a recording loop in `src/ui/voice.rs`, and pipe the transcript into the TUI input field. The result is a single self-contained binary with no install requirements — the binary just grows by ~75–150 MB depending on which model you embed. Enable it behind `--features embedded-whisper` so users who don't want the size increase can skip it.
 
 ### Tier 2 — Worth doing when local models handle it reliably
 
