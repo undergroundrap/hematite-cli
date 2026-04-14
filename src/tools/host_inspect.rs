@@ -2417,6 +2417,8 @@ fn collect_unix_processes() -> Result<Vec<ProcessEntry>, String> {
             pid,
             memory_bytes: rss_kib * 1024,
             cpu_seconds: None,
+            read_ops: None,
+            write_ops: None,
             detail: None,
         });
     }
@@ -7787,6 +7789,7 @@ fn inspect_windows_features(max_entries: usize) -> Result<String, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
+        let _ = max_entries;
         out.push_str("Windows Optional Features are Windows-specific. On Linux, check your package manager.\n");
     }
 
@@ -7817,6 +7820,7 @@ fn inspect_printers(max_entries: usize) -> Result<String, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
+        let _ = max_entries;
         out.push_str("Checking LPSTAT for printers...\n");
         let lpstat = Command::new("lpstat").args(["-p", "-d"]).output().ok()
             .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
@@ -7908,6 +7912,7 @@ fn inspect_network_stats(max_entries: usize) -> Result<String, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
+        let _ = max_entries;
         out.push_str("=== Network Stats (ip -s link) ===\n");
         let ip_s = Command::new("ip").args(["-s", "link"]).output().ok()
             .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
@@ -8055,6 +8060,7 @@ fn inspect_certificates(max_entries: usize) -> Result<String, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
+        let _ = max_entries;
         out.push_str("Host inspection: certificates (Linux/macOS)\n\n");
         // Check standard cert locations
         for path in ["/etc/ssl/certs", "/etc/pki/tls/certs"] {
@@ -8224,11 +8230,12 @@ fn inspect_drivers(max_entries: usize) -> Result<String, String> {
     Ok(out.trim_end().to_string())
 }
 
-fn inspect_peripherals(_max_entries: usize) -> Result<String, String> {
+fn inspect_peripherals(max_entries: usize) -> Result<String, String> {
     let mut out = String::from("Host inspection: peripherals\n\n");
 
     #[cfg(target_os = "windows")]
     {
+        let _ = max_entries;
         out.push_str("=== USB Controllers & Hubs ===\n");
         let usb = Command::new("powershell").args(["-NoProfile", "-Command", "Get-CimInstance Win32_USBController | ForEach-Object { \"  $($_.Name) ($($_.Status))\" }"])
             .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
