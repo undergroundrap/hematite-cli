@@ -1,6 +1,6 @@
 [package]
 name = "hematite-cli"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 description = "Local AI coding harness for LM Studio with TUI, voice, retrieval, and grounded workstation tooling"
 readme = "README.md"
