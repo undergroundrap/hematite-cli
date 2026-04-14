@@ -70,6 +70,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "ssh" | "ssh_config" | "ssh_status" => inspect_ssh(),
         "installed_software" | "installed" | "programs" | "software" | "packages" => inspect_installed_software(max_entries),
         "git_config" | "git_global" => inspect_git_config(),
+        "databases" | "database" | "db_services" | "db" => inspect_databases(),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -86,7 +87,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases.",
             other
         )),
     }
@@ -6295,6 +6296,217 @@ fn inspect_git_config() -> Result<String, String> {
                 }
             }
         }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── databases ─────────────────────────────────────────────────────────────────
+
+fn inspect_databases() -> Result<String, String> {
+    let mut out = String::from("Host inspection: databases\n\n");
+    out.push_str("Scanning for local database engines (service state, port, version)...\n\n");
+
+    struct DbEngine {
+        name: &'static str,
+        service_names: &'static [&'static str],
+        default_port: u16,
+        cli_name: &'static str,
+        cli_version_args: &'static [&'static str],
+    }
+
+    let engines: &[DbEngine] = &[
+        DbEngine {
+            name: "PostgreSQL",
+            service_names: &["postgresql", "postgresql-x64-14", "postgresql-x64-15", "postgresql-x64-16", "postgresql-x64-17"],
+
+            default_port: 5432,
+            cli_name: "psql",
+            cli_version_args: &["--version"],
+        },
+        DbEngine {
+            name: "MySQL",
+            service_names: &["mysql", "mysql80", "mysql57"],
+
+            default_port: 3306,
+            cli_name: "mysql",
+            cli_version_args: &["--version"],
+        },
+        DbEngine {
+            name: "MariaDB",
+            service_names: &["mariadb", "mariadb.exe"],
+
+            default_port: 3306,
+            cli_name: "mariadb",
+            cli_version_args: &["--version"],
+        },
+        DbEngine {
+            name: "MongoDB",
+            service_names: &["mongodb", "mongod"],
+
+            default_port: 27017,
+            cli_name: "mongod",
+            cli_version_args: &["--version"],
+        },
+        DbEngine {
+            name: "Redis",
+            service_names: &["redis", "redis-server"],
+
+            default_port: 6379,
+            cli_name: "redis-server",
+            cli_version_args: &["--version"],
+        },
+        DbEngine {
+            name: "SQL Server",
+            service_names: &["mssqlserver", "mssql$sqlexpress", "mssql$localdb"],
+
+            default_port: 1433,
+            cli_name: "sqlcmd",
+            cli_version_args: &["-?"],
+        },
+        DbEngine {
+            name: "SQLite",
+            service_names: &[],  // no service — file-based
+
+            default_port: 0,     // no port — file-based
+            cli_name: "sqlite3",
+            cli_version_args: &["--version"],
+        },
+        DbEngine {
+            name: "CouchDB",
+            service_names: &["couchdb", "apache-couchdb"],
+
+            default_port: 5984,
+            cli_name: "couchdb",
+            cli_version_args: &["--version"],
+        },
+        DbEngine {
+            name: "Cassandra",
+            service_names: &["cassandra"],
+
+            default_port: 9042,
+            cli_name: "cqlsh",
+            cli_version_args: &["--version"],
+        },
+        DbEngine {
+            name: "Elasticsearch",
+            service_names: &["elasticsearch-service-x64", "elasticsearch"],
+
+            default_port: 9200,
+            cli_name: "elasticsearch",
+            cli_version_args: &["--version"],
+        },
+    ];
+
+    // Helper: check if port is listening
+    fn port_listening(port: u16) -> bool {
+        if port == 0 { return false; }
+        // Use netstat-style check via connecting
+        std::net::TcpStream::connect_timeout(
+            &std::net::SocketAddr::from(([127, 0, 0, 1], port)),
+            std::time::Duration::from_millis(150),
+        ).is_ok()
+    }
+
+    let mut found_any = false;
+
+    for engine in engines {
+        let mut status_parts: Vec<String> = Vec::new();
+        let mut detected = false;
+
+        // 1. CLI version check (fastest — works cross-platform)
+        let version = Command::new(engine.cli_name)
+            .args(engine.cli_version_args)
+            .output()
+            .ok()
+            .and_then(|o| {
+                let combined = if o.stdout.is_empty() {
+                    String::from_utf8_lossy(&o.stderr).trim().to_string()
+                } else {
+                    String::from_utf8_lossy(&o.stdout).trim().to_string()
+                };
+                // Take just the first line
+                combined.lines().next().map(|l| l.trim().to_string())
+            });
+
+        if let Some(ref ver) = version {
+            if !ver.is_empty() {
+                status_parts.push(format!("version: {ver}"));
+                detected = true;
+            }
+        }
+
+        // 2. Port check
+        if engine.default_port > 0 && port_listening(engine.default_port) {
+            status_parts.push(format!("listening on :{}", engine.default_port));
+            detected = true;
+        } else if engine.default_port > 0 && detected {
+            status_parts.push(format!("not listening on :{}", engine.default_port));
+        }
+
+        // 3. Windows service check
+        #[cfg(target_os = "windows")]
+        {
+            if !engine.service_names.is_empty() {
+                let service_list = engine.service_names.join("','");
+                let script = format!(
+                    r#"$names = @('{}'); foreach ($n in $names) {{ $s = Get-Service -Name $n -ErrorAction SilentlyContinue; if ($s) {{ $n + ':' + $s.Status; break }} }}"#,
+                    service_list
+                );
+                if let Ok(o) = Command::new("powershell")
+                    .args(["-NoProfile", "-Command", &script])
+                    .output()
+                {
+                    let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                    if !text.is_empty() {
+                        let parts: Vec<&str> = text.splitn(2, ':').collect();
+                        let svc_name = parts.first().map(|s| s.trim()).unwrap_or("");
+                        let svc_state = parts.get(1).map(|s| s.trim()).unwrap_or("unknown");
+                        status_parts.push(format!("service '{svc_name}': {svc_state}"));
+                        detected = true;
+                    }
+                }
+            }
+        }
+
+        // 4. Linux/macOS systemctl / launchctl check
+        #[cfg(not(target_os = "windows"))]
+        {
+            for svc in engine.service_names {
+                if let Ok(o) = Command::new("systemctl").args(["is-active", svc]).output() {
+                    let state = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                    if !state.is_empty() && state != "inactive" {
+                        status_parts.push(format!("systemd '{svc}': {state}"));
+                        detected = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if detected {
+            found_any = true;
+            let label = if engine.default_port > 0 {
+                format!("{} (default port: {})", engine.name, engine.default_port)
+            } else {
+                format!("{} (file-based, no port)", engine.name)
+            };
+            out.push_str(&format!("[FOUND] {label}\n"));
+            for part in &status_parts {
+                out.push_str(&format!("  {part}\n"));
+            }
+            out.push('\n');
+        }
+    }
+
+    if !found_any {
+        out.push_str("No local database engines detected.\n");
+        out.push_str("(Checked: PostgreSQL, MySQL, MariaDB, MongoDB, Redis, SQL Server, SQLite, CouchDB, Cassandra, Elasticsearch)\n\n");
+        out.push_str("Note: databases running inside Docker containers are listed under topic='docker'.\n");
+    } else {
+        out.push_str("---\n");
+        out.push_str("Note: databases running inside Docker containers are listed under topic='docker'.\n");
+        out.push_str("This topic checks service state and port reachability only — no credentials or queries are used.\n");
     }
 
     Ok(out.trim_end().to_string())

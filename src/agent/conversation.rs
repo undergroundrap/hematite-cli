@@ -1387,7 +1387,7 @@ impl ConversationManager {
                         "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: shell is blocked for host inspection. Call inspect_host directly with the correct topic for any remaining diagnostics.]"
                     )),
                     Err(_) => Err(format!(
-                        "Action blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, wsl, ssh, env, hosts_file, installed_software, git_config.",
+                        "Action blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, wsl, ssh, env, hosts_file, installed_software, git_config, databases.",
                     )),
                 };
             }
@@ -5023,6 +5023,17 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "git config --global --list",
         "git config --list",
         "git config --global",
+        // database services
+        "get-service mysql",
+        "get-service postgresql",
+        "get-service mongodb",
+        "get-service redis",
+        "get-service mssql",
+        "get-service mariadb",
+        "systemctl status postgresql",
+        "systemctl status mysql",
+        "systemctl status mongod",
+        "systemctl status redis",
         // installed software
         "winget list",
         "get-package",

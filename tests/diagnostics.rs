@@ -3192,3 +3192,66 @@ fn test_all_host_topics_detects_docker_and_ssh_together() {
     assert!(topics.contains(&"ssh"), "should detect ssh; got: {topics:?}");
     assert!(topics.len() >= 2, "should detect 2+ topics; got: {topics:?}");
 }
+
+// ── databases ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_databases_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "databases" });
+        let output = inspect_host(&args).await.expect("databases must return Ok");
+        assert!(
+            output.contains("Host inspection: databases"),
+            "databases output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_databases_reports_found_or_not_found() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "databases" });
+        let output = inspect_host(&args).await.expect("databases must return Ok");
+        let has_result = output.contains("[FOUND]")
+            || output.contains("No local database engines detected");
+        assert!(
+            has_result,
+            "databases must report found engines or explicit not-found; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_databases_mentions_docker_note() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "databases" });
+        let output = inspect_host(&args).await.expect("databases must return Ok");
+        assert!(
+            output.contains("Docker"),
+            "databases must note that Docker containers are covered by topic=docker; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_databases_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("is postgres running on this machine?"),
+        Some("databases")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what databases are installed locally?"),
+        Some("databases")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is redis up?"),
+        Some("databases")
+    );
+}

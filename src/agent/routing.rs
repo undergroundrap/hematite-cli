@@ -570,6 +570,16 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("winget list")
         || lower.contains("list programs")
         || (lower.contains("installed") && (lower.contains("on this machine") || lower.contains("on my machine") || lower.contains("on my pc")));
+    let asks_databases = lower.contains("postgres") || lower.contains("postgresql")
+        || lower.contains("mysql") || lower.contains("mariadb")
+        || lower.contains("mongodb") || lower.contains("mongo")
+        || lower.contains("redis") || lower.contains("sql server") || lower.contains("mssql")
+        || lower.contains("sqlite") || lower.contains("elasticsearch") || lower.contains("cassandra")
+        || lower.contains("couchdb")
+        || (lower.contains("database") && (lower.contains("running") || lower.contains("service")
+            || lower.contains("installed") || lower.contains("up") || lower.contains("local")))
+        || lower.contains("db service") || lower.contains("database server")
+        || (lower.contains("is") && lower.contains("running") && (lower.contains("db") || lower.contains("database")));
     let asks_git_config = (lower.contains("git config") || lower.contains("git configuration")
         || lower.contains("git global")
         || (lower.contains("git") && lower.contains("user.name"))
@@ -623,6 +633,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("arp")
     } else if asks_route_table {
         Some("route_table")
+    } else if asks_databases {
+        Some("databases")
     } else if asks_docker {
         Some("docker")
     } else if asks_wsl {
@@ -715,6 +727,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("installed_software", |l| l.contains("installed software") || l.contains("installed program") || l.contains("what is installed") || l.contains("what's installed") || l.contains("winget list")),
         ("env",                |l| (l.contains("environment variable") || l.contains("env var") || l.contains("env vars")) && !l.contains("env doctor")),
         ("hosts_file",         |l| l.contains("hosts file") || l.contains("/etc/hosts") || l.contains("hosts entry")),
+        ("databases",          |l| l.contains("postgres") || l.contains("mysql") || l.contains("mariadb") || l.contains("mongodb") || l.contains("redis") || l.contains("sqlite") || l.contains("sql server") || l.contains("elasticsearch") || (l.contains("database") && (l.contains("running") || l.contains("service")))),
     ];
 
     let lower = user_input.to_lowercase();

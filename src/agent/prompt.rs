@@ -311,6 +311,7 @@ impl SystemPromptBuilder {
             "  - 'installed software' / 'installed programs' / 'what is installed?' / 'winget list' → topic='installed_software'\n",
             "  - 'environment variables' / 'env vars' / 'show env' / 'JAVA_HOME set?' → topic='env'\n",
             "  - 'hosts file' / '/etc/hosts' / 'host entries' / 'custom domain redirect' → topic='hosts_file'\n",
+            "  - 'is postgres running?' / 'mysql service' / 'redis up?' / 'local database engines' / 'mongodb' / 'sqlite' → topic='databases'\n",
             "  Do NOT use shell, Get-ItemProperty, registry reads, wmic, Get-CimInstance, Get-WinEvent, Get-PhysicalDisk, Get-MpComputerStatus, Get-ScheduledTask, docker CLI, wsl CLI, git config, winget, dpkg, or any shell diagnostic command. ",
             "Use inspect_host exclusively. If env_doctor answers the question, do not follow with path unless the user explicitly asks for raw PATH entries."
         ));
