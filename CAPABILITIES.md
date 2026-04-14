@@ -114,6 +114,16 @@ When a user asks about multiple inspection topics in one message, Hematite detec
 
 When the model calls `shell` with a command that matches a structured host inspection topic (e.g. `arp -a`, `tracert`, `Get-DnsClientCache`, `Get-NetRoute`), the harness silently redirects it to the correct `inspect_host` topic, marks the result as non-error, and appends a note explaining the redirect. The model never retries in a failure loop.
 
+**Developer tooling topics (7):**
+
+- **Environment variables** (`env`) — total count, developer/tool vars (CARGO_HOME, JAVA_HOME, GOPATH, VIRTUAL_ENV, DOCKER_HOST, etc.), secret-shaped vars shown as `[SET, N chars]` only — values never exposed; PATH entry count with pointer to the path topic
+- **Hosts file** (`hosts_file`) — reads `/etc/hosts` (Windows: `drivers\etc\hosts`); shows active entries, flags custom non-loopback entries, includes full file content
+- **Docker** (`docker`) — Docker Engine version, daemon health, running containers with status and ports, local images, Docker Compose projects, active context; reports gracefully if not installed or daemon is down
+- **WSL** (`wsl`) — Windows Subsystem for Linux distros with state (Running/Stopped), WSL version metadata; Windows-only feature, reports platform note on Linux/macOS
+- **SSH** (`ssh`) — SSH client version, sshd service state, `~/.ssh` inventory (known_hosts entry count, authorized_keys count, private key files present), `~/.ssh/config` host entries with hostname/user/port/identity details
+- **Installed software** (`installed_software`) — winget list on Windows (registry scan fallback); dpkg/rpm/pacman on Linux; brew + mas on macOS; paginated with max_entries
+- **Git config** (`git_config`) — global git config grouped by Identity, Core, Commit/Signing, Push/Pull, Credential, Branch sections; local repo config; git aliases; points at missing config if not set up
+
 **Safe remediation:**
 
 `resolve_host_issue` provides a bounded, user-gated path for three fix actions: `install_package` (winget), `restart_service`, and `clear_temp`. Read-only inspection is always available without approval; write actions go through the safe remediation path.

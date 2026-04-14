@@ -224,6 +224,18 @@ For structured workstation and network questions, prefer `inspect_host` first. I
 - `Show me the routing table and tell me what route handles default traffic.`
 - `Show me route table, ARP, DNS cache, and traceroute.` ← harness pre-runs all four automatically
 
+**Developer tooling prompts:**
+- `Show me my environment variables — flag anything that looks like a secret.`
+- `Is JAVA_HOME set? What about GOPATH or CARGO_HOME?`
+- `Show me my hosts file and flag any custom entries.`
+- `Are any Docker containers running? Show me images too.`
+- `What WSL distros do I have installed?`
+- `Show me my SSH config — what hosts are configured, and do I have keys?`
+- `Is sshd running on this machine?`
+- `What software is installed on this machine?`
+- `Show me my global git config — user, signing, credential helper, push defaults.`
+- `Show me docker containers, my ssh config, and installed software.` ← harness pre-runs all three
+
 The shell path is still bounded like the rest of the harness: commands run through Hematite's tool layer with timeout limits, output capping, workspace awareness, and approval controls for risky actions.
 
 ---
@@ -656,7 +668,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
 
-| `inspect_host` | 30+ read-only SysAdmin + Network Admin topics. **SysAdmin:** PATH, toolchains, OS config (Firewall/Power/Uptime), resource load (`resource_load`), processes, services, ports, storage, hardware DNA (`hardware`), system health verdict (`health_report`), fix plans, recent log errors (`log_check`), startup items, Windows Update (`updates`), Defender/firewall/activation/UAC (`security`), pending reboot (`pending_reboot`), drive SMART health (`disk_health`), battery (`battery`), crash/BSOD history (`recent_crashes`), scheduled tasks (`scheduled_tasks`), dev conflicts (`dev_conflicts`). **Network Admin:** internet connectivity (`connectivity`), Wi-Fi adapters/signal (`wifi`), active TCP/UDP connections (`connections`), VPN adapter state (`vpn`), proxy config (`proxy`), firewall rules (`firewall_rules`), traceroute (`traceroute`), DNS cache (`dns_cache`), ARP table (`arp`), routing table (`route_table`). |
+| `inspect_host` | 37+ read-only topics spanning the full SysAdmin, Network Admin, and developer tooling stack. **SysAdmin:** PATH, toolchains, OS config, resource load, processes, services, ports, storage, hardware DNA, health report, fix plans, log errors, startup items, Windows Update, security posture, pending reboot, drive SMART health, battery, crash/BSOD history, scheduled tasks, dev conflicts. **Network Admin:** connectivity, Wi-Fi, active connections, VPN, proxy, firewall rules, traceroute, DNS cache, ARP table, routing table. **Developer tooling:** environment variables (`env`), hosts file (`hosts_file`), Docker state (`docker`), WSL distros (`wsl`), SSH config + keys (`ssh`), installed software (`installed_software`), global git config (`git_config`). |
 | `resolve_host_issue` | Safe, user-gated remediation actions: `install_package` (winget), `restart_service`, and `clear_temp`. |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
@@ -671,7 +683,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `run_code` | Execute JavaScript/TypeScript (Deno) or Python in a zero-trust sandbox — real output, not model guesses |
 | `clarify` | Ask the user a question when genuinely blocked |
 
-Use `inspect_host` first for any SysAdmin or Network Admin question. It covers the full OS stack — PATH, toolchains, hardware, security posture, crash history, scheduled tasks, storage, power, update state — and the full network stack — connectivity, Wi-Fi, active connections, VPN, proxy, firewall rules, traceroute, DNS cache, ARP, and routing table. All topics are read-only and grounded in real tool output. When you ask about multiple topics at once, the harness runs all inspect_host calls automatically before the model turn and injects combined results as context (harness pre-run) — no redundant tool calls. `shell` is still available for the cases that genuinely need a custom command.
+Use `inspect_host` first for any SysAdmin, Network Admin, or developer tooling question. It covers 37+ read-only topics grounded in real tool output: the full OS stack (hardware, health, processes, services, security, storage, crash history), the full network stack (connectivity, Wi-Fi, VPN, proxy, firewall, traceroute, DNS, ARP, routing), and the developer tooling layer (environment variables, hosts file, Docker, WSL, SSH, installed software, global git config). When you ask about multiple topics at once, the harness runs all inspect_host calls automatically before the model turn and injects combined results as context — no redundant tool calls. `shell` is still available for the cases that genuinely need a custom command.
 
 ---
 

@@ -114,6 +114,13 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **DNS Cache**: Use `topic: "dns_cache"` to inspect locally cached DNS entries — hostname, record type, resolved address, and TTL.
 - **ARP Table**: Use `topic: "arp"` for the ARP neighbor table — IP-to-MAC mappings for devices on the local network.
 - **Route Table**: Use `topic: "route_table"` for the system routing table — destination prefixes, next hops, metrics, and interface names.
+- **Environment Variables**: Use `topic: "env"` to inspect environment variables — shows developer/tool vars (CARGO_HOME, JAVA_HOME, GOPATH, etc.) and redacts secret-shaped values (KEY, TOKEN, PASSWORD) to presence-only.
+- **Hosts File**: Use `topic: "hosts_file"` to read `/etc/hosts` (Windows: `drivers\etc\hosts`) — active entries, custom non-loopback entries flagged, full file content shown.
+- **Docker**: Use `topic: "docker"` for Docker daemon state, running containers, local images, Compose projects, and active context. Reports gracefully if Docker is not installed or daemon is not running.
+- **WSL**: Use `topic: "wsl"` for Windows Subsystem for Linux — installed distros, running state, WSL version. Windows-only; reports gracefully on Linux/macOS.
+- **SSH**: Use `topic: "ssh"` for SSH client version, sshd service state, `~/.ssh` directory inventory (known_hosts count, authorized_keys count, private key files), and `~/.ssh/config` host entries.
+- **Installed Software**: Use `topic: "installed_software"` for installed programs — winget list on Windows (registry fallback), dpkg/rpm/pacman on Linux, brew + mas on macOS.
+- **Git Config**: Use `topic: "git_config"` for global git configuration audit — user identity, core settings, signing config, push/pull defaults, credential helper, branch defaults, local repo config, and git aliases.
 
 ## Hardware Intent
 
