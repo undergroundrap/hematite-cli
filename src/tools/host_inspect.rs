@@ -3005,10 +3005,12 @@ fn apply_unix_dns_servers(adapters: &mut [NetworkAdapter]) {
     }
 }
 
+#[cfg(target_os = "windows")]
 fn value_after_colon(line: &str) -> Option<&str> {
     line.split_once(':').map(|(_, value)| value.trim())
 }
 
+#[cfg(target_os = "windows")]
 fn normalize_ipconfig_value(value: &str) -> String {
     value
         .trim()
