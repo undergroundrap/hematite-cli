@@ -1385,6 +1385,46 @@ async fn test_inspect_host_domain_reports_identity() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_device_health() {
+    use serde_json::json;
+    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "device_health" }))
+        .await
+        .expect("inspect device health fails");
+    assert!(output.contains("Host inspection: device_health"));
+    assert!(
+        output.contains("All PnP devices report as healthy")
+            || output.contains("Malfunctioning Devices")
+            || output.contains("hardware errors in dmesg")
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_drivers() {
+    use serde_json::json;
+    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "drivers", "max_entries": 5 }))
+        .await
+        .expect("inspect drivers fails");
+    assert!(output.contains("Host inspection: drivers"));
+    assert!(
+        output.contains("Active System Drivers")
+            || output.contains("Loaded Kernel Modules")
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_peripherals() {
+    use serde_json::json;
+    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "peripherals" }))
+        .await
+        .expect("inspect peripherals fails");
+    assert!(output.contains("Host inspection: peripherals"));
+    assert!(
+        output.contains("USB Controllers")
+            || output.contains("Connected USB Devices")
+    );
+}
+
+#[tokio::test]
 async fn test_describe_toolchain_host_inspection_plan_prefers_inspect_host() {
     use serde_json::json;
 

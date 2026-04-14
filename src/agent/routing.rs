@@ -315,6 +315,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_certificates = lower.contains("cert") || lower.contains("ssl") || lower.contains("client cert") || lower.contains("expiring cert");
     let asks_integrity = lower.contains("integrity") || lower.contains("sfc") || lower.contains("dism") || lower.contains("corruption") || lower.contains("os health");
     let asks_domain = lower.contains("domain") || lower.contains("active directory") || lower.contains("ad join") || lower.contains("workgroup") || lower.contains("netbios");
+    let asks_device_health = lower.contains("device health") || lower.contains("hardware error") || lower.contains("malfunctioning") || lower.contains("yellow bang") || lower.contains("hardware failing");
+    let asks_drivers = lower.contains("driver") || lower.contains("kmod") || lower.contains("kernel module");
+    let asks_peripherals = lower.contains("peripheral") || lower.contains("usb") || lower.contains("keyboard") || lower.contains("mouse") || lower.contains("pointer") || lower.contains("monitor") || lower.contains("input device") || lower.contains("connected hardware");
+    let asks_startup = lower.contains("startup") || lower.contains("boot program") || lower.contains("autorun") || lower.contains("run at boot");
     let asks_env_doctor = lower.contains("env doctor")
         || lower.contains("environment doctor")
         || lower.contains("package manager")
@@ -705,6 +709,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("integrity")
     } else if asks_domain {
         Some("domain")
+    } else if asks_device_health {
+        Some("device_health")
+    } else if asks_drivers {
+        Some("drivers")
+    } else if asks_peripherals {
+        Some("peripherals")
+    } else if asks_startup {
+        Some("startup_items")
     } else if asks_bitlocker {
         Some("bitlocker")
     } else if asks_rdp {
@@ -880,11 +892,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("printers",         |l| l.contains("printer") || l.contains("print queue") || l.contains("get-printer")),
         ("winrm",            |l| l.contains("winrm") || l.contains("psremoting") || (l.contains("remote") && l.contains("management") && !l.contains("rdp"))),
         ("network_stats",    |l| (l.contains("network") && l.contains("stat")) || (l.contains("adapter") && l.contains("stat")) || l.contains("throughput") || l.contains("packet loss") || l.contains("dropped packet")),
+        ("startup_items",    |l| l.contains("startup") || l.contains("boot program") || l.contains("autorun")),
         ("udp_ports",        |l| l.contains("udp port") || l.contains("udp listener") || (l.contains("udp") && l.contains("listening"))),
         ("gpo",              |l| l.contains("gpo") || l.contains("group policy") || l.contains("gpresult")),
         ("certificates",     |l| l.contains("cert") || l.contains("ssl") || l.contains("thumbprint")),
         ("integrity",        |l| l.contains("integrity") || l.contains("sfc") || l.contains("dism")),
         ("domain",           |l| l.contains("domain") || l.contains("workgroup") || l.contains("netbios") || l.contains("active directory")),
+        ("device_health",    |l| l.contains("device health") || l.contains("hardware error") || l.contains("yellow bang")),
+        ("drivers",          |l| l.contains("driver") || l.contains("system driver")),
+        ("peripherals",      |l| l.contains("peripheral") || l.contains("usb") || l.contains("keyboard") || l.contains("mouse") || l.contains("monitor")),
     ];
 
     let lower = user_input.to_lowercase();

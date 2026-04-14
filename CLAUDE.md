@@ -103,6 +103,9 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Drive SMART Health**: Use `topic: "disk_health"` for physical drive health via Get-PhysicalDisk and SMART failure prediction.
 - **Battery**: Use `topic: "battery"` for charge level, status, estimated runtime, and wear level — reports no battery gracefully on desktops.
 - **Crash History**: Use `topic: "recent_crashes"` for BSOD/unexpected shutdown events and application crash/hang events from the Windows event log.
+- **Device Health**: Use `topic: "device_health"` for precision detection of malfunctioning hardware (PnP "Yellow Bangs") via ConfigManager error codes.
+- **Drivers**: Use `topic: "drivers"` for a comprehensive audit of active system drivers and their operational states.
+- **Peripherals**: Use `topic: "peripherals"` for a deep-dive into USB controllers, HID devices (Keyboard/Mouse), and connected monitors.
 - **Scheduled Tasks**: Use `topic: "scheduled_tasks"` for all non-disabled scheduled tasks with name, path, last run time, and executable.
 - **Dev Conflicts**: Use `topic: "dev_conflicts"` for cross-tool environment conflict detection — Node.js version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, and duplicate PATH entries.
 - **Connectivity Check**: Use `topic: "connectivity"` to test internet reachability and DNS resolution — reports REACHABLE/UNREACHABLE with DNS pass/fail and gateway/VPN context.

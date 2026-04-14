@@ -32,7 +32,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         }
         "ports" => inspect_ports(parse_port_filter(args), max_entries),
         "log_check" => inspect_log_check(max_entries),
-        "startup_items" => inspect_startup_items(max_entries),
+        "startup_items" | "startup" | "boot" | "autorun" => inspect_startup_items(max_entries),
         "health_report" | "system_health" => inspect_health_report(),
         "storage" => inspect_storage(max_entries),
         "hardware" => inspect_hardware(),
@@ -88,6 +88,9 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "certificates" | "certs" | "ssl_certs" => inspect_certificates(max_entries),
         "integrity" | "sfc" | "dism" | "system_health_deep" => inspect_integrity(),
         "domain" | "active_directory" | "ad_context" | "workgroup" => inspect_domain(),
+        "device_health" | "hardware_errors" | "yellow_bangs" => inspect_device_health(),
+        "drivers" | "system_drivers" | "driver_list" => inspect_drivers(max_entries),
+        "peripherals" | "usb" | "input_devices" | "connected_hardware" => inspect_peripherals(max_entries),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -104,7 +107,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals.",
             other
         )),
     }
@@ -3545,30 +3548,16 @@ foreach ($h in $hives) {
             out.push_str(&format!("\nTotal startup entries: {}\n", entries.len()));
         }
 
-        // Also show Startup folder items.
-        let startup_script = r#"
-$paths = @(
-    [System.Environment]::GetFolderPath('Startup'),
-    [System.Environment]::GetFolderPath('CommonStartup')
-)
-foreach ($p in $paths) {
-    if (Test-Path $p) {
-        $items = Get-ChildItem $p -File -ErrorAction SilentlyContinue
-        if ($items) {
-            "$p"
-            $items | ForEach-Object { "  " + $_.Name }
-        }
-    }
-}
-"#;
-        if let Ok(folder_out) = Command::new("powershell")
-            .args(["-NoProfile", "-Command", startup_script])
+        // 3. Unified Startup Command check (Task Manager style)
+        let unified_script = r#"Get-CimInstance Win32_StartupCommand | ForEach-Object { "  $($_.Name): $($_.Command) ($($_.Location))" }"#;
+        if let Ok(unified_out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", unified_script])
             .output()
         {
-            let folder_text = String::from_utf8_lossy(&folder_out.stdout);
-            let trimmed = folder_text.trim();
+            let unified_text = String::from_utf8_lossy(&unified_out.stdout);
+            let trimmed = unified_text.trim();
             if !trimmed.is_empty() {
-                out.push_str("\nStartup folders:\n");
+                out.push_str("\n=== Unified Startup Commands (WMI) ===\n");
                 out.push_str(trimmed);
                 out.push('\n');
             }
@@ -8104,6 +8093,102 @@ fn inspect_domain() -> Result<String, String> {
         } else {
              out.push_str("  No NIS domain configured.\n");
         }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_device_health() -> Result<String, String> {
+    let mut out = String::from("Host inspection: device_health\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_cmd = "Get-CimInstance Win32_PnPEntity | Where-Object { $_.ConfigManagerErrorCode -ne 0 } | Select-Object Name, Status, ConfigManagerErrorCode, Description | ForEach-Object { \"  [ERR:$($_.ConfigManagerErrorCode)] $($_.Name) ($($_.Status)) - $($_.Description)\" }";
+        let output = Command::new("powershell").args(["-NoProfile", "-Command", ps_cmd])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        
+        if output.trim().is_empty() {
+            out.push_str("All PnP devices report as healthy (no ConfigManager errors detected).\n");
+        } else {
+            out.push_str("=== Malfunctioning Devices (Yellow Bangs) ===\n");
+            out.push_str(&output);
+            out.push_str("\nTip: Error codes 10 and 28 usually indicate missing or incompatible drivers.\n");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Checking dmesg for hardware errors...\n");
+        let dmesg = Command::new("dmesg").args(["--level=err,crit,alert"]).output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if dmesg.is_empty() {
+            out.push_str("  No critical hardware errors found in dmesg.\n");
+        } else {
+            out.push_str(&dmesg.lines().take(20).collect::<Vec<_>>().join("\n"));
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_drivers(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: drivers\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_cmd = format!("Get-CimInstance Win32_SystemDriver | Select-Object Name, Description, State, Status | Select-Object -First {} | ForEach-Object {{ \"  $($_.Name): $($_.State) ($($_.Status)) - $($_.Description)\" }}", max_entries);
+        let output = Command::new("powershell").args(["-NoProfile", "-Command", &ps_cmd])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        
+        if output.trim().is_empty() {
+            out.push_str("No drivers retrieved via WMI.\n");
+        } else {
+            out.push_str("=== Active System Drivers (CIM Snapshot) ===\n");
+            out.push_str(&output);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("=== Loaded Kernel Modules (lsmod) ===\n");
+        let lsmod = Command::new("lsmod").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str(&lsmod.lines().take(max_entries).collect::<Vec<_>>().join("\n"));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_peripherals(_max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: peripherals\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        out.push_str("=== USB Controllers & Hubs ===\n");
+        let usb = Command::new("powershell").args(["-NoProfile", "-Command", "Get-CimInstance Win32_USBController | ForEach-Object { \"  $($_.Name) ($($_.Status))\" }"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str(if usb.is_empty() { "  None detected.\n" } else { &usb });
+
+        out.push_str("\n=== Input Devices (Keyboard/Pointer) ===\n");
+        let kb = Command::new("powershell").args(["-NoProfile", "-Command", "Get-CimInstance Win32_Keyboard | ForEach-Object { \"  [KB] $($_.Name) ($($_.Status))\" }"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let mouse = Command::new("powershell").args(["-NoProfile", "-Command", "Get-CimInstance Win32_PointingDevice | ForEach-Object { \"  [PTR] $($_.Name) ($($_.Status))\" }"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str(&kb);
+        out.push_str(&mouse);
+
+        out.push_str("\n=== Connected Monitors (WMI) ===\n");
+        let mon = Command::new("powershell").args(["-NoProfile", "-Command", "Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorBasicDisplayParams | ForEach-Object { \"  Display ($($_.Active ? 'Active' : 'Inactive'))\" }"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str(if mon.is_empty() { "  No active monitors identified via WMI.\n" } else { &mon });
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("=== Connected USB Devices (lsusb) ===\n");
+        let lsusb = Command::new("lsusb").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str(&lsusb.lines().take(max_entries).collect::<Vec<_>>().join("\n"));
     }
 
     Ok(out.trim_end().to_string())

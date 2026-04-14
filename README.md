@@ -188,7 +188,7 @@ This is one of Hematite's strongest local advantages: a terminal-native AI that 
 
 For structured workstation and network questions, prefer `inspect_host` first. It covers 50+ topics across the full SysAdmin and Network Admin stack:
 
-**SysAdmin topics:** common toolchains, PATH, environment/package-manager health, OS config (Firewall/Power/Uptime), resource load (CPU/RAM %), processes, services, ports, storage, hardware DNA, system health reports, grounded fix plans, recent log errors (`log_check`), startup items (`startup_items`), Windows Update (`updates`), security posture (`security`), pending reboot detection (`pending_reboot`), drive SMART health (`disk_health`), battery (`battery`), crash/BSOD history (`recent_crashes`), scheduled tasks (`scheduled_tasks`), dev environment conflicts (`dev_conflicts`), drive encryption (`bitlocker`), RDP status (`rdp`), shadow copies (`shadow_copies`), page file (`pagefile`), Windows features (`windows_features`), printers (`printers`), and WinRM (`winrm`).
+**SysAdmin topics:** common toolchains, PATH, environment/package-manager health, OS config (Firewall/Power/Uptime), resource load (CPU/RAM %), processes, services, ports, storage, hardware DNA, system health reports, grounded fix plans, recent log errors (`log_check`), startup items (`startup_items`), Windows Update (`updates`), security posture (`security`), pending reboot detection (`pending_reboot`), drive SMART health (`disk_health`), device health (`device_health` - Yellow Bangs), drivers (`drivers`), peripherals (`peripherals` - USB/HID/Monitors), battery (`battery`), crash/BSOD history (`recent_crashes`), scheduled tasks (`scheduled_tasks`), dev environment conflicts (`dev_conflicts`), drive encryption (`bitlocker`), RDP status (`rdp`), shadow copies (`shadow_copies`), page file (`pagefile`), Windows features (`windows_features`), printers (`printers`), and WinRM (`winrm`).
 
 **Network Admin topics:** internet connectivity (`connectivity`), Wi-Fi adapters and signal (`wifi`), active TCP/UDP connections (`connections`), VPN adapter state (`vpn`), system proxy config (`proxy`), firewall rules (`firewall_rules`), traceroute path (`traceroute`), DNS cache (`dns_cache`), ARP table (`arp`), routing table (`route_table`), interface throughput/errors (`network_stats`), and UDP listeners (`udp_ports`).
 
@@ -210,6 +210,7 @@ For structured workstation and network questions, prefer `inspect_host` first. I
 - `Check for BSOD or crash events in the last week.`
 - `Show me all scheduled tasks and what they run.`
 - `Check for dev environment conflicts — Node version managers, Python ambiguity, Rust toolchain.`
+- `Audit my workstation health: Check for any malfunctioning devices or yellow bangs, list my connected peripherals and USB tree, and show me everything that's set to run at startup.`
 
 **Network Admin prompts:**
 - `Check my internet connectivity and tell me if anything looks wrong.`
@@ -237,6 +238,31 @@ For structured workstation and network questions, prefer `inspect_host` first. I
 - `Show me docker containers, my ssh config, and installed software.` ← harness pre-runs all three
 
 The shell path is still bounded like the rest of the harness: commands run through Hematite's tool layer with timeout limits, output capping, workspace awareness, and approval controls for risky actions.
+
+---
+
+## Ultimate Workstation Triage (100% Visibility)
+
+Hematite v0.4.6 achieves **100% Read-Only Grounding** of the Windows workstation. It now has the same deep-system visibility used by professional local IT administrators to triage hardware bottlenecks and misconfigurations.
+
+### Grounded Visibility Grid
+
+| Precision Topic | What Hematite Sees | The Flex |
+| :--- | :--- | :--- |
+| **Device Health** | WMI `Win32_PnPEntity` + Error Codes | Identifies **"Yellow Bangs"** and hardware failures instantly. |
+| **System Drivers** | Active kernel driver audit & states | Audits every low-level driver for "Active" vs. "Stopped" status. |
+| **Peripherals** | Full USB Tree + HID + Monitors | Enumerates physical Razer/Logitech hardware, gamepads, and more. |
+| **Startup Items** | `Win32_StartupCommand` + Registry | **Task Manager Parity**: captures task-based and hidden launchers. |
+| **Crash History** | Windows Event Log (BSOD/App Hangs) | Traces exact failure timestamps for system stability triage. |
+| **Disk SMART** | `Get-PhysicalDisk` health status | Predicts drive failure before it happens via hardware telemetry. |
+
+### Flex Your Capabilities
+Because of Hematite's **Harness Pre-Run**, you can trigger an entire IT audit with a single sentence. Hematite will execute multiple precision tools in parallel before it even starts its reasoning turn.
+
+**Pro-Prompt:**
+> "Audit my workstation health: Check for any malfunctioning devices or yellow bangs, list my connected peripherals and USB tree, and show me everything that's set to run at startup."
+
+**The Result:** Hematite pre-fetches your hardware state, audits your 20+ startup entries, and delivers a consolidated health verdict — grounded in real machine telemetry, with zero hallucinations.
 
 ---
 
