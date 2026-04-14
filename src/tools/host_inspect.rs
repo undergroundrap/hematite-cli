@@ -3154,7 +3154,7 @@ pub async fn resolve_host_issue(args: &Value) -> Result<String, String> {
 
 // ── storage ───────────────────────────────────────────────────────────────────
 
-fn inspect_storage(_max_entries: usize) -> Result<String, String> {
+fn inspect_storage(max_entries: usize) -> Result<String, String> {
     let mut out = String::from("Host inspection: storage\n\n");
 
     // ── Drive overview ────────────────────────────────────────────────────────
