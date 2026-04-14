@@ -325,7 +325,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_device_health = lower.contains("device health") || lower.contains("hardware error") || lower.contains("malfunctioning") || lower.contains("yellow bang") || lower.contains("hardware failing");
     let asks_drivers = lower.contains("driver") || lower.contains("kmod") || lower.contains("kernel module");
     let asks_peripherals = lower.contains("peripheral") || lower.contains("usb") || lower.contains("keyboard") || lower.contains("mouse") || lower.contains("pointer") || lower.contains("monitor") || lower.contains("input device") || lower.contains("connected hardware");
-    let asks_sessions = lower.contains("session") || lower.contains("login") || lower.contains("user account") || lower.contains("who is on") || lower.contains("active user");
+    let asks_sessions = lower.contains("session") || lower.contains("login") || lower.contains("who is on") || lower.contains("active user");
     let asks_virtualization = lower.contains("virtualization") || lower.contains("hypervisor") || lower.contains("vt-x") || lower.contains("slat") || lower.contains("v-p") || lower.contains("nested virt");
     let asks_startup = lower.contains("startup") || lower.contains("boot program") || lower.contains("autorun") || lower.contains("run at boot");
     let asks_env_doctor = lower.contains("env doctor")
@@ -736,6 +736,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("drivers")
     } else if asks_peripherals {
         Some("peripherals")
+    } else if asks_user_accounts {
+        Some("user_accounts")
     } else if asks_sessions {
         Some("sessions")
     } else if asks_virtualization {
@@ -787,8 +789,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("env_doctor")
     } else if asks_dns_servers {
         Some("dns_servers")
-    } else if asks_user_accounts {
-        Some("user_accounts")
     } else if asks_connectivity {
         Some("connectivity")
     } else if asks_wifi {
