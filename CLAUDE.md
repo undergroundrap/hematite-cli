@@ -460,6 +460,8 @@ Hematite exposes a `run_code` tool that lets the model write and run JavaScript/
 
 **To install Deno system-wide** (optional, for use outside Hematite): `winget install DenoLand.Deno`.
 
+**Computation Integrity Routing:** Hematite automatically detects when a query requires precise numeric computation and nudges the model to reach for `run_code` instead of answering from training-data memory. Detection categories: checksums/hashes (SHA, MD5, CRC), financial/percentage calculations, statistical analysis (mean, std dev, regression), unit conversions (bytes, temperature, distance, weight), date/time arithmetic (days between dates, Unix timestamps), algorithmic verification (prime checks, sorting, factorial), and any explicit "run this code" request. When detected, a pre-turn COMPUTATION INTEGRITY NOTICE is injected so the model computes the real result rather than guessing. Two harness-level recovery paths back this up: if the model attempts `shell` for sandbox-style execution, it is blocked and forced to retry with `run_code`; if the model writes Python without specifying `language: "python"` and Deno rejects the syntax, the harness detects the parse error and forces a corrective retry with the correct language. The routing logic lives in `src/agent/routing.rs` (`needs_computation_sandbox`); the recovery interventions live in the tool result handler in `src/agent/conversation.rs`.
+
 ## Document and Image Attachments
 
 Hematite supports attaching files to any conversation turn via hotkeys or slash commands.

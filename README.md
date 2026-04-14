@@ -889,6 +889,8 @@ That output cannot come from training data. SHA-256 is deterministic but not mem
 
 **Zero-trust sandbox.** Deno runs with `--deny-net`, `--deny-env`, `--deny-sys`, `--deny-run`, `--deny-ffi` and only read/write access to the workspace. The process cannot reach the network, read environment variables, call native libraries, or spawn other processes. Python runs with a cleared environment and blocked imports for `subprocess`, `socket`, `urllib`, and related modules.
 
+**Automatic computation routing.** Hematite detects when a query requires precise numeric results — hashes, financial math, statistics, date arithmetic, unit conversions, algorithmic checks — and automatically nudges the model to use `run_code` instead of answering from training-data memory. If the model tries to use `shell` for code execution, the harness blocks it and forces a `run_code` retry. If the model writes Python without specifying `language: "python"` and Deno rejects the syntax, the harness catches the parse error and forces a corrective retry with the right language. The model computes. The harness enforces it.
+
 **No extra install needed if you use LM Studio.** LM Studio ships Deno internally. Hematite finds it automatically — no configuration required. If you're not using LM Studio, install Deno globally: `winget install DenoLand.Deno`.
 
 ### Built-In Web Research

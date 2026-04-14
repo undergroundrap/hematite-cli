@@ -219,6 +219,7 @@ That result cannot come from training data. SHA-256 is deterministic but not mem
 - **Automatic Deno detection**: Hematite finds Deno automatically — checks `settings.json` override, `~/.deno/bin/`, WinGet package store, system PATH, then LM Studio's bundled copy as a last resort. If you have LM Studio installed, you likely already have Deno and JS/TS execution works out of the box with no extra setup
 - **Real math and logic**: the model can verify algorithms, run calculations, test data transformations, and fix errors from actual output — not training-data approximations
 - **Practical use cases**: check a sorting algorithm on a real dataset, verify a regex against real strings, compute checksums, generate test fixtures, run a quick proof — all without leaving the conversation
+- **Automatic computation routing**: Hematite detects when a query requires precise numeric results (hashes, financial math, statistics, date arithmetic, unit conversions, algorithmic checks) and automatically nudges the model to use `run_code` instead of guessing from training data. If the model tries to use `shell` for execution, the harness blocks it and forces a `run_code` retry. If the model writes Python without specifying `language: "python"` and Deno rejects the syntax, the harness catches the parse error and forces a corrective retry with the correct language — no manual intervention required.
 
 ## 9. MCP Interoperability
 
