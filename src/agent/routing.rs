@@ -514,7 +514,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("/displaydns")
         || lower.contains("get-dnsclientcache")
         || lower.contains("dns entries")
-        || lower.contains("what dns")
         || (lower.contains("dns") && lower.contains("cached"));
     let asks_arp = lower.contains("arp -")
         || lower.contains("arp table")
@@ -588,11 +587,59 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("git") && lower.contains("credential"))
         || lower.contains("git aliases"))
         && !lower.contains("github");
+    let asks_user_accounts = lower.contains("local user")
+        || lower.contains("user account")
+        || lower.contains("who is logged in")
+        || lower.contains("who is logged on")
+        || lower.contains("logged in user")
+        || lower.contains("logged on user")
+        || lower.contains("admin group")
+        || lower.contains("administrators group")
+        || lower.contains("local admin")
+        || lower.contains("who has admin")
+        || lower.contains("running as admin")
+        || lower.contains("is this elevated")
+        || lower.contains("active sessions")
+        || lower.contains("logon session")
+        || lower.contains("net user")
+        || lower.contains("get-localuser");
+    let asks_audit_policy = lower.contains("audit policy")
+        || lower.contains("auditpol")
+        || lower.contains("audit log")
+        || lower.contains("what is being logged")
+        || lower.contains("security audit")
+        || lower.contains("logon event")
+        || lower.contains("audit category")
+        || lower.contains("event auditing");
+    let asks_shares = lower.contains("smb share")
+        || lower.contains("network share")
+        || lower.contains("shared folder")
+        || lower.contains("mapped drive")
+        || lower.contains("mapped network drive")
+        || lower.contains("get-smbshare")
+        || lower.contains("what is shared")
+        || lower.contains("what am i sharing")
+        || lower.contains("smb1")
+        || lower.contains("smb signing")
+        || lower.contains("nfs export");
+    let asks_dns_servers = (lower.contains("dns server")
+        || lower.contains("dns resolver")
+        || lower.contains("nameserver")
+        || lower.contains("which dns")
+        || lower.contains("what dns")
+        || lower.contains("dns over https")
+        || lower.contains("doh")
+        || lower.contains("dns search suffix")
+        || lower.contains("configured dns")
+        || lower.contains("get-dnsclientserveraddress"))
+        && !lower.contains("dns cache");
 
     if asks_fix_plan {
         Some("fix_plan")
     } else if asks_updates {
         Some("updates")
+    } else if asks_audit_policy {
+        Some("audit_policy")
     } else if asks_security {
         Some("security")
     } else if asks_pending_reboot {
@@ -613,6 +660,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("summary")
     } else if asks_env_doctor {
         Some("env_doctor")
+    } else if asks_dns_servers {
+        Some("dns_servers")
+    } else if asks_user_accounts {
+        Some("user_accounts")
     } else if asks_connectivity {
         Some("connectivity")
     } else if asks_wifi {
@@ -647,6 +698,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("installed_software")
     } else if asks_env {
         Some("env")
+    } else if asks_shares {
+        Some("shares")
     } else if asks_hosts_file {
         Some("hosts_file")
     } else if asks_network {
@@ -728,6 +781,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("env",                |l| (l.contains("environment variable") || l.contains("env var") || l.contains("env vars")) && !l.contains("env doctor")),
         ("hosts_file",         |l| l.contains("hosts file") || l.contains("/etc/hosts") || l.contains("hosts entry")),
         ("databases",          |l| l.contains("postgres") || l.contains("mysql") || l.contains("mariadb") || l.contains("mongodb") || l.contains("redis") || l.contains("sqlite") || l.contains("sql server") || l.contains("elasticsearch") || (l.contains("database") && (l.contains("running") || l.contains("service")))),
+        ("user_accounts",      |l| l.contains("local user") || l.contains("user account") || l.contains("who is logged") || l.contains("admin group") || l.contains("local admin") || l.contains("active sessions") || l.contains("running as admin")),
+        ("audit_policy",       |l| l.contains("audit policy") || l.contains("auditpol") || l.contains("what is being logged") || l.contains("security audit") || l.contains("event auditing")),
+        ("shares",             |l| l.contains("smb share") || l.contains("network share") || l.contains("shared folder") || l.contains("mapped drive") || l.contains("smb1") || l.contains("nfs export")),
+        ("dns_servers",        |l| (l.contains("dns server") || l.contains("dns resolver") || l.contains("nameserver") || l.contains("which dns") || l.contains("dns over https") || l.contains("configured dns")) && !l.contains("dns cache")),
     ];
 
     let lower = user_input.to_lowercase();

@@ -322,6 +322,10 @@ impl SystemPromptBuilder {
             "  - 'environment variables' / 'env vars' / 'show env' / 'JAVA_HOME set?' → topic='env'\n",
             "  - 'hosts file' / '/etc/hosts' / 'host entries' / 'custom domain redirect' → topic='hosts_file'\n",
             "  - 'is postgres running?' / 'mysql service' / 'redis up?' / 'local database engines' / 'mongodb' / 'sqlite' → topic='databases'\n",
+            "  - 'local users' / 'who is logged in?' / 'admin group members' / 'who has admin rights?' / 'is this elevated?' / 'active sessions' / 'net user' → topic='user_accounts'\n",
+            "  - 'audit policy' / 'what is being logged?' / 'is auditing enabled?' / 'auditpol' / 'security audit' / 'event auditing' → topic='audit_policy'\n",
+            "  - 'SMB shares' / 'network shares' / 'shared folders' / 'mapped drives' / 'what is this machine sharing?' / 'SMB1 enabled?' → topic='shares'\n",
+            "  - 'what DNS servers am I using?' / 'configured DNS resolver' / 'nameservers' / 'DNS over HTTPS' / 'DoH configured?' → topic='dns_servers'\n",
             "  Do NOT use shell, Get-ItemProperty, registry reads, wmic, Get-CimInstance, Get-WinEvent, Get-PhysicalDisk, Get-MpComputerStatus, Get-ScheduledTask, docker CLI, wsl CLI, git config, winget, dpkg, or any shell diagnostic command. ",
             "Use inspect_host exclusively. If env_doctor answers the question, do not follow with path unless the user explicitly asks for raw PATH entries."
         ));

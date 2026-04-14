@@ -3392,3 +3392,209 @@ fn test_fix_plan_generic_lists_all_lanes() {
         );
     });
 }
+
+// ── user_accounts / audit_policy / shares / dns_servers ──────────────────────
+
+#[test]
+fn test_inspect_host_user_accounts_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "user_accounts" });
+        let output = inspect_host(&args).await.expect("user_accounts must return Ok");
+        assert!(
+            output.contains("Host inspection: user_accounts"),
+            "user_accounts must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_user_accounts_reports_local_users_or_sessions() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "user_accounts" });
+        let output = inspect_host(&args).await.expect("user_accounts must return Ok");
+        let has_section = output.contains("Local User Accounts")
+            || output.contains("Active Sessions")
+            || output.contains("Active Logon Sessions");
+        assert!(
+            has_section,
+            "user_accounts must contain a user or session section; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_user_accounts_reports_elevation() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "user_accounts" });
+        let output = inspect_host(&args).await.expect("user_accounts must return Ok");
+        assert!(
+            output.contains("Administrator") || output.contains("Elevation") || output.contains("elevated"),
+            "user_accounts must report elevation state or admin group; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_user_accounts_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("who is logged in right now?"),
+        Some("user_accounts")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show me local user accounts"),
+        Some("user_accounts")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("who has admin rights on this machine?"),
+        Some("user_accounts")
+    );
+}
+
+#[test]
+fn test_inspect_host_audit_policy_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "audit_policy" });
+        let output = inspect_host(&args).await.expect("audit_policy must return Ok");
+        assert!(
+            output.contains("Host inspection: audit_policy"),
+            "audit_policy must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_audit_policy_reports_policy_or_elevation_required() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "audit_policy" });
+        let output = inspect_host(&args).await.expect("audit_policy must return Ok");
+        let has_result = output.contains("Audit Policy")
+            || output.contains("ENABLED")
+            || output.contains("No Auditing")
+            || output.contains("requires Administrator")
+            || output.contains("auditd")
+            || output.contains("WARNING");
+        assert!(
+            has_result,
+            "audit_policy must report policy state or note elevation required; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_audit_policy_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what is the audit policy on this machine?"),
+        Some("audit_policy")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is security auditing enabled?"),
+        Some("audit_policy")
+    );
+}
+
+#[test]
+fn test_inspect_host_shares_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "shares" });
+        let output = inspect_host(&args).await.expect("shares must return Ok");
+        assert!(
+            output.contains("Host inspection: shares"),
+            "shares must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_shares_reports_smb_section() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "shares" });
+        let output = inspect_host(&args).await.expect("shares must return Ok");
+        let has_section = output.contains("SMB") || output.contains("Samba") || output.contains("NFS");
+        assert!(
+            has_section,
+            "shares must contain SMB, Samba, or NFS section; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_shares_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what SMB shares does this machine have?"),
+        Some("shares")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show me mapped network drives"),
+        Some("shares")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is SMB1 enabled on this machine?"),
+        Some("shares")
+    );
+}
+
+#[test]
+fn test_inspect_host_dns_servers_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "dns_servers" });
+        let output = inspect_host(&args).await.expect("dns_servers must return Ok");
+        assert!(
+            output.contains("Host inspection: dns_servers"),
+            "dns_servers must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_dns_servers_reports_resolvers_or_resolv_conf() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "dns_servers" });
+        let output = inspect_host(&args).await.expect("dns_servers must return Ok");
+        let has_section = output.contains("DNS Resolver")
+            || output.contains("resolv.conf")
+            || output.contains("Configured DNS")
+            || output.contains("systemd-resolved");
+        assert!(
+            has_section,
+            "dns_servers must report DNS resolver config; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_dns_servers_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what DNS servers am I using?"),
+        Some("dns_servers")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show me the configured DNS resolver"),
+        Some("dns_servers")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is DNS over HTTPS configured?"),
+        Some("dns_servers")
+    );
+}

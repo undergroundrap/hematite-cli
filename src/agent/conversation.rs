@@ -5074,6 +5074,24 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "dpkg --get-selections",
         "rpm -qa",
         "brew list",
+        // user accounts
+        "get-localuser",
+        "get-localgroupmember",
+        "net user",
+        "query user",
+        "net localgroup administrators",
+        // audit policy
+        "auditpol /get",
+        "auditpol",
+        // shares
+        "get-smbshare",
+        "get-smbserverconfiguration",
+        "net share",
+        "net use",
+        // dns servers
+        "get-dnsclientserveraddress",
+        "get-dnsclientdohserveraddress",
+        "get-dnsclientglobalsetting",
     ]
     .iter()
     .any(|needle| lower.contains(needle))

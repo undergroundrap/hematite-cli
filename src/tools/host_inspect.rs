@@ -71,6 +71,10 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "installed_software" | "installed" | "programs" | "software" | "packages" => inspect_installed_software(max_entries),
         "git_config" | "git_global" => inspect_git_config(),
         "databases" | "database" | "db_services" | "db" => inspect_databases(),
+        "user_accounts" | "users" | "local_users" | "accounts" => inspect_user_accounts(max_entries),
+        "audit_policy" | "audit" | "auditpol" => inspect_audit_policy(),
+        "shares" | "smb_shares" | "network_shares" | "mapped_drives" => inspect_shares(max_entries),
+        "dns_servers" | "dns_config" | "dns_resolver" | "nameservers" => inspect_dns_servers(),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -87,7 +91,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers.",
             other
         )),
     }
@@ -7105,6 +7109,383 @@ fn inspect_databases() -> Result<String, String> {
         out.push_str("---\n");
         out.push_str("Note: databases running inside Docker containers are listed under topic='docker'.\n");
         out.push_str("This topic checks service state and port reachability only — no credentials or queries are used.\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── user_accounts ─────────────────────────────────────────────────────────────
+
+fn inspect_user_accounts(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: user_accounts\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let users_out = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "Get-LocalUser | ForEach-Object { $logon = if ($_.LastLogon) { $_.LastLogon.ToString('yyyy-MM-dd HH:mm') } else { 'never' }; \"  $($_.Name) | Enabled: $($_.Enabled) | LastLogon: $logon | PwdRequired: $($_.PasswordRequired) | $($_.Description)\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        out.push_str("=== Local User Accounts ===\n");
+        if users_out.trim().is_empty() {
+            out.push_str("  (requires elevation or Get-LocalUser unavailable)\n");
+        } else {
+            for line in users_out.lines().take(max_entries) {
+                if !line.trim().is_empty() { out.push_str(line); out.push('\n'); }
+            }
+        }
+
+        let admins_out = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "Get-LocalGroupMember -Group 'Administrators' 2>$null | ForEach-Object { \"  $($_.ObjectClass): $($_.Name)\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        out.push_str("\n=== Administrators Group Members ===\n");
+        if admins_out.trim().is_empty() {
+            out.push_str("  (unable to retrieve)\n");
+        } else {
+            out.push_str(admins_out.trim());
+            out.push('\n');
+        }
+
+        let sessions_out = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "query user 2>$null",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        out.push_str("\n=== Active Logon Sessions ===\n");
+        if sessions_out.trim().is_empty() {
+            out.push_str("  (none or requires elevation)\n");
+        } else {
+            for line in sessions_out.lines().take(max_entries) {
+                if !line.trim().is_empty() { out.push_str(&format!("  {}\n", line)); }
+            }
+        }
+
+        let is_admin = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_lowercase())
+            .unwrap_or_default();
+
+        out.push_str("\n=== Current Session Elevation ===\n");
+        out.push_str(&format!("  Running as Administrator: {}\n",
+            if is_admin.contains("true") { "YES" } else { "no" }));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let who_out = Command::new("who").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str("=== Active Sessions ===\n");
+        if who_out.trim().is_empty() {
+            out.push_str("  (none)\n");
+        } else {
+            for line in who_out.lines().take(max_entries) {
+                out.push_str(&format!("  {}\n", line));
+            }
+        }
+        let id_out = Command::new("id").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str(&format!("\n=== Current User ===\n  {}\n", id_out.trim()));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── audit_policy ──────────────────────────────────────────────────────────────
+
+fn inspect_audit_policy() -> Result<String, String> {
+    let mut out = String::from("Host inspection: audit_policy\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let auditpol_out = Command::new("auditpol")
+            .args(["/get", "/category:*"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        if auditpol_out.trim().is_empty() || auditpol_out.to_lowercase().contains("access is denied") {
+            out.push_str("Audit policy requires Administrator elevation to read.\n");
+            out.push_str("Run Hematite as Administrator, or check manually: auditpol /get /category:*\n");
+        } else {
+            out.push_str("=== Windows Audit Policy ===\n");
+            let mut any_enabled = false;
+            for line in auditpol_out.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() { continue; }
+                if trimmed.contains("Success") || trimmed.contains("Failure") {
+                    out.push_str(&format!("  [ENABLED] {}\n", trimmed));
+                    any_enabled = true;
+                } else {
+                    out.push_str(&format!("  {}\n", trimmed));
+                }
+            }
+            if !any_enabled {
+                out.push_str("\n[WARNING] No audit categories are enabled — security events will not be logged.\n");
+                out.push_str("Minimum recommended: enable Logon/Logoff and Account Logon success+failure.\n");
+            }
+        }
+
+        let evtlog = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "Get-Service EventLog -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Status",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+
+        out.push_str(&format!("\n=== Windows Event Log Service ===\n  Status: {}\n",
+            if evtlog.is_empty() { "unknown".to_string() } else { evtlog }));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let auditd_status = Command::new("systemctl")
+            .args(["is-active", "auditd"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| "not found".to_string());
+
+        out.push_str(&format!("=== auditd service ===\n  Status: {}\n", auditd_status));
+
+        if auditd_status == "active" {
+            let rules = Command::new("auditctl").args(["-l"]).output().ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+            out.push_str("\n=== Active Audit Rules ===\n");
+            if rules.trim().is_empty() || rules.contains("No rules") {
+                out.push_str("  No rules configured.\n");
+            } else {
+                for line in rules.lines() {
+                    out.push_str(&format!("  {}\n", line));
+                }
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── shares ────────────────────────────────────────────────────────────────────
+
+fn inspect_shares(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: shares\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let smb_out = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "Get-SmbShare | ForEach-Object { \"  $($_.Name) | Path: $($_.Path) | State: $($_.ShareState) | Encrypted: $($_.EncryptData) | $($_.Description)\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        out.push_str("=== SMB Shares (exposed by this machine) ===\n");
+        let smb_lines: Vec<&str> = smb_out.lines().filter(|l| !l.trim().is_empty()).take(max_entries).collect();
+        if smb_lines.is_empty() {
+            out.push_str("  No SMB shares or unable to retrieve.\n");
+        } else {
+            for line in &smb_lines {
+                let name = line.trim().split('|').next().unwrap_or("").trim();
+                if name.ends_with('$') {
+                    out.push_str(&format!("  {}\n", line.trim()));
+                } else {
+                    out.push_str(&format!("  [CUSTOM] {}\n", line.trim()));
+                }
+            }
+        }
+
+        let smb_security = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "Get-SmbServerConfiguration | ForEach-Object { \"  SMB1: $($_.EnableSMB1Protocol) | SMB2: $($_.EnableSMB2Protocol) | Signing Required: $($_.RequireSecuritySignature) | Encryption: $($_.EncryptData)\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        out.push_str("\n=== SMB Server Security Settings ===\n");
+        if smb_security.trim().is_empty() {
+            out.push_str("  (unable to retrieve)\n");
+        } else {
+            out.push_str(smb_security.trim());
+            out.push('\n');
+            if smb_security.to_lowercase().contains("smb1: true") {
+                out.push_str("  [WARNING] SMB1 is ENABLED — disable it: Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force\n");
+            }
+        }
+
+        let drives_out = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "Get-PSDrive -PSProvider FileSystem | Where-Object { $_.DisplayRoot } | ForEach-Object { \"  $($_.Name): -> $($_.DisplayRoot)\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        out.push_str("\n=== Mapped Network Drives ===\n");
+        if drives_out.trim().is_empty() {
+            out.push_str("  None.\n");
+        } else {
+            for line in drives_out.lines().take(max_entries) {
+                if !line.trim().is_empty() { out.push_str(line); out.push('\n'); }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let smb_conf = std::fs::read_to_string("/etc/samba/smb.conf").unwrap_or_default();
+        out.push_str("=== Samba Config (/etc/samba/smb.conf) ===\n");
+        if smb_conf.is_empty() {
+            out.push_str("  Not found or Samba not installed.\n");
+        } else {
+            for line in smb_conf.lines().take(max_entries) {
+                out.push_str(&format!("  {}\n", line));
+            }
+        }
+        let nfs_exports = std::fs::read_to_string("/etc/exports").unwrap_or_default();
+        out.push_str("\n=== NFS Exports (/etc/exports) ===\n");
+        if nfs_exports.is_empty() {
+            out.push_str("  Not configured.\n");
+        } else {
+            for line in nfs_exports.lines().take(max_entries) {
+                out.push_str(&format!("  {}\n", line));
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── dns_servers ───────────────────────────────────────────────────────────────
+
+fn inspect_dns_servers() -> Result<String, String> {
+    let mut out = String::from("Host inspection: dns_servers\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let dns_out = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "Get-DnsClientServerAddress | Where-Object { $_.ServerAddresses.Count -gt 0 } | ForEach-Object { $addrs = $_.ServerAddresses -join ', '; \"  $($_.InterfaceAlias) (AF $($_.AddressFamily)): $addrs\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        out.push_str("=== Configured DNS Resolvers (per adapter) ===\n");
+        if dns_out.trim().is_empty() {
+            out.push_str("  (unable to retrieve)\n");
+        } else {
+            for line in dns_out.lines() {
+                if line.trim().is_empty() { continue; }
+                let mut annotation = "";
+                if line.contains("8.8.8.8") || line.contains("8.8.4.4") {
+                    annotation = "  <- Google Public DNS";
+                } else if line.contains("1.1.1.1") || line.contains("1.0.0.1") {
+                    annotation = "  <- Cloudflare DNS";
+                } else if line.contains("9.9.9.9") {
+                    annotation = "  <- Quad9";
+                } else if line.contains("208.67.222") || line.contains("208.67.220") {
+                    annotation = "  <- OpenDNS";
+                }
+                out.push_str(line);
+                out.push_str(annotation);
+                out.push('\n');
+            }
+        }
+
+        let doh_out = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "Get-DnsClientDohServerAddress 2>$null | ForEach-Object { \"  $($_.ServerAddress): $($_.DohTemplate)\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        out.push_str("\n=== DNS over HTTPS (DoH) ===\n");
+        if doh_out.trim().is_empty() {
+            out.push_str("  Not configured (plain DNS).\n");
+        } else {
+            out.push_str(doh_out.trim());
+            out.push('\n');
+        }
+
+        let suffixes = Command::new("powershell")
+            .args([
+                "-NoProfile", "-NonInteractive", "-Command",
+                "Get-DnsClientGlobalSetting | Select-Object -ExpandProperty SuffixSearchList | ForEach-Object { \"  $_\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        if !suffixes.trim().is_empty() {
+            out.push_str("\n=== DNS Search Suffix List ===\n");
+            out.push_str(suffixes.trim());
+            out.push('\n');
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let resolv = std::fs::read_to_string("/etc/resolv.conf").unwrap_or_default();
+        out.push_str("=== /etc/resolv.conf ===\n");
+        if resolv.is_empty() {
+            out.push_str("  Not found.\n");
+        } else {
+            for line in resolv.lines() {
+                if !line.trim().is_empty() && !line.starts_with('#') {
+                    out.push_str(&format!("  {}\n", line));
+                }
+            }
+        }
+        let resolved_out = Command::new("resolvectl").args(["status", "--no-pager"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if !resolved_out.is_empty() {
+            out.push_str("\n=== systemd-resolved ===\n");
+            for line in resolved_out.lines().take(30) {
+                out.push_str(&format!("  {}\n", line));
+            }
+        }
     }
 
     Ok(out.trim_end().to_string())
