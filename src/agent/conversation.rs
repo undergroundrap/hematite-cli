@@ -1373,19 +1373,21 @@ impl ConversationManager {
             if shell_looks_like_structured_host_inspection(command) {
                 // Auto-redirect: silently call inspect_host with the right topic instead of
                 // returning a block error that the model may fail to recover from.
-                let topic = if let Some(prompt) = self.latest_user_prompt() {
-                    preferred_host_inspection_topic(prompt).unwrap_or("resource_load")
-                } else {
-                    "resource_load"
-                };
+                // Derive topic from the shell command itself first; fall back to the user prompt.
+                let topic = preferred_host_inspection_topic(command)
+                    .or_else(|| {
+                        self.latest_user_prompt()
+                            .and_then(|p| preferred_host_inspection_topic(p))
+                    })
+                    .unwrap_or("resource_load");
                 let redirect_args = serde_json::json!({ "topic": topic });
                 let result = crate::tools::host_inspect::inspect_host(&redirect_args).await;
                 return match result {
                     Ok(output) => Err(format!(
-                        "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}"
+                        "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: shell is blocked for host inspection. Call inspect_host directly with the correct topic for any remaining diagnostics.]"
                     )),
                     Err(_) => Err(format!(
-                        "Action blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan.",
+                        "Action blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table.",
                     )),
                 };
             }
@@ -2403,6 +2405,66 @@ impl ConversationManager {
         .map(|s| s.to_string());
 
         let mut loop_intervention: Option<String> = None;
+
+        // ── Harness pre-run: multi-topic host inspection ─────────────────────
+        // When the user asks for 2+ distinct inspect_host topics in one message,
+        // run them all here and inject the combined results as a loop_intervention
+        // so the model receives data instead of having to orchestrate tool calls.
+        // This prevents the model from collapsing multiple topics into a generic
+        // one, burning the tool loop budget, or retrying via shell.
+        {
+            let topics = crate::agent::routing::all_host_inspection_topics(&effective_user_input);
+            if topics.len() >= 2 {
+                let _ = tx
+                    .send(InferenceEvent::Thought(format!(
+                        "Harness pre-run: {} host inspection topics detected — running all before model turn.",
+                        topics.len()
+                    )))
+                    .await;
+
+                let topic_list = topics.join(", ");
+                let mut combined = format!(
+                    "## HARNESS PRE-RUN RESULTS\n\
+                     The harness already ran inspect_host for all requested topics: {topic_list}.\n\
+                     All results are below. Your job is ONLY to synthesize a clear answer from this data.\n\
+                     CRITICAL: Do NOT call inspect_host, shell, or run_code for any of these topics — the data is already here.\n\n"
+                );
+
+                for topic in &topics {
+                    let args = serde_json::json!({ "topic": topic, "max_entries": 20 });
+                    let label = format!("### inspect_host(topic=\"{topic}\")\n");
+                    let _ = tx
+                        .send(InferenceEvent::ToolCallStart {
+                            id: format!("prerun_{topic}"),
+                            name: "inspect_host".to_string(),
+                            args: format!("inspect host {topic}"),
+                        })
+                        .await;
+                    match crate::tools::host_inspect::inspect_host(&args).await {
+                        Ok(out) => {
+                            let _ = tx
+                                .send(InferenceEvent::ToolCallResult {
+                                    id: format!("prerun_{topic}"),
+                                    name: "inspect_host".to_string(),
+                                    output: out.chars().take(300).collect::<String>() + "...",
+                                    is_error: false,
+                                })
+                                .await;
+                            combined.push_str(&label);
+                            combined.push_str(&out);
+                            combined.push_str("\n\n");
+                        }
+                        Err(e) => {
+                            combined.push_str(&label);
+                            combined.push_str(&format!("Error: {e}\n\n"));
+                        }
+                    }
+                }
+
+                loop_intervention = Some(combined);
+            }
+        }
+
         let mut implementation_started = false;
         let mut non_mutating_plan_steps = 0usize;
         let non_mutating_plan_soft_cap = 5usize;
@@ -4355,6 +4417,7 @@ impl ConversationManager {
 
         // 3. Execution (Local or MCP)
         let (output, is_error) = match decision_result {
+            Err(e) if e.starts_with("[auto-redirected shell→inspect_host") => (e, false),
             Err(e) => (format!("Error: {}", e), true),
             Ok(_) => {
                 let _ = tx
@@ -4915,6 +4978,24 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         // general cim/wmi diagnostic queries — always use inspect_host
         "get-ciminstance win32",
         "get-wmiobject win32",
+        // network admin — always use inspect_host
+        "arp -",
+        "arp -a",
+        "tracert ",
+        "traceroute ",
+        "tracepath ",
+        "get-dnsclientcache",
+        "ipconfig /displaydns",
+        "get-netroute",
+        "route print",
+        "ip neigh",
+        "netsh winhttp show proxy",
+        "get-itemproperty.*proxy",
+        "get-netadapter",
+        "netsh wlan show",
+        "test-netconnection",
+        "resolve-dnsname",
+        "get-netfirewallrule",
     ]
     .iter()
     .any(|needle| lower.contains(needle))

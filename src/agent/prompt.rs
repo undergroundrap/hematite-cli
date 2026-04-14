@@ -272,7 +272,10 @@ impl SystemPromptBuilder {
 
         prompt.push_str(concat!(
             "23. **Host Inspection Priority**: NEVER use `shell` for any read-only question about the machine or operating system. ",
-            "Always use `inspect_host` with the correct topic. Topic routing rules (MANDATORY — no exceptions):\n",
+            "Always use `inspect_host` with the correct topic. ",
+            "When the user asks for multiple things, make one `inspect_host` call per topic in sequence — NEVER collapse multiple distinct topics into a single generic topic like 'network'. ",
+            "Example: 'show route table, ARP, DNS cache, and traceroute' → four separate inspect_host calls: route_table, arp, dns_cache, traceroute. ",
+            "Topic routing rules (MANDATORY — no exceptions):\n",
             "  - 'is my PC up to date?' / 'pending updates?' / 'Windows Update' → topic='updates'\n",
             "  - 'is antivirus on?' / 'Defender running?' / 'is my PC protected?' / 'Windows activated?' / 'UAC' → topic='security'\n",
             "  - 'do I need to restart?' / 'reboot required?' / 'pending restart?' → topic='pending_reboot'\n",
@@ -291,6 +294,10 @@ impl SystemPromptBuilder {
             "  - 'vpn connected?' / 'is VPN on?' / 'virtual private network' → topic='vpn'\n",
             "  - 'proxy settings' / 'system proxy' / 'winhttp proxy' → topic='proxy'\n",
             "  - 'firewall rules' / 'what does the firewall block?' / 'inbound rules' / 'outbound rules' → topic='firewall_rules'\n",
+            "  - 'traceroute' / 'trace route' / 'how many hops?' / 'network path to X' → topic='traceroute' (optional: host arg defaults to 8.8.8.8)\n",
+            "  - 'dns cache' / 'cached dns entries' / 'what dns lookups are cached?' → topic='dns_cache'\n",
+            "  - 'arp table' / 'arp cache' / 'mac addresses on network' / 'ip to mac' → topic='arp'\n",
+            "  - 'route table' / 'routing table' / 'default gateway' / 'network routes' / 'next hop' → topic='route_table'\n",
             "  - 'running services' / 'service status' → topic='services'\n",
             "  - 'running processes' / 'what is using RAM?' / 'CPU usage by process' → topic='processes'\n",
             "  - 'listening ports' / 'what is on port 3000?' → topic='ports'\n",

@@ -1052,6 +1052,58 @@ async fn test_inspect_host_firewall_rules_returns_header() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_traceroute_returns_header() {
+    use serde_json::json;
+    let args = json!({ "topic": "traceroute", "host": "8.8.8.8", "max_entries": 10 });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host traceroute should not hard-error");
+    assert!(
+        output.contains("Host inspection: traceroute"),
+        "unexpected output: {output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_dns_cache_returns_header() {
+    use serde_json::json;
+    let args = json!({ "topic": "dns_cache", "max_entries": 20 });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host dns_cache should not hard-error");
+    assert!(
+        output.contains("Host inspection: dns_cache"),
+        "unexpected output: {output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_arp_returns_header() {
+    use serde_json::json;
+    let args = json!({ "topic": "arp" });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host arp should not hard-error");
+    assert!(
+        output.contains("Host inspection: arp"),
+        "unexpected output: {output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_route_table_returns_header() {
+    use serde_json::json;
+    let args = json!({ "topic": "route_table", "max_entries": 20 });
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect_host route_table should not hard-error");
+    assert!(
+        output.contains("Host inspection: route_table"),
+        "unexpected output: {output}"
+    );
+}
+
+#[tokio::test]
 async fn test_inspect_host_services_reports_status_summary() {
     use serde_json::json;
 

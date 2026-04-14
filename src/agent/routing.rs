@@ -235,6 +235,15 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "wireless",
             "tcp connection",
             "active connection",
+            "traceroute",
+            "tracert",
+            "dns cache",
+            "arp table",
+            "arp cache",
+            "route table",
+            "routing table",
+            "default gateway",
+            "next hop",
             "power plan",
             "power settings",
             "uptime",
@@ -488,6 +497,42 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || lower.contains("outbound")))
         || lower.contains("blocked port")
         || lower.contains("firewall rule");
+    let asks_traceroute = lower.contains("traceroute")
+        || lower.contains("tracert")
+        || lower.contains("tracepath")
+        || lower.contains("trace route")
+        || lower.contains("trace the path")
+        || lower.contains("network path")
+        || lower.contains("how many hops")
+        || lower.contains("where does traffic go")
+        || (lower.contains("trace") && lower.contains("hop"))
+        || (lower.contains("route") && lower.contains("traffic"));
+    let asks_dns_cache = lower.contains("dns cache")
+        || lower.contains("cached dns")
+        || lower.contains("dns lookup cache")
+        || lower.contains("displaydns")
+        || lower.contains("/displaydns")
+        || lower.contains("get-dnsclientcache")
+        || lower.contains("dns entries")
+        || lower.contains("what dns")
+        || (lower.contains("dns") && lower.contains("cached"));
+    let asks_arp = lower.contains("arp -")
+        || lower.contains("arp table")
+        || lower.contains("arp cache")
+        || lower.contains("mac address")
+        || lower.contains("neighbor table")
+        || lower.contains("ip to mac")
+        || lower.contains("ip neigh")
+        || (lower.contains("arp") && (lower.contains("who") || lower.contains("entry") || lower.contains("entries")));
+    let asks_route_table = lower.contains("route print")
+        || lower.contains("route table")
+        || lower.contains("routing table")
+        || lower.contains("get-netroute")
+        || lower.contains("default gateway")
+        || lower.contains("network routes")
+        || lower.contains("ip route")
+        || lower.contains("next hop")
+        || (lower.contains("route") && (lower.contains("table") || lower.contains("entry") || lower.contains("entries")));
 
     if asks_fix_plan {
         Some("fix_plan")
@@ -525,6 +570,14 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         Some("proxy")
     } else if asks_firewall_rules {
         Some("firewall_rules")
+    } else if asks_traceroute {
+        Some("traceroute")
+    } else if asks_dns_cache {
+        Some("dns_cache")
+    } else if asks_arp {
+        Some("arp")
+    } else if asks_route_table {
+        Some("route_table")
     } else if asks_network {
         Some("network")
     } else if asks_services {
@@ -556,6 +609,56 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
     } else {
         None
     }
+}
+
+/// Returns all distinct inspect_host topics detected in a user prompt.
+/// Used by the harness to pre-run multiple topics when the user asks for several at once,
+/// so the model receives all results and only needs to synthesize rather than orchestrate.
+pub(crate) fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
+    // All topic detectors in priority order — ordered so more specific topics come
+    // before generic fallbacks (e.g. traceroute before network).
+    let detectors: &[(&str, fn(&str) -> bool)] = &[
+        ("fix_plan",        |l| l.contains("fix") && (l.contains("cargo") || l.contains("port ") || l.contains("lm studio") || l.contains("toolchain"))),
+        ("updates",         |l| l.contains("up to date") || l.contains("windows update") || l.contains("pending update") || l.contains("update available")),
+        ("security",        |l| l.contains("antivirus") || l.contains("defender") || l.contains("uac") || (l.contains("security") && !l.contains("git") && !l.contains("ssh"))),
+        ("pending_reboot",  |l| l.contains("pending reboot") || l.contains("pending restart") || l.contains("need to restart") || l.contains("reboot required")),
+        ("disk_health",     |l| l.contains("disk health") || l.contains("drive health") || l.contains("smart status") || (l.contains("healthy") && (l.contains("drive") || l.contains("disk") || l.contains("ssd")))),
+        ("battery",         |l| l.contains("battery")),
+        ("recent_crashes",  |l| l.contains("crash") || l.contains("bsod") || l.contains("blue screen")),
+        ("scheduled_tasks", |l| l.contains("scheduled task") || l.contains("task scheduler")),
+        ("dev_conflicts",   |l| l.contains("dev conflict") || l.contains("toolchain conflict") || l.contains("duplicate path")),
+        ("storage",         |l| l.contains("disk space") || l.contains("storage") || l.contains("drive capacity") || l.contains("cache size")),
+        ("hardware",        |l| l.contains("cpu model") || l.contains("ram size") || l.contains("hardware spec") || (l.contains("what hardware") && l.contains("have"))),
+        ("health_report",   |l| l.contains("health report") || l.contains("system health")),
+        ("resource_load",   |l| l.contains("resource load") || l.contains("cpu load") || l.contains("ram %") || l.contains("cpu %") || l.contains("performance")),
+        ("processes",       |l| l.contains("process") || l.contains("task manager") || l.contains("what is running") || l.contains("using my ram")),
+        ("services",        |l| l.contains("service") || l.contains("daemon") || l.contains("windows service")),
+        ("ports",           |l| l.contains("listening port") || l.contains("open port") || l.contains("what is on port") || l.contains("port 3000")),
+        ("traceroute",      |l| l.contains("traceroute") || l.contains("tracert") || l.contains("trace route") || l.contains("trace the path") || l.contains("network path") || l.contains("how many hops") || (l.contains("trace") && l.contains("hop"))),
+        ("dns_cache",       |l| l.contains("dns cache") || l.contains("cached dns") || l.contains("displaydns") || (l.contains("dns") && l.contains("cached"))),
+        ("arp",             |l| l.contains("arp table") || l.contains("arp cache") || l.contains("mac address") || l.contains("ip to mac") || l.contains("arp -")),
+        ("route_table",     |l| l.contains("route table") || l.contains("routing table") || l.contains("route print") || l.contains("network route") || l.contains("next hop")),
+        ("connectivity",    |l| l.contains("internet") || l.contains("am i connected") || l.contains("ping google") || l.contains("internet access") || l.contains("no internet")),
+        ("wifi",            |l| l.contains("wi-fi") || l.contains("wifi") || l.contains("wireless") || l.contains("ssid") || l.contains("signal strength")),
+        ("connections",     |l| l.contains("tcp connection") || l.contains("active connection") || l.contains("netstat") || l.contains("open socket")),
+        ("vpn",             |l| l.contains("vpn") || l.contains("virtual private network")),
+        ("proxy",           |l| l.contains("proxy setting") || l.contains("system proxy") || l.contains("winhttp proxy")),
+        ("firewall_rules",  |l| (l.contains("firewall") && (l.contains("rule") || l.contains("inbound") || l.contains("outbound"))) || l.contains("firewall rule")),
+        ("network",         |l| l.contains("network adapter") || l.contains("ip address") || l.contains("ipconfig") || l.contains("gateway") || l.contains("subnet")),
+        ("env_doctor",      |l| l.contains("env doctor") || l.contains("environment doctor") || l.contains("package manager") || l.contains("path drift")),
+        ("os_config",       |l| l.contains("power plan") || l.contains("uptime") || l.contains("boot time") || l.contains("last boot")),
+        ("path",            |l| l.contains("path entries") || l.contains("raw path")),
+        ("toolchains",      |l| l.contains("developer tools") || l.contains("toolchains") || (l.contains("installed") && l.contains("version"))),
+    ];
+
+    let lower = user_input.to_lowercase();
+    let mut topics: Vec<&'static str> = Vec::new();
+    for (topic, check) in detectors {
+        if check(&lower) && !topics.contains(topic) {
+            topics.push(topic);
+        }
+    }
+    topics
 }
 
 pub(crate) fn preferred_maintainer_workflow(user_input: &str) -> Option<&'static str> {

@@ -108,6 +108,10 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **VPN Status**: Use `topic: "vpn"` to detect active VPN adapters, tunnel IPs, and any recognized VPN client services.
 - **Proxy Settings**: Use `topic: "proxy"` for WinHTTP system proxy, Internet Options proxy, and environment variable proxy config.
 - **Firewall Rules**: Use `topic: "firewall_rules"` for non-default enabled Windows Firewall rules — direction, action (Allow/Block), and profile.
+- **Traceroute**: Use `topic: "traceroute"` to trace the network path to a host (default 8.8.8.8). Accepts optional `host` arg. Uses `tracert` on Windows, `traceroute`/`tracepath` on Linux/macOS.
+- **DNS Cache**: Use `topic: "dns_cache"` to inspect locally cached DNS entries — hostname, record type, resolved address, and TTL.
+- **ARP Table**: Use `topic: "arp"` for the ARP neighbor table — IP-to-MAC mappings for devices on the local network.
+- **Route Table**: Use `topic: "route_table"` for the system routing table — destination prefixes, next hops, metrics, and interface names.
 
 ## Hardware Intent
 

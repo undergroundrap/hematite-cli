@@ -50,6 +50,17 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "vpn" => inspect_vpn(),
         "proxy" | "proxy_settings" => inspect_proxy(),
         "firewall_rules" | "firewall-rules" => inspect_firewall_rules(max_entries),
+        "traceroute" | "tracert" | "trace_route" | "trace" => {
+            let host = args
+                .get("host")
+                .and_then(|v| v.as_str())
+                .unwrap_or("8.8.8.8")
+                .to_string();
+            inspect_traceroute(&host, max_entries)
+        }
+        "dns_cache" | "dnscache" | "dns-cache" => inspect_dns_cache(max_entries),
+        "arp" | "arp_table" => inspect_arp(),
+        "route_table" | "routes" | "routing_table" => inspect_route_table(max_entries),
         "os_config" | "system_config" => inspect_os_config(),
         "resource_load" | "performance" | "system_load" | "performance_diagnosis" => inspect_resource_load(),
         "repo_doctor" => {
@@ -3156,6 +3167,7 @@ pub async fn resolve_host_issue(args: &Value) -> Result<String, String> {
 
 fn inspect_storage(max_entries: usize) -> Result<String, String> {
     let mut out = String::from("Host inspection: storage\n\n");
+    let _ = max_entries; // used by non-Windows branch
 
     // ── Drive overview ────────────────────────────────────────────────────────
     out.push_str("Drives:\n");
@@ -5087,6 +5099,260 @@ try {{
             for l in text.lines().take(n * 2) { out.push_str(&format!("  {l}\n")); }
         } else {
             out.push_str("ufw and iptables not available or insufficient permissions.\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── traceroute ────────────────────────────────────────────────────────────────
+
+fn inspect_traceroute(host: &str, max_entries: usize) -> Result<String, String> {
+    let mut out = format!("Host inspection: traceroute\n\nTarget: {host}\n\n");
+    let hops = max_entries.clamp(5, 30);
+
+    #[cfg(target_os = "windows")]
+    {
+        let output = Command::new("tracert")
+            .args(["-d", "-h", &hops.to_string(), host])
+            .output()
+            .map_err(|e| format!("tracert: {e}"))?;
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let mut hop_count = 0usize;
+        for line in raw.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with(|c: char| c.is_ascii_digit()) {
+                hop_count += 1;
+                out.push_str(&format!("  {trimmed}\n"));
+            } else if trimmed.starts_with("Tracing") || trimmed.starts_with("Trace complete") {
+                out.push_str(&format!("{trimmed}\n"));
+            }
+        }
+        if hop_count == 0 {
+            out.push_str("No hops returned — host may be unreachable or ICMP is blocked.\n");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let cmd = if std::path::Path::new("/usr/bin/traceroute").exists()
+            || std::path::Path::new("/usr/sbin/traceroute").exists()
+        {
+            "traceroute"
+        } else {
+            "tracepath"
+        };
+        let output = Command::new(cmd)
+            .args(["-m", &hops.to_string(), "-n", host])
+            .output()
+            .map_err(|e| format!("{cmd}: {e}"))?;
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let mut hop_count = 0usize;
+        for line in raw.lines().take(hops + 2) {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                hop_count += 1;
+                out.push_str(&format!("  {trimmed}\n"));
+            }
+        }
+        if hop_count == 0 {
+            out.push_str("No hops returned — host may be unreachable or ICMP is blocked.\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── dns_cache ─────────────────────────────────────────────────────────────────
+
+fn inspect_dns_cache(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: dns_cache\n\n");
+    let n = max_entries.clamp(10, 100);
+
+    #[cfg(target_os = "windows")]
+    {
+        let output = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "Get-DnsClientCache | Select-Object -First 200 Entry,RecordType,Data,TimeToLive | ConvertTo-Csv -NoTypeInformation",
+            ])
+            .output()
+            .map_err(|e| format!("dns_cache: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let lines: Vec<&str> = raw.lines().skip(1).collect();
+        let total = lines.len();
+
+        if total == 0 {
+            out.push_str("DNS cache is empty or could not be read.\n");
+        } else {
+            out.push_str(&format!("DNS cache entries (showing up to {n} of {total}):\n\n"));
+            let mut shown = 0usize;
+            for line in lines.iter().take(n) {
+                let cols: Vec<&str> = line.splitn(4, ',').collect();
+                if cols.len() >= 3 {
+                    let entry = cols[0].trim_matches('"');
+                    let rtype = cols[1].trim_matches('"');
+                    let data  = cols[2].trim_matches('"');
+                    let ttl   = cols.get(3).map(|s| s.trim_matches('"')).unwrap_or("?");
+                    out.push_str(&format!("  {entry:<45} {rtype:<6} {data}  (TTL {ttl}s)\n"));
+                    shown += 1;
+                }
+            }
+            if total > shown {
+                out.push_str(&format!("\n  ... and {} more entries\n", total - shown));
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("resolvectl").args(["statistics"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if !text.is_empty() {
+                out.push_str("systemd-resolved statistics:\n");
+                for line in text.lines().take(n) {
+                    out.push_str(&format!("  {line}\n"));
+                }
+                out.push('\n');
+            }
+        }
+        if let Ok(o) = Command::new("dscacheutil").args(["-cachedump", "-entries", "Host"]).output() {
+            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if !text.is_empty() {
+                out.push_str("DNS cache (macOS dscacheutil):\n");
+                for line in text.lines().take(n) {
+                    out.push_str(&format!("  {line}\n"));
+                }
+            } else {
+                out.push_str("DNS cache is empty or not accessible on this platform.\n");
+            }
+        } else {
+            out.push_str("DNS cache inspection not available (no resolvectl or dscacheutil found).\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── arp ───────────────────────────────────────────────────────────────────────
+
+fn inspect_arp() -> Result<String, String> {
+    let mut out = String::from("Host inspection: arp\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let output = Command::new("arp").args(["-a"]).output().map_err(|e| format!("arp: {e}"))?;
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let mut count = 0usize;
+        for line in raw.lines() {
+            let t = line.trim();
+            if t.is_empty() { continue; }
+            out.push_str(&format!("  {t}\n"));
+            if t.contains("dynamic") || t.contains("static") { count += 1; }
+        }
+        out.push_str(&format!("\nTotal entries: {count}\n"));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("arp").args(["-n"]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let mut count = 0usize;
+            for line in raw.lines() {
+                let t = line.trim();
+                if !t.is_empty() { out.push_str(&format!("  {t}\n")); count += 1; }
+            }
+            out.push_str(&format!("\nTotal entries: {}\n", count.saturating_sub(1)));
+        } else if let Ok(o) = Command::new("ip").args(["neigh"]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let mut count = 0usize;
+            for line in raw.lines() {
+                let t = line.trim();
+                if !t.is_empty() { out.push_str(&format!("  {t}\n")); count += 1; }
+            }
+            out.push_str(&format!("\nTotal entries: {count}\n"));
+        } else {
+            out.push_str("arp and ip neigh not available.\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── route_table ───────────────────────────────────────────────────────────────
+
+fn inspect_route_table(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: route_table\n\n");
+    let n = max_entries.clamp(10, 50);
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+try {
+    $routes = Get-NetRoute -ErrorAction Stop |
+        Where-Object { $_.RouteMetric -lt 9000 } |
+        Sort-Object RouteMetric |
+        Select-Object DestinationPrefix, NextHop, RouteMetric, InterfaceAlias
+    "TOTAL:" + $routes.Count
+    $routes | ForEach-Object {
+        $_.DestinationPrefix + "|" + $_.NextHop + "|" + $_.RouteMetric + "|" + $_.InterfaceAlias
+    }
+} catch { "ERROR:" + $_.Exception.Message }
+"#;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+            .map_err(|e| format!("route_table: {e}"))?;
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        if text.starts_with("ERROR:") {
+            out.push_str(&format!("Unable to read route table: {}\n", text.trim_start_matches("ERROR:").trim()));
+        } else {
+            let mut shown = 0usize;
+            for line in text.lines() {
+                if let Some(rest) = line.strip_prefix("TOTAL:") {
+                    let total: usize = rest.trim().parse().unwrap_or(0);
+                    out.push_str(&format!("Routing table (showing up to {n} of {total} routes):\n\n"));
+                    out.push_str(&format!("  {:<22} {:<18} {:>8}  Interface\n", "Destination", "Next Hop", "Metric"));
+                    out.push_str(&format!("  {}\n", "-".repeat(70)));
+                } else if shown < n {
+                    let parts: Vec<&str> = line.splitn(4, '|').collect();
+                    if parts.len() == 4 {
+                        let dest   = parts[0];
+                        let hop    = if parts[1].is_empty() || parts[1] == "0.0.0.0" || parts[1] == "::" { "on-link" } else { parts[1] };
+                        let metric = parts[2];
+                        let iface  = parts[3];
+                        out.push_str(&format!("  {dest:<22} {hop:<18} {metric:>8}  {iface}\n"));
+                        shown += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("ip").args(["route", "show"]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let lines: Vec<&str> = raw.lines().collect();
+            let total = lines.len();
+            out.push_str(&format!("Routing table (showing up to {n} of {total} routes):\n\n"));
+            for line in lines.iter().take(n) {
+                out.push_str(&format!("  {line}\n"));
+            }
+            if total > n {
+                out.push_str(&format!("\n  ... and {} more routes\n", total - n));
+            }
+        } else if let Ok(o) = Command::new("netstat").args(["-rn"]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            for line in raw.lines().take(n) {
+                out.push_str(&format!("  {line}\n"));
+            }
+        } else {
+            out.push_str("ip route and netstat not available.\n");
         }
     }
 
