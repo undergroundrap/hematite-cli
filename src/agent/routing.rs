@@ -310,7 +310,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             || lower.contains("localhost:1234")
             || lower.contains("embedding model")
             || lower.contains("no coding model loaded"));
-    let asks_path = lower.contains("path");
+    let asks_path = lower.contains("path entries") || lower.contains("raw path") || (lower.contains("path") && (lower.contains("show") || lower.contains("what is")));
+    let asks_gpo = lower.contains("gpo") || lower.contains("group policy") || lower.contains("gpresult") || lower.contains("applied policy");
+    let asks_certificates = lower.contains("cert") || lower.contains("ssl") || lower.contains("client cert") || lower.contains("expiring cert");
+    let asks_integrity = lower.contains("integrity") || lower.contains("sfc") || lower.contains("dism") || lower.contains("corruption") || lower.contains("os health");
+    let asks_domain = lower.contains("domain") || lower.contains("active directory") || lower.contains("ad join") || lower.contains("workgroup") || lower.contains("netbios");
     let asks_env_doctor = lower.contains("env doctor")
         || lower.contains("environment doctor")
         || lower.contains("package manager")
@@ -693,6 +697,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
 
     if asks_fix_plan {
         Some("fix_plan")
+    } else if asks_gpo {
+        Some("gpo")
+    } else if asks_certificates {
+        Some("certificates")
+    } else if asks_integrity {
+        Some("integrity")
+    } else if asks_domain {
+        Some("domain")
     } else if asks_bitlocker {
         Some("bitlocker")
     } else if asks_rdp {
@@ -869,6 +881,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("winrm",            |l| l.contains("winrm") || l.contains("psremoting") || (l.contains("remote") && l.contains("management") && !l.contains("rdp"))),
         ("network_stats",    |l| (l.contains("network") && l.contains("stat")) || (l.contains("adapter") && l.contains("stat")) || l.contains("throughput") || l.contains("packet loss") || l.contains("dropped packet")),
         ("udp_ports",        |l| l.contains("udp port") || l.contains("udp listener") || (l.contains("udp") && l.contains("listening"))),
+        ("gpo",              |l| l.contains("gpo") || l.contains("group policy") || l.contains("gpresult")),
+        ("certificates",     |l| l.contains("cert") || l.contains("ssl") || l.contains("thumbprint")),
+        ("integrity",        |l| l.contains("integrity") || l.contains("sfc") || l.contains("dism")),
+        ("domain",           |l| l.contains("domain") || l.contains("workgroup") || l.contains("netbios") || l.contains("active directory")),
     ];
 
     let lower = user_input.to_lowercase();

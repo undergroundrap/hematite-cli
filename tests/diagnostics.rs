@@ -1305,6 +1305,86 @@ async fn test_inspect_host_ports_can_filter_single_listener() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_gpo_reports_access_denied_or_objects() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "gpo"
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host gpo");
+
+    assert!(output.contains("Host inspection: gpo"));
+    assert!(
+        output.contains("Applied Group Policy Objects")
+            || output.contains("Error: Access denied")
+            || output.contains("No applied Group Policy Objects")
+            || output.contains("Windows-only")
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_certificates_reports_personal_store() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "certificates"
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host certificates");
+
+    assert!(output.contains("Host inspection: certificates"));
+    assert!(
+        output.contains("Local Machine Certificates")
+            || output.contains("No certificates found")
+            || output.contains("Cert directory found")
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_integrity_reports_cbs_health() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "integrity"
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host integrity");
+
+    assert!(output.contains("Host inspection: integrity"));
+    assert!(
+        output.contains("Windows Component Store Health")
+            || output.contains("System integrity check")
+            || output.contains("Could not retrieve CBS health")
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_domain_reports_identity() {
+    use serde_json::json;
+
+    let args = json!({
+        "topic": "domain"
+    });
+
+    let output = hematite::tools::host_inspect::inspect_host(&args)
+        .await
+        .expect("inspect host domain");
+
+    assert!(output.contains("Host inspection: domain"));
+    assert!(
+        output.contains("Windows Domain / Workgroup Identity")
+            || output.contains("Linux Domain Identity")
+    );
+}
+
+#[tokio::test]
 async fn test_describe_toolchain_host_inspection_plan_prefers_inspect_host() {
     use serde_json::json;
 

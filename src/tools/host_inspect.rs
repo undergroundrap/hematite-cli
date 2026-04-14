@@ -84,6 +84,10 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "winrm" | "remote_management" | "psremoting" => inspect_winrm(),
         "network_stats" | "adapter_stats" | "nic_stats" | "interface_stats" => inspect_network_stats(max_entries),
         "udp_ports" | "udp_listeners" | "udp" => inspect_udp_ports(max_entries),
+        "gpo" | "group_policy" | "applied_policies" => inspect_gpo(),
+        "certificates" | "certs" | "ssl_certs" => inspect_certificates(max_entries),
+        "integrity" | "sfc" | "dism" | "system_health_deep" => inspect_integrity(),
+        "domain" | "active_directory" | "ad_context" | "workgroup" => inspect_domain(),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -100,7 +104,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain.",
             other
         )),
     }
@@ -7917,6 +7921,188 @@ fn inspect_udp_ports(max_entries: usize) -> Result<String, String> {
             for line in ss_out.lines().take(max_entries) {
                 out.push_str(&format!("  {}\n", line));
             }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_gpo() -> Result<String, String> {
+    let mut out = String::from("Host inspection: gpo\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let output = Command::new("gpresult")
+            .args(["/r", "/scope", "computer"])
+            .output()
+            .ok();
+
+        if let Some(o) = output {
+            let stdout = String::from_utf8(o.stdout).unwrap_or_default();
+            let stderr = String::from_utf8(o.stderr).unwrap_or_default();
+
+            if stdout.contains("Applied Group Policy Objects") {
+                out.push_str("=== Applied Group Policy Objects (Computer Scope) ===\n");
+                let mut capture = false;
+                for line in stdout.lines() {
+                    if line.contains("Applied Group Policy Objects") {
+                        capture = true;
+                    } else if capture && line.contains("The following GPOs were not applied") {
+                        break;
+                    }
+                    if capture && !line.trim().is_empty() {
+                        out.push_str(&format!("  {}\n", line.trim()));
+                    }
+                }
+            } else if stderr.contains("Access is denied") || stdout.contains("Access is denied") {
+                out.push_str("Error: Access denied. Group Policy inspection requires Administrator elevation.\n");
+            } else {
+                out.push_str("No applied Group Policy Objects detected or insufficient permissions to query computer scope.\n");
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Group Policy (GPO) is a Windows-only topic.\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_certificates(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: certificates\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_cmd = format!(
+            "Get-ChildItem -Path Cert:\\LocalMachine\\My | Select-Object Subject, NotAfter, Thumbprint | Select-Object -First {} | ForEach-Object {{ \
+                $days = ($_.NotAfter - (Get-Date)).Days; \
+                $status = if ($days -lt 0) {{ \"[EXPIRED]\" }} else if ($days -lt 30) {{ \"[EXPIRING SOON ($days days)]\" }} else {{ \"\" }}; \
+                \"  $($_.Subject) - Expires: $($_.NotAfter.ToString('yyyy-MM-dd')) $status (Thumb: $($_.Thumbprint.Substring(0,8))...)\" \
+            }}", 
+            max_entries
+        );
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps_cmd])
+            .output()
+            .ok();
+
+        if let Some(o) = output {
+            let stdout = String::from_utf8(o.stdout).unwrap_or_default();
+            if !stdout.trim().is_empty() {
+                out.push_str("=== Local Machine Certificates (Personal Store) ===\n");
+                out.push_str(&stdout);
+            } else {
+                out.push_str("No certificates found in the Local Machine Personal store.\n");
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Host inspection: certificates (Linux/macOS)\n\n");
+        // Check standard cert locations
+        for path in ["/etc/ssl/certs", "/etc/pki/tls/certs"] {
+            if Path::new(path).exists() {
+                out.push_str(&format!("  Cert directory found: {}\n", path));
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_integrity() -> Result<String, String> {
+    let mut out = String::from("Host inspection: integrity\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_cmd = "Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing' | Select-Object Corrupt, AutoRepairNeeded, LastRepairAttempted | ConvertTo-Json";
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps_cmd])
+            .output()
+            .ok();
+
+        if let Some(o) = output {
+            let stdout = String::from_utf8(o.stdout).unwrap_or_default();
+            if let Ok(val) = serde_json::from_str::<Value>(&stdout) {
+                out.push_str("=== Windows Component Store Health (CBS) ===\n");
+                let corrupt = val.get("Corrupt").and_then(|v| v.as_u64()).unwrap_or(0);
+                let repair = val.get("AutoRepairNeeded").and_then(|v| v.as_u64()).unwrap_or(0);
+                
+                out.push_str(&format!("  Corruption Detected: {}\n", if corrupt != 0 { "YES (SFC/DISM recommended)" } else { "No" }));
+                out.push_str(&format!("  Auto-Repair Needed: {}\n", if repair != 0 { "YES" } else { "No" }));
+                
+                if let Some(last) = val.get("LastRepairAttempted").and_then(|v| v.as_u64()) {
+                    out.push_str(&format!("  Last Repair Attempt: (Raw code: {})\n", last));
+                }
+            } else {
+                out.push_str("Could not retrieve CBS health from registry. System may be healthy or state is unknown.\n");
+            }
+        }
+
+        if Path::new("C:\\Windows\\Logs\\CBS\\CBS.log").exists() {
+            out.push_str("\nNote: Detailed integrity logs available at C:\\Windows\\Logs\\CBS\\CBS.log\n");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("System integrity check (Linux)\n\n");
+        let pkg_check = Command::new("rpm").args(["-Va"]).output().or_else(|_| Command::new("dpkg").args(["--verify"]).output()).ok();
+        if let Some(o) = pkg_check {
+             out.push_str("  Package verification system active.\n");
+             if o.status.success() {
+                 out.push_str("  No major package integrity issues detected.\n");
+             }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_domain() -> Result<String, String> {
+    let mut out = String::from("Host inspection: domain\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_cmd = "Get-CimInstance Win32_ComputerSystem | Select-Object Name, Domain, PartOfDomain, Workgroup | ConvertTo-Json";
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps_cmd])
+            .output()
+            .ok();
+
+        if let Some(o) = output {
+            let stdout = String::from_utf8(o.stdout).unwrap_or_default();
+            if let Ok(val) = serde_json::from_str::<Value>(&stdout) {
+                let part_of_domain = val.get("PartOfDomain").and_then(|v| v.as_bool()).unwrap_or(false);
+                let domain = val.get("Domain").and_then(|v| v.as_str()).unwrap_or("Unknown");
+                let workgroup = val.get("Workgroup").and_then(|v| v.as_str()).unwrap_or("Unknown");
+
+                out.push_str("=== Windows Domain / Workgroup Identity ===\n");
+                out.push_str(&format!("  Join Status: {}\n", if part_of_domain { "DOMAIN JOINED" } else { "WORKGROUP" }));
+                if part_of_domain {
+                    out.push_str(&format!("  Active Directory Domain: {}\n", domain));
+                } else {
+                    out.push_str(&format!("  Workgroup Name: {}\n", workgroup));
+                }
+
+                if let Some(name) = val.get("Name").and_then(|v| v.as_str()) {
+                    out.push_str(&format!("  NetBIOS Name: {}\n", name));
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let domainname = Command::new("domainname").output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str("=== Linux Domain Identity ===\n");
+        if !domainname.trim().is_empty() && domainname.trim() != "(none)" {
+             out.push_str(&format!("  NIS/YP Domain: {}\n", domainname.trim()));
+        } else {
+             out.push_str("  No NIS domain configured.\n");
         }
     }
 

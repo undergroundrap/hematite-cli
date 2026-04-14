@@ -120,6 +120,10 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **WinRM**: Use `topic: "winrm"` for Windows Remote Management — service state, listeners, PS Remoting status (WS-Man test), and TrustedHosts list.
 - **Network Stats**: Use `topic: "network_stats"` for adapter-level throughput analytics — TX/RX bytes (MB), packet errors, and discarded/dropped packets since boot.
 - **UDP Listeners**: Use `topic: "udp_ports"` for active UDP listeners — local address, port, PID, process name, and annotations for well-known ports (DNS, DHCP, NTP).
+- **Group Policy (GPO)**: Use `topic: "gpo"` for applied Group Policy Objects — shows applied computer-scope GPOs and filtering status. Requires Administrator elevation on Windows.
+- **Certificates**: Use `topic: "certificates"` for local personal certificates — lists subjects, thumbprints, and expiry dates (flags those expiring within 30 days).
+- **Integrity**: Use `topic: "integrity"` for Windows component store health — checks SFC/DISM status (Corrupt/AutoRepairNeeded) via registry and log visibility.
+- **Domain Context**: Use `topic: "domain"` for Active Directory and domain join status — shows Join Status (DOMAIN/WORKGROUP), Domain name, and NetBIOS name.
 - **Traceroute**: Use `topic: "traceroute"` to trace the network path to a host (default 8.8.8.8). Accepts optional `host` arg. Uses `tracert` on Windows, `traceroute`/`tracepath` on Linux/macOS.
 - **DNS Cache**: Use `topic: "dns_cache"` to inspect locally cached DNS entries — hostname, record type, resolved address, and TTL.
 - **ARP Table**: Use `topic: "arp"` for the ARP neighbor table — IP-to-MAC mappings for devices on the local network.

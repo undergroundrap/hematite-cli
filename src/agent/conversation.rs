@@ -1393,7 +1393,7 @@ impl ConversationManager {
                         self.latest_user_prompt()
                             .and_then(|p| preferred_host_inspection_topic(p))
                     })
-                    .unwrap_or("resource_load");
+                    .unwrap_or("summary");
                 let redirect_args = serde_json::json!({ "topic": topic });
                 let result = crate::tools::host_inspect::inspect_host(&redirect_args).await;
                 return match result {
@@ -5028,6 +5028,15 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "win32_diskdrive",
         "smartstatus",
         "diskstatus",
+        // gpo / certs / integrity / domain
+        "gpresult",
+        "applied gpo",
+        "cert:\\",
+        "cert:",
+        "component based servicing",
+        "componentstore",
+        "get-computerinfo",
+        "win32_computersystem",
         // battery
         "win32_battery",
         "batterystaticdata",
