@@ -18,6 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
+- **Full OS stack coverage**: 30+ read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
 
 ## 1. Model-Native Reasoning Flow
 
@@ -66,7 +67,58 @@ Hematite continuously adapts to the machine it is running on.
 - **Tiny-context fallback profile**: when LM Studio serves a very small active context window, Hematite can switch to a slimmer system prompt so simple prompts still fit instead of immediately exhausting the budget
 - **Manual runtime refresh**: `/runtime-refresh` lets the operator force an LM Studio profile resync on demand, and context-window failures trigger the same refresh path automatically
 
-## 4. Workspace-Native Tooling
+## 4. SysAdmin and Network Admin
+
+Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
+
+**SysAdmin topics (20+):**
+
+- **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
+- **Processes** (`processes`) — per-process CPU time, memory, and PID analytics
+- **Services** (`services`) — running Windows services, startup types, and state
+- **Ports** (`ports`) — listening TCP/UDP ports with owning process
+- **Storage** (`storage`) — all-drives capacity with ASCII bar charts and developer cache sizing (npm, cargo, pip, yarn, rustup, node_modules)
+- **Hardware** (`hardware`) — full hardware DNA: CPU model/cores/clock, RAM total/speed/sticks, GPU name/driver/resolution, motherboard/BIOS, display config
+- **Health report** (`health_report`) — tiered plain-English verdict (ALL GOOD / WORTH A LOOK / ACTION REQUIRED) across disk, RAM, tools, and recent error events
+- **Windows Update** (`updates`) — last install date, pending update count, Windows Update service state
+- **Security** (`security`) — Defender real-time protection, last scan age, signature freshness, firewall profile states, Windows activation, UAC state
+- **Pending reboot** (`pending_reboot`) — detects queued restarts from Windows Update, CBS, and file rename operations
+- **Disk health** (`disk_health`) — physical drive health via Get-PhysicalDisk and SMART failure prediction
+- **Battery** (`battery`) — charge level, status, estimated runtime, wear level; reports gracefully on desktops
+- **Crash history** (`recent_crashes`) — BSOD/unexpected shutdown events and application crash/hang events from the Windows event log
+- **Scheduled tasks** (`scheduled_tasks`) — all non-disabled scheduled tasks with name, path, last run time, and executable
+- **Dev conflicts** (`dev_conflicts`) — cross-tool environment conflict detection: Node version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, duplicate PATH entries
+- **Path and toolchains** (`path`) — full PATH inspection with version detection for installed developer tools
+- **Log check** (`log_check`) — recent system error events from the Windows event log
+- **Startup items** (`startup_items`) — boot-time programs and their startup types
+- **OS config** (`os_config`) — firewall profiles, power plan, and uptime
+
+**Network Admin topics (10):**
+
+- **Connectivity** (`connectivity`) — internet reachability test (DNS + ICMP + HTTPS) with latency and failure diagnosis
+- **Wi-Fi** (`wifi`) — connected SSID, signal strength, channel, frequency band, and adapter details
+- **Active connections** (`connections`) — all established and listening TCP/UDP connections with owning process
+- **VPN** (`vpn`) — VPN adapter detection, state, and assigned IP address
+- **Proxy** (`proxy`) — system-level proxy settings (WinHTTP / per-user / environment variables)
+- **Firewall rules** (`firewall_rules`) — active Windows Firewall rules allowing inbound traffic
+- **Traceroute** (`traceroute`) — hop-by-hop path to a target with round-trip times and latency spikes
+- **DNS cache** (`dns_cache`) — current local DNS resolver cache entries
+- **ARP table** (`arp`) — local ARP cache mapping IP addresses to MAC addresses
+- **Routing table** (`route_table`) — full IP routing table with interface, next-hop, and metric
+
+**Harness pre-run orchestration:**
+
+When a user asks about multiple inspection topics in one message, Hematite detects all matching topics before the model turn and runs all `inspect_host` calls automatically. The combined results are injected as a `loop_intervention` so the model synthesizes from real data instead of orchestrating tool calls one by one. This eliminates redundant round-trips and prevents the model from collapsing multi-topic requests into a single generic topic.
+
+**Shell auto-redirect:**
+
+When the model calls `shell` with a command that matches a structured host inspection topic (e.g. `arp -a`, `tracert`, `Get-DnsClientCache`, `Get-NetRoute`), the harness silently redirects it to the correct `inspect_host` topic, marks the result as non-error, and appends a note explaining the redirect. The model never retries in a failure loop.
+
+**Safe remediation:**
+
+`resolve_host_issue` provides a bounded, user-gated path for three fix actions: `install_package` (winget), `restart_service`, and `clear_temp`. Read-only inspection is always available without approval; write actions go through the safe remediation path.
+
+## 5. Workspace-Native Tooling
 
 Hematite is more than a chat shell around a local model.
 
@@ -81,7 +133,7 @@ Hematite is more than a chat shell around a local model.
 - **Grounded toolchain guidance**: `describe_toolchain` gives the model a verified read-only map of Hematite's actual built-in tools, when to use them, and what investigation order makes sense
 - **Vision support**: screenshot and diagram analysis can flow through `vision_analyze` when a task benefits from visual inspection
 
-## 5. Stateful Local Workflow
+## 6. Stateful Local Workflow
 
 Hematite is built for repeated project use, not one-off prompts.
 
@@ -101,7 +153,7 @@ Hematite is built for repeated project use, not one-off prompts.
 - **Instruction discovery**: project rules are loaded automatically from workspace instruction files
 - **Sticky workflow modes**: `/ask`, `/code`, `/architect`, `/read-only`, and `/auto` let the operator choose between analysis, implementation, plan-first, and hard read-only behavior
 
-## 6. Voice and TUI Integration
+## 7. Voice and TUI Integration
 
 Hematite includes built-in operator experience features that are part of the product, not bolted on later.
 
@@ -110,7 +162,7 @@ Hematite includes built-in operator experience features that are part of the pro
 - **Live diagnostics**: runtime state, GPU load, and tool activity are surfaced during use
 - **Hybrid thinking**: non-Gemma models (Qwen etc.) automatically use `/think` mode so the model decides how much reasoning each turn needs without user intervention
 
-## 7. Sandboxed Code Execution
+## 8. Sandboxed Code Execution
 
 Hematite can run code the model writes in a restricted subprocess — enabling real computation, not pattern-matched guesses from training data.
 
@@ -136,7 +188,7 @@ That result cannot come from training data. SHA-256 is deterministic but not mem
 - **Real math and logic**: the model can verify algorithms, run calculations, test data transformations, and fix errors from actual output — not training-data approximations
 - **Practical use cases**: check a sorting algorithm on a real dataset, verify a regex against real strings, compute checksums, generate test fixtures, run a quick proof — all without leaving the conversation
 
-## 8. MCP Interoperability
+## 9. MCP Interoperability
 
 Hematite can extend itself through external MCP servers without making MCP the core identity of the product.
 
@@ -145,7 +197,7 @@ Hematite can extend itself through external MCP servers without making MCP the c
 - **Protocol resilience**: supports newline-delimited stdio and falls back to `Content-Length` framing
 - **TUI-safe process handling**: MCP stderr is captured in memory so child processes do not corrupt the terminal UI
 
-## 9. Local-First Product Boundary
+## 10. Local-First Product Boundary
 
 Hematite is the **agent harness**. LM Studio is the **model runtime**.
 
@@ -157,4 +209,4 @@ That boundary gives Hematite three advantages:
 
 ---
 
-Hematite is strongest when treated as a polished local coding harness: GPU-aware, terminal-native, tool-rich, and tuned for serious project work on single-GPU consumer hardware, especially RTX 4070-class machines.
+Hematite is strongest when treated as a complete local AI workstation partner: a polished coding harness, a grounded SysAdmin and Network Admin, and a natural-language terminal interface — all GPU-aware, terminal-native, tool-rich, and tuned for serious work on single-GPU consumer hardware, especially RTX 4070-class machines.

@@ -2,7 +2,9 @@
 
 **Your RTX 4070 is a serious coding machine. Hematite makes it one.**
 
-Local AI coding harness and natural-language workstation assistant for LM Studio. Runs entirely on your hardware. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, inspects the machine it is running on, and speaks responses out loud — all from a single binary that boots in seconds.
+Think of it as a **Senior SysAdmin, Network Admin, and Software Engineer living in your terminal** — running 100% on your own silicon for total privacy and speed.
+
+Local AI coding harness, SysAdmin, and Network Admin assistant for LM Studio. Runs entirely on your hardware. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, inspects the machine it is running on — including full network state, hardware health, and workstation telemetry — and speaks responses out loud. All from a single binary that boots in seconds.
 
 **What it actually does:**
 - Detects the workspace automatically — coding project, document folder, or general directory — and adjusts its behavior accordingly. No flags, no config.
@@ -10,7 +12,9 @@ Local AI coding harness and natural-language workstation assistant for LM Studio
 - Shows a coloured diff preview before every edit — press Y to apply, N to skip
 - Edits with exact-match precision, CRLF-safe on Windows; if exact match fails, applies three levels of fuzzy recovery (rstrip → full-strip → cross-file workspace scan hint).
 - Runs `verify_build` after every change and feeds errors back to the model automatically.
-- **Self-Correcting Runtime Guards**: Automatically catches and blocks raw shell commands for standard tasks (PATH, Firewall, Power, Uptime), nudging the model to use optimized tools and retrying the turn automatically.
+- **SysAdmin + Network Admin built in**: 30+ read-only inspection topics cover CPU/RAM load, processes, services, ports, storage, hardware DNA, security posture, crash history, scheduled tasks, connectivity, Wi-Fi, active connections, VPN state, proxy config, firewall rules, traceroute, DNS cache, ARP table, and routing table — all grounded, no guessing.
+- **Harness pre-run orchestration**: when you ask about multiple system topics at once, Hematite automatically runs all `inspect_host` calls before the model turn and injects the combined data as context — so the model synthesizes from real data instead of orchestrating tool calls one by one.
+- **Self-Correcting Runtime Guards**: automatically catches and blocks raw shell commands for any inspectable topic, redirecting them to the right structured tool and retrying the turn without interrupting you.
 - Ghost-snapshots every edit so `Ctrl+Z` restores the previous state instantly.
 - Indexes your codebase with hybrid BM25 + semantic search so the model starts each turn with the right code already in view; session memory is automatically classified by type (decision, problem, milestone, preference) and retrieval boosts matching chunks based on query intent
 - Writes large tool outputs to a scratch file and tells the model where to find them — nothing silently dropped, always recoverable via `read_file`
@@ -19,7 +23,7 @@ Local AI coding harness and natural-language workstation assistant for LM Studio
 - Speaks every response through a built-in 54-voice TTS engine — statically linked, zero install, works offline
 - Clean conversational chat mode alongside the full agent mode — terminal-native, no Electron, no browser
 
-`hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, natural-language workstation/sysadmin assistant when you need one, clean conversation when you do not. LM Studio handles model serving. Hematite handles the grounded local workflow around it.
+`hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, SysAdmin and Network Admin when you need one, clean conversation when you do not. LM Studio handles model serving. Hematite handles the grounded local workflow around it.
 
 ![Version](https://img.shields.io/badge/version-0.4.6-orange?style=flat-square)
 [![crate hematite-cli](https://img.shields.io/crates/v/hematite-cli?style=flat-square&label=crate%20hematite-cli)](https://crates.io/crates/hematite-cli)
@@ -69,17 +73,14 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 - **Proven tool loop** — read → grep → edit → verify → undo. Tested on real Rust codebases. The model finds the right line, makes the right change, catches its own errors, and recovers without prompting.
 - **Sandboxed code execution** — the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation — not training-data guesses. Hematite automatically uses Deno from LM Studio's install — no extra setup required. Not using LM Studio? Install Deno globally: `winget install DenoLand.Deno`.
 - **Grounded terminal execution** — Hematite can inspect the real machine through native shell tools, files, and project commands. That means it can answer from observed state — installed toolchains, active network adapters, running ports, desktop files, build output, repo status — instead of making generic guesses.
-- **Natural-language workstation admin** — Hematite can inspect processes, services, PATH health, package managers, network state, ports, and fix-plan lanes in plain English, so it behaves less like a blind chat UI and more like a grounded developer workstation operator.
+- **Natural-language SysAdmin + Network Admin** — 30+ read-only inspection topics cover full workstation health (CPU/RAM, processes, services, hardware, security, crash history) and complete network state (connectivity, Wi-Fi, active connections, VPN, proxy, firewall rules, traceroute, DNS cache, ARP table, routing table) — all in plain English from real tool output, not model guesses.
 - **Hybrid RAG built in** — The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, not hunting for it with five read_file calls.
 - **Built-in voice, zero install** — 54-voice Kokoro TTS in the packaged releases. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run in the packaged builds.
 - **Windows-first** — CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
 - **Honest about hardware** — VRAM usage in the status bar, context budget visible, compaction triggered before you hit the ceiling. No silent failures.
 - **Zero ongoing cost** — no API key, no subscription, no per-token billing. Run it all day.
 - **Private by default** — nothing leaves your machine. No telemetry, no cloud fallback.
-  - [x] Host Inspection (SysAdmin Telemetry)
-  - [x] Global Enforcement Guard (Shell Redirection)
-  - [x] CPU/RAM Real-time Tracking
-  - [x] Process Cumulative CPU Time Analytics
+
 **Windows is the primary development target.** PowerShell integration, path handling, shell behavior, and sandbox isolation receive the most polish there. Linux and macOS are supported.
 
 ---
@@ -93,8 +94,9 @@ Hematite is for developers who want a **local coding CLI that behaves like a ser
 - You want a **local coding harness** that survives tight context budgets instead of silently melting down near the ceiling.
 - You want a **local coding CLI for RTX 4070-class hardware** that admits hardware limits and engineers around them.
 - You want a harness that exposes **runtime truth**: live model context, budget pressure, recovery steps, blocker states, session carry-forward, and observed workstation state.
-- You want a **developer workstation assistant** that can inspect PATH, package managers, services, processes, ports, network state, and grounded fix plans instead of only talking about code.
-- You want something that feels like a **natural-language sysadmin for your dev machine**, not just another coding chatbot.
+- You want a **developer workstation assistant** that covers the entire OS stack in plain English: PATH health, package managers, services, processes, ports, storage, hardware inventory, security posture, crash history, and grounded fix plans — all from real data.
+- You want a **network admin in your terminal**: inspect connectivity, Wi-Fi adapters, active connections, VPN state, proxy config, firewall rules, traceroute paths, DNS cache, ARP tables, and routing tables without opening a separate tool or writing a script.
+- You want something that feels like a **natural-language SysAdmin and Network Admin for your dev machine**, not just another coding chatbot.
 
 If your goal is cloud-scale autonomous orchestration, Hematite is not trying to win that game. If your goal is the best practical local coding harness and workstation assistant for repo work on consumer hardware, that is exactly the category it is trying to own.
 
@@ -184,23 +186,43 @@ Useful examples:
 
 This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
 
-For structured workstation questions, prefer `inspect_host` first. It now covers common toolchains, PATH, environment/package-manager health, OS configuration (Firewall/Power/Uptime), **Resource Load (CPU/RAM %)**, **System Health Reports**, grounded fix plans for common workstation failures, network snapshots, service snapshots, process snapshots, desktop/downloads, listening ports, repo-doctor summaries, recent system log errors (`log_check`), boot-time startup items (`startup_items`), and arbitrary directory or disk inspections before falling back to raw shell.
+For structured workstation and network questions, prefer `inspect_host` first. It covers 30+ topics across the full SysAdmin and Network Admin stack:
+
+**SysAdmin topics:** common toolchains, PATH, environment/package-manager health, OS config (Firewall/Power/Uptime), resource load (CPU/RAM %), processes, services, ports, storage, hardware DNA, system health reports, grounded fix plans, recent log errors (`log_check`), startup items (`startup_items`), Windows Update (`updates`), security posture (`security`), pending reboot detection (`pending_reboot`), drive SMART health (`disk_health`), battery (`battery`), crash/BSOD history (`recent_crashes`), scheduled tasks (`scheduled_tasks`), dev environment conflicts (`dev_conflicts`).
+
+**Network Admin topics:** internet connectivity (`connectivity`), Wi-Fi adapters and signal (`wifi`), active TCP/UDP connections (`connections`), VPN adapter state (`vpn`), system proxy config (`proxy`), firewall rules (`firewall_rules`), traceroute path (`traceroute`), DNS cache (`dns_cache`), ARP table (`arp`), routing table (`route_table`).
+
+**Harness pre-run:** when you ask about multiple topics in one message (e.g. "show me route table, ARP, DNS cache, and traceroute"), Hematite automatically runs all inspect_host calls before the model turn and injects the combined data as context. The model synthesizes a clear answer from real data — no redundant tool calls, no orchestration back-and-forth.
 
 - **Safe Remediation**: Use `resolve_host_issue` for bounded, user-gated fixes like installing missing packages (winget), restarting services, or clearing caches.
 
-Try these prompts:
-
+**SysAdmin prompts:**
 - `Inspect my PATH, tell me which developer tools you detect with versions, point out any duplicate or missing PATH entries, then give me a one-paragraph summary of whether this machine looks ready for local development.`
-- `Show me my active network adapters, IP addresses, gateways, and DNS servers, then tell me whether anything looks off for a normal dev machine.`
 - `Run an environment doctor on this machine and tell me whether my PATH and package managers look sane.`
 - `How do I fix cargo not found on this machine?`
-- `How do I fix Hematite when LM Studio is not reachable on localhost:1234?`
 - `Show me the running services and startup types that matter for a normal dev machine.`
 - `Show me what processes are using the most RAM right now and whether anything looks unusual.`
 - `Count and name the items on my desktop.`
-- `Inspect my Downloads folder and tell me the top-level item count, the biggest entries, and whether anything there looks unusually large.`
 - `Show me what is listening on port 3000 and whether anything unexpected is exposed.`
-- `Run a repo doctor on this workspace and tell me whether the git state, build markers, Hematite memory folders, and current release artifacts look sane.`
+- `Run a repo doctor on this workspace.`
+- `Show me full hardware inventory — CPU, RAM, GPU, and display config.`
+- `Run a system health check and give me a plain-English verdict.`
+- `Check for BSOD or crash events in the last week.`
+- `Show me all scheduled tasks and what they run.`
+- `Check for dev environment conflicts — Node version managers, Python ambiguity, Rust toolchain.`
+
+**Network Admin prompts:**
+- `Check my internet connectivity and tell me if anything looks wrong.`
+- `Show me my active network adapters, IP addresses, gateways, and DNS servers, then tell me whether anything looks off for a normal dev machine.`
+- `Show me all active TCP and UDP connections and flag anything suspicious.`
+- `Check if a VPN is connected and what adapter it's using.`
+- `Show me my system proxy settings.`
+- `List my firewall rules and show anything that allows inbound traffic.`
+- `Trace the path to 8.8.8.8 and tell me where latency spikes.`
+- `Show me my DNS cache.`
+- `Show me the ARP table — what devices is this machine aware of?`
+- `Show me the routing table and tell me what route handles default traffic.`
+- `Show me route table, ARP, DNS cache, and traceroute.` ← harness pre-runs all four automatically
 
 The shell path is still bounded like the rest of the harness: commands run through Hematite's tool layer with timeout limits, output capping, workspace awareness, and approval controls for risky actions.
 
@@ -634,7 +656,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
 
-| `inspect_host` | Structured read-only inspection of PATH, toolchains, OS Config (Firewall/Power/Uptime), **Resource Load (CPU/RAM %)**, System Health Reports, environment/package-manager health, grounded fix plans, network, services, processes, desktop/downloads, ports, repo health, recent system log errors (`log_check`), boot-time startup items (`startup_items`), all drives + developer cache sizing (`storage`), full hardware DNA (`hardware`), tiered health verdict (`health_report`), **Windows Update status** (`updates`), **Defender/Firewall/activation/UAC** (`security`), **pending restart detection** (`pending_reboot`), **physical drive SMART health** (`disk_health`), **battery charge/wear level** (`battery`), **BSOD and app crash history** (`recent_crashes`), **scheduled tasks** (`scheduled_tasks`), **dev environment conflict detection** (`dev_conflicts`) |
+| `inspect_host` | 30+ read-only SysAdmin + Network Admin topics. **SysAdmin:** PATH, toolchains, OS config (Firewall/Power/Uptime), resource load (`resource_load`), processes, services, ports, storage, hardware DNA (`hardware`), system health verdict (`health_report`), fix plans, recent log errors (`log_check`), startup items, Windows Update (`updates`), Defender/firewall/activation/UAC (`security`), pending reboot (`pending_reboot`), drive SMART health (`disk_health`), battery (`battery`), crash/BSOD history (`recent_crashes`), scheduled tasks (`scheduled_tasks`), dev conflicts (`dev_conflicts`). **Network Admin:** internet connectivity (`connectivity`), Wi-Fi adapters/signal (`wifi`), active TCP/UDP connections (`connections`), VPN adapter state (`vpn`), proxy config (`proxy`), firewall rules (`firewall_rules`), traceroute (`traceroute`), DNS cache (`dns_cache`), ARP table (`arp`), routing table (`route_table`). |
 | `resolve_host_issue` | Safe, user-gated remediation actions: `install_package` (winget), `restart_service`, and `clear_temp`. |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
@@ -649,7 +671,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `run_code` | Execute JavaScript/TypeScript (Deno) or Python in a zero-trust sandbox — real output, not model guesses |
 | `clarify` | Ask the user a question when genuinely blocked |
 
-Use `inspect_host` first for structured host questions like installed tool versions, PATH drift, environment/package-manager health, common workstation fix plans, network state, service state, recent system log errors, boot-time startup items, desktop item counts, Downloads size, drive capacity and developer cache sizing, full hardware inventory, Windows Update status, antivirus/Defender/firewall state, Windows activation, pending restarts, drive SMART health, battery wear, crash/BSOD history, scheduled tasks, or dev environment conflicts. That keeps routine workstation inspection grounded without forcing the model to improvise shell commands. `shell` is still there for the cases that really do need a custom command.
+Use `inspect_host` first for any SysAdmin or Network Admin question. It covers the full OS stack — PATH, toolchains, hardware, security posture, crash history, scheduled tasks, storage, power, update state — and the full network stack — connectivity, Wi-Fi, active connections, VPN, proxy, firewall rules, traceroute, DNS cache, ARP, and routing table. All topics are read-only and grounded in real tool output. When you ask about multiple topics at once, the harness runs all inspect_host calls automatically before the model turn and injects combined results as context (harness pre-run) — no redundant tool calls. `shell` is still available for the cases that genuinely need a custom command.
 
 ---
 
