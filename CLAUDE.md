@@ -642,13 +642,16 @@ Hematite is designed around the real constraint of a single consumer GPU running
 
 This roadmap reflects that design philosophy: things that are worth doing now because they work with the model's actual capability, and things to revisit when local models improve.
 
+### Shipped — formerly Tier 1
+
+- **Streaming shell output** — ✓ Done. `execute_streaming` streams each stdout/stderr line to the SPECULAR panel as it arrives via `InferenceEvent::ShellLine`. `verify_build` uses the same path. Background tasks fall back to blocking execution.
+- **Turn checkpointing** — ✓ Done. `save_session()` writes `.hematite/session.json` after every turn. On next startup, `load_checkpoint()` surfaces the resume hint in SPECULAR and `running_summary` + `session_memory` are reinjected into the model's system prompt. `/new` and `/forget` both clear the session cleanly via `save_empty_session()`.
+- **Computation integrity routing** — ✓ Done. `needs_computation_sandbox()` in `routing.rs` detects math queries and injects a pre-turn nudge. Shell-to-run_code block recovery and Deno parse error recovery are wired in the tool result handler.
+
 ### Tier 1 — High value, local models ready today
 
-- **Streaming shell output** — `shell` blocks until completion; streaming would make long builds and test runs interactive and let the model see live output as it arrives.
-- **Turn checkpointing** — persist a recovery spine (last goal, last tool call, last verification result) so a mid-session crash or `/new` does not silently erase context the model needed.
 - **Whisper voice input** — Hematite already has a TTS output pipeline; Whisper for STT input would close the voice loop and make the harness hands-free.
 - **Per-workspace model profiles** — let `.hematite/settings.json` specify a preferred model, context ceiling, and embed model per project; useful when different repos need different size/speed tradeoffs.
-- **Smarter compaction** — current summary chaining loses ordering fidelity; a structured ledger (goal + tool sequence + verification result per turn) would compress more faithfully and survive longer sessions.
 
 ### Tier 2 — Worth doing when local models handle it reliably
 
@@ -662,4 +665,4 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 - **The Vein as an explicit knowledge base** — manual `remember this` and `forget this` operator commands with durable, typed knowledge entries that survive `/new` and workspace resets.
 - **Hardware-aware autonomy** — let the harness self-limit swarm fanout, tool parallelism, and context depth based on live VRAM and context-pressure readings without requiring operator intervention.
 - **Privacy audit layer** — before `shell` or `run_code` runs, scan for credential patterns (API keys, tokens, env vars) in arguments and offer a redact-and-confirm path.
-- **Session continuity across restarts** — a first-class carry-forward mechanism that resumes not just the transcript but the typed checkpoint state (goal, working set, last verification result) from the previous session in the same workspace.
+- **Session continuity across restarts** — ✓ Done (see Shipped above). Goal, working set, running summary, and last verification result all survive restarts via `.hematite/session.json`.
