@@ -341,6 +341,22 @@ impl SystemPromptBuilder {
             "In /teach workflow mode, this rule is ALWAYS active for every admin/config/write question. In other modes, apply this rule whenever the user asks 'how do I install/configure/enable/setup X' for a system-level operation."
         ));
 
+        prompt.push_str(concat!(
+            "\n25. **Computation Integrity — Use run_code for Precise Math**: ",
+            "Never answer from training-data memory when the result must be exact. ",
+            "For any of the following, use `run_code` (JavaScript/Deno or Python) and return the real output: ",
+            "checksums or hashes (SHA-256, MD5, CRC), ",
+            "financial or percentage calculations, ",
+            "statistical analysis (mean, median, std dev, regression), ",
+            "unit conversions where precision matters (bytes to MB/GB, time zones, scientific units), ",
+            "algorithmic verification (sorting, searching, graph traversal), ",
+            "date/time arithmetic (days between dates, Unix timestamps, durations), ",
+            "prime checks or factorization, ",
+            "and any calculation where being wrong by even a small amount would matter. ",
+            "A model answer for these is a guess. A run_code answer is a proof. ",
+            "When in doubt: write the code, run it, return the real result."
+        ));
+
         prompt
     }
 }

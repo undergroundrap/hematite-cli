@@ -3944,3 +3944,60 @@ async fn test_inspect_host_processes_io() {
             || output.contains("unknown")
     );
 }
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_hash_queries() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox("what is the sha256 of this string?"));
+    assert!(needs_computation_sandbox("compute the md5 checksum of this file content"));
+    assert!(needs_computation_sandbox("generate a crc32 hash for these bytes"));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_financial_queries() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox("calculate 15% compound interest over 5 years"));
+    assert!(needs_computation_sandbox("what is the roi on a $10,000 investment"));
+    assert!(needs_computation_sandbox("compute the tax on $85,000 income"));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_statistics() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox("what is the standard deviation of [2, 4, 4, 4, 5, 5, 7, 9]?"));
+    assert!(needs_computation_sandbox("calculate the mean of these values: 10, 20, 30"));
+    assert!(needs_computation_sandbox("find the median of this dataset"));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_unit_conversions() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox("convert 2.5 gigabytes to megabytes"));
+    assert!(needs_computation_sandbox("how many bytes is 512 mb?"));
+    assert!(needs_computation_sandbox("convert 100 celsius to fahrenheit"));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_date_arithmetic() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox("how many days between 2024-01-15 and 2025-04-14?"));
+    assert!(needs_computation_sandbox("what is the unix timestamp for midnight UTC today?"));
+    assert!(needs_computation_sandbox("how many days until christmas?"));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_algorithmic_queries() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox("check if 7919 is prime number"));
+    assert!(needs_computation_sandbox("run this code and tell me the output"));
+    assert!(needs_computation_sandbox("execute this script for me"));
+}
+
+#[test]
+fn test_computation_sandbox_detector_does_not_trigger_on_normal_queries() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(!needs_computation_sandbox("how do I refactor this function?"));
+    assert!(!needs_computation_sandbox("what processes are using the most RAM?"));
+    assert!(!needs_computation_sandbox("show me the git log for this repo"));
+    assert!(!needs_computation_sandbox("explain how the vein indexer works"));
+}

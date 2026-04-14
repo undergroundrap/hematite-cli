@@ -27,8 +27,8 @@ use crate::agent::recovery_recipes::{
 };
 use crate::agent::routing::{
     classify_query_intent, is_capability_probe_tool, looks_like_mutation_request,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_computation_sandbox, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
@@ -2573,6 +2573,25 @@ impl ConversationManager {
             }
         }
 
+        // ── Computation Integrity: nudge model toward run_code for precise math ──
+        // When the query involves exact numeric computation (hashes, financial math,
+        // statistics, date arithmetic, unit conversions, algorithmic checks), inject
+        // a brief pre-turn reminder so the model reaches for run_code instead of
+        // answering from training-data memory. Only fires when no harness pre-run
+        // already set a loop_intervention.
+        if loop_intervention.is_none() && needs_computation_sandbox(&effective_user_input) {
+            loop_intervention = Some(
+                "COMPUTATION INTEGRITY NOTICE: This query involves precise numeric computation. \
+                 Do NOT answer from training-data memory — memory answers for math are guesses. \
+                 Use `run_code` to compute the real result and return the actual output. \
+                 IMPORTANT: the `run_code` tool defaults to JavaScript (Deno). \
+                 If you write Python code, you MUST pass `language: \"python\"` explicitly. \
+                 If you write JavaScript/TypeScript, omit the language field or pass `language: \"javascript\"`. \
+                 Write the code, run it, return the result."
+                    .to_string(),
+            );
+        }
+
         let mut implementation_started = false;
         let mut non_mutating_plan_steps = 0usize;
         let non_mutating_plan_soft_cap = 5usize;
@@ -3211,6 +3230,44 @@ impl ConversationManager {
                             loop_intervention = Some(guidance);
                             *repeat_count = 0;
                         }
+                    }
+
+                    // When guard.rs blocks a shell call with the run_code redirect hint,
+                    // force the model to recover with run_code instead of giving up.
+                    if is_error
+                        && tool_name == "shell"
+                        && final_output.contains("Use the run_code tool instead")
+                        && loop_intervention.is_none()
+                    {
+                        loop_intervention = Some(
+                            "STOP. Shell was blocked because this is a computation task. \
+                             You MUST use `run_code` now — write the code and run it. \
+                             Do NOT output an error message or give up. \
+                             Call `run_code` with the appropriate language and code to compute the answer. \
+                             If writing Python, pass `language: \"python\"`. \
+                             If writing JavaScript, omit language or pass `language: \"javascript\"`."
+                                .to_string(),
+                        );
+                    }
+
+                    // When run_code fails with a Deno parse error, the model likely sent Python
+                    // code without specifying language: "python". Force a corrective retry.
+                    if is_error
+                        && tool_name == "run_code"
+                        && (final_output.contains("source code could not be parsed")
+                            || final_output.contains("Expected ';'")
+                            || final_output.contains("Expected '}'")
+                            || final_output.contains("is not defined")
+                                && final_output.contains("deno"))
+                        && loop_intervention.is_none()
+                    {
+                        loop_intervention = Some(
+                            "STOP. run_code failed with a JavaScript parse error — you likely wrote Python \
+                             code but forgot to pass `language: \"python\"`. \
+                             Retry run_code with `language: \"python\"` and the same code. \
+                             Do NOT fall back to shell. Do NOT give up."
+                                .to_string(),
+                        );
                     }
 
                     if res.blocked_by_policy

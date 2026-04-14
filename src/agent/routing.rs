@@ -1521,6 +1521,37 @@ pub(crate) fn is_capability_probe_tool(name: &str) -> bool {
     )
 }
 
+/// Returns true when the user's query involves computation that must be exact —
+/// checksums, financial math, statistics, date arithmetic, algorithmic verification, etc.
+/// Used by the harness to inject a pre-turn nudge toward run_code instead of model memory.
+pub fn needs_computation_sandbox(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    let hash_or_checksum = lower.contains("sha") || lower.contains("md5") || lower.contains("checksum")
+        || lower.contains("crc") || lower.contains("hash") || lower.contains("fingerprint");
+    let financial = (lower.contains("calculat") || lower.contains("compute") || lower.contains("what is"))
+        && (lower.contains("percent") || lower.contains("%") || lower.contains("interest")
+            || lower.contains("compound") || lower.contains("roi") || lower.contains("tax")
+            || lower.contains("discount") || lower.contains("profit") || lower.contains("loss"));
+    let statistics = lower.contains("standard deviation") || lower.contains("std dev")
+        || lower.contains("mean of") || lower.contains("median of") || lower.contains("average of")
+        || lower.contains("variance") || lower.contains("regression") || lower.contains("correlation");
+    let date_math = (lower.contains("how many days") || lower.contains("days between")
+        || lower.contains("days until") || lower.contains("days since") || lower.contains("unix timestamp")
+        || lower.contains("epoch") || lower.contains("time zone") || lower.contains("timezone"))
+        && (lower.contains("date") || lower.contains("day") || lower.contains("timestamp") || lower.contains("time"));
+    let algorithmic = lower.contains("is prime") || lower.contains("prime number") || lower.contains("factori")
+        || lower.contains("fibonacci") || lower.contains("factorial") || lower.contains("sort this")
+        || lower.contains("verify this algorithm") || lower.contains("run this code")
+        || lower.contains("execute this");
+    let unit_conversion = (lower.contains("convert") || lower.contains("how many"))
+        && (lower.contains(" bytes") || lower.contains(" kb") || lower.contains(" mb") || lower.contains(" gb")
+            || lower.contains(" tb") || lower.contains("gigabyte") || lower.contains("megabyte")
+            || lower.contains("celsius") || lower.contains("fahrenheit") || lower.contains("kelvin")
+            || lower.contains("kilometers") || lower.contains("miles") || lower.contains("pounds")
+            || lower.contains("kilograms"));
+    hash_or_checksum || financial || statistics || date_math || algorithmic || unit_conversion
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
