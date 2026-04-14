@@ -1759,9 +1759,44 @@ impl InferenceEngine {
                 }
 
                 if let Ok(json) = serde_json::from_str::<Value>(data) {
-                    if let Some(content) = json["choices"][0]["delta"]["content"].as_str() {
+                    let delta = &json["choices"][0]["delta"];
+
+                    // Process reasoning/thought deltas (Qwen/O1 style)
+                    if let Some(reasoning) = delta["reasoning_content"]
+                        .as_str()
+                        .or_else(|| delta["thought"].as_str())
+                    {
+                        if !reasoning.is_empty() {
+                            past_think = false; // We are in reasoning mode
+                            content_buffer.push_str(reasoning);
+                            if content_buffer.len() > 30
+                                && (reasoning.contains('\n') || reasoning.contains('.'))
+                            {
+                                let _ = tx
+                                    .send(InferenceEvent::Thought(content_buffer.clone()))
+                                    .await;
+                                emitted_any_content = true;
+                                content_buffer.clear();
+                            }
+                        }
+                    }
+
+                    // Process standard content deltas
+                    if let Some(content) = delta["content"].as_str() {
                         if content.is_empty() {
                             continue;
+                        }
+
+                        // Auto-transition: if we have content but were in 'thinking' mode,
+                        // and haven't seen an explicit tag, assume reasoning is over once content is non-empty.
+                        if !past_think && !content_buffer.is_empty() && !content.trim().is_empty() {
+                            // Only transition if the content isn't logically part of the thinking
+                            // block (some models mix them). Standard heuristic: first non-whitespace content.
+                            let _ = tx
+                                .send(InferenceEvent::Thought(content_buffer.clone()))
+                                .await;
+                            content_buffer.clear();
+                            past_think = true;
                         }
 
                         if !past_think {
@@ -1789,7 +1824,6 @@ impl InferenceEngine {
                             } else {
                                 // Still in reasoning block
                                 content_buffer.push_str(content);
-                                // Heuristic: Flush thoughts on paragraph/sentence breaks for SPECULAR
                                 if content_buffer.len() > 30
                                     && (content.contains('\n') || content.contains('.'))
                                 {
@@ -1802,7 +1836,6 @@ impl InferenceEngine {
                             }
                         } else {
                             // PAST THINK: final answer tokens.
-                            // [Linguistic Buffering] Aggregate into content_buffer until a boundary is hit.
                             content_buffer.push_str(content);
                             let is_boundary = content.contains(' ')
                                 || content.contains('.')
@@ -2306,16 +2339,10 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
     use regex::Regex;
     let mut results = Vec::new();
 
-    // Regex to find the tool call block
-    // Formats supported:
-    // <|tool_call|>call:func_name{args}<tool_call|>
-    // <|tool_call>call:func_name{args}[END_TOOL_REQUEST]
-    // <|tool_call>call:func_name{args}<tool_call|>
+    // -- Format 1: Gemma 4 Native (call:name{args}) --
     let re_call = Regex::new(
         r#"(?s)<\|?tool_call\|?>\s*call:([A-Za-z_][A-Za-z0-9_]*)\{(.*?)\}(?:<\|?tool_call\|?>|\[END_TOOL_REQUEST\])"#
     ).unwrap();
-    // Regex to find arguments inside the braces
-    // Handles <|"|> wrappers and plain values
     let re_arg = Regex::new(r#"(\w+):(?:<\|"\|>(.*?)<\|"\|>|([^,}]*))"#).unwrap();
 
     for cap in re_call.captures_iter(text) {
@@ -2325,7 +2352,6 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
 
         for arg_cap in re_arg.captures_iter(args_str) {
             let key = arg_cap[1].to_string();
-            // arg_cap[2] is the <|"|> wrapped value, arg_cap[3] is the plain value
             let val_raw = arg_cap
                 .get(2)
                 .map(|m| m.as_str())
@@ -2334,7 +2360,6 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
                 .trim();
             let normalized_raw = normalize_string_arg(&val_raw.replace("\\\"", "\""));
 
-            // Try to parse as JSON types (bool, number), otherwise string
             let val = if normalized_raw == "true" {
                 Value::Bool(true)
             } else if normalized_raw == "false" {
@@ -2364,8 +2389,51 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
         });
     }
 
+    // -- Format 2: XML (Qwen/Claude style) --
+    let re_xml_call = Regex::new(
+        r#"(?s)<tool_call>\s*<function=([A-Za-z_][A-Za-z0-9_]*)>(.*?)(?:</function>)?\s*</tool_call>"#
+    ).unwrap();
+    let re_xml_param = Regex::new(
+        r#"(?s)<parameter=([A-Za-z_][A-Za-z0-9_]*)>(.*?)</parameter>"#
+    ).unwrap();
+
+    for cap in re_xml_call.captures_iter(text) {
+        let name = cap[1].to_string();
+        let body = &cap[2];
+        let mut arguments = serde_json::Map::new();
+
+        for p_cap in re_xml_param.captures_iter(body) {
+            let key = p_cap[1].to_string();
+            let val_raw = p_cap[2].trim();
+            let val = if val_raw == "true" {
+                Value::Bool(true)
+            } else if val_raw == "false" {
+                Value::Bool(false)
+            } else if let Ok(n) = val_raw.parse::<i64>() {
+                Value::Number(n.into())
+            } else if let Ok(n) = val_raw.parse::<u64>() {
+                Value::Number(n.into())
+            } else {
+                Value::String(val_raw.to_string())
+            };
+            arguments.insert(key, val);
+        }
+
+        if !arguments.is_empty() || name == "clear_context" {
+            results.push(ToolCallResponse {
+                id: format!("call_{}", rand::random::<u32>()),
+                call_type: "function".to_string(),
+                function: ToolCallFn {
+                    name,
+                    arguments: Value::Object(arguments).to_string(),
+                },
+            });
+        }
+    }
+
     results
 }
+
 
 pub fn normalize_tool_argument_string(tool_name: &str, raw: &str) -> String {
     let trimmed = raw.trim();
@@ -2506,18 +2574,25 @@ fn strip_legacy_turn_wrappers(text: &str) -> String {
 
 pub fn strip_native_tool_call_text(text: &str) -> String {
     use regex::Regex;
+    // Format 1: Gemma 4 Native
     let re_call = Regex::new(
         r#"(?s)<\|?tool_call\|?>\s*call:[A-Za-z_][A-Za-z0-9_]*\{.*?\}(?:<\|?tool_call\|?>|\[END_TOOL_REQUEST\])"#
+    ).unwrap();
+    // Format 2: XML (Qwen/Claude style)
+    let re_xml = Regex::new(
+        r#"(?s)<tool_call>\s*<function=.*?>.*?</tool_call>"#
     ).unwrap();
     let re_response =
         Regex::new(r#"(?s)<\|tool_response\|?>.*?(?:<\|tool_response\|?>|<tool_response\|>)"#)
             .unwrap();
     let without_calls = re_call.replace_all(text, "");
+    let without_xml = re_xml.replace_all(without_calls.as_ref(), "");
     re_response
-        .replace_all(without_calls.as_ref(), "")
+        .replace_all(without_xml.as_ref(), "")
         .trim()
         .to_string()
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -2579,4 +2654,32 @@ Read main.
         assert!(!stripped.contains("<|tool_response"));
         assert!(!stripped.contains("<tool_response|>"));
     }
+
+    #[test]
+    fn extracts_qwen_xml_tool_calls_from_reasoning() {
+        let text = r#"Based on the project structure, I need to check the binary.
+<tool_call>
+<function=shell>
+<parameter=command>
+ls -la hematite.exe
+</parameter>
+<parameter=reason>
+Check if the binary exists
+</parameter>
+</function>
+</tool_call>"#;
+
+        let calls = extract_native_tool_calls(text);
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].function.name, "shell");
+
+        let args: Value = serde_json::from_str(&calls[0].function.arguments).unwrap();
+        assert_eq!(args.get("command").and_then(|v| v.as_str()), Some("ls -la hematite.exe"));
+        assert_eq!(args.get("reason").and_then(|v| v.as_str()), Some("Check if the binary exists"));
+
+        let stripped = strip_native_tool_call_text(text);
+        assert!(!stripped.contains("<tool_call>"));
+        assert!(!stripped.contains("<function=shell>"));
+    }
 }
+

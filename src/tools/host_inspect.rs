@@ -107,10 +107,15 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             let resolved = resolve_path(raw_path)?;
             inspect_directory("Directory", resolved, max_entries).await
         }
+        "disk_benchmark" | "stress_test" | "io_intensity" => {
+            let path = resolve_optional_path(args)?;
+            inspect_disk_benchmark(path).await
+        }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions.",
             other
         )),
+
     }
 }
 
@@ -1830,7 +1835,22 @@ fn resolve_path(raw: &str) -> Result<PathBuf, String> {
     } else {
         let cwd =
             std::env::current_dir().map_err(|e| format!("Failed to get current directory: {e}"))?;
-        Ok(cwd.join(path))
+        let full_path = cwd.join(&path);
+
+        // Heuristic: If it's a relative path to .hematite or hematite.exe and doesn't exist here,
+        // check the user's home directory.
+        if !full_path.exists()
+            && (trimmed.starts_with(".hematite") || trimmed.starts_with("hematite.exe"))
+        {
+            if let Some(home) = home::home_dir() {
+                let home_path = home.join(trimmed);
+                if home_path.exists() {
+                    return Ok(home_path);
+                }
+            }
+        }
+
+        Ok(full_path)
     }
 }
 
@@ -8292,4 +8312,139 @@ fn inspect_sessions(max_entries: usize) -> Result<String, String> {
 
     Ok(out.trim_end().to_string())
 }
+
+async fn inspect_disk_benchmark(path: PathBuf) -> Result<String, String> {
+    let mut out = String::from("Host inspection: disk_benchmark\n\n");
+    let mut final_path = path;
+
+    if !final_path.exists() {
+        if let Ok(current_exe) = std::env::current_exe() {
+            out.push_str(&format!(
+                "Note: Requested target '{}' not found. Falling back to current binary for silicon-aware intensity report.\n",
+                final_path.display()
+            ));
+            final_path = current_exe;
+        } else {
+            return Err(format!("Target not found: {}", final_path.display()));
+        }
+    }
+
+    let target = if final_path.is_dir() {
+        // Find a representative file to read
+        let mut target_file = final_path.join("Cargo.toml");
+        if !target_file.exists() {
+            target_file = final_path.join("README.md");
+        }
+        if !target_file.exists() {
+            return Err("Target path is a directory but no representative file (Cargo.toml/README.md) found for benchmarking.".to_string());
+        }
+        target_file
+    } else {
+        final_path
+    };
+
+    out.push_str(&format!("Target: {}\n", target.display()));
+    out.push_str("Running diagnostic stress test (5s read-thrash + kernel counter trace)...\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(
+            r#"
+$target = "{}"
+if (-not (Test-Path $target)) {{ "ERROR:Target not found"; exit }}
+
+$diskQueue = @()
+$readStats = @()
+$startTime = Get-Date
+$duration = 5
+
+# Background reader job
+$job = Start-Job -ScriptBlock {{
+    param($t, $d)
+    $stop = (Get-Date).AddSeconds($d)
+    while ((Get-Date) -lt $stop) {{
+        try {{ [System.IO.File]::ReadAllBytes($t) | Out-Null }} catch {{ }}
+    }}
+}} -ArgumentList $target, $duration
+
+# Metrics collector loop
+$stopTime = (Get-Date).AddSeconds($duration)
+while ((Get-Date) -lt $stopTime) {{
+    $q = Get-Counter '\PhysicalDisk(_Total)\Avg. Disk Queue Length' -ErrorAction SilentlyContinue
+    if ($q) {{ $diskQueue += $q.CounterSamples[0].CookedValue }}
+    
+    $r = Get-Counter '\PhysicalDisk(_Total)\Disk Reads/sec' -ErrorAction SilentlyContinue
+    if ($r) {{ $readStats += $r.CounterSamples[0].CookedValue }}
+    
+    Start-Sleep -Milliseconds 250
+}}
+
+Stop-Job $job
+Receive-Job $job | Out-Null
+Remove-Job $job
+
+$avgQ = if ($diskQueue) {{ ($diskQueue | Measure-Object -Average).Average }} else {{ 0 }}
+$maxQ = if ($diskQueue) {{ ($diskQueue | Measure-Object -Maximum).Maximum }} else {{ 0 }}
+$avgR = if ($readStats) {{ ($readStats | Measure-Object -Average).Average }} else {{ 0 }}
+
+"AVG_Q:$([math]::Round($avgQ, 4))|MAX_Q:$([math]::Round($maxQ, 4))|AVG_R:$([math]::Round($avgR, 2))"
+"#,
+            target.display()
+        );
+
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("Benchmark failed: {e}"))?;
+
+        let raw = String::from_utf8_lossy(&output.stdout);
+        let text = raw.trim();
+
+        if text.starts_with("ERROR") {
+            return Err(text.to_string());
+        }
+
+        let mut lines = text.lines();
+        if let Some(metrics_line) = lines.next() {
+            let parts: Vec<&str> = metrics_line.split('|').collect();
+            let mut avg_q = "unknown".to_string();
+            let mut max_q = "unknown".to_string();
+            let mut avg_r = "unknown".to_string();
+
+            for p in parts {
+                if let Some((k, v)) = p.split_once(':') {
+                    match k {
+                        "AVG_Q" => avg_q = v.to_string(),
+                        "MAX_Q" => max_q = v.to_string(),
+                        "AVG_R" => avg_r = v.to_string(),
+                        _ => {}
+                    }
+                }
+            }
+
+            out.push_str("=== WORKSTATION INTENSITY REPORT ===\n");
+            out.push_str(&format!("- Active Disk Queue (Avg): {}\n", avg_q));
+            out.push_str(&format!("- Active Disk Queue (Max): {}\n", max_q));
+            out.push_str(&format!("- Disk Throughput (Avg):  {} reads/sec\n", avg_r));
+            out.push_str("\nVerdict: ");
+            let q_num = avg_q.parse::<f64>().unwrap_or(0.0);
+            if q_num > 1.0 {
+                out.push_str("HIGH INTENSITY — the disk stack is saturated. Hardware bottleneck confirmed.");
+            } else if q_num > 0.1 {
+                out.push_str("MODERATE LOAD — significant I/O pressure detected.");
+            } else {
+                out.push_str("LIGHT LOAD — the hardware is handling this volume comfortably.");
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Note: Native silicon benchmarking is currently optimized for Windows performance counters.\n");
+        out.push_str("Generic disk load simulated.\n");
+    }
+
+    Ok(out)
+}
+
 

@@ -476,6 +476,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("node") && lower.contains("wrong version"))
         || lower.contains("conda shadow")
         || lower.contains("dev environment clean");
+    let asks_disk_benchmark = lower.contains("benchmark")
+        || lower.contains("stress test")
+        || lower.contains("load test")
+        || lower.contains("intensity report")
+        || lower.contains("io intensity")
+        || lower.contains("disk intensity")
+        || lower.contains("thrash")
+        || lower.contains("latency report");
     let asks_resource_load = lower.contains("resource load")
         || lower.contains("system load")
         || lower.contains("performance")
@@ -492,6 +500,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("cpu load")
         || lower.contains("heavy hitters")
         || (lower.contains("resource") && lower.contains("usage"));
+
     let asks_connectivity = lower.contains("internet")
         || lower.contains("online")
         || lower.contains("connectivity")
@@ -708,7 +717,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("udp listener")
         || (lower.contains("udp") && (lower.contains("port") || lower.contains("listen") || lower.contains("open")));
 
-    if asks_fix_plan {
+    if asks_disk_benchmark {
+        Some("disk_benchmark")
+    } else if asks_fix_plan {
+
         Some("fix_plan")
     } else if asks_gpo {
         Some("gpo")

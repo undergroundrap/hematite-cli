@@ -255,6 +255,16 @@ pub fn classify_bash_risk(cmd: &str) -> RiskLevel {
         "powershell -command 'get-childitem",
         "powershell -command 'get-counter",
         "get-counter",
+        "get-item",
+        "test-path",
+        "select-object",
+        "powershell -command \"get-item",
+        "powershell -command \"test-path",
+        "powershell -command \"select-object",
+        "powershell -command 'get-item",
+        "powershell -command 'test-path",
+        "powershell -command 'select-object",
+
     ];
     if safe_prefixes
         .iter()

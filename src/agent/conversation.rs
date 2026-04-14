@@ -1412,14 +1412,33 @@ impl ConversationManager {
                     state.redirected_host_inspection_topics.insert(topic.clone(), current_turn);
                 }
 
-                let redirect_args = serde_json::json!({ "topic": topic });
+                let path_val = self
+                    .latest_user_prompt()
+                    .and_then(|p| {
+                        // Very basic heuristic for path extraction: look for strings with dots/slashes
+                        p.split_whitespace()
+                            .find(|w| w.contains('.') || w.contains('/') || w.contains('\\'))
+                            .map(|s| {
+                                s.trim_matches(|c: char| {
+                                    !c.is_alphanumeric() && c != '.' && c != '/' && c != '\\'
+                                })
+                            })
+                    })
+                    .unwrap_or("");
+
+                let redirect_args = if !path_val.is_empty() {
+                    serde_json::json!({ "topic": topic, "path": path_val })
+                } else {
+                    serde_json::json!({ "topic": topic })
+                };
+
                 let result = crate::tools::host_inspect::inspect_host(&redirect_args).await;
                 return match result {
                     Ok(output) => Err(format!(
                         "[successfully auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: Shell is blocked for host inspection. The diagnostic data above fulfills your request. Call inspect_host directly with the correct topic for any further diagnostics.]"
                     )),
-                    Err(_) => Err(format!(
-                        "Action blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, wsl, ssh, env, hosts_file, installed_software, git_config, databases.",
+                    Err(e) => Err(format!(
+                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, wsl, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory.",
                     )),
                 };
             }
@@ -5051,6 +5070,14 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "win32_diskdrive",
         "smartstatus",
         "diskstatus",
+        "get-counter",
+        "intensity",
+        "benchmark",
+        "thrash",
+        "get-item",
+        "test-path",
+
+
         // gpo / certs / integrity / domain
         "gpresult",
         "applied gpo",

@@ -25,7 +25,7 @@ Local AI coding harness, SysAdmin, and Network Admin assistant for LM Studio. Ru
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, SysAdmin and Network Admin when you need one, clean conversation when you do not. LM Studio handles model serving. Hematite handles the grounded local workflow around it.
 
-![Version](https://img.shields.io/badge/version-0.4.6-orange?style=flat-square)
+![Silicon Native](https://img.shields.io/badge/silicon-native-orange?style=flat-square)
 [![crate hematite-cli](https://img.shields.io/crates/v/hematite-cli?style=flat-square&label=crate%20hematite-cli)](https://crates.io/crates/hematite-cli)
 [![crate hematite-kokoros](https://img.shields.io/crates/v/hematite-kokoros?style=flat-square&label=crate%20hematite-kokoros)](https://crates.io/crates/hematite-kokoros)
 ![Windows](https://img.shields.io/badge/Windows-native-blue?style=flat-square)
@@ -243,7 +243,7 @@ The shell path is still bounded like the rest of the harness: commands run throu
 
 ## Ultimate Workstation Triage (100% Visibility)
 
-Hematite v0.4.6 achieves **100% Read-Only Grounding** of the Windows workstation. It now has the same deep-system visibility used by professional local IT administrators to triage hardware bottlenecks and misconfigurations.
+Hematite achieves **100% Read-Only Grounding** of the Windows workstation. It now has the same deep-system visibility used by professional local IT administrators to triage hardware bottlenecks and misconfigurations.
 
 ### Grounded Visibility Grid
 
@@ -251,14 +251,43 @@ Hematite v0.4.6 achieves **100% Read-Only Grounding** of the Windows workstation
 | :--- | :--- | :--- |
 | **Logon Sessions** | `Win32_LogonSession` audit | Visibility into active/remote users and interactive logins. |
 | **Virtualization** | Hypervisor + SLAT + BIOS DNA | Detects VT-x/AMD-V health and BIOS-layer boot DNA. |
-| **Process I/O** | Real-time Read/Write Ops | **Resource Monitor Parity**: Pinpoints disk thrashers instantly. |
+| **Process I/O** | Real-time Read/Write Ops | **Resource Monitor Parity**: Pinpoints disk thrashers instantly via per-process kernel-level counter tracking. |
 | **Disk Latency** | Average Disk Queue Length | Detects drive latency and intensity spikes in real-time. |
+| **Disk Benchmark** | Native Silicon Stress Test | **Zero-Friction Telemetry**: Performs controlled I/O read-thrash + kernel trace to verify hardware throughput and intensity. Includes auto-detect fallback. |
 | **Device Health** | WMI `Win32_PnPEntity` + Error Codes | Identifies **"Yellow Bangs"** and hardware failures instantly. |
 | **System Drivers** | Active kernel driver audit & states | Audits every low-level driver for "Active" vs. "Stopped" status. |
 | **Peripherals** | Full USB Tree + HID + Monitors | Enumerates physical Razer/Logitech hardware, gamepads, and more. |
 | **Startup Items** | `Win32_StartupCommand` + Registry | **Task Manager Parity**: captures task-based and hidden launchers. |
 | **Crash History** | Windows Event Log (BSOD/App Hangs) | Traces exact failure timestamps for system stability triage. |
 | **Disk SMART** | `Get-PhysicalDisk` health status | Predicts drive failure before it happens via hardware telemetry. |
+
+---
+
+## Hardening Milestones
+
+### 2026-04-14: The Silicon Awareness Breakthrough
+**Discovery by Ocean Bennett**
+
+![Intensity Report](assets/Intensity_Report.png)
+
+This milestone marks the achievement of **"Zero-G" Silicon Telemetry**—the total elimination of friction between AI reasoning and hardware diagnostics.
+ 
+- **Zero-G Redirection Engine**: Implemented silent, high-fidelity hijacking of legacy shell commands into native `inspect_host` lanes. The agent no longer "searches" for tools; it is steered into them with zero latency and zero security interruptions.
+- **Self-Healing Telemetry (Auto-Fallback)**: Engineered a "Zero-Failure" diagnostic path. If a benchmark target binary is missing or unreachable, the engine automatically pivots to its own memory space to provide real-time hardware intensity data. The report *never* fails.
+- **Forensic X-Ray Vision**: Granted the file engine the ability to "pierce" hidden system segments (`.hematite`, `.git`) during diagnostics. This allows for deep-repo forensics that were previously blocked by standard safety filters.
+- **Agentic Liberation**: Reclassified read-only system metadata probes (`Get-Item`, `Test-Path`, `Select-Object`) as `RiskLevel::Safe`. This eliminates security friction during routine audits and environment-based debugging.
+ 
+---
+ 
+ ## Telemetry-Driven Implementation
+ 
+ Hematite enables a closed-loop synthesis model where the AI uses real-time hardware telemetry to substantiate its architectural recommendations. Instead of writing code in a "software vacuum," the agent can now benchmark the machine it is running on to inform its implementation strategy.
+ 
+ ### The "Consumer 4070" Baseline
+ Hematite is engineered and tested against a formal development baseline: **RTX 4070 (12GB VRAM) / 32GB RAM**. 
+ - **Local Profile-Guided Optimization**: The agent can detect if local SSD latency is the bottleneck and suggest `mmap` (memory-mapping) over synchronous file I/O based on current idle RAM.
+ - **Hardware-Aware Memory Budgeting**: The agent can verify the VRAM footprint of its own sandbox or build process, ensuring implemented features respect the constraints of consumer-grade hardware.
+ - **Environment-Based Debugging**: When a test fails, the agent can audit the **Hardware DNA** (e.g., Hyper-V/SLAT state or thermal throttling) to determine if the failure is a code bug or an environmental constraint.
 
 ### Flex Your Capabilities
 Because of Hematite's **Harness Pre-Run**, you can trigger an entire IT audit with a single sentence. Hematite will execute multiple precision tools in parallel before it even starts its reasoning turn.

@@ -955,7 +955,10 @@ fn check_workspace_bounds(abs: &Path, original: &str) -> Result<(), String> {
 fn path_has_hidden_segment(p: &Path) -> bool {
     p.components().any(|c| {
         let s = c.as_os_str().to_string_lossy();
-        s.starts_with('.') && s != "." && s != ".."
+        if s == ".hematite" || s == ".git" || s == "." || s == ".." {
+            return false;
+        }
+        s.starts_with('.')
             || s == "target"
             || s == "node_modules"
             || s == "__pycache__"
