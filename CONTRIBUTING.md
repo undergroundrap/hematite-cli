@@ -126,6 +126,7 @@ For behavior regressions and prompt-quality checks, use the benchmark prompts un
 - Package version comes from `Cargo.toml` — see `CLAUDE.md` for the full versioning policy
 - For unreleased work, test the rebuilt local portable first with `pwsh ./scripts/package-windows.ps1 -AddToPath`
 - When the behavior is proven, cut the release with `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` or the right `-Bump` variant from a clean tree
+- **Wait for CI to go green on both Windows and Linux before publishing to crates.io.** Pushing the tag triggers both `windows-release.yml` and `unix-release.yml`. If either fails, push a patch fix before running `cargo publish` — a broken source publish means `cargo install hematite-cli` fails for users on that platform.
 - Add `-PublishCrates` when you also want the release routine to publish `hematite-cli` to crates.io after the push succeeds
 - Add `-PublishVoiceCrate` only when the vendored `hematite-kokoros` fork changed and must be published before the main crate
 - If you need the manual path, always bump the version with `pwsh ./bump-version.ps1 -Version X.Y.Z` before the public release commit — never edit version strings by hand

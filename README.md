@@ -504,8 +504,9 @@ When you ship a new Hematite release, update crates.io like this:
 
 1. Finish the feature work and test the local portable first.
 2. Bump and cut the normal Hematite release (`release.ps1`, tag, installers, GitHub release).
-3. Publish `hematite-cli` for that same version.
-4. Only publish `hematite-kokoros` again if the vendored voice fork itself changed.
+3. **Wait for CI to go green on both Windows and Linux** before publishing the crate. Pushing the tag triggers both `windows-release.yml` and `unix-release.yml`. If either fails, fix it and push a patch before touching crates.io — a broken source publish means `cargo install hematite-cli` fails on that platform for everyone.
+4. Publish `hematite-cli` only after both CI jobs are green.
+5. Only publish `hematite-kokoros` again if the vendored voice fork itself changed.
 
 Practical rule: you do **not** republish both crates every time. In normal use, almost every public tagged release should publish a new `hematite-cli` version, while `hematite-kokoros` should stay unchanged unless the forked voice dependency itself changed.
 

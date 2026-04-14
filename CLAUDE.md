@@ -541,6 +541,7 @@ For crates.io automation:
 4. Restart the terminal, run the local portable, and test the live behavior.
 5. Commit the feature work as a normal commit.
 6. When the work is proven, run `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` or the appropriate `-Bump` variant from a clean tree.
+7. **Wait for CI to go green on both Windows and Linux** before publishing to crates.io. Pushing the tag triggers both release workflows. If either fails, push a patch fix first — never publish a crate from a state where CI is red on any platform.
 
 Do not bump just to test whether a feature works. For Hematite, the local portable is the pre-release smoke test. Public version bumps happen after the live local test passes.
 
