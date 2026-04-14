@@ -65,6 +65,7 @@ pwsh ./clean.ps1
 - `/architect [prompt]`: sticky plan-first mode that persists a reusable handoff
 - `/implement-plan`: execute the saved architect handoff in `/code`
 - `/read-only [prompt]`: sticky hard no-mutation mode
+- `/teach [prompt]`: sticky teacher mode — inspects real machine state first, then delivers a grounded numbered walkthrough for any admin/config/system task; does not execute write operations itself
 - `/auto`: return to the narrowest-effective workflow mode
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/workspace-profile`: inspect the auto-generated workspace profile
@@ -121,6 +122,9 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **SSH**: Use `topic: "ssh"` for SSH client version, sshd service state, `~/.ssh` directory inventory (known_hosts count, authorized_keys count, private key files), and `~/.ssh/config` host entries.
 - **Installed Software**: Use `topic: "installed_software"` for installed programs — winget list on Windows (registry fallback), dpkg/rpm/pacman on Linux, brew + mas on macOS.
 - **Git Config**: Use `topic: "git_config"` for global git configuration audit — user identity, core settings, signing config, push/pull defaults, credential helper, branch defaults, local repo config, and git aliases.
+- **Databases**: Use `topic: "databases"` to detect running local database engines — PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQLite, SQL Server, CouchDB, Cassandra, Elasticsearch — via CLI version check, TCP port probe, and OS service state. No credentials required.
+- **Teacher Mode (`/teach`)**: Activates a grounded walkthrough mode for write/admin tasks Hematite cannot safely execute itself. Protocol: (1) call `inspect_host` with the relevant topic(s) to observe actual machine state, (2) deliver a numbered step-by-step tutorial referencing real observed state — exact commands, exact paths, exact values. Does NOT execute write operations. Covers: driver install, Group Policy, firewall rules, SSH key generation, WSL setup, service config, Windows activation, registry edits, scheduled tasks, disk cleanup.
+- **Fix Plan Teacher Lanes**: `topic: "fix_plan"` accepts an `issue` string and routes to the matching grounded walkthrough. New lanes: `driver_install`, `group_policy`, `firewall_rule`, `ssh_key`, `wsl_setup`, `service_config`, `windows_activation`, `registry_edit`, `scheduled_task_create`, `disk_cleanup`. Each lane inspects real machine state first, then delivers machine-specific numbered steps.
 
 ## Hardware Intent
 

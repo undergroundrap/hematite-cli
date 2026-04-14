@@ -148,6 +148,10 @@ pub(crate) enum WorkflowMode {
     /// Clean conversational mode — lighter prompt, no coding agent scaffolding,
     /// tools available but not pushed. Vein RAG still runs for context.
     Chat,
+    /// Teacher/guide mode — inspect the real machine state first, then walk the user
+    /// through the admin/config task as a grounded, numbered tutorial. Never executes
+    /// write operations itself; instructs the user to perform them manually.
+    Teach,
 }
 
 impl WorkflowMode {
@@ -159,19 +163,24 @@ impl WorkflowMode {
             WorkflowMode::Architect => "ARCHITECT",
             WorkflowMode::ReadOnly => "READ-ONLY",
             WorkflowMode::Chat => "CHAT",
+            WorkflowMode::Teach => "TEACH",
         }
     }
 
     fn is_read_only(self) -> bool {
         matches!(
             self,
-            WorkflowMode::Ask | WorkflowMode::Architect | WorkflowMode::ReadOnly
+            WorkflowMode::Ask
+                | WorkflowMode::Architect
+                | WorkflowMode::ReadOnly
+                | WorkflowMode::Teach
         )
     }
 
     pub(crate) fn is_chat(self) -> bool {
         matches!(self, WorkflowMode::Chat)
     }
+
 }
 
 fn session_path() -> std::path::PathBuf {
@@ -508,6 +517,7 @@ fn build_mode_redirect_answer(mode: WorkflowMode) -> String {
         WorkflowMode::Ask => "Workflow mode ASK is read-only. I can inspect the code, explain what should change, or review the target area, but I will not modify files here. Switch to `/code` to implement the change, or `/auto` to let Hematite choose.".to_string(),
         WorkflowMode::Architect => "Workflow mode ARCHITECT is plan-first. I can inspect the code and design the implementation approach, but I will not mutate files until you explicitly switch to `/code` or ask me to implement.".to_string(),
         WorkflowMode::ReadOnly => "Workflow mode READ-ONLY is a hard no-mutation mode. I can analyze, inspect, and explain, but I will not edit files, run mutating shell commands, or commit changes. Switch to `/code` or `/auto` if you want implementation.".to_string(),
+        WorkflowMode::Teach => "Workflow mode TEACH is a guided walkthrough mode. I will inspect the real state of your machine first, then give you a numbered step-by-step tutorial so you can perform the task yourself. I do not execute write operations in TEACH mode — I show you exactly how to do it.".to_string(),
         _ => "Switch to `/code` or `/auto` to allow implementation.".to_string(),
     }
 }
@@ -572,6 +582,7 @@ fn parse_inline_workflow_prompt(user_input: &str) -> Option<(WorkflowMode, &str)
         ("/architect", WorkflowMode::Architect),
         ("/read-only", WorkflowMode::ReadOnly),
         ("/auto", WorkflowMode::Auto),
+        ("/teach", WorkflowMode::Teach),
     ] {
         if let Some(rest) = trimmed.strip_prefix(prefix) {
             let rest = rest.trim();
@@ -1778,6 +1789,18 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if user_input.trim() == "/teach" {
+            self.set_workflow_mode(WorkflowMode::Teach);
+            for chunk in chunk_text(
+                "Workflow mode: TEACH. I will inspect your actual machine state first, then walk you through any admin, config, or write task as a grounded, numbered tutorial. I will not execute write operations — I will show you exactly how to do each step yourself.",
+                8,
+            ) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         if user_input.trim() == "/reroll" {
             let soul = crate::ui::hatch::generate_soul_random();
             self.snark = soul.snark;
@@ -2280,6 +2303,16 @@ impl ConversationManager {
                 ),
                 WorkflowMode::ReadOnly => system_msg.push_str(
                     "READ-ONLY means analysis only. Do not modify files, run mutating shell commands, or commit changes.\n",
+                ),
+                WorkflowMode::Teach => system_msg.push_str(
+                    "TEACH means you are a senior technician giving the user a grounded, numbered walkthrough. \
+                     MANDATORY PROTOCOL for every admin/config/write task:\n\
+                     1. Call inspect_host with the most relevant topic(s) FIRST to observe the actual machine state.\n\
+                     2. Then deliver a numbered step-by-step tutorial that references what you actually observed — exact commands, exact paths, exact values.\n\
+                     3. End with a verification step the user can run to confirm success.\n\
+                     4. Do NOT execute write operations yourself. You are the teacher; the user performs the steps.\n\
+                     5. Treat the user as capable — give precise instructions, not hedged warnings.\n\
+                     Relevant inspect_host topics for common tasks: hardware (driver installs), security (firewall), ssh (SSH keys), wsl (WSL setup), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
                 ),
                 WorkflowMode::Chat => {} // replaced by build_chat_system_prompt below
             }

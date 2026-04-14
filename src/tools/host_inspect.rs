@@ -370,6 +370,16 @@ enum FixPlanKind {
     EnvPath,
     PortConflict,
     LmStudio,
+    DriverInstall,
+    GroupPolicy,
+    FirewallRule,
+    SshKey,
+    WslSetup,
+    ServiceConfig,
+    WindowsActivation,
+    RegistryEdit,
+    ScheduledTaskCreate,
+    DiskCleanup,
     Generic,
 }
 
@@ -387,13 +397,31 @@ async fn inspect_fix_plan(
         FixPlanKind::EnvPath => inspect_env_fix_plan(&issue, max_entries),
         FixPlanKind::PortConflict => inspect_port_fix_plan(&issue, port_filter, max_entries),
         FixPlanKind::LmStudio => inspect_lm_studio_fix_plan(&issue, max_entries).await,
+        FixPlanKind::DriverInstall => inspect_driver_install_fix_plan(&issue),
+        FixPlanKind::GroupPolicy => inspect_group_policy_fix_plan(&issue),
+        FixPlanKind::FirewallRule => inspect_firewall_rule_fix_plan(&issue),
+        FixPlanKind::SshKey => inspect_ssh_key_fix_plan(&issue),
+        FixPlanKind::WslSetup => inspect_wsl_setup_fix_plan(&issue),
+        FixPlanKind::ServiceConfig => inspect_service_config_fix_plan(&issue),
+        FixPlanKind::WindowsActivation => inspect_windows_activation_fix_plan(&issue),
+        FixPlanKind::RegistryEdit => inspect_registry_edit_fix_plan(&issue),
+        FixPlanKind::ScheduledTaskCreate => inspect_scheduled_task_fix_plan(&issue),
+        FixPlanKind::DiskCleanup => inspect_disk_cleanup_fix_plan(&issue),
         FixPlanKind::Generic => inspect_generic_fix_plan(&issue),
     }
 }
 
 fn classify_fix_plan_kind(issue: &str, port_filter: Option<u16>) -> FixPlanKind {
     let lower = issue.to_ascii_lowercase();
-    if port_filter.is_some()
+    // FirewallRule must be checked before PortConflict — "open port 80 in the firewall"
+    // is firewall rule creation, not a port ownership conflict.
+    if lower.contains("firewall rule")
+        || lower.contains("inbound rule")
+        || lower.contains("outbound rule")
+        || (lower.contains("firewall") && (lower.contains("allow") || lower.contains("block") || lower.contains("create") || lower.contains("open")))
+    {
+        FixPlanKind::FirewallRule
+    } else if port_filter.is_some()
         || lower.contains("port ")
         || lower.contains("address already in use")
         || lower.contains("already in use")
@@ -410,6 +438,79 @@ fn classify_fix_plan_kind(issue: &str, port_filter: Option<u16>) -> FixPlanKind 
         || lower.contains("runtime refresh")
     {
         FixPlanKind::LmStudio
+    } else if lower.contains("driver")
+        || lower.contains("gpu driver")
+        || lower.contains("nvidia driver")
+        || lower.contains("amd driver")
+        || lower.contains("install driver")
+        || lower.contains("update driver")
+    {
+        FixPlanKind::DriverInstall
+    } else if lower.contains("group policy")
+        || lower.contains("gpedit")
+        || lower.contains("local policy")
+        || lower.contains("secpol")
+        || lower.contains("administrative template")
+    {
+        FixPlanKind::GroupPolicy
+    } else if lower.contains("ssh key")
+        || lower.contains("ssh-keygen")
+        || lower.contains("generate ssh")
+        || lower.contains("authorized_keys")
+        || lower.contains("id_rsa")
+        || lower.contains("id_ed25519")
+    {
+        FixPlanKind::SshKey
+    } else if lower.contains("wsl")
+        || lower.contains("windows subsystem for linux")
+        || lower.contains("install ubuntu")
+        || lower.contains("install linux on windows")
+        || lower.contains("wsl2")
+    {
+        FixPlanKind::WslSetup
+    } else if lower.contains("service")
+        && (lower.contains("start ")
+            || lower.contains("stop ")
+            || lower.contains("restart ")
+            || lower.contains("enable ")
+            || lower.contains("disable ")
+            || lower.contains("configure service"))
+    {
+        FixPlanKind::ServiceConfig
+    } else if lower.contains("activate windows")
+        || lower.contains("windows activation")
+        || lower.contains("product key")
+        || lower.contains("kms")
+        || lower.contains("not activated")
+    {
+        FixPlanKind::WindowsActivation
+    } else if lower.contains("registry")
+        || lower.contains("regedit")
+        || lower.contains("hklm")
+        || lower.contains("hkcu")
+        || lower.contains("reg add")
+        || lower.contains("reg delete")
+        || lower.contains("registry key")
+    {
+        FixPlanKind::RegistryEdit
+    } else if lower.contains("scheduled task")
+        || lower.contains("task scheduler")
+        || lower.contains("schtasks")
+        || lower.contains("create task")
+        || lower.contains("run on startup")
+        || lower.contains("run on schedule")
+        || lower.contains("cron")
+    {
+        FixPlanKind::ScheduledTaskCreate
+    } else if lower.contains("disk cleanup")
+        || lower.contains("free up disk")
+        || lower.contains("free up space")
+        || lower.contains("clear cache")
+        || lower.contains("disk full")
+        || lower.contains("low disk space")
+        || lower.contains("reclaim space")
+    {
+        FixPlanKind::DiskCleanup
     } else if lower.contains("cargo")
         || lower.contains("rustc")
         || lower.contains("path")
@@ -650,12 +751,509 @@ async fn inspect_lm_studio_fix_plan(issue: &str, max_entries: usize) -> Result<S
     Ok(out.trim_end().to_string())
 }
 
+fn inspect_driver_install_fix_plan(issue: &str) -> Result<String, String> {
+    // Read GPU info from the hardware topic output for grounding
+    #[cfg(target_os = "windows")]
+    let gpu_info = {
+        let out = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Get-CimInstance Win32_VideoController | Select-Object Name,DriverVersion,DriverDate | ForEach-Object { \"GPU: $($_.Name) | Driver: $($_.DriverVersion) | Date: $($_.DriverDate)\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        out.trim().to_string()
+    };
+    #[cfg(not(target_os = "windows"))]
+    let gpu_info = String::from("(GPU detection not available on this platform)");
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: driver_install\n");
+    if !gpu_info.is_empty() {
+        out.push_str(&format!("\nDetected GPU(s):\n{}\n", gpu_info));
+    }
+    out.push_str("\nFix plan — Installing or updating GPU drivers:\n");
+    out.push_str("1. Identify your GPU make from the detection above (NVIDIA, AMD, or Intel).\n");
+    out.push_str("2. Open Device Manager: press Win+X → Device Manager → expand Display Adapters.\n");
+    out.push_str("3. Right-click your GPU → Properties → Driver tab — note the current driver version and date.\n");
+    out.push_str("4. Download the latest driver directly from the manufacturer:\n");
+    out.push_str("   - NVIDIA: geforce.com/drivers (use GeForce Experience for auto-detection)\n");
+    out.push_str("   - AMD: amd.com/support (use Auto-Detect tool)\n");
+    out.push_str("   - Intel: intel.com/content/www/us/en/download-center/home.html\n");
+    out.push_str("5. Run the downloaded installer. Choose 'Express Install' (keeps settings) or 'Custom / Clean Install' (wipes old driver state — recommended if fixing corruption).\n");
+    out.push_str("6. Reboot when prompted — driver installs always require a restart.\n");
+    out.push_str("\nVerification:\n");
+    out.push_str("- After reboot, run in PowerShell:\n  Get-CimInstance Win32_VideoController | Select-Object Name,DriverVersion,DriverDate\n");
+    out.push_str("- The DriverVersion should match what you installed.\n");
+    out.push_str("\nWhy this works:\nManufacturer installers handle INF signing, kernel-mode driver registration, and WDDM version negotiation automatically. Manual Device Manager updates often miss supporting components.");
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_group_policy_fix_plan(issue: &str) -> Result<String, String> {
+    // Check Windows edition — Group Policy editor is not available on Home editions
+    #[cfg(target_os = "windows")]
+    let edition = {
+        Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "(Get-CimInstance Win32_OperatingSystem).Caption",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    };
+    #[cfg(not(target_os = "windows"))]
+    let edition = String::from("(Windows edition detection not available)");
+
+    let is_home = edition.to_lowercase().contains("home");
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: group_policy\n");
+    out.push_str(&format!("- Windows edition detected: {}\n", if edition.is_empty() { "unknown".to_string() } else { edition.clone() }));
+
+    if is_home {
+        out.push_str("\nWARNING: Windows Home does not include the Local Group Policy Editor (gpedit.msc).\n");
+        out.push_str("Options on Home edition:\n");
+        out.push_str("1. Use the Registry Editor (regedit) as an alternative — most Group Policy settings map to registry keys under HKLM\\SOFTWARE\\Policies or HKCU\\SOFTWARE\\Policies.\n");
+        out.push_str("2. Install the gpedit.msc enabler script (third-party — use with caution).\n");
+        out.push_str("3. Upgrade to Windows Pro if you need full Group Policy support.\n");
+    } else {
+        out.push_str("\nFix plan — Editing Local Group Policy:\n");
+        out.push_str("1. Press Win+R → type gpedit.msc → press Enter (requires administrator).\n");
+        out.push_str("2. Navigate the tree: Computer Configuration (machine-wide) or User Configuration (current user).\n");
+        out.push_str("3. Drill into Administrative Templates → find the policy you want.\n");
+        out.push_str("4. Double-click a policy → set to Enabled, Disabled, or Not Configured.\n");
+        out.push_str("5. Click OK — most policies apply on next logon or after gpupdate.\n");
+        out.push_str("6. To force immediate application, run in an elevated PowerShell:\n  gpupdate /force\n");
+    }
+    out.push_str("\nVerification:\n");
+    out.push_str("- Run `gpresult /r` in an elevated command prompt to see applied policies.\n");
+    out.push_str("- Or: `Get-GPResultantSetOfPolicy` in PowerShell (requires RSAT on domain machines).\n");
+    out.push_str("\nWhy this works:\nGroup Policy writes settings to well-known registry paths that Windows reads at logon and on policy refresh cycles. gpupdate /force triggers an immediate refresh without requiring a restart.");
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_firewall_rule_fix_plan(issue: &str) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    let profile_state = {
+        Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Get-NetFirewallProfile | Select-Object Name,Enabled | ForEach-Object { \"$($_.Name): $($_.Enabled)\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    };
+    #[cfg(not(target_os = "windows"))]
+    let profile_state = String::new();
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: firewall_rule\n");
+    if !profile_state.is_empty() {
+        out.push_str(&format!("\nFirewall profile state:\n{}\n", profile_state));
+    }
+    out.push_str("\nFix plan — Creating or modifying a Windows Firewall rule (PowerShell, run as Administrator):\n");
+    out.push_str("\nTo ALLOW inbound traffic on a port:\n");
+    out.push_str("  New-NetFirewallRule -DisplayName \"My App Port 8080\" -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow -Profile Any\n");
+    out.push_str("\nTo BLOCK outbound traffic to an address:\n");
+    out.push_str("  New-NetFirewallRule -DisplayName \"Block Example\" -Direction Outbound -RemoteAddress 1.2.3.4 -Action Block\n");
+    out.push_str("\nTo ALLOW an application through the firewall:\n");
+    out.push_str("  New-NetFirewallRule -DisplayName \"My App\" -Direction Inbound -Program \"C:\\Path\\To\\App.exe\" -Action Allow\n");
+    out.push_str("\nTo REMOVE a rule you created:\n");
+    out.push_str("  Remove-NetFirewallRule -DisplayName \"My App Port 8080\"\n");
+    out.push_str("\nTo see existing custom rules:\n");
+    out.push_str("  Get-NetFirewallRule | Where-Object { $_.Enabled -eq 'True' -and $_.PolicyStoreSourceType -ne 'GroupPolicy' } | Select-Object DisplayName,Direction,Action\n");
+    out.push_str("\nVerification:\n");
+    out.push_str("- After creating the rule, test reachability from another machine or use:\n  Test-NetConnection -ComputerName localhost -Port 8080\n");
+    out.push_str("\nWhy this works:\nNew-NetFirewallRule writes directly to the Windows Filtering Platform (WFP) rule store — the same engine used by the Firewall GUI, but scriptable and reproducible.");
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_ssh_key_fix_plan(issue: &str) -> Result<String, String> {
+    let home = dirs_home().unwrap_or_else(|| std::path::PathBuf::from("~"));
+    let ssh_dir = home.join(".ssh");
+    let has_ssh_dir = ssh_dir.exists();
+    let has_ed25519 = ssh_dir.join("id_ed25519").exists();
+    let has_rsa = ssh_dir.join("id_rsa").exists();
+    let has_authorized_keys = ssh_dir.join("authorized_keys").exists();
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: ssh_key\n");
+    out.push_str(&format!("- ~/.ssh directory exists: {}\n", has_ssh_dir));
+    out.push_str(&format!("- id_ed25519 key found: {}\n", has_ed25519));
+    out.push_str(&format!("- id_rsa key found: {}\n", has_rsa));
+    out.push_str(&format!("- authorized_keys found: {}\n", has_authorized_keys));
+
+    if has_ed25519 {
+        out.push_str("\nYou already have an Ed25519 key. If you want to use it, skip to the 'Add to agent' step.\n");
+    }
+
+    out.push_str("\nFix plan — Generating an SSH key pair:\n");
+    out.push_str("1. Open PowerShell (or Terminal) — no elevation needed.\n");
+    out.push_str("2. Generate an Ed25519 key (preferred over RSA):\n");
+    out.push_str("   ssh-keygen -t ed25519 -C \"your@email.com\"\n");
+    out.push_str("   - Accept the default path (~/.ssh/id_ed25519) unless you need a custom name.\n");
+    out.push_str("   - Set a passphrase (recommended) or press Enter twice for no passphrase.\n");
+    out.push_str("3. Start the SSH agent and add your key:\n");
+    out.push_str("   # Windows (PowerShell, run as Admin once to enable the service):\n");
+    out.push_str("   Set-Service -Name ssh-agent -StartupType Automatic\n");
+    out.push_str("   Start-Service ssh-agent\n");
+    out.push_str("   # Then add the key (normal PowerShell):\n");
+    out.push_str("   ssh-add ~/.ssh/id_ed25519\n");
+    out.push_str("4. Copy your PUBLIC key to the target server's authorized_keys:\n");
+    out.push_str("   # Print your public key:\n");
+    out.push_str("   cat ~/.ssh/id_ed25519.pub\n");
+    out.push_str("   # On the target server, append it:\n");
+    out.push_str("   echo \"<paste public key>\" >> ~/.ssh/authorized_keys\n");
+    out.push_str("   chmod 600 ~/.ssh/authorized_keys\n");
+    out.push_str("5. Test the connection:\n");
+    out.push_str("   ssh user@server-address\n");
+    out.push_str("\nFor GitHub/GitLab:\n");
+    out.push_str("- Copy the public key: Get-Content ~/.ssh/id_ed25519.pub | Set-Clipboard\n");
+    out.push_str("- Paste it into GitHub Settings → SSH and GPG keys → New SSH key\n");
+    out.push_str("- Test: ssh -T git@github.com\n");
+    out.push_str("\nWhy this works:\nEd25519 keys use elliptic-curve cryptography — shorter than RSA, harder to brute-force, and supported by all modern SSH servers. The agent caches the decrypted key so you only enter the passphrase once per session.");
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_wsl_setup_fix_plan(issue: &str) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    let wsl_status = {
+        let out = Command::new("wsl")
+            .args(["--status"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                let stdout = String::from_utf8(o.stdout).unwrap_or_default();
+                let stderr = String::from_utf8(o.stderr).unwrap_or_default();
+                Some(format!("{}{}", stdout, stderr))
+            })
+            .unwrap_or_default();
+        out.trim().to_string()
+    };
+    #[cfg(not(target_os = "windows"))]
+    let wsl_status = String::new();
+
+    let wsl_installed = !wsl_status.is_empty() && !wsl_status.to_lowercase().contains("not installed");
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: wsl_setup\n");
+    out.push_str(&format!("- WSL already installed: {}\n", wsl_installed));
+    if !wsl_status.is_empty() {
+        out.push_str(&format!("- WSL status:\n{}\n", wsl_status));
+    }
+
+    if wsl_installed {
+        out.push_str("\nWSL is already installed. To install a new Linux distro:\n");
+        out.push_str("1. Run in PowerShell (Admin): wsl --install -d Ubuntu\n");
+        out.push_str("   Available distros: wsl --list --online\n");
+        out.push_str("2. After install, launch from Start menu or type 'ubuntu' in PowerShell.\n");
+        out.push_str("3. Create your Linux username and password when prompted.\n");
+    } else {
+        out.push_str("\nFix plan — Installing WSL2 (Windows Subsystem for Linux):\n");
+        out.push_str("1. Open PowerShell as Administrator.\n");
+        out.push_str("2. Install WSL with the default Ubuntu distro:\n");
+        out.push_str("   wsl --install\n");
+        out.push_str("   (This enables the required Windows features, downloads WSL2, and installs Ubuntu)\n");
+        out.push_str("3. Reboot when prompted — WSL requires a restart after the first install.\n");
+        out.push_str("4. After reboot, Ubuntu will launch automatically and ask you to create a username and password.\n");
+        out.push_str("5. Set WSL2 as the default version (should already be set, but confirm):\n");
+        out.push_str("   wsl --set-default-version 2\n");
+        out.push_str("\nTo install a different distro instead of Ubuntu:\n");
+        out.push_str("   wsl --install -d Debian\n");
+        out.push_str("   wsl --list --online   # to see all available distros\n");
+    }
+    out.push_str("\nVerification:\n");
+    out.push_str("- Run: wsl --list --verbose\n");
+    out.push_str("- You should see your distro with State: Running and Version: 2\n");
+    out.push_str("\nWhy this works:\nWSL2 runs a real Linux kernel inside a lightweight Hyper-V VM. The `wsl --install` command handles all the Windows feature enablement, kernel download, and distro bootstrapping automatically.");
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_service_config_fix_plan(issue: &str) -> Result<String, String> {
+    let lower = issue.to_ascii_lowercase();
+    // Extract service name hints from the issue text
+    let service_hint = if lower.contains("ssh") {
+        Some("sshd")
+    } else if lower.contains("mysql") {
+        Some("MySQL80")
+    } else if lower.contains("postgres") || lower.contains("postgresql") {
+        Some("postgresql")
+    } else if lower.contains("redis") {
+        Some("Redis")
+    } else if lower.contains("nginx") {
+        Some("nginx")
+    } else if lower.contains("apache") {
+        Some("Apache2.4")
+    } else {
+        None
+    };
+
+    #[cfg(target_os = "windows")]
+    let service_state = if let Some(svc) = service_hint {
+        Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                &format!("Get-Service -Name '{}' -ErrorAction SilentlyContinue | Select-Object Name,Status,StartType | ForEach-Object {{ \"Service: $($_.Name) | Status: $($_.Status) | StartType: $($_.StartType)\" }}", svc),
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    } else {
+        String::new()
+    };
+    #[cfg(not(target_os = "windows"))]
+    let service_state = String::new();
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: service_config\n");
+    if let Some(svc) = service_hint {
+        out.push_str(&format!("- Service detected in request: {}\n", svc));
+    }
+    if !service_state.is_empty() {
+        out.push_str(&format!("- Current state: {}\n", service_state));
+    }
+
+    out.push_str("\nFix plan — Managing Windows services (PowerShell, run as Administrator):\n");
+    out.push_str("\nStart a service:\n");
+    out.push_str("  Start-Service -Name \"ServiceName\"\n");
+    out.push_str("\nStop a service:\n");
+    out.push_str("  Stop-Service -Name \"ServiceName\"\n");
+    out.push_str("\nRestart a service:\n");
+    out.push_str("  Restart-Service -Name \"ServiceName\"\n");
+    out.push_str("\nEnable a service to start automatically:\n");
+    out.push_str("  Set-Service -Name \"ServiceName\" -StartupType Automatic\n");
+    out.push_str("\nDisable a service (stops it from auto-starting):\n");
+    out.push_str("  Set-Service -Name \"ServiceName\" -StartupType Disabled\n");
+    out.push_str("\nFind the exact service name:\n");
+    out.push_str("  Get-Service | Where-Object { $_.DisplayName -like '*mysql*' }\n");
+    out.push_str("\nVerification:\n");
+    out.push_str("  Get-Service -Name \"ServiceName\" | Select-Object Name,Status,StartType\n");
+    if let Some(svc) = service_hint {
+        out.push_str(&format!("\nFor your detected service ({}):\n  Get-Service -Name '{}'\n", svc, svc));
+    }
+    out.push_str("\nWhy this works:\nPowerShell's service cmdlets talk directly to the Windows Service Control Manager (SCM) — the same authority that manages auto-start, stop, and dependency resolution for all registered Windows services.");
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_windows_activation_fix_plan(issue: &str) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    let activation_status = {
+        Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Get-CimInstance SoftwareLicensingProduct -Filter \"Name like 'Windows%'\" | Where-Object { $_.PartialProductKey } | Select-Object Name,LicenseStatus | ForEach-Object { \"Product: $($_.Name) | Status: $(if ($_.LicenseStatus -eq 1) { 'LICENSED' } else { 'NOT LICENSED (code ' + $_.LicenseStatus + ')' })\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    };
+    #[cfg(not(target_os = "windows"))]
+    let activation_status = String::new();
+
+    let is_licensed = activation_status.to_lowercase().contains("licensed")
+        && !activation_status.to_lowercase().contains("not licensed");
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: windows_activation\n");
+    if !activation_status.is_empty() {
+        out.push_str(&format!("- Current activation state:\n{}\n", activation_status));
+    }
+
+    if is_licensed {
+        out.push_str("\nWindows appears to be activated. If you are still seeing activation prompts, try:\n");
+        out.push_str("1. Run in elevated PowerShell: slmgr /ato\n");
+        out.push_str("   (Forces an online activation attempt)\n");
+        out.push_str("2. Check activation details: slmgr /dli\n");
+    } else {
+        out.push_str("\nFix plan — Activating Windows:\n");
+        out.push_str("1. Check your current status first:\n");
+        out.push_str("   slmgr /dli   (basic info)\n");
+        out.push_str("   slmgr /dlv   (detailed — shows remaining rearms, grace period)\n");
+        out.push_str("\n2. If you have a retail product key:\n");
+        out.push_str("   slmgr /ipk XXXXX-XXXXX-XXXXX-XXXXX-XXXXX   (install key)\n");
+        out.push_str("   slmgr /ato                                   (activate online)\n");
+        out.push_str("\n3. If you had a digital license (linked to your Microsoft account):\n");
+        out.push_str("   - Go to Settings → System → Activation\n");
+        out.push_str("   - Click 'Troubleshoot' → 'I changed hardware on this device recently'\n");
+        out.push_str("   - Sign in with the Microsoft account that holds the license\n");
+        out.push_str("\n4. If using a volume license (organization/enterprise):\n");
+        out.push_str("   - Contact your IT department for the KMS server address\n");
+        out.push_str("   - Set KMS host: slmgr /skms kms.yourorg.com\n");
+        out.push_str("   - Activate:    slmgr /ato\n");
+    }
+    out.push_str("\nVerification:\n");
+    out.push_str("  slmgr /dli   — should show 'License Status: Licensed'\n");
+    out.push_str("  Or: Settings → System → Activation → 'Windows is activated'\n");
+    out.push_str("\nWhy this works:\nslmgr.vbs is the Software License Manager — Microsoft's official command-line tool for all Windows license operations. It talks directly to the Software Protection Platform service.");
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_registry_edit_fix_plan(issue: &str) -> Result<String, String> {
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: registry_edit\n");
+    out.push_str("\nCAUTION: Registry edits affect core Windows behavior. Always back up before editing.\n");
+    out.push_str("\nFix plan — Safely editing the Windows Registry:\n");
+    out.push_str("\n1. Back up before you touch anything:\n");
+    out.push_str("   # Export the key you're about to change (PowerShell):\n");
+    out.push_str("   reg export \"HKLM\\SOFTWARE\\MyKey\" C:\\backup\\MyKey_backup.reg\n");
+    out.push_str("   # Or export the whole registry (takes a while):\n");
+    out.push_str("   reg export HKLM C:\\backup\\HKLM_full.reg\n");
+    out.push_str("\n2. Read a value (PowerShell, no elevation needed for HKCU):\n");
+    out.push_str("   Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\MyKey' -Name 'MyValue'\n");
+    out.push_str("\n3. Create or update a DWORD value (PowerShell, Admin for HKLM):\n");
+    out.push_str("   Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\MyKey' -Name 'MyValue' -Value 1 -Type DWord\n");
+    out.push_str("\n4. Create a new key:\n");
+    out.push_str("   New-Item -Path 'HKLM:\\SOFTWARE\\MyNewKey' -Force\n");
+    out.push_str("\n5. Delete a value:\n");
+    out.push_str("   Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\MyKey' -Name 'MyValue'\n");
+    out.push_str("\n6. Restore from backup if something breaks:\n");
+    out.push_str("   reg import C:\\backup\\MyKey_backup.reg\n");
+    out.push_str("\nCommon registry hives:\n");
+    out.push_str("  HKLM = HKEY_LOCAL_MACHINE  (machine-wide, requires Admin)\n");
+    out.push_str("  HKCU = HKEY_CURRENT_USER   (current user, no elevation needed)\n");
+    out.push_str("  HKCR = HKEY_CLASSES_ROOT    (file associations)\n");
+    out.push_str("\nVerification:\n");
+    out.push_str("  Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\MyKey' | Select-Object MyValue\n");
+    out.push_str("\nWhy this works:\nPowerShell's registry provider (HKLM:, HKCU:) is the safest scripted way to edit the registry — it validates paths and types, unlike raw reg.exe which accepts anything silently.");
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_scheduled_task_fix_plan(issue: &str) -> Result<String, String> {
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: scheduled_task_create\n");
+    out.push_str("\nFix plan — Creating a Scheduled Task (PowerShell, run as Administrator):\n");
+    out.push_str("\nExample: Run a script at 9 AM every day\n");
+    out.push_str("  $action  = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-File C:\\Scripts\\MyScript.ps1'\n");
+    out.push_str("  $trigger = New-ScheduledTaskTrigger -Daily -At '09:00AM'\n");
+    out.push_str("  Register-ScheduledTask -TaskName 'MyDailyTask' -Action $action -Trigger $trigger -RunLevel Highest\n");
+    out.push_str("\nExample: Run at Windows startup\n");
+    out.push_str("  $trigger = New-ScheduledTaskTrigger -AtStartup\n");
+    out.push_str("  Register-ScheduledTask -TaskName 'MyStartupTask' -Action $action -Trigger $trigger -RunLevel Highest\n");
+    out.push_str("\nExample: Run at user logon\n");
+    out.push_str("  $trigger = New-ScheduledTaskTrigger -AtLogon\n");
+    out.push_str("  Register-ScheduledTask -TaskName 'MyLogonTask' -Action $action -Trigger $trigger\n");
+    out.push_str("\nExample: Run every 30 minutes\n");
+    out.push_str("  $trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 30) -Once -At (Get-Date)\n");
+    out.push_str("\nView all tasks:\n");
+    out.push_str("  Get-ScheduledTask | Select-Object TaskName,State | Sort-Object TaskName\n");
+    out.push_str("\nDelete a task:\n");
+    out.push_str("  Unregister-ScheduledTask -TaskName 'MyDailyTask' -Confirm:$false\n");
+    out.push_str("\nRun a task immediately:\n");
+    out.push_str("  Start-ScheduledTask -TaskName 'MyDailyTask'\n");
+    out.push_str("\nVerification:\n");
+    out.push_str("  Get-ScheduledTask -TaskName 'MyDailyTask' | Select-Object TaskName,State,LastRunTime,NextRunTime\n");
+    out.push_str("\nWhy this works:\nPowerShell's ScheduledTask cmdlets use the Task Scheduler COM interface — the same engine as the Task Scheduler GUI (taskschd.msc). Tasks persist in the Windows Task Scheduler database across reboots.");
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_disk_cleanup_fix_plan(issue: &str) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    let disk_info = {
+        Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Get-PSDrive -PSProvider FileSystem | Select-Object Name,@{N='Used_GB';E={[Math]::Round($_.Used/1GB,1)}},@{N='Free_GB';E={[Math]::Round($_.Free/1GB,1)}} | Where-Object { $_.Used_GB -gt 0 } | ForEach-Object { \"Drive $($_.Name): Used $($_.Used_GB) GB, Free $($_.Free_GB) GB\" }",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    };
+    #[cfg(not(target_os = "windows"))]
+    let disk_info = String::new();
+
+    let mut out = String::from("Host inspection: fix_plan\n\n");
+    out.push_str(&format!("- Requested issue: {}\n", issue));
+    out.push_str("- Fix-plan type: disk_cleanup\n");
+    if !disk_info.is_empty() {
+        out.push_str(&format!("\nCurrent drive usage:\n{}\n", disk_info));
+    }
+    out.push_str("\nFix plan — Reclaiming disk space (ordered by impact):\n");
+    out.push_str("\n1. Run Windows Disk Cleanup (built-in, GUI):\n");
+    out.push_str("   cleanmgr /sageset:1    (configure what to clean)\n");
+    out.push_str("   cleanmgr /sagerun:1    (run the cleanup)\n");
+    out.push_str("   Tick 'Windows Update Cleanup' for the biggest reclaim (often 5-20 GB).\n");
+    out.push_str("\n2. Clear the Windows Update cache (PowerShell, Admin):\n");
+    out.push_str("   Stop-Service wuauserv\n");
+    out.push_str("   Remove-Item C:\\Windows\\SoftwareDistribution\\Download\\* -Recurse -Force\n");
+    out.push_str("   Start-Service wuauserv\n");
+    out.push_str("\n3. Clear Windows Temp folder:\n");
+    out.push_str("   Remove-Item $env:TEMP\\* -Recurse -Force -ErrorAction SilentlyContinue\n");
+    out.push_str("   Remove-Item C:\\Windows\\Temp\\* -Recurse -Force -ErrorAction SilentlyContinue\n");
+    out.push_str("\n4. Developer cache directories (often the biggest culprits):\n");
+    out.push_str("   - Rust build artifacts: cargo clean  (inside each project)\n");
+    out.push_str("   - npm cache:  npm cache clean --force\n");
+    out.push_str("   - pip cache:  pip cache purge\n");
+    out.push_str("   - Docker:     docker system prune -a  (removes all unused images/containers)\n");
+    out.push_str("   - Cargo registry cache: Remove-Item ~\\.cargo\\registry -Recurse -Force  (will redownload on next build)\n");
+    out.push_str("\n5. Check for large files:\n");
+    out.push_str("   Get-ChildItem C:\\ -Recurse -ErrorAction SilentlyContinue | Sort-Object Length -Descending | Select-Object -First 20 FullName,@{N='MB';E={[Math]::Round($_.Length/1MB,1)}}\n");
+    out.push_str("\nVerification:\n");
+    out.push_str("  Get-PSDrive C | Select-Object @{N='Free_GB';E={[Math]::Round($_.Free/1GB,1)}}\n");
+    out.push_str("\nWhy this works:\nWindows accumulates update packages, temp files, and developer build artifacts over months. Targeting those specific locations gives the most space back with the least risk of breaking anything.");
+    Ok(out.trim_end().to_string())
+}
+
 fn inspect_generic_fix_plan(issue: &str) -> Result<String, String> {
     let mut out = String::from("Host inspection: fix_plan\n\n");
     out.push_str(&format!("- Requested issue: {}\n", issue));
     out.push_str("- Fix-plan type: generic\n");
     out.push_str(
-        "\nGuidance:\n- Use `fix_plan` for one of the current structured remediation lanes: PATH/toolchain drift, port conflicts, or LM Studio connectivity.\n- If your issue is outside those lanes, run the closest `inspect_host` topic first to ground the diagnosis before proposing changes.",
+        "\nGuidance:\n- Use `fix_plan` with a descriptive issue string to get a grounded, machine-specific walkthrough.\n\
+         Structured lanes available:\n\
+         - PATH/toolchain drift (cargo, rustc, node, python, winget, choco, scoop)\n\
+         - Port conflict (address already in use, what owns port)\n\
+         - LM Studio connectivity (localhost:1234, no coding model loaded, embedding model)\n\
+         - Driver install (GPU driver, nvidia driver, install driver, update driver)\n\
+         - Group Policy (gpedit, local policy, administrative template)\n\
+         - Firewall rule (inbound rule, outbound rule, open port, allow port, block port)\n\
+         - SSH key (ssh-keygen, generate ssh, authorized_keys)\n\
+         - WSL setup (wsl2, windows subsystem for linux, install ubuntu)\n\
+         - Service config (start/stop/restart/enable/disable a service)\n\
+         - Windows activation (product key, not activated, kms)\n\
+         - Registry edit (regedit, reg add, hklm, hkcu, registry key)\n\
+         - Scheduled task (task scheduler, schtasks, run on startup, cron)\n\
+         - Disk cleanup (free up disk, clear cache, disk full, reclaim space)\n\
+         - If your issue is outside these lanes, run the closest `inspect_host` topic first to ground the diagnosis.",
     );
     Ok(out.trim_end().to_string())
 }

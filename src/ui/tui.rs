@@ -1192,6 +1192,7 @@ fn show_help_message(app: &mut App) {
          /architect [prompt] - (Flow) Plan-first mode; optional inline prompt\n\
          /implement-plan   - (Flow) Execute the saved architect handoff in /code\n\
          /read-only [prompt] - (Flow) Hard read-only mode; optional inline prompt\n\
+         /teach [prompt]   - (Flow) Teacher mode; inspect machine then walk you through any admin task step-by-step\n\
            /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
            /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
          /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
@@ -1261,6 +1262,7 @@ fn show_help_message_legacy(app: &mut App) {
          /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
          /implement-plan   — (Flow) Execute the saved architect handoff in /code\n\
          /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
+         /teach [prompt]   — (Flow) Teacher mode; inspect machine then walk you through any admin task step-by-step\n\
            /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
            /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
            /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
@@ -2173,12 +2175,13 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
-                                            "/ask" | "/code" | "/architect" | "/read-only" | "/auto" => {
+                                            "/ask" | "/code" | "/architect" | "/read-only" | "/auto" | "/teach" => {
                                                 let label = match cmd.as_str() {
                                                     "/ask" => "ASK",
                                                     "/code" => "CODE",
                                                     "/architect" => "ARCHITECT",
                                                     "/read-only" => "READ-ONLY",
+                                                    "/teach" => "TEACH",
                                                     _ => "AUTO",
                                                 };
                                                 app.workflow_mode = label.to_string();
@@ -2289,6 +2292,7 @@ pub async fn run_app<B: Backend>(
                                                      /architect [prompt] — (Flow) Plan-first mode; optional inline prompt\n\
                                                      /implement-plan   — (Flow) Execute the saved architect handoff in /code\n\
                                                      /read-only [prompt] — (Flow) Hard read-only mode; optional inline prompt\n\
+                                                     /teach [prompt]   — (Flow) Teacher mode; inspect machine then walk you through any admin task step-by-step\n\
                                                        /new              — (Reset) Fresh task context; clear chat, pins, and task files\n\
                                                        /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
                                                        /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\

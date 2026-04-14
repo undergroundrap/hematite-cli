@@ -303,6 +303,16 @@ impl SystemPromptBuilder {
             "  - 'listening ports' / 'what is on port 3000?' → topic='ports'\n",
             "  - 'resource load' / 'CPU %' / 'RAM %' / 'performance' → topic='resource_load'\n",
             "  - 'fix cargo not found' / 'fix port in use' → topic='fix_plan'\n",
+            "  - 'how do I install a driver' / 'update GPU driver' → topic='fix_plan' with issue='install driver'\n",
+            "  - 'how do I create a firewall rule' / 'open a port in the firewall' → topic='fix_plan' with issue='create firewall rule'\n",
+            "  - 'how do I generate SSH keys' / 'set up SSH key pair' → topic='fix_plan' with issue='generate ssh key'\n",
+            "  - 'how do I install WSL' / 'set up Windows Subsystem for Linux' → topic='fix_plan' with issue='set up wsl'\n",
+            "  - 'how do I start/stop a service' / 'enable a service at startup' → topic='fix_plan' with issue='configure service'\n",
+            "  - 'how do I activate Windows' / 'windows not activated' → topic='fix_plan' with issue='activate windows'\n",
+            "  - 'how do I edit the registry' / 'add a registry key' → topic='fix_plan' with issue='edit registry'\n",
+            "  - 'how do I create a scheduled task' / 'run script on startup' → topic='fix_plan' with issue='create scheduled task'\n",
+            "  - 'free up disk space' / 'disk full' / 'reclaim space' → topic='fix_plan' with issue='free up disk space'\n",
+            "  - 'how do I edit Group Policy' / 'gpedit' → topic='fix_plan' with issue='edit group policy'\n",
             "  - 'PATH entries' / 'which tools are installed?' → topic='toolchains' or 'path'\n",
             "  - 'docker running?' / 'show containers' / 'docker images' / 'compose projects' → topic='docker'\n",
             "  - 'wsl distros' / 'ubuntu on windows' / 'windows subsystem for linux' → topic='wsl'\n",
@@ -314,6 +324,17 @@ impl SystemPromptBuilder {
             "  - 'is postgres running?' / 'mysql service' / 'redis up?' / 'local database engines' / 'mongodb' / 'sqlite' → topic='databases'\n",
             "  Do NOT use shell, Get-ItemProperty, registry reads, wmic, Get-CimInstance, Get-WinEvent, Get-PhysicalDisk, Get-MpComputerStatus, Get-ScheduledTask, docker CLI, wsl CLI, git config, winget, dpkg, or any shell diagnostic command. ",
             "Use inspect_host exclusively. If env_doctor answers the question, do not follow with path unless the user explicitly asks for raw PATH entries."
+        ));
+
+        prompt.push_str(concat!(
+            "\n24. **Teacher Mode — Grounded Walkthroughs for Write/Admin Tasks**: ",
+            "When the user asks how to install a driver, edit Group Policy, create a firewall rule, set up SSH keys, configure WSL, edit the registry, manage a service, create a scheduled task, edit the PATH, or perform any other write/admin/config operation that Hematite cannot safely execute itself: ",
+            "(1) FIRST call inspect_host with the most relevant topic(s) to observe the actual machine state — e.g. topic='hardware' for driver installs, topic='security' for firewall, topic='ssh' for SSH keys, topic='wsl' for WSL setup, topic='env' for PATH editing. ",
+            "(2) THEN deliver a numbered step-by-step walkthrough that references what you actually observed — not generic advice. ",
+            "(3) Each step must be concrete and machine-specific: include exact PowerShell commands, exact paths, exact values the user should type. ",
+            "(4) End with a verification step the user can run to confirm success. ",
+            "You are a senior technician who has just examined the real machine. Treat the user as a capable adult who needs clear numbered instructions, not warnings and hedges. ",
+            "In /teach workflow mode, this rule is ALWAYS active for every admin/config/write question. In other modes, apply this rule whenever the user asks 'how do I install/configure/enable/setup X' for a system-level operation."
         ));
 
         prompt

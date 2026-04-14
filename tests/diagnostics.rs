@@ -3255,3 +3255,140 @@ fn test_routing_detects_databases_topic() {
         Some("databases")
     );
 }
+
+// ── Teacher mode / fix_plan new lanes ────────────────────────────────────────
+
+#[test]
+fn test_fix_plan_driver_install_returns_grounded_steps() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "fix_plan", "issue": "how do I install a GPU driver?" });
+        let output = inspect_host(&args).await.expect("fix_plan driver_install must return Ok");
+        assert!(
+            output.contains("fix_plan") && output.contains("driver"),
+            "driver_install fix_plan must contain driver guidance; got:\n{output}"
+        );
+        assert!(
+            output.contains("Device Manager") || output.contains("manufacturer"),
+            "driver_install fix_plan must mention Device Manager or manufacturer download; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_fix_plan_ssh_key_reports_key_state() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "fix_plan", "issue": "generate ssh key pair" });
+        let output = inspect_host(&args).await.expect("fix_plan ssh_key must return Ok");
+        assert!(
+            output.contains("id_ed25519") || output.contains("ssh-keygen"),
+            "ssh_key fix_plan must mention id_ed25519 or ssh-keygen; got:\n{output}"
+        );
+        // Must report key detection state
+        let has_key_state = output.contains("id_ed25519 key found:")
+            || output.contains("id_rsa key found:");
+        assert!(
+            has_key_state,
+            "ssh_key fix_plan must report whether keys exist; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_fix_plan_wsl_setup_returns_install_steps() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "fix_plan", "issue": "how do I install WSL2?" });
+        let output = inspect_host(&args).await.expect("fix_plan wsl_setup must return Ok");
+        assert!(
+            output.contains("wsl") || output.contains("WSL"),
+            "wsl_setup fix_plan must contain WSL guidance; got:\n{output}"
+        );
+        assert!(
+            output.contains("wsl --install") || output.contains("WSL already installed"),
+            "wsl_setup fix_plan must mention wsl --install or note already installed; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_fix_plan_firewall_rule_returns_powershell_commands() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "fix_plan", "issue": "create a firewall rule to open port 8080" });
+        let output = inspect_host(&args).await.expect("fix_plan firewall_rule must return Ok");
+        assert!(
+            output.contains("New-NetFirewallRule"),
+            "firewall_rule fix_plan must include New-NetFirewallRule command; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_fix_plan_disk_cleanup_returns_cleanup_steps() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "fix_plan", "issue": "free up disk space my drive is almost full" });
+        let output = inspect_host(&args).await.expect("fix_plan disk_cleanup must return Ok");
+        assert!(
+            output.contains("cleanmgr") || output.contains("Disk Cleanup") || output.contains("SoftwareDistribution"),
+            "disk_cleanup fix_plan must mention cleanup tools; got:\n{output}"
+        );
+        assert!(
+            output.contains("cargo clean") || output.contains("npm cache"),
+            "disk_cleanup fix_plan must mention developer cache cleanup; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_fix_plan_scheduled_task_returns_register_command() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "fix_plan", "issue": "create a scheduled task to run my script every day" });
+        let output = inspect_host(&args).await.expect("fix_plan scheduled_task must return Ok");
+        assert!(
+            output.contains("Register-ScheduledTask"),
+            "scheduled_task fix_plan must include Register-ScheduledTask command; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_fix_plan_registry_edit_warns_and_shows_backup() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "fix_plan", "issue": "add a registry key in HKLM" });
+        let output = inspect_host(&args).await.expect("fix_plan registry_edit must return Ok");
+        assert!(
+            output.contains("reg export") || output.contains("backup"),
+            "registry_edit fix_plan must mention backup/export step; got:\n{output}"
+        );
+        assert!(
+            output.contains("Set-ItemProperty") || output.contains("New-Item"),
+            "registry_edit fix_plan must include PowerShell registry commands; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_fix_plan_generic_lists_all_lanes() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "fix_plan", "issue": "completely unrelated thing not matching any lane" });
+        let output = inspect_host(&args).await.expect("fix_plan generic must return Ok");
+        assert!(
+            output.contains("Firewall rule") || output.contains("SSH key") || output.contains("Disk cleanup"),
+            "generic fix_plan must list available lanes; got:\n{output}"
+        );
+    });
+}
