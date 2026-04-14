@@ -75,6 +75,15 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "audit_policy" | "audit" | "auditpol" => inspect_audit_policy(),
         "shares" | "smb_shares" | "network_shares" | "mapped_drives" => inspect_shares(max_entries),
         "dns_servers" | "dns_config" | "dns_resolver" | "nameservers" => inspect_dns_servers(),
+        "bitlocker" | "encryption" | "drive_encryption" | "bitlocker_status" => inspect_bitlocker(),
+        "rdp" | "remote_desktop" | "rdp_status" => inspect_rdp(),
+        "shadow_copies" | "vss" | "volume_shadow" | "backups" | "snapshots" => inspect_shadow_copies(),
+        "pagefile" | "page_file" | "virtual_memory" | "swap" => inspect_pagefile(),
+        "windows_features" | "optional_features" | "installed_features" | "features" => inspect_windows_features(max_entries),
+        "printers" | "printer" | "print_queue" | "printing" => inspect_printers(max_entries),
+        "winrm" | "remote_management" | "psremoting" => inspect_winrm(),
+        "network_stats" | "adapter_stats" | "nic_stats" | "interface_stats" => inspect_network_stats(max_entries),
+        "udp_ports" | "udp_listeners" | "udp" => inspect_udp_ports(max_entries),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -91,7 +100,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports.",
             other
         )),
     }
@@ -7483,6 +7492,429 @@ fn inspect_dns_servers() -> Result<String, String> {
         if !resolved_out.is_empty() {
             out.push_str("\n=== systemd-resolved ===\n");
             for line in resolved_out.lines().take(30) {
+                out.push_str(&format!("  {}\n", line));
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_bitlocker() -> Result<String, String> {
+    let mut out = String::from("Host inspection: bitlocker\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_cmd = "Get-BitLockerVolume | Select-Object MountPoint, VolumeStatus, ProtectionStatus, EncryptionPercentage | ForEach-Object { \"$($_.MountPoint) [$($_.VolumeStatus)] Protection:$($_.ProtectionStatus) ($($_.EncryptionPercentage)%)\" }";
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", ps_cmd])
+            .output()
+            .map_err(|e| format!("Failed to execute PowerShell: {e}"))?;
+
+        let stdout = String::from_utf8(output.stdout).unwrap_or_default();
+        let stderr = String::from_utf8(output.stderr).unwrap_or_default();
+
+        if !stdout.trim().is_empty() {
+            out.push_str("=== BitLocker Volumes ===\n");
+            for line in stdout.lines() {
+                out.push_str(&format!("  {}\n", line));
+            }
+        } else if !stderr.trim().is_empty() {
+            if stderr.contains("Access is denied") {
+                out.push_str("Error: Access denied. BitLocker diagnostics require Administrator elevation.\n");
+            } else {
+                out.push_str(&format!("Error retrieving BitLocker info: {}\n", stderr.trim()));
+            }
+        } else {
+            out.push_str("No BitLocker volumes detected or access denied.\n");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("BitLocker is a Windows-specific technology. Checking for LUKS/dm-crypt...\n\n");
+        let lsblk = Command::new("lsblk").args(["-f", "-o", "NAME,FSTYPE,MOUNTPOINT"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if lsblk.contains("crypto_LUKS") {
+            out.push_str("=== LUKS Encrypted Volumes ===\n");
+            for line in lsblk.lines().filter(|l| l.contains("crypto_LUKS")) {
+                out.push_str(&format!("  {}\n", line));
+            }
+        } else {
+            out.push_str("No LUKS encrypted volumes detected via lsblk.\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_rdp() -> Result<String, String> {
+    let mut out = String::from("Host inspection: rdp\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let reg_path = "HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server";
+        let f_deny = Command::new("powershell").args(["-NoProfile", "-Command", &format!("(Get-ItemProperty '{}').fDenyTSConnections", reg_path)])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
+
+        let status = if f_deny == "0" { "ENABLED" } else { "DISABLED" };
+        out.push_str(&format!("=== RDP Status: {} ===\n", status));
+
+        let port = Command::new("powershell").args(["-NoProfile", "-Command", "Get-ItemProperty 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name PortNumber | Select-Object -ExpandProperty PortNumber"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
+        out.push_str(&format!("  Port: {}\n", if port.is_empty() { "3389 (default)" } else { &port }));
+
+        let nla = Command::new("powershell").args(["-NoProfile", "-Command", &format!("(Get-ItemProperty '{}').UserAuthentication", reg_path)])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
+        out.push_str(&format!("  NLA Required: {}\n", if nla == "1" { "Yes" } else { "No" }));
+
+        out.push_str("\n=== Active Sessions ===\n");
+        let qwinsta = Command::new("qwinsta").output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if qwinsta.trim().is_empty() {
+            out.push_str("  No active sessions listed.\n");
+        } else {
+            for line in qwinsta.lines() {
+                out.push_str(&format!("  {}\n", line));
+            }
+        }
+
+        out.push_str("\n=== Firewall Rule Check ===\n");
+        let fw = Command::new("powershell").args(["-NoProfile", "-Command", "Get-NetFirewallRule -DisplayName '*Remote Desktop*' -Enabled True | Select-Object DisplayName, Action, Direction | ForEach-Object { \"  $($_.DisplayName): $($_.Action) ($($_.Direction))\" }"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if fw.trim().is_empty() {
+            out.push_str("  No enabled RDP firewall rules found.\n");
+        } else {
+            out.push_str(fw.trim_end());
+            out.push('\n');
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Checking for common RDP/VNC listeners (3389, 5900-5905)...\n");
+        let ss = Command::new("ss").args(["-tlnp"]).output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        let matches: Vec<&str> = ss.lines().filter(|l| l.contains(":3389") || l.contains(":590")).collect();
+        if matches.is_empty() {
+            out.push_str("  No RDP/VNC listeners detected via 'ss'.\n");
+        } else {
+            for m in matches {
+                out.push_str(&format!("  {}\n", m));
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_shadow_copies() -> Result<String, String> {
+    let mut out = String::from("Host inspection: shadow_copies\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let output = Command::new("vssadmin").args(["list", "shadows"]).output()
+            .map_err(|e| format!("Failed to run vssadmin: {e}"))?;
+        let stdout = String::from_utf8(output.stdout).unwrap_or_default();
+
+        if stdout.contains("No items found") || stdout.trim().is_empty() {
+            out.push_str("No Volume Shadow Copies found.\n");
+        } else {
+            out.push_str("=== Volume Shadow Copies ===\n");
+            for line in stdout.lines().take(50) {
+                if line.contains("Creation Time:") || line.contains("Contents:") || line.contains("Volume Name:") {
+                    out.push_str(&format!("  {}\n", line.trim()));
+                }
+            }
+        }
+
+        out.push_str("\n=== Shadow Copy Storage ===\n");
+        let storage_out = Command::new("vssadmin").args(["list", "shadowstorage"]).output().ok();
+        if let Some(o) = storage_out {
+            let stdout = String::from_utf8(o.stdout).unwrap_or_default();
+            for line in stdout.lines() {
+                if line.contains("Used Shadow Copy Storage space:") || line.contains("Max Shadow Copy Storage space:") {
+                    out.push_str(&format!("  {}\n", line.trim()));
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Checking for LVM snapshots or Btrfs subvolumes...\n\n");
+        let lvs = Command::new("lvs").output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if !lvs.is_empty() {
+            out.push_str("=== LVM Volumes (checking for snapshots) ===\n");
+            out.push_str(&lvs);
+        } else {
+            out.push_str("No LVM volumes detected.\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_pagefile() -> Result<String, String> {
+    let mut out = String::from("Host inspection: pagefile\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_cmd = "Get-CimInstance Win32_PageFileUsage | Select-Object Name, AllocatedBaseSize, CurrentUsage, PeakUsage | ForEach-Object { \"  $($_.Name): $($_.AllocatedBaseSize)MB total, $($_.CurrentUsage)MB used (Peak: $($_.PeakUsage)MB)\" }";
+        let output = Command::new("powershell").args(["-NoProfile", "-Command", ps_cmd])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+
+        if output.trim().is_empty() {
+            out.push_str("No page files detected (system may be running without a page file or managed differently).\n");
+            let managed = Command::new("powershell").args(["-NoProfile", "-Command", "(Get-CimInstance Win32_ComputerSystem).AutomaticManagedPagefile"])
+                .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
+            out.push_str(&format!("Automatic Managed Pagefile: {}\n", managed));
+        } else {
+            out.push_str("=== Page File Usage ===\n");
+            out.push_str(&output);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("=== Swap Usage (Linux/macOS) ===\n");
+        let swap = Command::new("swapon").args(["--show"]).output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if swap.is_empty() {
+            let free = Command::new("free").args(["-h"]).output().ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+            out.push_str(&free);
+        } else {
+            out.push_str(&swap);
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_windows_features(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: windows_features\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        out.push_str("=== Quick Check: Notable Features ===\n");
+        let quick_ps = "Get-WindowsOptionalFeature -Online | Where-Object { $_.FeatureName -match 'IIS|Hyper-V|VirtualMachinePlatform|Subsystem-Linux' -and $_.State -eq 'Enabled' } | Select-Object -ExpandProperty FeatureName";
+        let output = Command::new("powershell").args(["-NoProfile", "-Command", quick_ps]).output().ok();
+        
+        if let Some(o) = output {
+            let stdout = String::from_utf8(o.stdout).unwrap_or_default();
+            let stderr = String::from_utf8(o.stderr).unwrap_or_default();
+            
+            if !stdout.trim().is_empty() {
+                for f in stdout.lines() {
+                    out.push_str(&format!("  [ENABLED] {}\n", f));
+                }
+            } else if stderr.contains("Access is denied") || stderr.contains("requires elevation") {
+                out.push_str("  Error: Access denied. Listing Windows Features requires Administrator elevation.\n");
+            } else if quick_ps.contains("-Online") && stdout.trim().is_empty() {
+                out.push_str("  No major features (IIS, Hyper-V, WSL) appear enabled in the quick check.\n");
+            }
+        }
+
+        out.push_str(&format!("\n=== All Enabled Features (capped at {}) ===\n", max_entries));
+        let all_ps = format!("Get-WindowsOptionalFeature -Online | Where-Object {{$_.State -eq 'Enabled'}} | Select-Object -First {} -ExpandProperty FeatureName", max_entries);
+        let all_out = Command::new("powershell").args(["-NoProfile", "-Command", &all_ps]).output().ok();
+        if let Some(o) = all_out {
+            let stdout = String::from_utf8(o.stdout).unwrap_or_default();
+            if !stdout.trim().is_empty() {
+                out.push_str(&stdout);
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Windows Optional Features are Windows-specific. On Linux, check your package manager.\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_printers(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: printers\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let list = Command::new("powershell").args(["-NoProfile", "-Command", &format!("Get-Printer | Select-Object Name, DriverName, PortName, JobCount | Select-Object -First {} | ForEach-Object {{ \"  $($_.Name) [$($_.DriverName)] (Port: $($_.PortName), Jobs: $($_.JobCount))\" }}", max_entries)])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if list.trim().is_empty() {
+            out.push_str("No printers detected.\n");
+        } else {
+            out.push_str("=== Installed Printers ===\n");
+            out.push_str(&list);
+        }
+
+        let jobs = Command::new("powershell").args(["-NoProfile", "-Command", "Get-PrintJob | Select-Object PrinterName, ID, DocumentName, Status | ForEach-Object { \"  [$($_.PrinterName)] Job $($_.ID): $($_.DocumentName) - $($_.Status)\" }"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if !jobs.trim().is_empty() {
+            out.push_str("\n=== Active Print Jobs ===\n");
+            out.push_str(&jobs);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Checking LPSTAT for printers...\n");
+        let lpstat = Command::new("lpstat").args(["-p", "-d"]).output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if lpstat.is_empty() {
+            out.push_str("  No CUPS/LP printers found.\n");
+        } else {
+            out.push_str(&lpstat);
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_winrm() -> Result<String, String> {
+    let mut out = String::from("Host inspection: winrm\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let svc = Command::new("powershell").args(["-NoProfile", "-Command", "(Get-Service WinRM).Status"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
+        out.push_str(&format!("WinRM Service Status: {}\n\n", if svc.is_empty() { "NOT_FOUND" } else { &svc }));
+
+        out.push_str("=== WinRM Listeners ===\n");
+        let output = Command::new("powershell").args(["-NoProfile", "-Command", "winrm enumerate winrm/config/listener 2>$null"]).output().ok();
+        if let Some(o) = output {
+            let stdout = String::from_utf8(o.stdout).unwrap_or_default();
+            let stderr = String::from_utf8(o.stderr).unwrap_or_default();
+            
+            if !stdout.trim().is_empty() {
+                for line in stdout.lines() {
+                    if line.contains("Address =") || line.contains("Transport =") || line.contains("Port =") {
+                        out.push_str(&format!("  {}\n", line.trim()));
+                    }
+                }
+            } else if stderr.contains("Access is denied") {
+                out.push_str("  Error: Access denied to WinRM configuration.\n");
+            } else {
+                out.push_str("  No listeners configured.\n");
+            }
+        }
+
+        out.push_str("\n=== PowerShell Remoting Test (Local) ===\n");
+        let test_out = Command::new("powershell").args(["-NoProfile", "-Command", "Test-WSMan -ErrorAction SilentlyContinue | Select-Object ProductVersion, Stack | ForEach-Object { \"  SUCCESS: OS Version $($_.ProductVersion) (Stack $($_.Stack))\" }"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if test_out.trim().is_empty() {
+            out.push_str("  WinRM not responding to local WS-Man requests.\n");
+        } else {
+            out.push_str(&test_out);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("WinRM is primarily a Windows technology. Checking for listening port 5985/5986...\n");
+        let ss = Command::new("ss").args(["-tln"]).output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if ss.contains(":5985") || ss.contains(":5986") {
+            out.push_str("  WinRM ports (5985/5986) are listening.\n");
+        } else {
+            out.push_str("  WinRM ports not detected.\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_network_stats(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: network_stats\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_cmd = format!("Get-NetAdapterStatistics | Select-Object Name, ReceivedBytes, SentBytes, ReceivedPacketErrors, OutboundPacketErrors | Select-Object -First {} | ForEach-Object {{ \"  $($_.Name): RX:$([math]::round($($_.ReceivedBytes)/1MB, 2))MB, TX:$([math]::round($($_.SentBytes)/1MB, 2))MB, Errors(RX/TX): $($_.ReceivedPacketErrors)/$($_.OutboundPacketErrors)\" }}", max_entries);
+        let output = Command::new("powershell").args(["-NoProfile", "-Command", &ps_cmd])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if output.trim().is_empty() {
+            out.push_str("No network adapter statistics available.\n");
+        } else {
+            out.push_str("=== Adapter Throughput & Errors ===\n");
+            out.push_str(&output);
+        }
+
+        let discards = Command::new("powershell").args(["-NoProfile", "-Command", "Get-NetAdapterStatistics | Select-Object Name, ReceivedPacketDiscards, OutboundPacketDiscards | ForEach-Object { if($_.ReceivedPacketDiscards -gt 0 -or $_.OutboundPacketDiscards -gt 0) { \"  $($_.Name): Discards(RX/TX): $($_.ReceivedPacketDiscards)/$($_.OutboundPacketDiscards)\" } }"])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if !discards.trim().is_empty() {
+            out.push_str("\n=== Packet Discards (Non-Zero Only) ===\n");
+            out.push_str(&discards);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("=== Network Stats (ip -s link) ===\n");
+        let ip_s = Command::new("ip").args(["-s", "link"]).output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        if ip_s.is_empty() {
+            let netstat = Command::new("netstat").args(["-i"]).output().ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+            out.push_str(&netstat);
+        } else {
+            out.push_str(&ip_s);
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_udp_ports(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: udp_ports\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_cmd = format!("Get-NetUDPEndpoint | Select-Object LocalAddress, LocalPort, OwningProcess | Select-Object -First {} | ForEach-Object {{ $proc = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).Name; \"  $($_.LocalAddress):$($_.LocalPort) (PID: $($_.OwningProcess) - $($proc))\" }}", max_entries);
+        let output = Command::new("powershell").args(["-NoProfile", "-Command", &ps_cmd]).output().ok();
+
+        if let Some(o) = output {
+            let stdout = String::from_utf8(o.stdout).unwrap_or_default();
+            let stderr = String::from_utf8(o.stderr).unwrap_or_default();
+            
+            if !stdout.trim().is_empty() {
+                out.push_str("=== UDP Listeners (Local:Port) ===\n");
+                for line in stdout.lines() {
+                    let mut note = "";
+                    if line.contains(":53 ") { note = " [DNS]"; }
+                    else if line.contains(":67 ") || line.contains(":68 ") { note = " [DHCP]"; }
+                    else if line.contains(":123 ") { note = " [NTP]"; }
+                    else if line.contains(":161 ") { note = " [SNMP]"; }
+                    else if line.contains(":1900 ") { note = " [SSDP/UPnP]"; }
+                    else if line.contains(":5353 ") { note = " [mDNS]"; }
+
+                    out.push_str(&format!("{}{}\n", line, note));
+                }
+            } else if stderr.contains("Access is denied") {
+                out.push_str("Error: Access denied. Full UDP listener details require Administrator elevation.\n");
+            } else {
+                out.push_str("No UDP listeners detected.\n");
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let ss_out = Command::new("ss").args(["-ulnp"]).output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str("=== UDP Listeners (ss -ulnp) ===\n");
+        if ss_out.is_empty() {
+            let netstat_out = Command::new("netstat").args(["-ulnp"]).output().ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+            if netstat_out.is_empty() {
+                out.push_str("  Neither 'ss' nor 'netstat' available.\n");
+            } else {
+                for line in netstat_out.lines().take(max_entries) {
+                    out.push_str(&format!("  {}\n", line));
+                }
+            }
+        } else {
+            for line in ss_out.lines().take(max_entries) {
                 out.push_str(&format!("  {}\n", line));
             }
         }

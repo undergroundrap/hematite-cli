@@ -153,13 +153,22 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              topic=recent_crashes for BSOD and unexpected shutdown events plus application crash/hang events from the Windows event log, \
              topic=scheduled_tasks for all non-disabled scheduled tasks including name, path, last run time, and executable, \
              topic=dev_conflicts for cross-tool environment conflict detection (Node.js version managers, Python 2 vs 3 ambiguity, conda env shadowing, Rust toolchain path conflicts, Git identity/signing config, duplicate PATH entries), \
+             topic=bitlocker for drive encryption status (BitLocker on Windows, LUKS on Linux), \
+             topic=rdp for Remote Desktop configuration, port, and active sessions, \
+             topic=shadow_copies for Volume Shadow Copies (VSS) and system restore points, \
+             topic=pagefile for Windows page file configuration and current usage, \
+             topic=windows_features for enabled Windows optional features (IIS, Hyper-V, etc.), \
+             topic=printers for installed printers and active print jobs, \
+             topic=winrm for Windows Remote Management (WinRM) and PS Remoting status, \
+             topic=network_stats for adapter throughput (RX/TX), errors, and dropped packets, \
+             topic=udp_ports for active UDP listeners and notable port annotations, \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "updates", "security", "pending_reboot", "disk_health", "battery", "recent_crashes", "scheduled_tasks", "dev_conflicts", "os_config"],
+                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "updates", "security", "pending_reboot", "disk_health", "battery", "recent_crashes", "scheduled_tasks", "dev_conflicts", "os_config", "bitlocker", "rdp", "shadow_copies", "pagefile", "windows_features", "printers", "winrm", "network_stats", "udp_ports"],
                         "description": "Which structured host inspection to run."
                     },
                     "name": {

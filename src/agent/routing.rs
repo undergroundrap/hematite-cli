@@ -250,6 +250,25 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "reboot",
             "health",
             "report",
+            "bitlocker",
+            "rdp",
+            "remote desktop",
+            "vss",
+            "shadow copy",
+            "shadow copies",
+            "pagefile",
+            "virtual memory",
+            "swap",
+            "windows feature",
+            "optional feature",
+            "printer",
+            "print queue",
+            "winrm",
+            "psremoting",
+            "network stats",
+            "adapter stats",
+            "udp listening",
+            "udp port",
         ],
     );
     let host_action = contains_any(
@@ -633,9 +652,65 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("configured dns")
         || lower.contains("get-dnsclientserveraddress"))
         && !lower.contains("dns cache");
+    let asks_bitlocker = lower.contains("bitlocker")
+        || (lower.contains("drive") && lower.contains("encrypt"))
+        || (lower.contains("disk") && lower.contains("encrypt"))
+        || lower.contains("encryption status");
+    let asks_rdp = lower.contains("rdp")
+        || lower.contains("remote desktop")
+        || (lower.contains("remote") && lower.contains("access") && !lower.contains("git"));
+    let asks_shadow_copies = lower.contains("shadow copy")
+        || lower.contains("shadow copies")
+        || lower.contains("vss")
+        || lower.contains("snapshot")
+        || lower.contains("restore point");
+    let asks_pagefile = lower.contains("pagefile")
+        || lower.contains("page file")
+        || lower.contains("virtual memory")
+        || lower.contains("swap file")
+        || (lower.contains("paging") && lower.contains("file"));
+    let asks_windows_features = (lower.contains("window") && lower.contains("feature"))
+        || lower.contains("optional feature")
+        || lower.contains("iis")
+        || lower.contains("hyper-v")
+        || (lower.contains("feature") && (lower.contains("install") || lower.contains("enabled") || lower.contains("turn on")));
+    let asks_printers = lower.contains("printer")
+        || lower.contains("print queue")
+        || lower.contains("get-printer");
+    let asks_winrm = lower.contains("winrm")
+        || lower.contains("psremoting")
+        || (lower.contains("ps") && lower.contains("remoting"))
+        || (lower.contains("remote") && lower.contains("management") && !lower.contains("rdp"));
+    let asks_network_stats = (lower.contains("network") && lower.contains("stat"))
+        || (lower.contains("adapter") && lower.contains("stat"))
+        || (lower.contains("nic") && lower.contains("stat"))
+        || lower.contains("throughput")
+        || lower.contains("packet loss")
+        || lower.contains("dropped packet");
+    let asks_udp_ports = lower.contains("udp port")
+        || lower.contains("udp listener")
+        || (lower.contains("udp") && (lower.contains("port") || lower.contains("listen") || lower.contains("open")));
 
     if asks_fix_plan {
         Some("fix_plan")
+    } else if asks_bitlocker {
+        Some("bitlocker")
+    } else if asks_rdp {
+        Some("rdp")
+    } else if asks_shadow_copies {
+        Some("shadow_copies")
+    } else if asks_pagefile {
+        Some("pagefile")
+    } else if asks_windows_features {
+        Some("windows_features")
+    } else if asks_printers {
+        Some("printers")
+    } else if asks_winrm {
+        Some("winrm")
+    } else if asks_network_stats {
+        Some("network_stats")
+    } else if asks_udp_ports {
+        Some("udp_ports")
     } else if asks_updates {
         Some("updates")
     } else if asks_audit_policy {
@@ -785,6 +860,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("audit_policy",       |l| l.contains("audit policy") || l.contains("auditpol") || l.contains("what is being logged") || l.contains("security audit") || l.contains("event auditing")),
         ("shares",             |l| l.contains("smb share") || l.contains("network share") || l.contains("shared folder") || l.contains("mapped drive") || l.contains("smb1") || l.contains("nfs export")),
         ("dns_servers",        |l| (l.contains("dns server") || l.contains("dns resolver") || l.contains("nameserver") || l.contains("which dns") || l.contains("dns over https") || l.contains("configured dns")) && !l.contains("dns cache")),
+        ("bitlocker",        |l| l.contains("bitlocker") || (l.contains("drive") && l.contains("encrypt")) || (l.contains("disk") && l.contains("encrypt")) || l.contains("encryption status")),
+        ("rdp",              |l| l.contains("rdp") || l.contains("remote desktop") || (l.contains("remote") && l.contains("access") && !l.contains("git"))),
+        ("shadow_copies",    |l| l.contains("shadow copy") || l.contains("shadow copies") || l.contains("vss") || l.contains("snapshot") || l.contains("restore point")),
+        ("pagefile",         |l| l.contains("pagefile") || l.contains("page file") || l.contains("virtual memory") || l.contains("swap file")),
+        ("windows_features", |l| (l.contains("window") && l.contains("feature")) || l.contains("optional feature") || l.contains("iis") || l.contains("hyper-v") || (l.contains("feature") && (l.contains("install") || l.contains("enabled")))),
+        ("printers",         |l| l.contains("printer") || l.contains("print queue") || l.contains("get-printer")),
+        ("winrm",            |l| l.contains("winrm") || l.contains("psremoting") || (l.contains("remote") && l.contains("management") && !l.contains("rdp"))),
+        ("network_stats",    |l| (l.contains("network") && l.contains("stat")) || (l.contains("adapter") && l.contains("stat")) || l.contains("throughput") || l.contains("packet loss") || l.contains("dropped packet")),
+        ("udp_ports",        |l| l.contains("udp port") || l.contains("udp listener") || (l.contains("udp") && l.contains("listening"))),
     ];
 
     let lower = user_input.to_lowercase();

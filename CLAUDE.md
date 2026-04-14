@@ -92,7 +92,7 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Global Guard Enforcement**: Any raw shell diagnostic (wmic, Get-Process, tasklist) is blocked by a global linter in `conversation.rs` and redirected to `inspect_host`.
 - **Telemetry Precision**: Use `topic: "resource_load"` for real-time CPU/RAM summaries and `topic: "processes"` for per-process cumulative CPU/Memory analytics.
 - **Self-Correction Strategy**: When a diagnostic `shell` call is blocked, the agent must immediately self-correct to the designated `inspect_host` topic.
-- **Harness Pre-Run**: When the user asks about 2+ inspection topics in one message, `all_host_inspection_topics()` in `routing.rs` detects all matching topics and the harness runs every `inspect_host` call before the model turn, injecting combined results as `loop_intervention`. The model synthesizes from real data — it must NOT call inspect_host or shell for topics already covered in the pre-run results.
+- **Harness Pre-Run**: When the user asks about 2+ inspection topics in one message, Hematite executes all queries *before* the model turn begins. Results are injected into the **conversation history** as simulated turns (assistant calls + tool results). This ensures the model (especially 9B variants) "sees" the data in the official transcript, which prevents redundant tool calls or orchestration loops.
 - **Multi-Topic Rule**: Never collapse multiple distinct topics into a single generic topic like `"network"`. Each topic must be called separately. Example: "show route table, ARP, DNS cache, and traceroute" → four separate inspect_host calls (or one harness pre-run covering all four).
 - **Storage Inspection**: Use `topic: "storage"` for all-drives capacity with ASCII bar charts and developer cache directory sizing (npm, cargo, pip, yarn, rustup, node_modules).
 - **Hardware Inventory**: Use `topic: "hardware"` for full hardware DNA — CPU model/cores/clock, RAM total/speed/sticks, GPU name/driver/resolution, motherboard/BIOS, and display configuration.
@@ -111,6 +111,15 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **VPN Status**: Use `topic: "vpn"` to detect active VPN adapters, tunnel IPs, and any recognized VPN client services.
 - **Proxy Settings**: Use `topic: "proxy"` for WinHTTP system proxy, Internet Options proxy, and environment variable proxy config.
 - **Firewall Rules**: Use `topic: "firewall_rules"` for non-default enabled Windows Firewall rules — direction, action (Allow/Block), and profile.
+- **BitLocker**: Use `topic: "bitlocker"` for drive encryption status — BitLocker volume status, protection state (ON/OFF), and encryption percentage.
+- **RDP Status**: Use `topic: "rdp"` for Remote Desktop configuration — enabled state, port (default 3389), NLA requirements, firewall rule check, and active RDP sessions.
+- **Shadow Copies**: Use `topic: "shadow_copies"` for Volume Shadow Copies (VSS) — lists snapshot history, storage allocation, and recent system restore points.
+- **Page File**: Use `topic: "pagefile"` for virtual memory configuration — page file paths, allocated size, current usage, and peak usage relative to RAM.
+- **Windows Features**: Use `topic: "windows_features"` for enabled Windows optional features — lists all ON features and flags notable ones (IIS, Hyper-V, WSL).
+- **Printers**: Use `topic: "printers"` for installed printers — printer name, driver, port, status, and active print job queue.
+- **WinRM**: Use `topic: "winrm"` for Windows Remote Management — service state, listeners, PS Remoting status (WS-Man test), and TrustedHosts list.
+- **Network Stats**: Use `topic: "network_stats"` for adapter-level throughput analytics — TX/RX bytes (MB), packet errors, and discarded/dropped packets since boot.
+- **UDP Listeners**: Use `topic: "udp_ports"` for active UDP listeners — local address, port, PID, process name, and annotations for well-known ports (DNS, DHCP, NTP).
 - **Traceroute**: Use `topic: "traceroute"` to trace the network path to a host (default 8.8.8.8). Accepts optional `host` arg. Uses `tracert` on Windows, `traceroute`/`tracepath` on Linux/macOS.
 - **DNS Cache**: Use `topic: "dns_cache"` to inspect locally cached DNS entries — hostname, record type, resolved address, and TTL.
 - **ARP Table**: Use `topic: "arp"` for the ARP neighbor table — IP-to-MAC mappings for devices on the local network.

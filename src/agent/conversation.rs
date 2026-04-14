@@ -184,6 +184,9 @@ impl WorkflowMode {
 }
 
 fn session_path() -> std::path::PathBuf {
+    if let Ok(overridden) = std::env::var("HEMATITE_SESSION_PATH") {
+        return std::path::PathBuf::from(overridden);
+    }
     crate::tools::file_ops::workspace_root()
         .join(".hematite")
         .join("session.json")
@@ -2458,26 +2461,41 @@ impl ConversationManager {
                 let topic_list = topics.join(", ");
                 let mut combined = format!(
                     "## HARNESS PRE-RUN RESULTS\n\
-                     The harness already ran inspect_host for all requested topics: {topic_list}.\n\
-                     All results are below. Your job is ONLY to synthesize a clear answer from this data.\n\
-                     CRITICAL: Do NOT call inspect_host, shell, or run_code for any of these topics — the data is already here.\n\n"
+                     The harness already ran inspect_host for the following topics: {topic_list}.\n\
+                     Use the tool results in context to answer. Do NOT repeat these tool calls.\n\n"
                 );
 
+                let mut tool_calls = Vec::new();
+                let mut tool_msgs = Vec::new();
+
                 for topic in &topics {
-                    let args = serde_json::json!({ "topic": topic, "max_entries": 20 });
+                    let call_id = format!("prerun_{topic}");
+                    let args_val = serde_json::json!({ "topic": *topic, "max_entries": 20 });
+                    let args_str = serde_json::to_string(&args_val).unwrap_or_default();
+                    
+                    tool_calls.push(crate::agent::inference::ToolCallResponse {
+                        id: call_id.clone(),
+                        call_type: "function".to_string(),
+                        function: crate::agent::inference::ToolCallFn {
+                            name: "inspect_host".to_string(),
+                            arguments: args_str,
+                        },
+                    });
+
                     let label = format!("### inspect_host(topic=\"{topic}\")\n");
                     let _ = tx
                         .send(InferenceEvent::ToolCallStart {
-                            id: format!("prerun_{topic}"),
+                            id: call_id.clone(),
                             name: "inspect_host".to_string(),
                             args: format!("inspect host {topic}"),
                         })
                         .await;
-                    match crate::tools::host_inspect::inspect_host(&args).await {
+
+                    match crate::tools::host_inspect::inspect_host(&args_val).await {
                         Ok(out) => {
                             let _ = tx
                                 .send(InferenceEvent::ToolCallResult {
-                                    id: format!("prerun_{topic}"),
+                                    id: call_id.clone(),
                                     name: "inspect_host".to_string(),
                                     output: out.chars().take(300).collect::<String>() + "...",
                                     is_error: false,
@@ -2486,12 +2504,32 @@ impl ConversationManager {
                             combined.push_str(&label);
                             combined.push_str(&out);
                             combined.push_str("\n\n");
+                            tool_msgs.push(ChatMessage::tool_result_for_model(
+                                &call_id,
+                                "inspect_host",
+                                &out,
+                                &self.engine.current_model(),
+                            ));
                         }
                         Err(e) => {
+                            let err_msg = format!("Error: {e}");
                             combined.push_str(&label);
-                            combined.push_str(&format!("Error: {e}\n\n"));
+                            combined.push_str(&err_msg);
+                            combined.push_str("\n\n");
+                            tool_msgs.push(ChatMessage::tool_result_for_model(
+                                &call_id,
+                                "inspect_host",
+                                &err_msg,
+                                &self.engine.current_model(),
+                            ));
                         }
                     }
+                }
+
+                // Add the simulated turn to history so the model sees it as context.
+                self.history.push(ChatMessage::assistant_tool_calls("", tool_calls));
+                for msg in tool_msgs {
+                    self.history.push(msg);
                 }
 
                 loop_intervention = Some(combined);

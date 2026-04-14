@@ -1882,17 +1882,16 @@ fn test_checkpoint_load_returns_none_when_no_session_file() {
 
 #[test]
 fn test_checkpoint_roundtrip_via_session_json() {
-    // Write a session.json that looks like a real prior session, then verify
-    // load_checkpoint() surfaces the right fields.
+    // Write a session.json that looks like a real prior session in a isolated temp directory,
+    // then verify load_checkpoint() surfaces the right fields.
     use std::io::Write;
+    
+    // Create a temporary directory and a unique session path.
+    let temp_workspace = tempfile::tempdir().expect("failed to create temp workspace");
+    let session_path = temp_workspace.path().join("session.json");
 
-    let root = hematite::tools::file_ops::workspace_root();
-    let hematite_dir = root.join(".hematite");
-    let _ = std::fs::create_dir_all(&hematite_dir);
-    let session_path = hematite_dir.join("session.json");
-
-    // Snapshot any existing session.json so we can restore it.
-    let existing = std::fs::read_to_string(&session_path).ok();
+    // Tell the agent to use this specific path for this test thread.
+    std::env::set_var("HEMATITE_SESSION_PATH", &session_path);
 
     // Write a fake prior session.
     let fake = serde_json::json!({
@@ -1906,19 +1905,16 @@ fn test_checkpoint_roundtrip_via_session_json() {
         "last_goal": "add streaming shell and diagnostics",
         "turn_count": 7
     });
-    let mut f = std::fs::File::create(&session_path).unwrap();
-    write!(f, "{}", fake).unwrap();
-    drop(f);
+    
+    {
+        let mut f = std::fs::File::create(&session_path).expect("Failed to create fake session.json");
+        write!(f, "{}", fake).expect("Failed to write fake session.json");
+    }
 
     let cp = hematite::agent::conversation::load_checkpoint();
 
-    // Restore previous session.json (or remove the fake one).
-    match existing {
-        Some(prev) => std::fs::write(&session_path, prev).unwrap(),
-        None => {
-            let _ = std::fs::remove_file(&session_path);
-        }
-    }
+    // Clean up the environment variable.
+    std::env::remove_var("HEMATITE_SESSION_PATH");
 
     let cp = cp.expect("load_checkpoint should return Some for a valid prior session");
     assert_eq!(cp.turn_count, 7);
@@ -3597,4 +3593,184 @@ fn test_routing_detects_dns_servers_topic() {
         preferred_host_inspection_topic("is DNS over HTTPS configured?"),
         Some("dns_servers")
     );
+}
+
+// ── BitLocker & Encryption ───────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_bitlocker_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "bitlocker" });
+        let output = inspect_host(&args).await.expect("bitlocker must return Ok");
+        assert!(output.contains("Host inspection: bitlocker"));
+    });
+}
+
+#[test]
+fn test_routing_detects_bitlocker_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("is my drive encrypted?"), Some("bitlocker"));
+    assert_eq!(preferred_host_inspection_topic("bitlocker status"), Some("bitlocker"));
+}
+
+// ── RDP & Remote Access ──────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_rdp_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "rdp" });
+        let output = inspect_host(&args).await.expect("rdp must return Ok");
+        assert!(output.contains("Host inspection: rdp"));
+    });
+}
+
+#[test]
+fn test_routing_detects_rdp_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("is remote desktop enabled?"), Some("rdp"));
+    assert_eq!(preferred_host_inspection_topic("show RDP settings"), Some("rdp"));
+}
+
+// ── Shadow Copies (VSS) ──────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_shadow_copies_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "shadow_copies" });
+        let output = inspect_host(&args).await.expect("shadow_copies must return Ok");
+        assert!(output.contains("Host inspection: shadow_copies"));
+    });
+}
+
+#[test]
+fn test_routing_detects_shadow_copies_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show me shadow copies"), Some("shadow_copies"));
+    assert_eq!(preferred_host_inspection_topic("VSS snapshots"), Some("shadow_copies"));
+}
+
+// ── Page File & Virtual Memory ───────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_pagefile_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "pagefile" });
+        let output = inspect_host(&args).await.expect("pagefile must return Ok");
+        assert!(output.contains("Host inspection: pagefile"));
+    });
+}
+
+#[test]
+fn test_routing_detects_pagefile_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("how big is my pagefile?"), Some("pagefile"));
+    assert_eq!(preferred_host_inspection_topic("virtual memory usage"), Some("pagefile"));
+}
+
+// ── Windows Features ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_windows_features_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "windows_features" });
+        let output = inspect_host(&args).await.expect("windows_features must return Ok");
+        assert!(output.contains("Host inspection: windows_features"));
+    });
+}
+
+#[test]
+fn test_routing_detects_windows_features_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("what windows features are on?"), Some("windows_features"));
+    assert_eq!(preferred_host_inspection_topic("is IIS installed?"), Some("windows_features"));
+}
+
+// ── Printers ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_printers_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "printers" });
+        let output = inspect_host(&args).await.expect("printers must return Ok");
+        assert!(output.contains("Host inspection: printers"));
+    });
+}
+
+#[test]
+fn test_routing_detects_printers_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("list my printers"), Some("printers"));
+    assert_eq!(preferred_host_inspection_topic("is anything in the print queue?"), Some("printers"));
+}
+
+// ── WinRM ────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_winrm_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "winrm" });
+        let output = inspect_host(&args).await.expect("winrm must return Ok");
+        assert!(output.contains("Host inspection: winrm"));
+    });
+}
+
+#[test]
+fn test_routing_detects_winrm_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("is WinRM enabled?"), Some("winrm"));
+    assert_eq!(preferred_host_inspection_topic("check PS Remoting status"), Some("winrm"));
+}
+
+// ── Network Stats ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_network_stats_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "network_stats" });
+        let output = inspect_host(&args).await.expect("network_stats must return Ok");
+        assert!(output.contains("Host inspection: network_stats"));
+    });
+}
+
+#[test]
+fn test_routing_detects_network_stats_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("adapter throughput stats"), Some("network_stats"));
+    assert_eq!(preferred_host_inspection_topic("any dropped packets on my NIC?"), Some("network_stats"));
+}
+
+// ── UDP Ports ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_udp_ports_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "udp_ports" });
+        let output = inspect_host(&args).await.expect("udp_ports must return Ok");
+        assert!(output.contains("Host inspection: udp_ports"));
+    });
+}
+
+#[test]
+fn test_routing_detects_udp_ports_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("what is listening on UDP?"), Some("udp_ports"));
+    assert_eq!(preferred_host_inspection_topic("show open UDP ports"), Some("udp_ports"));
 }
