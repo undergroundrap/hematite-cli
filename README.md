@@ -25,6 +25,7 @@ Local AI coding harness, SysAdmin, and Network Admin assistant for LM Studio. Ru
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, SysAdmin and Network Admin when you need one, clean conversation when you do not. LM Studio handles model serving. Hematite handles the grounded local workflow around it.
 
+![Version](https://img.shields.io/badge/version-0.5.0-blue?style=flat-square)
 ![Silicon Native](https://img.shields.io/badge/silicon-native-orange?style=flat-square)
 [![crate hematite-cli](https://img.shields.io/crates/v/hematite-cli?style=flat-square&label=crate%20hematite-cli)](https://crates.io/crates/hematite-cli)
 [![crate hematite-kokoros](https://img.shields.io/crates/v/hematite-kokoros?style=flat-square&label=crate%20hematite-kokoros)](https://crates.io/crates/hematite-kokoros)
@@ -1094,6 +1095,7 @@ hematite --version Show the same build report from the CLI
 /copy-clean       Copy the chat transcript without help/debug boilerplate
 /undo             Undo last file edit
 /clear            Clear visible dialogue and side-panel session state
+/teach [prompt]   Sticky teacher mode — inspects real machine state first, then delivers a grounded numbered walkthrough for any admin/config/system task; does not execute write operations
 /health           Run a synthesized plain-English system health report
 /explain <text>   Paste an error to get a non-technical breakdown
 /help             Show all commands

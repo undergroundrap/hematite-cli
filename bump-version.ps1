@@ -21,11 +21,9 @@ $content = Get-Content "Cargo.toml" -Raw
 $content = $content -replace "(?m)^version = `"$([regex]::Escape($old))`"\r?$", "version = `"$Version`""
 Set-Content "Cargo.toml" $content -NoNewline
 
-# README.md
+# README.md — update static version badge
 (Get-Content "README.md" -Raw) `
-    -replace [regex]::Escape("version-$old"), "version-$Version" `
-    -replace [regex]::Escape("Hematite-$old"), "Hematite-$Version" `
-    -replace [regex]::Escape("v$old"), "v$Version" |
+    -replace [regex]::Escape("version-$old"), "version-$Version" |
     Set-Content "README.md" -NoNewline
 
 # CLAUDE.md

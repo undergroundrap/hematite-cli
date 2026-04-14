@@ -75,14 +75,14 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (20+):**
+**SysAdmin topics (30+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
 - **Services** (`services`) — running Windows services, startup types, and state
 - **Ports** (`ports`) — listening TCP/UDP ports with owning process
-- **Storage** (`storage`) — all-drives capacity with ASCII bar charts, developer cache sizing, and **Real-time Disk Intensity** (Average Disk Queue Length)
-- **Hardware** (`hardware`) — full hardware DNA: CPU model/cores/clock, RAM total/speed/sticks/channel, GPU name/driver/resolution, motherboard/BIOS manufacturer/version, and **Virtualization Health** (Hypervisor status and SLAT/VT-x capability)
+- **Storage** (`storage`) — all-drives capacity with ASCII bar charts, developer cache sizing, and real-time Disk Intensity (Average Disk Queue Length)
+- **Hardware** (`hardware`) — full hardware DNA: CPU model/cores/clock, RAM total/speed/sticks/channel, GPU name/driver/resolution, motherboard/BIOS manufacturer/version, and Virtualization Health (Hypervisor status and SLAT/VT-x capability)
 - **Sessions** (`sessions`) — audits active and disconnected user logon sessions with terminal service info
 - **Health report** (`health_report`) — tiered plain-English verdict (ALL GOOD / WORTH A LOOK / ACTION REQUIRED) across disk, RAM, tools, and recent error events
 - **Windows Update** (`updates`) — last install date, pending update count, Windows Update service state
@@ -97,8 +97,18 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Log check** (`log_check`) — recent system error events from the Windows event log
 - **Startup items** (`startup_items`) — boot-time programs and their startup types
 - **OS config** (`os_config`) — firewall profiles, power plan, and uptime
+- **User accounts** (`user_accounts`) — local user accounts (name, enabled, last logon, password required), Administrators group members, active logon sessions, and elevated process state
+- **Audit policy** (`audit_policy`) — Windows audit policy via auditpol; shows which event categories log Success/Failure; flags if no categories are enabled
+- **Shares** (`shares`) — SMB shares exposed by this machine (flags custom non-admin shares), SMB security settings (SMB1/SMB2 state, signing, encryption), and mapped network drives
+- **BitLocker** (`bitlocker`) — drive encryption state per volume (PROTECTED/UNPROTECTED), protection method, and SMB1 warning; LUKS on Linux
+- **RDP** (`rdp`) — Remote Desktop enabled state (registry fDenyTSConnections), port number, NLA/UserAuthentication, firewall group status, and active sessions
+- **Shadow copies** (`shadow_copies`) — VSS shadow copy count and storage allocation, System Restore points, and LVM snapshots on Linux
+- **Page file** (`pagefile`) — virtual memory allocated/current/peak MB, system-managed vs fixed config, RAM context, and high-usage warning
+- **Windows features** (`windows_features`) — enabled optional features with count, notable feature flags (Hyper-V, IIS, Telnet, TFTP, NFS), and quick-check for six key features
+- **Printers** (`printers`) — installed printers with default flag, active print jobs; CUPS on Linux
+- **WinRM** (`winrm`) — Windows Remote Management service state, listener config, TrustedHosts, and Test-WSMan connectivity check
 
-**Network Admin topics (10):**
+**Network Admin topics (12):**
 
 - **Connectivity** (`connectivity`) — internet reachability test (DNS + ICMP + HTTPS) with latency and failure diagnosis
 - **Wi-Fi** (`wifi`) — connected SSID, signal strength, channel, frequency band, and adapter details
@@ -110,6 +120,8 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **DNS cache** (`dns_cache`) — current local DNS resolver cache entries
 - **ARP table** (`arp`) — local ARP cache mapping IP addresses to MAC addresses
 - **Routing table** (`route_table`) — full IP routing table with interface, next-hop, and metric
+- **Network stats** (`network_stats`) — per-adapter RX/TX throughput (MB), error counts, drop counts, link speed, and duplex; flags adapters with errors or drops
+- **UDP ports** (`udp_ports`) — active UDP listeners with owning process name and annotations for well-known ports (DNS, NTP, NetBIOS, mDNS, SSDP, IKE, SNMP)
 
 **Harness pre-run orchestration:**
 
@@ -170,7 +182,8 @@ Hematite is built for repeated project use, not one-off prompts.
 - **Session persistence**: active state is saved under `.hematite/`
 - **Task awareness**: local task and planning files can shape agent behavior
 - **Instruction discovery**: project rules are loaded automatically from workspace instruction files
-- **Sticky workflow modes**: `/ask`, `/code`, `/architect`, `/read-only`, and `/auto` let the operator choose between analysis, implementation, plan-first, and hard read-only behavior
+- **Sticky workflow modes**: `/ask`, `/code`, `/architect`, `/read-only`, `/teach`, and `/auto` let the operator choose between analysis, implementation, plan-first, hard read-only, and grounded walkthrough behavior
+- **Teacher mode** (`/teach`) — inspects real machine state first via `inspect_host`, then delivers a numbered step-by-step walkthrough for any admin/config/system task; never executes write operations itself; covers driver installs, Group Policy, firewall rules, SSH key generation, WSL setup, service config, Windows activation, registry edits, scheduled tasks, and disk cleanup
 
 ## 7. Voice and TUI Integration
 
