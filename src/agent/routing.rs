@@ -275,7 +275,7 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
     host_scope && host_action
 }
 
-pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str> {
+pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str> {
     let lower = user_input.to_lowercase();
     let asks_fix_plan = (lower.contains("fix")
         || lower.contains("repair")
@@ -533,6 +533,51 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         || lower.contains("ip route")
         || lower.contains("next hop")
         || (lower.contains("route") && (lower.contains("table") || lower.contains("entry") || lower.contains("entries")));
+    let asks_env = (lower.contains("environment variable") || lower.contains("env var")
+        || lower.contains("env vars") || lower.contains("show env") || lower.contains("list env"))
+        && !lower.contains("env doctor");
+    let asks_hosts_file = lower.contains("hosts file")
+        || lower.contains("/etc/hosts")
+        || lower.contains("etc/hosts")
+        || lower.contains("hosts entry")
+        || lower.contains("hosts entries")
+        || (lower.contains("hosts") && (lower.contains("redirect") || lower.contains("block") || lower.contains("loopback")));
+    let asks_docker = lower.contains("docker")
+        || lower.contains("container")
+        || lower.contains("docker compose")
+        || lower.contains("docker ps")
+        || lower.contains("running container");
+    let asks_wsl = lower.contains("wsl")
+        || lower.contains("windows subsystem")
+        || lower.contains("linux distro")
+        || lower.contains("ubuntu on windows")
+        || (lower.contains("subsystem") && lower.contains("linux"));
+    let asks_ssh = (lower.contains("ssh") && !lower.contains("ssh key") && !lower.contains("git"))
+        || lower.contains("sshd")
+        || lower.contains("ssh config")
+        || lower.contains("ssh server")
+        || lower.contains("ssh client")
+        || lower.contains("known_hosts")
+        || lower.contains("authorized_keys")
+        || lower.contains("ssh key")
+        || (lower.contains("ssh") && (lower.contains("running") || lower.contains("service") || lower.contains("port 22")));
+    let asks_installed_software = lower.contains("installed software")
+        || lower.contains("installed program")
+        || lower.contains("installed app")
+        || lower.contains("installed package")
+        || lower.contains("what is installed")
+        || lower.contains("what's installed")
+        || lower.contains("winget list")
+        || lower.contains("list programs")
+        || (lower.contains("installed") && (lower.contains("on this machine") || lower.contains("on my machine") || lower.contains("on my pc")));
+    let asks_git_config = (lower.contains("git config") || lower.contains("git configuration")
+        || lower.contains("git global")
+        || (lower.contains("git") && lower.contains("user.name"))
+        || (lower.contains("git") && lower.contains("user.email"))
+        || (lower.contains("git") && lower.contains("signing"))
+        || (lower.contains("git") && lower.contains("credential"))
+        || lower.contains("git aliases"))
+        && !lower.contains("github");
 
     if asks_fix_plan {
         Some("fix_plan")
@@ -578,6 +623,20 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
         Some("arp")
     } else if asks_route_table {
         Some("route_table")
+    } else if asks_docker {
+        Some("docker")
+    } else if asks_wsl {
+        Some("wsl")
+    } else if asks_ssh {
+        Some("ssh")
+    } else if asks_git_config {
+        Some("git_config")
+    } else if asks_installed_software {
+        Some("installed_software")
+    } else if asks_env {
+        Some("env")
+    } else if asks_hosts_file {
+        Some("hosts_file")
     } else if asks_network {
         Some("network")
     } else if asks_services {
@@ -614,7 +673,7 @@ pub(crate) fn preferred_host_inspection_topic(user_input: &str) -> Option<&'stat
 /// Returns all distinct inspect_host topics detected in a user prompt.
 /// Used by the harness to pre-run multiple topics when the user asks for several at once,
 /// so the model receives all results and only needs to synthesize rather than orchestrate.
-pub(crate) fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
+pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     // All topic detectors in priority order — ordered so more specific topics come
     // before generic fallbacks (e.g. traceroute before network).
     let detectors: &[(&str, fn(&str) -> bool)] = &[
@@ -647,8 +706,15 @@ pub(crate) fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> 
         ("network",         |l| l.contains("network adapter") || l.contains("ip address") || l.contains("ipconfig") || l.contains("gateway") || l.contains("subnet")),
         ("env_doctor",      |l| l.contains("env doctor") || l.contains("environment doctor") || l.contains("package manager") || l.contains("path drift")),
         ("os_config",       |l| l.contains("power plan") || l.contains("uptime") || l.contains("boot time") || l.contains("last boot")),
-        ("path",            |l| l.contains("path entries") || l.contains("raw path")),
-        ("toolchains",      |l| l.contains("developer tools") || l.contains("toolchains") || (l.contains("installed") && l.contains("version"))),
+        ("path",               |l| l.contains("path entries") || l.contains("raw path")),
+        ("toolchains",         |l| l.contains("developer tools") || l.contains("toolchains") || (l.contains("installed") && l.contains("version"))),
+        ("docker",             |l| l.contains("docker") || l.contains("container") || l.contains("running container")),
+        ("wsl",                |l| l.contains("wsl") || l.contains("windows subsystem") || (l.contains("subsystem") && l.contains("linux"))),
+        ("ssh",                |l| l.contains("ssh") || l.contains("sshd") || l.contains("known_hosts") || l.contains("authorized_keys")),
+        ("git_config",         |l| (l.contains("git config") || l.contains("git global") || l.contains("git aliases")) && !l.contains("github")),
+        ("installed_software", |l| l.contains("installed software") || l.contains("installed program") || l.contains("what is installed") || l.contains("what's installed") || l.contains("winget list")),
+        ("env",                |l| (l.contains("environment variable") || l.contains("env var") || l.contains("env vars")) && !l.contains("env doctor")),
+        ("hosts_file",         |l| l.contains("hosts file") || l.contains("/etc/hosts") || l.contains("hosts entry")),
     ];
 
     let lower = user_input.to_lowercase();

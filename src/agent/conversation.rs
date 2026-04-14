@@ -1387,7 +1387,7 @@ impl ConversationManager {
                         "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: shell is blocked for host inspection. Call inspect_host directly with the correct topic for any remaining diagnostics.]"
                     )),
                     Err(_) => Err(format!(
-                        "Action blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table.",
+                        "Action blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, wsl, ssh, env, hosts_file, installed_software, git_config.",
                     )),
                 };
             }
@@ -4996,6 +4996,40 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "test-netconnection",
         "resolve-dnsname",
         "get-netfirewallrule",
+        // docker / wsl / ssh — always use inspect_host
+        "docker ps",
+        "docker info",
+        "docker images",
+        "docker container",
+        "docker compose ls",
+        "wsl --list",
+        "wsl -l",
+        "wsl --status",
+        "wsl --version",
+        "ssh -v",
+        "get-service sshd",
+        "get-service -name sshd",
+        "cat ~/.ssh",
+        "ls ~/.ssh",
+        "ls -la ~/.ssh",
+        // env / hosts / git config
+        "get-childitem env:",
+        "dir env:",
+        "printenv",
+        "[environment]::getenvironmentvariable",
+        "get-content.*hosts",
+        "cat /etc/hosts",
+        "type c:\\windows\\system32\\drivers\\etc\\hosts",
+        "git config --global --list",
+        "git config --list",
+        "git config --global",
+        // installed software
+        "winget list",
+        "get-package",
+        "get-itempropert.*uninstall",
+        "dpkg --get-selections",
+        "rpm -qa",
+        "brew list",
     ]
     .iter()
     .any(|needle| lower.contains(needle))

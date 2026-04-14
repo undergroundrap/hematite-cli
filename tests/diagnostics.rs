@@ -2840,14 +2840,9 @@ fn test_inspect_host_unknown_topic_includes_all_new_topics_in_error() {
             .await
             .expect_err("unknown topic must return Err");
         let new_topics = [
-            "updates",
-            "security",
-            "pending_reboot",
-            "disk_health",
-            "battery",
-            "recent_crashes",
-            "scheduled_tasks",
-            "dev_conflicts",
+            "updates", "security", "pending_reboot", "disk_health", "battery",
+            "recent_crashes", "scheduled_tasks", "dev_conflicts",
+            "docker", "wsl", "ssh", "env", "hosts_file", "installed_software", "git_config",
         ];
         for topic in new_topics {
             assert!(
@@ -2856,4 +2851,344 @@ fn test_inspect_host_unknown_topic_includes_all_new_topics_in_error() {
             );
         }
     });
+}
+
+// ── env ───────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_env_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "env" });
+        let output = inspect_host(&args).await.expect("env must return Ok");
+        assert!(
+            output.contains("Host inspection: env"),
+            "env output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_env_shows_total_and_path_note() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "env" });
+        let output = inspect_host(&args).await.expect("env must return Ok");
+        assert!(
+            output.contains("Total environment variables:"),
+            "env output must show total count; got:\n{output}"
+        );
+        assert!(
+            output.contains("PATH:"),
+            "env output must note PATH entry count; got:\n{output}"
+        );
+    });
+}
+
+// ── hosts_file ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_hosts_file_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "hosts_file" });
+        let output = inspect_host(&args).await.expect("hosts_file must return Ok");
+        assert!(
+            output.contains("Host inspection: hosts_file"),
+            "hosts_file output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_hosts_file_shows_path_and_summary() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "hosts_file" });
+        let output = inspect_host(&args).await.expect("hosts_file must return Ok");
+        let has_path = output.contains("Path:") && (output.contains("hosts") || output.contains("etc"));
+        let has_summary = output.contains("Active entries:") || output.contains("Could not read");
+        assert!(has_path, "hosts_file must show file path; got:\n{output}");
+        assert!(has_summary, "hosts_file must show entry summary or error; got:\n{output}");
+    });
+}
+
+// ── docker ────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_docker_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "docker" });
+        let output = inspect_host(&args).await.expect("docker must return Ok");
+        assert!(
+            output.contains("Host inspection: docker"),
+            "docker output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_docker_reports_status_or_not_found() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "docker" });
+        let output = inspect_host(&args).await.expect("docker must return Ok");
+        let has_result = output.contains("Docker Engine:")
+            || output.contains("not found")
+            || output.contains("daemon is NOT running")
+            || output.contains("error");
+        assert!(
+            has_result,
+            "docker must report engine version, not-found, or daemon-down; got:\n{output}"
+        );
+    });
+}
+
+// ── wsl ───────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_wsl_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "wsl" });
+        let output = inspect_host(&args).await.expect("wsl must return Ok");
+        assert!(
+            output.contains("Host inspection: wsl"),
+            "wsl output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_wsl_reports_distros_or_status() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "wsl" });
+        let output = inspect_host(&args).await.expect("wsl must return Ok");
+        // On Windows: distros or install hint. On other OS: feature note.
+        let has_result = output.contains("WSL Distributions")
+            || output.contains("not installed")
+            || output.contains("no distributions")
+            || output.contains("Windows-only feature")
+            || output.contains("wsl --install")
+            || output.contains("error");
+        assert!(
+            has_result,
+            "wsl must report distros, install hint, or platform note; got:\n{output}"
+        );
+    });
+}
+
+// ── ssh ───────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_ssh_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "ssh" });
+        let output = inspect_host(&args).await.expect("ssh must return Ok");
+        assert!(
+            output.contains("Host inspection: ssh"),
+            "ssh output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_ssh_reports_client_and_dotsssh() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "ssh" });
+        let output = inspect_host(&args).await.expect("ssh must return Ok");
+        let has_client = output.contains("SSH client:")
+            || output.contains("not found on PATH");
+        let has_ssh_dir = output.contains("~/.ssh:")
+            || output.contains("not found");
+        assert!(has_client, "ssh must report client version or not-found; got:\n{output}");
+        assert!(has_ssh_dir, "ssh must report ~/.ssh state; got:\n{output}");
+    });
+}
+
+// ── installed_software ────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_installed_software_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "installed_software" });
+        let output = inspect_host(&args).await.expect("installed_software must return Ok");
+        assert!(
+            output.contains("Host inspection: installed_software"),
+            "installed_software output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_installed_software_lists_packages_or_explains() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "installed_software" });
+        let output = inspect_host(&args).await.expect("installed_software must return Ok");
+        let has_result = output.contains("packages")
+            || output.contains("Installed software")
+            || output.contains("Homebrew")
+            || output.contains("dpkg")
+            || output.contains("rpm")
+            || output.contains("pacman")
+            || output.contains("failed")
+            || output.contains("not found");
+        assert!(
+            has_result,
+            "installed_software must list packages or explain why not; got:\n{output}"
+        );
+    });
+}
+
+// ── git_config ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_git_config_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "git_config" });
+        let output = inspect_host(&args).await.expect("git_config must return Ok");
+        assert!(
+            output.contains("Host inspection: git_config"),
+            "git_config output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_git_config_reports_version_and_config() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "git_config" });
+        let output = inspect_host(&args).await.expect("git_config must return Ok");
+        let has_git = output.contains("Git:") || output.contains("not found");
+        assert!(has_git, "git_config must report git version or not-found; got:\n{output}");
+        // If git is present, should have config info
+        if output.contains("Git: git version") {
+            let has_config = output.to_lowercase().contains("global git config");
+            assert!(has_config, "git_config must show global config section; got:\n{output}");
+        }
+    });
+}
+
+// ── routing: new topics are detected ─────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_docker_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("are any docker containers running?"),
+        Some("docker")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show me my docker images"),
+        Some("docker")
+    );
+}
+
+#[test]
+fn test_routing_detects_wsl_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what wsl distros do I have?"),
+        Some("wsl")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show me windows subsystem for linux distros"),
+        Some("wsl")
+    );
+}
+
+#[test]
+fn test_routing_detects_ssh_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show me my ssh config"),
+        Some("ssh")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("how many known_hosts do I have?"),
+        Some("ssh")
+    );
+}
+
+#[test]
+fn test_routing_detects_git_config_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show me my git config"),
+        Some("git_config")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is my git global user.name?"),
+        Some("git_config")
+    );
+}
+
+#[test]
+fn test_routing_detects_installed_software_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what software is installed on this machine?"),
+        Some("installed_software")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show me installed programs"),
+        Some("installed_software")
+    );
+}
+
+#[test]
+fn test_routing_detects_env_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show me my environment variables"),
+        Some("env")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("list env vars"),
+        Some("env")
+    );
+}
+
+#[test]
+fn test_routing_detects_hosts_file_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show me the hosts file"),
+        Some("hosts_file")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is in /etc/hosts?"),
+        Some("hosts_file")
+    );
+}
+
+#[test]
+fn test_all_host_topics_detects_docker_and_ssh_together() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics = all_host_inspection_topics("show me docker containers and my ssh config");
+    assert!(topics.contains(&"docker"), "should detect docker; got: {topics:?}");
+    assert!(topics.contains(&"ssh"), "should detect ssh; got: {topics:?}");
+    assert!(topics.len() >= 2, "should detect 2+ topics; got: {topics:?}");
 }

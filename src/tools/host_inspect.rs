@@ -63,6 +63,13 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "route_table" | "routes" | "routing_table" => inspect_route_table(max_entries),
         "os_config" | "system_config" => inspect_os_config(),
         "resource_load" | "performance" | "system_load" | "performance_diagnosis" => inspect_resource_load(),
+        "env" | "environment" | "environment_variables" | "env_vars" => inspect_env(max_entries),
+        "hosts_file" | "hosts" | "etc_hosts" => inspect_hosts_file(),
+        "docker" | "containers" | "docker_status" => inspect_docker(max_entries),
+        "wsl" | "wsl_distros" | "subsystem" => inspect_wsl(),
+        "ssh" | "ssh_config" | "ssh_status" => inspect_ssh(),
+        "installed_software" | "installed" | "programs" | "software" | "packages" => inspect_installed_software(max_entries),
+        "git_config" | "git_global" => inspect_git_config(),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -79,7 +86,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, os_config, resource_load.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config.",
             other
         )),
     }
@@ -5353,6 +5360,940 @@ try {
             }
         } else {
             out.push_str("ip route and netstat not available.\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── env ───────────────────────────────────────────────────────────────────────
+
+fn inspect_env(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: env\n\n");
+    let n = max_entries.clamp(10, 50);
+
+    fn looks_like_secret(name: &str) -> bool {
+        let n = name.to_uppercase();
+        n.contains("KEY") || n.contains("SECRET") || n.contains("TOKEN")
+            || n.contains("PASSWORD") || n.contains("PASSWD") || n.contains("CREDENTIAL")
+            || n.contains("AUTH") || n.contains("CERT") || n.contains("PRIVATE")
+    }
+
+    let known_dev_vars: &[&str] = &[
+        "CARGO_HOME", "RUSTUP_HOME", "GOPATH", "GOROOT", "GOBIN",
+        "JAVA_HOME", "ANDROID_HOME", "ANDROID_SDK_ROOT",
+        "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "CONDA_DEFAULT_ENV", "CONDA_PREFIX",
+        "NODE_PATH", "NVM_DIR", "NVM_BIN", "PNPM_HOME",
+        "DENO_INSTALL", "DENO_DIR",
+        "DOTNET_ROOT", "NUGET_PACKAGES",
+        "CMAKE_HOME", "VCPKG_ROOT",
+        "AWS_PROFILE", "AWS_REGION", "AWS_DEFAULT_REGION",
+        "GCP_PROJECT", "GOOGLE_CLOUD_PROJECT", "GOOGLE_APPLICATION_CREDENTIALS",
+        "AZURE_SUBSCRIPTION_ID",
+        "DATABASE_URL", "REDIS_URL", "MONGO_URI",
+        "EDITOR", "VISUAL", "SHELL", "TERM",
+        "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
+        "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP",
+        "COMPUTERNAME", "USERNAME", "USERDOMAIN",
+        "PROCESSOR_ARCHITECTURE", "NUMBER_OF_PROCESSORS",
+        "OS", "HOMEDRIVE", "HOMEPATH",
+        "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY",
+        "http_proxy", "https_proxy", "no_proxy",
+        "DOCKER_HOST", "DOCKER_BUILDKIT",
+        "COMPOSE_PROJECT_NAME",
+        "KUBECONFIG", "KUBE_CONTEXT",
+        "CI", "GITHUB_ACTIONS", "GITLAB_CI",
+        "LMSTUDIO_HOME", "HEMATITE_URL",
+    ];
+
+    let mut all_vars: Vec<(String, String)> = std::env::vars().collect();
+    all_vars.sort_by(|a, b| a.0.cmp(&b.0));
+    let total = all_vars.len();
+
+    let mut dev_found: Vec<String> = Vec::new();
+    let mut secret_found: Vec<String> = Vec::new();
+
+    for (k, v) in &all_vars {
+        if k == "PATH" { continue; }
+        if looks_like_secret(k) {
+            secret_found.push(format!("{k} = [SET, {} chars]", v.len()));
+        } else {
+            let k_upper = k.to_uppercase();
+            let is_known = known_dev_vars.iter().any(|kv| k_upper.as_str() == kv.to_uppercase().as_str());
+            if is_known {
+                let display = if v.len() > 120 {
+                    format!("{k} = {}…", &v[..117])
+                } else {
+                    format!("{k} = {v}")
+                };
+                dev_found.push(display);
+            }
+        }
+    }
+
+    out.push_str(&format!("Total environment variables: {total}\n\n"));
+
+    if let Ok(p) = std::env::var("PATH") {
+        let sep = if cfg!(target_os = "windows") { ';' } else { ':' };
+        let count = p.split(sep).count();
+        out.push_str(&format!("PATH: {count} entries (use topic=path for full audit)\n\n"));
+    }
+
+    if !secret_found.is_empty() {
+        out.push_str(&format!(
+            "=== Secret/credential variables ({} detected, values hidden) ===\n",
+            secret_found.len()
+        ));
+        for s in secret_found.iter().take(n) {
+            out.push_str(&format!("  {s}\n"));
+        }
+        out.push('\n');
+    }
+
+    if !dev_found.is_empty() {
+        out.push_str(&format!("=== Developer & tool variables ({}) ===\n", dev_found.len()));
+        for d in dev_found.iter().take(n) {
+            out.push_str(&format!("  {d}\n"));
+        }
+        out.push('\n');
+    }
+
+    let other_count = all_vars.iter().filter(|(k, _)| {
+        k != "PATH"
+            && !looks_like_secret(k)
+            && !known_dev_vars.iter().any(|kv| k.to_uppercase().as_str() == kv.to_uppercase().as_str())
+    }).count();
+    if other_count > 0 {
+        out.push_str(&format!(
+            "Other variables: {other_count} (use 'env' in shell to see all)\n"
+        ));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── hosts_file ────────────────────────────────────────────────────────────────
+
+fn inspect_hosts_file() -> Result<String, String> {
+    let mut out = String::from("Host inspection: hosts_file\n\n");
+
+    let hosts_path = if cfg!(target_os = "windows") {
+        std::path::PathBuf::from(r"C:\Windows\System32\drivers\etc\hosts")
+    } else {
+        std::path::PathBuf::from("/etc/hosts")
+    };
+
+    out.push_str(&format!("Path: {}\n\n", hosts_path.display()));
+
+    match fs::read_to_string(&hosts_path) {
+        Ok(content) => {
+            let mut active_entries: Vec<String> = Vec::new();
+            let mut comment_lines = 0usize;
+            let mut blank_lines = 0usize;
+
+            for line in content.lines() {
+                let t = line.trim();
+                if t.is_empty() {
+                    blank_lines += 1;
+                } else if t.starts_with('#') {
+                    comment_lines += 1;
+                } else {
+                    active_entries.push(line.to_string());
+                }
+            }
+
+            out.push_str(&format!(
+                "Active entries: {}  |  Comment lines: {}  |  Blank lines: {}\n\n",
+                active_entries.len(),
+                comment_lines,
+                blank_lines
+            ));
+
+            if active_entries.is_empty() {
+                out.push_str(
+                    "No active host entries (file contains only comments/blanks — standard default state).\n",
+                );
+            } else {
+                out.push_str("=== Active entries ===\n");
+                for entry in &active_entries {
+                    out.push_str(&format!("  {entry}\n"));
+                }
+                out.push('\n');
+
+                let custom: Vec<&String> = active_entries
+                    .iter()
+                    .filter(|e| {
+                        let t = e.trim_start();
+                        !t.starts_with("127.")
+                            && !t.starts_with("::1")
+                            && !t.starts_with("0.0.0.0")
+                    })
+                    .collect();
+                if !custom.is_empty() {
+                    out.push_str(&format!(
+                        "[!] Custom (non-loopback) entries: {}\n",
+                        custom.len()
+                    ));
+                    for e in &custom {
+                        out.push_str(&format!("  {e}\n"));
+                    }
+                } else {
+                    out.push_str(
+                        "All active entries are standard loopback or block entries.\n",
+                    );
+                }
+            }
+
+            out.push_str("\n=== Full file ===\n");
+            for line in content.lines() {
+                out.push_str(&format!("  {line}\n"));
+            }
+        }
+        Err(e) => {
+            out.push_str(&format!("Could not read hosts file: {e}\n"));
+            if cfg!(target_os = "windows") {
+                out.push_str(
+                    "On Windows, run Hematite as Administrator if permission is denied.\n",
+                );
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── docker ────────────────────────────────────────────────────────────────────
+
+fn inspect_docker(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: docker\n\n");
+    let n = max_entries.clamp(5, 25);
+
+    let version_output = Command::new("docker")
+        .args(["version", "--format", "{{.Server.Version}}"])
+        .output();
+
+    match version_output {
+        Err(_) => {
+            out.push_str("Docker: not found on PATH.\n");
+            out.push_str(
+                "Install Docker Desktop: https://www.docker.com/products/docker-desktop\n",
+            );
+            return Ok(out.trim_end().to_string());
+        }
+        Ok(o) if !o.status.success() => {
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            if stderr.contains("cannot connect")
+                || stderr.contains("Is the docker daemon running")
+                || stderr.contains("pipe")
+                || stderr.contains("socket")
+            {
+                out.push_str("Docker: installed but daemon is NOT running.\n");
+                out.push_str("Start Docker Desktop or run: sudo systemctl start docker\n");
+            } else {
+                out.push_str(&format!("Docker: error — {}\n", stderr.trim()));
+            }
+            return Ok(out.trim_end().to_string());
+        }
+        Ok(o) => {
+            let version = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            out.push_str(&format!("Docker Engine: {version}\n"));
+        }
+    }
+
+    if let Ok(o) = Command::new("docker")
+        .args([
+            "info",
+            "--format",
+            "Containers: {{.Containers}} (running: {{.ContainersRunning}}, stopped: {{.ContainersStopped}})\nImages: {{.Images}}\nStorage driver: {{.Driver}}\nOS/Arch: {{.OSType}}/{{.Architecture}}\nCPUs: {{.NCPU}}",
+        ])
+        .output()
+    {
+        let info = String::from_utf8_lossy(&o.stdout);
+        for line in info.lines() {
+            let t = line.trim();
+            if !t.is_empty() {
+                out.push_str(&format!("  {t}\n"));
+            }
+        }
+        out.push('\n');
+    }
+
+    if let Ok(o) = Command::new("docker")
+        .args([
+            "ps",
+            "--format",
+            "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}",
+        ])
+        .output()
+    {
+        let raw = String::from_utf8_lossy(&o.stdout);
+        let lines: Vec<&str> = raw.lines().collect();
+        if lines.len() <= 1 {
+            out.push_str("Running containers: none\n\n");
+        } else {
+            out.push_str(&format!(
+                "=== Running containers ({}) ===\n",
+                lines.len().saturating_sub(1)
+            ));
+            for line in lines.iter().take(n + 1) {
+                out.push_str(&format!("  {line}\n"));
+            }
+            if lines.len() > n + 1 {
+                out.push_str(&format!("  ... and {} more\n", lines.len() - n - 1));
+            }
+            out.push('\n');
+        }
+    }
+
+    if let Ok(o) = Command::new("docker")
+        .args([
+            "images",
+            "--format",
+            "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}",
+        ])
+        .output()
+    {
+        let raw = String::from_utf8_lossy(&o.stdout);
+        let lines: Vec<&str> = raw.lines().collect();
+        if lines.len() > 1 {
+            out.push_str(&format!(
+                "=== Local images ({}) ===\n",
+                lines.len().saturating_sub(1)
+            ));
+            for line in lines.iter().take(n + 1) {
+                out.push_str(&format!("  {line}\n"));
+            }
+            if lines.len() > n + 1 {
+                out.push_str(&format!("  ... and {} more\n", lines.len() - n - 1));
+            }
+            out.push('\n');
+        }
+    }
+
+    if let Ok(o) = Command::new("docker")
+        .args([
+            "compose",
+            "ls",
+            "--format",
+            "table {{.Name}}\t{{.Status}}\t{{.ConfigFiles}}",
+        ])
+        .output()
+    {
+        let raw = String::from_utf8_lossy(&o.stdout);
+        let lines: Vec<&str> = raw.lines().collect();
+        if lines.len() > 1 {
+            out.push_str(&format!(
+                "=== Compose projects ({}) ===\n",
+                lines.len().saturating_sub(1)
+            ));
+            for line in lines.iter().take(n + 1) {
+                out.push_str(&format!("  {line}\n"));
+            }
+            out.push('\n');
+        }
+    }
+
+    if let Ok(o) = Command::new("docker").args(["context", "show"]).output() {
+        let ctx = String::from_utf8_lossy(&o.stdout).trim().to_string();
+        if !ctx.is_empty() {
+            out.push_str(&format!("Active context: {ctx}\n"));
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── wsl ───────────────────────────────────────────────────────────────────────
+
+fn inspect_wsl() -> Result<String, String> {
+    let mut out = String::from("Host inspection: wsl\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(o) = Command::new("wsl").args(["--version"]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let cleaned: String = raw.chars().filter(|c| *c != '\0').collect();
+            for line in cleaned.lines().take(4) {
+                let t = line.trim();
+                if !t.is_empty() {
+                    out.push_str(&format!("  {t}\n"));
+                }
+            }
+            out.push('\n');
+        }
+
+        let list_output = Command::new("wsl").args(["--list", "--verbose"]).output();
+        match list_output {
+            Err(e) => {
+                out.push_str(&format!("WSL: wsl.exe error: {e}\n"));
+                out.push_str("WSL may not be installed. Enable with: wsl --install\n");
+            }
+            Ok(o) if !o.status.success() => {
+                let stderr = String::from_utf8_lossy(&o.stderr);
+                let cleaned: String = stderr.chars().filter(|c| *c != '\0').collect();
+                out.push_str(&format!("WSL: error — {}\n", cleaned.trim()));
+                out.push_str("Run: wsl --install\n");
+            }
+            Ok(o) => {
+                let raw = String::from_utf8_lossy(&o.stdout);
+                let cleaned: String = raw.chars().filter(|c| *c != '\0').collect();
+                let lines: Vec<&str> = cleaned
+                    .lines()
+                    .filter(|l| !l.trim().is_empty())
+                    .collect();
+                let distro_lines: Vec<&str> = lines
+                    .iter()
+                    .filter(|l| {
+                        let t = l.trim();
+                        !t.is_empty()
+                            && !t.to_uppercase().starts_with("NAME")
+                            && !t.starts_with("---")
+                    })
+                    .copied()
+                    .collect();
+
+                if distro_lines.is_empty() {
+                    out.push_str("WSL: installed but no distributions found.\n");
+                    out.push_str("Install a distro: wsl --install -d Ubuntu\n");
+                } else {
+                    out.push_str("=== WSL Distributions ===\n");
+                    for line in &lines {
+                        out.push_str(&format!("  {}\n", line.trim()));
+                    }
+                    out.push_str(&format!("\nTotal distributions: {}\n", distro_lines.len()));
+                }
+            }
+        }
+
+        if let Ok(o) = Command::new("wsl").args(["--status"]).output() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let cleaned: String = raw.chars().filter(|c| *c != '\0').collect();
+            let status_lines: Vec<&str> = cleaned
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .take(8)
+                .collect();
+            if !status_lines.is_empty() {
+                out.push_str("\n=== WSL status ===\n");
+                for line in status_lines {
+                    out.push_str(&format!("  {}\n", line.trim()));
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("WSL (Windows Subsystem for Linux) is a Windows-only feature.\n");
+        out.push_str(
+            "On Linux/macOS, use native virtualization (KVM, UTM, Parallels) instead.\n",
+        );
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── ssh ───────────────────────────────────────────────────────────────────────
+
+fn dirs_home() -> Option<PathBuf> {
+    std::env::var("HOME")
+        .ok()
+        .map(PathBuf::from)
+        .or_else(|| std::env::var("USERPROFILE").ok().map(PathBuf::from))
+}
+
+fn inspect_ssh() -> Result<String, String> {
+    let mut out = String::from("Host inspection: ssh\n\n");
+
+    if let Ok(o) = Command::new("ssh").args(["-V"]).output() {
+        let ver = if o.stdout.is_empty() {
+            String::from_utf8_lossy(&o.stderr).trim().to_string()
+        } else {
+            String::from_utf8_lossy(&o.stdout).trim().to_string()
+        };
+        if !ver.is_empty() {
+            out.push_str(&format!("SSH client: {ver}\n"));
+        }
+    } else {
+        out.push_str("SSH client: not found on PATH.\n");
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+$svc = Get-Service -Name sshd -ErrorAction SilentlyContinue
+if ($svc) { "SSHD:" + $svc.Status + " | StartType:" + $svc.StartType }
+else { "SSHD:not_installed" }
+"#;
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if text.contains("not_installed") {
+                out.push_str("SSH server (sshd): not installed\n");
+            } else {
+                out.push_str(&format!(
+                    "SSH server (sshd): {}\n",
+                    text.trim_start_matches("SSHD:")
+                ));
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(o) = Command::new("systemctl")
+            .args(["is-active", "sshd"])
+            .output()
+        {
+            let status = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            out.push_str(&format!("SSH server (sshd): {status}\n"));
+        } else if let Ok(o) = Command::new("systemctl")
+            .args(["is-active", "ssh"])
+            .output()
+        {
+            let status = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            out.push_str(&format!("SSH server (ssh): {status}\n"));
+        }
+    }
+
+    out.push('\n');
+
+    if let Some(ssh_dir) = dirs_home().map(|h| h.join(".ssh")) {
+        if ssh_dir.exists() {
+            out.push_str(&format!("~/.ssh: {}\n", ssh_dir.display()));
+
+            let kh = ssh_dir.join("known_hosts");
+            if kh.exists() {
+                let count = fs::read_to_string(&kh)
+                    .map(|c| {
+                        c.lines()
+                            .filter(|l| !l.trim().is_empty() && !l.trim().starts_with('#'))
+                            .count()
+                    })
+                    .unwrap_or(0);
+                out.push_str(&format!("  known_hosts: {count} entries\n"));
+            } else {
+                out.push_str("  known_hosts: not present\n");
+            }
+
+            let ak = ssh_dir.join("authorized_keys");
+            if ak.exists() {
+                let count = fs::read_to_string(&ak)
+                    .map(|c| {
+                        c.lines()
+                            .filter(|l| !l.trim().is_empty() && !l.trim().starts_with('#'))
+                            .count()
+                    })
+                    .unwrap_or(0);
+                out.push_str(&format!("  authorized_keys: {count} public keys\n"));
+            } else {
+                out.push_str("  authorized_keys: not present\n");
+            }
+
+            let key_names = [
+                "id_rsa",
+                "id_ed25519",
+                "id_ecdsa",
+                "id_dsa",
+                "id_ecdsa_sk",
+                "id_ed25519_sk",
+            ];
+            let found_keys: Vec<&str> = key_names
+                .iter()
+                .filter(|k| ssh_dir.join(k).exists())
+                .copied()
+                .collect();
+            if !found_keys.is_empty() {
+                out.push_str(&format!("  Private keys: {}\n", found_keys.join(", ")));
+            } else {
+                out.push_str("  Private keys: none found\n");
+            }
+
+            let config_path = ssh_dir.join("config");
+            if config_path.exists() {
+                out.push_str("\n=== SSH config hosts ===\n");
+                match fs::read_to_string(&config_path) {
+                    Ok(content) => {
+                        let mut hosts: Vec<(String, Vec<String>)> = Vec::new();
+                        let mut current: Option<(String, Vec<String>)> = None;
+                        for line in content.lines() {
+                            let t = line.trim();
+                            if t.is_empty() || t.starts_with('#') {
+                                continue;
+                            }
+                            if let Some(host) = t.strip_prefix("Host ") {
+                                if let Some(prev) = current.take() {
+                                    hosts.push(prev);
+                                }
+                                current = Some((host.trim().to_string(), Vec::new()));
+                            } else if let Some((_, ref mut details)) = current {
+                                let tu = t.to_uppercase();
+                                if tu.starts_with("HOSTNAME ")
+                                    || tu.starts_with("USER ")
+                                    || tu.starts_with("PORT ")
+                                    || tu.starts_with("IDENTITYFILE ")
+                                {
+                                    details.push(t.to_string());
+                                }
+                            }
+                        }
+                        if let Some(prev) = current {
+                            hosts.push(prev);
+                        }
+
+                        if hosts.is_empty() {
+                            out.push_str("  No Host entries found.\n");
+                        } else {
+                            for (h, details) in &hosts {
+                                if details.is_empty() {
+                                    out.push_str(&format!("  Host {h}\n"));
+                                } else {
+                                    out.push_str(&format!(
+                                        "  Host {h}  [{}]\n",
+                                        details.join(", ")
+                                    ));
+                                }
+                            }
+                            out.push_str(&format!(
+                                "\n  Total configured hosts: {}\n",
+                                hosts.len()
+                            ));
+                        }
+                    }
+                    Err(e) => out.push_str(&format!("  Could not read config: {e}\n")),
+                }
+            } else {
+                out.push_str("  SSH config: not present\n");
+            }
+        } else {
+            out.push_str("~/.ssh: directory not found (no SSH keys configured).\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── installed_software ────────────────────────────────────────────────────────
+
+fn inspect_installed_software(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: installed_software\n\n");
+    let n = max_entries.clamp(10, 50);
+
+    #[cfg(target_os = "windows")]
+    {
+        let winget_out = Command::new("winget")
+            .args(["list", "--accept-source-agreements"])
+            .output();
+
+        if let Ok(o) = winget_out {
+            if o.status.success() {
+                let raw = String::from_utf8_lossy(&o.stdout);
+                let mut header_done = false;
+                let mut packages: Vec<&str> = Vec::new();
+                for line in raw.lines() {
+                    let t = line.trim();
+                    if t.starts_with("---") {
+                        header_done = true;
+                        continue;
+                    }
+                    if header_done && !t.is_empty() {
+                        packages.push(line);
+                    }
+                }
+                let total = packages.len();
+                out.push_str(&format!(
+                    "=== Installed software via winget ({total} packages) ===\n\n"
+                ));
+                for line in packages.iter().take(n) {
+                    out.push_str(&format!("  {line}\n"));
+                }
+                if total > n {
+                    out.push_str(&format!("\n  ... and {} more packages\n", total - n));
+                }
+                out.push_str("\nFor full list: winget list\n");
+                return Ok(out.trim_end().to_string());
+            }
+        }
+
+        // Fallback: registry scan
+        let script = format!(
+            r#"
+$apps = @()
+$reg_paths = @(
+    'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
+)
+foreach ($p in $reg_paths) {{
+    try {{
+        $apps += Get-ItemProperty $p -ErrorAction SilentlyContinue |
+            Where-Object {{ $_.DisplayName }} |
+            Select-Object DisplayName, DisplayVersion, Publisher
+    }} catch {{}}
+}}
+$sorted = $apps | Sort-Object DisplayName -Unique
+"TOTAL:" + $sorted.Count
+$sorted | Select-Object -First {n} | ForEach-Object {{
+    $_.DisplayName + "|" + $_.DisplayVersion + "|" + $_.Publisher
+}}
+"#
+        );
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+        {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            out.push_str("=== Installed software (registry scan) ===\n");
+            out.push_str(&format!(
+                "  {:<50} {:<18} Publisher\n",
+                "Name", "Version"
+            ));
+            out.push_str(&format!("  {}\n", "-".repeat(90)));
+            for line in raw.lines() {
+                if let Some(rest) = line.strip_prefix("TOTAL:") {
+                    let total: usize = rest.trim().parse().unwrap_or(0);
+                    out.push_str(&format!(
+                        "  (Total: {total}, showing first {n})\n\n"
+                    ));
+                } else if !line.trim().is_empty() {
+                    let parts: Vec<&str> = line.splitn(3, '|').collect();
+                    let name = parts.first().map(|s| s.trim()).unwrap_or("");
+                    let ver = parts.get(1).map(|s| s.trim()).unwrap_or("");
+                    let pub_ = parts.get(2).map(|s| s.trim()).unwrap_or("");
+                    out.push_str(&format!("  {:<50} {:<18} {pub_}\n", name, ver));
+                }
+            }
+        } else {
+            out.push_str(
+                "Could not query installed software (winget and registry scan both failed).\n",
+            );
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let mut found = false;
+        if let Ok(o) = Command::new("dpkg").args(["--get-selections"]).output() {
+            if o.status.success() {
+                let raw = String::from_utf8_lossy(&o.stdout);
+                let installed: Vec<&str> =
+                    raw.lines().filter(|l| l.contains("install")).collect();
+                let total = installed.len();
+                out.push_str(&format!(
+                    "=== Installed packages via dpkg ({total}) ===\n"
+                ));
+                for line in installed.iter().take(n) {
+                    out.push_str(&format!("  {}\n", line.trim()));
+                }
+                if total > n {
+                    out.push_str(&format!("  ... and {} more\n", total - n));
+                }
+                out.push_str("\nFor full list: dpkg --get-selections | grep install\n");
+                found = true;
+            }
+        }
+        if !found {
+            if let Ok(o) = Command::new("rpm")
+                .args(["-qa", "--queryformat", "%{NAME} %{VERSION}\n"])
+                .output()
+            {
+                if o.status.success() {
+                    let raw = String::from_utf8_lossy(&o.stdout);
+                    let lines: Vec<&str> = raw.lines().collect();
+                    let total = lines.len();
+                    out.push_str(&format!("=== Installed packages via rpm ({total}) ===\n"));
+                    for line in lines.iter().take(n) {
+                        out.push_str(&format!("  {line}\n"));
+                    }
+                    if total > n {
+                        out.push_str(&format!("  ... and {} more\n", total - n));
+                    }
+                    found = true;
+                }
+            }
+        }
+        if !found {
+            if let Ok(o) = Command::new("pacman").args(["-Q"]).output() {
+                if o.status.success() {
+                    let raw = String::from_utf8_lossy(&o.stdout);
+                    let lines: Vec<&str> = raw.lines().collect();
+                    let total = lines.len();
+                    out.push_str(&format!(
+                        "=== Installed packages via pacman ({total}) ===\n"
+                    ));
+                    for line in lines.iter().take(n) {
+                        out.push_str(&format!("  {line}\n"));
+                    }
+                    if total > n {
+                        out.push_str(&format!("  ... and {} more\n", total - n));
+                    }
+                    found = true;
+                }
+            }
+        }
+        if !found {
+            out.push_str("No package manager found (tried dpkg, rpm, pacman).\n");
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(o) = Command::new("brew").args(["list", "--versions"]).output() {
+            if o.status.success() {
+                let raw = String::from_utf8_lossy(&o.stdout);
+                let lines: Vec<&str> = raw.lines().collect();
+                let total = lines.len();
+                out.push_str(&format!("=== Homebrew packages ({total}) ===\n"));
+                for line in lines.iter().take(n) {
+                    out.push_str(&format!("  {line}\n"));
+                }
+                if total > n {
+                    out.push_str(&format!("  ... and {} more\n", total - n));
+                }
+                out.push_str("\nFor full list: brew list --versions\n");
+            }
+        } else {
+            out.push_str("Homebrew not found.\n");
+        }
+        if let Ok(o) = Command::new("mas").args(["list"]).output() {
+            if o.status.success() {
+                let raw = String::from_utf8_lossy(&o.stdout);
+                let lines: Vec<&str> = raw.lines().collect();
+                out.push_str(&format!(
+                    "\n=== Mac App Store apps ({}) ===\n",
+                    lines.len()
+                ));
+                for line in lines.iter().take(n) {
+                    out.push_str(&format!("  {line}\n"));
+                }
+            }
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── git_config ────────────────────────────────────────────────────────────────
+
+fn inspect_git_config() -> Result<String, String> {
+    let mut out = String::from("Host inspection: git_config\n\n");
+
+    if let Ok(o) = Command::new("git").args(["--version"]).output() {
+        let ver = String::from_utf8_lossy(&o.stdout).trim().to_string();
+        out.push_str(&format!("Git: {ver}\n\n"));
+    } else {
+        out.push_str("Git: not found on PATH.\n");
+        return Ok(out.trim_end().to_string());
+    }
+
+    if let Ok(o) = Command::new("git")
+        .args(["config", "--global", "--list"])
+        .output()
+    {
+        if o.status.success() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let mut pairs: Vec<(String, String)> = raw
+                .lines()
+                .filter_map(|l| {
+                    let mut parts = l.splitn(2, '=');
+                    let k = parts.next()?.trim().to_string();
+                    let v = parts.next().unwrap_or("").trim().to_string();
+                    Some((k, v))
+                })
+                .collect();
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+
+            out.push_str("=== Global git config ===\n");
+
+            let sections: &[(&str, &[&str])] = &[
+                ("Identity",       &["user.name", "user.email", "user.signingkey"]),
+                ("Core",           &["core.editor", "core.autocrlf", "core.eol", "core.ignorecase", "core.filemode"]),
+                ("Commit/Signing", &["commit.gpgsign", "tag.gpgsign", "gpg.format", "gpg.ssh.allowedsignersfile"]),
+                ("Push/Pull",      &["push.default", "push.autosetupremote", "pull.rebase", "pull.ff"]),
+                ("Credential",     &["credential.helper"]),
+                ("Branch",         &["init.defaultbranch", "branch.autosetuprebase"]),
+            ];
+
+            let mut shown_keys: HashSet<String> = HashSet::new();
+            for (section, keys) in sections {
+                let mut section_lines: Vec<String> = Vec::new();
+                for key in *keys {
+                    if let Some((k, v)) = pairs.iter().find(|(kk, _)| kk == key) {
+                        section_lines.push(format!("  {k} = {v}"));
+                        shown_keys.insert(k.clone());
+                    }
+                }
+                if !section_lines.is_empty() {
+                    out.push_str(&format!("\n[{section}]\n"));
+                    for line in section_lines {
+                        out.push_str(&format!("{line}\n"));
+                    }
+                }
+            }
+
+            let other: Vec<&(String, String)> = pairs
+                .iter()
+                .filter(|(k, _)| !shown_keys.contains(k) && !k.starts_with("alias."))
+                .collect();
+            if !other.is_empty() {
+                out.push_str("\n[Other]\n");
+                for (k, v) in other.iter().take(20) {
+                    out.push_str(&format!("  {k} = {v}\n"));
+                }
+                if other.len() > 20 {
+                    out.push_str(&format!("  ... and {} more\n", other.len() - 20));
+                }
+            }
+
+            out.push_str(&format!("\nTotal global config keys: {}\n", pairs.len()));
+        } else {
+            out.push_str("No global git config found.\n");
+            out.push_str("Set up with:\n");
+            out.push_str("  git config --global user.name \"Your Name\"\n");
+            out.push_str("  git config --global user.email \"you@example.com\"\n");
+        }
+    }
+
+    if let Ok(o) = Command::new("git")
+        .args(["config", "--local", "--list"])
+        .output()
+    {
+        if o.status.success() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let lines: Vec<&str> = raw.lines().filter(|l| !l.trim().is_empty()).collect();
+            if !lines.is_empty() {
+                out.push_str(&format!(
+                    "\n=== Local repo config ({} keys) ===\n",
+                    lines.len()
+                ));
+                for line in lines.iter().take(15) {
+                    out.push_str(&format!("  {line}\n"));
+                }
+                if lines.len() > 15 {
+                    out.push_str(&format!("  ... and {} more\n", lines.len() - 15));
+                }
+            }
+        }
+    }
+
+    if let Ok(o) = Command::new("git")
+        .args(["config", "--global", "--get-regexp", r"alias\."])
+        .output()
+    {
+        if o.status.success() {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            let aliases: Vec<&str> = raw.lines().filter(|l| !l.trim().is_empty()).collect();
+            if !aliases.is_empty() {
+                out.push_str(&format!("\n=== Git aliases ({}) ===\n", aliases.len()));
+                for a in aliases.iter().take(20) {
+                    out.push_str(&format!("  {a}\n"));
+                }
+                if aliases.len() > 20 {
+                    out.push_str(&format!("  ... and {} more\n", aliases.len() - 20));
+                }
+            }
         }
     }
 

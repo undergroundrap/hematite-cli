@@ -304,7 +304,14 @@ impl SystemPromptBuilder {
             "  - 'resource load' / 'CPU %' / 'RAM %' / 'performance' → topic='resource_load'\n",
             "  - 'fix cargo not found' / 'fix port in use' → topic='fix_plan'\n",
             "  - 'PATH entries' / 'which tools are installed?' → topic='toolchains' or 'path'\n",
-            "  Do NOT use shell, Get-ItemProperty, registry reads, wmic, Get-CimInstance, Get-WinEvent, Get-PhysicalDisk, Get-MpComputerStatus, Get-ScheduledTask, or any PowerShell diagnostic command. ",
+            "  - 'docker running?' / 'show containers' / 'docker images' / 'compose projects' → topic='docker'\n",
+            "  - 'wsl distros' / 'ubuntu on windows' / 'windows subsystem for linux' → topic='wsl'\n",
+            "  - 'ssh config' / 'ssh keys' / 'sshd running?' / 'known_hosts' / 'authorized_keys' → topic='ssh'\n",
+            "  - 'git config' / 'git global settings' / 'git user.name' / 'git aliases' → topic='git_config'\n",
+            "  - 'installed software' / 'installed programs' / 'what is installed?' / 'winget list' → topic='installed_software'\n",
+            "  - 'environment variables' / 'env vars' / 'show env' / 'JAVA_HOME set?' → topic='env'\n",
+            "  - 'hosts file' / '/etc/hosts' / 'host entries' / 'custom domain redirect' → topic='hosts_file'\n",
+            "  Do NOT use shell, Get-ItemProperty, registry reads, wmic, Get-CimInstance, Get-WinEvent, Get-PhysicalDisk, Get-MpComputerStatus, Get-ScheduledTask, docker CLI, wsl CLI, git config, winget, dpkg, or any shell diagnostic command. ",
             "Use inspect_host exclusively. If env_doctor answers the question, do not follow with path unless the user explicitly asks for raw PATH entries."
         ));
 
