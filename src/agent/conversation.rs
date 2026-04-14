@@ -1,6 +1,7 @@
 use crate::agent::architecture_summary::{
     build_architecture_overview_answer, prune_architecture_trace_batch,
     prune_authoritative_tool_batch, prune_read_only_context_bloat_batch,
+    prune_redirected_shell_batch,
     summarize_runtime_trace_output,
 };
 use crate::agent::direct_answers::{
@@ -125,6 +126,8 @@ struct ActionGroundingState {
     last_verify_build_ok: bool,
     last_failed_build_paths: Vec<String>,
     code_changed_since_verify: bool,
+    /// Track topics redirected from shell to inspect_host in the current turn to break loops.
+    redirected_host_inspection_topics: std::collections::HashMap<String, u64>,
 }
 
 struct PlanExecutionGuard {
@@ -1393,12 +1396,27 @@ impl ConversationManager {
                         self.latest_user_prompt()
                             .and_then(|p| preferred_host_inspection_topic(p))
                     })
-                    .unwrap_or("summary");
+                    .unwrap_or("summary")
+                    .to_string();
+
+                {
+                    let mut state = self.action_grounding.lock().await;
+                    let current_turn = state.turn_index;
+                    if let Some(turn) = state.redirected_host_inspection_topics.get(&topic) {
+                        if *turn == current_turn {
+                            return Err(format!(
+                                "Action already handled: The diagnostic data for topic `{topic}` was already provided in a previous redirected shell result this turn. Do not retry the same shell command."
+                            ));
+                        }
+                    }
+                    state.redirected_host_inspection_topics.insert(topic.clone(), current_turn);
+                }
+
                 let redirect_args = serde_json::json!({ "topic": topic });
                 let result = crate::tools::host_inspect::inspect_host(&redirect_args).await;
                 return match result {
                     Ok(output) => Err(format!(
-                        "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: shell is blocked for host inspection. Call inspect_host directly with the correct topic for any remaining diagnostics.]"
+                        "[successfully auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: Shell is blocked for host inspection. The diagnostic data above fulfills your request. Call inspect_host directly with the correct topic for any further diagnostics.]"
                     )),
                     Err(_) => Err(format!(
                         "Action blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, wsl, ssh, env, hosts_file, installed_software, git_config, databases.",
@@ -2764,6 +2782,11 @@ impl ConversationManager {
                     &effective_user_input,
                 );
                 if let Some(note) = prune_note {
+                    let _ = tx.send(InferenceEvent::Thought(note)).await;
+                }
+
+                let (calls, prune_redir_note) = prune_redirected_shell_batch(calls);
+                if let Some(note) = prune_redir_note {
                     let _ = tx.send(InferenceEvent::Thought(note)).await;
                 }
 

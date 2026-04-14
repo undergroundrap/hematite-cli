@@ -249,6 +249,10 @@ Hematite v0.4.6 achieves **100% Read-Only Grounding** of the Windows workstation
 
 | Precision Topic | What Hematite Sees | The Flex |
 | :--- | :--- | :--- |
+| **Logon Sessions** | `Win32_LogonSession` audit | Visibility into active/remote users and interactive logins. |
+| **Virtualization** | Hypervisor + SLAT + BIOS DNA | Detects VT-x/AMD-V health and BIOS-layer boot DNA. |
+| **Process I/O** | Real-time Read/Write Ops | **Resource Monitor Parity**: Pinpoints disk thrashers instantly. |
+| **Disk Latency** | Average Disk Queue Length | Detects drive latency and intensity spikes in real-time. |
 | **Device Health** | WMI `Win32_PnPEntity` + Error Codes | Identifies **"Yellow Bangs"** and hardware failures instantly. |
 | **System Drivers** | Active kernel driver audit & states | Audits every low-level driver for "Active" vs. "Stopped" status. |
 | **Peripherals** | Full USB Tree + HID + Monitors | Enumerates physical Razer/Logitech hardware, gamepads, and more. |
@@ -259,10 +263,10 @@ Hematite v0.4.6 achieves **100% Read-Only Grounding** of the Windows workstation
 ### Flex Your Capabilities
 Because of Hematite's **Harness Pre-Run**, you can trigger an entire IT audit with a single sentence. Hematite will execute multiple precision tools in parallel before it even starts its reasoning turn.
 
-**Pro-Prompt:**
-> "Audit my workstation health: Check for any malfunctioning devices or yellow bangs, list my connected peripherals and USB tree, and show me everything that's set to run at startup."
+**Pro-Prompt (The "Audit Benchmark"):**
+> "Audit my workstation health: Check for any malfunctioning hardware, show me the BIOS and virtualization DNA, and tell me which processes are hitting the disk the most right now."
 
-**The Result:** Hematite pre-fetches your hardware state, audits your 20+ startup entries, and delivers a consolidated health verdict — grounded in real machine telemetry, with zero hallucinations.
+**The Result:** Hematite pre-fetches your hardware state, audits your device health, pulls exact BIOS/SLAT metadata, and delivers a consolidated health verdict — grounded in real machine telemetry with zero hallucinations.
 
 ---
 

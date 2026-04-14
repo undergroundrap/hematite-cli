@@ -140,7 +140,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              Prefer this over raw shell for questions about OS configuration (firewall, power, uptime), plain-English system health reports, installed developer tools, PATH issues, package-manager and environment health, network state, service state, running processes, desktop items, Downloads size, listening ports, repo health, or directory/disk summaries. \
              For remediation questions phrased like 'how do I fix cargo not found', 'how do I fix port 3000 already in use', or 'how do I fix LM Studio not reachable', use topic=fix_plan instead of diagnosis-only topics like env_doctor, path, or ports. \
              Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=env_doctor for package-manager and PATH health, topic=fix_plan for structured remediation plans, topic=network for adapters/IPs/gateways/DNS, topic=services for service status and startup mode, \
-             topic=processes for running-process snapshots, topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
+             topic=processes for top processes by memory/cpu and real-time disk/network I/O stats (look for [I/O R:N/W:N] tags to identify disk-heavy processes), \
+             topic=desktop or topic=downloads for known folders, topic=ports for listening endpoints, topic=repo_doctor for a structured workspace health report, \
              topic=log_check for recent critical/error events from system event logs or journalctl, topic=startup_items for programs and services that run at boot (registry Run keys and startup folders on Windows; systemd enabled units on Linux), \
              topic=health_report for a plain-English tiered system health verdict (disk, RAM, tools, recent errors), \
              topic=storage for all drives with capacity/free space plus large developer cache directories, \
@@ -164,6 +165,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              topic=udp_ports for active UDP listeners and notable port annotations, \
              topic=gpo for applied Group Policy Objects, topic=certificates for local personal certificates, topic=integrity for Windows component store health (SFC/DISM state), topic=domain for Active Directory and domain join status, \
              topic=device_health for identifying malfunctioning hardware with ConfigManager error codes (Yellow Bangs), topic=drivers for auditing active system drivers and their states, topic=peripherals for enumerating connected USB, input, and display hardware, \
+             topic=sessions for auditing active and disconnected user logon sessions, \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
                 "type": "object",

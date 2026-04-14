@@ -269,6 +269,13 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "adapter stats",
             "udp listening",
             "udp port",
+            "session",
+            "logon",
+            "login",
+            "virtualization",
+            "hypervisor",
+            "vt-x",
+            "slat",
         ],
     );
     let host_action = contains_any(
@@ -318,6 +325,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_device_health = lower.contains("device health") || lower.contains("hardware error") || lower.contains("malfunctioning") || lower.contains("yellow bang") || lower.contains("hardware failing");
     let asks_drivers = lower.contains("driver") || lower.contains("kmod") || lower.contains("kernel module");
     let asks_peripherals = lower.contains("peripheral") || lower.contains("usb") || lower.contains("keyboard") || lower.contains("mouse") || lower.contains("pointer") || lower.contains("monitor") || lower.contains("input device") || lower.contains("connected hardware");
+    let asks_sessions = lower.contains("session") || lower.contains("login") || lower.contains("user account") || lower.contains("who is on") || lower.contains("active user");
+    let asks_virtualization = lower.contains("virtualization") || lower.contains("hypervisor") || lower.contains("vt-x") || lower.contains("slat") || lower.contains("v-p") || lower.contains("nested virt");
     let asks_startup = lower.contains("startup") || lower.contains("boot program") || lower.contains("autorun") || lower.contains("run at boot");
     let asks_env_doctor = lower.contains("env doctor")
         || lower.contains("environment doctor")
@@ -715,9 +724,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("drivers")
     } else if asks_peripherals {
         Some("peripherals")
+    } else if asks_sessions {
+        Some("sessions")
+    } else if asks_virtualization {
+        Some("hardware")
     } else if asks_startup {
         Some("startup_items")
-    } else if asks_bitlocker {
+    }
+    else if asks_bitlocker {
         Some("bitlocker")
     } else if asks_rdp {
         Some("rdp")
@@ -854,7 +868,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("hardware",        |l| l.contains("cpu model") || l.contains("ram size") || l.contains("hardware spec") || (l.contains("what hardware") && l.contains("have"))),
         ("health_report",   |l| l.contains("health report") || l.contains("system health")),
         ("resource_load",   |l| l.contains("resource load") || l.contains("cpu load") || l.contains("ram %") || l.contains("cpu %") || l.contains("performance")),
-        ("processes",       |l| l.contains("process") || l.contains("task manager") || l.contains("what is running") || l.contains("using my ram")),
+        ("processes",       |l| l.contains("process") || l.contains("task manager") || l.contains("what is running") || l.contains("using my ram") || l.contains("hitting the disk") || l.contains("disk thrasher")),
         ("services",        |l| l.contains("service") || l.contains("daemon") || l.contains("windows service")),
         ("ports",           |l| l.contains("listening port") || l.contains("open port") || l.contains("what is on port") || l.contains("port 3000")),
         ("traceroute",      |l| l.contains("traceroute") || l.contains("tracert") || l.contains("trace route") || l.contains("trace the path") || l.contains("network path") || l.contains("how many hops") || (l.contains("trace") && l.contains("hop"))),
@@ -898,9 +912,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("certificates",     |l| l.contains("cert") || l.contains("ssl") || l.contains("thumbprint")),
         ("integrity",        |l| l.contains("integrity") || l.contains("sfc") || l.contains("dism")),
         ("domain",           |l| l.contains("domain") || l.contains("workgroup") || l.contains("netbios") || l.contains("active directory")),
-        ("device_health",    |l| l.contains("device health") || l.contains("hardware error") || l.contains("yellow bang")),
+        ("device_health",    |l| l.contains("device health") || l.contains("hardware error") || l.contains("yellow bang") || l.contains("malfunctioning")),
         ("drivers",          |l| l.contains("driver") || l.contains("system driver")),
         ("peripherals",      |l| l.contains("peripheral") || l.contains("usb") || l.contains("keyboard") || l.contains("mouse") || l.contains("monitor")),
+        ("sessions",         |l| l.contains("session") || l.contains("who is logged") || l.contains("active login")),
+        ("hardware",         |l| l.contains("virtualization") || l.contains("hypervisor") || l.contains("vt-x") || l.contains("slat")),
     ];
 
     let lower = user_input.to_lowercase();

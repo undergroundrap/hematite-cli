@@ -3894,3 +3894,53 @@ fn test_routing_detects_udp_ports_topic() {
     assert_eq!(preferred_host_inspection_topic("what is listening on UDP?"), Some("udp_ports"));
     assert_eq!(preferred_host_inspection_topic("show open UDP ports"), Some("udp_ports"));
 }
+#[tokio::test]
+async fn test_inspect_host_storage_includes_latency() {
+    use serde_json::json;
+    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "storage" }))
+        .await
+        .expect("inspect storage fails");
+    assert!(output.contains("Real-time Disk Intensity:"));
+    assert!(output.contains("Average Disk Queue Length:"));
+}
+
+#[tokio::test]
+async fn test_inspect_host_sessions() {
+    use serde_json::json;
+    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "sessions" }))
+        .await
+        .expect("inspect sessions fails");
+    assert!(output.contains("Host inspection: sessions"));
+    assert!(
+        output.contains("Active Logon Sessions")
+            || output.contains("Logged-in Users")
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_hardware_expanded() {
+    use serde_json::json;
+    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "hardware" }))
+        .await
+        .expect("inspect hardware fails");
+    assert!(output.contains("Motherboard:"));
+    assert!(output.contains("BIOS:"));
+    assert!(output.contains("Virtualization:"));
+    assert!(
+        output.contains("Hypervisor:")
+            || output.contains("unsupported")
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_processes_io() {
+    use serde_json::json;
+    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "processes", "max_entries": 1 }))
+        .await
+        .expect("inspect processes fails");
+    assert!(output.contains("Top processes by resource usage:"));
+    assert!(
+        output.contains("I/O R:")
+            || output.contains("unknown")
+    );
+}

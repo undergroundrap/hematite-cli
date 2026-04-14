@@ -91,6 +91,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "device_health" | "hardware_errors" | "yellow_bangs" => inspect_device_health(),
         "drivers" | "system_drivers" | "driver_list" => inspect_drivers(max_entries),
         "peripherals" | "usb" | "input_devices" | "connected_hardware" => inspect_peripherals(max_entries),
+        "sessions" | "logins" | "active_sessions" => inspect_sessions(max_entries),
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -107,7 +108,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_directory("Directory", resolved, max_entries).await
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions.",
             other
         )),
     }
@@ -1427,12 +1428,18 @@ fn inspect_processes(name_filter: Option<String>, max_entries: usize) -> Result<
             .cpu_seconds
             .map(|s| format!(" [CPU: {:.1}s]", s))
             .unwrap_or_default();
+        let io_str = if let (Some(r), Some(w)) = (entry.read_ops, entry.write_ops) {
+            format!(" [I/O R:{}/W:{}]", r, w)
+        } else {
+            " [I/O unknown]".to_string()
+        };
         out.push_str(&format!(
-            "- {} (pid {}) - {}{}{}\n",
+            "- {} (pid {}) - {}{}{}{}\n",
             entry.name,
             entry.pid,
             human_bytes(entry.memory_bytes),
             cpu_str,
+            io_str,
             entry
                 .detail
                 .as_deref()
@@ -2054,6 +2061,8 @@ struct ProcessEntry {
     pid: u32,
     memory_bytes: u64,
     cpu_seconds: Option<f64>,
+    read_ops: Option<u64>,
+    write_ops: Option<u64>,
     detail: Option<String>,
 }
 
@@ -2309,7 +2318,7 @@ fn collect_windows_processes() -> Result<Vec<ProcessEntry>, String> {
         .args([
             "-NoProfile",
             "-Command",
-            "Get-Process | Select-Object Name, Id, WorkingSet64, CPU | ConvertTo-Json -Compress",
+            "Get-Process | Select-Object Name, Id, WorkingSet64, CPU, ReadOperationCount, WriteOperationCount | ConvertTo-Json -Compress",
         ])
         .output()
         .map_err(|e| format!("Failed to run powershell Get-Process: {e}"))?;
@@ -2329,11 +2338,15 @@ fn collect_windows_processes() -> Result<Vec<ProcessEntry>, String> {
             let pid = v["Id"].as_u64().unwrap_or(0) as u32;
             let memory_bytes = v["WorkingSet64"].as_u64().unwrap_or(0);
             let cpu_seconds = v["CPU"].as_f64();
+            let read_ops = v["ReadOperationCount"].as_u64();
+            let write_ops = v["WriteOperationCount"].as_u64();
             out.push(ProcessEntry {
                 name,
                 pid,
                 memory_bytes,
                 cpu_seconds,
+                read_ops,
+                write_ops,
                 detail: None,
             });
         }
@@ -2342,11 +2355,15 @@ fn collect_windows_processes() -> Result<Vec<ProcessEntry>, String> {
         let pid = v["Id"].as_u64().unwrap_or(0) as u32;
         let memory_bytes = v["WorkingSet64"].as_u64().unwrap_or(0);
         let cpu_seconds = v["CPU"].as_f64();
+        let read_ops = v["ReadOperationCount"].as_u64();
+        let write_ops = v["WriteOperationCount"].as_u64();
         out.push(ProcessEntry {
             name,
             pid,
             memory_bytes,
             cpu_seconds,
+            read_ops,
+            write_ops,
             detail: None,
         });
     }
@@ -3835,6 +3852,29 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
             }
             Err(e) => out.push_str(&format!("  (drive scan failed: {e})\n")),
         }
+
+        // ── Real-time Performance (Latency) ──────────────────────────────────
+        let latency_script = "Get-CimInstance Win32_PerfFormattedData_PerfDisk_PhysicalDisk -Filter \"Name='_Total'\" | Select-Object -ExpandProperty AvgDiskQueueLength";
+        match Command::new("powershell")
+            .args(["-NoProfile", "-Command", latency_script])
+            .output()
+        {
+            Ok(o) => {
+                let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                if !text.is_empty() {
+                    out.push_str("\nReal-time Disk Intensity:\n");
+                    out.push_str(&format!("  Average Disk Queue Length: {text}\n"));
+                    if let Ok(q) = text.parse::<f64>() {
+                        if q > 2.0 {
+                            out.push_str("  [!] WARNING: High disk latency detected (Queue Length > 2.0)\n");
+                        } else {
+                            out.push_str("  [~] Disk latency is within healthy bounds.\n");
+                        }
+                    }
+                }
+            }
+            Err(_) => {}
+        }
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -4019,10 +4059,13 @@ $speed = ($sticks | Select-Object -First 1).Speed
             }
         }
 
-        // Motherboard + BIOS
+        // Motherboard + BIOS + Virtualization
         let mb_script = r#"$mb = Get-CimInstance Win32_BaseBoard
 $bios = Get-CimInstance Win32_BIOS
-"$($mb.Manufacturer.Trim()) $($mb.Product.Trim())|BIOS: $($bios.Manufacturer.Trim()) $($bios.SMBIOSBIOSVersion.Trim()) ($($bios.ReleaseDate))""#;
+$cs = Get-CimInstance Win32_ComputerSystem
+$proc = Get-CimInstance Win32_Processor | Select-Object -First 1
+$virt = "Hypervisor: $($cs.HypervisorPresent)|SLAT: $($proc.SecondLevelAddressTranslationExtensions)"
+"$($mb.Manufacturer.Trim()) $($mb.Product.Trim())|BIOS: $($bios.Manufacturer.Trim()) $($bios.SMBIOSBIOSVersion.Trim()) ($($bios.ReleaseDate))|$virt""#;
         if let Ok(o) = Command::new("powershell")
             .args(["-NoProfile", "-Command", mb_script])
             .output()
@@ -4030,11 +4073,13 @@ $bios = Get-CimInstance Win32_BIOS
             let text = String::from_utf8_lossy(&o.stdout);
             let text = text.trim().trim_matches('"');
             let parts: Vec<&str> = text.split('|').collect();
-            if parts.len() == 2 {
+            if parts.len() == 4 {
                 out.push_str(&format!(
-                    "Motherboard: {}\n{}\n\n",
+                    "Motherboard: {}\n{}\nVirtualization: {}, {}\n\n",
                     parts[0].trim(),
-                    parts[1].trim()
+                    parts[1].trim(),
+                    parts[2].trim(),
+                    parts[3].trim()
                 ));
             }
         }
@@ -8193,3 +8238,58 @@ fn inspect_peripherals(_max_entries: usize) -> Result<String, String> {
 
     Ok(out.trim_end().to_string())
 }
+
+fn inspect_sessions(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: sessions\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"Get-CimInstance Win32_LogonSession | ForEach-Object {
+    "$($_.LogonId)|$($_.StartTime)|$($_.LogonType)|$($_.AuthenticationPackage)"
+}"#;
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&o.stdout);
+            let lines: Vec<&str> = text.lines().collect();
+            if lines.is_empty() {
+                out.push_str("No active logon sessions enumerated via WMI.\n");
+            } else {
+                out.push_str("=== Active Logon Sessions (WMI Snapshot) ===\n");
+                for line in lines.iter().take(max_entries).filter(|l| !l.trim().is_empty()) {
+                    let parts: Vec<&str> = line.trim().split('|').collect();
+                    if parts.len() == 4 {
+                        let logon_type = match parts[2] {
+                            "2" => "Interactive",
+                            "3" => "Network",
+                            "4" => "Batch",
+                            "5" => "Service",
+                            "7" => "Unlock",
+                            "8" => "NetworkCleartext",
+                            "9" => "NewCredentials",
+                            "10" => "RemoteInteractive",
+                            "11" => "CachedInteractive",
+                            _ => "Other",
+                        };
+                        out.push_str(&format!(
+                            "- ID: {} | Type: {} | Started: {} | Auth: {}\n",
+                            parts[0], logon_type, parts[1], parts[3]
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("=== Logged-in Users (who) ===\n");
+        let who = Command::new("who").output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str(&who.lines().take(max_entries).collect::<Vec<_>>().join("\n"));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+

@@ -19,6 +19,7 @@ That is the lens for the capabilities below.
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
 - **Full OS stack coverage**: 30+ read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
+- **Resource Monitor Parity**: Hematite captures high-fidelity telemetry including BIOS DNA, virtualization health (SLAT), real-time Disk Intensity (Latency), and Process I/O stats without security friction.
 
 ## 1. Model-Native Reasoning Flow
 
@@ -74,11 +75,12 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 **SysAdmin topics (20+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
-- **Processes** (`processes`) — per-process CPU time, memory, and PID analytics
+- **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
 - **Services** (`services`) — running Windows services, startup types, and state
 - **Ports** (`ports`) — listening TCP/UDP ports with owning process
-- **Storage** (`storage`) — all-drives capacity with ASCII bar charts and developer cache sizing (npm, cargo, pip, yarn, rustup, node_modules)
-- **Hardware** (`hardware`) — full hardware DNA: CPU model/cores/clock, RAM total/speed/sticks, GPU name/driver/resolution, motherboard/BIOS, display config
+- **Storage** (`storage`) — all-drives capacity with ASCII bar charts, developer cache sizing, and **Real-time Disk Intensity** (Average Disk Queue Length)
+- **Hardware** (`hardware`) — full hardware DNA: CPU model/cores/clock, RAM total/speed/sticks/channel, GPU name/driver/resolution, motherboard/BIOS manufacturer/version, and **Virtualization Health** (Hypervisor status and SLAT/VT-x capability)
+- **Sessions** (`sessions`) — audits active and disconnected user logon sessions with terminal service info
 - **Health report** (`health_report`) — tiered plain-English verdict (ALL GOOD / WORTH A LOOK / ACTION REQUIRED) across disk, RAM, tools, and recent error events
 - **Windows Update** (`updates`) — last install date, pending update count, Windows Update service state
 - **Security** (`security`) — Defender real-time protection, last scan age, signature freshness, firewall profile states, Windows activation, UAC state
@@ -112,7 +114,11 @@ When a user asks about multiple inspection topics in one message, Hematite detec
 
 **Shell auto-redirect:**
 
-When the model calls `shell` with a command that matches a structured host inspection topic (e.g. `arp -a`, `tracert`, `Get-DnsClientCache`, `Get-NetRoute`), the harness silently redirects it to the correct `inspect_host` topic, marks the result as non-error, and appends a note explaining the redirect. The model never retries in a failure loop.
+When the model calls `shell` with a command that matches a structured host inspection topic (e.g. `arp -a`, `tracert`, `Get-DnsClientCache`, `Get-NetRoute`, `Get-Process`), the harness silently redirects it to the correct `inspect_host` topic.
+
+**Redirection discipline:**
+
+Hematite implements a definitive loop-breaker for auto-redirected shell calls. If the model attempts to call `shell` repeatedly for the same diagnostic intent, the harness provides a short "Action Handled" message instead of flooding the context with redundant telemetry. Combined with **automated context pruning**, this preserves the context window and prevents model goal drift during deep workstation triage.
 
 **Developer tooling topics (7):**
 

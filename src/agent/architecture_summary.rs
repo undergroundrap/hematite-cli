@@ -1,4 +1,6 @@
 use crate::agent::inference::ToolCallResponse;
+use crate::agent::conversation::shell_looks_like_structured_host_inspection;
+use crate::agent::routing::preferred_host_inspection_topic;
 use serde_json::Value;
 
 fn prompt_mentions_specific_repo_path(user_input: &str) -> bool {
@@ -158,6 +160,44 @@ pub(crate) fn prune_authoritative_tool_batch(
         Some(format!(
             "Runtime-trace discipline: preserving `trace_runtime_flow` as the authoritative runtime source and skipping extra repo reads in the same batch (dropped: {}).",
             dropped.join(", ")
+        )),
+    )
+}
+
+pub(crate) fn prune_redirected_shell_batch(
+    calls: Vec<ToolCallResponse>,
+) -> (Vec<ToolCallResponse>, Option<String>) {
+    let mut redirected_topics = std::collections::HashSet::new();
+    let mut kept = Vec::new();
+    let mut dropped_count = 0;
+
+    for call in calls {
+        if call.function.name == "shell" {
+            let args: Value = serde_json::from_str(&call.function.arguments).unwrap_or(Value::Null);
+            let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
+            if shell_looks_like_structured_host_inspection(command) {
+                let topic = preferred_host_inspection_topic(command).unwrap_or("summary");
+                if !redirected_topics.contains(topic) {
+                    redirected_topics.insert(topic);
+                    kept.push(call);
+                } else {
+                    dropped_count += 1;
+                }
+                continue;
+            }
+        }
+        kept.push(call);
+    }
+
+    if dropped_count == 0 {
+        return (kept, None);
+    }
+
+    (
+        kept,
+        Some(format!(
+            "Redirection discipline: pruning redundant auto-redirected diagnostic tool calls in the same batch (dropped: {}).",
+            dropped_count
         )),
     )
 }
