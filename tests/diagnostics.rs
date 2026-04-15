@@ -4318,3 +4318,391 @@ fn test_guard_blocks_node_eval_execution() {
         "guard error should mention run_code; got: {msg}"
     );
 }
+
+// ── inspect_host: resource_load (previously uncovered) ───────────────────────
+
+#[tokio::test]
+async fn test_inspect_host_resource_load_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "resource_load" }))
+        .await
+        .expect("resource_load must return Ok");
+    assert!(
+        output.contains("Host inspection: resource_load"),
+        "resource_load must include header; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_resource_load_reports_cpu_or_ram() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "resource_load" }))
+        .await
+        .expect("resource_load must return Ok");
+    assert!(
+        output.contains("CPU")
+            || output.contains("RAM")
+            || output.contains("Memory")
+            || output.contains("%"),
+        "resource_load output should report CPU or RAM usage; got:\n{output}"
+    );
+}
+
+// ── inspect_host: content assertions for previously header-only topics ────────
+
+#[tokio::test]
+async fn test_inspect_host_bitlocker_reports_protection_state() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "bitlocker" }))
+        .await
+        .expect("bitlocker must return Ok");
+    assert!(
+        output.contains("BitLocker")
+            || output.contains("Protection")
+            || output.contains("Encrypted")
+            || output.contains("LUKS")
+            || output.contains("encryption"),
+        "bitlocker output should report drive encryption state; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_rdp_reports_status() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "rdp" }))
+        .await
+        .expect("rdp must return Ok");
+    assert!(
+        output.contains("Remote Desktop")
+            || output.contains("RDP")
+            || output.contains("3389")
+            || output.contains("fDenyTSConnections")
+            || output.contains("xrdp"),
+        "rdp output should report Remote Desktop state; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_shadow_copies_reports_vss_or_snapshots() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "shadow_copies" }))
+        .await
+        .expect("shadow_copies must return Ok");
+    assert!(
+        output.contains("Shadow")
+            || output.contains("VSS")
+            || output.contains("snapshot")
+            || output.contains("Restore Point")
+            || output.contains("LVM"),
+        "shadow_copies output should report VSS or snapshot info; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_pagefile_reports_virtual_memory() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "pagefile" }))
+        .await
+        .expect("pagefile must return Ok");
+    assert!(
+        output.contains("Page")
+            || output.contains("Virtual")
+            || output.contains("MB")
+            || output.contains("swap"),
+        "pagefile output should report virtual memory info; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_windows_features_reports_feature_list() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "windows_features" }))
+        .await
+        .expect("windows_features must return Ok");
+    assert!(
+        output.contains("Feature")
+            || output.contains("feature")
+            || output.contains("Enabled")
+            || output.contains("IIS")
+            || output.contains("WSL")
+            || output.contains("not available"),
+        "windows_features output should list features or report unavailable; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_printers_reports_printers_or_none() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "printers" }))
+        .await
+        .expect("printers must return Ok");
+    assert!(
+        output.contains("Printer")
+            || output.contains("printer")
+            || output.contains("CUPS")
+            || output.contains("No printers")
+            || output.contains("queue"),
+        "printers output should list printers or report none; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_winrm_reports_service_state() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "winrm" }))
+        .await
+        .expect("winrm must return Ok");
+    assert!(
+        output.contains("WinRM")
+            || output.contains("WSMan")
+            || output.contains("Remoting")
+            || output.contains("Listener")
+            || output.contains("not available"),
+        "winrm output should report WinRM service state; got:\n{output}"
+    );
+}
+
+// ── routing: missing detection tests ─────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_resource_load_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show system load and utilization"),
+        Some("resource_load")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("why is it slow right now?"),
+        Some("resource_load")
+    );
+}
+
+#[test]
+fn test_routing_detects_device_health_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("are there any yellow bang devices?"),
+        Some("device_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show malfunctioning hardware"),
+        Some("device_health")
+    );
+}
+
+#[test]
+fn test_routing_detects_drivers_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("list my active system drivers"),
+        Some("drivers")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show kernel modules"),
+        Some("drivers")
+    );
+}
+
+#[test]
+fn test_routing_detects_peripherals_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show connected USB devices"),
+        Some("peripherals")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("list USB controllers and connected hardware"),
+        Some("peripherals")
+    );
+}
+
+#[test]
+fn test_routing_detects_gpo_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show group policy objects"),
+        Some("gpo")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what GPOs are applied?"),
+        Some("gpo")
+    );
+}
+
+#[test]
+fn test_routing_detects_certificates_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show my local certificates"),
+        Some("certificates")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("list expiring certs"),
+        Some("certificates")
+    );
+}
+
+#[test]
+fn test_routing_detects_integrity_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("check windows component integrity"),
+        Some("integrity")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("run SFC DISM health check"),
+        Some("integrity")
+    );
+}
+
+#[test]
+fn test_routing_detects_domain_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("is this machine domain joined?"),
+        Some("domain")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show active directory domain status"),
+        Some("domain")
+    );
+}
+
+#[test]
+fn test_routing_detects_connectivity_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("check my internet connectivity"),
+        Some("connectivity")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("am I connected to the internet?"),
+        Some("connectivity")
+    );
+}
+
+#[test]
+fn test_routing_detects_traceroute_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("run a traceroute to 8.8.8.8"),
+        Some("traceroute")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("trace the network path to google"),
+        Some("traceroute")
+    );
+}
+
+#[test]
+fn test_routing_detects_vpn_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show vpn tunnel status"),
+        Some("vpn")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("which vpn adapter is active?"),
+        Some("vpn")
+    );
+}
+
+#[test]
+fn test_routing_detects_proxy_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what proxy settings are configured?"),
+        Some("proxy")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show system proxy config"),
+        Some("proxy")
+    );
+}
+
+#[test]
+fn test_routing_detects_firewall_rules_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("list active firewall rules"),
+        Some("firewall_rules")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show inbound firewall allow rules"),
+        Some("firewall_rules")
+    );
+}
+
+#[test]
+fn test_routing_detects_arp_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show the ARP table"),
+        Some("arp")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("list IP to MAC mappings"),
+        Some("arp")
+    );
+}
+
+#[test]
+fn test_routing_detects_route_table_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show my routing table"),
+        Some("route_table")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("print the IP route table"),
+        Some("route_table")
+    );
+}
+
+#[test]
+fn test_routing_detects_os_config_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show OS configuration and power plan"),
+        Some("os_config")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("check uptime and last boot time"),
+        Some("os_config")
+    );
+}
+
+#[test]
+fn test_routing_detects_toolchains_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what developer toolchains are installed?"),
+        Some("toolchains")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("detect installed Rust Node Python versions"),
+        Some("toolchains")
+    );
+}
+
+#[test]
+fn test_routing_detects_disk_benchmark_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("run a disk stress test on this drive"),
+        Some("disk_benchmark")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("give me an io intensity report"),
+        Some("disk_benchmark")
+    );
+}
