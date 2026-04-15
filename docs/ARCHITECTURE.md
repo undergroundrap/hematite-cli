@@ -345,7 +345,7 @@ Sandboxed code execution (`run_code` tool).
 
 ### `src/tools/host_inspect.rs`
 
-SysAdmin and Network Admin inspection (`inspect_host` tool). 69 read-only topics covering the full OS stack. See CLAUDE.md for the complete topic reference.
+SysAdmin and Network Admin inspection (`inspect_host` tool). 76+ read-only topics covering the full OS stack. See CLAUDE.md for the complete topic reference.
 
 ### `src/tools/guard.rs`
 
@@ -417,7 +417,7 @@ Structured workspace workflow invocations — rooted to the locked workspace roo
 
 ### `src/tools/scoping_tools.rs`
 
-Context scoping helpers — `auto_pin_context` lets the model lock 1–3 core files into high-fidelity memory for the current turn.
+Context scoping helpers — `auto_pin_context` lets the model lock 1–3 core files into prioritized memory for the current turn.
 
 ### `src/tools/risk_evaluator.rs`
 

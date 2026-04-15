@@ -2428,7 +2428,7 @@ impl ConversationManager {
             let pinned = self.pinned_files.lock().await;
             if !pinned.is_empty() {
                 system_msg.push_str("\n\n# ACTIVE CONTEXT (PINNED FILES)\n");
-                system_msg.push_str("The following files are locked in your active memory for high-fidelity reference.\n\n");
+                system_msg.push_str("The following files are locked in your active memory for prioritized reference.\n\n");
                 for (path, content) in pinned.iter() {
                     system_msg.push_str(&format!("## FILE: {}\n```\n{}\n```\n\n", path, content));
                 }
@@ -4743,7 +4743,7 @@ impl ConversationManager {
                             }
                         }
                         let msg = format!(
-                            "Autonomous Scoping: Locked {} in high-fidelity memory. Reason: {}",
+                            "Autonomous Scoping: Locked {} in prioritized memory. Reason: {}",
                             pinned.join(", "),
                             reason
                         );

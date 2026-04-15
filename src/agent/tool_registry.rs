@@ -521,7 +521,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         ),
         make_tool(
             "auto_pin_context",
-            "Select 1-3 core files to 'Lock' into high-fidelity memory. \
+            "Select 1-3 core files to 'Lock' into prioritized memory. \
              Use this to ensure the most important architecture files \
              are always visible during complex refactorings.",
             serde_json::json!({

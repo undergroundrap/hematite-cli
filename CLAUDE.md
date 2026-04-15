@@ -2,7 +2,8 @@
 
 ## What this project is
 
-Hematite is a local AI coding harness and natural-language SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
+Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
+It features a high-fidelity integrated host inspection suite covering **76+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -142,6 +143,8 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Thermal Health**: Use `topic: "thermal"` for real-time telemetry — CPU temp, thermal margins, and active throttling indicators.
 - **Windows Activation**: Use `topic: "activation"` for license state, genuine status, and Product ID/Key metadata.
 - **Patch History**: Use `topic: "patch_history"` for Windows HotFix and KB update audit (last 48h focus).
+- **Repo Doctor**: Use `topic: "repo_doctor"` to inspect workspace health — git status, uncommitted changes, and build-file presence.
+- **Disk Benchmark**: Use `topic: "disk_benchmark"` for sequential read/write throughput and latency measurements.
 - **Dev Conflicts**: Use `topic: "dev_conflicts"` for cross-tool environment conflict detection — Node.js version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, and duplicate PATH entries.
 - **Connectivity Check**: Use `topic: "connectivity"` to test internet reachability and DNS resolution — reports REACHABLE/UNREACHABLE with DNS pass/fail and gateway/VPN context.
 - **Wi-Fi Status**: Use `topic: "wifi"` for wireless adapter state, SSID, signal strength (RSSI/quality), band, channel, and negotiated speed.
@@ -161,14 +164,8 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Group Policy (GPO)**: Use `topic: "gpo"` for applied Group Policy Objects — shows applied computer-scope GPOs and filtering status. Requires Administrator elevation on Windows.
 - **Certificates**: Use `topic: "certificates"` for local personal certificates — lists subjects, thumbprints, and expiry dates (flags those expiring within 30 days).
 - **Integrity**: Use `topic: "integrity"` for Windows component store health — checks SFC/DISM status (Corrupt/AutoRepairNeeded) via registry and log visibility.
-- **Domain Context** (`domain`) — Active Directory and domain join status: Join Status (DOMAIN/WORKGROUP), Domain name, and NetBIOS name
-- **Permissions** (`permissions`) — Precision NTFS/ACL security audits for files and folders; flags non-admin write access and broad inheritance
-- **Login History** (`login_history`) — Triage of recent successful and failed logon events from the security log (Event ID 4624)
-- **Registry Audit** (`registry_audit`) — Deep audit for persistence and hijacks: IFEO debugger entries, Winlogon shell settings, BootExecute, and Sticky Keys exploits
-- **Thermal Health** (`thermal`) — telemetry for CPU temperature, thermal margins, and active throttling indicators
-- **Windows Activation** (`activation`) — Audits Windows license state, genuine status, and Product ID/Key metadata
-- **Patch History** (`patch_history`) — Fast audit of recently installed Windows HotFixes and KB updates
-- **Share Access** (`share_access`) — Readability and connectivity testing for specific network shares and UNC paths
+- **Share Access**: Use `topic: "share_access"` for readability and connectivity testing for specific network shares and UNC paths.
+- **Directory Audit**: Use `topic: "directory"`, `"desktop"`, or `"downloads"` for directory listing and file metadata.
 - **Traceroute**: Use `topic: "traceroute"` to trace the network path to a host (default 8.8.8.8). Accepts optional `host` arg. Uses `tracert` on Windows, `traceroute`/`tracepath` on Linux/macOS.
 - **DNS Cache**: Use `topic: "dns_cache"` to inspect locally cached DNS entries — hostname, record type, resolved address, and TTL.
 - **ARP Table**: Use `topic: "arp"` for the ARP neighbor table — IP-to-MAC mappings for devices on the local network.
@@ -624,6 +621,7 @@ For behavioral changes, diagnostics are part of the change, not optional cleanup
 cargo fmt
 cargo check --tests
 cargo test --test diagnostics
+powershell -ExecutionPolicy Bypass -File ./scripts/verify-doc-sync.ps1
 pwsh ./scripts/package-windows.ps1 -AddToPath
 ```
 

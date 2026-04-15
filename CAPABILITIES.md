@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 78+ read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
+- **Full OS stack coverage**: 76+ read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
 - **Shell-to-inspect_host redirection**: raw diagnostic shell commands are silently redirected to the appropriate `inspect_host` topic — structured output, no approval friction for read-only probes
 - **Hardware-aware implementation**: the agent can use live hardware telemetry (disk queue depth, VRAM usage, I/O stats) to inform architectural recommendations grounded in the actual machine state
 - **Deep workspace visibility**: the file engine can inspect hidden directories (`.hematite`, `.git`) during diagnostics to locate benchmarking targets and workspace artifacts
@@ -74,7 +74,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (51+):**
+**SysAdmin topics (56+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
@@ -116,7 +116,12 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Permissions** (`permissions`) — Precision NTFS/ACL security audits; identifies non-admin write access and inheritance state
 - **Login History** (`login_history`) — Triage of recent successful and failed logon events from the security log (Event ID 4624)
 - **Registry Audit** (`registry_audit`) — Proactive security audit for persistence hijacks: IFEO debuggers, Winlogon Shell overrides, BootExecute, and Sticky Keys exploits
-- **Advanced Diagnostic Topics** — Includes precision telemetry for Thermal Throttling (`thermal`), Windows Activation status (`activation`), and Patch (KB) history (`patch_history`).
+- **Thermal Health** (`thermal`) — Precision telemetry for CPU temperature, thermal margins, and active throttling indicators
+- **Windows Activation** (`activation`) — Audits Windows license status, genuine status, and Product ID/Key metadata
+- **Patch History** (`patch_history`) — Windows HotFix and KB update audit (last 48h focus)
+- **Repo Doctor** (`repo_doctor`) — Workspaces health audit: git status, uncommitted changes, and build-file presence
+- **Disk Benchmark** (`disk_benchmark`) — Sequential read/write throughput and latency measurements on the workspace drive
+- **Directory Audit** (`directory`, `desktop`, `downloads`) — Arbitrary or known directory listing with file metadata and sizes
 - **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths
 
 **Network Admin topics (12):**

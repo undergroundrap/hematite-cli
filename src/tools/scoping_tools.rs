@@ -4,7 +4,7 @@ pub fn get_scoping_definitions() -> Vec<Value> {
     vec![
         json!({
             "name": "auto_pin_context",
-            "description": "Select 1-3 core files to 'Lock' into high-fidelity memory. \
+            "description": "Select 1-3 core files to 'Lock' into prioritized memory. \
                              Use this to ensure the most important architecture files \
                              are always visible during complex refactorings.",
             "parameters": {
