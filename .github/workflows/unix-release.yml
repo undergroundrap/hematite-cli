@@ -39,6 +39,9 @@ jobs:
         with:
           path: .hematite/assets/voice
           key: kokoro-voice-assets-v1.0
+          restore-keys: |
+            kokoro-voice-assets-
+          save-always: true
 
       - name: Download voice model assets
         run: |
