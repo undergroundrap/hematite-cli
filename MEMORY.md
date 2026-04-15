@@ -22,6 +22,16 @@ Managed in `src/agent/conversation.rs` and `src/agent/compaction.rs`.
 - **Strategy:** deterministic compaction — preserves key files, recent messages verbatim, and a rolling summary rather than relying on AI-generated summaries that can hallucinate.
 - **Alignment:** enforces user-role message ordering required by LM Studio's Jinja templates.
 
-## 3. DeepReflect (Idle Reflection)
+## 3. PageRank Repo Map (Structural Memory)
+
+Managed in `src/memory/repo_map.rs`.
+
+- builds a definition/reference graph across all source files using `tree-sitter` AST parsing
+- runs PageRank via `petgraph` to rank files by structural importance
+- heat-weighted personalization: actively edited files get score boosts (hottest file 100×, others proportional) so architecturally central and actively edited files float to the top
+- injected into the system prompt each turn so the model knows the codebase structure without burning tool calls
+- rebuilt at startup and after every file edit
+
+## 4. DeepReflect (Idle Reflection)
 
 Managed in `src/memory/deep_reflect.rs`. A background process that triggers during user idle time to perform deeper summarization and distill session insights into the Vein.
