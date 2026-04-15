@@ -272,10 +272,19 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "session",
             "logon",
             "login",
-            "virtualization",
-            "hypervisor",
-            "vt-x",
             "slat",
+            "error",
+            "warning",
+            "event",
+            "log",
+            "throughput",
+            "permission",
+            "access control",
+            "login",
+            "logon",
+            "registry",
+            "share",
+            "mbps",
         ],
     );
     let host_action = contains_any(
@@ -291,10 +300,14 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "duplicate",
             "missing",
             "ready",
-            "fix",
-            "repair",
             "resolve",
             "troubleshoot",
+            "show me",
+            "show",
+            "find",
+            "list",
+            "audit",
+            "test",
         ],
     );
 
@@ -391,7 +404,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("path drift")
         || (lower.contains("dev machine") && lower.contains("off"))
         || (lower.contains("environment") && lower.contains("sane"));
-    let asks_network = lower.contains("network")
+    let asks_network = (lower.contains("network")
+        && !lower.contains("stat")
+        && !lower.contains("share")
+        && !lower.contains("throughput"))
         || lower.contains("adapter")
         || lower.contains("dns")
         || lower.contains("gateway")
@@ -428,6 +444,40 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("toolchains")
         || (lower.contains("installed") && lower.contains("version"))
         || (lower.contains("detect") && lower.contains("version"));
+    let asks_permissions = lower.contains("permission")
+        || lower.contains("access control")
+        || lower.contains("get-acl")
+        || lower.contains("acl ")
+        || lower.contains("icacls")
+        || lower.contains("takeown")
+        || lower.contains("ntfs permission")
+        || (lower.contains("who has") && lower.contains("access"));
+    let asks_login_history = lower.contains("login history")
+        || lower.contains("logon history")
+        || lower.contains("who logged in")
+        || lower.contains("recent logon")
+        || lower.contains("failed logon")
+        || lower.contains("event id 4624")
+        || lower.contains("eventid 4624");
+    let asks_registry_audit = lower.contains("registry audit")
+        || lower.contains("persistence")
+        || lower.contains("debugger hijack")
+        || lower.contains("ifeo")
+        || lower.contains("winlogon shell")
+        || lower.contains("bootexecute")
+        || lower.contains("reg query")
+        || lower.contains("regedit")
+        || lower.contains("sticky keys")
+        || lower.contains("sethc.exe");
+    let asks_share_access = lower.contains("share access")
+        || lower.contains("unc path")
+        || lower.contains("smbshare")
+        || lower.contains("net share")
+        || lower.contains("net use")
+        || lower.contains("\\\\")
+        || lower.contains("share is reachable")
+        || lower.contains("reachable share")
+        || (lower.contains("network share") && (lower.contains("reach") || lower.contains("access") || lower.contains("test")));
     let asks_ports = lower.contains("listening on port")
         || lower.contains("listening port")
         || lower.contains("open port")
@@ -543,10 +593,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("event viewer")
         || lower.contains("journald")
         || lower.contains("journal log")
-        || lower.contains("show me errors")
         || lower.contains("show me warnings")
         || (lower.contains("log") && lower.contains("error"))
         || (lower.contains("log") && lower.contains("warning"))
+        || (lower.contains("show me") && lower.contains("error"))
+        || (lower.contains("show me") && lower.contains("warning"))
         || (lower.contains("what errors") && lower.contains("log"));
     let asks_scheduled_tasks = lower.contains("scheduled task")
         || lower.contains("scheduled tasks")
@@ -861,10 +912,18 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
 
     if asks_disk_benchmark {
         Some("disk_benchmark")
-    } else if asks_storage {
-        Some("storage")
     } else if asks_fix_plan {
         Some("fix_plan")
+    } else if asks_permissions {
+        Some("permissions")
+    } else if asks_login_history {
+        Some("login_history")
+    } else if asks_registry_audit {
+        Some("registry_audit")
+    } else if asks_share_access {
+        Some("share_access")
+    } else if asks_storage {
+        Some("storage")
     } else if asks_gpo {
         Some("gpo")
     } else if asks_certificates {
@@ -885,6 +944,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("sessions")
     } else if asks_virtualization {
         Some("hardware")
+    } else if asks_services {
+        Some("services")
     } else if asks_startup {
         Some("startup_items")
     } else if asks_bitlocker {
@@ -901,6 +962,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("printers")
     } else if asks_winrm {
         Some("winrm")
+    } else if asks_network {
+        Some("network")
     } else if asks_network_stats {
         Some("network_stats")
     } else if asks_udp_ports {
@@ -971,10 +1034,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("shares")
     } else if asks_hosts_file {
         Some("hosts_file")
-    } else if asks_network {
-        Some("network")
-    } else if asks_services {
-        Some("services")
     } else if asks_ports {
         Some("ports")
     } else if asks_processes {
@@ -1029,6 +1088,18 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("defender")
                 || l.contains("uac")
                 || (l.contains("security") && !l.contains("git") && !l.contains("ssh"))
+        }),
+        ("permissions", |l| {
+            l.contains("permission") || l.contains("access control") || l.contains("get-acl")
+        }),
+        ("login_history", |l| {
+            l.contains("login history") || l.contains("logon history") || l.contains("event id 4624")
+        }),
+        ("registry_audit", |l| {
+            l.contains("registry audit") || l.contains("persistence") || l.contains("ifeo") || l.contains("reg query")
+        }),
+        ("share_access", |l| {
+            l.contains("share access") || l.contains("unc path") || l.contains("smbshare") || l.contains("net share")
         }),
         ("pending_reboot", |l| {
             l.contains("pending reboot")

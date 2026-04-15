@@ -266,6 +266,31 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 
 ---
 
+## SysAdmin & Network Engineering
+
+**NTFS Permissions Audit**
+> "Audit the permissions for the Downloads folder and tell me if any non-admin users have write access."
+
+**Authentication & Login History**
+> "Who logged into this machine over the last 48 hours? Flag any failed logon attempts if you find them."
+
+**Network Share Accessibility**
+> "Can I reach the network share `\\backup-server\archives` right now? Test connectivity and readability."
+
+**Persistence & Security Audit**
+> "Audit my registry for persistence hijacks (IFEO, Winlogon Shell, BootExecute) and verify if any debuggers are attached to system processes."
+
+**Accurate Resource Telemetry**
+> "Which processes are using the most CPU % right now? Show me real-time Task Manager style metrics, not cumulative seconds."
+
+**Network Throughput (Rate-based)**
+> "Show me my current network throughput in Mbps for the active adapter. I want to see the current RX/TX rate, not just totals since boot."
+
+**Time-Windowed Log Analysis**
+> "Show me all System errors from the Event Log that occurred in the last 4 hours."
+
+---
+
 ## Swarm
 
 **Multi-file refactor**

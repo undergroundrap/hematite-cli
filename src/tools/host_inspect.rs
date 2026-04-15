@@ -31,7 +31,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_disk(path, max_entries).await
         }
         "ports" => inspect_ports(parse_port_filter(args), max_entries),
-        "log_check" => inspect_log_check(max_entries),
+        "log_check" => inspect_log_check(parse_lookback_hours(args), max_entries),
         "startup_items" | "startup" | "boot" | "autorun" => inspect_startup_items(max_entries),
         "health_report" | "system_health" => inspect_health_report(),
         "storage" => inspect_storage(max_entries),
@@ -111,8 +111,20 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             let path = resolve_optional_path(args)?;
             inspect_disk_benchmark(path).await
         }
+        "permissions" | "acl" | "access_control" => {
+            let path = resolve_optional_path(args)?;
+            inspect_permissions(path, max_entries)
+        }
+        "login_history" | "logon_history" | "user_logins" => {
+            inspect_login_history(max_entries)
+        }
+        "share_access" | "unc_access" | "remote_share" => {
+            let path = resolve_path(args.get("path").and_then(|v| v.as_str()).unwrap_or(""))?;
+            inspect_share_access(path)
+        }
+        "registry_audit" | "persistence" | "integrity_audit" => inspect_registry_audit(),
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit.",
             other
         )),
 
@@ -139,6 +151,12 @@ fn parse_name_filter(args: &Value) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(|value| value.to_string())
+}
+
+fn parse_lookback_hours(args: &Value) -> Option<u32> {
+    args.get("lookback_hours")
+        .and_then(|v| v.as_u64())
+        .map(|n| n as u32)
 }
 
 fn parse_issue_text(args: &Value) -> Option<String> {
@@ -406,6 +424,7 @@ enum FixPlanKind {
     RegistryEdit,
     ScheduledTaskCreate,
     DiskCleanup,
+    DnsResolution,
     Generic,
 }
 
@@ -433,6 +452,7 @@ async fn inspect_fix_plan(
         FixPlanKind::RegistryEdit => inspect_registry_edit_fix_plan(&issue),
         FixPlanKind::ScheduledTaskCreate => inspect_scheduled_task_fix_plan(&issue),
         FixPlanKind::DiskCleanup => inspect_disk_cleanup_fix_plan(&issue),
+        FixPlanKind::DnsResolution => inspect_dns_fix_plan(&issue),
         FixPlanKind::Generic => inspect_generic_fix_plan(&issue),
     }
 }
@@ -554,6 +574,13 @@ fn classify_fix_plan_kind(issue: &str, port_filter: Option<u16>) -> FixPlanKind 
         || lower.contains("node")
     {
         FixPlanKind::EnvPath
+    } else if lower.contains("dns ")
+        || lower.contains("nameserver")
+        || lower.contains("cannot resolve")
+        || lower.contains("nslookup")
+        || lower.contains("flushdns")
+    {
+        FixPlanKind::DnsResolution
     } else {
         FixPlanKind::Generic
     }
@@ -1447,8 +1474,12 @@ fn inspect_processes(name_filter: Option<String>, max_entries: usize) -> Result<
         processes.retain(|entry| entry.name.to_ascii_lowercase().contains(&lowered));
     }
     processes.sort_by(|a, b| {
-        b.memory_bytes
-            .cmp(&a.memory_bytes)
+        let a_cpu = a.cpu_percent.unwrap_or(0.0);
+        let b_cpu = b.cpu_percent.unwrap_or(0.0);
+        b_cpu
+            .partial_cmp(&a_cpu)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.memory_bytes.cmp(&a.memory_bytes))
             .then_with(|| a.name.cmp(&b.name))
             .then_with(|| a.pid.cmp(&b.pid))
     });
@@ -1473,8 +1504,13 @@ fn inspect_processes(name_filter: Option<String>, max_entries: usize) -> Result<
     out.push_str("\nTop processes by resource usage:\n");
     for entry in processes.iter().take(max_entries) {
         let cpu_str = entry
-            .cpu_seconds
-            .map(|s| format!(" [CPU: {:.1}s]", s))
+            .cpu_percent
+            .map(|p| format!(" [CPU: {:.1}%]", p))
+            .or_else(|| {
+                entry
+                    .cpu_seconds
+                    .map(|s| format!(" [CPU: {:.1}s]", s))
+            })
             .unwrap_or_default();
         let io_str = if let (Some(r), Some(w)) = (entry.read_ops, entry.write_ops) {
             format!(" [I/O R:{}/W:{}]", r, w)
@@ -1569,16 +1605,15 @@ fn inspect_services(name_filter: Option<String>, max_entries: usize) -> Result<S
                 || entry
                     .display_name
                     .as_deref()
-                    .unwrap_or("")
-                    .to_ascii_lowercase()
-                    .contains(&lowered)
+                    .map(|d| d.to_ascii_lowercase().contains(&lowered))
+                    .unwrap_or(false)
         });
     }
 
     services.sort_by(|a, b| {
-        service_status_rank(&a.status)
-            .cmp(&service_status_rank(&b.status))
-            .then_with(|| a.name.cmp(&b.name))
+        let a_running = a.status.to_ascii_lowercase() == "running" || a.status.to_ascii_lowercase() == "active";
+        let b_running = b.status.to_ascii_lowercase() == "running" || b.status.to_ascii_lowercase() == "active";
+        b_running.cmp(&a_running).then_with(|| a.name.cmp(&b.name))
     });
 
     let running = services
@@ -2167,6 +2202,7 @@ struct ProcessEntry {
     pid: u32,
     memory_bytes: u64,
     cpu_seconds: Option<f64>,
+    cpu_percent: Option<f64>,
     read_ops: Option<u64>,
     write_ops: Option<u64>,
     detail: Option<String>,
@@ -2458,60 +2494,63 @@ fn collect_unix_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
 
 #[cfg(target_os = "windows")]
 fn collect_windows_processes() -> Result<Vec<ProcessEntry>, String> {
+    // We take two samples of CPU time separated by a short interval to calculate recent CPU %
+    let script = r#"
+        $s1 = Get-Process | Select-Object Id, CPU
+        Start-Sleep -Milliseconds 250
+        $s2 = Get-Process | Select-Object Name, Id, WorkingSet64, CPU, ReadOperationCount, WriteOperationCount
+        $s2 | ForEach-Object {
+            $p2 = $_
+            $p1 = $s1 | Where-Object { $_.Id -eq $p2.Id }
+            $pct = 0.0
+            if ($p1 -and $p2.CPU -gt $p1.CPU) {
+                # (Delta CPU seconds / interval) * 100 / LogicalProcessors
+                # Note: We skip division by logical processors to show 'per-core' usage or just raw % if preferred.
+                # Standard Task Manager style is (delta / interval) * 100.
+                $pct = [math]::Round((($p2.CPU - $p1.CPU) / 0.25) * 100, 1)
+            }
+            "PID:$($p2.Id)|NAME:$($p2.Name)|MEM:$($p2.WorkingSet64)|CPU_S:$($p2.CPU)|CPU_P:$pct|READ:$($p2.ReadOperationCount)|WRITE:$($p2.WriteOperationCount)"
+        }
+    "#;
+
     let output = Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-Command",
-            "Get-Process | Select-Object Name, Id, WorkingSet64, CPU, ReadOperationCount, WriteOperationCount | ConvertTo-Json -Compress",
-        ])
+        .args(["-NoProfile", "-Command", script])
         .output()
         .map_err(|e| format!("Failed to run powershell Get-Process: {e}"))?;
 
-    if !output.status.success() {
-        return Err("powershell Get-Process returned a non-success status.".to_string());
-    }
-
-    let json_text = String::from_utf8_lossy(&output.stdout);
-    let values: Value = serde_json::from_str(&json_text)
-        .map_err(|e| format!("Failed to parse process JSON: {e}"))?;
-
+    let text = String::from_utf8_lossy(&output.stdout);
     let mut out = Vec::new();
-    if let Some(arr) = values.as_array() {
-        for v in arr {
-            let name = v["Name"].as_str().unwrap_or("unknown").to_string();
-            let pid = v["Id"].as_u64().unwrap_or(0) as u32;
-            let memory_bytes = v["WorkingSet64"].as_u64().unwrap_or(0);
-            let cpu_seconds = v["CPU"].as_f64();
-            let read_ops = v["ReadOperationCount"].as_u64();
-            let write_ops = v["WriteOperationCount"].as_u64();
-            out.push(ProcessEntry {
-                name,
-                pid,
-                memory_bytes,
-                cpu_seconds,
-                read_ops,
-                write_ops,
-                detail: None,
-            });
+    for line in text.lines() {
+        let parts: Vec<&str> = line.trim().split('|').collect();
+        if parts.len() < 5 {
+            continue;
         }
-    } else if let Some(v) = values.as_object() {
-        let name = v["Name"].as_str().unwrap_or("unknown").to_string();
-        let pid = v["Id"].as_u64().unwrap_or(0) as u32;
-        let memory_bytes = v["WorkingSet64"].as_u64().unwrap_or(0);
-        let cpu_seconds = v["CPU"].as_f64();
-        let read_ops = v["ReadOperationCount"].as_u64();
-        let write_ops = v["WriteOperationCount"].as_u64();
-        out.push(ProcessEntry {
-            name,
-            pid,
-            memory_bytes,
-            cpu_seconds,
-            read_ops,
-            write_ops,
+        let mut entry = ProcessEntry {
+            name: "unknown".to_string(),
+            pid: 0,
+            memory_bytes: 0,
+            cpu_seconds: None,
+            cpu_percent: None,
+            read_ops: None,
+            write_ops: None,
             detail: None,
-        });
+        };
+        for p in parts {
+            if let Some((k, v)) = p.split_once(':') {
+                match k {
+                    "PID" => entry.pid = v.parse().unwrap_or(0),
+                    "NAME" => entry.name = v.to_string(),
+                    "MEM" => entry.memory_bytes = v.parse().unwrap_or(0),
+                    "CPU_S" => entry.cpu_seconds = v.parse().ok(),
+                    "CPU_P" => entry.cpu_percent = v.parse().ok(),
+                    "READ" => entry.read_ops = v.parse().ok(),
+                    "WRITE" => entry.write_ops = v.parse().ok(),
+                    _ => {}
+                }
+            }
+        }
+        out.push(entry);
     }
-
     Ok(out)
 }
 
@@ -2541,6 +2580,7 @@ fn collect_unix_processes() -> Result<Vec<ProcessEntry>, String> {
             pid,
             memory_bytes: rss_kib * 1024,
             cpu_seconds: None,
+            cpu_percent: None,
             read_ops: None,
             write_ops: None,
             detail: None,
@@ -2571,18 +2611,7 @@ fn listener_exposure_summary(listeners: Vec<ListeningPort>) -> ListenerExposureS
     summary
 }
 
-fn service_status_rank(status: &str) -> u8 {
-    let lower = status.to_ascii_lowercase();
-    if lower == "failed" || lower == "error" {
-        0
-    } else if lower == "running" || lower == "active" {
-        1
-    } else if lower == "starting" || lower == "activating" {
-        2
-    } else {
-        3
-    }
-}
+
 
 fn is_loopback_listener(local: &str) -> bool {
     local.starts_with("127.")
@@ -3532,22 +3561,26 @@ fn health_check_recent_errors(watch: &mut Vec<String>, tips: &mut Vec<String>) {
 
 // ── log_check ─────────────────────────────────────────────────────────────────
 
-fn inspect_log_check(max_entries: usize) -> Result<String, String> {
+fn inspect_log_check(lookback_hours: Option<u32>, max_entries: usize) -> Result<String, String> {
     let mut out = String::from("Host inspection: log_check\n\n");
 
     #[cfg(target_os = "windows")]
     {
         // Pull recent critical/error events from Windows Application and System logs.
+        let hours = lookback_hours.unwrap_or(24);
+        out.push_str(&format!("Checking System/Application logs from the last {} hours...\n\n", hours));
+        
         let n = max_entries.clamp(1, 50);
         let script = format!(
             r#"try {{
-    $events = Get-WinEvent -FilterHashtable @{{LogName='Application','System'; Level=1,2,3}} -MaxEvents 100 -ErrorAction SilentlyContinue
+    $events = Get-WinEvent -FilterHashtable @{{LogName='Application','System'; Level=1,2,3; StartTime=(Get-Date).AddHours(-{hours})}} -MaxEvents 100 -ErrorAction SilentlyContinue
     if (-not $events) {{ "NO_EVENTS"; exit }}
     $events | Select-Object -First {n} | ForEach-Object {{
         $line = $_.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss') + '|' + $_.LevelDisplayName + '|' + $_.ProviderName + '|' + (($_.Message -split '[\r\n]')[0].Trim())
         $line
     }}
 }} catch {{ "ERROR:" + $_.Exception.Message }}"#,
+            hours = hours,
             n = n
         );
         let output = Command::new("powershell")
@@ -4802,18 +4835,28 @@ fn inspect_battery() -> Result<String, String> {
     {
         let script = r#"
 try {
-    $bats = Get-CimInstance -ClassName Win32_Battery -ErrorAction Stop
+    $bats = Get-CimInstance -ClassName Win32_Battery -ErrorAction SilentlyContinue
     if (-not $bats) { "NO_BATTERY"; exit }
+    
+    # Modern Battery Health (Cycle count + Capacity health)
+    $static = Get-CimInstance -Namespace root/WMI -ClassName BatteryStaticData -ErrorAction SilentlyContinue
+    $full = Get-CimInstance -Namespace root/WMI -ClassName BatteryFullCapacity -ErrorAction SilentlyContinue 
+    $status = Get-CimInstance -Namespace root/WMI -ClassName BatteryStatus -ErrorAction SilentlyContinue
+
     foreach ($b in $bats) {
-        $status = switch ($b.BatteryStatus) {
-            1 { "Discharging (on battery)" }
-            2 { "AC power - fully charged" }
-            3 { "AC power - charging" }
-            6 { "AC power - charging" }
-            7 { "AC power - charging" }
+        $state = switch ($b.BatteryStatus) {
+            1 { "Discharging" }
+            2 { "AC Power (Fully Charged)" }
+            3 { "AC Power (Charging)" }
             default { "Status $($b.BatteryStatus)" }
         }
-        $b.Name + "|" + $b.EstimatedChargeRemaining + "|" + $status + "|" + $b.EstimatedRunTime
+        
+        $cycles = if ($status) { $status.CycleCount } else { "unknown" }
+        $health = if ($static -and $full) {
+             [math]::Round(($full.FullChargeCapacity / $static.DesignCapacity) * 100, 1)
+        } else { "unknown" }
+
+        $b.Name + "|" + $b.EstimatedChargeRemaining + "|" + $state + "|" + $cycles + "|" + $health
     }
 } catch { "ERROR:" + $_.Exception.Message }
 "#;
@@ -4835,12 +4878,13 @@ try {
         }
 
         for line in text.lines() {
-            let parts: Vec<&str> = line.splitn(4, '|').collect();
-            if parts.len() >= 3 {
+            let parts: Vec<&str> = line.split('|').collect();
+            if parts.len() == 5 {
                 let name = parts[0];
                 let charge: i64 = parts[1].parse().unwrap_or(-1);
-                let status = parts[2];
-                let time_rem: i64 = parts.get(3).and_then(|v| v.parse().ok()).unwrap_or(-1);
+                let state = parts[2];
+                let cycles = parts[3];
+                let health = parts[4];
 
                 out.push_str(&format!("Battery: {name}\n"));
                 if charge >= 0 {
@@ -4852,54 +4896,9 @@ try {
                         charge
                     ));
                 }
-                out.push_str(&format!("  Status: {status}\n"));
-                // Windows returns 71582788 as "unknown remaining time"
-                if time_rem > 0 && time_rem < 71_582_788 {
-                    let hours = time_rem / 60;
-                    let mins = time_rem % 60;
-                    out.push_str(&format!("  Estimated time remaining: {hours}h {mins}m\n"));
-                }
-                out.push('\n');
-            }
-        }
-
-        // Battery wear level (requires admin for CIM battery namespace)
-        let wear_script = r#"
-try {
-    $full = Get-CimInstance -Namespace root\cimv2 -ClassName BatteryFullChargedCapacity -ErrorAction Stop | Select-Object -First 1
-    $static = Get-CimInstance -Namespace root\cimv2 -ClassName BatteryStaticData -ErrorAction Stop | Select-Object -First 1
-    if ($full -and $static -and $static.DesignedCapacity -gt 0) {
-        $pct = [math]::Round(($full.FullChargedCapacity / $static.DesignedCapacity) * 100, 1)
-        $full.FullChargedCapacity.ToString() + "|" + $static.DesignedCapacity.ToString() + "|" + $pct.ToString()
-    } else { "UNKNOWN" }
-} catch { "UNKNOWN" }
-"#;
-        if let Ok(o) = Command::new("powershell")
-            .args(["-NoProfile", "-Command", wear_script])
-            .output()
-        {
-            let raw2 = String::from_utf8_lossy(&o.stdout);
-            let t = raw2.trim();
-            if t != "UNKNOWN" && !t.is_empty() {
-                let parts: Vec<&str> = t.splitn(3, '|').collect();
-                if parts.len() == 3 {
-                    let full: i64 = parts[0].parse().unwrap_or(0);
-                    let design: i64 = parts[1].parse().unwrap_or(0);
-                    let pct: f64 = parts[2].parse().unwrap_or(0.0);
-                    out.push_str(&format!(
-                        "Battery wear level: {pct:.1}% of original capacity\n"
-                    ));
-                    out.push_str(&format!(
-                        "  Current full charge: {full} mWh / Design: {design} mWh\n"
-                    ));
-                    if pct < 50.0 {
-                        out.push_str("  [!] Significantly degraded — consider replacement\n");
-                    } else if pct < 75.0 {
-                        out.push_str("  [-] Noticeable wear\n");
-                    } else {
-                        out.push_str("  Battery health is good\n");
-                    }
-                }
+                out.push_str(&format!("  Status: {state}\n"));
+                out.push_str(&format!("  Cycles: {cycles}\n"));
+                out.push_str(&format!("  Health: {health}% (Actual vs Design Capacity)\n\n"));
             }
         }
     }
@@ -5646,12 +5645,12 @@ fn inspect_connections(max_entries: usize) -> Result<String, String> {
 try {{
     $procs = @{{}}
     Get-Process -ErrorAction SilentlyContinue | ForEach-Object {{ $procs[$_.Id] = $_.Name }}
-    $all = Get-NetTCPConnection -State Established -ErrorAction Stop |
-        Sort-Object RemoteAddress
+    $all = Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue |
+        Sort-Object OwningProcess
     "TOTAL:" + $all.Count
     $all | Select-Object -First {n} | ForEach-Object {{
-        $pname = if ($procs.ContainsKey($_.OwningProcess)) {{ $procs[$_.OwningProcess] }} else {{ "pid:" + $_.OwningProcess }}
-        $pname + "|" + $_.LocalAddress + ":" + $_.LocalPort + "|" + $_.RemoteAddress + ":" + $_.RemotePort
+        $pname = if ($procs.ContainsKey($_.OwningProcess)) {{ $procs[$_.OwningProcess] }} else {{ "unknown" }}
+        $pname + "|" + $_.OwningProcess + "|" + $_.LocalAddress + ":" + $_.LocalPort + "|" + $_.RemoteAddress + ":" + $_.RemotePort
     }}
 }} catch {{ "ERROR:" + $_.Exception.Message }}"#
         );
@@ -5678,9 +5677,9 @@ try {{
             }
             out.push_str(&format!("Established TCP connections: {total}\n\n"));
             for row in &rows {
-                let parts: Vec<&str> = row.splitn(3, '|').collect();
-                if parts.len() == 3 {
-                    out.push_str(&format!("  {} | {} → {}\n", parts[0], parts[1], parts[2]));
+                let parts: Vec<&str> = row.splitn(4, '|').collect();
+                if parts.len() == 4 {
+                    out.push_str(&format!("  {:<15} (pid {:<5}) | {} → {}\n", parts[0], parts[1], parts[2], parts[3]));
                 }
             }
             if total > n {
@@ -8446,7 +8445,25 @@ fn inspect_network_stats(max_entries: usize) -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        let ps_cmd = format!("Get-NetAdapterStatistics | Select-Object Name, ReceivedBytes, SentBytes, ReceivedPacketErrors, OutboundPacketErrors | Select-Object -First {} | ForEach-Object {{ \"  $($_.Name): RX:$([math]::round($($_.ReceivedBytes)/1MB, 2))MB, TX:$([math]::round($($_.SentBytes)/1MB, 2))MB, Errors(RX/TX): $($_.ReceivedPacketErrors)/$($_.OutboundPacketErrors)\" }}", max_entries);
+        let ps_cmd = format!(
+            "$s1 = Get-NetAdapterStatistics -ErrorAction SilentlyContinue | Select-Object Name, ReceivedBytes, SentBytes; \
+             Start-Sleep -Milliseconds 250; \
+             $s2 = Get-NetAdapterStatistics -ErrorAction SilentlyContinue | Select-Object Name, ReceivedBytes, SentBytes, ReceivedPacketErrors, OutboundPacketErrors | Select-Object -First {}; \
+             $s2 | ForEach-Object {{ \
+                $name = $_.Name; \
+                $prev = $s1 | Where-Object {{ $_.Name -eq $name }}; \
+                if ($prev) {{ \
+                    $rb = ($_.ReceivedBytes - $prev.ReceivedBytes) / 0.25; \
+                    $sb = ($_.SentBytes - $prev.SentBytes) / 0.25; \
+                    $rmbps = [math]::Round(($rb * 8) / 1000000, 2); \
+                    $smbps = [math]::Round(($sb * 8) / 1000000, 2); \
+                    $tr = [math]::Round($_.ReceivedBytes / 1MB, 2); \
+                    $tt = [math]::Round($_.SentBytes / 1MB, 2); \
+                    \"  $($name): Rate(RX/TX): $($rmbps)/$($smbps) Mbps | Total: $($tr)/$($tt) MB | Errors: $($_.ReceivedPacketErrors)/$($_.OutboundPacketErrors)\" \
+                }} \
+             }}",
+            max_entries
+        );
         let output = Command::new("powershell")
             .args(["-NoProfile", "-Command", &ps_cmd])
             .output()
@@ -8456,7 +8473,7 @@ fn inspect_network_stats(max_entries: usize) -> Result<String, String> {
         if output.trim().is_empty() {
             out.push_str("No network adapter statistics available.\n");
         } else {
-            out.push_str("=== Adapter Throughput & Errors ===\n");
+            out.push_str("=== Adapter Throughput (Mbps) & Health ===\n");
             out.push_str(&output);
         }
 
@@ -9124,4 +9141,207 @@ $avgR = if ($readStats) {{ ($readStats | Measure-Object -Average).Average }} els
     }
 
     Ok(out)
+}
+
+fn inspect_permissions(path: PathBuf, _max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: permissions\n\n");
+    out.push_str(&format!("Auditing access control for: {}\n\n", path.display()));
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(
+            "Get-Acl -Path '{}' | Select-Object Owner, AccessToString | ForEach-Object {{ \"OWNER:$($_.Owner)\"; \"RULES:$($_.AccessToString)\" }}",
+            path.display()
+        );
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("ACL check failed: {e}"))?;
+
+        let text = String::from_utf8_lossy(&output.stdout);
+        if text.trim().is_empty() {
+            out.push_str("No ACL information returned. Ensure the path exists and you have permission to query it.\n");
+        } else {
+            out.push_str("=== Windows NTFS Permissions ===\n");
+            out.push_str(&text);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let output = Command::new("ls")
+            .args(["-ld", &path.to_string_lossy()])
+            .output()
+            .map_err(|e| format!("ls check failed: {e}"))?;
+        out.push_str("=== Unix File Permissions ===\n");
+        out.push_str(&String::from_utf8_lossy(&output.stdout));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_login_history(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: login_history\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        out.push_str("Checking recent Logon events (Event ID 4624) from the Security Log...\n");
+        out.push_str("Note: This typically requires Administrator elevation.\n\n");
+
+        let n = max_entries.clamp(1, 50);
+        let script = format!(
+            r#"try {{
+    $events = Get-WinEvent -FilterHashtable @{{LogName='Security'; ID=4624}} -MaxEvents {n} -ErrorAction Stop
+    $events | ForEach-Object {{
+        $time = $_.TimeCreated.ToString('yyyy-MM-dd HH:mm')
+        # Extract target user name from the XML/Properties if possible
+        $user = $_.Properties[5].Value
+        $type = $_.Properties[8].Value
+        "[$time] User: $user | Type: $type"
+    }}
+}} catch {{ "ERROR:" + $_.Exception.Message }}"#
+        );
+
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("Login history query failed: {e}"))?;
+
+        let text = String::from_utf8_lossy(&output.stdout);
+        if text.starts_with("ERROR:") {
+            out.push_str(&format!("Unable to query Security Log: {}\n", text));
+        } else if text.trim().is_empty() {
+            out.push_str("No recent logon events found or access denied.\n");
+        } else {
+            out.push_str("=== Recent Logons (Event ID 4624) ===\n");
+            out.push_str(&text);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let output = Command::new("last")
+            .args(["-n", &max_entries.to_string()])
+            .output()
+            .map_err(|e| format!("last command failed: {e}"))?;
+        out.push_str("=== Unix Login History (last) ===\n");
+        out.push_str(&String::from_utf8_lossy(&output.stdout));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_share_access(path: PathBuf) -> Result<String, String> {
+    let mut out = String::from("Host inspection: share_access\n\n");
+    out.push_str(&format!("Testing accessibility of: {}\n\n", path.display()));
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(
+            r#"
+$p = '{}'
+$res = @{{ Reachable = $false; Readable = $false; Error = "" }}
+if (Test-Connection -ComputerName ($p.Split('\')[2]) -Count 1 -Quiet -ErrorAction SilentlyContinue) {{
+    $res.Reachable = $true
+    try {{
+        $null = Get-ChildItem -Path $p -ErrorAction Stop
+        $res.Readable = $true
+    }} catch {{
+        $res.Error = $_.Exception.Message
+    }}
+}} else {{
+    $res.Error = "Server unreachable (Ping failed)"
+}}
+"REACHABLE:$($res.Reachable)|READABLE:$($res.Readable)|ERROR:$($res.Error)""#,
+            path.display()
+        );
+
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("Share test failed: {e}"))?;
+
+        let text = String::from_utf8_lossy(&output.stdout);
+        out.push_str("=== Share Triage Results ===\n");
+        out.push_str(&text);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Share access testing is primarily optimized for Windows UNC paths.\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_dns_fix_plan(issue: &str) -> Result<String, String> {
+    let mut out = String::from("Host inspection: fix_plan (DNS Resolution)\n\n");
+    out.push_str(&format!("Issue: {}\n\n", issue));
+    out.push_str("Proposed Remediation Steps:\n");
+    out.push_str("1. **Flush DNS Cache**: Clear local resolver cache.\n");
+    out.push_str("   `ipconfig /flushdns` (Windows) or `sudo resolvectl flush-caches` (Linux)\n");
+    out.push_str("2. **Validate Hosts File**: Check for static overrides.\n");
+    out.push_str("   `Get-Content C:\\Windows\\System32\\drivers\\etc\\hosts` (Windows)\n");
+    out.push_str("3. **Test Name Resolution**: Use nslookup to query a specific server.\n");
+    out.push_str("   `nslookup google.com 8.8.8.8` (Tests if external DNS works)\n");
+    out.push_str("4. **Check Adapter DNS**: Ensure local settings match expected nameservers.\n");
+    out.push_str("   `Get-NetIPConfiguration | Select-Object InterfaceAlias, DNSServer` (Windows)\n");
+    
+    Ok(out)
+}
+
+fn inspect_registry_audit() -> Result<String, String> {
+    let mut out = String::from("Host inspection: registry_audit\n\n");
+    out.push_str("Auditing advanced persistence points and shell integrity overrides...\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+$findings = @()
+
+# 1. Image File Execution Options (Debugger Hijacking)
+$ifeo = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"
+if (Test-Path $ifeo) {
+    Get-ChildItem $ifeo | ForEach-Object {
+        $p = Get-ItemProperty $_.PSPath
+        if ($p.debugger) { $findings += "[IFEO Hijack] $($_.PSChildName) -> Debugger defined: $($p.debugger)" }
+    }
+}
+
+# 2. Winlogon Shell Integrity
+$winlogon = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+$shell = (Get-ItemProperty $winlogon -Name Shell -ErrorAction SilentlyContinue).Shell
+if ($shell -and $shell -ne "explorer.exe") {
+    $findings += "[Winlogon Overlook] Non-standard shell defined: $shell"
+}
+
+# 3. Session Manager BootExecute
+$sm = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager"
+$boot = (Get-ItemProperty $sm -Name BootExecute -ErrorAction SilentlyContinue).BootExecute
+if ($boot -and $boot -notcontains "autocheck autochk *") {
+    $findings += "[Boot Integrity] Non-standard BootExecute defined: $($boot -join ', ')"
+}
+
+if ($findings.Count -eq 0) {
+    "PASS: No common registry hijacking or shell overrides detected."
+} else {
+    $findings -join "`n"
+}
+"#;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("Registry audit failed: {e}"))?;
+
+        let text = String::from_utf8_lossy(&output.stdout);
+        out.push_str("=== Persistence & Integrity Check ===\n");
+        out.push_str(&text);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Registry auditing is specific to Windows environments.\n");
+    }
+
+    Ok(out.trim_end().to_string())
 }

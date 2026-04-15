@@ -158,7 +158,11 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Group Policy (GPO)**: Use `topic: "gpo"` for applied Group Policy Objects — shows applied computer-scope GPOs and filtering status. Requires Administrator elevation on Windows.
 - **Certificates**: Use `topic: "certificates"` for local personal certificates — lists subjects, thumbprints, and expiry dates (flags those expiring within 30 days).
 - **Integrity**: Use `topic: "integrity"` for Windows component store health — checks SFC/DISM status (Corrupt/AutoRepairNeeded) via registry and log visibility.
-- **Domain Context**: Use `topic: "domain"` for Active Directory and domain join status — shows Join Status (DOMAIN/WORKGROUP), Domain name, and NetBIOS name.
+- **Domain Context** (`domain`) — Active Directory and domain join status: Join Status (DOMAIN/WORKGROUP), Domain name, and NetBIOS name
+- **Permissions** (`permissions`) — Precision NTFS/ACL security audits for files and folders; flags non-admin write access and broad inheritance
+- **Login History** (`login_history`) — Triage of recent successful and failed logon events from the security log (Event ID 4624)
+- **Registry Audit** (`registry_audit`) — Deep audit for persistence and hijacks: IFEO debugger entries, Winlogon shell settings, BootExecute, and Sticky Keys exploits
+- **Share Access** (`share_access`) — Readability and connectivity testing for specific network shares and UNC paths
 - **Traceroute**: Use `topic: "traceroute"` to trace the network path to a host (default 8.8.8.8). Accepts optional `host` arg. Uses `tracert` on Windows, `traceroute`/`tracepath` on Linux/macOS.
 - **DNS Cache**: Use `topic: "dns_cache"` to inspect locally cached DNS entries — hostname, record type, resolved address, and TTL.
 - **ARP Table**: Use `topic: "arp"` for the ARP neighbor table — IP-to-MAC mappings for devices on the local network.
@@ -644,8 +648,8 @@ When a query routes to shell instead of `inspect_host`, the fix pattern is:
 2. Add the missing `asks_*` variable with natural-language phrases that cover the query shape.
 3. Add it to the dispatch chain (`if asks_X { Some("topic") }`).
 4. Update the HOST INSPECTION MODE bullet list in `src/agent/conversation.rs` to include the new topic so the model knows to use it.
-5. Add a `test_routing_detects_*_topic` test in `tests/diagnostics.rs` covering 2–3 representative phrases.
-6. Run `cargo test --test diagnostics`, rebuild portable, test the live query.
+5. Add a `test_routing_detects_*_topic` test in `src/agent/conversation.rs` (the current tests live there) covering 2–3 representative phrases.
+6. Run `cargo test --lib agent::conversation::tests`, rebuild portable, test the live query.
 
 Note: `all_host_inspection_topics()` (used for multi-topic harness pre-runs) is a separate table — a topic can be in one and not the other. Always check `preferred_host_inspection_topic()` specifically.
 

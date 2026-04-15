@@ -74,7 +74,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (40+):**
+**SysAdmin topics (44+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
@@ -112,7 +112,11 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Group Policy** (`gpo`) — applied Group Policy Objects (computer scope), filtering status; requires Administrator elevation on Windows
 - **Certificates** (`certificates`) — local personal certificates with subject, thumbprint, expiry date; flags certs expiring within 30 days
 - **Integrity** (`integrity`) — Windows component store health via SFC/DISM registry and log visibility; flags Corrupt or AutoRepairNeeded state
-- **Domain** (`domain`) — Active Directory and domain join status: Join Status (DOMAIN/WORKGROUP), Domain name, and NetBIOS name
+- **Domain Context** (`domain`) — Active Directory and domain join status: Join Status (DOMAIN/WORKGROUP), Domain name, and NetBIOS name
+- **Permissions** (`permissions`) — Precision NTFS/ACL security audits; identifies non-admin write access and inheritance state
+- **Login History** (`login_history`) — Triage of recent successful and failed logon events from the security log (Event ID 4624)
+- **Registry Audit** (`registry_audit`) — Proactive security audit for persistence hijacks: IFEO debuggers, Winlogon Shell overrides, BootExecute, and Sticky Keys exploits
+- **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths
 
 **Network Admin topics (12):**
 
@@ -138,8 +142,8 @@ When a user asks about multiple inspection topics in one message, Hematite detec
 When the model calls `shell` with a command that matches a structured host inspection topic (e.g. `arp -a`, `tracert`, `Get-DnsClientCache`, `Get-NetRoute`, `Get-Process`), the harness silently redirects it to the correct `inspect_host` topic.
 
 **Redirection discipline:**
-
-Hematite implements a definitive loop-breaker for auto-redirected shell calls. If the model attempts to call `shell` repeatedly for the same diagnostic intent, the harness provides a short "Action Handled" message instead of flooding the context with redundant telemetry. Combined with **automated context pruning**, this preserves the context window and prevents model goal drift during deep workstation triage.
+ 
+Hematite implements a definitive loop-breaker for auto-redirected shell calls. If the model attempts to call `shell` repeatedly for the same diagnostic intent, the harness provides a short "Action Handled" message instead of flooding the context with redundant telemetry. The **Synchronized Enforcer** ensures that shell diagnostics are only blocked if a native topic is actually available to take over.
 
 **Developer tooling topics (8):**
 
