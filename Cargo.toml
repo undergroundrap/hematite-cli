@@ -2,12 +2,12 @@
 name = "hematite-cli"
 version = "0.5.4"
 edition = "2021"
-description = "Local AI coding harness for LM Studio with TUI, voice, retrieval, and grounded workstation tooling"
+description = "AI coding assistant and sysadmin tool for LM Studio — local LLM, TUI, voice, RAG retrieval, and grounded workstation diagnostics"
 readme = "README.md"
 repository = "https://github.com/undergroundrap/hematite-cli"
 homepage = "https://github.com/undergroundrap/hematite-cli"
 license-file = "LICENSE"
-keywords = ["ai", "cli", "coding-agent", "lm-studio", "tui"]
+keywords = ["ai", "cli", "local-llm", "lm-studio", "tui"]
 categories = ["command-line-utilities", "development-tools"]
 
 [package.metadata.docs.rs]
