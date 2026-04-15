@@ -636,6 +636,19 @@ When the change is narrow, prefer a targeted diagnostics test instead of the ful
 cargo test --test diagnostics test_name_here -- --exact
 ```
 
+**Routing fix workflow (inspect_host topic routing gaps):**
+
+When a query routes to shell instead of `inspect_host`, the fix pattern is:
+
+1. Check `preferred_host_inspection_topic()` in `src/agent/routing.rs` — if the topic has no `asks_*` variable there, that's the root cause. `host_inspection_mode` is derived from this function; if it returns `None`, the HOST INSPECTION MODE system prompt is never injected and the model free-forms.
+2. Add the missing `asks_*` variable with natural-language phrases that cover the query shape.
+3. Add it to the dispatch chain (`if asks_X { Some("topic") }`).
+4. Update the HOST INSPECTION MODE bullet list in `src/agent/conversation.rs` to include the new topic so the model knows to use it.
+5. Add a `test_routing_detects_*_topic` test in `tests/diagnostics.rs` covering 2–3 representative phrases.
+6. Run `cargo test --test diagnostics`, rebuild portable, test the live query.
+
+Note: `all_host_inspection_topics()` (used for multi-topic harness pre-runs) is a separate table — a topic can be in one and not the other. Always check `preferred_host_inspection_topic()` specifically.
+
 Inside Hematite itself, explicit cleanup, local packaging, and scripted release requests should prefer the structured approval-gated Hematite maintainer workflow tool instead of falling back to raw shell. Use that path when the user is asking to run Hematite's own `clean.ps1`, `scripts/package-windows.ps1`, or `release.ps1` in natural language. Do not present it as a generic current-workspace script runner.
 
 For project-specific questions or commands, launch Hematite in the target project directory before asking. Hematite's own maintainer workflows are separate from whatever scripts exist in the current workspace.
