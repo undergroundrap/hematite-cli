@@ -76,10 +76,17 @@ pwsh ./clean.ps1
 - `/worktree [branch]`: create or switch to a git worktree for isolated branch work
 - `/lsp`: show LSP server status and active language server diagnostics
 - `/reroll`: hatch a new companion soul mid-session (soul/personality reroll)
+- `/rules [view|edit]`: view status, inspect content, or edit project guidelines (.hematite/rules.md)
 - `/runtime-refresh`: force a resync of the LM Studio model profile and context window size
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/vein-reset`: wipe the Vein index and rebuild from scratch on the next turn
 - `/workspace-profile`: inspect the auto-generated workspace profile
+- `/rules`: show which behavioral rule files exist and their load status
+- `/rules view`: display combined content of all active rule files (CLAUDE.md, .hematite/rules.md, etc.)
+- `/rules edit`: open `.hematite/rules.local.md` in the system editor (private, gitignored)
+- `/rules edit shared`: open `.hematite/rules.md` in the system editor (shared, committed with the repo)
+- Rule files are injected into the system prompt every turn automatically — no restart needed after editing
+- `.hematite/instructions/`: drop any `<topic>.md` file here for topic-scoped rules that only inject when the turn context mentions that topic name (e.g. `authentication.md` injects only when the user's message references authentication)
 - `/diff`: show a diff of the last file edit made this session
 - `/undo`: undo the last file edit by restoring from the ghost backup
 - `/health`: run a quick workstation health check via `inspect_host(topic: "health_report")`
@@ -199,6 +206,15 @@ Hematite is not trying to outscale cloud agents. It is trying to make a single l
 - Primary target: one RTX 4070-class GPU with roughly 12 GB VRAM
 - Main engineering constraints: limited local context, open-model inconsistency, and VRAM pressure under long sessions
 - Design response: stronger tooling, grounded traces, compaction, retrieval, and operator workflow instead of pretending the model is smarter than it is
+
+## Behavioral Guidelines
+
+These core guidelines help minimize common LLM coding mistakes. They prioritize caution and precision over speed.
+
+1. **Think Before Coding**: Explicitly state assumptions. Surface tradeoffs and ask for clarification if anything is unclear.
+2. **Simplicity First**: Write the minimum code necessary. Avoid speculative abstractions or "future-proofing" that wasn't requested.
+3. **Surgical Changes**: Touch only what is necessary. Match existing style and refactor only what is broken. Clean up any artifacts (unused imports/variables) created by your change.
+4. **Goal-Driven Execution**: Define clear success criteria (e.g., reproduction tests) and verify every step.
 
 ## Product Direction
 
@@ -690,6 +706,7 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 - **Streaming shell output** — ✓ Done. `execute_streaming` streams each stdout/stderr line to the SPECULAR panel as it arrives via `InferenceEvent::ShellLine`. `verify_build` uses the same path. Background tasks fall back to blocking execution.
 - **Turn checkpointing** — ✓ Done. `save_session()` writes `.hematite/session.json` after every turn. On next startup, `load_checkpoint()` surfaces the resume hint in SPECULAR and `running_summary` + `session_memory` are reinjected into the model's system prompt. `/new` and `/forget` both clear the session cleanly via `save_empty_session()`.
 - **Computation integrity routing** — ✓ Done. `needs_computation_sandbox()` in `routing.rs` detects math queries and injects a pre-turn nudge. Shell-to-run_code block recovery and Deno parse error recovery are wired in the tool result handler.
+- **Per-project rule injection** — ✓ Done. Hematite now natively checks for `.hematite/rules.md` and `HEMATITE.md` (alongside `CLAUDE.md`) and injects them into the system prompt. Includes a new `/rules` command for viewing and editing guidelines directly from the TUI.
 
 ### Tier 1 — High value, local models ready today
 

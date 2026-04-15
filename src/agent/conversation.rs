@@ -1639,6 +1639,30 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if user_input.trim() == "/rules" {
+            let root = crate::tools::file_ops::workspace_root();
+            let rules_path = root.join(".hematite").join("rules.md");
+            let report = if rules_path.exists() {
+                match std::fs::read_to_string(&rules_path) {
+                    Ok(content) => format!(
+                        "## Behavioral Rules (.hematite/rules.md)\n\n{}\n\n---\nTo update: ask Hematite to edit your rules, or open `.hematite/rules.md` directly. Changes take effect on the next turn.",
+                        content.trim()
+                    ),
+                    Err(e) => format!("Error reading .hematite/rules.md: {e}"),
+                }
+            } else {
+                format!(
+                    "No behavioral rules file found at `.hematite/rules.md`.\n\nCreate it to add custom behavioral guidelines — they are injected into the system prompt on every turn and apply to any model you load.\n\nExample: ask Hematite to \"create a rules.md with simplicity-first and surgical-edit guidelines\" and it will write the file for you.\n\nExpected path: {}",
+                    rules_path.display()
+                )
+            };
+            for chunk in chunk_text(&report, 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         if user_input.trim() == "/vein-reset" {
             tokio::task::block_in_place(|| self.vein.reset());
             let _ = tx

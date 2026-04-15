@@ -1187,6 +1187,7 @@ fn show_help_message(app: &mut App) {
          /agent            - (Mode) Full coding harness + workstation mode - tools, file edits, builds, inspection\n\
          /reroll           - (Soul) Hatch a new companion mid-session\n\
          /auto             - (Flow) Let Hematite choose the narrowest effective workflow\n\
+         /rules [view|edit]- (Meta) View status or edit local/shared project guidelines\n\
          /ask [prompt]     - (Flow) Read-only analysis mode; optional inline prompt\n\
          /code [prompt]    - (Flow) Explicit implementation mode; optional inline prompt\n\
          /architect [prompt] - (Flow) Plan-first mode; optional inline prompt\n\
@@ -1197,6 +1198,7 @@ fn show_help_message(app: &mut App) {
            /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
          /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
          /workspace-profile - (Profile) Show the auto-generated workspace profile\n\
+         /rules            - (Rules) View behavioral guidelines (.hematite/rules.md)\n\
          /version          - (Build) Show the running Hematite version\n\
          /about            - (Info) Show author, repo, and product info\n\
          /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
@@ -1267,6 +1269,7 @@ fn show_help_message_legacy(app: &mut App) {
            /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
            /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
            /workspace-profile — (Profile) Show the auto-generated workspace profile\n\
+           /rules            — (Rules) View behavioral guidelines (.hematite/rules.md)\n\
            /version          — (Build) Show the running Hematite version\n\
            /about            — (Info) Show author, repo, and product info\n\
            /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
@@ -2275,6 +2278,78 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/rules" => {
+                                                let sub = parts.get(1).copied().unwrap_or("status").to_ascii_lowercase();
+                                                let ws_root = crate::tools::file_ops::workspace_root();
+
+                                                match sub.as_str() {
+                                                    "view" => {
+                                                        let mut combined = String::new();
+                                                        let candidates = [
+                                                            "CLAUDE.md",
+                                                            ".claude.md",
+                                                            "CLAUDE.local.md",
+                                                            "HEMATITE.md",
+                                                            ".hematite/rules.md",
+                                                            ".hematite/rules.local.md",
+                                                        ];
+                                                        for cand in candidates {
+                                                            let p = ws_root.join(cand);
+                                                            if p.exists() {
+                                                                if let Ok(c) = std::fs::read_to_string(&p) {
+                                                                    combined.push_str(&format!("--- [{}] ---\n", cand));
+                                                                    combined.push_str(&c);
+                                                                    combined.push_str("\n\n");
+                                                                }
+                                                            }
+                                                        }
+                                                        if combined.is_empty() {
+                                                            app.push_message("System", "No rule files found (CLAUDE.md, .hematite/rules.md, etc.).");
+                                                        } else {
+                                                            app.push_message("System", &format!("Current behavioral rules being injected:\n\n{}", combined));
+                                                        }
+                                                    }
+                                                    "edit" => {
+                                                        let which = parts.get(2).copied().unwrap_or("local").to_ascii_lowercase();
+                                                        let target_file = if which == "shared" { "rules.md" } else { "rules.local.md" };
+                                                        let target_path = ws_root.join(".hematite").join(target_file);
+
+                                                        if !target_path.exists() {
+                                                            if let Some(parent) = target_path.parent() {
+                                                                let _ = std::fs::create_dir_all(parent);
+                                                            }
+                                                            let header = if which == "shared" { "# Project Rules (Shared)" } else { "# Local Guidelines (Private)" };
+                                                            let _ = std::fs::write(&target_path, format!("{}\n\nAdd behavioral guidelines here for the agent to follow in this workspace.\n", header));
+                                                        }
+
+                                                        match crate::tools::file_ops::open_in_system_editor(&target_path) {
+                                                            Ok(_) => app.push_message("System", &format!("Opening {} in system editor...", target_path.display())),
+                                                            Err(e) => app.push_message("System", &format!("Failed to open editor: {}", e)),
+                                                        }
+                                                    }
+                                                    _ => {
+                                                        let mut status = "Behavioral Guidelines:\n".to_string();
+                                                        let candidates = [
+                                                            "CLAUDE.md",
+                                                            ".claude.md",
+                                                            "CLAUDE.local.md",
+                                                            "HEMATITE.md",
+                                                            ".hematite/rules.md",
+                                                            ".hematite/rules.local.md",
+                                                        ];
+                                                        for cand in candidates {
+                                                              let p = ws_root.join(cand);
+                                                              let icon = if p.exists() { "[v]" } else { "[ ]" };
+                                                              let label = if cand.contains(".local") || cand.ends_with(".local.md") { "(local override)" } else { "(shared asset)" };
+                                                              status.push_str(&format!("  {} {:<25} {}\n", icon, cand, label));
+                                                        }
+                                                        status.push_str("\nUsage:\n  /rules view        - View combined rules\n  /rules edit        - Edit personal local rules (ignored by git)\n  /rules edit shared - Edit project-wide shared rules");
+                                                        app.push_message("System", &status);
+                                                    }
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/help" => {
                                                 show_help_message(&mut app);
                                                 app.history_idx = None;
@@ -2297,6 +2372,7 @@ pub async fn run_app<B: Backend>(
                                                        /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
                                                        /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
                                                        /workspace-profile — (Profile) Show the auto-generated workspace profile\n\
+                                                       /rules            — (Rules) View behavioral guidelines (.hematite/rules.md)\n\
                                                        /version          — (Build) Show the running Hematite version\n\
                                                        /about            — (Info) Show author, repo, and product info\n\
                                                        /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
