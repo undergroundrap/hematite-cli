@@ -611,6 +611,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("internet access")
         || lower.contains("no internet")
         || lower.contains("internet down")
+        || lower.starts_with("ping ")
+        || lower.contains(" ping ")
         || (lower.contains("check") && lower.contains("connection"))
         || (lower.contains("dns") && (lower.contains("resolv") || lower.contains("working")));
     let asks_wifi = lower.contains("wi-fi")
@@ -648,12 +650,15 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("tracert")
         || lower.contains("tracepath")
         || lower.contains("trace route")
+        || lower.contains("trace the route")
         || lower.contains("trace the path")
         || lower.contains("network path")
         || lower.contains("how many hops")
         || lower.contains("where does traffic go")
         || (lower.contains("trace") && lower.contains("hop"))
-        || (lower.contains("route") && lower.contains("traffic"));
+        || (lower.contains("route") && lower.contains("traffic"))
+        || (lower.contains("trace") && lower.contains("8.8.8.8"))
+        || (lower.contains("path") && lower.contains("8.8.8.8"));
     let asks_dns_cache = lower.contains("dns cache")
         || lower.contains("cached dns")
         || lower.contains("dns lookup cache")
