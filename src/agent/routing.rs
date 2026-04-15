@@ -964,10 +964,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("network")
     } else if asks_services {
         Some("services")
-    } else if asks_processes {
-        Some("processes")
     } else if asks_ports {
         Some("ports")
+    } else if asks_processes {
+        Some("processes")
     } else if asks_repo_doctor {
         Some("repo_doctor")
     } else if lower.contains("desktop") {

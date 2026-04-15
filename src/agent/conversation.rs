@@ -2303,7 +2303,7 @@ impl ConversationManager {
                  - CPU % / RAM % / what is using resources / slow machine → `resource_load`\n\
                  - Running processes / task manager / what is using RAM → `processes`\n\
                  - Windows services / daemons / service state → `services`\n\
-                 - Listening ports / open ports / what is on port N → `ports`\n\
+                 - Listening ports / open ports / what process owns port N / which processes are listening → `ports` (includes PIDs and process names — do NOT also call `processes`)\n\
                  - Network adapters / IP / gateway / DNS overview → `network`\n\
                  - Internet / online / can I reach the internet → `connectivity`\n\
                  - Wi-Fi / wireless / signal strength / SSID → `wifi`\n\

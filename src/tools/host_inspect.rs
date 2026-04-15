@@ -1665,14 +1665,19 @@ fn inspect_ports(port_filter: Option<u16>, max_entries: usize) -> Result<String,
 
     out.push_str("\nListening endpoints:\n");
     for entry in listeners.iter().take(max_entries) {
-        let pid = entry
+        let pid_str = entry
             .pid
             .as_deref()
-            .map(|pid| format!(" pid {}", pid))
+            .map(|p| format!(" pid {}", p))
+            .unwrap_or_default();
+        let name_str = entry
+            .process_name
+            .as_deref()
+            .map(|n| format!(" [{}]", n))
             .unwrap_or_default();
         out.push_str(&format!(
-            "- {} {} ({}){}\n",
-            entry.protocol, entry.local, entry.state, pid
+            "- {} {} ({}){}{}\n",
+            entry.protocol, entry.local, entry.state, pid_str, name_str
         ));
     }
     if listeners.len() > max_entries {
@@ -2168,6 +2173,7 @@ struct ListeningPort {
     port: u16,
     state: String,
     pid: Option<String>,
+    process_name: Option<String>,
 }
 
 fn collect_listening_ports() -> Result<Vec<ListeningPort>, String> {
@@ -2233,7 +2239,43 @@ fn collect_windows_listening_ports() -> Result<Vec<ListeningPort>, String> {
             port,
             state: cols[3].to_string(),
             pid: Some(cols[4].to_string()),
+            process_name: None,
         });
+    }
+
+    // Enrich with process names via PowerShell — works without elevation for
+    // most user-space processes. System processes (PID 4, etc.) stay unnamed.
+    let unique_pids: Vec<String> = listeners
+        .iter()
+        .filter_map(|l| l.pid.clone())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    if !unique_pids.is_empty() {
+        let pid_list = unique_pids.join(",");
+        let ps_cmd = format!(
+            "Get-Process -Id {} -ErrorAction SilentlyContinue | Select-Object Id,Name | Format-Table -HideTableHeaders",
+            pid_list
+        );
+        if let Ok(ps_out) = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &ps_cmd])
+            .output()
+        {
+            let mut pid_map = std::collections::HashMap::<String, String>::new();
+            let ps_text = String::from_utf8_lossy(&ps_out.stdout);
+            for line in ps_text.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    pid_map.insert(parts[0].to_string(), parts[1].to_string());
+                }
+            }
+            for listener in &mut listeners {
+                if let Some(pid) = &listener.pid {
+                    listener.process_name = pid_map.get(pid).cloned();
+                }
+            }
+        }
     }
 
     Ok(listeners)
@@ -2265,6 +2307,7 @@ fn collect_unix_listening_ports() -> Result<Vec<ListeningPort>, String> {
             port,
             state: cols[0].to_string(),
             pid: None,
+            process_name: None,
         });
     }
 
