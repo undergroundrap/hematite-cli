@@ -289,6 +289,14 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Time-Windowed Log Analysis**
 > "Show me all System errors from the Event Log that occurred in the last 4 hours."
 
+**Diagnostic Analysis and Performance**
+> "Why is my laptop slow? Check if it is overheating, throttling, or under heavy I/O pressure."
+> *(Harness automatically runs: thermal, resource_load, storage)*
+
+**Licensing & Patch Audit**
+> "Is my Windows license valid? Check activation status and license details."
+> "What changed in the last 48 hours? Show me the patch history and recently installed hotfixes (KBs)."
+
 ---
 
 ## Swarm

@@ -25,9 +25,10 @@ use crate::agent::recovery_recipes::{
     RecoveryPlan, RecoveryScenario, RecoveryStep,
 };
 use crate::agent::routing::{
-    classify_query_intent, is_capability_probe_tool, looks_like_mutation_request,
-    needs_computation_sandbox, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
+    looks_like_mutation_request, needs_computation_sandbox, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
@@ -2529,7 +2530,7 @@ impl ConversationManager {
         // This prevents the model from collapsing multiple topics into a generic
         // one, burning the tool loop budget, or retrying via shell.
         {
-            let topics = crate::agent::routing::all_host_inspection_topics(&effective_user_input);
+            let topics = all_host_inspection_topics(&effective_user_input);
             if topics.len() >= 2 {
                 let _ = tx
                     .send(InferenceEvent::Thought(format!(
@@ -6479,5 +6480,50 @@ error[E0308]: mismatched types
             preferred_host_inspection_topic("check my battery health and cycle count"),
             Some("battery")
         );
+    }
+
+    #[test]
+    fn intent_router_picks_thermal_for_throttling_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("why is my laptop slow? check for overheating or throttling"),
+            Some("thermal")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("show me the current cpu temp"),
+            Some("thermal")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_activation_for_genuine_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("is my windows genuine? check activation status"),
+            Some("activation")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("run slmgr to check my license state"),
+            Some("activation")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_patch_history_for_hotfix_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("show me the recently installed hotfixes"),
+            Some("patch_history")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("list the windows update patch history for the last 48 hours"),
+            Some("patch_history")
+        );
+    }
+
+    #[test]
+    fn intent_router_detects_multiple_symptoms_for_prerun() {
+        let topics = all_host_inspection_topics("Why is my laptop slow? Check if it is overheating, throttling, or under heavy I/O pressure.");
+        assert!(topics.contains(&"thermal"));
+        assert!(topics.contains(&"resource_load"));
+        assert!(topics.contains(&"storage"));
+        assert!(topics.len() >= 3);
     }
 }

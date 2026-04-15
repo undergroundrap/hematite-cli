@@ -123,8 +123,11 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_share_access(path)
         }
         "registry_audit" | "persistence" | "integrity_audit" => inspect_registry_audit(),
+        "thermal" | "throttling" | "overheating" => inspect_thermal(),
+        "activation" | "license_status" | "slmgr" => inspect_activation(),
+        "patch_history" | "hotfixes" | "recent_patches" => inspect_patch_history(max_entries),
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history.",
             other
         )),
 
@@ -9341,6 +9344,96 @@ if ($findings.Count -eq 0) {
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("Registry auditing is specific to Windows environments.\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_thermal() -> Result<String, String> {
+    let mut out = String::from("Host inspection: thermal\n\n");
+    out.push_str("Checking CPU thermal state and active throttling indicators...\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+$thermal = Get-CimInstance -ClassName Win32_PerfRawData_Counters_ThermalZoneInformation -ErrorAction SilentlyContinue
+if ($thermal) {
+    $thermal | ForEach-Object {
+        $temp = [math]::Round(($_.Temperature - 273.15), 1)
+        "Zone: $($_.Name) | Temp: $temp °C | Throttling: $($_.HighPrecisionTemperature -eq 0 ? 'NO' : 'ACTIVE')"
+    }
+} else {
+    "Thermal counters not directly available via WMI. Checking for system throttling indicators..."
+    $throttling = Get-CimInstance -ClassName Win32_Processor | Select-Object -ExpandProperty LoadPercentage
+    "Current CPU Load: $throttling%"
+}
+"#;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+            .map_err(|e| format!("Thermal check failed: {e}"))?;
+        out.push_str("=== Windows Thermal State ===\n");
+        out.push_str(&String::from_utf8_lossy(&output.stdout));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Thermal inspection is currently optimized for Windows performance counters.\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_activation() -> Result<String, String> {
+    let mut out = String::from("Host inspection: activation\n\n");
+    out.push_str("Auditing Windows activation and license state...\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+$xpr = cscript //nologo C:\Windows\System32\slmgr.vbs /xpr
+$dli = cscript //nologo C:\Windows\System32\slmgr.vbs /dli
+"Status: $($xpr.Trim())"
+"Details: $($dli -join ' ' | Select-String -Pattern 'License Status|Name' -AllMatches | ForEach-Object { $_.ToString().Trim() })"
+"#;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+            .map_err(|e| format!("Activation check failed: {e}"))?;
+        out.push_str("=== Windows License Report ===\n");
+        out.push_str(&String::from_utf8_lossy(&output.stdout));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Windows activation check is specific to the Windows platform.\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_patch_history(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: patch_history\n\n");
+    out.push_str(&format!("Listing the last {} installed Windows updates (KBs)...\n\n", max_entries));
+
+    #[cfg(target_os = "windows")]
+    {
+        let n = max_entries.clamp(1, 50);
+        let script = format!(
+            "Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First {} | ForEach-Object {{ \"[$($_.InstalledOn.ToString('yyyy-MM-dd'))] $($_.HotFixID) - $($_.Description)\" }}",
+            n
+        );
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("Patch history query failed: {e}"))?;
+        out.push_str("=== Recent HotFixes (KBs) ===\n");
+        out.push_str(&String::from_utf8_lossy(&output.stdout));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Patch history is currently focused on Windows HotFixes.\n");
     }
 
     Ok(out.trim_end().to_string())

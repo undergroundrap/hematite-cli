@@ -2,7 +2,7 @@
 
 ## What this project is
 
-Hematite is a local AI coding harness and natural-language workstation assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
+Hematite is a local AI coding harness and natural-language SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
 
 Hematite supports two model protocol paths:
 
@@ -139,6 +139,9 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Drivers**: Use `topic: "drivers"` for a comprehensive audit of active system drivers and their operational states.
 - **Peripherals**: Use `topic: "peripherals"` for a deep-dive into USB controllers, HID devices (Keyboard/Mouse), and connected monitors.
 - **Scheduled Tasks**: Use `topic: "scheduled_tasks"` for all non-disabled scheduled tasks with name, path, last run time, and executable.
+- **Thermal Health**: Use `topic: "thermal"` for real-time telemetry — CPU temp, thermal margins, and active throttling indicators.
+- **Windows Activation**: Use `topic: "activation"` for license state, genuine status, and Product ID/Key metadata.
+- **Patch History**: Use `topic: "patch_history"` for Windows HotFix and KB update audit (last 48h focus).
 - **Dev Conflicts**: Use `topic: "dev_conflicts"` for cross-tool environment conflict detection — Node.js version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, and duplicate PATH entries.
 - **Connectivity Check**: Use `topic: "connectivity"` to test internet reachability and DNS resolution — reports REACHABLE/UNREACHABLE with DNS pass/fail and gateway/VPN context.
 - **Wi-Fi Status**: Use `topic: "wifi"` for wireless adapter state, SSID, signal strength (RSSI/quality), band, channel, and negotiated speed.
@@ -162,6 +165,9 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Permissions** (`permissions`) — Precision NTFS/ACL security audits for files and folders; flags non-admin write access and broad inheritance
 - **Login History** (`login_history`) — Triage of recent successful and failed logon events from the security log (Event ID 4624)
 - **Registry Audit** (`registry_audit`) — Deep audit for persistence and hijacks: IFEO debugger entries, Winlogon shell settings, BootExecute, and Sticky Keys exploits
+- **Thermal Health** (`thermal`) — telemetry for CPU temperature, thermal margins, and active throttling indicators
+- **Windows Activation** (`activation`) — Audits Windows license state, genuine status, and Product ID/Key metadata
+- **Patch History** (`patch_history`) — Fast audit of recently installed Windows HotFixes and KB updates
 - **Share Access** (`share_access`) — Readability and connectivity testing for specific network shares and UNC paths
 - **Traceroute**: Use `topic: "traceroute"` to trace the network path to a host (default 8.8.8.8). Accepts optional `host` arg. Uses `tracert` on Windows, `traceroute`/`tracepath` on Linux/macOS.
 - **DNS Cache**: Use `topic: "dns_cache"` to inspect locally cached DNS entries — hostname, record type, resolved address, and TTL.
@@ -199,13 +205,11 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Directory**: Use `topic: "directory"` with a required `path` arg to list any arbitrary directory — file names, sizes, and modification dates.
 - **Teacher Mode (`/teach`)**: Activates a grounded walkthrough mode for write/admin tasks Hematite cannot safely execute itself. Protocol: (1) call `inspect_host` with the relevant topic(s) to observe actual machine state, (2) deliver a numbered step-by-step tutorial referencing real observed state — exact commands, exact paths, exact values. Does NOT execute write operations. Covers:
 - **SysAdmin Diagnostics**: `inspect_host` (topic=network, services, processes, ports, log_check, startup_items, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, connections, etc.)
-- **Kernel-Aware Triage Trio**: `topic=device_health` (PnP errors), `topic=drivers` (active audit), `topic=peripherals` (USB/HID tree).
-- **Deep System Visibility**: `topic=sessions` (Logon sessions), `topic=hardware` (BIOS/Virtualization DNA), `topic=processes` (Real-time I/O tracking).
+- **Hardware Diagnostic Suite**: `topic=device_health` (PnP errors), `topic=drivers` (active audit), `topic=peripherals` (USB/HID tree).
+- **Deep System Visibility**: `topic=sessions` (Logon sessions), `topic=hardware` (BIOS/Virtualization DNA), `topic=processes` (Real-time I/O tracking), `topic=thermal` (Thermal/Throttling), `topic=activation` (Licensing), `topic=patch_history` (KB Audit).
  matching grounded walkthrough. New lanes: `driver_install`, `group_policy`, `firewall_rule`, `ssh_key`, `wsl_setup`, `service_config`, `windows_activation`, `registry_edit`, `scheduled_task_create`, `disk_cleanup`. Each lane inspects real machine state first, then delivers machine-specific numbered steps.
 
-## Hardware Intent
-
-Hematite is not trying to outscale cloud agents. It is trying to make a single local consumer GPU perform as well as possible for real coding work.
+Hematite is not trying to outscale cloud agents. It is optimized for local GPU task execution.
 
 - Primary target: one RTX 4070-class GPU with roughly 12 GB VRAM
 - Main engineering constraints: limited local context, open-model inconsistency, and VRAM pressure under long sessions

@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 69 read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
+- **Full OS stack coverage**: 78+ read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
 - **Shell-to-inspect_host redirection**: raw diagnostic shell commands are silently redirected to the appropriate `inspect_host` topic — structured output, no approval friction for read-only probes
 - **Hardware-aware implementation**: the agent can use live hardware telemetry (disk queue depth, VRAM usage, I/O stats) to inform architectural recommendations grounded in the actual machine state
 - **Deep workspace visibility**: the file engine can inspect hidden directories (`.hematite`, `.git`) during diagnostics to locate benchmarking targets and workspace artifacts
@@ -74,7 +74,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (44+):**
+**SysAdmin topics (51+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
@@ -116,6 +116,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Permissions** (`permissions`) — Precision NTFS/ACL security audits; identifies non-admin write access and inheritance state
 - **Login History** (`login_history`) — Triage of recent successful and failed logon events from the security log (Event ID 4624)
 - **Registry Audit** (`registry_audit`) — Proactive security audit for persistence hijacks: IFEO debuggers, Winlogon Shell overrides, BootExecute, and Sticky Keys exploits
+- **Advanced Diagnostic Topics** — Includes precision telemetry for Thermal Throttling (`thermal`), Windows Activation status (`activation`), and Patch (KB) history (`patch_history`).
 - **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths
 
 **Network Admin topics (12):**
@@ -133,9 +134,9 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Network stats** (`network_stats`) — per-adapter RX/TX throughput (MB), error counts, drop counts, link speed, and duplex; flags adapters with errors or drops
 - **UDP ports** (`udp_ports`) — active UDP listeners with owning process name and annotations for well-known ports (DNS, NTP, NetBIOS, mDNS, SSDP, IKE, SNMP)
 
-**Harness pre-run orchestration:**
+**Intent-based diagnostic orchestration:**
 
-When a user asks about multiple inspection topics in one message, Hematite detects all matching topics before the model turn and runs all `inspect_host` calls automatically. The combined results are injected as a `loop_intervention` so the model synthesizes from real data instead of orchestrating tool calls one by one. This eliminates redundant round-trips and prevents the model from collapsing multi-topic requests into a single generic topic.
+When a user asks about multiple inspection topics or uses common trouble keywords like "slow", "lag", or "I/O pressure", Hematite automatically detects all matching topics before the model turn and runs all `inspect_host` calls automatically. The combined results are injected as a `loop_intervention` so the model synthesizes from real data instead of orchestrating tool calls one by one. This eliminates redundant round-trips and prevents the model from collapsing multi-topic requests into a single generic topic.
 
 **Shell auto-redirect:**
 

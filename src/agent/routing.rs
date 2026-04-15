@@ -478,6 +478,18 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("share is reachable")
         || lower.contains("reachable share")
         || (lower.contains("network share") && (lower.contains("reach") || lower.contains("access") || lower.contains("test")));
+    let asks_thermal = lower.contains("thermal")
+        || lower.contains("throttling")
+        || lower.contains("overheating")
+        || lower.contains("cpu temp");
+    let asks_activation = lower.contains("activation")
+        || lower.contains("slmgr")
+        || lower.contains("license status")
+        || lower.contains("is windows genuine");
+    let asks_patch_history = lower.contains("patch history")
+        || lower.contains("hotfix")
+        || lower.contains("kb history")
+        || lower.contains("installed updates");
     let asks_ports = lower.contains("listening on port")
         || lower.contains("listening port")
         || lower.contains("open port")
@@ -631,8 +643,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("how much space")
         || lower.contains("space left")
         || lower.contains("running out of space")
+        || lower.contains("i/o pressure")
         || lower.contains("disk usage")
-        || lower.contains("storage usage")
+        || lower.contains("disk usage")
         || lower.contains("how much disk")
         || lower.contains("how full")
         || lower.contains("cache size")
@@ -649,6 +662,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("current load")
         || lower.contains("why is it slow")
         || lower.contains("why is it laggy")
+        || lower.contains("slow")
+        || lower.contains("lag")
+        || lower.contains("sluggish")
+        || lower.contains("hang")
+        || lower.contains("unresponsive")
         || lower.contains("is it working hard")
         || lower.contains("high cpu")
         || lower.contains("high ram")
@@ -922,6 +940,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("registry_audit")
     } else if asks_share_access {
         Some("share_access")
+    } else if asks_thermal {
+        Some("thermal")
+    } else if asks_activation {
+        Some("activation")
+    } else if asks_patch_history {
+        Some("patch_history")
     } else if asks_storage {
         Some("storage")
     } else if asks_gpo {
@@ -1101,6 +1125,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("share_access", |l| {
             l.contains("share access") || l.contains("unc path") || l.contains("smbshare") || l.contains("net share")
         }),
+        ("thermal", |l| {
+            l.contains("thermal") || l.contains("throttling") || l.contains("overheating")
+        }),
+        ("activation", |l| {
+            l.contains("activation") || l.contains("slmgr") || l.contains("license status")
+        }),
+        ("patch_history", |l| {
+            l.contains("patch history") || l.contains("hotfix") || l.contains("kb history")
+        }),
         ("pending_reboot", |l| {
             l.contains("pending reboot")
                 || l.contains("pending restart")
@@ -1133,6 +1166,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("storage")
                 || l.contains("drive capacity")
                 || l.contains("cache size")
+                || l.contains("i/o pressure")
+                || l.contains("disk usage")
         }),
         ("hardware", |l| {
             l.contains("cpu model")
@@ -1149,6 +1184,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("ram %")
                 || l.contains("cpu %")
                 || l.contains("performance")
+                || l.contains("slow")
+                || l.contains("lag")
+                || l.contains("sluggish")
+                || l.contains("hang")
+                || l.contains("unresponsive")
         }),
         ("processes", |l| {
             l.contains("process")
