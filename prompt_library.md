@@ -98,7 +98,7 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 ## Coding and Repo Work
 
 **Read-only architecture trace**
-> "Read-only mode. Trace exactly how a user message travels from TUI input to the model and back. Use `trace_runtime_flow`. Name real channels, functions, and file references — do not guess."
+> "Read-only mode. Trace exactly how a user message travels from TUI input to the model and back. Name real channels, functions, and file references — do not guess."
 
 **Targeted implementation**
 > "Read-only mode first. Inspect `src/agent/conversation.rs` around the tool dispatch loop, then propose the minimal change needed to [describe goal]."
@@ -106,11 +106,27 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Proof before edit**
 > "/code Read `src/ui/tui.rs` lines 1–50, then make the following change: [describe change]. Verify the build after."
 
+**Architect then implement**
+> "/architect Redesign [component] so that [goal]. Give me a plan with target files, ordered steps, verification, and risks before touching any code."
+> *(After reviewing the plan, run:)* `/implement-plan`
+
+**Code review — read only**
+> "/ask Review `src/agent/inference.rs`. Identify any error paths that silently swallow errors, any retry logic that could loop indefinitely, and any place where context could be corrupted. Do not propose edits — just report."
+
+**Git workflow**
+> "Show me the diff of everything uncommitted, summarize what changed and why it matters, then write a conventional commit message for it."
+
+**Branch audit**
+> "Check the current branch state: uncommitted changes, commits ahead of main, and whether anything looks risky to merge. Use `repo_doctor`."
+
+**LSP diagnostics**
+> "/lsp — then read the active diagnostic errors and tell me which ones are real bugs versus noise, and which file is the highest priority to fix."
+
 **Performance verification**
 > "Implement [feature], then run a disk benchmark to verify it hasn't introduced significant disk queue spikes compared to the baseline."
 
-**Architect a change**
-> "/architect Redesign [component] so that [goal]. Give me a plan with target files, ordered steps, verification, and risks before touching any code."
+**Fix plan**
+> "I'm seeing [describe error or symptom]. Run a fix plan — inspect the relevant machine state first, then give me a numbered remediation checklist grounded in what you actually observe."
 
 ---
 
@@ -118,6 +134,12 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 
 **Session handoff**
 > "Summarize the key decisions and open questions from the last few sessions. What is the current working focus?"
+
+**Retrieve past decisions**
+> "Search session memory for any architectural decisions we made about [topic]. I want the reasoning, not just the outcome."
+
+**Find past bugs**
+> "Search session memory for any reported bugs or problems related to [component]. Did we resolve them or are they still open?"
 
 **Imported knowledge retrieval**
 > "Analyze the imported chat history in `.hematite/imports`. Are there any recurring patterns or unresolved bugs across sessions?"
@@ -127,6 +149,92 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 
 **Vein memory inspection**
 > "/vein-inspect"
+
+**Repo doctor**
+> "Run a repo doctor on this workspace. Check git status, uncommitted changes, branch state, remote tracking, and whether the build files look healthy."
+
+---
+
+## Think Mode
+
+**Complex architectural trade-off**
+> "/think Should [component A] own [responsibility] or should it live in [component B]? Walk me through the trade-offs — coupling, testability, context cost — before recommending."
+
+**Multi-step debugging**
+> "/think I'm seeing [symptom] only under [condition]. Think through what execution paths could produce this — don't jump to a fix until you've ruled out at least three causes."
+
+**Design review**
+> "/think Read `src/agent/conversation.rs` and `src/agent/inference.rs`. Is the current ownership boundary between them correct, or is there cohesion that belongs in one file bleeding into the other?"
+
+**Risk assessment before a big change**
+> "/think Before we refactor [component], think through what could go wrong: hidden callers, shared state, serialisation format changes, test coverage gaps. Give me a risk list."
+
+---
+
+## Document and Image Attachments
+
+**Attach a spec or doc**
+> *(Press `Ctrl+O` or type)* `/attach path/to/spec.pdf`
+> "I've attached a spec. Read it and tell me which parts map to existing code in this repo and which parts are not yet implemented."
+
+**Attach a PDF that's failing extraction**
+> "The PDF I need to reference has custom fonts that break text extraction. I'll send it as an image instead."
+> *(Then press `Ctrl+I` or type)* `/image path/to/screenshot.png`
+
+**Screenshot a bug**
+> *(Press `Ctrl+I` or type)* `/image path/to/screenshot.png`
+> "This is a screenshot of the error I'm seeing. Read it and tell me what's wrong."
+
+**Architecture diagram**
+> *(Attach diagram image, then:)*
+> "I've attached an architecture diagram. Map the components in it to actual files in this repo."
+
+---
+
+## Worktree
+
+**Isolated feature branch**
+> "/worktree feature/my-new-feature — set up an isolated worktree so I can work on this without touching main."
+
+**Safe experiment**
+> "/worktree experiment/try-this-refactor — I want to try a destructive refactor without risking the main working tree."
+
+---
+
+## Windows Admin Deep-Dives
+
+**Storage overview**
+> "Show me all drives with capacity and usage bars, flag any developer cache directories that are growing large, and give me the current real-time disk queue depth."
+
+**BitLocker and encryption**
+> "Check BitLocker status on all drives — protection state, encryption percentage, and any volumes that are unprotected."
+
+**Certificates audit**
+> "List my local personal certificates with subjects, thumbprints, and expiry dates. Flag anything expiring within 30 days."
+
+**Shadow copies and restore points**
+> "Show me my VSS snapshot history, storage allocation for shadow copies, and recent system restore points."
+
+**Page file and virtual memory**
+> "Show me the page file configuration, current usage, and peak usage. Tell me if the sizing looks healthy relative to my RAM."
+
+**RDP and remote access**
+> "Check whether RDP is enabled on this machine, what port it's on, whether NLA is required, and whether the firewall rule is active."
+
+**Shares and SMB**
+> "Show me every SMB share this machine is exposing, flag any non-admin custom shares, and tell me whether SMB1 is enabled."
+
+**User accounts and sessions**
+> "List all local user accounts, their enabled state, last logon, and which ones are in the Administrators group. Also show me any active logon sessions."
+
+**Audit policy**
+> "Show me which Windows audit policy categories are currently logging Success or Failure events. Flag if nothing is being audited."
+
+**Scheduled tasks**
+> "List all non-disabled scheduled tasks with their last run time and executable path. Flag anything that looks non-standard."
+
+**Installed software**
+> "Show me all installed programs on this machine with versions. Flag anything that looks outdated or unexpected."
 
 ---
 
