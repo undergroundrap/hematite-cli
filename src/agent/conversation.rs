@@ -2316,13 +2316,14 @@ impl ConversationManager {
                  - Installed developer tools / versions / toolchain → `toolchains`\n\
                  - Environment/package-manager conflicts → `env_doctor`\n\
                  - Fix a workstation problem (cargo not found, port in use, LM Studio) → `fix_plan`\n\
-                 - Recent Windows errors / warnings / event log / event viewer → `log_check`\n\
+                 - Recent Windows errors / warnings / event log / event viewer / show me errors / what failed recently → `log_check` (do NOT call health_report first)\n\
                  - Repo / git / workspace health → `repo_doctor`\n\
                  - List a specific directory → `directory` (pass `path` arg)\n\
                  - Desktop or Downloads folder → `desktop` or `downloads`\n\
                  NEVER use `disk` or `directory` for storage/space questions — use `storage`.\n\
                  Only use `shell` if the question truly cannot be answered by any topic above.\n\
-                 NEVER tell the user to run PowerShell, cmd, or shell commands themselves. If the data is incomplete, say so and tell them to ask a more specific question instead.\n"
+                 NEVER tell the user to run PowerShell, cmd, or shell commands themselves. If the data is incomplete, say so and tell them to ask a more specific question instead.\n\
+                 NEVER expose internal tool names or API syntax (like `inspect_host(topic=...)`) in your response. Refer to capabilities in plain English: say 'ask me for a fix plan' not 'run inspect_host(topic=fix_plan)'.\n"
               );
         }
         if !tiny_context_mode && fix_plan_mode {
