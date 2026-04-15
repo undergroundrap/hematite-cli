@@ -219,6 +219,8 @@ In practice, the product should keep leaning into micro-workflows for recurring 
 
 When a local model gets uncertain, the answer is usually not "give it more freedom." The answer is tighter scaffolding: narrower tools, better owner-file locking, exact-window inspection, explicit recovery ladders, and honest operator-visible failure states.
 
+**Large-file edit discipline:** Before editing files over ~500 lines (`inference.rs`, `conversation.rs`, `tui.rs`, and similar large modules), recommend `/architect` or a read-only inspection pass first unless the user has already provided a clear plan or target line range. Direct `/code` on large files without orientation leads to missed context and off-target edits on 9B models. This applies to any large codebase the user runs Hematite against, not just Hematite's own source.
+
 ## MCP Configuration
 
 Hematite loads stdio MCP servers from:
