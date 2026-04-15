@@ -2626,6 +2626,7 @@ impl ConversationManager {
         // Safety cap – never spin forever on a broken model.
         let max_iters = 25;
         let mut consecutive_errors = 0;
+        let mut empty_cleaned_nudges = 0u8;
         let mut first_iter = true;
         let _called_this_turn: std::collections::HashSet<String> = std::collections::HashSet::new();
         // Track identical tool results within this turn to detect logical loops.
@@ -3608,13 +3609,27 @@ impl ConversationManager {
                 // [Hardened Interface] Strictly respect the stripper.
                 // If it's empty after stripping think blocks, the model thought through its
                 // answer but forgot to emit it (common with Qwen3 models in architect/ask mode).
-                // Nudge it rather than silently dropping the turn.
+                // Nudge it rather than silently dropping the turn — but cap at 2 retries so a
+                // model that keeps returning whitespace/empty doesn't spin all 25 iterations.
                 if cleaned.is_empty() {
-                    loop_intervention = Some(
-                        "Your response was empty after your reasoning. You must now emit your complete written response based on your analysis. Do not reason further — write your answer now."
-                            .to_string(),
-                    );
-                    continue;
+                    empty_cleaned_nudges += 1;
+                    if empty_cleaned_nudges <= 2 {
+                        loop_intervention = Some(
+                            "Your response was empty after your reasoning. You must now emit your complete written response based on your analysis. Do not reason further — write your answer now."
+                                .to_string(),
+                        );
+                        continue;
+                    }
+                    // Nudge budget exhausted — surface as a recoverable empty-response failure
+                    // so the TUI unblocks instead of hanging for the full max_iters budget.
+                    let class = RuntimeFailureClass::EmptyModelResponse;
+                    self.emit_runtime_failure(
+                        &tx,
+                        class,
+                        "Model returned empty content after 2 nudge attempts.",
+                    )
+                    .await;
+                    break;
                 }
 
                 let architect_handoff = self.persist_architect_handoff(&cleaned);
