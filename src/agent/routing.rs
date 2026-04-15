@@ -527,6 +527,21 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("app crash")
         || (lower.contains("restart") && lower.contains("itself"))
         || (lower.contains("restart") && lower.contains("by itself"));
+    let asks_log_check = lower.contains("event log")
+        || lower.contains("windows log")
+        || lower.contains("system log")
+        || lower.contains("error log")
+        || lower.contains("recent errors")
+        || lower.contains("recent warnings")
+        || lower.contains("recent events")
+        || lower.contains("event viewer")
+        || lower.contains("journald")
+        || lower.contains("journal log")
+        || lower.contains("show me errors")
+        || lower.contains("show me warnings")
+        || (lower.contains("log") && lower.contains("error"))
+        || (lower.contains("log") && lower.contains("warning"))
+        || (lower.contains("what errors") && lower.contains("log"));
     let asks_scheduled_tasks = lower.contains("scheduled task")
         || lower.contains("scheduled tasks")
         || lower.contains("task scheduler")
@@ -893,6 +908,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("battery")
     } else if asks_recent_crashes {
         Some("recent_crashes")
+    } else if asks_log_check {
+        Some("log_check")
     } else if asks_scheduled_tasks {
         Some("scheduled_tasks")
     } else if asks_dev_conflicts {

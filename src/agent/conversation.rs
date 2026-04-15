@@ -2316,6 +2316,7 @@ impl ConversationManager {
                  - Installed developer tools / versions / toolchain → `toolchains`\n\
                  - Environment/package-manager conflicts → `env_doctor`\n\
                  - Fix a workstation problem (cargo not found, port in use, LM Studio) → `fix_plan`\n\
+                 - Recent Windows errors / warnings / event log / event viewer → `log_check`\n\
                  - Repo / git / workspace health → `repo_doctor`\n\
                  - List a specific directory → `directory` (pass `path` arg)\n\
                  - Desktop or Downloads folder → `desktop` or `downloads`\n\

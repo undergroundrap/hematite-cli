@@ -4708,6 +4708,23 @@ fn test_routing_detects_disk_benchmark_topic() {
 }
 
 #[test]
+fn test_routing_detects_log_check_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show me recent errors from the Windows event log"),
+        Some("log_check")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("are there any recent warnings in the system log?"),
+        Some("log_check")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("open event viewer and show me errors"),
+        Some("log_check")
+    );
+}
+
+#[test]
 fn test_routing_detects_storage_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
     assert_eq!(
