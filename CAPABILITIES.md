@@ -106,6 +106,13 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Windows features** (`windows_features`) — enabled optional features with count, notable feature flags (Hyper-V, IIS, Telnet, TFTP, NFS), and quick-check for six key features
 - **Printers** (`printers`) — installed printers with default flag, active print jobs; CUPS on Linux
 - **WinRM** (`winrm`) — Windows Remote Management service state, listener config, TrustedHosts, and Test-WSMan connectivity check
+- **Device health** (`device_health`) — precision detection of malfunctioning hardware via PnP ConfigManager error codes (the "Yellow Bang" devices in Device Manager)
+- **Drivers** (`drivers`) — comprehensive audit of active system drivers with name, type, path, and operational state
+- **Peripherals** (`peripherals`) — deep-dive into USB controllers, HID devices (keyboard/mouse class), and connected monitors
+- **Group Policy** (`gpo`) — applied Group Policy Objects (computer scope), filtering status; requires Administrator elevation on Windows
+- **Certificates** (`certificates`) — local personal certificates with subject, thumbprint, expiry date; flags certs expiring within 30 days
+- **Integrity** (`integrity`) — Windows component store health via SFC/DISM registry and log visibility; flags Corrupt or AutoRepairNeeded state
+- **Domain** (`domain`) — Active Directory and domain join status: Join Status (DOMAIN/WORKGROUP), Domain name, and NetBIOS name
 
 **Network Admin topics (12):**
 
@@ -134,7 +141,7 @@ When the model calls `shell` with a command that matches a structured host inspe
 
 Hematite implements a definitive loop-breaker for auto-redirected shell calls. If the model attempts to call `shell` repeatedly for the same diagnostic intent, the harness provides a short "Action Handled" message instead of flooding the context with redundant telemetry. Combined with **automated context pruning**, this preserves the context window and prevents model goal drift during deep workstation triage.
 
-**Developer tooling topics (7):**
+**Developer tooling topics (8):**
 
 - **Environment variables** (`env`) — total count, developer/tool vars (CARGO_HOME, JAVA_HOME, GOPATH, VIRTUAL_ENV, DOCKER_HOST, etc.), secret-shaped vars shown as `[SET, N chars]` only — values never exposed; PATH entry count with pointer to the path topic
 - **Hosts file** (`hosts_file`) — reads `/etc/hosts` (Windows: `drivers\etc\hosts`); shows active entries, flags custom non-loopback entries, includes full file content
@@ -143,6 +150,7 @@ Hematite implements a definitive loop-breaker for auto-redirected shell calls. I
 - **SSH** (`ssh`) — SSH client version, sshd service state, `~/.ssh` inventory (known_hosts entry count, authorized_keys count, private key files present), `~/.ssh/config` host entries with hostname/user/port/identity details
 - **Installed software** (`installed_software`) — winget list on Windows (registry scan fallback); dpkg/rpm/pacman on Linux; brew + mas on macOS; paginated with max_entries
 - **Git config** (`git_config`) — global git config grouped by Identity, Core, Commit/Signing, Push/Pull, Credential, Branch sections; local repo config; git aliases; points at missing config if not set up
+- **Databases** (`databases`) — detects running local database engines: PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQLite, SQL Server, CouchDB, Cassandra, Elasticsearch — via CLI version check, TCP port probe, and OS service state; no credentials required
 
 **Safe remediation:**
 

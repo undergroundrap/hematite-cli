@@ -189,7 +189,7 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Teacher Mode (`/teach`)**: Activates a grounded walkthrough mode for write/admin tasks Hematite cannot safely execute itself. Protocol: (1) call `inspect_host` with the relevant topic(s) to observe actual machine state, (2) deliver a numbered step-by-step tutorial referencing real observed state — exact commands, exact paths, exact values. Does NOT execute write operations. Covers:
 - **SysAdmin Diagnostics**: `inspect_host` (topic=network, services, processes, ports, log_check, startup_items, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, connections, etc.)
 - **Kernel-Aware Triage Trio**: `topic=device_health` (PnP errors), `topic=drivers` (active audit), `topic=peripherals` (USB/HID tree).
-- **Revolutionary Visibility**: `topic=sessions` (Logon sessions), `topic=hardware` (BIOS/Virtualization DNA), `topic=processes` (Real-time I/O tracking).
+- **Deep System Visibility**: `topic=sessions` (Logon sessions), `topic=hardware` (BIOS/Virtualization DNA), `topic=processes` (Real-time I/O tracking).
  matching grounded walkthrough. New lanes: `driver_install`, `group_policy`, `firewall_rule`, `ssh_key`, `wsl_setup`, `service_config`, `windows_activation`, `registry_edit`, `scheduled_task_create`, `disk_cleanup`. Each lane inspects real machine state first, then delivers machine-specific numbered steps.
 
 ## Hardware Intent
