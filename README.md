@@ -94,7 +94,7 @@ Hematite is for developers who want a **local coding CLI that behaves like a ser
 - You want a **local coding agent for LM Studio** that can read, edit, search, verify, and reason about a real repository.
 - You want a **Windows local AI coding assistant** that does not treat PowerShell or local pathing as second-class.
 - You want a **local coding harness** that survives tight context budgets instead of silently melting down near the ceiling.
-- You want a **local coding CLI for RTX 4070-class hardware** that admits hardware limits and engineers around them.
+- You want a **local coding CLI** that admits real hardware limits and engineers around them — whether you're on a 4070 or a beast multi-GPU rig.
 - You want a harness that exposes **runtime truth**: live model context, budget pressure, recovery steps, blocker states, session carry-forward, and observed workstation state.
 - You want a **developer workstation assistant** that covers the entire OS stack in plain English: PATH health, package managers, services, processes, ports, storage, hardware inventory, security posture, crash history, and grounded fix plans — all from real data.
 - You want a **network admin in your terminal**: inspect connectivity, Wi-Fi adapters, active connections, VPN state, proxy config, firewall rules, traceroute paths, DNS cache, ARP tables, and routing tables without opening a separate tool or writing a script.
@@ -309,7 +309,7 @@ There are several tools in this space. Here is what each one actually requires a
 | **Local models** | First-class (LM Studio, Ollama) | No — Anthropic API only | Supported but secondary | Supported | Supported | Supported but secondary |
 | **Cloud-first** | No | Yes — requires API key | Yes (GPT-4/Claude default) | No | No | Yes (GPT-4 default) |
 | **Cost** | Free, offline | Pay per token (Anthropic API) | Free tool, pay per token if cloud | Free | Free | Free tool, pay per token if cloud |
-| **Context window** | 8–32K (local hardware) | 200K (Claude) | Model-dependent | Model-dependent | Model-dependent | Model-dependent |
+| **Context window** | Scales with your hardware — 8K on budget kit, 128K+ on a beast rig | 200K (Claude) | Model-dependent | Model-dependent | Model-dependent | Model-dependent |
 | **Windows quality** | Native, tested, CRLF-safe | Good, cross-platform | Workable, Linux-first design | IDE-dependent | Electron (cross-platform) | Workable |
 | **Codebase RAG** | Built-in (BM25 + semantic) | No | No | Basic | Basic | No |
 | **SysAdmin / Network Admin** | 69 inspection topics, built-in | No | No | No | No | No |
@@ -399,6 +399,8 @@ That same pattern can be translated across the tool surface over time. The goal 
 - Rust toolchain if building from source
 
 **Primary hardware target:** a single RTX 4070-class GPU on a normal desktop Windows machine. Hematite is engineered around that constraint: limited local VRAM, one active consumer GPU, LM Studio as the serving layer, and open models that need strong tooling and context discipline instead of cloud-scale brute force.
+
+**Enthusiast note:** the 4070 is the design center and tested baseline — not a ceiling. If you're running a 3090, 5090, multi-GPU rig, or server hardware with a 70B or 200B model loaded, Hematite scales with you. Larger models naturally handle more complex plans; longer context windows mean less compaction pressure; swarm workers run truly in parallel across multiple GPUs. The harness stays the same — the hardware just removes constraints that a single consumer card has to work around.
 
 ### Tested Model Configuration
 
@@ -792,7 +794,7 @@ If LM Studio is serving a very small active context window such as 4k, Hematite 
 
 If you want to force that sync manually, Hematite now exposes `/runtime-refresh` in the TUI. Context-window failures also trigger an immediate runtime-profile refresh so the operator can see whether LM Studio is still serving the same model and active context budget.
 
-This is intentionally tuned around single-GPU consumer hardware. The design goal is not cloud parity; it is to get the best practical coding workflow out of a 4070-class local box.
+This is intentionally tuned around single-GPU consumer hardware. The design goal is not cloud parity; it is to get the best practical coding workflow out of a 4070-class local box. On larger hardware — a 5090, a multi-GPU workstation, or server-class gear running a 70B or 200B model — these same mechanisms scale up: context pressure eases, compaction fires less often, and the model's own capability handles more of what the harness compensates for on a 9B.
 
 ### Adaptive Thought Efficiency
 
@@ -812,7 +814,7 @@ Before every file edit, Hematite snapshots a hidden git ref at `refs/hematite/gh
 
 `/swarm <directive>` spawns parallel worker agents that research, implement, and propose diffs for review. Worker count is capped automatically based on available VRAM.
 
-**Single-GPU note:** on a single consumer GPU with one model loaded, workers share the same inference endpoint and run sequentially rather than truly in parallel. Swarm is most effective on multi-GPU setups or when pointing at a remote LM Studio instance. On a 4070-class machine it still works — it just runs workers one after another rather than simultaneously.
+**Single-GPU note:** on a single consumer GPU with one model loaded, workers share the same inference endpoint and run sequentially rather than truly in parallel. On a 4070-class machine it still works — workers run one after another and review diffs in the modal before anything is applied. Swarm reaches its full potential on multi-GPU setups, high-VRAM cards (3090/5090) running larger models, or when pointing at a remote LM Studio instance where workers genuinely run concurrently.
 
 ### Project Rule Discovery
 
