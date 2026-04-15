@@ -4769,3 +4769,121 @@ fn test_routing_detects_hardware_topic() {
         Some("hardware")
     );
 }
+
+// --- Prompt library coverage tests ---
+
+#[test]
+fn test_routing_prompt_library_open_ports_and_connections() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    // prompt_library "Open ports and active connections"
+    let prompt = "Show me all listening TCP and UDP ports with their owning processes, and list any established outbound connections.";
+    // single-topic routing detects udp_ports first (contains "udp port" substring),
+    // but this prompt triggers the multi-topic pre-run so single-topic is bypassed.
+    let single = preferred_host_inspection_topic(prompt);
+    assert!(
+        single == Some("ports") || single == Some("udp_ports"),
+        "single-topic routing should pick ports or udp_ports; got: {single:?}"
+    );
+    // multi-topic pre-run should detect both ports and connections so both are run together
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"ports"),
+        "multi-topic should detect ports; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"connections"),
+        "multi-topic should detect connections; got: {topics:?}"
+    );
+    // 2+ topics means the pre-run fires and single-topic routing is bypassed
+    assert!(
+        topics.len() >= 2,
+        "should detect 2+ topics for pre-run; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_routing_prompt_library_dns_and_proxy() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    // prompt_library "DNS and proxy audit"
+    let prompt = "Show me my configured DNS nameservers per adapter and any system proxy settings — WinHTTP, Internet Options, and environment variables.";
+    // single-topic path should route to dns_servers (it's earlier in dispatch)
+    assert_eq!(
+        preferred_host_inspection_topic(prompt),
+        Some("dns_servers"),
+        "single-topic routing should pick dns_servers"
+    );
+    // multi-topic path should detect both dns_servers and proxy for pre-run
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"dns_servers"),
+        "multi-topic should detect dns_servers; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"proxy"),
+        "multi-topic should detect proxy; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_routing_prompt_library_firewall_rules() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // prompt_library "Firewall rules"
+    assert_eq!(
+        preferred_host_inspection_topic(
+            "List all active inbound firewall rules that allow traffic. Flag anything that looks non-default."
+        ),
+        Some("firewall_rules")
+    );
+}
+
+#[test]
+fn test_routing_prompt_library_traceroute() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // prompt_library "Traceroute"
+    assert_eq!(
+        preferred_host_inspection_topic(
+            "Trace the network path to 8.8.8.8 and tell me where the latency spikes are."
+        ),
+        Some("traceroute")
+    );
+}
+
+#[test]
+fn test_routing_prompt_library_connectivity_triage() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    // prompt_library "Connectivity triage"
+    let prompt = "Check my internet connectivity, Wi-Fi signal strength, and VPN status. If I'm on a VPN, tell me which adapter is handling the tunnel.";
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"connectivity"),
+        "should detect connectivity; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"wifi"),
+        "should detect wifi; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"vpn"),
+        "should detect vpn; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_routing_prompt_library_network_map() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    // prompt_library "Network map"
+    let prompt = "Show me my routing table, ARP table, and DNS cache. Map out the devices this machine is currently aware of on the local network.";
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"route_table"),
+        "should detect route_table; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"arp"),
+        "should detect arp; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"dns_cache"),
+        "should detect dns_cache; got: {topics:?}"
+    );
+}

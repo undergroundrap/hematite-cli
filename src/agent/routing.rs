@@ -435,7 +435,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("port ")
         || lower.contains("listening on ")
         || lower.contains("exposed")
-        || lower.contains("what is listening");
+        || lower.contains("what is listening")
+        || (lower.contains("listening") && lower.contains("port"));
     let asks_repo_doctor = lower.contains("repo doctor")
         || lower.contains("repository doctor")
         || lower.contains("workspace health")
@@ -1090,6 +1091,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("open port")
                 || l.contains("what is on port")
                 || l.contains("port 3000")
+                || (l.contains("listening") && l.contains("port"))
         }),
         ("traceroute", |l| {
             l.contains("traceroute")
@@ -1139,6 +1141,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("active connection")
                 || l.contains("netstat")
                 || l.contains("open socket")
+                || (l.contains("established") && l.contains("connection"))
         }),
         ("vpn", |l| {
             l.contains("vpn") || l.contains("virtual private network")
