@@ -362,7 +362,23 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("vt-x")
         || lower.contains("slat")
         || lower.contains("v-p")
-        || lower.contains("nested virt");
+        || lower.contains("nested virt")
+        || lower.contains("cpu model")
+        || lower.contains("ram size")
+        || lower.contains("hardware spec")
+        || lower.contains("hardware dna")
+        || lower.contains("hardware info")
+        || lower.contains("bios version")
+        || lower.contains("motherboard")
+        || lower.contains("gpu name")
+        || lower.contains("gpu driver")
+        || lower.contains("how much ram")
+        || lower.contains("how much vram")
+        || lower.contains("what processor")
+        || lower.contains("what cpu")
+        || lower.contains("what gpu")
+        || (lower.contains("what hardware") && lower.contains("have"))
+        || (lower.contains("hardware") && lower.contains("inventory"));
     let asks_startup = lower.contains("startup")
         || lower.contains("boot program")
         || lower.contains("autorun")
@@ -536,6 +552,21 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("disk intensity")
         || lower.contains("thrash")
         || lower.contains("latency report");
+    let asks_storage = lower.contains("storage")
+        || lower.contains("disk space")
+        || lower.contains("drive capacity")
+        || lower.contains("free space")
+        || lower.contains("how much space")
+        || lower.contains("space left")
+        || lower.contains("running out of space")
+        || lower.contains("disk usage")
+        || lower.contains("storage usage")
+        || lower.contains("how much disk")
+        || lower.contains("how full")
+        || lower.contains("cache size")
+        || (lower.contains("drive") && lower.contains("usage"))
+        || (lower.contains("drives") && lower.contains("usage"))
+        || (lower.contains("where") && lower.contains("space") && lower.contains("go"));
     let asks_resource_load = lower.contains("resource load")
         || lower.contains("system load")
         || lower.contains("performance")
@@ -804,6 +835,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
 
     if asks_disk_benchmark {
         Some("disk_benchmark")
+    } else if asks_storage {
+        Some("storage")
     } else if asks_fix_plan {
         Some("fix_plan")
     } else if asks_gpo {

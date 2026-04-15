@@ -4706,3 +4706,49 @@ fn test_routing_detects_disk_benchmark_topic() {
         Some("disk_benchmark")
     );
 }
+
+#[test]
+fn test_routing_detects_storage_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show my storage usage across all drives"),
+        Some("storage")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("how much free space do I have?"),
+        Some("storage")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("where is all my disk space going?"),
+        Some("storage")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show me disk usage on each drive"),
+        Some("storage")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("am I running out of space?"),
+        Some("storage")
+    );
+}
+
+#[test]
+fn test_routing_detects_hardware_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what is my CPU model?"),
+        Some("hardware")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("how much RAM does this machine have?"),
+        Some("hardware")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show me the hardware specs for this machine"),
+        Some("hardware")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what GPU do I have?"),
+        Some("hardware")
+    );
+}

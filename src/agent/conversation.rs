@@ -2298,11 +2298,29 @@ impl ConversationManager {
             system_msg.push_str(
                  "\n\n# HOST INSPECTION MODE\n\
                    This turn is about the local machine and environment, not repository architecture.\n\
-                 Prefer `inspect_host` before raw `shell` for PATH analysis, installed developer tool versions, environment/package-manager health, grounded fix plans, network snapshots, service snapshots, process snapshots, desktop item counts, Downloads summaries, listening ports, repo-doctor checks, and directory/disk-size reports.\n\
-                 Use the closest built-in topic first: `summary`, `toolchains`, `path`, `env_doctor`, `fix_plan`, `network`, `services`, `processes`, `desktop`, `downloads`, `ports`, `repo_doctor`, `directory`, or `disk`.\n\
-                 If the user asks how to fix a common workstation problem such as `cargo not found`, `port 3000 already in use`, or `LM Studio not reachable`, use `fix_plan` first instead of `env_doctor`, `path`, or `ports`.\n\
-                 If `env_doctor` answers the question, stop there. Do not follow with `path` unless the user explicitly asks for raw PATH entries.\n\
-                 Only use `shell` if the host question truly goes beyond `inspect_host`.\n"
+                 Prefer `inspect_host` before raw `shell`. Use the closest built-in topic:\n\
+                 - Drive space / disk usage / free space / storage across drives → `storage`\n\
+                 - CPU model / RAM size / GPU name / hardware specs / BIOS / motherboard → `hardware`\n\
+                 - CPU % / RAM % / what is using resources / slow machine → `resource_load`\n\
+                 - Running processes / task manager / what is using RAM → `processes`\n\
+                 - Windows services / daemons / service state → `services`\n\
+                 - Listening ports / open ports / what is on port N → `ports`\n\
+                 - Network adapters / IP / gateway / DNS overview → `network`\n\
+                 - Internet / online / can I reach the internet → `connectivity`\n\
+                 - Wi-Fi / wireless / signal strength / SSID → `wifi`\n\
+                 - VPN tunnel / VPN adapter → `vpn`\n\
+                 - Security / Defender / antivirus / firewall / UAC → `security`\n\
+                 - Windows Update / pending updates → `updates`\n\
+                 - Health report / system status overall → `health_report`\n\
+                 - PATH entries / raw PATH → `path`\n\
+                 - Installed developer tools / versions / toolchain → `toolchains`\n\
+                 - Environment/package-manager conflicts → `env_doctor`\n\
+                 - Fix a workstation problem (cargo not found, port in use, LM Studio) → `fix_plan`\n\
+                 - Repo / git / workspace health → `repo_doctor`\n\
+                 - List a specific directory → `directory` (pass `path` arg)\n\
+                 - Desktop or Downloads folder → `desktop` or `downloads`\n\
+                 NEVER use `disk` or `directory` for storage/space questions — use `storage`.\n\
+                 Only use `shell` if the question truly goes beyond all `inspect_host` topics.\n"
               );
         }
         if !tiny_context_mode && fix_plan_mode {
