@@ -270,7 +270,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         }
     };
     let greeting = format!(
-        "Hematite {} Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\nWorkspace: {} ({})\n{}\n{}\nModes: /chat | /auto | /ask | /code | /architect | /read-only | /agent\nInfo: /version | /about{}",
+        "Hematite {} Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\nWorkspace: {} ({})\n{}\n{}\n/ask · read-only analysis   /code · implement   /architect · plan-first   /chat · conversation\nRecovery: /undo · /new · /forget · /clear   |   /version · /about{}",
         crate::hematite_version_display(),
         display_model,
         manager.engine.current_context_length(),

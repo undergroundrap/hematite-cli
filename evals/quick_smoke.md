@@ -668,3 +668,38 @@ Check:
 - `trace_runtime_flow` stays authoritative over later architecture restyling
 - `map_project` can still contribute compact structure when needed, but broad whole-file reads are pruned from the same runtime-trace batch
 - Hematite does not use `auto_pin_context` to inflate read-only architecture walkthroughs
+
+## 39. Computation Routing
+
+```text
+What is the compound interest on $8,500 at 3.75% annual rate compounded monthly for 5 years?
+```
+
+Check:
+- uses `run_code` rather than answering from training data
+- does not use `shell` for code execution
+- returns an exact dollar figure computed from real code output, not a rounded estimate
+- if the model tries `shell` first, Hematite blocks it and forces a `run_code` retry automatically
+- if the model writes Python without `language: "python"`, Hematite catches the Deno parse error and retries with the correct language
+
+Also try:
+
+```text
+Compute the SHA-256 hash of the string "Hematite CLI".
+```
+
+Check:
+- uses `run_code` with a real crypto API call (e.g. Web Crypto in Deno or hashlib in Python)
+- the returned hash is a 64-character hex string
+- does not hallucinate a hash value from training data
+
+Also try:
+
+```text
+How many days are between 2025-01-15 and 2027-08-30?
+```
+
+Check:
+- uses `run_code` for the date arithmetic
+- returns an exact integer day count
+- does not approximate or guess

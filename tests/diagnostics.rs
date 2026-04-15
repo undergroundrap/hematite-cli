@@ -4151,3 +4151,170 @@ fn test_computation_sandbox_detector_does_not_trigger_on_normal_queries() {
         "explain how the vein indexer works"
     ));
 }
+
+// ── inspect_host: missing topic coverage ─────────────────────────────────────
+
+#[tokio::test]
+async fn test_inspect_host_summary_returns_hostname() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "summary" }))
+        .await
+        .expect("summary must return Ok");
+    assert!(
+        output.contains("Hostname")
+            || output.contains("hostname")
+            || output.contains("OS")
+            || output.contains("Uptime"),
+        "summary output should contain host identity info; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_os_config_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "os_config" }))
+        .await
+        .expect("os_config must return Ok");
+    assert!(
+        output.contains("OS")
+            || output.contains("Power")
+            || output.contains("Edition")
+            || output.contains("UAC")
+            || output.contains("Locale"),
+        "os_config output should contain OS-level configuration; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_toolchains_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "toolchains" }))
+        .await
+        .expect("toolchains must return Ok");
+    assert!(
+        output.contains("Toolchain")
+            || output.contains("Rust")
+            || output.contains("Node")
+            || output.contains("Python")
+            || output.contains("Git")
+            || output.contains("not found"),
+        "toolchains output should list developer tools; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_desktop_returns_listing() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "desktop" }))
+        .await
+        .expect("desktop must return Ok");
+    assert!(
+        output.contains("Desktop")
+            || output.contains("desktop")
+            || output.contains("file")
+            || output.contains("empty")
+            || output.contains("No files"),
+        "desktop output should list files or report empty; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_downloads_returns_listing() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "downloads" }))
+        .await
+        .expect("downloads must return Ok");
+    assert!(
+        output.contains("Download")
+            || output.contains("download")
+            || output.contains("file")
+            || output.contains("empty")
+            || output.contains("No files"),
+        "downloads output should list files or report empty; got:\n{output}"
+    );
+}
+
+#[tokio::test]
+async fn test_inspect_host_disk_benchmark_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "disk_benchmark", "path": "Cargo.toml" }))
+        .await
+        .expect("disk_benchmark must return Ok");
+    assert!(
+        output.contains("Benchmark")
+            || output.contains("benchmark")
+            || output.contains("MB/s")
+            || output.contains("throughput")
+            || output.contains("Read")
+            || output.contains("Write"),
+        "disk_benchmark output should contain throughput info; got:\n{output}"
+    );
+}
+
+// ── guard: sandbox redirect blocks ───────────────────────────────────────────
+
+#[test]
+fn test_guard_blocks_python_inline_execution() {
+    use hematite::tools::guard::bash_is_safe;
+    let result = bash_is_safe("python -c 'print(hello)'");
+    assert!(
+        result.is_err(),
+        "guard should block python -c inline execution"
+    );
+    let msg = result.unwrap_err();
+    assert!(
+        msg.contains("run_code"),
+        "guard error should mention run_code; got: {msg}"
+    );
+}
+
+#[test]
+fn test_guard_blocks_python3_inline_execution() {
+    use hematite::tools::guard::bash_is_safe;
+    let result = bash_is_safe("python3 -c 'import math; print(math.pi)'");
+    assert!(
+        result.is_err(),
+        "guard should block python3 -c inline execution"
+    );
+    let msg = result.unwrap_err();
+    assert!(
+        msg.contains("run_code"),
+        "guard error should mention run_code; got: {msg}"
+    );
+}
+
+#[test]
+fn test_guard_blocks_deno_run_execution() {
+    use hematite::tools::guard::bash_is_safe;
+    let result = bash_is_safe("deno run script.ts");
+    assert!(
+        result.is_err(),
+        "guard should block deno run as sandbox substitute"
+    );
+    let msg = result.unwrap_err();
+    assert!(
+        msg.contains("run_code"),
+        "guard error should mention run_code; got: {msg}"
+    );
+}
+
+#[test]
+fn test_guard_blocks_node_eval_execution() {
+    use hematite::tools::guard::bash_is_safe;
+    let result = bash_is_safe("node -e 'console.log(1+1)'");
+    assert!(
+        result.is_err(),
+        "guard should block node -e as sandbox substitute"
+    );
+    let msg = result.unwrap_err();
+    assert!(
+        msg.contains("run_code"),
+        "guard error should mention run_code; got: {msg}"
+    );
+}
