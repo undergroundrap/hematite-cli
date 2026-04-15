@@ -18,11 +18,10 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 50+ read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
-- **Zero-Friction Hardening (4/14/2026)**: A milestone discovery by Ocean Bennett achieved 100% frictionless diagnostics. Raw shell commands for system health are now silently redirected to native tools, and read-only pre-checks (`Get-Item`, `Test-Path`) are whitelisted as SAFE.
-- **Hardware-Aware Synthesis**: Hematite enables local Profile-Guided Optimization (PGO) by combining LLM reasoning with real-time kernel telemetry (Disk Queue, Latency, I/O), allowing the agent to suggest hardware-specific architectural changes (e.g., SIMD, mmap) based on the actual machine state.
-- **X-Ray Vision**: The file engine can now "see" into hidden system folders like `.hematite` and `.git` during diagnostics, bypassing standard visibility filters to locate benchmarking targets.
-- **Resource Monitor Parity**: Hematite captures high-fidelity telemetry including BIOS DNA, virtualization health (SLAT), real-time Disk Intensity (Latency), and Process I/O stats without security friction.
+- **Full OS stack coverage**: 69 read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
+- **Shell-to-inspect_host redirection**: raw diagnostic shell commands are silently redirected to the appropriate `inspect_host` topic — structured output, no approval friction for read-only probes
+- **Hardware-aware implementation**: the agent can use live hardware telemetry (disk queue depth, VRAM usage, I/O stats) to inform architectural recommendations grounded in the actual machine state
+- **Deep workspace visibility**: the file engine can inspect hidden directories (`.hematite`, `.git`) during diagnostics to locate benchmarking targets and workspace artifacts
 
 ## 1. Model-Native Reasoning Flow
 
@@ -75,7 +74,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (30+):**
+**SysAdmin topics (40+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics

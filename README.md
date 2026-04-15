@@ -12,7 +12,7 @@ Local AI coding harness, SysAdmin, and Network Admin assistant for LM Studio. Ru
 - Shows a coloured diff preview before every edit — press Y to apply, N to skip
 - Edits with exact-match precision, CRLF-safe on Windows; if exact match fails, applies three levels of fuzzy recovery (rstrip → full-strip → cross-file workspace scan hint).
 - Runs `verify_build` after every change and feeds errors back to the model automatically.
-- **SysAdmin + Network Admin built in**: 56 read-only inspection topics cover CPU/RAM load, processes, services, ports, storage, hardware DNA, security posture, crash history, scheduled tasks, Group Policy, certificates, system integrity, domain identity, connectivity, Wi-Fi, active connections, VPN state, proxy config, firewall rules, traceroute, DNS cache, ARP table, and routing table — all grounded, no guessing.
+- **SysAdmin + Network Admin built in**: 69 read-only inspection topics cover CPU/RAM load, processes, services, ports, storage, hardware DNA, security posture, crash history, scheduled tasks, Group Policy, certificates, system integrity, domain identity, connectivity, Wi-Fi, active connections, VPN state, proxy config, firewall rules, traceroute, DNS cache, ARP table, and routing table — all grounded, no guessing.
 - **Harness pre-run orchestration**: when you ask about multiple system topics at once, Hematite automatically runs all `inspect_host` calls before the model turn and injects the combined data as context — so the model synthesizes from real data instead of orchestrating tool calls one by one.
 - **Self-Correcting Runtime Guards**: automatically catches and blocks raw shell commands for any inspectable topic, redirecting them to the right structured tool and retrying the turn without interrupting you.
 - Ghost-snapshots every edit so `Ctrl+Z` restores the previous state instantly.
@@ -74,7 +74,7 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 - **Proven tool loop** — read → grep → edit → verify → undo. Tested on real Rust codebases. The model finds the right line, makes the right change, catches its own errors, and recovers without prompting.
 - **Sandboxed code execution** — the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation — not training-data guesses. Hematite automatically uses Deno from LM Studio's install — no extra setup required. Not using LM Studio? Install Deno globally: `winget install DenoLand.Deno`.
 - **Grounded terminal execution** — Hematite can inspect the real machine through native shell tools, files, and project commands. That means it can answer from observed state — installed toolchains, active network adapters, running ports, desktop files, build output, repo status — instead of making generic guesses.
-- **Natural-language SysAdmin + Network Admin** — 56 read-only inspection topics cover full workstation health (CPU/RAM, processes, services, hardware, security, crash history, GPO, certificates, integrity) and complete network state (connectivity, Wi-Fi, active connections, VPN, proxy, firewall rules, traceroute, DNS cache, ARP table, routing table) — all in plain English from real tool output, not model guesses.
+- **Natural-language SysAdmin + Network Admin** — 69 read-only inspection topics cover full workstation health (CPU/RAM, processes, services, hardware, security, crash history, GPO, certificates, integrity) and complete network state (connectivity, Wi-Fi, active connections, VPN, proxy, firewall rules, traceroute, DNS cache, ARP table, routing table) — all in plain English from real tool output, not model guesses.
 - **Hybrid RAG built in** — The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, not hunting for it with five read_file calls.
 - **Built-in voice, zero install** — 54-voice Kokoro TTS in the packaged releases. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run in the packaged builds.
 - **Windows-first** — CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
@@ -189,7 +189,7 @@ Useful examples:
 
 This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
 
-For structured workstation and network questions, prefer `inspect_host` first. It covers 56 topics across the full SysAdmin, Network Admin, security, and developer tooling stack:
+For structured workstation and network questions, prefer `inspect_host` first. It covers 69 topics across the full SysAdmin, Network Admin, security, and developer tooling stack:
 
 **SysAdmin topics:** common toolchains, PATH, environment/package-manager health, OS config (Firewall/Power/Uptime), resource load (CPU/RAM %), processes, services, ports, storage, hardware DNA, system health reports, grounded fix plans, recent log errors (`log_check`), startup items (`startup_items`), Windows Update (`updates`), security posture (`security`), pending reboot detection (`pending_reboot`), drive SMART health (`disk_health`), device health (`device_health` - Yellow Bangs), drivers (`drivers`), peripherals (`peripherals` - USB/HID/Monitors), battery (`battery`), crash/BSOD history (`recent_crashes`), scheduled tasks (`scheduled_tasks`), dev environment conflicts (`dev_conflicts`), drive encryption (`bitlocker`), RDP status (`rdp`), shadow copies (`shadow_copies`), page file (`pagefile`), Windows features (`windows_features`), printers (`printers`), WinRM (`winrm`), local user accounts + elevation state (`user_accounts`), Windows audit policy (`audit_policy`), SMB shares + security settings (`shares`), and Group Policy (`gpo`).
 
@@ -268,31 +268,25 @@ Hematite achieves **100% Read-Only Grounding** of the Windows workstation. It no
 
 ---
 
-## Hardening Milestones
-
-### 2026-04-14: The Silicon Awareness Breakthrough
-**Discovery by Ocean Bennett**
+## What Shipped in April 2026
 
 ![Intensity Report](assets/Intensity_Report.png)
 
-This milestone marks the achievement of **"Zero-G" Silicon Telemetry**—the total elimination of friction between AI reasoning and hardware diagnostics.
- 
-- **Zero-G Redirection Engine**: Implemented silent, high-fidelity hijacking of legacy shell commands into native `inspect_host` lanes. The agent no longer "searches" for tools; it is steered into them with zero latency and zero security interruptions.
-- **Self-Healing Telemetry (Auto-Fallback)**: Engineered a "Zero-Failure" diagnostic path. If a benchmark target binary is missing or unreachable, the engine automatically pivots to its own memory space to provide real-time hardware intensity data. The report *never* fails.
-- **Forensic X-Ray Vision**: Granted the file engine the ability to "pierce" hidden system segments (`.hematite`, `.git`) during diagnostics. This allows for deep-repo forensics that were previously blocked by standard safety filters.
-- **Agentic Liberation**: Reclassified read-only system metadata probes (`Get-Item`, `Test-Path`, `Select-Object`) as `RiskLevel::Safe`. This eliminates security friction during routine audits and environment-based debugging.
- 
+A batch of hardening work landed in April 2026 that made the host inspection layer significantly more reliable:
+
+- **Shell-to-inspect_host redirection**: raw diagnostic shell commands (`Get-Process`, `arp -a`, `netstat`) are silently redirected to the appropriate `inspect_host` topic. The model gets structured output instead of raw command text.
+- **Disk benchmark auto-fallback**: if the requested benchmark target path is missing, `inspect_host(topic: "disk_benchmark")` automatically benchmarks the running binary's drive instead of failing.
+- **Whitelisted read-only probes**: `Get-Item`, `Test-Path`, and `Select-Object` are classified as safe in `guard.rs` — no approval prompt for routine metadata checks during audits.
+
 ---
- 
- ## Telemetry-Driven Implementation
- 
- Hematite enables a closed-loop synthesis model where the AI uses real-time hardware telemetry to substantiate its architectural recommendations. Instead of writing code in a "software vacuum," the agent can now benchmark the machine it is running on to inform its implementation strategy.
- 
- ### The "Consumer 4070" Baseline
- Hematite is engineered and tested against a formal development baseline: **RTX 4070 (12GB VRAM) / 32GB RAM**. 
- - **Local Profile-Guided Optimization**: The agent can detect if local SSD latency is the bottleneck and suggest `mmap` (memory-mapping) over synchronous file I/O based on current idle RAM.
- - **Hardware-Aware Memory Budgeting**: The agent can verify the VRAM footprint of its own sandbox or build process, ensuring implemented features respect the constraints of consumer-grade hardware.
- - **Environment-Based Debugging**: When a test fails, the agent can audit the **Hardware DNA** (e.g., Hyper-V/SLAT state or thermal throttling) to determine if the failure is a code bug or an environmental constraint.
+
+## Hardware-Aware Implementation
+
+Hematite is engineered and tested against a concrete hardware baseline: **RTX 4070 (12GB VRAM) / 32GB RAM**. The agent can use live hardware telemetry to inform implementation decisions:
+
+- The agent can detect SSD latency as a bottleneck and suggest `mmap` over synchronous I/O based on real disk queue depth.
+- The agent can verify VRAM footprint of a build or sandbox process against the known 12GB ceiling.
+- When a test fails, the agent can inspect Hardware DNA (Hyper-V/SLAT state, thermal state) to distinguish a code bug from an environment constraint.
 
 ### Flex Your Capabilities
 Because of Hematite's **Harness Pre-Run**, you can trigger an entire IT audit with a single sentence. Hematite will execute multiple precision tools in parallel before it even starts its reasoning turn.
@@ -733,7 +727,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
 
-| `inspect_host` | 56 read-only topics spanning the full SysAdmin, Network Admin, security, and developer tooling stack. **SysAdmin:** PATH, toolchains, OS config, resource load, processes, services, ports, storage, hardware DNA, health report, fix plans, log errors, startup items, Windows Update, security posture, pending reboot, drive SMART health, battery, crash/BSOD history, scheduled tasks, dev conflicts, drive encryption, RDP, shadow copies, page file, Windows features, printers, WinRM, local user accounts (`user_accounts`), Windows audit policy (`audit_policy`), SMB shares + security settings (`shares`). **Network Admin:** connectivity, Wi-Fi, active connections, VPN, proxy, firewall rules, traceroute, DNS cache, configured DNS nameservers (`dns_servers`), ARP table, routing table, interface throughput (`network_stats`), UDP listeners. **Security:** Group Policy (`gpo`), certificates, system integrity, domain join status. **Developer tooling:** environment variables, hosts file, Docker, WSL, SSH config + keys, installed software, global git config, running database engines (`databases`). |
+| `inspect_host` | 69 read-only topics spanning the full SysAdmin, Network Admin, security, and developer tooling stack. **SysAdmin:** PATH, toolchains, OS config, resource load, processes, services, ports, storage, hardware DNA, health report, fix plans, log errors, startup items, Windows Update, security posture, pending reboot, drive SMART health, battery, crash/BSOD history, scheduled tasks, dev conflicts, drive encryption, RDP, shadow copies, page file, Windows features, printers, WinRM, local user accounts (`user_accounts`), Windows audit policy (`audit_policy`), SMB shares + security settings (`shares`). **Network Admin:** connectivity, Wi-Fi, active connections, VPN, proxy, firewall rules, traceroute, DNS cache, configured DNS nameservers (`dns_servers`), ARP table, routing table, interface throughput (`network_stats`), UDP listeners. **Security:** Group Policy (`gpo`), certificates, system integrity, domain join status. **Developer tooling:** environment variables, hosts file, Docker, WSL, SSH config + keys, installed software, global git config, running database engines (`databases`). |
 | `resolve_host_issue` | Safe, user-gated remediation actions: `install_package` (winget), `restart_service`, and `clear_temp`. |
 | `shell` | Run PowerShell commands with timeout and output capping |
 | `research_web` | Run zero-cost technical web searches for docs, API changes, and debugging leads |
@@ -748,7 +742,7 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `run_code` | Execute JavaScript/TypeScript (Deno) or Python in a zero-trust sandbox — real output, not model guesses |
 | `clarify` | Ask the user a question when genuinely blocked |
 
-Use `inspect_host` first for any SysAdmin, Network Admin, or developer tooling question. It covers 56 read-only topics grounded in real tool output: the full OS stack (hardware, health, processes, services, security, storage, crash history, GPO, certs, integrity, domain), the full network stack (connectivity, Wi-Fi, VPN, proxy, firewall, traceroute, DNS, ARP, routing), and the developer tooling layer (environment variables, hosts file, Docker, WSL, SSH, installed software, global git config). When you ask about multiple topics at once, the harness runs all inspect_host calls automatically before the model turn and injects combined results as context — no redundant tool calls. `shell` is still available for the cases that genuinely need a custom command.
+Use `inspect_host` first for any SysAdmin, Network Admin, or developer tooling question. It covers 69 read-only topics grounded in real tool output: the full OS stack (hardware, health, processes, services, security, storage, crash history, GPO, certs, integrity, domain), the full network stack (connectivity, Wi-Fi, VPN, proxy, firewall, traceroute, DNS, ARP, routing), and the developer tooling layer (environment variables, hosts file, Docker, WSL, SSH, installed software, global git config). When you ask about multiple topics at once, the harness runs all inspect_host calls automatically before the model turn and injects combined results as context — no redundant tool calls. `shell` is still available for the cases that genuinely need a custom command.
 
 ---
 

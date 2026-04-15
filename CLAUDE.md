@@ -67,12 +67,35 @@ pwsh ./clean.ps1
 - `/read-only [prompt]`: sticky hard no-mutation mode
 - `/teach [prompt]`: sticky teacher mode — inspects real machine state first, then delivers a grounded numbered walkthrough for any admin/config/system task; does not execute write operations itself
 - `/auto`: return to the narrowest-effective workflow mode
+- `/chat [prompt]`: sticky conversational mode — lighter prompt, no coding scaffolding, tools still available
+- `/agent`: alias for returning to the full coding agent mode from chat
+- `/think [prompt]`: enable extended reasoning (thinking tokens) for the next turn or sticky
+- `/no_think [prompt]`: disable thinking tokens — faster, lower token cost
+- `/gemma-native`: toggle Gemma 4 native tool markup on/off manually (auto-detected by default)
+- `/swarm`: trigger parallel worker agents
+- `/worktree [branch]`: create or switch to a git worktree for isolated branch work
+- `/lsp`: show LSP server status and active language server diagnostics
+- `/reroll`: hatch a new companion soul mid-session (soul/personality reroll)
+- `/runtime-refresh`: force a resync of the LM Studio model profile and context window size
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
+- `/vein-reset`: wipe the Vein index and rebuild from scratch on the next turn
 - `/workspace-profile`: inspect the auto-generated workspace profile
+- `/diff`: show a diff of the last file edit made this session
+- `/undo`: undo the last file edit by restoring from the ghost backup
+- `/health`: run a quick workstation health check via `inspect_host(topic: "health_report")`
+- `/explain [prompt]`: explain the current file or selection in plain English
 - `/version`: show the running Hematite release version plus build state
 - `/about`: show author, repo, and product info
 - `hematite --version`: print the same build report from the CLI
-- `/swarm`: trigger parallel worker agents
+- `/copy`: copy the session transcript manually
+- `/copy-clean`: copy the transcript with tool calls stripped — prose only
+- `/copy-last`: copy only the last assistant response
+- `/clear`: clear visible dialogue and side-panel session state
+- `/attach <path>`: attach a PDF, markdown, or text file as context for the next message then clear
+- `/attach-pick`: open a file picker to select a document attachment
+- `/image <path>`: attach an image for the next message via the vision path
+- `/image-pick`: open a file picker to select an image attachment
+- `/detach`: drop any pending document or image attachment without sending
 
 Requires LM Studio running locally with a model loaded and the server started on port `1234`.
 
@@ -145,6 +168,24 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Audit Policy**: Use `topic: "audit_policy"` for Windows audit policy (auditpol /get /category:*) — shows which event categories are logging Success/Failure. Flags if no categories are enabled. Requires Administrator elevation on Windows; falls back to auditd on Linux.
 - **Shares**: Use `topic: "shares"` for SMB shares this machine is exposing (flags custom non-admin shares), SMB server security settings (SMB1/SMB2 state, signing required, encryption), and mapped network drives. Warns if SMB1 is enabled.
 - **DNS Servers**: Use `topic: "dns_servers"` for the DNS resolvers configured per network adapter (not cache — the actual configured nameservers), annotated with well-known providers (Google, Cloudflare, Quad9, OpenDNS), DoH configuration, and DNS search suffix list.
+- **Summary**: Use `topic: "summary"` (the default when no topic is given) for a general host overview — OS, hostname, uptime, CPU/RAM snapshot, disk health flag, and active network adapters.
+- **Toolchains**: Use `topic: "toolchains"` for installed developer tools — detects Rust, Node, Python, Go, Java, Docker, Git, and other common toolchain binaries with versions.
+- **PATH**: Use `topic: "path"` for PATH entry analysis — lists all entries, flags duplicates, missing directories, and shadowed binaries.
+- **Environment Doctor**: Use `topic: "env_doctor"` for a full developer environment health check — PATH sanity, package manager conflicts, toolchain version mismatches, and missing expected tools.
+- **Fix Plan**: Use `topic: "fix_plan"` for a grounded, step-by-step remediation plan for a reported issue. Pass `issue` arg with the problem description; the harness inspects relevant machine state and returns an actionable numbered plan.
+- **Network Overview**: Use `topic: "network"` for a general network snapshot — adapter list, IP addresses, default gateway, and active connection count.
+- **Processes**: Use `topic: "processes"` for running processes ranked by CPU/RAM with PID, name, memory MB, CPU %, and real-time I/O R/W operation counts.
+- **Services**: Use `topic: "services"` for Windows/Linux service states — name, status (Running/Stopped), startup type, and description.
+- **Ports**: Use `topic: "ports"` for listening TCP/UDP ports — local address, port number, owning process name and PID.
+- **Log Check**: Use `topic: "log_check"` for recent system error/warning events from the Windows Event Log or journald — application and system log tails with severity.
+- **Startup Items**: Use `topic: "startup_items"` (aliases: `startup`, `boot`, `autorun`) for programs and scripts that run at login — registry run keys, startup folder entries, and scheduled task autorun items.
+- **OS Config**: Use `topic: "os_config"` for OS-level configuration — Windows edition, build, activation status, power plan, UAC level, and system locale.
+- **Resource Load**: Use `topic: "resource_load"` (aliases: `performance`, `system_load`) for live CPU and RAM utilization with top resource consumers by process.
+- **Repo Doctor**: Use `topic: "repo_doctor"` to inspect workspace health — git status, uncommitted changes, branch state, remote tracking, and basic build-file presence (Cargo.toml, package.json, etc.).
+- **Disk Benchmark**: Use `topic: "disk_benchmark"` (aliases: `stress_test`, `io_intensity`) for sequential read/write throughput and latency measurements on the workspace drive. Accepts optional `path` arg; falls back to the running binary's drive if the path is not found.
+- **Desktop / Downloads**: Use `topic: "desktop"` or `topic: "downloads"` to list files in the user's Desktop or Downloads directory — names, sizes, and modification dates.
+- **Disk**: Use `topic: "disk"` with a `path` arg to inspect a specific disk path — free space, filesystem type, and usage.
+- **Directory**: Use `topic: "directory"` with a required `path` arg to list any arbitrary directory — file names, sizes, and modification dates.
 - **Teacher Mode (`/teach`)**: Activates a grounded walkthrough mode for write/admin tasks Hematite cannot safely execute itself. Protocol: (1) call `inspect_host` with the relevant topic(s) to observe actual machine state, (2) deliver a numbered step-by-step tutorial referencing real observed state — exact commands, exact paths, exact values. Does NOT execute write operations. Covers:
 - **SysAdmin Diagnostics**: `inspect_host` (topic=network, services, processes, ports, log_check, startup_items, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, connections, etc.)
 - **Kernel-Aware Triage Trio**: `topic=device_health` (PnP errors), `topic=drivers` (active audit), `topic=peripherals` (USB/HID tree).
