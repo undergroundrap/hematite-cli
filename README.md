@@ -81,6 +81,7 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 - **Honest about hardware** — VRAM usage in the status bar, context budget visible, compaction triggered before you hit the ceiling. No silent failures.
 - **Zero ongoing cost** — no API key, no subscription, no per-token billing. Run it all day.
 - **Private by default** — nothing leaves your machine. No telemetry, no cloud fallback.
+- **Architected for local models, not cloud models** — cloud harnesses like Claude Code are designed around models with 200K token context that can hold complex multi-step plans in memory and call multiple tools simultaneously. Hematite is engineered for the opposite constraint: sequential tool execution by design gives a 9B model full context of each result before deciding the next step, harness-level orchestration (swarm, harness pre-run) handles parallelism without the model having to coordinate it, and tight scaffolding compensates for what a smaller model cannot reliably do on its own. A cloud-style harness on a local 9B model does not perform better — it performs worse, because the model is not large enough to benefit from the assumptions baked into it.
 
 **Windows is the primary development target.** PowerShell integration, path handling, shell behavior, and sandbox isolation receive the most polish there. Linux and macOS are supported.
 
@@ -302,26 +303,31 @@ Because of Hematite's **Harness Pre-Run**, you can trigger an entire IT audit wi
 
 There are several tools in this space. Here is what each one actually requires and what it actually does.
 
-| | **Hematite** | **Aider** | **Continue** | **AnythingLLM / Jan** | **Open Interpreter** |
-|---|---|---|---|---|---|
-| **Install** | Single `.exe`, no runtime | `pip install aider` + Python 3.10+ | VS Code/JetBrains extension | Electron installer (200–400 MB) | `pip install open-interpreter` + Python |
-| **Local models** | First-class (LM Studio, Ollama) | Supported but secondary | Supported | Supported | Supported but secondary |
-| **Cloud-first** | No | Yes (GPT-4/Claude default) | No | No | Yes (GPT-4 default) |
-| **Cost** | Free, offline | Free tool, pay per token if cloud | Free | Free | Free tool, pay per token if cloud |
-| **Windows quality** | Native, tested, CRLF-safe | Workable, Linux-first design | IDE-dependent | Electron (cross-platform) | Workable |
-| **Codebase RAG** | Built-in (BM25 + semantic) | No | Basic | Basic | No |
-| **Voice / TTS** | Built-in, 54 voices, offline | No | No | No | No |
-| **Chat mode** | Yes (agent + clean chat) | No (agent only) | Yes (IDE chat) | Yes (browser UI) | No |
-| **Idle RAM** | ~30 MB | ~50 MB | IDE overhead | 200–500 MB (Electron) | ~80 MB |
-| **Build verification** | Built-in, error recovery loop | Git-diff focused | No | No | Ad hoc shell |
-| **Code execution** | Sandboxed JS + Python (zero-trust) | No | No | No | Yes (primary feature) |
-| **Image / doc attach** | Yes (`Ctrl+I`, `/image`, `/attach`) | No | No | Yes (UI upload) | No |
-| **PDF ingestion** | Best-effort (text PDFs) | No | No | Full (Electron + dependencies) | No |
-| **Diff preview** | Yes — Y/N before every edit, `+N -N` in chat | Yes (Aider's core feature) | No | No | No |
-| **Undo / ghost backup** | Built-in (`Ctrl+Z`) | Git-based | No | No | No |
-| **Offline** | Fully offline | Fully offline | Fully offline | Fully offline | Fully offline |
+| | **Hematite** | **Claude Code** | **Aider** | **Continue** | **AnythingLLM / Jan** | **Open Interpreter** |
+|---|---|---|---|---|---|---|
+| **Install** | Single `.exe`, no runtime | `npm install -g @anthropic-ai/claude-code` | `pip install aider` + Python 3.10+ | VS Code/JetBrains extension | Electron installer (200–400 MB) | `pip install open-interpreter` + Python |
+| **Local models** | First-class (LM Studio, Ollama) | No — Anthropic API only | Supported but secondary | Supported | Supported | Supported but secondary |
+| **Cloud-first** | No | Yes — requires API key | Yes (GPT-4/Claude default) | No | No | Yes (GPT-4 default) |
+| **Cost** | Free, offline | Pay per token (Anthropic API) | Free tool, pay per token if cloud | Free | Free | Free tool, pay per token if cloud |
+| **Context window** | 8–32K (local hardware) | 200K (Claude) | Model-dependent | Model-dependent | Model-dependent | Model-dependent |
+| **Windows quality** | Native, tested, CRLF-safe | Good, cross-platform | Workable, Linux-first design | IDE-dependent | Electron (cross-platform) | Workable |
+| **Codebase RAG** | Built-in (BM25 + semantic) | No | No | Basic | Basic | No |
+| **SysAdmin / Network Admin** | 69 inspection topics, built-in | No | No | No | No | No |
+| **Voice / TTS** | Built-in, 54 voices, offline | No | No | No | No | No |
+| **Chat mode** | Yes (agent + clean chat) | Yes | No (agent only) | Yes (IDE chat) | Yes (browser UI) | No |
+| **Idle RAM** | ~30 MB | ~150 MB | ~50 MB | IDE overhead | 200–500 MB (Electron) | ~80 MB |
+| **Build verification** | Built-in, error recovery loop | Built-in | Git-diff focused | No | No | Ad hoc shell |
+| **Code execution** | Sandboxed JS + Python (zero-trust) | Yes (via shell) | No | No | No | Yes (primary feature) |
+| **Image / doc attach** | Yes (`Ctrl+I`, `/image`, `/attach`) | Yes | No | No | Yes (UI upload) | No |
+| **PDF ingestion** | Best-effort (text PDFs) | No | No | No | Full (Electron + dependencies) | No |
+| **Diff preview** | Yes — Y/N before every edit | Yes | Yes (Aider's core feature) | No | No | No |
+| **Undo / ghost backup** | Built-in (`Ctrl+Z`) | No | Git-based | No | No | No |
+| **Offline** | Fully offline | No — API required | Fully offline | Fully offline | Fully offline | Fully offline |
+| **Privacy** | Code never leaves machine | Sent to Anthropic | Sent to API provider | Sent to API provider | Local or sent to provider | Sent to API provider |
 
 ### The honest breakdown
+
+**Claude Code** is the most capable cloud harness in this category. It runs on Claude with 200K context, supports parallel tool calls within a single turn, and can spawn isolated subagents with git worktrees. If you have an Anthropic API key and your code can leave your machine, it is genuinely excellent at what it does. What it cannot do: run offline, use a local model, inspect your machine's hardware or network state, speak responses out loud, or run without per-token billing. It is also architected for large models — parallel tool dispatch and multi-agent coordination assume the model is big enough to plan and coordinate across simultaneous state. On a local 9B model, those assumptions work against you. Hematite's sequential tool loop and harness-level orchestration are deliberately designed for the local model constraint, not as a workaround for it.
 
 **Aider** is the closest real competitor in the terminal space. It's well-engineered and git-native. It does not have RAG, voice, a TUI, Windows-native polish, or built-in build verification. It assumes cloud models by default. If you're on Linux and already have Python, it's a solid choice for git-centric workflows. If you're on Windows, running local models, and want voice + codebase awareness, Hematite is the better fit.
 
