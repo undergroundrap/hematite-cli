@@ -444,7 +444,11 @@ fn classify_fix_plan_kind(issue: &str, port_filter: Option<u16>) -> FixPlanKind 
     if lower.contains("firewall rule")
         || lower.contains("inbound rule")
         || lower.contains("outbound rule")
-        || (lower.contains("firewall") && (lower.contains("allow") || lower.contains("block") || lower.contains("create") || lower.contains("open")))
+        || (lower.contains("firewall")
+            && (lower.contains("allow")
+                || lower.contains("block")
+                || lower.contains("create")
+                || lower.contains("open")))
     {
         FixPlanKind::FirewallRule
     } else if port_filter.is_some()
@@ -805,7 +809,9 @@ fn inspect_driver_install_fix_plan(issue: &str) -> Result<String, String> {
     }
     out.push_str("\nFix plan — Installing or updating GPU drivers:\n");
     out.push_str("1. Identify your GPU make from the detection above (NVIDIA, AMD, or Intel).\n");
-    out.push_str("2. Open Device Manager: press Win+X → Device Manager → expand Display Adapters.\n");
+    out.push_str(
+        "2. Open Device Manager: press Win+X → Device Manager → expand Display Adapters.\n",
+    );
     out.push_str("3. Right-click your GPU → Properties → Driver tab — note the current driver version and date.\n");
     out.push_str("4. Download the latest driver directly from the manufacturer:\n");
     out.push_str("   - NVIDIA: geforce.com/drivers (use GeForce Experience for auto-detection)\n");
@@ -846,13 +852,22 @@ fn inspect_group_policy_fix_plan(issue: &str) -> Result<String, String> {
     let mut out = String::from("Host inspection: fix_plan\n\n");
     out.push_str(&format!("- Requested issue: {}\n", issue));
     out.push_str("- Fix-plan type: group_policy\n");
-    out.push_str(&format!("- Windows edition detected: {}\n", if edition.is_empty() { "unknown".to_string() } else { edition.clone() }));
+    out.push_str(&format!(
+        "- Windows edition detected: {}\n",
+        if edition.is_empty() {
+            "unknown".to_string()
+        } else {
+            edition.clone()
+        }
+    ));
 
     if is_home {
         out.push_str("\nWARNING: Windows Home does not include the Local Group Policy Editor (gpedit.msc).\n");
         out.push_str("Options on Home edition:\n");
         out.push_str("1. Use the Registry Editor (regedit) as an alternative — most Group Policy settings map to registry keys under HKLM\\SOFTWARE\\Policies or HKCU\\SOFTWARE\\Policies.\n");
-        out.push_str("2. Install the gpedit.msc enabler script (third-party — use with caution).\n");
+        out.push_str(
+            "2. Install the gpedit.msc enabler script (third-party — use with caution).\n",
+        );
         out.push_str("3. Upgrade to Windows Pro if you need full Group Policy support.\n");
     } else {
         out.push_str("\nFix plan — Editing Local Group Policy:\n");
@@ -865,7 +880,9 @@ fn inspect_group_policy_fix_plan(issue: &str) -> Result<String, String> {
     }
     out.push_str("\nVerification:\n");
     out.push_str("- Run `gpresult /r` in an elevated command prompt to see applied policies.\n");
-    out.push_str("- Or: `Get-GPResultantSetOfPolicy` in PowerShell (requires RSAT on domain machines).\n");
+    out.push_str(
+        "- Or: `Get-GPResultantSetOfPolicy` in PowerShell (requires RSAT on domain machines).\n",
+    );
     out.push_str("\nWhy this works:\nGroup Policy writes settings to well-known registry paths that Windows reads at logon and on policy refresh cycles. gpupdate /force triggers an immediate refresh without requiring a restart.");
     Ok(out.trim_end().to_string())
 }
@@ -927,7 +944,10 @@ fn inspect_ssh_key_fix_plan(issue: &str) -> Result<String, String> {
     out.push_str(&format!("- ~/.ssh directory exists: {}\n", has_ssh_dir));
     out.push_str(&format!("- id_ed25519 key found: {}\n", has_ed25519));
     out.push_str(&format!("- id_rsa key found: {}\n", has_rsa));
-    out.push_str(&format!("- authorized_keys found: {}\n", has_authorized_keys));
+    out.push_str(&format!(
+        "- authorized_keys found: {}\n",
+        has_authorized_keys
+    ));
 
     if has_ed25519 {
         out.push_str("\nYou already have an Ed25519 key. If you want to use it, skip to the 'Add to agent' step.\n");
@@ -937,7 +957,9 @@ fn inspect_ssh_key_fix_plan(issue: &str) -> Result<String, String> {
     out.push_str("1. Open PowerShell (or Terminal) — no elevation needed.\n");
     out.push_str("2. Generate an Ed25519 key (preferred over RSA):\n");
     out.push_str("   ssh-keygen -t ed25519 -C \"your@email.com\"\n");
-    out.push_str("   - Accept the default path (~/.ssh/id_ed25519) unless you need a custom name.\n");
+    out.push_str(
+        "   - Accept the default path (~/.ssh/id_ed25519) unless you need a custom name.\n",
+    );
     out.push_str("   - Set a passphrase (recommended) or press Enter twice for no passphrase.\n");
     out.push_str("3. Start the SSH agent and add your key:\n");
     out.push_str("   # Windows (PowerShell, run as Admin once to enable the service):\n");
@@ -979,7 +1001,8 @@ fn inspect_wsl_setup_fix_plan(issue: &str) -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     let wsl_status = String::new();
 
-    let wsl_installed = !wsl_status.is_empty() && !wsl_status.to_lowercase().contains("not installed");
+    let wsl_installed =
+        !wsl_status.is_empty() && !wsl_status.to_lowercase().contains("not installed");
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
     out.push_str(&format!("- Requested issue: {}\n", issue));
@@ -1082,7 +1105,10 @@ fn inspect_service_config_fix_plan(issue: &str) -> Result<String, String> {
     out.push_str("\nVerification:\n");
     out.push_str("  Get-Service -Name \"ServiceName\" | Select-Object Name,Status,StartType\n");
     if let Some(svc) = service_hint {
-        out.push_str(&format!("\nFor your detected service ({}):\n  Get-Service -Name '{}'\n", svc, svc));
+        out.push_str(&format!(
+            "\nFor your detected service ({}):\n  Get-Service -Name '{}'\n",
+            svc, svc
+        ));
     }
     out.push_str("\nWhy this works:\nPowerShell's service cmdlets talk directly to the Windows Service Control Manager (SCM) — the same authority that manages auto-start, stop, and dependency resolution for all registered Windows services.");
     Ok(out.trim_end().to_string())
@@ -1115,11 +1141,16 @@ fn inspect_windows_activation_fix_plan(issue: &str) -> Result<String, String> {
     out.push_str(&format!("- Requested issue: {}\n", issue));
     out.push_str("- Fix-plan type: windows_activation\n");
     if !activation_status.is_empty() {
-        out.push_str(&format!("- Current activation state:\n{}\n", activation_status));
+        out.push_str(&format!(
+            "- Current activation state:\n{}\n",
+            activation_status
+        ));
     }
 
     if is_licensed {
-        out.push_str("\nWindows appears to be activated. If you are still seeing activation prompts, try:\n");
+        out.push_str(
+            "\nWindows appears to be activated. If you are still seeing activation prompts, try:\n",
+        );
         out.push_str("1. Run in elevated PowerShell: slmgr /ato\n");
         out.push_str("   (Forces an online activation attempt)\n");
         out.push_str("2. Check activation details: slmgr /dli\n");
@@ -1151,7 +1182,9 @@ fn inspect_registry_edit_fix_plan(issue: &str) -> Result<String, String> {
     let mut out = String::from("Host inspection: fix_plan\n\n");
     out.push_str(&format!("- Requested issue: {}\n", issue));
     out.push_str("- Fix-plan type: registry_edit\n");
-    out.push_str("\nCAUTION: Registry edits affect core Windows behavior. Always back up before editing.\n");
+    out.push_str(
+        "\nCAUTION: Registry edits affect core Windows behavior. Always back up before editing.\n",
+    );
     out.push_str("\nFix plan — Safely editing the Windows Registry:\n");
     out.push_str("\n1. Back up before you touch anything:\n");
     out.push_str("   # Export the key you're about to change (PowerShell):\n");
@@ -1161,7 +1194,9 @@ fn inspect_registry_edit_fix_plan(issue: &str) -> Result<String, String> {
     out.push_str("\n2. Read a value (PowerShell, no elevation needed for HKCU):\n");
     out.push_str("   Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\MyKey' -Name 'MyValue'\n");
     out.push_str("\n3. Create or update a DWORD value (PowerShell, Admin for HKLM):\n");
-    out.push_str("   Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\MyKey' -Name 'MyValue' -Value 1 -Type DWord\n");
+    out.push_str(
+        "   Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\MyKey' -Name 'MyValue' -Value 1 -Type DWord\n",
+    );
     out.push_str("\n4. Create a new key:\n");
     out.push_str("   New-Item -Path 'HKLM:\\SOFTWARE\\MyNewKey' -Force\n");
     out.push_str("\n5. Delete a value:\n");
@@ -1192,7 +1227,9 @@ fn inspect_scheduled_task_fix_plan(issue: &str) -> Result<String, String> {
     out.push_str("  Register-ScheduledTask -TaskName 'MyStartupTask' -Action $action -Trigger $trigger -RunLevel Highest\n");
     out.push_str("\nExample: Run at user logon\n");
     out.push_str("  $trigger = New-ScheduledTaskTrigger -AtLogon\n");
-    out.push_str("  Register-ScheduledTask -TaskName 'MyLogonTask' -Action $action -Trigger $trigger\n");
+    out.push_str(
+        "  Register-ScheduledTask -TaskName 'MyLogonTask' -Action $action -Trigger $trigger\n",
+    );
     out.push_str("\nExample: Run every 30 minutes\n");
     out.push_str("  $trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 30) -Once -At (Get-Date)\n");
     out.push_str("\nView all tasks:\n");
@@ -1244,17 +1281,23 @@ fn inspect_disk_cleanup_fix_plan(issue: &str) -> Result<String, String> {
     out.push_str("   Start-Service wuauserv\n");
     out.push_str("\n3. Clear Windows Temp folder:\n");
     out.push_str("   Remove-Item $env:TEMP\\* -Recurse -Force -ErrorAction SilentlyContinue\n");
-    out.push_str("   Remove-Item C:\\Windows\\Temp\\* -Recurse -Force -ErrorAction SilentlyContinue\n");
+    out.push_str(
+        "   Remove-Item C:\\Windows\\Temp\\* -Recurse -Force -ErrorAction SilentlyContinue\n",
+    );
     out.push_str("\n4. Developer cache directories (often the biggest culprits):\n");
     out.push_str("   - Rust build artifacts: cargo clean  (inside each project)\n");
     out.push_str("   - npm cache:  npm cache clean --force\n");
     out.push_str("   - pip cache:  pip cache purge\n");
-    out.push_str("   - Docker:     docker system prune -a  (removes all unused images/containers)\n");
+    out.push_str(
+        "   - Docker:     docker system prune -a  (removes all unused images/containers)\n",
+    );
     out.push_str("   - Cargo registry cache: Remove-Item ~\\.cargo\\registry -Recurse -Force  (will redownload on next build)\n");
     out.push_str("\n5. Check for large files:\n");
     out.push_str("   Get-ChildItem C:\\ -Recurse -ErrorAction SilentlyContinue | Sort-Object Length -Descending | Select-Object -First 20 FullName,@{N='MB';E={[Math]::Round($_.Length/1MB,1)}}\n");
     out.push_str("\nVerification:\n");
-    out.push_str("  Get-PSDrive C | Select-Object @{N='Free_GB';E={[Math]::Round($_.Free/1GB,1)}}\n");
+    out.push_str(
+        "  Get-PSDrive C | Select-Object @{N='Free_GB';E={[Math]::Round($_.Free/1GB,1)}}\n",
+    );
     out.push_str("\nWhy this works:\nWindows accumulates update packages, temp files, and developer build artifacts over months. Targeting those specific locations gives the most space back with the least risk of breaking anything.");
     Ok(out.trim_end().to_string())
 }
@@ -3890,7 +3933,9 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
                     out.push_str(&format!("  Average Disk Queue Length: {text}\n"));
                     if let Ok(q) = text.parse::<f64>() {
                         if q > 2.0 {
-                            out.push_str("  [!] WARNING: High disk latency detected (Queue Length > 2.0)\n");
+                            out.push_str(
+                                "  [!] WARNING: High disk latency detected (Queue Length > 2.0)\n",
+                            );
                         } else {
                             out.push_str("  [~] Disk latency is within healthy bounds.\n");
                         }
@@ -5346,12 +5391,18 @@ try {
     if ($r) { "REACHABLE" } else { "UNREACHABLE" }
 } catch { "ERROR:" + $_.Exception.Message }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", inet_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", inet_script])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
             match text.as_str() {
                 "REACHABLE" => out.push_str("Internet: reachable\n"),
                 "UNREACHABLE" => out.push_str("Internet: unreachable [!]\n"),
-                _ => out.push_str(&format!("Internet: {}\n", text.trim_start_matches("ERROR:").trim())),
+                _ => out.push_str(&format!(
+                    "Internet: {}\n",
+                    text.trim_start_matches("ERROR:").trim()
+                )),
             }
         }
 
@@ -5361,7 +5412,10 @@ try {
     "DNS:ok"
 } catch { "DNS:fail:" + $_.Exception.Message }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", dns_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", dns_script])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
             if text == "DNS:ok" {
                 out.push_str("DNS: resolving correctly\n");
@@ -5374,7 +5428,10 @@ try {
         let gw_script = r#"
 (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -First 1).NextHop
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", gw_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", gw_script])
+            .output()
+        {
             let gw = String::from_utf8_lossy(&o.stdout).trim().to_string();
             if !gw.is_empty() && gw != "0.0.0.0" {
                 out.push_str(&format!("Default gateway: {}\n", gw));
@@ -5384,13 +5441,30 @@ try {
 
     #[cfg(not(target_os = "windows"))]
     {
-        let reachable = Command::new("ping").args(["-c", "1", "-W", "2", "8.8.8.8"]).output()
-            .map(|o| o.status.success()).unwrap_or(false);
-        out.push_str(if reachable { "Internet: reachable\n" } else { "Internet: unreachable\n" });
-        let dns_ok = Command::new("getent").args(["hosts", "dns.google"]).output()
-            .map(|o| o.status.success()).unwrap_or(false);
-        out.push_str(if dns_ok { "DNS: resolving correctly\n" } else { "DNS: failed\n" });
-        if let Ok(o) = Command::new("ip").args(["route", "show", "default"]).output() {
+        let reachable = Command::new("ping")
+            .args(["-c", "1", "-W", "2", "8.8.8.8"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        out.push_str(if reachable {
+            "Internet: reachable\n"
+        } else {
+            "Internet: unreachable\n"
+        });
+        let dns_ok = Command::new("getent")
+            .args(["hosts", "dns.google"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        out.push_str(if dns_ok {
+            "DNS: resolving correctly\n"
+        } else {
+            "DNS: failed\n"
+        });
+        if let Ok(o) = Command::new("ip")
+            .args(["route", "show", "default"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             if let Some(line) = text.lines().next() {
                 out.push_str(&format!("Default gateway: {}\n", line.trim()));
@@ -5408,7 +5482,9 @@ fn inspect_wifi() -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        let output = Command::new("netsh").args(["wlan", "show", "interfaces"]).output()
+        let output = Command::new("netsh")
+            .args(["wlan", "show", "interfaces"])
+            .output()
             .map_err(|e| format!("wifi: {e}"))?;
         let text = String::from_utf8_lossy(&output.stdout).to_string();
 
@@ -5449,14 +5525,25 @@ fn inspect_wifi() -> Result<String, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        if let Ok(o) = Command::new("nmcli").args(["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"]).output() {
+        if let Ok(o) = Command::new("nmcli")
+            .args(["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout).to_string();
             let lines: Vec<&str> = text.lines().filter(|l| l.contains(":wifi:")).collect();
-            if lines.is_empty() { out.push_str("No Wi-Fi devices found.\n"); }
-            else { for l in lines { out.push_str(&format!("  {l}\n")); } }
+            if lines.is_empty() {
+                out.push_str("No Wi-Fi devices found.\n");
+            } else {
+                for l in lines {
+                    out.push_str(&format!("  {l}\n"));
+                }
+            }
         } else if let Ok(o) = Command::new("iwconfig").output() {
             let text = String::from_utf8_lossy(&o.stdout).to_string();
-            if !text.trim().is_empty() { out.push_str(text.trim()); out.push('\n'); }
+            if !text.trim().is_empty() {
+                out.push_str(text.trim());
+                out.push('\n');
+            }
         } else {
             out.push_str("No wireless tool available (install nmcli or wireless-tools).\n");
         }
@@ -5473,7 +5560,8 @@ fn inspect_connections(max_entries: usize) -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        let script = format!(r#"
+        let script = format!(
+            r#"
 try {{
     $procs = @{{}}
     Get-Process -ErrorAction SilentlyContinue | ForEach-Object {{ $procs[$_.Id] = $_.Name }}
@@ -5484,7 +5572,8 @@ try {{
         $pname = if ($procs.ContainsKey($_.OwningProcess)) {{ $procs[$_.OwningProcess] }} else {{ "pid:" + $_.OwningProcess }}
         $pname + "|" + $_.LocalAddress + ":" + $_.LocalPort + "|" + $_.RemoteAddress + ":" + $_.RemotePort
     }}
-}} catch {{ "ERROR:" + $_.Exception.Message }}"#);
+}} catch {{ "ERROR:" + $_.Exception.Message }}"#
+        );
 
         let output = Command::new("powershell")
             .args(["-NoProfile", "-Command", &script])
@@ -5514,18 +5603,30 @@ try {{
                 }
             }
             if total > n {
-                out.push_str(&format!("\n  ... {} more connections not shown\n", total.saturating_sub(n)));
+                out.push_str(&format!(
+                    "\n  ... {} more connections not shown\n",
+                    total.saturating_sub(n)
+                ));
             }
         }
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        if let Ok(o) = Command::new("ss").args(["-tnp", "state", "established"]).output() {
+        if let Ok(o) = Command::new("ss")
+            .args(["-tnp", "state", "established"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
-            let lines: Vec<&str> = text.lines().skip(1).filter(|l| !l.trim().is_empty()).collect();
+            let lines: Vec<&str> = text
+                .lines()
+                .skip(1)
+                .filter(|l| !l.trim().is_empty())
+                .collect();
             out.push_str(&format!("Established TCP connections: {}\n\n", lines.len()));
-            for line in lines.iter().take(n) { out.push_str(&format!("  {}\n", line.trim())); }
+            for line in lines.iter().take(n) {
+                out.push_str(&format!("  {}\n", line.trim()));
+            }
             if lines.len() > n {
                 out.push_str(&format!("\n  ... {} more not shown\n", lines.len() - n));
             }
@@ -5578,8 +5679,14 @@ try {
                     let desc = parts[1];
                     let status = parts[2];
                     let media = parts.get(3).unwrap_or(&"unknown");
-                    let label = if status.trim() == "Up" { "CONNECTED" } else { "disconnected" };
-                    out.push_str(&format!("  {name} [{label}]\n    {desc}\n    Status: {status} | Media: {media}\n\n"));
+                    let label = if status.trim() == "Up" {
+                        "CONNECTED"
+                    } else {
+                        "disconnected"
+                    };
+                    out.push_str(&format!(
+                        "  {name} [{label}]\n    {desc}\n    Status: {status} | Media: {media}\n\n"
+                    ));
                 }
             }
         }
@@ -5592,7 +5699,10 @@ try {
     else { "NO_RAS" }
 } catch { "NO_RAS" }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", ras_script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", ras_script])
+            .output()
+        {
             let t = String::from_utf8_lossy(&o.stdout).trim().to_string();
             if t != "NO_RAS" && !t.is_empty() {
                 out.push_str("Windows VPN connections:\n");
@@ -5613,14 +5723,19 @@ try {
     {
         if let Ok(o) = Command::new("ip").args(["link", "show"]).output() {
             let text = String::from_utf8_lossy(&o.stdout);
-            let vpn_ifaces: Vec<&str> = text.lines()
-                .filter(|l| l.contains("tun") || l.contains("tap") || l.contains(" wg") || l.contains("ppp"))
+            let vpn_ifaces: Vec<&str> = text
+                .lines()
+                .filter(|l| {
+                    l.contains("tun") || l.contains("tap") || l.contains(" wg") || l.contains("ppp")
+                })
                 .collect();
             if vpn_ifaces.is_empty() {
                 out.push_str("No VPN interfaces (tun/tap/wg/ppp) detected.\n");
             } else {
                 out.push_str(&format!("VPN-like interfaces ({}):\n", vpn_ifaces.len()));
-                for l in vpn_ifaces { out.push_str(&format!("  {}\n", l.trim())); }
+                for l in vpn_ifaces {
+                    out.push_str(&format!("  {}\n", l.trim()));
+                }
             }
         }
     }
@@ -5641,7 +5756,10 @@ if ($ie) {
     "ENABLE:" + $ie.ProxyEnable + "|SERVER:" + $ie.ProxyServer + "|OVERRIDE:" + $ie.ProxyOverride
 } else { "NONE" }
 "#;
-        if let Ok(o) = Command::new("powershell").args(["-NoProfile", "-Command", script]).output() {
+        if let Ok(o) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
             let raw = String::from_utf8_lossy(&o.stdout);
             let text = raw.trim();
             if text != "NONE" && !text.is_empty() {
@@ -5655,7 +5773,10 @@ if ($ie) {
                 let server = get("SERVER");
                 let overrides = get("OVERRIDE");
                 out.push_str("WinINET / IE proxy:\n");
-                out.push_str(&format!("  Enabled: {}\n", if enabled == "1" { "yes" } else { "no" }));
+                out.push_str(&format!(
+                    "  Enabled: {}\n",
+                    if enabled == "1" { "yes" } else { "no" }
+                ));
                 if !server.is_empty() && server != "None" {
                     out.push_str(&format!("  Proxy server: {server}\n"));
                 }
@@ -5666,43 +5787,77 @@ if ($ie) {
             }
         }
 
-        if let Ok(o) = Command::new("netsh").args(["winhttp", "show", "proxy"]).output() {
+        if let Ok(o) = Command::new("netsh")
+            .args(["winhttp", "show", "proxy"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
             out.push_str("WinHTTP proxy:\n");
             for line in text.lines() {
                 let l = line.trim();
-                if !l.is_empty() { out.push_str(&format!("  {l}\n")); }
+                if !l.is_empty() {
+                    out.push_str(&format!("  {l}\n"));
+                }
             }
             out.push('\n');
         }
 
         let mut env_found = false;
-        for var in &["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "no_proxy", "NO_PROXY"] {
+        for var in &[
+            "http_proxy",
+            "https_proxy",
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "no_proxy",
+            "NO_PROXY",
+        ] {
             if let Ok(val) = std::env::var(var) {
-                if !env_found { out.push_str("Environment proxy variables:\n"); env_found = true; }
+                if !env_found {
+                    out.push_str("Environment proxy variables:\n");
+                    env_found = true;
+                }
                 out.push_str(&format!("  {var}: {val}\n"));
             }
         }
-        if !env_found { out.push_str("No proxy environment variables set.\n"); }
+        if !env_found {
+            out.push_str("No proxy environment variables set.\n");
+        }
     }
 
     #[cfg(not(target_os = "windows"))]
     {
         let mut found = false;
-        for var in &["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "no_proxy", "NO_PROXY", "ALL_PROXY", "all_proxy"] {
+        for var in &[
+            "http_proxy",
+            "https_proxy",
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "no_proxy",
+            "NO_PROXY",
+            "ALL_PROXY",
+            "all_proxy",
+        ] {
             if let Ok(val) = std::env::var(var) {
-                if !found { out.push_str("Proxy environment variables:\n"); found = true; }
+                if !found {
+                    out.push_str("Proxy environment variables:\n");
+                    found = true;
+                }
                 out.push_str(&format!("  {var}: {val}\n"));
             }
         }
-        if !found { out.push_str("No proxy environment variables set.\n"); }
+        if !found {
+            out.push_str("No proxy environment variables set.\n");
+        }
         if let Ok(content) = std::fs::read_to_string("/etc/environment") {
-            let proxy_lines: Vec<&str> = content.lines()
+            let proxy_lines: Vec<&str> = content
+                .lines()
                 .filter(|l| l.to_lowercase().contains("proxy"))
                 .collect();
             if !proxy_lines.is_empty() {
                 out.push_str("\nSystem proxy (/etc/environment):\n");
-                for l in proxy_lines { out.push_str(&format!("  {l}\n")); }
+                for l in proxy_lines {
+                    out.push_str(&format!("  {l}\n"));
+                }
             }
         }
     }
@@ -5718,7 +5873,8 @@ fn inspect_firewall_rules(max_entries: usize) -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        let script = format!(r#"
+        let script = format!(
+            r#"
 try {{
     $rules = Get-NetFirewallRule -Enabled True -ErrorAction Stop |
         Where-Object {{
@@ -5731,7 +5887,8 @@ try {{
         $act = switch ($_.Action) {{ 2 {{ "Allow" }}; 4 {{ "Block" }}; default {{ "?" }} }}
         $_.DisplayName + "|" + $dir + "|" + $act + "|" + $_.Profile
     }}
-}} catch {{ "ERROR:" + $_.Exception.Message }}"#);
+}} catch {{ "ERROR:" + $_.Exception.Message }}"#
+        );
 
         let output = Command::new("powershell")
             .args(["-NoProfile", "-Command", &script])
@@ -5742,7 +5899,10 @@ try {{
         let text = raw.trim();
 
         if text.starts_with("ERROR:") {
-            out.push_str(&format!("Unable to query firewall rules: {}\n", text.trim_start_matches("ERROR:").trim()));
+            out.push_str(&format!(
+                "Unable to query firewall rules: {}\n",
+                text.trim_start_matches("ERROR:").trim()
+            ));
             out.push_str("This query may require running as administrator.\n");
         } else if text.is_empty() {
             out.push_str("No non-default enabled firewall rules found.\n");
@@ -5751,7 +5911,9 @@ try {{
             for line in text.lines() {
                 if let Some(rest) = line.strip_prefix("TOTAL:") {
                     total = rest.trim().parse().unwrap_or(0);
-                    out.push_str(&format!("Non-default enabled rules (showing up to {n}):\n\n"));
+                    out.push_str(&format!(
+                        "Non-default enabled rules (showing up to {n}):\n\n"
+                    ));
                 } else {
                     let parts: Vec<&str> = line.splitn(4, '|').collect();
                     if parts.len() >= 3 {
@@ -5760,7 +5922,9 @@ try {{
                         let action = parts[2];
                         let profile = parts.get(3).unwrap_or(&"Any");
                         let icon = if action == "Block" { "[!]" } else { "   " };
-                        out.push_str(&format!("  {icon} [{dir}] {action}: {name} (profile: {profile})\n"));
+                        out.push_str(&format!(
+                            "  {icon} [{dir}] {action}: {name} (profile: {profile})\n"
+                        ));
                     }
                 }
             }
@@ -5774,10 +5938,18 @@ try {{
     {
         if let Ok(o) = Command::new("ufw").args(["status", "numbered"]).output() {
             let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            if !text.is_empty() { out.push_str(&text); out.push('\n'); }
-        } else if let Ok(o) = Command::new("iptables").args(["-L", "-n", "--line-numbers"]).output() {
+            if !text.is_empty() {
+                out.push_str(&text);
+                out.push('\n');
+            }
+        } else if let Ok(o) = Command::new("iptables")
+            .args(["-L", "-n", "--line-numbers"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
-            for l in text.lines().take(n * 2) { out.push_str(&format!("  {l}\n")); }
+            for l in text.lines().take(n * 2) {
+                out.push_str(&format!("  {l}\n"));
+            }
         } else {
             out.push_str("ufw and iptables not available or insufficient permissions.\n");
         }
@@ -5868,15 +6040,17 @@ fn inspect_dns_cache(max_entries: usize) -> Result<String, String> {
         if total == 0 {
             out.push_str("DNS cache is empty or could not be read.\n");
         } else {
-            out.push_str(&format!("DNS cache entries (showing up to {n} of {total}):\n\n"));
+            out.push_str(&format!(
+                "DNS cache entries (showing up to {n} of {total}):\n\n"
+            ));
             let mut shown = 0usize;
             for line in lines.iter().take(n) {
                 let cols: Vec<&str> = line.splitn(4, ',').collect();
                 if cols.len() >= 3 {
                     let entry = cols[0].trim_matches('"');
                     let rtype = cols[1].trim_matches('"');
-                    let data  = cols[2].trim_matches('"');
-                    let ttl   = cols.get(3).map(|s| s.trim_matches('"')).unwrap_or("?");
+                    let data = cols[2].trim_matches('"');
+                    let ttl = cols.get(3).map(|s| s.trim_matches('"')).unwrap_or("?");
                     out.push_str(&format!("  {entry:<45} {rtype:<6} {data}  (TTL {ttl}s)\n"));
                     shown += 1;
                 }
@@ -5899,7 +6073,10 @@ fn inspect_dns_cache(max_entries: usize) -> Result<String, String> {
                 out.push('\n');
             }
         }
-        if let Ok(o) = Command::new("dscacheutil").args(["-cachedump", "-entries", "Host"]).output() {
+        if let Ok(o) = Command::new("dscacheutil")
+            .args(["-cachedump", "-entries", "Host"])
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
             if !text.is_empty() {
                 out.push_str("DNS cache (macOS dscacheutil):\n");
@@ -5910,7 +6087,9 @@ fn inspect_dns_cache(max_entries: usize) -> Result<String, String> {
                 out.push_str("DNS cache is empty or not accessible on this platform.\n");
             }
         } else {
-            out.push_str("DNS cache inspection not available (no resolvectl or dscacheutil found).\n");
+            out.push_str(
+                "DNS cache inspection not available (no resolvectl or dscacheutil found).\n",
+            );
         }
     }
 
@@ -5924,14 +6103,21 @@ fn inspect_arp() -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        let output = Command::new("arp").args(["-a"]).output().map_err(|e| format!("arp: {e}"))?;
+        let output = Command::new("arp")
+            .args(["-a"])
+            .output()
+            .map_err(|e| format!("arp: {e}"))?;
         let raw = String::from_utf8_lossy(&output.stdout);
         let mut count = 0usize;
         for line in raw.lines() {
             let t = line.trim();
-            if t.is_empty() { continue; }
+            if t.is_empty() {
+                continue;
+            }
             out.push_str(&format!("  {t}\n"));
-            if t.contains("dynamic") || t.contains("static") { count += 1; }
+            if t.contains("dynamic") || t.contains("static") {
+                count += 1;
+            }
         }
         out.push_str(&format!("\nTotal entries: {count}\n"));
     }
@@ -5943,7 +6129,10 @@ fn inspect_arp() -> Result<String, String> {
             let mut count = 0usize;
             for line in raw.lines() {
                 let t = line.trim();
-                if !t.is_empty() { out.push_str(&format!("  {t}\n")); count += 1; }
+                if !t.is_empty() {
+                    out.push_str(&format!("  {t}\n"));
+                    count += 1;
+                }
             }
             out.push_str(&format!("\nTotal entries: {}\n", count.saturating_sub(1)));
         } else if let Ok(o) = Command::new("ip").args(["neigh"]).output() {
@@ -5951,7 +6140,10 @@ fn inspect_arp() -> Result<String, String> {
             let mut count = 0usize;
             for line in raw.lines() {
                 let t = line.trim();
-                if !t.is_empty() { out.push_str(&format!("  {t}\n")); count += 1; }
+                if !t.is_empty() {
+                    out.push_str(&format!("  {t}\n"));
+                    count += 1;
+                }
             }
             out.push_str(&format!("\nTotal entries: {count}\n"));
         } else {
@@ -5990,22 +6182,35 @@ try {
         let text = raw.trim();
 
         if text.starts_with("ERROR:") {
-            out.push_str(&format!("Unable to read route table: {}\n", text.trim_start_matches("ERROR:").trim()));
+            out.push_str(&format!(
+                "Unable to read route table: {}\n",
+                text.trim_start_matches("ERROR:").trim()
+            ));
         } else {
             let mut shown = 0usize;
             for line in text.lines() {
                 if let Some(rest) = line.strip_prefix("TOTAL:") {
                     let total: usize = rest.trim().parse().unwrap_or(0);
-                    out.push_str(&format!("Routing table (showing up to {n} of {total} routes):\n\n"));
-                    out.push_str(&format!("  {:<22} {:<18} {:>8}  Interface\n", "Destination", "Next Hop", "Metric"));
+                    out.push_str(&format!(
+                        "Routing table (showing up to {n} of {total} routes):\n\n"
+                    ));
+                    out.push_str(&format!(
+                        "  {:<22} {:<18} {:>8}  Interface\n",
+                        "Destination", "Next Hop", "Metric"
+                    ));
                     out.push_str(&format!("  {}\n", "-".repeat(70)));
                 } else if shown < n {
                     let parts: Vec<&str> = line.splitn(4, '|').collect();
                     if parts.len() == 4 {
-                        let dest   = parts[0];
-                        let hop    = if parts[1].is_empty() || parts[1] == "0.0.0.0" || parts[1] == "::" { "on-link" } else { parts[1] };
+                        let dest = parts[0];
+                        let hop =
+                            if parts[1].is_empty() || parts[1] == "0.0.0.0" || parts[1] == "::" {
+                                "on-link"
+                            } else {
+                                parts[1]
+                            };
                         let metric = parts[2];
-                        let iface  = parts[3];
+                        let iface = parts[3];
                         out.push_str(&format!("  {dest:<22} {hop:<18} {metric:>8}  {iface}\n"));
                         shown += 1;
                     }
@@ -6020,7 +6225,9 @@ try {
             let raw = String::from_utf8_lossy(&o.stdout);
             let lines: Vec<&str> = raw.lines().collect();
             let total = lines.len();
-            out.push_str(&format!("Routing table (showing up to {n} of {total} routes):\n\n"));
+            out.push_str(&format!(
+                "Routing table (showing up to {n} of {total} routes):\n\n"
+            ));
             for line in lines.iter().take(n) {
                 out.push_str(&format!("  {line}\n"));
             }
@@ -6048,36 +6255,89 @@ fn inspect_env(max_entries: usize) -> Result<String, String> {
 
     fn looks_like_secret(name: &str) -> bool {
         let n = name.to_uppercase();
-        n.contains("KEY") || n.contains("SECRET") || n.contains("TOKEN")
-            || n.contains("PASSWORD") || n.contains("PASSWD") || n.contains("CREDENTIAL")
-            || n.contains("AUTH") || n.contains("CERT") || n.contains("PRIVATE")
+        n.contains("KEY")
+            || n.contains("SECRET")
+            || n.contains("TOKEN")
+            || n.contains("PASSWORD")
+            || n.contains("PASSWD")
+            || n.contains("CREDENTIAL")
+            || n.contains("AUTH")
+            || n.contains("CERT")
+            || n.contains("PRIVATE")
     }
 
     let known_dev_vars: &[&str] = &[
-        "CARGO_HOME", "RUSTUP_HOME", "GOPATH", "GOROOT", "GOBIN",
-        "JAVA_HOME", "ANDROID_HOME", "ANDROID_SDK_ROOT",
-        "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "CONDA_DEFAULT_ENV", "CONDA_PREFIX",
-        "NODE_PATH", "NVM_DIR", "NVM_BIN", "PNPM_HOME",
-        "DENO_INSTALL", "DENO_DIR",
-        "DOTNET_ROOT", "NUGET_PACKAGES",
-        "CMAKE_HOME", "VCPKG_ROOT",
-        "AWS_PROFILE", "AWS_REGION", "AWS_DEFAULT_REGION",
-        "GCP_PROJECT", "GOOGLE_CLOUD_PROJECT", "GOOGLE_APPLICATION_CREDENTIALS",
+        "CARGO_HOME",
+        "RUSTUP_HOME",
+        "GOPATH",
+        "GOROOT",
+        "GOBIN",
+        "JAVA_HOME",
+        "ANDROID_HOME",
+        "ANDROID_SDK_ROOT",
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "VIRTUAL_ENV",
+        "CONDA_DEFAULT_ENV",
+        "CONDA_PREFIX",
+        "NODE_PATH",
+        "NVM_DIR",
+        "NVM_BIN",
+        "PNPM_HOME",
+        "DENO_INSTALL",
+        "DENO_DIR",
+        "DOTNET_ROOT",
+        "NUGET_PACKAGES",
+        "CMAKE_HOME",
+        "VCPKG_ROOT",
+        "AWS_PROFILE",
+        "AWS_REGION",
+        "AWS_DEFAULT_REGION",
+        "GCP_PROJECT",
+        "GOOGLE_CLOUD_PROJECT",
+        "GOOGLE_APPLICATION_CREDENTIALS",
         "AZURE_SUBSCRIPTION_ID",
-        "DATABASE_URL", "REDIS_URL", "MONGO_URI",
-        "EDITOR", "VISUAL", "SHELL", "TERM",
-        "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
-        "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP",
-        "COMPUTERNAME", "USERNAME", "USERDOMAIN",
-        "PROCESSOR_ARCHITECTURE", "NUMBER_OF_PROCESSORS",
-        "OS", "HOMEDRIVE", "HOMEPATH",
-        "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY",
-        "http_proxy", "https_proxy", "no_proxy",
-        "DOCKER_HOST", "DOCKER_BUILDKIT",
+        "DATABASE_URL",
+        "REDIS_URL",
+        "MONGO_URI",
+        "EDITOR",
+        "VISUAL",
+        "SHELL",
+        "TERM",
+        "XDG_CONFIG_HOME",
+        "XDG_DATA_HOME",
+        "XDG_CACHE_HOME",
+        "HOME",
+        "USERPROFILE",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "TEMP",
+        "TMP",
+        "COMPUTERNAME",
+        "USERNAME",
+        "USERDOMAIN",
+        "PROCESSOR_ARCHITECTURE",
+        "NUMBER_OF_PROCESSORS",
+        "OS",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "NO_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "no_proxy",
+        "DOCKER_HOST",
+        "DOCKER_BUILDKIT",
         "COMPOSE_PROJECT_NAME",
-        "KUBECONFIG", "KUBE_CONTEXT",
-        "CI", "GITHUB_ACTIONS", "GITLAB_CI",
-        "LMSTUDIO_HOME", "HEMATITE_URL",
+        "KUBECONFIG",
+        "KUBE_CONTEXT",
+        "CI",
+        "GITHUB_ACTIONS",
+        "GITLAB_CI",
+        "LMSTUDIO_HOME",
+        "HEMATITE_URL",
     ];
 
     let mut all_vars: Vec<(String, String)> = std::env::vars().collect();
@@ -6088,12 +6348,16 @@ fn inspect_env(max_entries: usize) -> Result<String, String> {
     let mut secret_found: Vec<String> = Vec::new();
 
     for (k, v) in &all_vars {
-        if k == "PATH" { continue; }
+        if k == "PATH" {
+            continue;
+        }
         if looks_like_secret(k) {
             secret_found.push(format!("{k} = [SET, {} chars]", v.len()));
         } else {
             let k_upper = k.to_uppercase();
-            let is_known = known_dev_vars.iter().any(|kv| k_upper.as_str() == kv.to_uppercase().as_str());
+            let is_known = known_dev_vars
+                .iter()
+                .any(|kv| k_upper.as_str() == kv.to_uppercase().as_str());
             if is_known {
                 let display = if v.len() > 120 {
                     format!("{k} = {}…", &v[..117])
@@ -6108,9 +6372,15 @@ fn inspect_env(max_entries: usize) -> Result<String, String> {
     out.push_str(&format!("Total environment variables: {total}\n\n"));
 
     if let Ok(p) = std::env::var("PATH") {
-        let sep = if cfg!(target_os = "windows") { ';' } else { ':' };
+        let sep = if cfg!(target_os = "windows") {
+            ';'
+        } else {
+            ':'
+        };
         let count = p.split(sep).count();
-        out.push_str(&format!("PATH: {count} entries (use topic=path for full audit)\n\n"));
+        out.push_str(&format!(
+            "PATH: {count} entries (use topic=path for full audit)\n\n"
+        ));
     }
 
     if !secret_found.is_empty() {
@@ -6125,18 +6395,26 @@ fn inspect_env(max_entries: usize) -> Result<String, String> {
     }
 
     if !dev_found.is_empty() {
-        out.push_str(&format!("=== Developer & tool variables ({}) ===\n", dev_found.len()));
+        out.push_str(&format!(
+            "=== Developer & tool variables ({}) ===\n",
+            dev_found.len()
+        ));
         for d in dev_found.iter().take(n) {
             out.push_str(&format!("  {d}\n"));
         }
         out.push('\n');
     }
 
-    let other_count = all_vars.iter().filter(|(k, _)| {
-        k != "PATH"
-            && !looks_like_secret(k)
-            && !known_dev_vars.iter().any(|kv| k.to_uppercase().as_str() == kv.to_uppercase().as_str())
-    }).count();
+    let other_count = all_vars
+        .iter()
+        .filter(|(k, _)| {
+            k != "PATH"
+                && !looks_like_secret(k)
+                && !known_dev_vars
+                    .iter()
+                    .any(|kv| k.to_uppercase().as_str() == kv.to_uppercase().as_str())
+        })
+        .count();
     if other_count > 0 {
         out.push_str(&format!(
             "Other variables: {other_count} (use 'env' in shell to see all)\n"
@@ -6198,9 +6476,7 @@ fn inspect_hosts_file() -> Result<String, String> {
                     .iter()
                     .filter(|e| {
                         let t = e.trim_start();
-                        !t.starts_with("127.")
-                            && !t.starts_with("::1")
-                            && !t.starts_with("0.0.0.0")
+                        !t.starts_with("127.") && !t.starts_with("::1") && !t.starts_with("0.0.0.0")
                     })
                     .collect();
                 if !custom.is_empty() {
@@ -6212,9 +6488,7 @@ fn inspect_hosts_file() -> Result<String, String> {
                         out.push_str(&format!("  {e}\n"));
                     }
                 } else {
-                    out.push_str(
-                        "All active entries are standard loopback or block entries.\n",
-                    );
+                    out.push_str("All active entries are standard loopback or block entries.\n");
                 }
             }
 
@@ -6411,10 +6685,7 @@ fn inspect_wsl() -> Result<String, String> {
             Ok(o) => {
                 let raw = String::from_utf8_lossy(&o.stdout);
                 let cleaned: String = raw.chars().filter(|c| *c != '\0').collect();
-                let lines: Vec<&str> = cleaned
-                    .lines()
-                    .filter(|l| !l.trim().is_empty())
-                    .collect();
+                let lines: Vec<&str> = cleaned.lines().filter(|l| !l.trim().is_empty()).collect();
                 let distro_lines: Vec<&str> = lines
                     .iter()
                     .filter(|l| {
@@ -6459,9 +6730,7 @@ fn inspect_wsl() -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("WSL (Windows Subsystem for Linux) is a Windows-only feature.\n");
-        out.push_str(
-            "On Linux/macOS, use native virtualization (KVM, UTM, Parallels) instead.\n",
-        );
+        out.push_str("On Linux/macOS, use native virtualization (KVM, UTM, Parallels) instead.\n");
     }
 
     Ok(out.trim_end().to_string())
@@ -6630,10 +6899,7 @@ else { "SSHD:not_installed" }
                                     ));
                                 }
                             }
-                            out.push_str(&format!(
-                                "\n  Total configured hosts: {}\n",
-                                hosts.len()
-                            ));
+                            out.push_str(&format!("\n  Total configured hosts: {}\n", hosts.len()));
                         }
                     }
                     Err(e) => out.push_str(&format!("  Could not read config: {e}\n")),
@@ -6720,17 +6986,12 @@ $sorted | Select-Object -First {n} | ForEach-Object {{
         {
             let raw = String::from_utf8_lossy(&o.stdout);
             out.push_str("=== Installed software (registry scan) ===\n");
-            out.push_str(&format!(
-                "  {:<50} {:<18} Publisher\n",
-                "Name", "Version"
-            ));
+            out.push_str(&format!("  {:<50} {:<18} Publisher\n", "Name", "Version"));
             out.push_str(&format!("  {}\n", "-".repeat(90)));
             for line in raw.lines() {
                 if let Some(rest) = line.strip_prefix("TOTAL:") {
                     let total: usize = rest.trim().parse().unwrap_or(0);
-                    out.push_str(&format!(
-                        "  (Total: {total}, showing first {n})\n\n"
-                    ));
+                    out.push_str(&format!("  (Total: {total}, showing first {n})\n\n"));
                 } else if !line.trim().is_empty() {
                     let parts: Vec<&str> = line.splitn(3, '|').collect();
                     let name = parts.first().map(|s| s.trim()).unwrap_or("");
@@ -6752,12 +7013,9 @@ $sorted | Select-Object -First {n} | ForEach-Object {{
         if let Ok(o) = Command::new("dpkg").args(["--get-selections"]).output() {
             if o.status.success() {
                 let raw = String::from_utf8_lossy(&o.stdout);
-                let installed: Vec<&str> =
-                    raw.lines().filter(|l| l.contains("install")).collect();
+                let installed: Vec<&str> = raw.lines().filter(|l| l.contains("install")).collect();
                 let total = installed.len();
-                out.push_str(&format!(
-                    "=== Installed packages via dpkg ({total}) ===\n"
-                ));
+                out.push_str(&format!("=== Installed packages via dpkg ({total}) ===\n"));
                 for line in installed.iter().take(n) {
                     out.push_str(&format!("  {}\n", line.trim()));
                 }
@@ -6835,10 +7093,7 @@ $sorted | Select-Object -First {n} | ForEach-Object {{
             if o.status.success() {
                 let raw = String::from_utf8_lossy(&o.stdout);
                 let lines: Vec<&str> = raw.lines().collect();
-                out.push_str(&format!(
-                    "\n=== Mac App Store apps ({}) ===\n",
-                    lines.len()
-                ));
+                out.push_str(&format!("\n=== Mac App Store apps ({}) ===\n", lines.len()));
                 for line in lines.iter().take(n) {
                     out.push_str(&format!("  {line}\n"));
                 }
@@ -6882,12 +7137,37 @@ fn inspect_git_config() -> Result<String, String> {
             out.push_str("=== Global git config ===\n");
 
             let sections: &[(&str, &[&str])] = &[
-                ("Identity",       &["user.name", "user.email", "user.signingkey"]),
-                ("Core",           &["core.editor", "core.autocrlf", "core.eol", "core.ignorecase", "core.filemode"]),
-                ("Commit/Signing", &["commit.gpgsign", "tag.gpgsign", "gpg.format", "gpg.ssh.allowedsignersfile"]),
-                ("Push/Pull",      &["push.default", "push.autosetupremote", "pull.rebase", "pull.ff"]),
-                ("Credential",     &["credential.helper"]),
-                ("Branch",         &["init.defaultbranch", "branch.autosetuprebase"]),
+                ("Identity", &["user.name", "user.email", "user.signingkey"]),
+                (
+                    "Core",
+                    &[
+                        "core.editor",
+                        "core.autocrlf",
+                        "core.eol",
+                        "core.ignorecase",
+                        "core.filemode",
+                    ],
+                ),
+                (
+                    "Commit/Signing",
+                    &[
+                        "commit.gpgsign",
+                        "tag.gpgsign",
+                        "gpg.format",
+                        "gpg.ssh.allowedsignersfile",
+                    ],
+                ),
+                (
+                    "Push/Pull",
+                    &[
+                        "push.default",
+                        "push.autosetupremote",
+                        "pull.rebase",
+                        "pull.ff",
+                    ],
+                ),
+                ("Credential", &["credential.helper"]),
+                ("Branch", &["init.defaultbranch", "branch.autosetuprebase"]),
             ];
 
             let mut shown_keys: HashSet<String> = HashSet::new();
@@ -6991,7 +7271,13 @@ fn inspect_databases() -> Result<String, String> {
     let engines: &[DbEngine] = &[
         DbEngine {
             name: "PostgreSQL",
-            service_names: &["postgresql", "postgresql-x64-14", "postgresql-x64-15", "postgresql-x64-16", "postgresql-x64-17"],
+            service_names: &[
+                "postgresql",
+                "postgresql-x64-14",
+                "postgresql-x64-15",
+                "postgresql-x64-16",
+                "postgresql-x64-17",
+            ],
 
             default_port: 5432,
             cli_name: "psql",
@@ -7039,9 +7325,9 @@ fn inspect_databases() -> Result<String, String> {
         },
         DbEngine {
             name: "SQLite",
-            service_names: &[],  // no service — file-based
+            service_names: &[], // no service — file-based
 
-            default_port: 0,     // no port — file-based
+            default_port: 0, // no port — file-based
             cli_name: "sqlite3",
             cli_version_args: &["--version"],
         },
@@ -7073,12 +7359,15 @@ fn inspect_databases() -> Result<String, String> {
 
     // Helper: check if port is listening
     fn port_listening(port: u16) -> bool {
-        if port == 0 { return false; }
+        if port == 0 {
+            return false;
+        }
         // Use netstat-style check via connecting
         std::net::TcpStream::connect_timeout(
             &std::net::SocketAddr::from(([127, 0, 0, 1], port)),
             std::time::Duration::from_millis(150),
-        ).is_ok()
+        )
+        .is_ok()
     }
 
     let mut found_any = false;
@@ -7175,10 +7464,14 @@ fn inspect_databases() -> Result<String, String> {
     if !found_any {
         out.push_str("No local database engines detected.\n");
         out.push_str("(Checked: PostgreSQL, MySQL, MariaDB, MongoDB, Redis, SQL Server, SQLite, CouchDB, Cassandra, Elasticsearch)\n\n");
-        out.push_str("Note: databases running inside Docker containers are listed under topic='docker'.\n");
+        out.push_str(
+            "Note: databases running inside Docker containers are listed under topic='docker'.\n",
+        );
     } else {
         out.push_str("---\n");
-        out.push_str("Note: databases running inside Docker containers are listed under topic='docker'.\n");
+        out.push_str(
+            "Note: databases running inside Docker containers are listed under topic='docker'.\n",
+        );
         out.push_str("This topic checks service state and port reachability only — no credentials or queries are used.\n");
     }
 
@@ -7207,7 +7500,10 @@ fn inspect_user_accounts(max_entries: usize) -> Result<String, String> {
             out.push_str("  (requires elevation or Get-LocalUser unavailable)\n");
         } else {
             for line in users_out.lines().take(max_entries) {
-                if !line.trim().is_empty() { out.push_str(line); out.push('\n'); }
+                if !line.trim().is_empty() {
+                    out.push_str(line);
+                    out.push('\n');
+                }
             }
         }
 
@@ -7231,7 +7527,9 @@ fn inspect_user_accounts(max_entries: usize) -> Result<String, String> {
 
         let sessions_out = Command::new("powershell")
             .args([
-                "-NoProfile", "-NonInteractive", "-Command",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
                 "query user 2>$null",
             ])
             .output()
@@ -7244,7 +7542,9 @@ fn inspect_user_accounts(max_entries: usize) -> Result<String, String> {
             out.push_str("  (none or requires elevation)\n");
         } else {
             for line in sessions_out.lines().take(max_entries) {
-                if !line.trim().is_empty() { out.push_str(&format!("  {}\n", line)); }
+                if !line.trim().is_empty() {
+                    out.push_str(&format!("  {}\n", line));
+                }
             }
         }
 
@@ -7260,14 +7560,23 @@ fn inspect_user_accounts(max_entries: usize) -> Result<String, String> {
             .unwrap_or_default();
 
         out.push_str("\n=== Current Session Elevation ===\n");
-        out.push_str(&format!("  Running as Administrator: {}\n",
-            if is_admin.contains("true") { "YES" } else { "no" }));
+        out.push_str(&format!(
+            "  Running as Administrator: {}\n",
+            if is_admin.contains("true") {
+                "YES"
+            } else {
+                "no"
+            }
+        ));
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        let who_out = Command::new("who").output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let who_out = Command::new("who")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         out.push_str("=== Active Sessions ===\n");
         if who_out.trim().is_empty() {
             out.push_str("  (none)\n");
@@ -7276,8 +7585,11 @@ fn inspect_user_accounts(max_entries: usize) -> Result<String, String> {
                 out.push_str(&format!("  {}\n", line));
             }
         }
-        let id_out = Command::new("id").output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let id_out = Command::new("id")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         out.push_str(&format!("\n=== Current User ===\n  {}\n", id_out.trim()));
     }
 
@@ -7298,15 +7610,21 @@ fn inspect_audit_policy() -> Result<String, String> {
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .unwrap_or_default();
 
-        if auditpol_out.trim().is_empty() || auditpol_out.to_lowercase().contains("access is denied") {
+        if auditpol_out.trim().is_empty()
+            || auditpol_out.to_lowercase().contains("access is denied")
+        {
             out.push_str("Audit policy requires Administrator elevation to read.\n");
-            out.push_str("Run Hematite as Administrator, or check manually: auditpol /get /category:*\n");
+            out.push_str(
+                "Run Hematite as Administrator, or check manually: auditpol /get /category:*\n",
+            );
         } else {
             out.push_str("=== Windows Audit Policy ===\n");
             let mut any_enabled = false;
             for line in auditpol_out.lines() {
                 let trimmed = line.trim();
-                if trimmed.is_empty() { continue; }
+                if trimmed.is_empty() {
+                    continue;
+                }
                 if trimmed.contains("Success") || trimmed.contains("Failure") {
                     out.push_str(&format!("  [ENABLED] {}\n", trimmed));
                     any_enabled = true;
@@ -7316,7 +7634,9 @@ fn inspect_audit_policy() -> Result<String, String> {
             }
             if !any_enabled {
                 out.push_str("\n[WARNING] No audit categories are enabled — security events will not be logged.\n");
-                out.push_str("Minimum recommended: enable Logon/Logoff and Account Logon success+failure.\n");
+                out.push_str(
+                    "Minimum recommended: enable Logon/Logoff and Account Logon success+failure.\n",
+                );
             }
         }
 
@@ -7331,8 +7651,14 @@ fn inspect_audit_policy() -> Result<String, String> {
             .map(|s| s.trim().to_string())
             .unwrap_or_default();
 
-        out.push_str(&format!("\n=== Windows Event Log Service ===\n  Status: {}\n",
-            if evtlog.is_empty() { "unknown".to_string() } else { evtlog }));
+        out.push_str(&format!(
+            "\n=== Windows Event Log Service ===\n  Status: {}\n",
+            if evtlog.is_empty() {
+                "unknown".to_string()
+            } else {
+                evtlog
+            }
+        ));
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -7345,11 +7671,18 @@ fn inspect_audit_policy() -> Result<String, String> {
             .map(|s| s.trim().to_string())
             .unwrap_or_else(|| "not found".to_string());
 
-        out.push_str(&format!("=== auditd service ===\n  Status: {}\n", auditd_status));
+        out.push_str(&format!(
+            "=== auditd service ===\n  Status: {}\n",
+            auditd_status
+        ));
 
         if auditd_status == "active" {
-            let rules = Command::new("auditctl").args(["-l"]).output().ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+            let rules = Command::new("auditctl")
+                .args(["-l"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .unwrap_or_default();
             out.push_str("\n=== Active Audit Rules ===\n");
             if rules.trim().is_empty() || rules.contains("No rules") {
                 out.push_str("  No rules configured.\n");
@@ -7382,7 +7715,11 @@ fn inspect_shares(max_entries: usize) -> Result<String, String> {
             .unwrap_or_default();
 
         out.push_str("=== SMB Shares (exposed by this machine) ===\n");
-        let smb_lines: Vec<&str> = smb_out.lines().filter(|l| !l.trim().is_empty()).take(max_entries).collect();
+        let smb_lines: Vec<&str> = smb_out
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .take(max_entries)
+            .collect();
         if smb_lines.is_empty() {
             out.push_str("  No SMB shares or unable to retrieve.\n");
         } else {
@@ -7432,7 +7769,10 @@ fn inspect_shares(max_entries: usize) -> Result<String, String> {
             out.push_str("  None.\n");
         } else {
             for line in drives_out.lines().take(max_entries) {
-                if !line.trim().is_empty() { out.push_str(line); out.push('\n'); }
+                if !line.trim().is_empty() {
+                    out.push_str(line);
+                    out.push('\n');
+                }
             }
         }
     }
@@ -7484,7 +7824,9 @@ fn inspect_dns_servers() -> Result<String, String> {
             out.push_str("  (unable to retrieve)\n");
         } else {
             for line in dns_out.lines() {
-                if line.trim().is_empty() { continue; }
+                if line.trim().is_empty() {
+                    continue;
+                }
                 let mut annotation = "";
                 if line.contains("8.8.8.8") || line.contains("8.8.4.4") {
                     annotation = "  <- Google Public DNS";
@@ -7549,8 +7891,12 @@ fn inspect_dns_servers() -> Result<String, String> {
                 }
             }
         }
-        let resolved_out = Command::new("resolvectl").args(["status", "--no-pager"])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let resolved_out = Command::new("resolvectl")
+            .args(["status", "--no-pager"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         if !resolved_out.is_empty() {
             out.push_str("\n=== systemd-resolved ===\n");
             for line in resolved_out.lines().take(30) {
@@ -7585,7 +7931,10 @@ fn inspect_bitlocker() -> Result<String, String> {
             if stderr.contains("Access is denied") {
                 out.push_str("Error: Access denied. BitLocker diagnostics require Administrator elevation.\n");
             } else {
-                out.push_str(&format!("Error retrieving BitLocker info: {}\n", stderr.trim()));
+                out.push_str(&format!(
+                    "Error retrieving BitLocker info: {}\n",
+                    stderr.trim()
+                ));
             }
         } else {
             out.push_str("No BitLocker volumes detected or access denied.\n");
@@ -7594,9 +7943,15 @@ fn inspect_bitlocker() -> Result<String, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        out.push_str("BitLocker is a Windows-specific technology. Checking for LUKS/dm-crypt...\n\n");
-        let lsblk = Command::new("lsblk").args(["-f", "-o", "NAME,FSTYPE,MOUNTPOINT"])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str(
+            "BitLocker is a Windows-specific technology. Checking for LUKS/dm-crypt...\n\n",
+        );
+        let lsblk = Command::new("lsblk")
+            .args(["-f", "-o", "NAME,FSTYPE,MOUNTPOINT"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         if lsblk.contains("crypto_LUKS") {
             out.push_str("=== LUKS Encrypted Volumes ===\n");
             for line in lsblk.lines().filter(|l| l.contains("crypto_LUKS")) {
@@ -7616,22 +7971,56 @@ fn inspect_rdp() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         let reg_path = "HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server";
-        let f_deny = Command::new("powershell").args(["-NoProfile", "-Command", &format!("(Get-ItemProperty '{}').fDenyTSConnections", reg_path)])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
+        let f_deny = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!("(Get-ItemProperty '{}').fDenyTSConnections", reg_path),
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
 
         let status = if f_deny == "0" { "ENABLED" } else { "DISABLED" };
         out.push_str(&format!("=== RDP Status: {} ===\n", status));
 
         let port = Command::new("powershell").args(["-NoProfile", "-Command", "Get-ItemProperty 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name PortNumber | Select-Object -ExpandProperty PortNumber"])
             .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
-        out.push_str(&format!("  Port: {}\n", if port.is_empty() { "3389 (default)" } else { &port }));
+        out.push_str(&format!(
+            "  Port: {}\n",
+            if port.is_empty() {
+                "3389 (default)"
+            } else {
+                &port
+            }
+        ));
 
-        let nla = Command::new("powershell").args(["-NoProfile", "-Command", &format!("(Get-ItemProperty '{}').UserAuthentication", reg_path)])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
-        out.push_str(&format!("  NLA Required: {}\n", if nla == "1" { "Yes" } else { "No" }));
+        let nla = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!("(Get-ItemProperty '{}').UserAuthentication", reg_path),
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        out.push_str(&format!(
+            "  NLA Required: {}\n",
+            if nla == "1" { "Yes" } else { "No" }
+        ));
 
         out.push_str("\n=== Active Sessions ===\n");
-        let qwinsta = Command::new("qwinsta").output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let qwinsta = Command::new("qwinsta")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         if qwinsta.trim().is_empty() {
             out.push_str("  No active sessions listed.\n");
         } else {
@@ -7654,10 +8043,16 @@ fn inspect_rdp() -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("Checking for common RDP/VNC listeners (3389, 5900-5905)...\n");
-        let ss = Command::new("ss").args(["-tlnp"]).output().ok()
+        let ss = Command::new("ss")
+            .args(["-tlnp"])
+            .output()
+            .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .unwrap_or_default();
-        let matches: Vec<&str> = ss.lines().filter(|l| l.contains(":3389") || l.contains(":590")).collect();
+        let matches: Vec<&str> = ss
+            .lines()
+            .filter(|l| l.contains(":3389") || l.contains(":590"))
+            .collect();
         if matches.is_empty() {
             out.push_str("  No RDP/VNC listeners detected via 'ss'.\n");
         } else {
@@ -7675,7 +8070,9 @@ fn inspect_shadow_copies() -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        let output = Command::new("vssadmin").args(["list", "shadows"]).output()
+        let output = Command::new("vssadmin")
+            .args(["list", "shadows"])
+            .output()
             .map_err(|e| format!("Failed to run vssadmin: {e}"))?;
         let stdout = String::from_utf8(output.stdout).unwrap_or_default();
 
@@ -7684,18 +8081,26 @@ fn inspect_shadow_copies() -> Result<String, String> {
         } else {
             out.push_str("=== Volume Shadow Copies ===\n");
             for line in stdout.lines().take(50) {
-                if line.contains("Creation Time:") || line.contains("Contents:") || line.contains("Volume Name:") {
+                if line.contains("Creation Time:")
+                    || line.contains("Contents:")
+                    || line.contains("Volume Name:")
+                {
                     out.push_str(&format!("  {}\n", line.trim()));
                 }
             }
         }
 
         out.push_str("\n=== Shadow Copy Storage ===\n");
-        let storage_out = Command::new("vssadmin").args(["list", "shadowstorage"]).output().ok();
+        let storage_out = Command::new("vssadmin")
+            .args(["list", "shadowstorage"])
+            .output()
+            .ok();
         if let Some(o) = storage_out {
             let stdout = String::from_utf8(o.stdout).unwrap_or_default();
             for line in stdout.lines() {
-                if line.contains("Used Shadow Copy Storage space:") || line.contains("Max Shadow Copy Storage space:") {
+                if line.contains("Used Shadow Copy Storage space:")
+                    || line.contains("Max Shadow Copy Storage space:")
+                {
                     out.push_str(&format!("  {}\n", line.trim()));
                 }
             }
@@ -7705,7 +8110,11 @@ fn inspect_shadow_copies() -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("Checking for LVM snapshots or Btrfs subvolumes...\n\n");
-        let lvs = Command::new("lvs").output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let lvs = Command::new("lvs")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         if !lvs.is_empty() {
             out.push_str("=== LVM Volumes (checking for snapshots) ===\n");
             out.push_str(&lvs);
@@ -7723,13 +8132,27 @@ fn inspect_pagefile() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         let ps_cmd = "Get-CimInstance Win32_PageFileUsage | Select-Object Name, AllocatedBaseSize, CurrentUsage, PeakUsage | ForEach-Object { \"  $($_.Name): $($_.AllocatedBaseSize)MB total, $($_.CurrentUsage)MB used (Peak: $($_.PeakUsage)MB)\" }";
-        let output = Command::new("powershell").args(["-NoProfile", "-Command", ps_cmd])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", ps_cmd])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
 
         if output.trim().is_empty() {
             out.push_str("No page files detected (system may be running without a page file or managed differently).\n");
-            let managed = Command::new("powershell").args(["-NoProfile", "-Command", "(Get-CimInstance Win32_ComputerSystem).AutomaticManagedPagefile"])
-                .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
+            let managed = Command::new("powershell")
+                .args([
+                    "-NoProfile",
+                    "-Command",
+                    "(Get-CimInstance Win32_ComputerSystem).AutomaticManagedPagefile",
+                ])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .unwrap_or_default()
+                .trim()
+                .to_string();
             out.push_str(&format!("Automatic Managed Pagefile: {}\n", managed));
         } else {
             out.push_str("=== Page File Usage ===\n");
@@ -7740,11 +8163,19 @@ fn inspect_pagefile() -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("=== Swap Usage (Linux/macOS) ===\n");
-        let swap = Command::new("swapon").args(["--show"]).output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let swap = Command::new("swapon")
+            .args(["--show"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         if swap.is_empty() {
-            let free = Command::new("free").args(["-h"]).output().ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+            let free = Command::new("free")
+                .args(["-h"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .unwrap_or_default();
             out.push_str(&free);
         } else {
             out.push_str(&swap);
@@ -7761,12 +8192,15 @@ fn inspect_windows_features(max_entries: usize) -> Result<String, String> {
     {
         out.push_str("=== Quick Check: Notable Features ===\n");
         let quick_ps = "Get-WindowsOptionalFeature -Online | Where-Object { $_.FeatureName -match 'IIS|Hyper-V|VirtualMachinePlatform|Subsystem-Linux' -and $_.State -eq 'Enabled' } | Select-Object -ExpandProperty FeatureName";
-        let output = Command::new("powershell").args(["-NoProfile", "-Command", quick_ps]).output().ok();
-        
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", quick_ps])
+            .output()
+            .ok();
+
         if let Some(o) = output {
             let stdout = String::from_utf8(o.stdout).unwrap_or_default();
             let stderr = String::from_utf8(o.stderr).unwrap_or_default();
-            
+
             if !stdout.trim().is_empty() {
                 for f in stdout.lines() {
                     out.push_str(&format!("  [ENABLED] {}\n", f));
@@ -7774,13 +8208,21 @@ fn inspect_windows_features(max_entries: usize) -> Result<String, String> {
             } else if stderr.contains("Access is denied") || stderr.contains("requires elevation") {
                 out.push_str("  Error: Access denied. Listing Windows Features requires Administrator elevation.\n");
             } else if quick_ps.contains("-Online") && stdout.trim().is_empty() {
-                out.push_str("  No major features (IIS, Hyper-V, WSL) appear enabled in the quick check.\n");
+                out.push_str(
+                    "  No major features (IIS, Hyper-V, WSL) appear enabled in the quick check.\n",
+                );
             }
         }
 
-        out.push_str(&format!("\n=== All Enabled Features (capped at {}) ===\n", max_entries));
+        out.push_str(&format!(
+            "\n=== All Enabled Features (capped at {}) ===\n",
+            max_entries
+        ));
         let all_ps = format!("Get-WindowsOptionalFeature -Online | Where-Object {{$_.State -eq 'Enabled'}} | Select-Object -First {} -ExpandProperty FeatureName", max_entries);
-        let all_out = Command::new("powershell").args(["-NoProfile", "-Command", &all_ps]).output().ok();
+        let all_out = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &all_ps])
+            .output()
+            .ok();
         if let Some(o) = all_out {
             let stdout = String::from_utf8(o.stdout).unwrap_or_default();
             if !stdout.trim().is_empty() {
@@ -7824,8 +8266,12 @@ fn inspect_printers(max_entries: usize) -> Result<String, String> {
     {
         let _ = max_entries;
         out.push_str("Checking LPSTAT for printers...\n");
-        let lpstat = Command::new("lpstat").args(["-p", "-d"]).output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let lpstat = Command::new("lpstat")
+            .args(["-p", "-d"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         if lpstat.is_empty() {
             out.push_str("  No CUPS/LP printers found.\n");
         } else {
@@ -7841,19 +8287,38 @@ fn inspect_winrm() -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        let svc = Command::new("powershell").args(["-NoProfile", "-Command", "(Get-Service WinRM).Status"])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
-        out.push_str(&format!("WinRM Service Status: {}\n\n", if svc.is_empty() { "NOT_FOUND" } else { &svc }));
+        let svc = Command::new("powershell")
+            .args(["-NoProfile", "-Command", "(Get-Service WinRM).Status"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        out.push_str(&format!(
+            "WinRM Service Status: {}\n\n",
+            if svc.is_empty() { "NOT_FOUND" } else { &svc }
+        ));
 
         out.push_str("=== WinRM Listeners ===\n");
-        let output = Command::new("powershell").args(["-NoProfile", "-Command", "winrm enumerate winrm/config/listener 2>$null"]).output().ok();
+        let output = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "winrm enumerate winrm/config/listener 2>$null",
+            ])
+            .output()
+            .ok();
         if let Some(o) = output {
             let stdout = String::from_utf8(o.stdout).unwrap_or_default();
             let stderr = String::from_utf8(o.stderr).unwrap_or_default();
-            
+
             if !stdout.trim().is_empty() {
                 for line in stdout.lines() {
-                    if line.contains("Address =") || line.contains("Transport =") || line.contains("Port =") {
+                    if line.contains("Address =")
+                        || line.contains("Transport =")
+                        || line.contains("Port =")
+                    {
                         out.push_str(&format!("  {}\n", line.trim()));
                     }
                 }
@@ -7876,9 +8341,15 @@ fn inspect_winrm() -> Result<String, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        out.push_str("WinRM is primarily a Windows technology. Checking for listening port 5985/5986...\n");
-        let ss = Command::new("ss").args(["-tln"]).output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        out.push_str(
+            "WinRM is primarily a Windows technology. Checking for listening port 5985/5986...\n",
+        );
+        let ss = Command::new("ss")
+            .args(["-tln"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         if ss.contains(":5985") || ss.contains(":5986") {
             out.push_str("  WinRM ports (5985/5986) are listening.\n");
         } else {
@@ -7895,8 +8366,12 @@ fn inspect_network_stats(max_entries: usize) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         let ps_cmd = format!("Get-NetAdapterStatistics | Select-Object Name, ReceivedBytes, SentBytes, ReceivedPacketErrors, OutboundPacketErrors | Select-Object -First {} | ForEach-Object {{ \"  $($_.Name): RX:$([math]::round($($_.ReceivedBytes)/1MB, 2))MB, TX:$([math]::round($($_.SentBytes)/1MB, 2))MB, Errors(RX/TX): $($_.ReceivedPacketErrors)/$($_.OutboundPacketErrors)\" }}", max_entries);
-        let output = Command::new("powershell").args(["-NoProfile", "-Command", &ps_cmd])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps_cmd])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         if output.trim().is_empty() {
             out.push_str("No network adapter statistics available.\n");
         } else {
@@ -7916,11 +8391,19 @@ fn inspect_network_stats(max_entries: usize) -> Result<String, String> {
     {
         let _ = max_entries;
         out.push_str("=== Network Stats (ip -s link) ===\n");
-        let ip_s = Command::new("ip").args(["-s", "link"]).output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let ip_s = Command::new("ip")
+            .args(["-s", "link"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         if ip_s.is_empty() {
-            let netstat = Command::new("netstat").args(["-i"]).output().ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+            let netstat = Command::new("netstat")
+                .args(["-i"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .unwrap_or_default();
             out.push_str(&netstat);
         } else {
             out.push_str(&ip_s);
@@ -7936,22 +8419,32 @@ fn inspect_udp_ports(max_entries: usize) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         let ps_cmd = format!("Get-NetUDPEndpoint | Select-Object LocalAddress, LocalPort, OwningProcess | Select-Object -First {} | ForEach-Object {{ $proc = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).Name; \"  $($_.LocalAddress):$($_.LocalPort) (PID: $($_.OwningProcess) - $($proc))\" }}", max_entries);
-        let output = Command::new("powershell").args(["-NoProfile", "-Command", &ps_cmd]).output().ok();
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps_cmd])
+            .output()
+            .ok();
 
         if let Some(o) = output {
             let stdout = String::from_utf8(o.stdout).unwrap_or_default();
             let stderr = String::from_utf8(o.stderr).unwrap_or_default();
-            
+
             if !stdout.trim().is_empty() {
                 out.push_str("=== UDP Listeners (Local:Port) ===\n");
                 for line in stdout.lines() {
                     let mut note = "";
-                    if line.contains(":53 ") { note = " [DNS]"; }
-                    else if line.contains(":67 ") || line.contains(":68 ") { note = " [DHCP]"; }
-                    else if line.contains(":123 ") { note = " [NTP]"; }
-                    else if line.contains(":161 ") { note = " [SNMP]"; }
-                    else if line.contains(":1900 ") { note = " [SSDP/UPnP]"; }
-                    else if line.contains(":5353 ") { note = " [mDNS]"; }
+                    if line.contains(":53 ") {
+                        note = " [DNS]";
+                    } else if line.contains(":67 ") || line.contains(":68 ") {
+                        note = " [DHCP]";
+                    } else if line.contains(":123 ") {
+                        note = " [NTP]";
+                    } else if line.contains(":161 ") {
+                        note = " [SNMP]";
+                    } else if line.contains(":1900 ") {
+                        note = " [SSDP/UPnP]";
+                    } else if line.contains(":5353 ") {
+                        note = " [mDNS]";
+                    }
 
                     out.push_str(&format!("{}{}\n", line, note));
                 }
@@ -7965,12 +8458,20 @@ fn inspect_udp_ports(max_entries: usize) -> Result<String, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        let ss_out = Command::new("ss").args(["-ulnp"]).output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let ss_out = Command::new("ss")
+            .args(["-ulnp"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         out.push_str("=== UDP Listeners (ss -ulnp) ===\n");
         if ss_out.is_empty() {
-            let netstat_out = Command::new("netstat").args(["-ulnp"]).output().ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+            let netstat_out = Command::new("netstat")
+                .args(["-ulnp"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .unwrap_or_default();
             if netstat_out.is_empty() {
                 out.push_str("  Neither 'ss' nor 'netstat' available.\n");
             } else {
@@ -8091,11 +8592,24 @@ fn inspect_integrity() -> Result<String, String> {
             if let Ok(val) = serde_json::from_str::<Value>(&stdout) {
                 out.push_str("=== Windows Component Store Health (CBS) ===\n");
                 let corrupt = val.get("Corrupt").and_then(|v| v.as_u64()).unwrap_or(0);
-                let repair = val.get("AutoRepairNeeded").and_then(|v| v.as_u64()).unwrap_or(0);
-                
-                out.push_str(&format!("  Corruption Detected: {}\n", if corrupt != 0 { "YES (SFC/DISM recommended)" } else { "No" }));
-                out.push_str(&format!("  Auto-Repair Needed: {}\n", if repair != 0 { "YES" } else { "No" }));
-                
+                let repair = val
+                    .get("AutoRepairNeeded")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+
+                out.push_str(&format!(
+                    "  Corruption Detected: {}\n",
+                    if corrupt != 0 {
+                        "YES (SFC/DISM recommended)"
+                    } else {
+                        "No"
+                    }
+                ));
+                out.push_str(&format!(
+                    "  Auto-Repair Needed: {}\n",
+                    if repair != 0 { "YES" } else { "No" }
+                ));
+
                 if let Some(last) = val.get("LastRepairAttempted").and_then(|v| v.as_u64()) {
                     out.push_str(&format!("  Last Repair Attempt: (Raw code: {})\n", last));
                 }
@@ -8105,19 +8619,25 @@ fn inspect_integrity() -> Result<String, String> {
         }
 
         if Path::new("C:\\Windows\\Logs\\CBS\\CBS.log").exists() {
-            out.push_str("\nNote: Detailed integrity logs available at C:\\Windows\\Logs\\CBS\\CBS.log\n");
+            out.push_str(
+                "\nNote: Detailed integrity logs available at C:\\Windows\\Logs\\CBS\\CBS.log\n",
+            );
         }
     }
 
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("System integrity check (Linux)\n\n");
-        let pkg_check = Command::new("rpm").args(["-Va"]).output().or_else(|_| Command::new("dpkg").args(["--verify"]).output()).ok();
+        let pkg_check = Command::new("rpm")
+            .args(["-Va"])
+            .output()
+            .or_else(|_| Command::new("dpkg").args(["--verify"]).output())
+            .ok();
         if let Some(o) = pkg_check {
-             out.push_str("  Package verification system active.\n");
-             if o.status.success() {
-                 out.push_str("  No major package integrity issues detected.\n");
-             }
+            out.push_str("  Package verification system active.\n");
+            if o.status.success() {
+                out.push_str("  No major package integrity issues detected.\n");
+            }
         }
     }
 
@@ -8138,12 +8658,28 @@ fn inspect_domain() -> Result<String, String> {
         if let Some(o) = output {
             let stdout = String::from_utf8(o.stdout).unwrap_or_default();
             if let Ok(val) = serde_json::from_str::<Value>(&stdout) {
-                let part_of_domain = val.get("PartOfDomain").and_then(|v| v.as_bool()).unwrap_or(false);
-                let domain = val.get("Domain").and_then(|v| v.as_str()).unwrap_or("Unknown");
-                let workgroup = val.get("Workgroup").and_then(|v| v.as_str()).unwrap_or("Unknown");
+                let part_of_domain = val
+                    .get("PartOfDomain")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                let domain = val
+                    .get("Domain")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown");
+                let workgroup = val
+                    .get("Workgroup")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown");
 
                 out.push_str("=== Windows Domain / Workgroup Identity ===\n");
-                out.push_str(&format!("  Join Status: {}\n", if part_of_domain { "DOMAIN JOINED" } else { "WORKGROUP" }));
+                out.push_str(&format!(
+                    "  Join Status: {}\n",
+                    if part_of_domain {
+                        "DOMAIN JOINED"
+                    } else {
+                        "WORKGROUP"
+                    }
+                ));
                 if part_of_domain {
                     out.push_str(&format!("  Active Directory Domain: {}\n", domain));
                 } else {
@@ -8159,12 +8695,16 @@ fn inspect_domain() -> Result<String, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        let domainname = Command::new("domainname").output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let domainname = Command::new("domainname")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         out.push_str("=== Linux Domain Identity ===\n");
         if !domainname.trim().is_empty() && domainname.trim() != "(none)" {
-             out.push_str(&format!("  NIS/YP Domain: {}\n", domainname.trim()));
+            out.push_str(&format!("  NIS/YP Domain: {}\n", domainname.trim()));
         } else {
-             out.push_str("  No NIS domain configured.\n");
+            out.push_str("  No NIS domain configured.\n");
         }
     }
 
@@ -8177,23 +8717,33 @@ fn inspect_device_health() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         let ps_cmd = "Get-CimInstance Win32_PnPEntity | Where-Object { $_.ConfigManagerErrorCode -ne 0 } | Select-Object Name, Status, ConfigManagerErrorCode, Description | ForEach-Object { \"  [ERR:$($_.ConfigManagerErrorCode)] $($_.Name) ($($_.Status)) - $($_.Description)\" }";
-        let output = Command::new("powershell").args(["-NoProfile", "-Command", ps_cmd])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
-        
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", ps_cmd])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
         if output.trim().is_empty() {
             out.push_str("All PnP devices report as healthy (no ConfigManager errors detected).\n");
         } else {
             out.push_str("=== Malfunctioning Devices (Yellow Bangs) ===\n");
             out.push_str(&output);
-            out.push_str("\nTip: Error codes 10 and 28 usually indicate missing or incompatible drivers.\n");
+            out.push_str(
+                "\nTip: Error codes 10 and 28 usually indicate missing or incompatible drivers.\n",
+            );
         }
     }
 
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("Checking dmesg for hardware errors...\n");
-        let dmesg = Command::new("dmesg").args(["--level=err,crit,alert"]).output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let dmesg = Command::new("dmesg")
+            .args(["--level=err,crit,alert"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         if dmesg.is_empty() {
             out.push_str("  No critical hardware errors found in dmesg.\n");
         } else {
@@ -8210,9 +8760,13 @@ fn inspect_drivers(max_entries: usize) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         let ps_cmd = format!("Get-CimInstance Win32_SystemDriver | Select-Object Name, Description, State, Status | Select-Object -First {} | ForEach-Object {{ \"  $($_.Name): $($_.State) ($($_.Status)) - $($_.Description)\" }}", max_entries);
-        let output = Command::new("powershell").args(["-NoProfile", "-Command", &ps_cmd])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
-        
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps_cmd])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
         if output.trim().is_empty() {
             out.push_str("No drivers retrieved via WMI.\n");
         } else {
@@ -8224,9 +8778,18 @@ fn inspect_drivers(max_entries: usize) -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("=== Loaded Kernel Modules (lsmod) ===\n");
-        let lsmod = Command::new("lsmod").output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
-        out.push_str(&lsmod.lines().take(max_entries).collect::<Vec<_>>().join("\n"));
+        let lsmod = Command::new("lsmod")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        out.push_str(
+            &lsmod
+                .lines()
+                .take(max_entries)
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
     }
 
     Ok(out.trim_end().to_string())
@@ -8241,7 +8804,11 @@ fn inspect_peripherals(max_entries: usize) -> Result<String, String> {
         out.push_str("=== USB Controllers & Hubs ===\n");
         let usb = Command::new("powershell").args(["-NoProfile", "-Command", "Get-CimInstance Win32_USBController | ForEach-Object { \"  $($_.Name) ($($_.Status))\" }"])
             .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
-        out.push_str(if usb.is_empty() { "  None detected.\n" } else { &usb });
+        out.push_str(if usb.is_empty() {
+            "  None detected.\n"
+        } else {
+            &usb
+        });
 
         out.push_str("\n=== Input Devices (Keyboard/Pointer) ===\n");
         let kb = Command::new("powershell").args(["-NoProfile", "-Command", "Get-CimInstance Win32_Keyboard | ForEach-Object { \"  [KB] $($_.Name) ($($_.Status))\" }"])
@@ -8254,15 +8821,28 @@ fn inspect_peripherals(max_entries: usize) -> Result<String, String> {
         out.push_str("\n=== Connected Monitors (WMI) ===\n");
         let mon = Command::new("powershell").args(["-NoProfile", "-Command", "Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorBasicDisplayParams | ForEach-Object { \"  Display ($($_.Active ? 'Active' : 'Inactive'))\" }"])
             .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
-        out.push_str(if mon.is_empty() { "  No active monitors identified via WMI.\n" } else { &mon });
+        out.push_str(if mon.is_empty() {
+            "  No active monitors identified via WMI.\n"
+        } else {
+            &mon
+        });
     }
 
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("=== Connected USB Devices (lsusb) ===\n");
-        let lsusb = Command::new("lsusb").output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
-        out.push_str(&lsusb.lines().take(max_entries).collect::<Vec<_>>().join("\n"));
+        let lsusb = Command::new("lsusb")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        out.push_str(
+            &lsusb
+                .lines()
+                .take(max_entries)
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
     }
 
     Ok(out.trim_end().to_string())
@@ -8286,7 +8866,11 @@ fn inspect_sessions(max_entries: usize) -> Result<String, String> {
                 out.push_str("No active logon sessions enumerated via WMI.\n");
             } else {
                 out.push_str("=== Active Logon Sessions (WMI Snapshot) ===\n");
-                for line in lines.iter().take(max_entries).filter(|l| !l.trim().is_empty()) {
+                for line in lines
+                    .iter()
+                    .take(max_entries)
+                    .filter(|l| !l.trim().is_empty())
+                {
                     let parts: Vec<&str> = line.trim().split('|').collect();
                     if parts.len() == 4 {
                         let logon_type = match parts[2] {
@@ -8314,8 +8898,11 @@ fn inspect_sessions(max_entries: usize) -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("=== Logged-in Users (who) ===\n");
-        let who = Command::new("who").output().ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default();
+        let who = Command::new("who")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
         out.push_str(&who.lines().take(max_entries).collect::<Vec<_>>().join("\n"));
     }
 
@@ -8438,7 +9025,9 @@ $avgR = if ($readStats) {{ ($readStats | Measure-Object -Average).Average }} els
             out.push_str("\nVerdict: ");
             let q_num = avg_q.parse::<f64>().unwrap_or(0.0);
             if q_num > 1.0 {
-                out.push_str("HIGH INTENSITY — the disk stack is saturated. Hardware bottleneck confirmed.");
+                out.push_str(
+                    "HIGH INTENSITY — the disk stack is saturated. Hardware bottleneck confirmed.",
+                );
             } else if q_num > 0.1 {
                 out.push_str("MODERATE LOAD — significant I/O pressure detected.");
             } else {
@@ -8455,5 +9044,3 @@ $avgR = if ($readStats) {{ ($readStats | Measure-Object -Average).Average }} els
 
     Ok(out)
 }
-
-

@@ -1,5 +1,5 @@
-use crate::agent::inference::ToolCallResponse;
 use crate::agent::conversation::shell_looks_like_structured_host_inspection;
+use crate::agent::inference::ToolCallResponse;
 use crate::agent::routing::preferred_host_inspection_topic;
 use serde_json::Value;
 

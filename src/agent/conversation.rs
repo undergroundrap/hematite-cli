@@ -1,8 +1,7 @@
 use crate::agent::architecture_summary::{
     build_architecture_overview_answer, prune_architecture_trace_batch,
     prune_authoritative_tool_batch, prune_read_only_context_bloat_batch,
-    prune_redirected_shell_batch,
-    summarize_runtime_trace_output,
+    prune_redirected_shell_batch, summarize_runtime_trace_output,
 };
 use crate::agent::direct_answers::{
     build_about_answer, build_architect_session_reset_plan, build_authorization_policy_answer,
@@ -183,7 +182,6 @@ impl WorkflowMode {
     pub(crate) fn is_chat(self) -> bool {
         matches!(self, WorkflowMode::Chat)
     }
-
 }
 
 fn session_path() -> std::path::PathBuf {
@@ -1409,7 +1407,9 @@ impl ConversationManager {
                             ));
                         }
                     }
-                    state.redirected_host_inspection_topics.insert(topic.clone(), current_turn);
+                    state
+                        .redirected_host_inspection_topics
+                        .insert(topic.clone(), current_turn);
                 }
 
                 let path_val = self
@@ -2509,7 +2509,7 @@ impl ConversationManager {
                     let call_id = format!("prerun_{topic}");
                     let args_val = serde_json::json!({ "topic": *topic, "max_entries": 20 });
                     let args_str = serde_json::to_string(&args_val).unwrap_or_default();
-                    
+
                     tool_calls.push(crate::agent::inference::ToolCallResponse {
                         id: call_id.clone(),
                         call_type: "function".to_string(),
@@ -2564,7 +2564,8 @@ impl ConversationManager {
                 }
 
                 // Add the simulated turn to history so the model sees it as context.
-                self.history.push(ChatMessage::assistant_tool_calls("", tool_calls));
+                self.history
+                    .push(ChatMessage::assistant_tool_calls("", tool_calls));
                 for msg in tool_msgs {
                     self.history.push(msg);
                 }
@@ -5133,8 +5134,6 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "thrash",
         "get-item",
         "test-path",
-
-
         // gpo / certs / integrity / domain
         "gpresult",
         "applied gpo",

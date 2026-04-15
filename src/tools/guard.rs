@@ -264,7 +264,6 @@ pub fn classify_bash_risk(cmd: &str) -> RiskLevel {
         "powershell -command 'get-item",
         "powershell -command 'test-path",
         "powershell -command 'select-object",
-
     ];
     if safe_prefixes
         .iter()
@@ -334,7 +333,10 @@ mod tests {
         assert_eq!(classify_bash_risk("cargo check"), RiskLevel::Safe);
         assert_eq!(classify_bash_risk("rm -rf /"), RiskLevel::High);
         assert_eq!(classify_bash_risk("mkdir new_dir"), RiskLevel::Moderate);
-        assert_eq!(classify_bash_risk("get-counter '\\PhysicalDisk(_Total)\\Avg. Disk Queue Length'"), RiskLevel::Safe);
+        assert_eq!(
+            classify_bash_risk("get-counter '\\PhysicalDisk(_Total)\\Avg. Disk Queue Length'"),
+            RiskLevel::Safe
+        );
         assert_eq!(classify_bash_risk("powershell -command \"get-counter '\\PhysicalDisk(_Total)\\Avg. Disk Queue Length'\""), RiskLevel::Safe);
     }
 }

@@ -958,10 +958,7 @@ fn path_has_hidden_segment(p: &Path) -> bool {
         if s == ".hematite" || s == ".git" || s == "." || s == ".." {
             return false;
         }
-        s.starts_with('.')
-            || s == "target"
-            || s == "node_modules"
-            || s == "__pycache__"
+        s.starts_with('.') || s == "target" || s == "node_modules" || s == "__pycache__"
     })
 }
 

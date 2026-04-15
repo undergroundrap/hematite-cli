@@ -2393,9 +2393,8 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
     let re_xml_call = Regex::new(
         r#"(?s)<tool_call>\s*<function=([A-Za-z_][A-Za-z0-9_]*)>(.*?)(?:</function>)?\s*</tool_call>"#
     ).unwrap();
-    let re_xml_param = Regex::new(
-        r#"(?s)<parameter=([A-Za-z_][A-Za-z0-9_]*)>(.*?)</parameter>"#
-    ).unwrap();
+    let re_xml_param =
+        Regex::new(r#"(?s)<parameter=([A-Za-z_][A-Za-z0-9_]*)>(.*?)</parameter>"#).unwrap();
 
     for cap in re_xml_call.captures_iter(text) {
         let name = cap[1].to_string();
@@ -2433,7 +2432,6 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
 
     results
 }
-
 
 pub fn normalize_tool_argument_string(tool_name: &str, raw: &str) -> String {
     let trimmed = raw.trim();
@@ -2579,9 +2577,7 @@ pub fn strip_native_tool_call_text(text: &str) -> String {
         r#"(?s)<\|?tool_call\|?>\s*call:[A-Za-z_][A-Za-z0-9_]*\{.*?\}(?:<\|?tool_call\|?>|\[END_TOOL_REQUEST\])"#
     ).unwrap();
     // Format 2: XML (Qwen/Claude style)
-    let re_xml = Regex::new(
-        r#"(?s)<tool_call>\s*<function=.*?>.*?</tool_call>"#
-    ).unwrap();
+    let re_xml = Regex::new(r#"(?s)<tool_call>\s*<function=.*?>.*?</tool_call>"#).unwrap();
     let re_response =
         Regex::new(r#"(?s)<\|tool_response\|?>.*?(?:<\|tool_response\|?>|<tool_response\|>)"#)
             .unwrap();
@@ -2592,7 +2588,6 @@ pub fn strip_native_tool_call_text(text: &str) -> String {
         .trim()
         .to_string()
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -2674,12 +2669,17 @@ Check if the binary exists
         assert_eq!(calls[0].function.name, "shell");
 
         let args: Value = serde_json::from_str(&calls[0].function.arguments).unwrap();
-        assert_eq!(args.get("command").and_then(|v| v.as_str()), Some("ls -la hematite.exe"));
-        assert_eq!(args.get("reason").and_then(|v| v.as_str()), Some("Check if the binary exists"));
+        assert_eq!(
+            args.get("command").and_then(|v| v.as_str()),
+            Some("ls -la hematite.exe")
+        );
+        assert_eq!(
+            args.get("reason").and_then(|v| v.as_str()),
+            Some("Check if the binary exists")
+        );
 
         let stripped = strip_native_tool_call_text(text);
         assert!(!stripped.contains("<tool_call>"));
         assert!(!stripped.contains("<function=shell>"));
     }
 }
-

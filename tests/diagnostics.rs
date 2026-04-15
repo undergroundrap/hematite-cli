@@ -1401,14 +1401,13 @@ async fn test_inspect_host_device_health() {
 #[tokio::test]
 async fn test_inspect_host_drivers() {
     use serde_json::json;
-    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "drivers", "max_entries": 5 }))
-        .await
-        .expect("inspect drivers fails");
+    let output = hematite::tools::host_inspect::inspect_host(
+        &json!({ "topic": "drivers", "max_entries": 5 }),
+    )
+    .await
+    .expect("inspect drivers fails");
     assert!(output.contains("Host inspection: drivers"));
-    assert!(
-        output.contains("Active System Drivers")
-            || output.contains("Loaded Kernel Modules")
-    );
+    assert!(output.contains("Active System Drivers") || output.contains("Loaded Kernel Modules"));
 }
 
 #[tokio::test]
@@ -1418,10 +1417,7 @@ async fn test_inspect_host_peripherals() {
         .await
         .expect("inspect peripherals fails");
     assert!(output.contains("Host inspection: peripherals"));
-    assert!(
-        output.contains("USB Controllers")
-            || output.contains("Connected USB Devices")
-    );
+    assert!(output.contains("USB Controllers") || output.contains("Connected USB Devices"));
 }
 
 #[tokio::test]
@@ -2005,7 +2001,7 @@ fn test_checkpoint_roundtrip_via_session_json() {
     // Write a session.json that looks like a real prior session in a isolated temp directory,
     // then verify load_checkpoint() surfaces the right fields.
     use std::io::Write;
-    
+
     // Create a temporary directory and a unique session path.
     let temp_workspace = tempfile::tempdir().expect("failed to create temp workspace");
     let session_path = temp_workspace.path().join("session.json");
@@ -2025,9 +2021,10 @@ fn test_checkpoint_roundtrip_via_session_json() {
         "last_goal": "add streaming shell and diagnostics",
         "turn_count": 7
     });
-    
+
     {
-        let mut f = std::fs::File::create(&session_path).expect("Failed to create fake session.json");
+        let mut f =
+            std::fs::File::create(&session_path).expect("Failed to create fake session.json");
         write!(f, "{}", fake).expect("Failed to write fake session.json");
     }
 
@@ -2956,9 +2953,21 @@ fn test_inspect_host_unknown_topic_includes_all_new_topics_in_error() {
             .await
             .expect_err("unknown topic must return Err");
         let new_topics = [
-            "updates", "security", "pending_reboot", "disk_health", "battery",
-            "recent_crashes", "scheduled_tasks", "dev_conflicts",
-            "docker", "wsl", "ssh", "env", "hosts_file", "installed_software", "git_config",
+            "updates",
+            "security",
+            "pending_reboot",
+            "disk_health",
+            "battery",
+            "recent_crashes",
+            "scheduled_tasks",
+            "dev_conflicts",
+            "docker",
+            "wsl",
+            "ssh",
+            "env",
+            "hosts_file",
+            "installed_software",
+            "git_config",
         ];
         for topic in new_topics {
             assert!(
@@ -3011,7 +3020,9 @@ fn test_inspect_host_hosts_file_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "hosts_file" });
-        let output = inspect_host(&args).await.expect("hosts_file must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("hosts_file must return Ok");
         assert!(
             output.contains("Host inspection: hosts_file"),
             "hosts_file output must contain header; got:\n{output}"
@@ -3025,11 +3036,17 @@ fn test_inspect_host_hosts_file_shows_path_and_summary() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "hosts_file" });
-        let output = inspect_host(&args).await.expect("hosts_file must return Ok");
-        let has_path = output.contains("Path:") && (output.contains("hosts") || output.contains("etc"));
+        let output = inspect_host(&args)
+            .await
+            .expect("hosts_file must return Ok");
+        let has_path =
+            output.contains("Path:") && (output.contains("hosts") || output.contains("etc"));
         let has_summary = output.contains("Active entries:") || output.contains("Could not read");
         assert!(has_path, "hosts_file must show file path; got:\n{output}");
-        assert!(has_summary, "hosts_file must show entry summary or error; got:\n{output}");
+        assert!(
+            has_summary,
+            "hosts_file must show entry summary or error; got:\n{output}"
+        );
     });
 }
 
@@ -3127,11 +3144,12 @@ fn test_inspect_host_ssh_reports_client_and_dotsssh() {
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "ssh" });
         let output = inspect_host(&args).await.expect("ssh must return Ok");
-        let has_client = output.contains("SSH client:")
-            || output.contains("not found on PATH");
-        let has_ssh_dir = output.contains("~/.ssh:")
-            || output.contains("not found");
-        assert!(has_client, "ssh must report client version or not-found; got:\n{output}");
+        let has_client = output.contains("SSH client:") || output.contains("not found on PATH");
+        let has_ssh_dir = output.contains("~/.ssh:") || output.contains("not found");
+        assert!(
+            has_client,
+            "ssh must report client version or not-found; got:\n{output}"
+        );
         assert!(has_ssh_dir, "ssh must report ~/.ssh state; got:\n{output}");
     });
 }
@@ -3144,7 +3162,9 @@ fn test_inspect_host_installed_software_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "installed_software" });
-        let output = inspect_host(&args).await.expect("installed_software must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("installed_software must return Ok");
         assert!(
             output.contains("Host inspection: installed_software"),
             "installed_software output must contain header; got:\n{output}"
@@ -3158,7 +3178,9 @@ fn test_inspect_host_installed_software_lists_packages_or_explains() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "installed_software" });
-        let output = inspect_host(&args).await.expect("installed_software must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("installed_software must return Ok");
         let has_result = output.contains("packages")
             || output.contains("Installed software")
             || output.contains("Homebrew")
@@ -3182,7 +3204,9 @@ fn test_inspect_host_git_config_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "git_config" });
-        let output = inspect_host(&args).await.expect("git_config must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("git_config must return Ok");
         assert!(
             output.contains("Host inspection: git_config"),
             "git_config output must contain header; got:\n{output}"
@@ -3196,13 +3220,21 @@ fn test_inspect_host_git_config_reports_version_and_config() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "git_config" });
-        let output = inspect_host(&args).await.expect("git_config must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("git_config must return Ok");
         let has_git = output.contains("Git:") || output.contains("not found");
-        assert!(has_git, "git_config must report git version or not-found; got:\n{output}");
+        assert!(
+            has_git,
+            "git_config must report git version or not-found; got:\n{output}"
+        );
         // If git is present, should have config info
         if output.contains("Git: git version") {
             let has_config = output.to_lowercase().contains("global git config");
-            assert!(has_config, "git_config must show global config section; got:\n{output}");
+            assert!(
+                has_config,
+                "git_config must show global config section; got:\n{output}"
+            );
         }
     });
 }
@@ -3304,9 +3336,18 @@ fn test_routing_detects_hosts_file_topic() {
 fn test_all_host_topics_detects_docker_and_ssh_together() {
     use hematite::agent::routing::all_host_inspection_topics;
     let topics = all_host_inspection_topics("show me docker containers and my ssh config");
-    assert!(topics.contains(&"docker"), "should detect docker; got: {topics:?}");
-    assert!(topics.contains(&"ssh"), "should detect ssh; got: {topics:?}");
-    assert!(topics.len() >= 2, "should detect 2+ topics; got: {topics:?}");
+    assert!(
+        topics.contains(&"docker"),
+        "should detect docker; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"ssh"),
+        "should detect ssh; got: {topics:?}"
+    );
+    assert!(
+        topics.len() >= 2,
+        "should detect 2+ topics; got: {topics:?}"
+    );
 }
 
 // ── databases ─────────────────────────────────────────────────────────────────
@@ -3332,8 +3373,8 @@ fn test_inspect_host_databases_reports_found_or_not_found() {
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "databases" });
         let output = inspect_host(&args).await.expect("databases must return Ok");
-        let has_result = output.contains("[FOUND]")
-            || output.contains("No local database engines detected");
+        let has_result =
+            output.contains("[FOUND]") || output.contains("No local database engines detected");
         assert!(
             has_result,
             "databases must report found engines or explicit not-found; got:\n{output}"
@@ -3398,14 +3439,16 @@ fn test_fix_plan_ssh_key_reports_key_state() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "fix_plan", "issue": "generate ssh key pair" });
-        let output = inspect_host(&args).await.expect("fix_plan ssh_key must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("fix_plan ssh_key must return Ok");
         assert!(
             output.contains("id_ed25519") || output.contains("ssh-keygen"),
             "ssh_key fix_plan must mention id_ed25519 or ssh-keygen; got:\n{output}"
         );
         // Must report key detection state
-        let has_key_state = output.contains("id_ed25519 key found:")
-            || output.contains("id_rsa key found:");
+        let has_key_state =
+            output.contains("id_ed25519 key found:") || output.contains("id_rsa key found:");
         assert!(
             has_key_state,
             "ssh_key fix_plan must report whether keys exist; got:\n{output}"
@@ -3482,8 +3525,11 @@ fn test_fix_plan_registry_edit_warns_and_shows_backup() {
     use hematite::tools::host_inspect::inspect_host;
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        let args = serde_json::json!({ "topic": "fix_plan", "issue": "add a registry key in HKLM" });
-        let output = inspect_host(&args).await.expect("fix_plan registry_edit must return Ok");
+        let args =
+            serde_json::json!({ "topic": "fix_plan", "issue": "add a registry key in HKLM" });
+        let output = inspect_host(&args)
+            .await
+            .expect("fix_plan registry_edit must return Ok");
         assert!(
             output.contains("reg export") || output.contains("backup"),
             "registry_edit fix_plan must mention backup/export step; got:\n{output}"
@@ -3517,7 +3563,9 @@ fn test_inspect_host_user_accounts_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "user_accounts" });
-        let output = inspect_host(&args).await.expect("user_accounts must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("user_accounts must return Ok");
         assert!(
             output.contains("Host inspection: user_accounts"),
             "user_accounts must contain header; got:\n{output}"
@@ -3531,7 +3579,9 @@ fn test_inspect_host_user_accounts_reports_local_users_or_sessions() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "user_accounts" });
-        let output = inspect_host(&args).await.expect("user_accounts must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("user_accounts must return Ok");
         let has_section = output.contains("Local User Accounts")
             || output.contains("Active Sessions")
             || output.contains("Active Logon Sessions");
@@ -3548,9 +3598,13 @@ fn test_inspect_host_user_accounts_reports_elevation() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "user_accounts" });
-        let output = inspect_host(&args).await.expect("user_accounts must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("user_accounts must return Ok");
         assert!(
-            output.contains("Administrator") || output.contains("Elevation") || output.contains("elevated"),
+            output.contains("Administrator")
+                || output.contains("Elevation")
+                || output.contains("elevated"),
             "user_accounts must report elevation state or admin group; got:\n{output}"
         );
     });
@@ -3579,7 +3633,9 @@ fn test_inspect_host_audit_policy_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "audit_policy" });
-        let output = inspect_host(&args).await.expect("audit_policy must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("audit_policy must return Ok");
         assert!(
             output.contains("Host inspection: audit_policy"),
             "audit_policy must contain header; got:\n{output}"
@@ -3593,7 +3649,9 @@ fn test_inspect_host_audit_policy_reports_policy_or_elevation_required() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "audit_policy" });
-        let output = inspect_host(&args).await.expect("audit_policy must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("audit_policy must return Ok");
         let has_result = output.contains("Audit Policy")
             || output.contains("ENABLED")
             || output.contains("No Auditing")
@@ -3641,7 +3699,8 @@ fn test_inspect_host_shares_reports_smb_section() {
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "shares" });
         let output = inspect_host(&args).await.expect("shares must return Ok");
-        let has_section = output.contains("SMB") || output.contains("Samba") || output.contains("NFS");
+        let has_section =
+            output.contains("SMB") || output.contains("Samba") || output.contains("NFS");
         assert!(
             has_section,
             "shares must contain SMB, Samba, or NFS section; got:\n{output}"
@@ -3672,7 +3731,9 @@ fn test_inspect_host_dns_servers_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "dns_servers" });
-        let output = inspect_host(&args).await.expect("dns_servers must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("dns_servers must return Ok");
         assert!(
             output.contains("Host inspection: dns_servers"),
             "dns_servers must contain header; got:\n{output}"
@@ -3686,7 +3747,9 @@ fn test_inspect_host_dns_servers_reports_resolvers_or_resolv_conf() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "dns_servers" });
-        let output = inspect_host(&args).await.expect("dns_servers must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("dns_servers must return Ok");
         let has_section = output.contains("DNS Resolver")
             || output.contains("resolv.conf")
             || output.contains("Configured DNS")
@@ -3731,8 +3794,14 @@ fn test_inspect_host_bitlocker_returns_header() {
 #[test]
 fn test_routing_detects_bitlocker_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("is my drive encrypted?"), Some("bitlocker"));
-    assert_eq!(preferred_host_inspection_topic("bitlocker status"), Some("bitlocker"));
+    assert_eq!(
+        preferred_host_inspection_topic("is my drive encrypted?"),
+        Some("bitlocker")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("bitlocker status"),
+        Some("bitlocker")
+    );
 }
 
 // ── RDP & Remote Access ──────────────────────────────────────────────────────
@@ -3751,8 +3820,14 @@ fn test_inspect_host_rdp_returns_header() {
 #[test]
 fn test_routing_detects_rdp_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("is remote desktop enabled?"), Some("rdp"));
-    assert_eq!(preferred_host_inspection_topic("show RDP settings"), Some("rdp"));
+    assert_eq!(
+        preferred_host_inspection_topic("is remote desktop enabled?"),
+        Some("rdp")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show RDP settings"),
+        Some("rdp")
+    );
 }
 
 // ── Shadow Copies (VSS) ──────────────────────────────────────────────────────
@@ -3763,7 +3838,9 @@ fn test_inspect_host_shadow_copies_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "shadow_copies" });
-        let output = inspect_host(&args).await.expect("shadow_copies must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("shadow_copies must return Ok");
         assert!(output.contains("Host inspection: shadow_copies"));
     });
 }
@@ -3771,8 +3848,14 @@ fn test_inspect_host_shadow_copies_returns_header() {
 #[test]
 fn test_routing_detects_shadow_copies_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show me shadow copies"), Some("shadow_copies"));
-    assert_eq!(preferred_host_inspection_topic("VSS snapshots"), Some("shadow_copies"));
+    assert_eq!(
+        preferred_host_inspection_topic("show me shadow copies"),
+        Some("shadow_copies")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("VSS snapshots"),
+        Some("shadow_copies")
+    );
 }
 
 // ── Page File & Virtual Memory ───────────────────────────────────────────────
@@ -3791,8 +3874,14 @@ fn test_inspect_host_pagefile_returns_header() {
 #[test]
 fn test_routing_detects_pagefile_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("how big is my pagefile?"), Some("pagefile"));
-    assert_eq!(preferred_host_inspection_topic("virtual memory usage"), Some("pagefile"));
+    assert_eq!(
+        preferred_host_inspection_topic("how big is my pagefile?"),
+        Some("pagefile")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("virtual memory usage"),
+        Some("pagefile")
+    );
 }
 
 // ── Windows Features ─────────────────────────────────────────────────────────
@@ -3803,7 +3892,9 @@ fn test_inspect_host_windows_features_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "windows_features" });
-        let output = inspect_host(&args).await.expect("windows_features must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("windows_features must return Ok");
         assert!(output.contains("Host inspection: windows_features"));
     });
 }
@@ -3811,8 +3902,14 @@ fn test_inspect_host_windows_features_returns_header() {
 #[test]
 fn test_routing_detects_windows_features_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("what windows features are on?"), Some("windows_features"));
-    assert_eq!(preferred_host_inspection_topic("is IIS installed?"), Some("windows_features"));
+    assert_eq!(
+        preferred_host_inspection_topic("what windows features are on?"),
+        Some("windows_features")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is IIS installed?"),
+        Some("windows_features")
+    );
 }
 
 // ── Printers ─────────────────────────────────────────────────────────────────
@@ -3831,8 +3928,14 @@ fn test_inspect_host_printers_returns_header() {
 #[test]
 fn test_routing_detects_printers_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("list my printers"), Some("printers"));
-    assert_eq!(preferred_host_inspection_topic("is anything in the print queue?"), Some("printers"));
+    assert_eq!(
+        preferred_host_inspection_topic("list my printers"),
+        Some("printers")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is anything in the print queue?"),
+        Some("printers")
+    );
 }
 
 // ── WinRM ────────────────────────────────────────────────────────────────────
@@ -3851,8 +3954,14 @@ fn test_inspect_host_winrm_returns_header() {
 #[test]
 fn test_routing_detects_winrm_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("is WinRM enabled?"), Some("winrm"));
-    assert_eq!(preferred_host_inspection_topic("check PS Remoting status"), Some("winrm"));
+    assert_eq!(
+        preferred_host_inspection_topic("is WinRM enabled?"),
+        Some("winrm")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("check PS Remoting status"),
+        Some("winrm")
+    );
 }
 
 // ── Network Stats ────────────────────────────────────────────────────────────
@@ -3863,7 +3972,9 @@ fn test_inspect_host_network_stats_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "network_stats" });
-        let output = inspect_host(&args).await.expect("network_stats must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("network_stats must return Ok");
         assert!(output.contains("Host inspection: network_stats"));
     });
 }
@@ -3871,8 +3982,14 @@ fn test_inspect_host_network_stats_returns_header() {
 #[test]
 fn test_routing_detects_network_stats_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("adapter throughput stats"), Some("network_stats"));
-    assert_eq!(preferred_host_inspection_topic("any dropped packets on my NIC?"), Some("network_stats"));
+    assert_eq!(
+        preferred_host_inspection_topic("adapter throughput stats"),
+        Some("network_stats")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("any dropped packets on my NIC?"),
+        Some("network_stats")
+    );
 }
 
 // ── UDP Ports ────────────────────────────────────────────────────────────────
@@ -3891,8 +4008,14 @@ fn test_inspect_host_udp_ports_returns_header() {
 #[test]
 fn test_routing_detects_udp_ports_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("what is listening on UDP?"), Some("udp_ports"));
-    assert_eq!(preferred_host_inspection_topic("show open UDP ports"), Some("udp_ports"));
+    assert_eq!(
+        preferred_host_inspection_topic("what is listening on UDP?"),
+        Some("udp_ports")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show open UDP ports"),
+        Some("udp_ports")
+    );
 }
 #[tokio::test]
 async fn test_inspect_host_storage_includes_latency() {
@@ -3911,10 +4034,7 @@ async fn test_inspect_host_sessions() {
         .await
         .expect("inspect sessions fails");
     assert!(output.contains("Host inspection: sessions"));
-    assert!(
-        output.contains("Active Logon Sessions")
-            || output.contains("Logged-in Users")
-    );
+    assert!(output.contains("Active Logon Sessions") || output.contains("Logged-in Users"));
 }
 
 #[tokio::test]
@@ -3926,62 +4046,82 @@ async fn test_inspect_host_hardware_expanded() {
     assert!(output.contains("Motherboard:"));
     assert!(output.contains("BIOS:"));
     assert!(output.contains("Virtualization:"));
-    assert!(
-        output.contains("Hypervisor:")
-            || output.contains("unsupported")
-    );
+    assert!(output.contains("Hypervisor:") || output.contains("unsupported"));
 }
 
 #[tokio::test]
 async fn test_inspect_host_processes_io() {
     use serde_json::json;
-    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "processes", "max_entries": 1 }))
-        .await
-        .expect("inspect processes fails");
+    let output = hematite::tools::host_inspect::inspect_host(
+        &json!({ "topic": "processes", "max_entries": 1 }),
+    )
+    .await
+    .expect("inspect processes fails");
     assert!(output.contains("Top processes by resource usage:"));
-    assert!(
-        output.contains("I/O R:")
-            || output.contains("unknown")
-    );
+    assert!(output.contains("I/O R:") || output.contains("unknown"));
 }
 
 #[test]
 fn test_computation_sandbox_detector_triggers_on_hash_queries() {
     use hematite::agent::routing::needs_computation_sandbox;
-    assert!(needs_computation_sandbox("what is the sha256 of this string?"));
-    assert!(needs_computation_sandbox("compute the md5 checksum of this file content"));
-    assert!(needs_computation_sandbox("generate a crc32 hash for these bytes"));
+    assert!(needs_computation_sandbox(
+        "what is the sha256 of this string?"
+    ));
+    assert!(needs_computation_sandbox(
+        "compute the md5 checksum of this file content"
+    ));
+    assert!(needs_computation_sandbox(
+        "generate a crc32 hash for these bytes"
+    ));
 }
 
 #[test]
 fn test_computation_sandbox_detector_triggers_on_financial_queries() {
     use hematite::agent::routing::needs_computation_sandbox;
-    assert!(needs_computation_sandbox("calculate 15% compound interest over 5 years"));
-    assert!(needs_computation_sandbox("what is the roi on a $10,000 investment"));
-    assert!(needs_computation_sandbox("compute the tax on $85,000 income"));
+    assert!(needs_computation_sandbox(
+        "calculate 15% compound interest over 5 years"
+    ));
+    assert!(needs_computation_sandbox(
+        "what is the roi on a $10,000 investment"
+    ));
+    assert!(needs_computation_sandbox(
+        "compute the tax on $85,000 income"
+    ));
 }
 
 #[test]
 fn test_computation_sandbox_detector_triggers_on_statistics() {
     use hematite::agent::routing::needs_computation_sandbox;
-    assert!(needs_computation_sandbox("what is the standard deviation of [2, 4, 4, 4, 5, 5, 7, 9]?"));
-    assert!(needs_computation_sandbox("calculate the mean of these values: 10, 20, 30"));
+    assert!(needs_computation_sandbox(
+        "what is the standard deviation of [2, 4, 4, 4, 5, 5, 7, 9]?"
+    ));
+    assert!(needs_computation_sandbox(
+        "calculate the mean of these values: 10, 20, 30"
+    ));
     assert!(needs_computation_sandbox("find the median of this dataset"));
 }
 
 #[test]
 fn test_computation_sandbox_detector_triggers_on_unit_conversions() {
     use hematite::agent::routing::needs_computation_sandbox;
-    assert!(needs_computation_sandbox("convert 2.5 gigabytes to megabytes"));
+    assert!(needs_computation_sandbox(
+        "convert 2.5 gigabytes to megabytes"
+    ));
     assert!(needs_computation_sandbox("how many bytes is 512 mb?"));
-    assert!(needs_computation_sandbox("convert 100 celsius to fahrenheit"));
+    assert!(needs_computation_sandbox(
+        "convert 100 celsius to fahrenheit"
+    ));
 }
 
 #[test]
 fn test_computation_sandbox_detector_triggers_on_date_arithmetic() {
     use hematite::agent::routing::needs_computation_sandbox;
-    assert!(needs_computation_sandbox("how many days between 2024-01-15 and 2025-04-14?"));
-    assert!(needs_computation_sandbox("what is the unix timestamp for midnight UTC today?"));
+    assert!(needs_computation_sandbox(
+        "how many days between 2024-01-15 and 2025-04-14?"
+    ));
+    assert!(needs_computation_sandbox(
+        "what is the unix timestamp for midnight UTC today?"
+    ));
     assert!(needs_computation_sandbox("how many days until christmas?"));
 }
 
@@ -3989,15 +4129,25 @@ fn test_computation_sandbox_detector_triggers_on_date_arithmetic() {
 fn test_computation_sandbox_detector_triggers_on_algorithmic_queries() {
     use hematite::agent::routing::needs_computation_sandbox;
     assert!(needs_computation_sandbox("check if 7919 is prime number"));
-    assert!(needs_computation_sandbox("run this code and tell me the output"));
+    assert!(needs_computation_sandbox(
+        "run this code and tell me the output"
+    ));
     assert!(needs_computation_sandbox("execute this script for me"));
 }
 
 #[test]
 fn test_computation_sandbox_detector_does_not_trigger_on_normal_queries() {
     use hematite::agent::routing::needs_computation_sandbox;
-    assert!(!needs_computation_sandbox("how do I refactor this function?"));
-    assert!(!needs_computation_sandbox("what processes are using the most RAM?"));
-    assert!(!needs_computation_sandbox("show me the git log for this repo"));
-    assert!(!needs_computation_sandbox("explain how the vein indexer works"));
+    assert!(!needs_computation_sandbox(
+        "how do I refactor this function?"
+    ));
+    assert!(!needs_computation_sandbox(
+        "what processes are using the most RAM?"
+    ));
+    assert!(!needs_computation_sandbox(
+        "show me the git log for this repo"
+    ));
+    assert!(!needs_computation_sandbox(
+        "explain how the vein indexer works"
+    ));
 }

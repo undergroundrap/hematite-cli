@@ -317,17 +317,56 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             || lower.contains("localhost:1234")
             || lower.contains("embedding model")
             || lower.contains("no coding model loaded"));
-    let asks_path = lower.contains("path entries") || lower.contains("raw path") || (lower.contains("path") && (lower.contains("show") || lower.contains("what is")));
-    let asks_gpo = lower.contains("gpo") || lower.contains("group policy") || lower.contains("gpresult") || lower.contains("applied policy");
-    let asks_certificates = lower.contains("cert") || lower.contains("ssl") || lower.contains("client cert") || lower.contains("expiring cert");
-    let asks_integrity = lower.contains("integrity") || lower.contains("sfc") || lower.contains("dism") || lower.contains("corruption") || lower.contains("os health");
-    let asks_domain = lower.contains("domain") || lower.contains("active directory") || lower.contains("ad join") || lower.contains("workgroup") || lower.contains("netbios");
-    let asks_device_health = lower.contains("device health") || lower.contains("hardware error") || lower.contains("malfunctioning") || lower.contains("yellow bang") || lower.contains("hardware failing");
-    let asks_drivers = lower.contains("driver") || lower.contains("kmod") || lower.contains("kernel module");
-    let asks_peripherals = lower.contains("peripheral") || lower.contains("usb") || lower.contains("keyboard") || lower.contains("mouse") || lower.contains("pointer") || lower.contains("monitor") || lower.contains("input device") || lower.contains("connected hardware");
-    let asks_sessions = lower.contains("session") || lower.contains("login") || lower.contains("who is on") || lower.contains("active user");
-    let asks_virtualization = lower.contains("virtualization") || lower.contains("hypervisor") || lower.contains("vt-x") || lower.contains("slat") || lower.contains("v-p") || lower.contains("nested virt");
-    let asks_startup = lower.contains("startup") || lower.contains("boot program") || lower.contains("autorun") || lower.contains("run at boot");
+    let asks_path = lower.contains("path entries")
+        || lower.contains("raw path")
+        || (lower.contains("path") && (lower.contains("show") || lower.contains("what is")));
+    let asks_gpo = lower.contains("gpo")
+        || lower.contains("group policy")
+        || lower.contains("gpresult")
+        || lower.contains("applied policy");
+    let asks_certificates = lower.contains("cert")
+        || lower.contains("ssl")
+        || lower.contains("client cert")
+        || lower.contains("expiring cert");
+    let asks_integrity = lower.contains("integrity")
+        || lower.contains("sfc")
+        || lower.contains("dism")
+        || lower.contains("corruption")
+        || lower.contains("os health");
+    let asks_domain = lower.contains("domain")
+        || lower.contains("active directory")
+        || lower.contains("ad join")
+        || lower.contains("workgroup")
+        || lower.contains("netbios");
+    let asks_device_health = lower.contains("device health")
+        || lower.contains("hardware error")
+        || lower.contains("malfunctioning")
+        || lower.contains("yellow bang")
+        || lower.contains("hardware failing");
+    let asks_drivers =
+        lower.contains("driver") || lower.contains("kmod") || lower.contains("kernel module");
+    let asks_peripherals = lower.contains("peripheral")
+        || lower.contains("usb")
+        || lower.contains("keyboard")
+        || lower.contains("mouse")
+        || lower.contains("pointer")
+        || lower.contains("monitor")
+        || lower.contains("input device")
+        || lower.contains("connected hardware");
+    let asks_sessions = lower.contains("session")
+        || lower.contains("login")
+        || lower.contains("who is on")
+        || lower.contains("active user");
+    let asks_virtualization = lower.contains("virtualization")
+        || lower.contains("hypervisor")
+        || lower.contains("vt-x")
+        || lower.contains("slat")
+        || lower.contains("v-p")
+        || lower.contains("nested virt");
+    let asks_startup = lower.contains("startup")
+        || lower.contains("boot program")
+        || lower.contains("autorun")
+        || lower.contains("run at boot");
     let asks_env_doctor = lower.contains("env doctor")
         || lower.contains("environment doctor")
         || lower.contains("package manager")
@@ -413,7 +452,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("update available")
         || lower.contains("check for update")
         || lower.contains("latest update")
-        || (lower.contains("update") && (lower.contains("my pc") || lower.contains("my computer") || lower.contains("my machine")));
+        || (lower.contains("update")
+            && (lower.contains("my pc")
+                || lower.contains("my computer")
+                || lower.contains("my machine")));
     let asks_security = lower.contains("antivirus")
         || lower.contains("defender")
         || lower.contains("virus protection")
@@ -423,7 +465,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("windows activated")
         || lower.contains("activation status")
         || (lower.contains("protected") && (lower.contains("pc") || lower.contains("computer")))
-        || (lower.contains("security") && !lower.contains("git") && !lower.contains("ssh") && !lower.contains("token"));
+        || (lower.contains("security")
+            && !lower.contains("git")
+            && !lower.contains("ssh")
+            && !lower.contains("token"));
     let asks_pending_reboot = lower.contains("need to restart")
         || lower.contains("need to reboot")
         || lower.contains("requires restart")
@@ -432,7 +477,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("restart required")
         || lower.contains("pending restart")
         || lower.contains("pending reboot")
-        || (lower.contains("restart") && (lower.contains("waiting") || lower.contains("queued") || lower.contains("required")))
+        || (lower.contains("restart")
+            && (lower.contains("waiting")
+                || lower.contains("queued")
+                || lower.contains("required")))
         || (lower.contains("reboot") && lower.contains("required"));
     let asks_disk_health = lower.contains("disk health")
         || lower.contains("drive health")
@@ -441,7 +489,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("drive failing")
         || lower.contains("drive fail")
         || (lower.contains("dying") && (lower.contains("drive") || lower.contains("disk")))
-        || (lower.contains("healthy") && (lower.contains("drive") || lower.contains("disk") || lower.contains("ssd") || lower.contains("hdd")));
+        || (lower.contains("healthy")
+            && (lower.contains("drive")
+                || lower.contains("disk")
+                || lower.contains("ssd")
+                || lower.contains("hdd")));
     let asks_battery = lower.contains("battery")
         || lower.contains("battery life")
         || lower.contains("battery health")
@@ -535,11 +587,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("winhttp proxy")
         || lower.contains("system proxy")
         || (lower.contains("routed") && lower.contains("proxy"));
-    let asks_firewall_rules = (lower.contains("firewall") && (lower.contains("rule")
-        || lower.contains("block")
-        || lower.contains("allow")
-        || lower.contains("inbound")
-        || lower.contains("outbound")))
+    let asks_firewall_rules = (lower.contains("firewall")
+        && (lower.contains("rule")
+            || lower.contains("block")
+            || lower.contains("allow")
+            || lower.contains("inbound")
+            || lower.contains("outbound")))
         || lower.contains("blocked port")
         || lower.contains("firewall rule");
     let asks_traceroute = lower.contains("traceroute")
@@ -567,7 +620,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("neighbor table")
         || lower.contains("ip to mac")
         || lower.contains("ip neigh")
-        || (lower.contains("arp") && (lower.contains("who") || lower.contains("entry") || lower.contains("entries")));
+        || (lower.contains("arp")
+            && (lower.contains("who") || lower.contains("entry") || lower.contains("entries")));
     let asks_route_table = lower.contains("route print")
         || lower.contains("route table")
         || lower.contains("routing table")
@@ -576,16 +630,23 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("network routes")
         || lower.contains("ip route")
         || lower.contains("next hop")
-        || (lower.contains("route") && (lower.contains("table") || lower.contains("entry") || lower.contains("entries")));
-    let asks_env = (lower.contains("environment variable") || lower.contains("env var")
-        || lower.contains("env vars") || lower.contains("show env") || lower.contains("list env"))
+        || (lower.contains("route")
+            && (lower.contains("table") || lower.contains("entry") || lower.contains("entries")));
+    let asks_env = (lower.contains("environment variable")
+        || lower.contains("env var")
+        || lower.contains("env vars")
+        || lower.contains("show env")
+        || lower.contains("list env"))
         && !lower.contains("env doctor");
     let asks_hosts_file = lower.contains("hosts file")
         || lower.contains("/etc/hosts")
         || lower.contains("etc/hosts")
         || lower.contains("hosts entry")
         || lower.contains("hosts entries")
-        || (lower.contains("hosts") && (lower.contains("redirect") || lower.contains("block") || lower.contains("loopback")));
+        || (lower.contains("hosts")
+            && (lower.contains("redirect")
+                || lower.contains("block")
+                || lower.contains("loopback")));
     let asks_docker = lower.contains("docker")
         || lower.contains("container")
         || lower.contains("docker compose")
@@ -604,7 +665,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("known_hosts")
         || lower.contains("authorized_keys")
         || lower.contains("ssh key")
-        || (lower.contains("ssh") && (lower.contains("running") || lower.contains("service") || lower.contains("port 22")));
+        || (lower.contains("ssh")
+            && (lower.contains("running")
+                || lower.contains("service")
+                || lower.contains("port 22")));
     let asks_installed_software = lower.contains("installed software")
         || lower.contains("installed program")
         || lower.contains("installed app")
@@ -613,18 +677,36 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("what's installed")
         || lower.contains("winget list")
         || lower.contains("list programs")
-        || (lower.contains("installed") && (lower.contains("on this machine") || lower.contains("on my machine") || lower.contains("on my pc")));
-    let asks_databases = lower.contains("postgres") || lower.contains("postgresql")
-        || lower.contains("mysql") || lower.contains("mariadb")
-        || lower.contains("mongodb") || lower.contains("mongo")
-        || lower.contains("redis") || lower.contains("sql server") || lower.contains("mssql")
-        || lower.contains("sqlite") || lower.contains("elasticsearch") || lower.contains("cassandra")
+        || (lower.contains("installed")
+            && (lower.contains("on this machine")
+                || lower.contains("on my machine")
+                || lower.contains("on my pc")));
+    let asks_databases = lower.contains("postgres")
+        || lower.contains("postgresql")
+        || lower.contains("mysql")
+        || lower.contains("mariadb")
+        || lower.contains("mongodb")
+        || lower.contains("mongo")
+        || lower.contains("redis")
+        || lower.contains("sql server")
+        || lower.contains("mssql")
+        || lower.contains("sqlite")
+        || lower.contains("elasticsearch")
+        || lower.contains("cassandra")
         || lower.contains("couchdb")
-        || (lower.contains("database") && (lower.contains("running") || lower.contains("service")
-            || lower.contains("installed") || lower.contains("up") || lower.contains("local")))
-        || lower.contains("db service") || lower.contains("database server")
-        || (lower.contains("is") && lower.contains("running") && (lower.contains("db") || lower.contains("database")));
-    let asks_git_config = (lower.contains("git config") || lower.contains("git configuration")
+        || (lower.contains("database")
+            && (lower.contains("running")
+                || lower.contains("service")
+                || lower.contains("installed")
+                || lower.contains("up")
+                || lower.contains("local")))
+        || lower.contains("db service")
+        || lower.contains("database server")
+        || (lower.contains("is")
+            && lower.contains("running")
+            && (lower.contains("db") || lower.contains("database")));
+    let asks_git_config = (lower.contains("git config")
+        || lower.contains("git configuration")
         || lower.contains("git global")
         || (lower.contains("git") && lower.contains("user.name"))
         || (lower.contains("git") && lower.contains("user.email"))
@@ -699,10 +781,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("optional feature")
         || lower.contains("iis")
         || lower.contains("hyper-v")
-        || (lower.contains("feature") && (lower.contains("install") || lower.contains("enabled") || lower.contains("turn on")));
-    let asks_printers = lower.contains("printer")
-        || lower.contains("print queue")
-        || lower.contains("get-printer");
+        || (lower.contains("feature")
+            && (lower.contains("install")
+                || lower.contains("enabled")
+                || lower.contains("turn on")));
+    let asks_printers =
+        lower.contains("printer") || lower.contains("print queue") || lower.contains("get-printer");
     let asks_winrm = lower.contains("winrm")
         || lower.contains("psremoting")
         || (lower.contains("ps") && lower.contains("remoting"))
@@ -715,12 +799,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("dropped packet");
     let asks_udp_ports = lower.contains("udp port")
         || lower.contains("udp listener")
-        || (lower.contains("udp") && (lower.contains("port") || lower.contains("listen") || lower.contains("open")));
+        || (lower.contains("udp")
+            && (lower.contains("port") || lower.contains("listen") || lower.contains("open")));
 
     if asks_disk_benchmark {
         Some("disk_benchmark")
     } else if asks_fix_plan {
-
         Some("fix_plan")
     } else if asks_gpo {
         Some("gpo")
@@ -744,8 +828,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("hardware")
     } else if asks_startup {
         Some("startup_items")
-    }
-    else if asks_bitlocker {
+    } else if asks_bitlocker {
         Some("bitlocker")
     } else if asks_rdp {
         Some("rdp")
@@ -867,68 +950,346 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     // All topic detectors in priority order — ordered so more specific topics come
     // before generic fallbacks (e.g. traceroute before network).
     let detectors: &[(&str, fn(&str) -> bool)] = &[
-        ("fix_plan",        |l| l.contains("fix") && (l.contains("cargo") || l.contains("port ") || l.contains("lm studio") || l.contains("toolchain"))),
-        ("updates",         |l| l.contains("up to date") || l.contains("windows update") || l.contains("pending update") || l.contains("update available")),
-        ("security",        |l| l.contains("antivirus") || l.contains("defender") || l.contains("uac") || (l.contains("security") && !l.contains("git") && !l.contains("ssh"))),
-        ("pending_reboot",  |l| l.contains("pending reboot") || l.contains("pending restart") || l.contains("need to restart") || l.contains("reboot required")),
-        ("disk_health",     |l| l.contains("disk health") || l.contains("drive health") || l.contains("smart status") || (l.contains("healthy") && (l.contains("drive") || l.contains("disk") || l.contains("ssd")))),
-        ("battery",         |l| l.contains("battery")),
-        ("recent_crashes",  |l| l.contains("crash") || l.contains("bsod") || l.contains("blue screen")),
-        ("scheduled_tasks", |l| l.contains("scheduled task") || l.contains("task scheduler")),
-        ("dev_conflicts",   |l| l.contains("dev conflict") || l.contains("toolchain conflict") || l.contains("duplicate path")),
-        ("storage",         |l| l.contains("disk space") || l.contains("storage") || l.contains("drive capacity") || l.contains("cache size")),
-        ("hardware",        |l| l.contains("cpu model") || l.contains("ram size") || l.contains("hardware spec") || (l.contains("what hardware") && l.contains("have"))),
-        ("health_report",   |l| l.contains("health report") || l.contains("system health")),
-        ("resource_load",   |l| l.contains("resource load") || l.contains("cpu load") || l.contains("ram %") || l.contains("cpu %") || l.contains("performance")),
-        ("processes",       |l| l.contains("process") || l.contains("task manager") || l.contains("what is running") || l.contains("using my ram") || l.contains("hitting the disk") || l.contains("disk thrasher")),
-        ("services",        |l| l.contains("service") || l.contains("daemon") || l.contains("windows service")),
-        ("ports",           |l| l.contains("listening port") || l.contains("open port") || l.contains("what is on port") || l.contains("port 3000")),
-        ("traceroute",      |l| l.contains("traceroute") || l.contains("tracert") || l.contains("trace route") || l.contains("trace the path") || l.contains("network path") || l.contains("how many hops") || (l.contains("trace") && l.contains("hop"))),
-        ("dns_cache",       |l| l.contains("dns cache") || l.contains("cached dns") || l.contains("displaydns") || (l.contains("dns") && l.contains("cached"))),
-        ("arp",             |l| l.contains("arp table") || l.contains("arp cache") || l.contains("mac address") || l.contains("ip to mac") || l.contains("arp -")),
-        ("route_table",     |l| l.contains("route table") || l.contains("routing table") || l.contains("route print") || l.contains("network route") || l.contains("next hop")),
-        ("connectivity",    |l| l.contains("internet") || l.contains("am i connected") || l.contains("ping google") || l.contains("internet access") || l.contains("no internet")),
-        ("wifi",            |l| l.contains("wi-fi") || l.contains("wifi") || l.contains("wireless") || l.contains("ssid") || l.contains("signal strength")),
-        ("connections",     |l| l.contains("tcp connection") || l.contains("active connection") || l.contains("netstat") || l.contains("open socket")),
-        ("vpn",             |l| l.contains("vpn") || l.contains("virtual private network")),
-        ("proxy",           |l| l.contains("proxy setting") || l.contains("system proxy") || l.contains("winhttp proxy")),
-        ("firewall_rules",  |l| (l.contains("firewall") && (l.contains("rule") || l.contains("inbound") || l.contains("outbound"))) || l.contains("firewall rule")),
-        ("network",         |l| l.contains("network adapter") || l.contains("ip address") || l.contains("ipconfig") || l.contains("gateway") || l.contains("subnet")),
-        ("env_doctor",      |l| l.contains("env doctor") || l.contains("environment doctor") || l.contains("package manager") || l.contains("path drift")),
-        ("os_config",       |l| l.contains("power plan") || l.contains("uptime") || l.contains("boot time") || l.contains("last boot")),
-        ("path",               |l| l.contains("path entries") || l.contains("raw path")),
-        ("toolchains",         |l| l.contains("developer tools") || l.contains("toolchains") || (l.contains("installed") && l.contains("version"))),
-        ("docker",             |l| l.contains("docker") || l.contains("container") || l.contains("running container")),
-        ("wsl",                |l| l.contains("wsl") || l.contains("windows subsystem") || (l.contains("subsystem") && l.contains("linux"))),
-        ("ssh",                |l| l.contains("ssh") || l.contains("sshd") || l.contains("known_hosts") || l.contains("authorized_keys")),
-        ("git_config",         |l| (l.contains("git config") || l.contains("git global") || l.contains("git aliases")) && !l.contains("github")),
-        ("installed_software", |l| l.contains("installed software") || l.contains("installed program") || l.contains("what is installed") || l.contains("what's installed") || l.contains("winget list")),
-        ("env",                |l| (l.contains("environment variable") || l.contains("env var") || l.contains("env vars")) && !l.contains("env doctor")),
-        ("hosts_file",         |l| l.contains("hosts file") || l.contains("/etc/hosts") || l.contains("hosts entry")),
-        ("databases",          |l| l.contains("postgres") || l.contains("mysql") || l.contains("mariadb") || l.contains("mongodb") || l.contains("redis") || l.contains("sqlite") || l.contains("sql server") || l.contains("elasticsearch") || (l.contains("database") && (l.contains("running") || l.contains("service")))),
-        ("user_accounts",      |l| l.contains("local user") || l.contains("user account") || l.contains("who is logged") || l.contains("admin group") || l.contains("local admin") || l.contains("active sessions") || l.contains("running as admin")),
-        ("audit_policy",       |l| l.contains("audit policy") || l.contains("auditpol") || l.contains("what is being logged") || l.contains("security audit") || l.contains("event auditing")),
-        ("shares",             |l| l.contains("smb share") || l.contains("network share") || l.contains("shared folder") || l.contains("mapped drive") || l.contains("smb1") || l.contains("nfs export")),
-        ("dns_servers",        |l| (l.contains("dns server") || l.contains("dns resolver") || l.contains("nameserver") || l.contains("which dns") || l.contains("dns over https") || l.contains("configured dns")) && !l.contains("dns cache")),
-        ("bitlocker",        |l| l.contains("bitlocker") || (l.contains("drive") && l.contains("encrypt")) || (l.contains("disk") && l.contains("encrypt")) || l.contains("encryption status")),
-        ("rdp",              |l| l.contains("rdp") || l.contains("remote desktop") || (l.contains("remote") && l.contains("access") && !l.contains("git"))),
-        ("shadow_copies",    |l| l.contains("shadow copy") || l.contains("shadow copies") || l.contains("vss") || l.contains("snapshot") || l.contains("restore point")),
-        ("pagefile",         |l| l.contains("pagefile") || l.contains("page file") || l.contains("virtual memory") || l.contains("swap file")),
-        ("windows_features", |l| (l.contains("window") && l.contains("feature")) || l.contains("optional feature") || l.contains("iis") || l.contains("hyper-v") || (l.contains("feature") && (l.contains("install") || l.contains("enabled")))),
-        ("printers",         |l| l.contains("printer") || l.contains("print queue") || l.contains("get-printer")),
-        ("winrm",            |l| l.contains("winrm") || l.contains("psremoting") || (l.contains("remote") && l.contains("management") && !l.contains("rdp"))),
-        ("network_stats",    |l| (l.contains("network") && l.contains("stat")) || (l.contains("adapter") && l.contains("stat")) || l.contains("throughput") || l.contains("packet loss") || l.contains("dropped packet")),
-        ("startup_items",    |l| l.contains("startup") || l.contains("boot program") || l.contains("autorun")),
-        ("udp_ports",        |l| l.contains("udp port") || l.contains("udp listener") || (l.contains("udp") && l.contains("listening"))),
-        ("gpo",              |l| l.contains("gpo") || l.contains("group policy") || l.contains("gpresult")),
-        ("certificates",     |l| l.contains("cert") || l.contains("ssl") || l.contains("thumbprint")),
-        ("integrity",        |l| l.contains("integrity") || l.contains("sfc") || l.contains("dism")),
-        ("domain",           |l| l.contains("domain") || l.contains("workgroup") || l.contains("netbios") || l.contains("active directory")),
-        ("device_health",    |l| l.contains("device health") || l.contains("hardware error") || l.contains("yellow bang") || l.contains("malfunctioning")),
-        ("drivers",          |l| l.contains("driver") || l.contains("system driver")),
-        ("peripherals",      |l| l.contains("peripheral") || l.contains("usb") || l.contains("keyboard") || l.contains("mouse") || l.contains("monitor")),
-        ("sessions",         |l| l.contains("session") || l.contains("who is logged") || l.contains("active login")),
-        ("hardware",         |l| l.contains("virtualization") || l.contains("hypervisor") || l.contains("vt-x") || l.contains("slat")),
+        ("fix_plan", |l| {
+            l.contains("fix")
+                && (l.contains("cargo")
+                    || l.contains("port ")
+                    || l.contains("lm studio")
+                    || l.contains("toolchain"))
+        }),
+        ("updates", |l| {
+            l.contains("up to date")
+                || l.contains("windows update")
+                || l.contains("pending update")
+                || l.contains("update available")
+        }),
+        ("security", |l| {
+            l.contains("antivirus")
+                || l.contains("defender")
+                || l.contains("uac")
+                || (l.contains("security") && !l.contains("git") && !l.contains("ssh"))
+        }),
+        ("pending_reboot", |l| {
+            l.contains("pending reboot")
+                || l.contains("pending restart")
+                || l.contains("need to restart")
+                || l.contains("reboot required")
+        }),
+        ("disk_health", |l| {
+            l.contains("disk health")
+                || l.contains("drive health")
+                || l.contains("smart status")
+                || (l.contains("healthy")
+                    && (l.contains("drive") || l.contains("disk") || l.contains("ssd")))
+        }),
+        ("battery", |l| l.contains("battery")),
+        ("recent_crashes", |l| {
+            l.contains("crash") || l.contains("bsod") || l.contains("blue screen")
+        }),
+        ("scheduled_tasks", |l| {
+            l.contains("scheduled task") || l.contains("task scheduler")
+        }),
+        ("dev_conflicts", |l| {
+            l.contains("dev conflict")
+                || l.contains("toolchain conflict")
+                || l.contains("duplicate path")
+        }),
+        ("storage", |l| {
+            l.contains("disk space")
+                || l.contains("storage")
+                || l.contains("drive capacity")
+                || l.contains("cache size")
+        }),
+        ("hardware", |l| {
+            l.contains("cpu model")
+                || l.contains("ram size")
+                || l.contains("hardware spec")
+                || (l.contains("what hardware") && l.contains("have"))
+        }),
+        ("health_report", |l| {
+            l.contains("health report") || l.contains("system health")
+        }),
+        ("resource_load", |l| {
+            l.contains("resource load")
+                || l.contains("cpu load")
+                || l.contains("ram %")
+                || l.contains("cpu %")
+                || l.contains("performance")
+        }),
+        ("processes", |l| {
+            l.contains("process")
+                || l.contains("task manager")
+                || l.contains("what is running")
+                || l.contains("using my ram")
+                || l.contains("hitting the disk")
+                || l.contains("disk thrasher")
+        }),
+        ("services", |l| {
+            l.contains("service") || l.contains("daemon") || l.contains("windows service")
+        }),
+        ("ports", |l| {
+            l.contains("listening port")
+                || l.contains("open port")
+                || l.contains("what is on port")
+                || l.contains("port 3000")
+        }),
+        ("traceroute", |l| {
+            l.contains("traceroute")
+                || l.contains("tracert")
+                || l.contains("trace route")
+                || l.contains("trace the path")
+                || l.contains("network path")
+                || l.contains("how many hops")
+                || (l.contains("trace") && l.contains("hop"))
+        }),
+        ("dns_cache", |l| {
+            l.contains("dns cache")
+                || l.contains("cached dns")
+                || l.contains("displaydns")
+                || (l.contains("dns") && l.contains("cached"))
+        }),
+        ("arp", |l| {
+            l.contains("arp table")
+                || l.contains("arp cache")
+                || l.contains("mac address")
+                || l.contains("ip to mac")
+                || l.contains("arp -")
+        }),
+        ("route_table", |l| {
+            l.contains("route table")
+                || l.contains("routing table")
+                || l.contains("route print")
+                || l.contains("network route")
+                || l.contains("next hop")
+        }),
+        ("connectivity", |l| {
+            l.contains("internet")
+                || l.contains("am i connected")
+                || l.contains("ping google")
+                || l.contains("internet access")
+                || l.contains("no internet")
+        }),
+        ("wifi", |l| {
+            l.contains("wi-fi")
+                || l.contains("wifi")
+                || l.contains("wireless")
+                || l.contains("ssid")
+                || l.contains("signal strength")
+        }),
+        ("connections", |l| {
+            l.contains("tcp connection")
+                || l.contains("active connection")
+                || l.contains("netstat")
+                || l.contains("open socket")
+        }),
+        ("vpn", |l| {
+            l.contains("vpn") || l.contains("virtual private network")
+        }),
+        ("proxy", |l| {
+            l.contains("proxy setting") || l.contains("system proxy") || l.contains("winhttp proxy")
+        }),
+        ("firewall_rules", |l| {
+            (l.contains("firewall")
+                && (l.contains("rule") || l.contains("inbound") || l.contains("outbound")))
+                || l.contains("firewall rule")
+        }),
+        ("network", |l| {
+            l.contains("network adapter")
+                || l.contains("ip address")
+                || l.contains("ipconfig")
+                || l.contains("gateway")
+                || l.contains("subnet")
+        }),
+        ("env_doctor", |l| {
+            l.contains("env doctor")
+                || l.contains("environment doctor")
+                || l.contains("package manager")
+                || l.contains("path drift")
+        }),
+        ("os_config", |l| {
+            l.contains("power plan")
+                || l.contains("uptime")
+                || l.contains("boot time")
+                || l.contains("last boot")
+        }),
+        ("path", |l| {
+            l.contains("path entries") || l.contains("raw path")
+        }),
+        ("toolchains", |l| {
+            l.contains("developer tools")
+                || l.contains("toolchains")
+                || (l.contains("installed") && l.contains("version"))
+        }),
+        ("docker", |l| {
+            l.contains("docker") || l.contains("container") || l.contains("running container")
+        }),
+        ("wsl", |l| {
+            l.contains("wsl")
+                || l.contains("windows subsystem")
+                || (l.contains("subsystem") && l.contains("linux"))
+        }),
+        ("ssh", |l| {
+            l.contains("ssh")
+                || l.contains("sshd")
+                || l.contains("known_hosts")
+                || l.contains("authorized_keys")
+        }),
+        ("git_config", |l| {
+            (l.contains("git config") || l.contains("git global") || l.contains("git aliases"))
+                && !l.contains("github")
+        }),
+        ("installed_software", |l| {
+            l.contains("installed software")
+                || l.contains("installed program")
+                || l.contains("what is installed")
+                || l.contains("what's installed")
+                || l.contains("winget list")
+        }),
+        ("env", |l| {
+            (l.contains("environment variable") || l.contains("env var") || l.contains("env vars"))
+                && !l.contains("env doctor")
+        }),
+        ("hosts_file", |l| {
+            l.contains("hosts file") || l.contains("/etc/hosts") || l.contains("hosts entry")
+        }),
+        ("databases", |l| {
+            l.contains("postgres")
+                || l.contains("mysql")
+                || l.contains("mariadb")
+                || l.contains("mongodb")
+                || l.contains("redis")
+                || l.contains("sqlite")
+                || l.contains("sql server")
+                || l.contains("elasticsearch")
+                || (l.contains("database") && (l.contains("running") || l.contains("service")))
+        }),
+        ("user_accounts", |l| {
+            l.contains("local user")
+                || l.contains("user account")
+                || l.contains("who is logged")
+                || l.contains("admin group")
+                || l.contains("local admin")
+                || l.contains("active sessions")
+                || l.contains("running as admin")
+        }),
+        ("audit_policy", |l| {
+            l.contains("audit policy")
+                || l.contains("auditpol")
+                || l.contains("what is being logged")
+                || l.contains("security audit")
+                || l.contains("event auditing")
+        }),
+        ("shares", |l| {
+            l.contains("smb share")
+                || l.contains("network share")
+                || l.contains("shared folder")
+                || l.contains("mapped drive")
+                || l.contains("smb1")
+                || l.contains("nfs export")
+        }),
+        ("dns_servers", |l| {
+            (l.contains("dns server")
+                || l.contains("dns resolver")
+                || l.contains("nameserver")
+                || l.contains("which dns")
+                || l.contains("dns over https")
+                || l.contains("configured dns"))
+                && !l.contains("dns cache")
+        }),
+        ("bitlocker", |l| {
+            l.contains("bitlocker")
+                || (l.contains("drive") && l.contains("encrypt"))
+                || (l.contains("disk") && l.contains("encrypt"))
+                || l.contains("encryption status")
+        }),
+        ("rdp", |l| {
+            l.contains("rdp")
+                || l.contains("remote desktop")
+                || (l.contains("remote") && l.contains("access") && !l.contains("git"))
+        }),
+        ("shadow_copies", |l| {
+            l.contains("shadow copy")
+                || l.contains("shadow copies")
+                || l.contains("vss")
+                || l.contains("snapshot")
+                || l.contains("restore point")
+        }),
+        ("pagefile", |l| {
+            l.contains("pagefile")
+                || l.contains("page file")
+                || l.contains("virtual memory")
+                || l.contains("swap file")
+        }),
+        ("windows_features", |l| {
+            (l.contains("window") && l.contains("feature"))
+                || l.contains("optional feature")
+                || l.contains("iis")
+                || l.contains("hyper-v")
+                || (l.contains("feature") && (l.contains("install") || l.contains("enabled")))
+        }),
+        ("printers", |l| {
+            l.contains("printer") || l.contains("print queue") || l.contains("get-printer")
+        }),
+        ("winrm", |l| {
+            l.contains("winrm")
+                || l.contains("psremoting")
+                || (l.contains("remote") && l.contains("management") && !l.contains("rdp"))
+        }),
+        ("network_stats", |l| {
+            (l.contains("network") && l.contains("stat"))
+                || (l.contains("adapter") && l.contains("stat"))
+                || l.contains("throughput")
+                || l.contains("packet loss")
+                || l.contains("dropped packet")
+        }),
+        ("startup_items", |l| {
+            l.contains("startup") || l.contains("boot program") || l.contains("autorun")
+        }),
+        ("udp_ports", |l| {
+            l.contains("udp port")
+                || l.contains("udp listener")
+                || (l.contains("udp") && l.contains("listening"))
+        }),
+        ("gpo", |l| {
+            l.contains("gpo") || l.contains("group policy") || l.contains("gpresult")
+        }),
+        ("certificates", |l| {
+            l.contains("cert") || l.contains("ssl") || l.contains("thumbprint")
+        }),
+        ("integrity", |l| {
+            l.contains("integrity") || l.contains("sfc") || l.contains("dism")
+        }),
+        ("domain", |l| {
+            l.contains("domain")
+                || l.contains("workgroup")
+                || l.contains("netbios")
+                || l.contains("active directory")
+        }),
+        ("device_health", |l| {
+            l.contains("device health")
+                || l.contains("hardware error")
+                || l.contains("yellow bang")
+                || l.contains("malfunctioning")
+        }),
+        ("drivers", |l| {
+            l.contains("driver") || l.contains("system driver")
+        }),
+        ("peripherals", |l| {
+            l.contains("peripheral")
+                || l.contains("usb")
+                || l.contains("keyboard")
+                || l.contains("mouse")
+                || l.contains("monitor")
+        }),
+        ("sessions", |l| {
+            l.contains("session") || l.contains("who is logged") || l.contains("active login")
+        }),
+        ("hardware", |l| {
+            l.contains("virtualization")
+                || l.contains("hypervisor")
+                || l.contains("vt-x")
+                || l.contains("slat")
+        }),
     ];
 
     let lower = user_input.to_lowercase();
@@ -1526,28 +1887,66 @@ pub(crate) fn is_capability_probe_tool(name: &str) -> bool {
 /// Used by the harness to inject a pre-turn nudge toward run_code instead of model memory.
 pub fn needs_computation_sandbox(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
-    let hash_or_checksum = lower.contains("sha") || lower.contains("md5") || lower.contains("checksum")
-        || lower.contains("crc") || lower.contains("hash") || lower.contains("fingerprint");
-    let financial = (lower.contains("calculat") || lower.contains("compute") || lower.contains("what is"))
-        && (lower.contains("percent") || lower.contains("%") || lower.contains("interest")
-            || lower.contains("compound") || lower.contains("roi") || lower.contains("tax")
-            || lower.contains("discount") || lower.contains("profit") || lower.contains("loss"));
-    let statistics = lower.contains("standard deviation") || lower.contains("std dev")
-        || lower.contains("mean of") || lower.contains("median of") || lower.contains("average of")
-        || lower.contains("variance") || lower.contains("regression") || lower.contains("correlation");
-    let date_math = (lower.contains("how many days") || lower.contains("days between")
-        || lower.contains("days until") || lower.contains("days since") || lower.contains("unix timestamp")
-        || lower.contains("epoch") || lower.contains("time zone") || lower.contains("timezone"))
-        && (lower.contains("date") || lower.contains("day") || lower.contains("timestamp") || lower.contains("time"));
-    let algorithmic = lower.contains("is prime") || lower.contains("prime number") || lower.contains("factori")
-        || lower.contains("fibonacci") || lower.contains("factorial") || lower.contains("sort this")
-        || lower.contains("verify this algorithm") || lower.contains("run this code")
+    let hash_or_checksum = lower.contains("sha")
+        || lower.contains("md5")
+        || lower.contains("checksum")
+        || lower.contains("crc")
+        || lower.contains("hash")
+        || lower.contains("fingerprint");
+    let financial =
+        (lower.contains("calculat") || lower.contains("compute") || lower.contains("what is"))
+            && (lower.contains("percent")
+                || lower.contains("%")
+                || lower.contains("interest")
+                || lower.contains("compound")
+                || lower.contains("roi")
+                || lower.contains("tax")
+                || lower.contains("discount")
+                || lower.contains("profit")
+                || lower.contains("loss"));
+    let statistics = lower.contains("standard deviation")
+        || lower.contains("std dev")
+        || lower.contains("mean of")
+        || lower.contains("median of")
+        || lower.contains("average of")
+        || lower.contains("variance")
+        || lower.contains("regression")
+        || lower.contains("correlation");
+    let date_math = (lower.contains("how many days")
+        || lower.contains("days between")
+        || lower.contains("days until")
+        || lower.contains("days since")
+        || lower.contains("unix timestamp")
+        || lower.contains("epoch")
+        || lower.contains("time zone")
+        || lower.contains("timezone"))
+        && (lower.contains("date")
+            || lower.contains("day")
+            || lower.contains("timestamp")
+            || lower.contains("time"));
+    let algorithmic = lower.contains("is prime")
+        || lower.contains("prime number")
+        || lower.contains("factori")
+        || lower.contains("fibonacci")
+        || lower.contains("factorial")
+        || lower.contains("sort this")
+        || lower.contains("verify this algorithm")
+        || lower.contains("run this code")
         || lower.contains("execute this");
     let unit_conversion = (lower.contains("convert") || lower.contains("how many"))
-        && (lower.contains(" bytes") || lower.contains(" kb") || lower.contains(" mb") || lower.contains(" gb")
-            || lower.contains(" tb") || lower.contains("gigabyte") || lower.contains("megabyte")
-            || lower.contains("celsius") || lower.contains("fahrenheit") || lower.contains("kelvin")
-            || lower.contains("kilometers") || lower.contains("miles") || lower.contains("pounds")
+        && (lower.contains(" bytes")
+            || lower.contains(" kb")
+            || lower.contains(" mb")
+            || lower.contains(" gb")
+            || lower.contains(" tb")
+            || lower.contains("gigabyte")
+            || lower.contains("megabyte")
+            || lower.contains("celsius")
+            || lower.contains("fahrenheit")
+            || lower.contains("kelvin")
+            || lower.contains("kilometers")
+            || lower.contains("miles")
+            || lower.contains("pounds")
             || lower.contains("kilograms"));
     hash_or_checksum || financial || statistics || date_math || algorithmic || unit_conversion
 }
