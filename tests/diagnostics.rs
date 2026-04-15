@@ -4869,6 +4869,22 @@ fn test_routing_prompt_library_connectivity_triage() {
 }
 
 #[test]
+fn test_routing_prompt_library_crash_and_reboot_history() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    // prompt_library "Crash and reboot history" — asks for both crash events and pending reboot
+    let prompt = "Show me any BSOD or unexpected shutdown events from the last week, and tell me if a reboot is currently pending and why.";
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"recent_crashes"),
+        "should detect recent_crashes; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"pending_reboot"),
+        "should detect pending_reboot ('reboot is currently pending'); got: {topics:?}"
+    );
+}
+
+#[test]
 fn test_routing_prompt_library_network_map() {
     use hematite::agent::routing::all_host_inspection_topics;
     // prompt_library "Network map"

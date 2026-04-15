@@ -501,7 +501,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             && (lower.contains("waiting")
                 || lower.contains("queued")
                 || lower.contains("required")))
-        || (lower.contains("reboot") && lower.contains("required"));
+        || (lower.contains("reboot") && lower.contains("required"))
+        || (lower.contains("reboot") && lower.contains("pending"))
+        || (lower.contains("restart") && lower.contains("pending"));
     let asks_disk_health = lower.contains("disk health")
         || lower.contains("drive health")
         || lower.contains("hard drive dying")
@@ -1033,6 +1035,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("pending restart")
                 || l.contains("need to restart")
                 || l.contains("reboot required")
+                || (l.contains("reboot") && l.contains("pending"))
+                || (l.contains("restart") && l.contains("pending"))
         }),
         ("disk_health", |l| {
             l.contains("disk health")
