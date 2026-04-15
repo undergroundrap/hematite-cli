@@ -2,7 +2,7 @@
 name = "hematite-cli"
 version = "0.5.4"
 edition = "2021"
-description = "AI coding assistant and sysadmin tool for LM Studio — local LLM, TUI, voice, RAG retrieval, and grounded workstation diagnostics"
+description = "Local AI agent harness for LM Studio — coding assistant, voice, RAG retrieval, and grounded sysadmin diagnostics"
 readme = "README.md"
 repository = "https://github.com/undergroundrap/hematite-cli"
 homepage = "https://github.com/undergroundrap/hematite-cli"

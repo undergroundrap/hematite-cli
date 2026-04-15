@@ -4,7 +4,7 @@
 
 Think of it as a **Senior SysAdmin, Network Admin, and Software Engineer living in your terminal** — running 100% on your own silicon for total privacy and speed.
 
-Local AI coding harness, SysAdmin, and Network Admin assistant for LM Studio. Runs entirely on your hardware. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, inspects the machine it is running on — including full network state, hardware health, and workstation telemetry — and speaks responses out loud. All from a single binary that boots in seconds.
+**Local AI agent harness for LM Studio** — coding assistant, voice, RAG retrieval, and grounded sysadmin diagnostics. A precision SysAdmin and Network Admin assistant that runs entirely on your silicon. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, and inspects the machine it is running on — including full network state, hardware health, and workstation telemetry. All from a single binary that boots in seconds.
 
 **What it actually does:**
 - Detects the workspace automatically — coding project, document folder, or general directory — and adjusts its behavior accordingly. No flags, no config.
