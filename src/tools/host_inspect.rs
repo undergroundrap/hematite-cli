@@ -1610,28 +1610,66 @@ fn inspect_services(name_filter: Option<String>, max_entries: usize) -> Result<S
         return Ok(out);
     }
 
-    out.push_str("\nService summary:\n");
-    for entry in services.iter().take(max_entries) {
+    // Split into running and stopped sections so both are always visible.
+    let per_section = (max_entries / 2).max(5);
+
+    let running_services: Vec<_> = services
+        .iter()
+        .filter(|e| {
+            e.status.eq_ignore_ascii_case("running") || e.status.eq_ignore_ascii_case("active")
+        })
+        .collect();
+    let stopped_services: Vec<_> = services
+        .iter()
+        .filter(|e| {
+            e.status.eq_ignore_ascii_case("stopped")
+                || e.status.eq_ignore_ascii_case("failed")
+                || e.status.eq_ignore_ascii_case("error")
+        })
+        .collect();
+
+    let fmt_entry = |entry: &&ServiceEntry| {
         let startup = entry
             .startup
             .as_deref()
-            .map(|value| format!(" | startup {}", value))
+            .map(|v| format!(" | startup {}", v))
             .unwrap_or_default();
         let display = entry
             .display_name
             .as_deref()
-            .filter(|value| *value != &entry.name)
-            .map(|value| format!(" [{}]", value))
+            .filter(|v| *v != &entry.name)
+            .map(|v| format!(" [{}]", v))
             .unwrap_or_default();
+        format!("- {}{} - {}{}\n", entry.name, display, entry.status, startup)
+    };
+
+    out.push_str(&format!(
+        "\nRunning services ({} total, showing up to {}):\n",
+        running_services.len(),
+        per_section
+    ));
+    for entry in running_services.iter().take(per_section) {
+        out.push_str(&fmt_entry(entry));
+    }
+    if running_services.len() > per_section {
         out.push_str(&format!(
-            "- {}{} - {}{}\n",
-            entry.name, display, entry.status, startup
+            "- ... {} more running services omitted\n",
+            running_services.len() - per_section
         ));
     }
-    if services.len() > max_entries {
+
+    out.push_str(&format!(
+        "\nStopped/failed services ({} total, showing up to {}):\n",
+        stopped_services.len(),
+        per_section
+    ));
+    for entry in stopped_services.iter().take(per_section) {
+        out.push_str(&fmt_entry(entry));
+    }
+    if stopped_services.len() > per_section {
         out.push_str(&format!(
-            "- ... {} more services omitted\n",
-            services.len() - max_entries
+            "- ... {} more stopped services omitted\n",
+            stopped_services.len() - per_section
         ));
     }
 

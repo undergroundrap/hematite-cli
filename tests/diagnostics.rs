@@ -1130,7 +1130,7 @@ async fn test_inspect_host_services_reports_status_summary() {
 
     assert!(output.contains("Host inspection: services"));
     assert!(output.contains("Services found:"));
-    assert!(output.contains("Service summary:"));
+    assert!(output.contains("services (") || output.contains("Service summary:"));
 }
 
 #[tokio::test]

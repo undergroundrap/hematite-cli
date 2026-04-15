@@ -2320,7 +2320,8 @@ impl ConversationManager {
                  - List a specific directory → `directory` (pass `path` arg)\n\
                  - Desktop or Downloads folder → `desktop` or `downloads`\n\
                  NEVER use `disk` or `directory` for storage/space questions — use `storage`.\n\
-                 Only use `shell` if the question truly cannot be answered by any topic above.\n"
+                 Only use `shell` if the question truly cannot be answered by any topic above.\n\
+                 NEVER tell the user to run PowerShell, cmd, or shell commands themselves. If the data is incomplete, say so and tell them to ask a more specific question instead.\n"
               );
         }
         if !tiny_context_mode && fix_plan_mode {
