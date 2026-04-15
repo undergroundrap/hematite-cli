@@ -1329,3 +1329,52 @@ pub fn is_project_workspace() -> bool {
         || root.join("CMakeLists.txt").exists();
     has_explicit_marker || (root.join(".git").exists() && root.join("src").exists())
 }
+
+// ── open_in_system_editor ───────────────────────────────────────────────────
+
+pub fn open_in_system_editor(path: &std::path::Path) -> Result<(), String> {
+    if !path.exists() {
+        return Err(format!("File not found: {}", path.display()));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, 'start' is the most reliable way to open a file in the default associated app.
+        // We use cmd /c start so it handles spaces and associations properly.
+        let status = std::process::Command::new("cmd")
+            .args(["/c", "start", "", &path.to_string_lossy()])
+            .status()
+            .map_err(|e| format!("Failed to launch editor: {e}"))?;
+
+        if !status.success() {
+            return Err("Editor command failed to start.".into());
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("open")
+            .arg(path)
+            .status()
+            .map_err(|e| format!("Failed to launch editor: {e}"))?;
+
+        if !status.success() {
+            return Err("open command failed.".into());
+        }
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        // Try xdg-open on Linux
+        let status = std::process::Command::new("xdg-open")
+            .arg(path)
+            .status()
+            .map_err(|e| format!("Failed to launch editor: {e}"))?;
+
+        if !status.success() {
+            return Err("xdg-open failed.".into());
+        }
+    }
+
+    Ok(())
+}

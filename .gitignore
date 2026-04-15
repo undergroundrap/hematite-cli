@@ -22,6 +22,9 @@ dist/
 .hematite/TASK.md
 .hematite/TASK_TEST.md
 .hematite/workspace_profile.json
+# Local behavioral guidelines (personal tuning)
+CLAUDE.local.md
+.hematite/rules.local.md
 
 # Runtime / temp artifacts
 .hematite/ghost/*.bak

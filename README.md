@@ -659,6 +659,8 @@ For project-specific questions or commands, launch Hematite in that project's di
 
 **Workspace profile.** On startup, Hematite also writes `.hematite/workspace_profile.json` for the current workspace. That file is auto-generated and gitignored. It captures the detected stack, package manager, important folders, ignored noise folders, and build/test hints so the harness starts with a grounded project profile instead of guessing from scratch every turn. Use `/workspace-profile` to inspect the current generated profile from inside the TUI.
 
+**Behavioral rules.** Drop a `.hematite/rules.md` file in any project and Hematite injects its contents into the system prompt on every turn — no restart needed. Use it to set project-specific agent behavior: coding conventions, files to avoid, architectural constraints, simplicity guidelines, anything. `/rules` shows which rule files are currently active. `/rules edit` opens your personal `.hematite/rules.local.md` (gitignored) in the system editor; `/rules edit shared` opens the shared `.hematite/rules.md` that can be committed with the repo. For larger projects, `.hematite/instructions/<topic>.md` files are injected only when the turn's context mentions that topic — zero token cost otherwise.
+
 On macOS/Linux, the packaged archive includes an installer helper:
 
 ```bash
@@ -1081,6 +1083,10 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 /forget           Hard forget; purge saved memory and the Vein index too
 /vein-inspect     Show indexed Vein memory, hot files, and active room bias
 /workspace-profile Show the auto-generated workspace profile
+/rules            Show which behavioral rule files are active ([v]/[ ] status)
+/rules view       Display combined content of all active rule files
+/rules edit       Open .hematite/rules.local.md in system editor (private, gitignored)
+/rules edit shared Open .hematite/rules.md in system editor (shared, committed with repo)
 /version          Show the running Hematite release version plus build state
 /about            Show author, repo, and product info
 hematite --version Show the same build report from the CLI

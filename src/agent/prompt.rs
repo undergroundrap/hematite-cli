@@ -127,7 +127,16 @@ impl SystemPromptBuilder {
             }
         }
 
-        for name in &["CLAUDE.md", ".claude.md", "CLAUDE.local.md"] {
+        let project_rule_files = [
+            "CLAUDE.md",
+            ".claude.md",
+            "CLAUDE.local.md",
+            "HEMATITE.md",
+            ".hematite/rules.md",
+            ".hematite/rules.local.md",
+        ];
+
+        for name in &project_rule_files {
             let path = self.workspace_root.join(name);
             if path.exists() {
                 if let Ok(content) = fs::read_to_string(&path) {

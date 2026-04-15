@@ -150,6 +150,15 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Vein memory inspection**
 > "/vein-inspect"
 
+**View active behavioral rules**
+> "/rules view"
+
+**Edit project-wide rules**
+> "/rules edit shared — then add simplicity-first and surgical-edit guidelines"
+
+**Edit personal local rules**
+> "/rules edit — personal overrides, gitignored, apply on next turn"
+
 **Repo doctor**
 > "Run a repo doctor on this workspace. Check git status, uncommitted changes, branch state, remote tracking, and whether the build files look healthy."
 
