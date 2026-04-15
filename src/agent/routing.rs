@@ -420,7 +420,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("top ram")
         || lower.contains("high memory")
         || lower.contains("resource-heavy processes")
-        || lower.contains("heavy hitters");
+        || lower.contains("heavy hitters")
+        || (lower.contains("using the most") && (lower.contains("cpu") || lower.contains("ram") || lower.contains("memory")))
+        || (lower.contains("most cpu") || lower.contains("most ram") || lower.contains("most memory"))
+        || (lower.contains("hitting") && (lower.contains("cpu") || lower.contains("ram") || lower.contains("disk")));
     let asks_toolchains = lower.contains("developer tools")
         || lower.contains("toolchains")
         || (lower.contains("installed") && lower.contains("version"))
