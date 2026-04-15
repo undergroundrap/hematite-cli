@@ -2297,8 +2297,7 @@ impl ConversationManager {
         if !tiny_context_mode && host_inspection_mode {
             system_msg.push_str(
                  "\n\n# HOST INSPECTION MODE\n\
-                   This turn is about the local machine and environment, not repository architecture.\n\
-                 Prefer `inspect_host` before raw `shell`. Use the closest built-in topic:\n\
+                 This turn is about the local machine. Make EXACTLY ONE `inspect_host` call using the best matching topic below, then answer. Do NOT call `summary` first. Do NOT make exploratory shell calls.\n\
                  - Drive space / disk usage / free space / storage across drives → `storage`\n\
                  - CPU model / RAM size / GPU name / hardware specs / BIOS / motherboard → `hardware`\n\
                  - CPU % / RAM % / what is using resources / slow machine → `resource_load`\n\
@@ -2321,7 +2320,7 @@ impl ConversationManager {
                  - List a specific directory → `directory` (pass `path` arg)\n\
                  - Desktop or Downloads folder → `desktop` or `downloads`\n\
                  NEVER use `disk` or `directory` for storage/space questions — use `storage`.\n\
-                 Only use `shell` if the question truly goes beyond all `inspect_host` topics.\n"
+                 Only use `shell` if the question truly cannot be answered by any topic above.\n"
               );
         }
         if !tiny_context_mode && fix_plan_mode {
