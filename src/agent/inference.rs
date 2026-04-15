@@ -1555,6 +1555,13 @@ impl InferenceEngine {
                 tool_calls = Some(recovered);
                 // Clear content so downstream code doesn't see an empty string.
                 content = None;
+            } else if finish_reason.as_deref() == Some("stop") {
+                // Qwen3.5 thinking-mode answer leak: the model wrote its final answer
+                // inside reasoning_content and left content empty. finish_reason=stop
+                // with no tool calls means the model intended this as its response.
+                // Surface reasoning_content as the visible response rather than
+                // firing the empty-response nudge loop.
+                content = Some(reasoning_text);
             }
         }
 

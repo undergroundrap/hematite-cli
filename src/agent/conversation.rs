@@ -3631,9 +3631,19 @@ impl ConversationManager {
                 // model that keeps returning whitespace/empty doesn't spin all 25 iterations.
                 if cleaned.is_empty() {
                     empty_cleaned_nudges += 1;
-                    if empty_cleaned_nudges <= 2 {
+                    if empty_cleaned_nudges == 1 {
                         loop_intervention = Some(
-                            "Your response was empty after your reasoning. You must now emit your complete written response based on your analysis. Do not reason further — write your answer now."
+                            "Your visible response was empty. The tool already returned data. \
+                             Write your answer now in plain text — no <think> tags, no tool calls. \
+                             State the key facts in 2-5 sentences and stop."
+                                .to_string(),
+                        );
+                        continue;
+                    } else if empty_cleaned_nudges == 2 {
+                        loop_intervention = Some(
+                            "EMPTY RESPONSE. Do NOT use <think>. Do NOT call tools. \
+                             Write the answer in plain text right now. \
+                             Example format: \"Your CPU is X. Your GPU is Y. You have Z GB of RAM.\""
                                 .to_string(),
                         );
                         continue;
