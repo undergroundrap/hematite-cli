@@ -1301,3 +1301,7 @@ This removes ghost backups, scratch diffs, Hematite logs, runtime session files,
 ---
 
 *Built for Windows. Runs on your hardware. Nobody else sees your code.*
+
+---
+
+Developed by [Ocean Bennett](https://github.com/undergroundrap)
