@@ -285,6 +285,13 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "registry",
             "share",
             "mbps",
+            "ad",
+            "sid",
+            "vm",
+            "hyper-v",
+            "hyperv",
+            "dhcp",
+            "lease",
         ],
     );
     let host_action = contains_any(
@@ -298,6 +305,7 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "biggest",
             "versions",
             "duplicate",
+            "analyze",
             "missing",
             "ready",
             "resolve",
@@ -346,6 +354,33 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("dism")
         || lower.contains("corruption")
         || lower.contains("os health");
+    let asks_user_accounts = lower.contains("user account")
+        || lower.contains("local user")
+        || lower.contains("local group")
+        || lower.contains("get-localuser")
+        || lower.contains("get-localgroup")
+        || lower.contains("get-localgroupmember")
+        || lower.contains("who is logged in")
+        || lower.contains("who is logged on")
+        || lower.contains("logged in user")
+        || lower.contains("logged on user")
+        || lower.contains("admin group")
+        || lower.contains("administrators group")
+        || lower.contains("local admin")
+        || lower.contains("who has admin")
+        || lower.contains("running as admin")
+        || lower.contains("is this elevated")
+        || lower.contains("active sessions")
+        || lower.contains("logon session")
+        || lower.contains("net user")
+        || lower.contains("net localgroup");
+    let asks_ad_user = lower.contains("ad user")
+        || lower.contains("domain user")
+        || (lower.contains("user") && (lower.contains("sid") || lower.contains("membership")));
+    let asks_dns_lookup = (lower.contains("dns") || lower.contains("record"))
+        && (lower.contains("lookup") || lower.contains("srv") || lower.contains("mx") || lower.contains("txt"));
+    let asks_hyperv = lower.contains("hyper-v") || lower.contains("hyperv") || lower.contains("list vm");
+    let asks_ip_config = lower.contains("ipconfig") && (lower.contains("all") || lower.contains("detailed"));
     let asks_domain = lower.contains("domain")
         || lower.contains("active directory")
         || lower.contains("ad join")
@@ -404,18 +439,23 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("path drift")
         || (lower.contains("dev machine") && lower.contains("off"))
         || (lower.contains("environment") && lower.contains("sane"));
-    let asks_network = (lower.contains("network")
+    let asks_network = (((lower.contains("network") && !lower.contains("active directory"))
         && !lower.contains("stat")
         && !lower.contains("share")
         && !lower.contains("throughput"))
         || lower.contains("adapter")
-        || lower.contains("dns")
-        || lower.contains("gateway")
         || lower.contains("ip address")
         || lower.contains("ipconfig")
+        || lower.contains("ipv4")
+        || lower.contains("ipv6")
+        || lower.contains("subnet")
+        || lower.contains("dns server")
+        || lower.contains("nameserver")
         || lower.contains("wifi")
+        || lower.contains("wireless")
         || lower.contains("ethernet")
-        || lower.contains("subnet");
+        || lower.contains("lan"))
+        && !asks_ad_user;
     let asks_services = lower.contains("service")
         || lower.contains("services")
         || lower.contains("daemon")
@@ -840,22 +880,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("git") && lower.contains("credential"))
         || lower.contains("git aliases"))
         && !lower.contains("github");
-    let asks_user_accounts = lower.contains("local user")
-        || lower.contains("user account")
-        || lower.contains("who is logged in")
-        || lower.contains("who is logged on")
-        || lower.contains("logged in user")
-        || lower.contains("logged on user")
-        || lower.contains("admin group")
-        || lower.contains("administrators group")
-        || lower.contains("local admin")
-        || lower.contains("who has admin")
-        || lower.contains("running as admin")
-        || lower.contains("is this elevated")
-        || lower.contains("active sessions")
-        || lower.contains("logon session")
-        || lower.contains("net user")
-        || lower.contains("get-localuser");
     let asks_audit_policy = lower.contains("audit policy")
         || lower.contains("auditpol")
         || lower.contains("audit log")
@@ -928,7 +952,18 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("udp")
             && (lower.contains("port") || lower.contains("listen") || lower.contains("open")));
 
-    if asks_disk_benchmark {
+    // Priority 1: High-Precision Enterprise Triage (IT Pro Plus)
+    if asks_ad_user {
+        Some("ad_user")
+    } else if asks_user_accounts {
+        Some("user_accounts")
+    } else if asks_dns_lookup {
+        Some("dns_lookup")
+    } else if asks_hyperv {
+        Some("hyperv")
+    } else if asks_ip_config {
+        Some("ip_config")
+    } else if asks_disk_benchmark {
         Some("disk_benchmark")
     } else if asks_fix_plan {
         Some("fix_plan")
@@ -1087,13 +1122,39 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     }
 }
 
-/// Returns all distinct inspect_host topics detected in a user prompt.
-/// Used by the harness to pre-run multiple topics when the user asks for several at once,
-/// so the model receives all results and only needs to synthesize rather than orchestrate.
 pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     // All topic detectors in priority order — ordered so more specific topics come
     // before generic fallbacks (e.g. traceroute before network).
+    let lower = user_input.to_lowercase();
+    let mut topics: Vec<&'static str> = Vec::new();
+
     let detectors: &[(&str, fn(&str) -> bool)] = &[
+        ("ad_user", |l| {
+            l.contains("ad user")
+                || l.contains("domain user")
+                || (l.contains("user") && (l.contains("sid") || l.contains("membership")))
+        }),
+        ("dns_lookup", |l| {
+            l.contains("dns lookup")
+                || l.contains("dns record")
+                || l.contains("dns query")
+                || l.contains("nslookup")
+                || l.contains(" dig ")
+                || l.contains("srv record")
+                || l.contains("mx record")
+        }),
+        ("hyperv", |l| {
+            l.contains("hyper-v")
+                || l.contains("hyperv")
+                || (l.contains("virtual machine") && l.contains("load"))
+                || l.contains("vmmem")
+        }),
+        ("ip_config", |l| {
+            l.contains("ipconfig")
+                || l.contains("ip config")
+                || l.contains("adapter detail")
+                || l.contains("dhcp lease")
+        }),
         ("fix_plan", |l| {
             l.contains("fix")
                 && (l.contains("cargo")
@@ -1155,6 +1216,18 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         }),
         ("scheduled_tasks", |l| {
             l.contains("scheduled task") || l.contains("task scheduler")
+        }),
+        ("ad_user", |l| {
+            l.contains("ad user") || l.contains("domain user") || (l.contains("user") && l.contains("sid"))
+        }),
+        ("dns_lookup", |l| {
+            l.contains("dns") && (l.contains("lookup") || l.contains("srv") || l.contains("mx"))
+        }),
+        ("hyperv", |l| {
+            l.contains("hyper-v") || l.contains("hyperv") || (l.contains("list") && l.contains("vm"))
+        }),
+        ("ip_config", |l| {
+            l.contains("ipconfig") && (l.contains("all") || l.contains("detail"))
         }),
         ("dev_conflicts", |l| {
             l.contains("dev conflict")
@@ -1468,8 +1541,6 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         }),
     ];
 
-    let lower = user_input.to_lowercase();
-    let mut topics: Vec<&'static str> = Vec::new();
     for (topic, check) in detectors {
         if check(&lower) && !topics.contains(topic) {
             topics.push(topic);
@@ -2057,6 +2128,7 @@ pub(crate) fn is_capability_probe_tool(name: &str) -> bool {
             | "list_pinned"
     )
 }
+
 
 /// Returns true when the user's query involves computation that must be exact —
 /// checksums, financial math, statistics, date arithmetic, algorithmic verification, etc.

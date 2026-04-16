@@ -299,6 +299,34 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 
 ---
 
+## IT Pro Plus Diagnostics
+
+**Active Directory User Identity Investigation**
+> "Analyze this domain user identity: show me their SID, enabled status, password expiration date, and all group memberships. Flag if the account is expired or disabled."
+> *(Harness runs: ad_user)*
+
+**Service Discovery via DNS SRV/MX**
+> "Perform a high-precision DNS lookup for our domain controllers and mail servers. I want to see the SRV, MX, and TXT records to verify service discovery is working correctly."
+> *(Harness runs: dns_lookup)*
+
+**Hyper-V VM Inventory and Load**
+> "Audit my local Hyper-V environment: list all virtual machines, their current execution state, uptime, and real-time CPU/Memory load stats."
+> *(Harness runs: hyperv)*
+
+**Precision Network Triage (IP/DHCP)**
+> "Give me a deep-dive IP configuration report for all active adapters. I need to see DHCP server addresses, lease acquisition/expiry times, and any secondary IP aliases."
+> *(Harness runs: ip_config)*
+
+**Service Account Audit**
+> "List all running Windows services and tell me which service accounts they are logging on as. Flag any services running as actual local users instead of System/NetworkService/LocalService."
+> *(Harness refined: services)*
+
+**Scheduled Task Failure Triage**
+> "Audit all scheduled tasks. I want to see the Last Run Time and the numeric Result Code for each. Flag any task that has a non-zero exit result."
+> *(Harness refined: scheduled_tasks)*
+
+---
+
 ## Swarm
 
 **Multi-file refactor**

@@ -9,13 +9,21 @@ const MAX_ENTRIES_CAP: usize = 25;
 const DIRECTORY_SCAN_NODE_BUDGET: usize = 25_000;
 
 pub async fn inspect_host(args: &Value) -> Result<String, String> {
-    let topic = args
+    let mut topic = args
         .get("topic")
         .and_then(|v| v.as_str())
-        .unwrap_or("summary");
+        .unwrap_or("summary")
+        .to_string();
     let max_entries = parse_max_entries(args);
+    let filter = parse_name_filter(args).unwrap_or_default().to_lowercase();
 
-    match topic {
+    // Topic Interceptor: Force ad_user for AD-related queries to resolve model variance
+    if (topic == "processes" || topic == "network" || topic == "summary") && 
+       (filter.contains("ad") || filter.contains("sid") || filter.contains("administrator") || filter.contains("domain")) {
+        topic = "ad_user".to_string();
+    }
+
+    match topic.as_str() {
         "summary" => inspect_summary(max_entries),
         "toolchains" => inspect_toolchains(),
         "path" => inspect_path(max_entries),
@@ -126,8 +134,19 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "thermal" | "throttling" | "overheating" => inspect_thermal(),
         "activation" | "license_status" | "slmgr" => inspect_activation(),
         "patch_history" | "hotfixes" | "recent_patches" => inspect_patch_history(max_entries),
+        "ad_user" | "ad" | "domain_user" => {
+            let identity = parse_name_filter(args).unwrap_or_default();
+            inspect_ad_user(&identity)
+        }
+        "dns_lookup" | "dig" | "nslookup" => {
+            let name = parse_name_filter(args).unwrap_or_default();
+            let record_type = args.get("type").and_then(|v| v.as_str()).unwrap_or("SRV");
+            inspect_dns_lookup(&name, record_type)
+        }
+        "hyperv" | "hyper-v" | "vms" => inspect_hyperv(),
+        "ip_config" | "ip_detail" | "dhcp" => inspect_ip_config(),
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config.",
             other
         )),
 
@@ -1672,13 +1691,18 @@ fn inspect_services(name_filter: Option<String>, max_entries: usize) -> Result<S
             .as_deref()
             .map(|v| format!(" | startup {}", v))
             .unwrap_or_default();
+        let logon = entry
+            .start_name
+            .as_deref()
+            .map(|v| format!(" | LogOn: {}", v))
+            .unwrap_or_default();
         let display = entry
             .display_name
             .as_deref()
             .filter(|v| *v != &entry.name)
             .map(|v| format!(" [{}]", v))
             .unwrap_or_default();
-        format!("- {}{} - {}{}\n", entry.name, display, entry.status, startup)
+        format!("- {}{} - {}{}{}\n", entry.name, display, entry.status, startup, logon)
     };
 
     out.push_str(&format!(
@@ -2217,6 +2241,7 @@ struct ServiceEntry {
     status: String,
     startup: Option<String>,
     display_name: Option<String>,
+    start_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -2404,7 +2429,7 @@ fn collect_processes() -> Result<Vec<ProcessEntry>, String> {
 
 #[cfg(target_os = "windows")]
 fn collect_windows_services() -> Result<Vec<ServiceEntry>, String> {
-    let command = "Get-CimInstance Win32_Service | Select-Object Name,State,StartMode,DisplayName | ConvertTo-Json -Compress";
+    let command = "Get-CimInstance Win32_Service | Select-Object Name,State,StartMode,DisplayName,StartName | ConvertTo-Json -Compress";
     let output = Command::new("powershell")
         .args(["-NoProfile", "-Command", command])
         .output()
@@ -3210,11 +3235,15 @@ fn parse_windows_services_json(text: &str) -> Result<Vec<ServiceEntry>, String> 
             startup: entry
                 .get("StartMode")
                 .and_then(|v| v.as_str())
-                .map(|value| value.to_string()),
+                .map(|v| v.to_string()),
             display_name: entry
                 .get("DisplayName")
                 .and_then(|v| v.as_str())
-                .map(|value| value.to_string()),
+                .map(|v| v.to_string()),
+            start_name: entry
+                .get("StartName")
+                .and_then(|v| v.as_str())
+                .map(|v| v.to_string()),
         });
     }
 
@@ -5101,9 +5130,10 @@ try {{
             $lastRun = if ($info -and $info.LastRunTime -and $info.LastRunTime.Year -gt 2000) {{
                 $info.LastRunTime.ToString("yyyy-MM-dd HH:mm")
             }} else {{ "never" }}
+            $res = if ($info) {{ "0x{{0:x}}" -f $info.LastTaskResult }} else {{ "---" }}
             $exec = ($_.Actions | Select-Object -First 1).Execute
             if (-not $exec) {{ $exec = "(no exec)" }}
-            $_.TaskName + "|" + $_.TaskPath + "|" + $_.State + "|" + $lastRun + "|" + $exec
+            $_.TaskName + "|" + $_.TaskPath + "|" + $_.State + "|" + $lastRun + "|" + $res + "|" + $exec
         }}
     $tasks | Select-Object -First {n}
 }} catch {{ "ERROR:" + $_.Exception.Message }}"#
@@ -5124,13 +5154,14 @@ try {{
         } else {
             out.push_str(&format!("Active scheduled tasks (up to {n}):\n\n"));
             for line in text.lines() {
-                let parts: Vec<&str> = line.splitn(5, '|').collect();
-                if parts.len() >= 4 {
+                let parts: Vec<&str> = line.splitn(6, '|').collect();
+                if parts.len() >= 5 {
                     let name = parts[0];
                     let path = parts[1];
                     let state = parts[2];
                     let last = parts[3];
-                    let exec = parts.get(4).unwrap_or(&"").trim();
+                    let res = parts[4];
+                    let exec = parts.get(5).unwrap_or(&"").trim();
                     let display_path = path.trim_matches('\\');
                     let display_path = if display_path.is_empty() {
                         "Root"
@@ -5138,7 +5169,7 @@ try {{
                         display_path
                     };
                     out.push_str(&format!("  {name} [{display_path}]\n"));
-                    out.push_str(&format!("    State: {state} | Last run: {last}\n"));
+                    out.push_str(&format!("    State: {state} | Last run: {last} | Result: {res}\n"));
                     if !exec.is_empty() && exec != "(no exec)" {
                         let short = if exec.len() > 80 { &exec[..80] } else { exec };
                         out.push_str(&format!("    Runs: {short}\n"));
@@ -9434,6 +9465,185 @@ fn inspect_patch_history(max_entries: usize) -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
         out.push_str("Patch history is currently focused on Windows HotFixes.\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── ad_user ──────────────────────────────────────────────────────────────────
+
+fn inspect_ad_user(identity: &str) -> Result<String, String> {
+    let mut out = String::from("Host inspection: ad_user\n\n");
+    let ident = identity.trim();
+    if ident.is_empty() {
+        out.push_str("Status: No identity specified. Performing self-discovery...\n");
+        #[cfg(target_os = "windows")]
+        {
+            let script = r#"
+$u = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+"USER: " + $u.Name
+"SID: " + $u.User.Value
+"GROUPS: " + (($u.Groups | ForEach-Object { try { $_.Translate([System.Security.Principal.NTAccount]).Value } catch { $_.Value } }) -join ', ')
+"ELEVATED: " + (New-Object System.Security.Principal.WindowsPrincipal($u)).IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
+"#;
+            let output = Command::new("powershell")
+                .args(["-NoProfile", "-Command", script])
+                .output()
+                .ok();
+            if let Some(o) = output {
+                out.push_str(&String::from_utf8_lossy(&o.stdout));
+            }
+        }
+        return Ok(out);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(
+            r#"
+try {{
+    $u = Get-ADUser -Identity "{ident}" -Properties MemberOf, LastLogonDate, Enabled, PasswordExpired -ErrorAction Stop
+    "NAME: " + $u.Name
+    "SID: " + $u.SID
+    "ENABLED: " + $u.Enabled
+    "EXPIRED: " + $u.PasswordExpired
+    "LOGON: " + $u.LastLogonDate
+    "GROUPS: " + ($u.MemberOf -replace "CN=([^,]+),.*", "$1" -join ", ")
+}} catch {{
+    # Fallback to net user if AD module is missing or fails
+    $net = net user "{ident}" /domain 2>&1
+    if ($LASTEXITCODE -eq 0) {{
+        $net | Select-String "User name", "Full Name", "Account active", "Password expires", "Last logon", "Local Group Memberships", "Global Group memberships" | ForEach-Object {{ $_.ToString().Trim() }}
+    }} else {{
+        "ERROR: " + $_.Exception.Message
+    }}
+}}"#
+        );
+
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .ok();
+
+        if let Some(o) = output {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            if stdout.contains("ERROR:") && stdout.contains("Get-ADUser") {
+                out.push_str("Active Directory PowerShell module not found. Showing basic domain user info:\n\n");
+            }
+            out.push_str(&stdout);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = ident;
+        out.push_str("(AD User lookup only available on Windows nodes)\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── dns_lookup ───────────────────────────────────────────────────────────────
+
+fn inspect_dns_lookup(name: &str, record_type: &str) -> Result<String, String> {
+    let mut out = String::from("Host inspection: dns_lookup\n\n");
+    let target = name.trim();
+    if target.is_empty() {
+        return Err("Missing required target name for dns_lookup.".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!("Resolve-DnsName -Name '{target}' -Type {record_type} -ErrorAction SilentlyContinue | Select-Object Name, Type, TTL, Section, NameHost, Strings, IPAddress, Address | Format-List");
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .ok();
+        if let Some(o) = output {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            if stdout.trim().is_empty() {
+                out.push_str(&format!("No {record_type} records found for {target}.\n"));
+            } else {
+                out.push_str(&stdout);
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let output = Command::new("dig")
+            .args([target, record_type, "+short"])
+            .output()
+            .ok();
+        if let Some(o) = output {
+            out.push_str(&String::from_utf8_lossy(&o.stdout));
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── hyperv ───────────────────────────────────────────────────────────────────
+
+fn inspect_hyperv() -> Result<String, String> {
+    let mut out = String::from("Host inspection: hyperv\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = "Get-VM -ErrorAction SilentlyContinue | Select-Object Name, State, Uptime, Status, CPUUsage, MemoryAssigned | Format-Table -AutoSize";
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+            .ok();
+        if let Some(o) = output {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            if stdout.trim().is_empty() {
+                out.push_str("No Hyper-V Virtual Machines found or Hyper-V module not installed.\n");
+            } else {
+                out.push_str(&stdout);
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("(Hyper-V lookup only available on Windows hosts)\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── ip_config ────────────────────────────────────────────────────────────────
+
+fn inspect_ip_config() -> Result<String, String> {
+    let mut out = String::from("Host inspection: ip_config\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = "Get-NetIPConfiguration -Detailed | ForEach-Object { \
+            $_.InterfaceAlias + ' [' + $_.InterfaceDescription + ']' + \
+            '\\n  Status: ' + $_.NetAdapter.Status + \
+            '\\n  Initial IPv4: ' + ($_.IPv4Address.IPAddress -join ', ') + \
+            '\\n  DHCP Enabled: ' + $_.NetAdapter.DhcpStatus + \
+            '\\n  DHCP Server: ' + ($_.IPv4DefaultGateway.NextHop -join ', ') + \
+            '\\n  IPv4 Default Gateway: ' + ($_.IPv4DefaultGateway.NextHop -join ', ') + \
+            '\\n  DNSServer: ' + ($_.DNSServer.ServerAddresses -join ', ') + '\\n' \
+        }";
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+            .ok();
+        if let Some(o) = output {
+            out.push_str(&String::from_utf8_lossy(&o.stdout));
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let output = Command::new("ip").args(["addr", "show"]).output().ok();
+        if let Some(o) = output {
+            out.push_str(&String::from_utf8_lossy(&o.stdout));
+        }
     }
 
     Ok(out.trim_end().to_string())

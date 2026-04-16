@@ -18,8 +18,9 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 76+ read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
-- **Shell-to-inspect_host redirection**: raw diagnostic shell commands are silently redirected to the appropriate `inspect_host` topic — structured output, no approval friction for read-only probes
+- **Full OS stack coverage**: 80+ read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
+- **Shell-to-inspect_host redirection**: raw diagnostic shell commands are silently redirected to the appropriate `inspect_host` topic via the **'Workstation Doctor'** interception matrix — structured output, zero approval friction for read-only probes
+- **Self-Aware Identity Discovery**: the `ad_user` topic proactively retrieves current user SID, groups, and elevated status when no identity is specified, preventing diagnostic loops
 - **Hardware-aware implementation**: the agent can use live hardware telemetry (disk queue depth, VRAM usage, I/O stats) to inform architectural recommendations grounded in the actual machine state
 - **Deep workspace visibility**: the file engine can inspect hidden directories (`.hematite`, `.git`) during diagnostics to locate benchmarking targets and workspace artifacts
 
@@ -74,7 +75,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (56+):**
+**SysAdmin topics (58+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
@@ -96,8 +97,10 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Log check** (`log_check`) — recent system error events from the Windows event log
 - **Startup items** (`startup_items`) — boot-time programs and their startup types
 - **OS config** (`os_config`) — firewall profiles, power plan, and uptime
-- **User accounts** (`user_accounts`) — local user accounts (name, enabled, last logon, password required), Administrators group members, active logon sessions, and elevated process state
+- **User accounts** (`user_accounts`) — local user accounts (name, enabled, last logon, password required), Administrators group members, active logon sessions, and elevated process state; redirected from `Get-LocalUser` and `net user`
+- **Active Directory User** (`ad_user`) — precise user/group lookup via Get-ADUser or net user/domain; shows SID, enabled status, password expiry, and group memberships; includes **Self-Aware discovery** for 'Who am I?' queries
 - **Audit policy** (`audit_policy`) — Windows audit policy via auditpol; shows which event categories log Success/Failure; flags if no categories are enabled
+- **Hyper-V** (`hyperv`) — live inventory of Virtual Machines with name, state, uptime, and CPU/Memory load stats
 - **Shares** (`shares`) — SMB shares exposed by this machine (flags custom non-admin shares), SMB security settings (SMB1/SMB2 state, signing, encryption), and mapped network drives
 - **BitLocker** (`bitlocker`) — drive encryption state per volume (PROTECTED/UNPROTECTED), protection method, and SMB1 warning; LUKS on Linux
 - **RDP** (`rdp`) — Remote Desktop enabled state (registry fDenyTSConnections), port number, NLA/UserAuthentication, firewall group status, and active sessions
@@ -124,7 +127,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Directory Audit** (`directory`, `desktop`, `downloads`) — Arbitrary or known directory listing with file metadata and sizes
 - **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths
 
-**Network Admin topics (12):**
+**Network Admin topics (14+):**
 
 - **Connectivity** (`connectivity`) — internet reachability test (DNS + ICMP + HTTPS) with latency and failure diagnosis
 - **Wi-Fi** (`wifi`) — connected SSID, signal strength, channel, frequency band, and adapter details
@@ -138,6 +141,8 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Routing table** (`route_table`) — full IP routing table with interface, next-hop, and metric
 - **Network stats** (`network_stats`) — per-adapter RX/TX throughput (MB), error counts, drop counts, link speed, and duplex; flags adapters with errors or drops
 - **UDP ports** (`udp_ports`) — active UDP listeners with owning process name and annotations for well-known ports (DNS, NTP, NetBIOS, mDNS, SSDP, IKE, SNMP)
+- **DNS Lookup** (`dns_lookup`) — specific high-precision DNS query for SRV, MX, TXT, or A records; critical for Active Directory and service discovery
+- **IP Configuration** (`ip_config`) — full adapter detail (ipconfig /all equivalent); surfaces DHCP server, lease times, and multi-IP interfaces
 
 **Intent-based diagnostic orchestration:**
 

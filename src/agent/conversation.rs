@@ -1425,11 +1425,46 @@ impl ConversationManager {
                     })
                     .unwrap_or("");
 
-                let redirect_args = if !path_val.is_empty() {
+                let mut redirect_args = if !path_val.is_empty() {
                     serde_json::json!({ "topic": topic, "path": path_val })
                 } else {
                     serde_json::json!({ "topic": topic })
                 };
+
+                // Surgical Argument Extraction for redirected shell payloads (Robust "Wide Net" version)
+                if topic == "ad_user" || topic == "dns_lookup" {
+                    let cmd_lower = command.to_lowercase();
+                    let mut identity = String::new();
+
+                    // 1. Explicit Identity check
+                    if let Some(idx) = cmd_lower.find("-identity") {
+                        let after_id = &command[idx + 9..].trim();
+                        identity = if after_id.starts_with('\'') || after_id.starts_with('"') {
+                            let quote = after_id.chars().next().unwrap();
+                            after_id.split(quote).nth(1).unwrap_or("").to_string()
+                        } else {
+                            after_id.split_whitespace().next().unwrap_or("").to_string()
+                        };
+                    } 
+                    
+                    // 2. Wide-Net Fallback: Find the first non-cmdlet, non-parameter string
+                    if identity.is_empty() {
+                        let parts: Vec<&str> = command.split_whitespace().collect();
+                        for (i, part) in parts.iter().enumerate() {
+                            if i == 0 || part.starts_with('-') { continue; }
+                            // Skip common cmdlets if they are in the parts list
+                            let p_low = part.to_lowercase();
+                            if p_low.contains("get-ad") || p_low.contains("powershell") || p_low == "-command" { continue; }
+                            
+                            identity = part.trim_matches(|c: char| c == '\'' || c == '"').to_string();
+                            if !identity.is_empty() { break; }
+                        }
+                    }
+
+                    if !identity.is_empty() {
+                        redirect_args.as_object_mut().unwrap().insert("name_filter".to_string(), serde_json::Value::String(identity));
+                    }
+                }
 
                 let result = crate::tools::host_inspect::inspect_host(&redirect_args).await;
                 return match result {
@@ -5257,6 +5292,18 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "get-netroute",
         "route print",
         "ip neigh",
+        // active directory - always use inspect_host
+        "get-aduser",
+        "get-addomain",
+        "get-adforest",
+        "get-adgroup",
+        "get-adcomputer",
+        "activedirectory",
+        "get-localuser",
+        "get-localgroup",
+        "get-localgroupmember",
+        "net user",
+        "net localgroup",
         "netsh winhttp show proxy",
         "get-itemproperty.*proxy",
         "get-netadapter",

@@ -187,11 +187,12 @@ impl VoiceManager {
                                     },
                                 );
                                 if let Err(e) = res {
-                                    if e.to_string() != "Silenced" {
+                                    let err_str = e.to_string();
+                                    if err_str != "Silenced" && !err_str.contains("Expand node") && !err_str.contains("invalid expand shape") {
                                         let _ = event_tx_synth
                                             .send(InferenceEvent::VoiceStatus(format!(
                                                 "Audio Pipeline: Synthesis Error - {}",
-                                                e
+                                                err_str
                                             )))
                                             .await;
                                     }

@@ -55,6 +55,7 @@ Owns query intent classification.
 
 - classifies stable product-truth questions (identity, capability, mode questions)
 - identifies routing classes: architecture, runtime diagnosis, computation sandbox, toolchain questions
+- **Diagnostic Interception Matrix**: coordinates the 'Workstation Doctor' redirection logic, mapping raw shell commands to internal high-precision `inspect_host` topics
 - `needs_computation_sandbox()` — detects math/hash/financial/statistical/date queries and triggers pre-turn nudge toward `run_code`
 - keeps prompt-shaped routing logic out of the main turn loop
 
@@ -345,7 +346,7 @@ Sandboxed code execution (`run_code` tool).
 
 ### `src/tools/host_inspect.rs`
 
-SysAdmin and Network Admin inspection (`inspect_host` tool). 76+ read-only topics covering the full OS stack. See CLAUDE.md for the complete topic reference.
+SysAdmin and Network Admin inspection (`inspect_host` tool). 80+ read-only topics covering the full OS stack. See CLAUDE.md for the complete topic reference.
 
 ### `src/tools/guard.rs`
 

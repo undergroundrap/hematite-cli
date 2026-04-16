@@ -64,6 +64,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              `subprocess`, `socket`, `urllib`, `requests` are blocked. \
              SHA-256 example: import hashlib; print(hashlib.sha256(b'hello').hexdigest()) \
              \
+             Do NOT use this tool for PowerShell or shell scripting. This is strictly for high-precision computation in JavaScript, TypeScript, or Python only. \
              Do NOT fall back to shell to run deno, python, or node — use this tool directly.",
             serde_json::json!({
                 "type": "object",
@@ -156,6 +157,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              topic=scheduled_tasks for all non-disabled scheduled tasks including name, path, last run time, and executable, \
              topic=dev_conflicts for cross-tool environment conflict detection (Node.js version managers, Python 2 vs 3 ambiguity, conda env shadowing, Rust toolchain path conflicts, Git identity/signing config, duplicate PATH entries), \
              topic=bitlocker for drive encryption status (BitLocker on Windows, LUKS on Linux), \
+             topic=ad_user for Active Directory / Managed Identity details (SID, group memberships, domain role), \
+             topic=user_accounts for Local User and Group diagnostics (Built-in Administrators, local account state), \
              topic=rdp for Remote Desktop configuration, port, and active sessions, \
              topic=shadow_copies for Volume Shadow Copies (VSS) and system restore points, \
              topic=pagefile for Windows page file configuration and current usage, \
@@ -167,6 +170,10 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              topic=gpo for applied Group Policy Objects, topic=certificates for local personal certificates, topic=integrity for Windows component store health (SFC/DISM state), topic=domain for Active Directory and domain join status, \
              topic=device_health for identifying malfunctioning hardware with ConfigManager error codes (Yellow Bangs), topic=drivers for auditing active system drivers and their states, topic=peripherals for enumerating connected USB, input, and display hardware, \
              topic=sessions for auditing active and disconnected user logon sessions, \
+             topic=ad_user for specific Active Directory user identity, SID, and group membership auditing, \
+             topic=dns_lookup for precision DNS record queries (SRV, MX, TXT), \
+             topic=hyperv for local Hyper-V VM inventory and real-time load, \
+             topic=ip_config for detailed adapter configuration and DHCP lease state, \
              topic=disk_benchmark for high-performance silicon-aware stress testing, \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
@@ -174,8 +181,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "updates", "security", "pending_reboot", "disk_health", "battery", "recent_crashes", "scheduled_tasks", "dev_conflicts", "os_config", "bitlocker", "rdp", "shadow_copies", "pagefile", "windows_features", "printers", "winrm", "network_stats", "udp_ports", "gpo", "certificates", "integrity", "domain", "device_health", "drivers", "peripherals", "disk_benchmark", "permissions", "login_history", "registry_audit", "share_access", "thermal", "activation", "patch_history"],
-                        "description": "Which structured host inspection to run. Use topic=thermal for overheating checks, topic=activation for license status, and topic=patch_history for recent KB updates."
+                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "updates", "security", "pending_reboot", "disk_health", "battery", "recent_crashes", "scheduled_tasks", "dev_conflicts", "os_config", "bitlocker", "rdp", "shadow_copies", "pagefile", "windows_features", "printers", "winrm", "network_stats", "udp_ports", "gpo", "certificates", "integrity", "domain", "device_health", "drivers", "peripherals", "disk_benchmark", "permissions", "login_history", "registry_audit", "share_access", "thermal", "activation", "patch_history", "ad_user", "dns_lookup", "hyperv", "ip_config"],
+                        "description": "Which structured host inspection to run. Use topic=ad_user for domain identity audit, topic=dns_lookup for SRV/MX records, topic=hyperv for VM load, and topic=ip_config for detailed adapter info."
                     },
                     "name": {
                         "type": "string",

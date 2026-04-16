@@ -47,14 +47,26 @@ foreach ($Doc in $Docs) {
             }
         }
         
-        # Check for SysAdmin category count (56+) if it's CAPABILITIES
+        # Check for SysAdmin category count (58+) if it's CAPABILITIES
         if ($DocContent -match "SysAdmin topics \((\d+)\+\)") {
             $SysAdminDocCount = [int]$Matches[1]
-            $ExpectedSysAdmin = 56 # 76 - 12 (Network) - 8 (Dev)
+            $ExpectedSysAdmin = 58 
             if ($SysAdminDocCount -eq $ExpectedSysAdmin) {
                  Write-Host "[DOC] ${Doc}: SysAdmin Category Match ($SysAdminDocCount+)" -ForegroundColor Green
             } else {
                  Write-Host "[DOC] ${Doc}: SysAdmin Category MISMATCH! Expected=$ExpectedSysAdmin, Doc=$SysAdminDocCount" -ForegroundColor Red
+                 $HadError = $true
+            }
+        }
+
+        # Check for Network Admin category count (14+) if it's CAPABILITIES
+        if ($DocContent -match "Network Admin topics \((\d+)\+?\)") {
+            $NetAdminDocCount = [int]$Matches[1]
+            $ExpectedNetAdmin = 14 
+            if ($NetAdminDocCount -eq $ExpectedNetAdmin) {
+                 Write-Host "[DOC] ${Doc}: Network Admin Category Match ($NetAdminDocCount+)" -ForegroundColor Green
+            } else {
+                 Write-Host "[DOC] ${Doc}: Network Admin Category MISMATCH! Expected=$ExpectedNetAdmin, Doc=$NetAdminDocCount" -ForegroundColor Red
                  $HadError = $true
             }
         }
