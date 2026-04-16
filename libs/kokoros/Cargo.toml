@@ -1,6 +1,6 @@
 [package]
 name = "hematite-kokoros"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Hematite-maintained fork of the Kokoros Rust text-to-speech engine"
 readme = "README.md"

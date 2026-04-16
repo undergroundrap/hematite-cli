@@ -5,7 +5,7 @@ pub mod telemetry;
 pub mod tools;
 pub mod ui;
 
-pub const HEMATITE_VERSION: &str = "0.5.4";
+pub const HEMATITE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const HEMATITE_AUTHOR: &str = "Ocean Bennett";
 pub const HEMATITE_REPOSITORY_URL: &str = "https://github.com/undergroundrap/hematite-cli";
 pub const HEMATITE_SHORT_DESCRIPTION: &str =

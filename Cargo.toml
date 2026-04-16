@@ -55,7 +55,7 @@ tree-sitter-python = "0.23"
 petgraph = "0.7"
 
 # Voice & Audio Synthesis
-kokoros = { package = "hematite-kokoros", version = "0.1.1", path = "libs/kokoros" }
+kokoros = { package = "hematite-kokoros", version = "0.1.2", path = "libs/kokoros" }
 rodio = "0.19"
 base64 = "0.22.1"
 home = "0.5.12"

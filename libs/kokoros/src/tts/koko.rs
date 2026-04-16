@@ -142,8 +142,21 @@ impl TTSKoko {
             let tokens_batch = vec![tokens.iter().map(|&t| t as i64).collect::<Vec<i64>>()];
             
             let mut onn = self.onn.lock().unwrap();
-            let audio_data = onn.infer(tokens_batch, style, speed, &self.strategy)?;
+            let res = onn.infer(tokens_batch, style, speed, &self.strategy);
             drop(onn);
+
+            let audio_data = match res {
+                Ok(audio) => audio,
+                Err(e) => {
+                    let err_str = e.to_string();
+                    if err_str.contains("Expand node") || err_str.contains("invalid expand shape") {
+                        tracing::warn!("Kokoro Engine: Suppressing ONNX synthesis glitch (Expand Error). Returning silence.");
+                        vec![] // Return empty audio for this chunk to maintain stream continuity
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
 
             // --- CHUNK PROCESSING: TRIM & NORMALIZE ---
             
@@ -155,7 +168,7 @@ impl TTSKoko {
             // 2. Local Normalization
             let sq_sum: f32 = trimmed.iter().map(|&s| s * s).sum();
             let rms = (sq_sum / trimmed.len().max(1) as f32).sqrt();
-            let gain = if rms > 0.001 { (0.15 / rms).min(100.0) } else { 1.0 };
+            let gain = if rms > 0.001 { (0.15f32 / rms).min(100.0f32) } else { 1.0f32 };
             
             let mut chunk_audio: Vec<f32> = trimmed.iter().map(|&s| s * gain).collect();
 
@@ -242,8 +255,21 @@ impl TTSKoko {
 
             let style = self.styles.get(voice).ok_or("Voice style not found")?;
             let mut onn = self.onn.lock().unwrap();
-            let raw_audio = onn.infer(vec![tok.iter().map(|&t| t as i64).collect()], style, speed, &self.strategy)?;
+            let res = onn.infer(vec![tok.iter().map(|&t| t as i64).collect()], style, speed, &self.strategy);
             drop(onn);
+
+            let raw_audio = match res {
+                Ok(audio) => audio,
+                Err(e) => {
+                    let err_str = e.to_string();
+                    if err_str.contains("Expand node") || err_str.contains("invalid expand shape") {
+                        tracing::warn!("Kokoro Engine: Suppressing ONNX synthesis glitch (Streaming). Returning silence.");
+                        vec![] 
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
 
             // AGGRESSIVE TRIM & NORM
             let start = raw_audio.iter().position(|&s| s.abs() > 0.005).unwrap_or(0);
@@ -252,7 +278,7 @@ impl TTSKoko {
 
             let sq_sum: f32 = trimmed.iter().map(|&s| s * s).sum();
             let rms = (sq_sum / trimmed.len().max(1) as f32).sqrt();
-            let gain = if rms > 0.001 { (0.15 / rms).min(100.0) } else { 1.0 };
+            let gain = if rms > 0.001 { (0.15f32 / rms).min(100.0f32) } else { 1.0f32 };
             let mut chunk_audio: Vec<f32> = trimmed.iter().map(|&s| s * gain).collect();
 
             let fade_len = 240; 

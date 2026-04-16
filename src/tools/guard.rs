@@ -264,6 +264,10 @@ pub fn classify_bash_risk(cmd: &str) -> RiskLevel {
         "powershell -command 'get-item",
         "powershell -command 'test-path",
         "powershell -command 'select-object",
+        "get-smbencryptionstatus",
+        "get-smbshare",
+        "get-smbsession",
+        "get-netlanmanagerconnection",
     ];
     if safe_prefixes
         .iter()

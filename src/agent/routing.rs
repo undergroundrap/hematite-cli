@@ -362,6 +362,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("get-localgroupmember")
         || lower.contains("who is logged in")
         || lower.contains("who is logged on")
+        || lower.contains("who am i")
+        || lower.contains("logged in as")
         || lower.contains("logged in user")
         || lower.contains("logged on user")
         || lower.contains("admin group")
@@ -896,6 +898,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("get-smbshare")
         || lower.contains("what is shared")
         || lower.contains("what am i sharing")
+        || lower.contains("smb session")
+        || lower.contains("lanmanager")
+        || lower.contains("netlanmanager")
         || lower.contains("smb1")
         || lower.contains("smb signing")
         || lower.contains("nfs export");
@@ -1021,32 +1026,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("printers")
     } else if asks_winrm {
         Some("winrm")
-    } else if asks_network {
-        Some("network")
-    } else if asks_network_stats {
-        Some("network_stats")
-    } else if asks_udp_ports {
-        Some("udp_ports")
-    } else if asks_updates {
-        Some("updates")
-    } else if asks_audit_policy {
-        Some("audit_policy")
-    } else if asks_security {
-        Some("security")
-    } else if asks_pending_reboot {
-        Some("pending_reboot")
-    } else if asks_disk_health {
-        Some("disk_health")
-    } else if asks_battery {
-        Some("battery")
-    } else if asks_recent_crashes {
-        Some("recent_crashes")
-    } else if asks_log_check {
-        Some("log_check")
-    } else if asks_scheduled_tasks {
-        Some("scheduled_tasks")
-    } else if asks_dev_conflicts {
-        Some("dev_conflicts")
     } else if (asks_path && asks_toolchains)
         || (mentions_host_inspection_question(&lower) && asks_broad_readiness)
     {
@@ -1075,6 +1054,36 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("arp")
     } else if asks_route_table {
         Some("route_table")
+    } else if asks_network_stats {
+        Some("network_stats")
+    } else if asks_udp_ports {
+        Some("udp_ports")
+    } else if asks_shares {
+        Some("shares")
+    } else if asks_os_config {
+        Some("os_config")
+    } else if asks_network {
+        Some("network")
+    } else if asks_updates {
+        Some("updates")
+    } else if asks_audit_policy {
+        Some("audit_policy")
+    } else if asks_security {
+        Some("security")
+    } else if asks_pending_reboot {
+        Some("pending_reboot")
+    } else if asks_disk_health {
+        Some("disk_health")
+    } else if asks_battery {
+        Some("battery")
+    } else if asks_recent_crashes {
+        Some("recent_crashes")
+    } else if asks_log_check {
+        Some("log_check")
+    } else if asks_scheduled_tasks {
+        Some("scheduled_tasks")
+    } else if asks_dev_conflicts {
+        Some("dev_conflicts")
     } else if asks_databases {
         Some("databases")
     } else if asks_docker {
@@ -1089,8 +1098,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("installed_software")
     } else if asks_env {
         Some("env")
-    } else if asks_shares {
-        Some("shares")
     } else if asks_hosts_file {
         Some("hosts_file")
     } else if asks_ports {
@@ -1107,8 +1114,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("path")
     } else if asks_toolchains {
         Some("toolchains")
-    } else if asks_os_config {
-        Some("os_config")
     } else if asks_resource_load {
         Some("resource_load")
     } else if asks_health_report {
@@ -1416,6 +1421,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("local user")
                 || l.contains("user account")
                 || l.contains("who is logged")
+                || l.contains("who am i")
+                || l.contains("logged in as")
                 || l.contains("admin group")
                 || l.contains("local admin")
                 || l.contains("active sessions")
