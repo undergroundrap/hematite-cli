@@ -136,6 +136,22 @@ pub fn bash_is_safe(cmd: &str) -> Result<(), String> {
         }
     }
 
+    let diagnostic_redirects = [
+        "nvidia-smi",
+        "wmic path win32_videocontroller",
+        "wmic path win32_perfformatteddata_gpu",
+    ];
+    for pattern in diagnostic_redirects {
+        if lower.contains(pattern) {
+            return Err(format!(
+                "Use the inspect_host tool with the relevant topic (e.g., topic=\"overclocker\" or topic=\"hardware\") \
+                 instead of shell for executing {} diagnostics. \
+                 Shell is blocked for raw hardware vitals to ensure high-fidelity bitmask decoding and session-wide history tracking.",
+                pattern.split_whitespace().next().unwrap_or("hardware")
+            ));
+        }
+    }
+
     Ok(())
 }
 

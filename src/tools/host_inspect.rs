@@ -9689,7 +9689,7 @@ async fn inspect_overclocker() -> Result<String, String> {
         // 1. NVIDIA Census
         let nvidia = Command::new("nvidia-smi")
             .args([
-                "--query-gpu=name,clocks.current.graphics,clocks.current.memory,fan.speed,power.draw,temperature.gpu",
+                "--query-gpu=name,clocks.current.graphics,clocks.current.memory,fan.speed,power.draw,temperature.gpu,clocks_throttle_reasons.active",
                 "--format=csv,noheader,nounits",
             ])
             .output();
@@ -9699,18 +9699,45 @@ async fn inspect_overclocker() -> Result<String, String> {
             if !stdout.trim().is_empty() {
                 out.push_str("=== GPU SENSE (NVIDIA) ===\n");
                 let parts: Vec<&str> = stdout.trim().split(',').map(|s| s.trim()).collect();
-                if parts.len() >= 5 {
+                if parts.len() >= 6 {
                     out.push_str(&format!("- Model:      {}\n", parts[0]));
                     out.push_str(&format!("- Graphics:   {} MHz\n", parts[1]));
                     out.push_str(&format!("- Memory:     {} MHz\n", parts[2]));
                     out.push_str(&format!("- Fan Speed:  {}%\n", parts[3]));
                     out.push_str(&format!("- Power Draw: {} W\n", parts[4]));
-                    if parts.len() > 5 {
-                        out.push_str(&format!("- Temperature: {}°C\n", parts[5]));
+                    out.push_str(&format!("- Temperature: {}°C\n", parts[5]));
+
+                    if parts.len() > 6 {
+                        let throttle_hex = parts[6];
+                        let reasons = decode_nvidia_throttle_reasons(throttle_hex);
+                        if !reasons.is_empty() {
+                            out.push_str(&format!("- Throttling:  YES [Reason: {}]\n", reasons));
+                        } else {
+                            out.push_str("- Throttling:  None (Performance State: Max)\n");
+                        }
                     }
                 }
                 out.push_str("\n");
             }
+        }
+
+        // 1b. Session Trends (RAM-only historians)
+        let gpu_state = &crate::ui::gpu_monitor::GLOBAL_GPU_STATE;
+        let history = gpu_state.history.lock().unwrap();
+        if history.len() >= 2 {
+            out.push_str("=== SILICON TRENDS (Session) ===\n");
+            let first = history.front().unwrap();
+            let last = history.back().unwrap();
+            
+            let temp_diff = last.temperature as i32 - first.temperature as i32;
+            let clock_diff = last.core_clock as i32 - first.core_clock as i32;
+            
+            let temp_trend = if temp_diff > 1 { "Rising" } else if temp_diff < -1 { "Falling" } else { "Stable" };
+            let clock_trend = if clock_diff > 10 { "Increasing" } else if clock_diff < -10 { "Decreasing" } else { "Stable" };
+            
+            out.push_str(&format!("- Temperature: {} ({}°C anomaly)\n", temp_trend, temp_diff));
+            out.push_str(&format!("- Core Clock:  {} ({} MHz delta)\n", clock_trend, clock_diff));
+            out.push_str("\n");
         }
 
         // 2. CPU Time-Series (2 samples)
@@ -9737,6 +9764,28 @@ async fn inspect_overclocker() -> Result<String, String> {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // 2b. CPU Thermal Fallback
+        let thermal = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance -Namespace root\\wmi -ClassName MSAcpi_ThermalZoneTemperature | Select-Object @{N='Temp';E={($_.CurrentTemperature - 2732) / 10}} | ConvertTo-Json",
+            ])
+            .output();
+        if let Ok(o) = thermal {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            if let Ok(v) = serde_json::from_str::<Value>(&stdout) {
+                let temp = if v.is_array() {
+                    v[0].get("Temp").and_then(|x| x.as_f64()).unwrap_or(0.0)
+                } else {
+                    v.get("Temp").and_then(|x| x.as_f64()).unwrap_or(0.0)
+                };
+                if temp > 1.0 {
+                    out.push_str(&format!("- CPU Package:   {}°C (ACPI Zone)\n", temp));
                 }
             }
         }
@@ -9774,4 +9823,48 @@ async fn inspect_overclocker() -> Result<String, String> {
     }
 
     Ok(out.trim_end().to_string())
+}
+
+/// Decodes the NVIDIA Clocks Throttle Reasons HEX bitmask.
+fn decode_nvidia_throttle_reasons(hex: &str) -> String {
+    let hex = hex.trim().trim_start_matches("0x");
+    let val = match u64::from_str_radix(hex, 16) {
+        Ok(v) => v,
+        Err(_) => return String::new(),
+    };
+
+    if val == 0 {
+        return String::new();
+    }
+
+    let mut reasons = Vec::new();
+    if val & 0x01 != 0 {
+        reasons.push("GPU Idle");
+    }
+    if val & 0x02 != 0 {
+        reasons.push("Applications Clocks Setting");
+    }
+    if val & 0x04 != 0 {
+        reasons.push("SW Power Cap (PL1/PL2)");
+    }
+    if val & 0x08 != 0 {
+        reasons.push("HW Slowdown (Thermal/Power)");
+    }
+    if val & 0x10 != 0 {
+        reasons.push("Sync Boost");
+    }
+    if val & 0x20 != 0 {
+        reasons.push("SW Thermal Slowdown");
+    }
+    if val & 0x40 != 0 {
+        reasons.push("HW Thermal Slowdown");
+    }
+    if val & 0x80 != 0 {
+        reasons.push("HW Power Brake Slowdown");
+    }
+    if val & 0x100 != 0 {
+        reasons.push("Display Clock Setting");
+    }
+
+    reasons.join(", ")
 }

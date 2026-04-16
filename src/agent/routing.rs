@@ -215,6 +215,9 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "task manager",
             "ram",
             "cpu",
+            "gpu",
+            "vram",
+            "nvidia",
             "memory",
             "developer tools",
             "toolchains",
@@ -250,6 +253,8 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "uptime",
             "reboot",
             "silicon",
+            "throttle",
+            "throttled",
             "clocks",
             "mhz",
             "health",
@@ -320,6 +325,17 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "list",
             "audit",
             "test",
+            "check",
+            "is",
+            "are",
+            "am",
+            "why",
+            "what",
+            "currently",
+            "status",
+            "stats",
+            "vitals",
+            "telemetry",
             "how",
             "looking",
         ],
@@ -431,13 +447,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("hardware info")
         || lower.contains("bios version")
         || lower.contains("motherboard")
-        || lower.contains("gpu name")
-        || lower.contains("gpu driver")
         || lower.contains("how much ram")
-        || lower.contains("how much vram")
         || lower.contains("what processor")
         || lower.contains("what cpu")
-        || lower.contains("what gpu")
         || (lower.contains("what hardware") && lower.contains("have"))
         || (lower.contains("hardware") && lower.contains("inventory"));
     let asks_startup = lower.contains("startup")
@@ -537,18 +549,20 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("network share")
             && (lower.contains("reach") || lower.contains("access") || lower.contains("test")));
     let asks_thermal = lower.contains("thermal")
-        || lower.contains("throttling")
+        || (lower.contains("throttle") && !lower.contains("gpu"))
         || lower.contains("overheating")
         || lower.contains("cpu temp");
     let asks_overclocker = lower.contains("overclocker")
-        || lower.contains("gpu clock")
-        || lower.contains("nvidia stats")
+        || lower.contains("gpu")
+        || lower.contains("vram")
+        || lower.contains("nvidia")
         || lower.contains("silicon health")
-        || lower.contains("core frequency")
+        || lower.contains("throttle")
+        || lower.contains("bottleneck")
+        || lower.contains("frequency")
         || lower.contains("mhz")
         || lower.contains("power draw")
         || lower.contains("gpu fan")
-        || lower.contains("high-fidelity telemetry")
         || (lower.contains("rtx") && lower.contains("4070"));
     let asks_activation = lower.contains("activation")
         || lower.contains("slmgr")
@@ -984,7 +998,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             && (lower.contains("port") || lower.contains("listen") || lower.contains("open")));
 
     // Priority 1: High-Precision Enterprise Triage (IT Pro Plus)
-    if asks_ad_user {
+    if asks_overclocker {
+        Some("overclocker")
+    } else if asks_ad_user {
         Some("ad_user")
     } else if asks_user_accounts {
         Some("user_accounts")
@@ -1006,8 +1022,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("registry_audit")
     } else if asks_share_access {
         Some("share_access")
-    } else if asks_overclocker {
-        Some("overclocker")
     } else if asks_thermal {
         Some("thermal")
     } else if asks_activation {
@@ -1162,6 +1176,16 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     let mut topics: Vec<&'static str> = Vec::new();
 
     let detectors: &[(&str, fn(&str) -> bool)] = &[
+        ("overclocker", |l| {
+            l.contains("overclocker")
+                || l.contains("gpu clock")
+                || l.contains("gpu throttle")
+                || l.contains("throttle reason")
+                || l.contains("root cause")
+                || l.contains("nvidia stats")
+                || l.contains("silicon health")
+                || (l.contains("gpu") && (l.contains("throttle") || l.contains("bottleneck") || l.contains("performance")))
+        }),
         ("ad_user", |l| {
             l.contains("ad user")
                 || l.contains("domain user")
@@ -1412,6 +1436,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("uptime")
                 || l.contains("boot time")
                 || l.contains("last boot")
+        }),
+        ("overclocker", |l| {
+            l.contains("overclocker")
+                || l.contains("gpu clock")
+                || l.contains("gpu throttle")
+                || l.contains("nvidia stats")
+                || l.contains("silicon health")
+                || l.contains("mhz")
+                || (l.contains("gpu") && (l.contains("throttle") || l.contains("bottleneck")))
         }),
         ("path", |l| {
             l.contains("path entries") || l.contains("raw path")
@@ -2303,5 +2336,25 @@ mod tests {
         assert_eq!(preferred_host_inspection_topic("How's my silicon health looking?"), Some("overclocker"));
         assert_eq!(preferred_host_inspection_topic("Show me GPU clocks"), Some("overclocker"));
         assert_eq!(preferred_host_inspection_topic("nvidia stats"), Some("overclocker"));
+    }
+
+    #[test]
+    fn test_gpu_throttle_routing() {
+        assert_eq!(preferred_host_inspection_topic("Is my GPU currently throttled and why?"), Some("overclocker"));
+        assert_eq!(preferred_host_inspection_topic("Tell me if my GPU is throttled"), Some("overclocker"));
+        assert_eq!(preferred_host_inspection_topic("Is the GPU overheating?"), Some("overclocker"));
+    }
+
+    #[test]
+    fn test_host_inspection_gateway() {
+        assert!(mentions_host_inspection_question("is my gpu throttled?"));
+        assert!(mentions_host_inspection_question("check vram and silicon health"));
+        assert!(mentions_host_inspection_question("nvidia stats"));
+        
+        // Negative tests: General coding/repo questions should NOT trigger the gate
+        assert!(!mentions_host_inspection_question("What is a Rust macro?"));
+        assert!(!mentions_host_inspection_question("Explain the repository structure."));
+        assert!(!mentions_host_inspection_question("how do I build this?"));
+        assert!(!mentions_host_inspection_question("is this code efficient?"));
     }
 }

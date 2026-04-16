@@ -3,10 +3,17 @@
 //! Spawns a Tokio task that polls `nvidia-smi` every few seconds and stores
 //! the result in lock-free atomics so the TUI render loop can read it cheaply.
 
+use lazy_static::lazy_static;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-/// Shared GPU state — read by the TUI, written by the background poller.
+lazy_static! {
+    /// Global access to GPU vitals for tool investigation (Zero-Shot Trends).
+    pub static ref GLOBAL_GPU_STATE: Arc<GpuState> = Arc::new(GpuState::new());
+}
+
+/// Shared GPU state — read by the TUI/Agent, written by the background poller.
 #[derive(Debug)]
 pub struct GpuState {
     /// VRAM used in MiB.
@@ -14,7 +21,21 @@ pub struct GpuState {
     /// VRAM total in MiB.
     pub total_mib: AtomicU32,
     /// GPU name (set once on first successful poll).
-    pub name: std::sync::Mutex<String>,
+    pub name: Mutex<String>,
+    /// Recent history points (max 10).
+    pub history: Mutex<VecDeque<HistoryPoint>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct HistoryPoint {
+    pub timestamp: chrono::DateTime<chrono::Local>,
+    pub used_mib: u32,
+    pub temperature: u32,
+    pub core_clock: u32,
+    pub mem_clock: u32,
+    pub power_draw: f32,
+    pub fan_speed: u32,
+    pub throttle_reasons: String,
 }
 
 impl GpuState {
@@ -22,7 +43,8 @@ impl GpuState {
         Self {
             used_mib: AtomicU32::new(0),
             total_mib: AtomicU32::new(0),
-            name: std::sync::Mutex::new("GPU".into()),
+            name: Mutex::new("GPU".into()),
+            history: Mutex::new(VecDeque::with_capacity(10)),
         }
     }
 
@@ -64,18 +86,41 @@ impl GpuState {
 
 /// Spawn the background polling task. Returns the shared state handle.
 pub fn spawn_gpu_monitor() -> Arc<GpuState> {
-    let state = Arc::new(GpuState::new());
+    let state = GLOBAL_GPU_STATE.clone();
     let bg = state.clone();
 
     tokio::spawn(async move {
+        let mut poll_count = 0u64;
         loop {
-            if let Some((used, total, name)) = poll_nvidia_smi().await {
-                bg.used_mib.store(used, Ordering::Relaxed);
-                bg.total_mib.store(total, Ordering::Relaxed);
-                if !name.is_empty() {
-                    *bg.name.lock().unwrap() = name;
+            if let Some(metrics) = poll_nvidia_smi().await {
+                bg.used_mib.store(metrics.used_mib, Ordering::Relaxed);
+                bg.total_mib.store(metrics.total_mib, Ordering::Relaxed);
+                if !metrics.name.is_empty() {
+                    let mut name = bg.name.lock().unwrap();
+                    if *name == "GPU" {
+                        *name = metrics.name;
+                    }
+                }
+
+                // Add to history every ~2 minutes (60 iterations @ 2s each)
+                if poll_count % 60 == 0 {
+                    let mut history = bg.history.lock().unwrap();
+                    history.push_back(HistoryPoint {
+                        timestamp: chrono::Local::now(),
+                        used_mib: metrics.used_mib,
+                        temperature: metrics.temperature,
+                        core_clock: metrics.core_clock,
+                        mem_clock: metrics.mem_clock,
+                        power_draw: metrics.power_draw,
+                        fan_speed: metrics.fan_speed,
+                        throttle_reasons: metrics.throttle_reasons,
+                    });
+                    if history.len() > 10 {
+                        history.pop_front();
+                    }
                 }
             }
+            poll_count += 1;
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
         }
     });
@@ -83,11 +128,23 @@ pub fn spawn_gpu_monitor() -> Arc<GpuState> {
     state
 }
 
+pub struct GpuMetrics {
+    pub used_mib: u32,
+    pub total_mib: u32,
+    pub name: String,
+    pub temperature: u32,
+    pub core_clock: u32,
+    pub mem_clock: u32,
+    pub power_draw: f32,
+    pub fan_speed: u32,
+    pub throttle_reasons: String,
+}
+
 /// Call nvidia-smi and parse the CSV output.
-async fn poll_nvidia_smi() -> Option<(u32, u32, String)> {
+async fn poll_nvidia_smi() -> Option<GpuMetrics> {
     let output = tokio::process::Command::new("nvidia-smi")
         .args([
-            "--query-gpu=memory.used,memory.total,name",
+            "--query-gpu=memory.used,memory.total,name,temperature.gpu,clocks.current.graphics,clocks.current.memory,power.draw,fan.speed,clocks_throttle_reasons.active",
             "--format=csv,noheader,nounits",
         ])
         .output()
@@ -100,17 +157,20 @@ async fn poll_nvidia_smi() -> Option<(u32, u32, String)> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let line = stdout.trim();
-    let parts: Vec<&str> = line.splitn(3, ',').collect();
-    if parts.len() < 2 {
+    let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+    if parts.len() < 9 {
         return None;
     }
 
-    let used: u32 = parts[0].trim().parse().ok()?;
-    let total: u32 = parts[1].trim().parse().ok()?;
-    let name = parts
-        .get(2)
-        .map(|s| s.trim().to_string())
-        .unwrap_or_default();
-
-    Some((used, total, name))
+    Some(GpuMetrics {
+        used_mib: parts[0].parse().ok()?,
+        total_mib: parts[1].parse().ok()?,
+        name: parts[2].to_string(),
+        temperature: parts[3].parse().ok()?,
+        core_clock: parts[4].parse().ok()?,
+        mem_clock: parts[5].parse().ok()?,
+        power_draw: parts[6].parse().unwrap_or(0.0),
+        fan_speed: parts[7].parse().unwrap_or(0),
+        throttle_reasons: parts[8].to_string(),
+    })
 }

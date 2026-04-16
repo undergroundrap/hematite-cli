@@ -62,8 +62,8 @@ Hematite continuously adapts to the machine it is running on.
 - **Typed operator checkpoints**: SPECULAR now receives explicit runtime checkpoint states for provider recovery, prompt-budget reduction, history compaction, blocked policy paths, blocked recent-file-evidence edits, blocked exact-line-window edits, and other recovery/blocker transitions
 - **Typed recovery recipes**: retries, runtime refreshes, prompt-budget reduction, history compaction, and proof-before-edit recovery are now described by named recovery scenarios and compact step recipes instead of only ad hoc branch logic
 - **Runtime bundle boundary**: startup assembly for engine, channels, watcher, voice, swarm, and LM Studio profile sync now lives behind a typed runtime bundle instead of being hand-wired directly in `main.rs`
-- **Real-time silicon tracking**: `overclocker` delivers a 2-second sampled average of CPU frequency and thermal throttling indices to identify active power-limit downclocking.
-- **NVIDIA Deep-Sense**: precision GPU telemetry including real-time power draw (W), graphics/memory clocks (MHz), and fan curves, optimized for 4070-class hardware.
+- **Real-time silicon tracking**: `overclocker` delivers high-fidelity telemetry informed by the **Zero-Overhead Silicon Historian**—a 10-point RAM-only buffer tracking session trends (Temp/Clocks/Power anomalies) without disk baggage.
+- **NVIDIA Deep-Sense**: precision GPU telemetry including real-time power draw (W), graphics/memory clocks (MHz), and fan curves, plus the **Precision Throttle Truth** engine to decode NVIDIA bitmasks into root-cause casualties (Power vs Thermal).
 - **Typed permission enforcement**: tool authorization now converges through one runtime decision layer for allow, ask, or deny outcomes instead of splitting shell rules, MCP approval defaults, safe-path bypasses, and shell-risk classification across ad hoc branches
 - **Workspace trust state**: the current repo root is resolved through a typed trust policy, so destructive or external actions can behave differently in trusted, unknown, or explicitly denied workspaces
 - **Registry-owned tool metadata**: repo reads, repo writes, git tools, verification tools, architecture tools, workflow helpers, research tools, vision tools, and MCP tools now carry explicit runtime metadata so mutability, trust sensitivity, plan fit, and parallel-safe execution are less dependent on ad hoc name lists
@@ -127,7 +127,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Patch History** (`patch_history`) — Windows HotFix and KB update audit (last 48h focus)
 - **Repo Doctor** (`repo_doctor`) — Workspaces health audit: git status, uncommitted changes, and build-file presence
 - **Disk Benchmark** (`disk_benchmark`) — Sequential read/write throughput and latency measurements on the workspace drive
-- **Overclocker Telemetry** (`overclocker`) — Precision real-time silicon performance: NVIDIA graphics/memory clocks, fan speeds, power draw (W), and CPU Frequency (2s High-Fidelity Average)
+- **Overclocker Telemetry** (`overclocker`) — Precision real-time silicon performance: NVIDIA graphics/memory clocks, fan speeds, power draw (W), root-cause throttle decoding (Power vs Thermal), and **Session History** (in-memory trends/anomalies) identifying hardware drift since startup.
 - **Directory Audit** (`directory`, `desktop`, `downloads`) — Arbitrary or known directory listing with file metadata and sizes
 - **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths
 

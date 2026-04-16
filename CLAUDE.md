@@ -140,7 +140,7 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Drivers**: Use `topic: "drivers"` for a comprehensive audit of active system drivers and their operational states.
 - **Peripherals**: Use `topic: "peripherals"` for a deep-dive into USB controllers, HID devices (Keyboard/Mouse), and connected monitors.
 - **Scheduled Tasks**: Use `topic: "scheduled_tasks"` for all non-disabled scheduled tasks with name, path, last run time, and executable.
-- **Thermal Health**: Use `topic: "thermal"` for real-time telemetry — CPU temp, thermal margins, and active throttling indicators.
+- **Thermal Health**: Use `topic: "thermal"` for real-time telemetry — CPU temp, thermal margins, ACPI fallback sensing, and active throttling indicators.
 - **Windows Activation**: Use `topic: "activation"` for license state, genuine status, and Product ID/Key metadata.
 - **Patch History**: Use `topic: "patch_history"` for Windows HotFix and KB update audit (last 48h focus).
 - **Repo Doctor**: Use `topic: "repo_doctor"` to inspect workspace health — git status, uncommitted changes, and build-file presence.
@@ -178,6 +178,7 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Installed Software**: Use `topic: "installed_software"` for installed programs — winget list on Windows (registry fallback), dpkg/rpm/pacman on Linux, brew + mas on macOS.
 - **Git Config**: Use `topic: "git_config"` for global git configuration audit — user identity, core settings, signing config, push/pull defaults, credential helper, branch defaults, local repo config, and git aliases.
 - **Databases**: Use `topic: "databases"` to detect running local database engines — PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQLite, SQL Server, CouchDB, Cassandra, Elasticsearch — via CLI version check, TCP port probe, and OS service state. No credentials required.
+- **Overclocker Telemetry**: Use `topic: "overclocker"` for precision silicon performance — NVIDIA clocks, fans, power draw (W), root-cause throttle decoding (Power vs Thermal), and session history trends (Temp/Clock drift anomalies).
 - **User Accounts**: Use `topic: "user_accounts"` for local user accounts (name, enabled state, last logon, password required), Administrators group members, active logon sessions, and whether the current process is running elevated.
 - **Audit Policy**: Use `topic: "audit_policy"` for Windows audit policy (auditpol /get /category:*) — shows which event categories are logging Success/Failure. Flags if no categories are enabled. Requires Administrator elevation on Windows; falls back to auditd on Linux.
 - **Shares**: Use `topic: "shares"` for SMB shares this machine is exposing (flags custom non-admin shares), SMB server security settings (SMB1/SMB2 state, signing required, encryption), and mapped network drives. Warns if SMB1 is enabled.
@@ -206,7 +207,7 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Teacher Mode (`/teach`)**: Activates a grounded walkthrough mode for write/admin tasks Hematite cannot safely execute itself. Protocol: (1) call `inspect_host` with the relevant topic(s) to observe actual machine state, (2) deliver a numbered step-by-step tutorial referencing real observed state — exact commands, exact paths, exact values. Does NOT execute write operations. Covers:
 - **SysAdmin Diagnostics**: `inspect_host` (topic=network, services, processes, ports, log_check, startup_items, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, connections, etc.)
 - **Hardware Diagnostic Suite**: `topic=device_health` (PnP errors), `topic=drivers` (active audit), `topic=peripherals` (USB/HID tree).
-- **Deep System Visibility**: `topic=sessions` (Logon sessions), `topic=hardware` (BIOS/Virtualization DNA), `topic=processes` (Real-time I/O tracking), `topic=thermal` (Thermal/Throttling), `topic=activation` (Licensing), `topic=patch_history` (KB Audit).
+- **Deep System Visibility**: `topic=sessions` (Logon sessions), `topic=hardware` (BIOS/Virtualization DNA), `topic=processes` (Real-time I/O tracking), `topic=thermal` (Thermal/Throttling), `topic=activation` (Licensing), `topic=patch_history` (KB Audit), `topic=overclocker` (Precision Silicon Historian).
  matching grounded walkthrough. New lanes: `driver_install`, `group_policy`, `firewall_rule`, `ssh_key`, `wsl_setup`, `service_config`, `windows_activation`, `registry_edit`, `scheduled_task_create`, `disk_cleanup`. Each lane inspects real machine state first, then delivers machine-specific numbered steps.
 
 Hematite is not trying to outscale cloud agents. It is optimized for local GPU task execution.

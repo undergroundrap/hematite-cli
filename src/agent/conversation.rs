@@ -1486,7 +1486,7 @@ impl ConversationManager {
                         "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: Shell is blocked for host inspection. The diagnostic data above fulfills your request. Use inspect_host directly for further diagnostics.]"
                     )),
                     Err(e) => Err(format!(
-                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, processes, network, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, wsl, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
+                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, wsl, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
                     )),
                 };
             }
@@ -2456,7 +2456,7 @@ impl ConversationManager {
                      3. End with a verification step the user can run to confirm success.\n\
                      4. Do NOT execute write operations yourself. You are the teacher; the user performs the steps.\n\
                      5. Treat the user as capable — give precise instructions, not hedged warnings.\n\
-                     Relevant inspect_host topics for common tasks: hardware (driver installs), security (firewall), ssh (SSH keys), wsl (WSL setup), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
+                     Relevant inspect_host topics for common tasks: hardware (driver installs), overclocker (GPU/silicon vitals), security (firewall), ssh (SSH keys), wsl (WSL setup), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
                 ),
                 WorkflowMode::Chat => {} // replaced by build_chat_system_prompt below
             }
