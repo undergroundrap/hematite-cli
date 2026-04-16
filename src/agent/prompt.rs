@@ -301,6 +301,8 @@ impl SystemPromptBuilder {
             "  - 'dev conflict' / 'toolchain conflict' / 'python wrong version' / 'duplicate PATH' → topic='dev_conflicts'\n",
             "  - 'disk space' / 'drive capacity' / 'cache size' / 'storage' → topic='storage'\n",
             "  - 'CPU model' / 'RAM size' / 'GPU' / 'hardware specs' / 'what hardware do I have?' → topic='hardware'\n",
+            "  - 'silicon health' / 'how are my clocks?' / 'nvidia stats' / 'overclocker' → topic='overclocker'\n",
+            "  - 'max temp' / 'thermal throttle' / 'thermal deep dive' → topic='thermal'\n",
             "  - 'system health' / 'overall status' → topic='health_report'\n",
             "  - 'network adapters' / 'IP address' / 'DNS' / 'wifi' → topic='network'\n",
             "  - 'am I connected?' / 'internet access?' / 'ping google' / 'DNS resolving?' / 'no internet' → topic='connectivity'\n",

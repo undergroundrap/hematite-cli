@@ -1401,7 +1401,7 @@ impl ConversationManager {
                     let current_turn = state.turn_index;
                     if let Some(turn) = state.redirected_host_inspection_topics.get(&topic) {
                         if *turn == current_turn {
-                             return Err(format!(
+                            return Err(format!(
                                 "[auto-redirected shell→inspect_host(topic=\"{topic}\")] Notice: The diagnostic data for topic `{topic}` was already provided in this turn. Using the previous result to avoid redundant tool calls."
                             ));
                         }
@@ -1445,24 +1445,38 @@ impl ConversationManager {
                         } else {
                             after_id.split_whitespace().next().unwrap_or("").to_string()
                         };
-                    } 
-                    
+                    }
+
                     // 2. Wide-Net Fallback: Find the first non-cmdlet, non-parameter string
                     if identity.is_empty() {
                         let parts: Vec<&str> = command.split_whitespace().collect();
                         for (i, part) in parts.iter().enumerate() {
-                            if i == 0 || part.starts_with('-') { continue; }
+                            if i == 0 || part.starts_with('-') {
+                                continue;
+                            }
                             // Skip common cmdlets if they are in the parts list
                             let p_low = part.to_lowercase();
-                            if p_low.contains("get-ad") || p_low.contains("powershell") || p_low == "-command" { continue; }
-                            
-                            identity = part.trim_matches(|c: char| c == '\'' || c == '"').to_string();
-                            if !identity.is_empty() { break; }
+                            if p_low.contains("get-ad")
+                                || p_low.contains("powershell")
+                                || p_low == "-command"
+                            {
+                                continue;
+                            }
+
+                            identity = part
+                                .trim_matches(|c: char| c == '\'' || c == '"')
+                                .to_string();
+                            if !identity.is_empty() {
+                                break;
+                            }
                         }
                     }
 
                     if !identity.is_empty() {
-                        redirect_args.as_object_mut().unwrap().insert("name_filter".to_string(), serde_json::Value::String(identity));
+                        redirect_args.as_object_mut().unwrap().insert(
+                            "name_filter".to_string(),
+                            serde_json::Value::String(identity),
+                        );
                     }
                 }
 
@@ -2116,6 +2130,17 @@ impl ConversationManager {
                         }))
                         .await
                         .unwrap_or_else(|e| format!("Error: {}", e));
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::HostInspection => {
+                    let topic = preferred_host_inspection_topic(&effective_user_input).unwrap_or("summary");
+                    let response = crate::tools::host_inspect::inspect_host(&serde_json::json!({
+                        "topic": topic,
+                    }))
+                    .await
+                    .unwrap_or_else(|e| format!("Error: {}", e));
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
                         .await;
                     return Ok(());
@@ -6498,7 +6523,9 @@ error[E0308]: mismatched types
     #[test]
     fn intent_router_picks_registry_audit_for_persistence_questions() {
         assert_eq!(
-            preferred_host_inspection_topic("audit my registry for persistence hacks or debugger hijacking"),
+            preferred_host_inspection_topic(
+                "audit my registry for persistence hacks or debugger hijacking"
+            ),
             Some("registry_audit")
         );
         assert_eq!(
@@ -6542,7 +6569,9 @@ error[E0308]: mismatched types
     #[test]
     fn intent_router_picks_thermal_for_throttling_questions() {
         assert_eq!(
-            preferred_host_inspection_topic("why is my laptop slow? check for overheating or throttling"),
+            preferred_host_inspection_topic(
+                "why is my laptop slow? check for overheating or throttling"
+            ),
             Some("thermal")
         );
         assert_eq!(
@@ -6570,7 +6599,9 @@ error[E0308]: mismatched types
             Some("patch_history")
         );
         assert_eq!(
-            preferred_host_inspection_topic("list the windows update patch history for the last 48 hours"),
+            preferred_host_inspection_topic(
+                "list the windows update patch history for the last 48 hours"
+            ),
             Some("patch_history")
         );
     }

@@ -31,6 +31,7 @@ pub(crate) enum DirectAnswerKind {
     GemmaNativeSettings,
     VerifyProfiles,
     Toolchain,
+    HostInspection,
     ArchitectSessionResetPlan,
 }
 
@@ -248,6 +249,9 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "power settings",
             "uptime",
             "reboot",
+            "silicon",
+            "clocks",
+            "mhz",
             "health",
             "report",
             "bitlocker",
@@ -316,6 +320,8 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "list",
             "audit",
             "test",
+            "how",
+            "looking",
         ],
     );
 
@@ -380,9 +386,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("domain user")
         || (lower.contains("user") && (lower.contains("sid") || lower.contains("membership")));
     let asks_dns_lookup = (lower.contains("dns") || lower.contains("record"))
-        && (lower.contains("lookup") || lower.contains("srv") || lower.contains("mx") || lower.contains("txt"));
-    let asks_hyperv = lower.contains("hyper-v") || lower.contains("hyperv") || lower.contains("list vm");
-    let asks_ip_config = lower.contains("ipconfig") && (lower.contains("all") || lower.contains("detailed"));
+        && (lower.contains("lookup")
+            || lower.contains("srv")
+            || lower.contains("mx")
+            || lower.contains("txt"));
+    let asks_hyperv =
+        lower.contains("hyper-v") || lower.contains("hyperv") || lower.contains("list vm");
+    let asks_ip_config =
+        lower.contains("ipconfig") && (lower.contains("all") || lower.contains("detailed"));
     let asks_domain = lower.contains("domain")
         || lower.contains("active directory")
         || lower.contains("ad join")
@@ -479,9 +490,13 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("high memory")
         || lower.contains("resource-heavy processes")
         || lower.contains("heavy hitters")
-        || (lower.contains("using the most") && (lower.contains("cpu") || lower.contains("ram") || lower.contains("memory")))
-        || (lower.contains("most cpu") || lower.contains("most ram") || lower.contains("most memory"))
-        || (lower.contains("hitting") && (lower.contains("cpu") || lower.contains("ram") || lower.contains("disk")));
+        || (lower.contains("using the most")
+            && (lower.contains("cpu") || lower.contains("ram") || lower.contains("memory")))
+        || (lower.contains("most cpu")
+            || lower.contains("most ram")
+            || lower.contains("most memory"))
+        || (lower.contains("hitting")
+            && (lower.contains("cpu") || lower.contains("ram") || lower.contains("disk")));
     let asks_toolchains = lower.contains("developer tools")
         || lower.contains("toolchains")
         || (lower.contains("installed") && lower.contains("version"))
@@ -519,11 +534,22 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("\\\\")
         || lower.contains("share is reachable")
         || lower.contains("reachable share")
-        || (lower.contains("network share") && (lower.contains("reach") || lower.contains("access") || lower.contains("test")));
+        || (lower.contains("network share")
+            && (lower.contains("reach") || lower.contains("access") || lower.contains("test")));
     let asks_thermal = lower.contains("thermal")
         || lower.contains("throttling")
         || lower.contains("overheating")
         || lower.contains("cpu temp");
+    let asks_overclocker = lower.contains("overclocker")
+        || lower.contains("gpu clock")
+        || lower.contains("nvidia stats")
+        || lower.contains("silicon health")
+        || lower.contains("core frequency")
+        || lower.contains("mhz")
+        || lower.contains("power draw")
+        || lower.contains("gpu fan")
+        || lower.contains("high-fidelity telemetry")
+        || (lower.contains("rtx") && lower.contains("4070"));
     let asks_activation = lower.contains("activation")
         || lower.contains("slmgr")
         || lower.contains("license status")
@@ -980,6 +1006,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("registry_audit")
     } else if asks_share_access {
         Some("share_access")
+    } else if asks_overclocker {
+        Some("overclocker")
     } else if asks_thermal {
         Some("thermal")
     } else if asks_activation {
@@ -1183,16 +1211,31 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("permission") || l.contains("access control") || l.contains("get-acl")
         }),
         ("login_history", |l| {
-            l.contains("login history") || l.contains("logon history") || l.contains("event id 4624")
+            l.contains("login history")
+                || l.contains("logon history")
+                || l.contains("event id 4624")
         }),
         ("registry_audit", |l| {
-            l.contains("registry audit") || l.contains("persistence") || l.contains("ifeo") || l.contains("reg query")
+            l.contains("registry audit")
+                || l.contains("persistence")
+                || l.contains("ifeo")
+                || l.contains("reg query")
         }),
         ("share_access", |l| {
-            l.contains("share access") || l.contains("unc path") || l.contains("smbshare") || l.contains("net share")
+            l.contains("share access")
+                || l.contains("unc path")
+                || l.contains("smbshare")
+                || l.contains("net share")
         }),
         ("thermal", |l| {
             l.contains("thermal") || l.contains("throttling") || l.contains("overheating")
+        }),
+        ("overclocker", |l| {
+            l.contains("overclocker")
+                || l.contains("gpu clock")
+                || l.contains("nvidia stats")
+                || l.contains("silicon health")
+                || l.contains("mhz")
         }),
         ("activation", |l| {
             l.contains("activation") || l.contains("slmgr") || l.contains("license status")
@@ -1223,13 +1266,17 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("scheduled task") || l.contains("task scheduler")
         }),
         ("ad_user", |l| {
-            l.contains("ad user") || l.contains("domain user") || (l.contains("user") && l.contains("sid"))
+            l.contains("ad user")
+                || l.contains("domain user")
+                || (l.contains("user") && l.contains("sid"))
         }),
         ("dns_lookup", |l| {
             l.contains("dns") && (l.contains("lookup") || l.contains("srv") || l.contains("mx"))
         }),
         ("hyperv", |l| {
-            l.contains("hyper-v") || l.contains("hyperv") || (l.contains("list") && l.contains("vm"))
+            l.contains("hyper-v")
+                || l.contains("hyperv")
+                || (l.contains("list") && l.contains("vm"))
         }),
         ("ip_config", |l| {
             l.contains("ipconfig") && (l.contains("all") || l.contains("detail"))
@@ -2081,6 +2128,8 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         )
     {
         Some(DirectAnswerKind::Toolchain)
+    } else if host_inspection_mode && mentions_host_inspection_question(&lower) {
+        Some(DirectAnswerKind::HostInspection)
     } else {
         None
     };
@@ -2135,7 +2184,6 @@ pub(crate) fn is_capability_probe_tool(name: &str) -> bool {
             | "list_pinned"
     )
 }
-
 
 /// Returns true when the user's query involves computation that must be exact —
 /// checksums, financial math, statistics, date arithmetic, algorithmic verification, etc.
@@ -2248,5 +2296,12 @@ mod tests {
             preferred_workspace_workflow("Run npm run dev in this repo."),
             Some("script")
         );
+    }
+
+    #[test]
+    fn test_overclocker_routing() {
+        assert_eq!(preferred_host_inspection_topic("How's my silicon health looking?"), Some("overclocker"));
+        assert_eq!(preferred_host_inspection_topic("Show me GPU clocks"), Some("overclocker"));
+        assert_eq!(preferred_host_inspection_topic("nvidia stats"), Some("overclocker"));
     }
 }

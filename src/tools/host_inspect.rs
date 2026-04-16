@@ -18,8 +18,12 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
     let filter = parse_name_filter(args).unwrap_or_default().to_lowercase();
 
     // Topic Interceptor: Force ad_user for AD-related queries to resolve model variance
-    if (topic == "processes" || topic == "network" || topic == "summary") && 
-       (filter.contains("ad") || filter.contains("sid") || filter.contains("administrator") || filter.contains("domain")) {
+    if (topic == "processes" || topic == "network" || topic == "summary")
+        && (filter.contains("ad")
+            || filter.contains("sid")
+            || filter.contains("administrator")
+            || filter.contains("domain"))
+    {
         topic = "ad_user".to_string();
     }
 
@@ -145,8 +149,9 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         }
         "hyperv" | "hyper-v" | "vms" => inspect_hyperv(),
         "ip_config" | "ip_detail" | "dhcp" => inspect_ip_config(),
+        "overclocker" | "thermal_deep" | "clocks" | "voltage" => inspect_overclocker().await,
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -1528,11 +1533,7 @@ fn inspect_processes(name_filter: Option<String>, max_entries: usize) -> Result<
         let cpu_str = entry
             .cpu_percent
             .map(|p| format!(" [CPU: {:.1}%]", p))
-            .or_else(|| {
-                entry
-                    .cpu_seconds
-                    .map(|s| format!(" [CPU: {:.1}s]", s))
-            })
+            .or_else(|| entry.cpu_seconds.map(|s| format!(" [CPU: {:.1}s]", s)))
             .unwrap_or_default();
         let io_str = if let (Some(r), Some(w)) = (entry.read_ops, entry.write_ops) {
             format!(" [I/O R:{}/W:{}]", r, w)
@@ -1633,8 +1634,10 @@ fn inspect_services(name_filter: Option<String>, max_entries: usize) -> Result<S
     }
 
     services.sort_by(|a, b| {
-        let a_running = a.status.to_ascii_lowercase() == "running" || a.status.to_ascii_lowercase() == "active";
-        let b_running = b.status.to_ascii_lowercase() == "running" || b.status.to_ascii_lowercase() == "active";
+        let a_running =
+            a.status.to_ascii_lowercase() == "running" || a.status.to_ascii_lowercase() == "active";
+        let b_running =
+            b.status.to_ascii_lowercase() == "running" || b.status.to_ascii_lowercase() == "active";
         b_running.cmp(&a_running).then_with(|| a.name.cmp(&b.name))
     });
 
@@ -1702,7 +1705,10 @@ fn inspect_services(name_filter: Option<String>, max_entries: usize) -> Result<S
             .filter(|v| *v != &entry.name)
             .map(|v| format!(" [{}]", v))
             .unwrap_or_default();
-        format!("- {}{} - {}{}{}\n", entry.name, display, entry.status, startup, logon)
+        format!(
+            "- {}{} - {}{}{}\n",
+            entry.name, display, entry.status, startup, logon
+        )
     };
 
     out.push_str(&format!(
@@ -2638,8 +2644,6 @@ fn listener_exposure_summary(listeners: Vec<ListeningPort>) -> ListenerExposureS
     }
     summary
 }
-
-
 
 fn is_loopback_listener(local: &str) -> bool {
     local.starts_with("127.")
@@ -3601,8 +3605,11 @@ fn inspect_log_check(lookback_hours: Option<u32>, max_entries: usize) -> Result<
     {
         // Pull recent critical/error events from Windows Application and System logs.
         let hours = lookback_hours.unwrap_or(24);
-        out.push_str(&format!("Checking System/Application logs from the last {} hours...\n\n", hours));
-        
+        out.push_str(&format!(
+            "Checking System/Application logs from the last {} hours...\n\n",
+            hours
+        ));
+
         let n = max_entries.clamp(1, 50);
         let script = format!(
             r#"try {{
@@ -4932,7 +4939,9 @@ try {
                 }
                 out.push_str(&format!("  Status: {state}\n"));
                 out.push_str(&format!("  Cycles: {cycles}\n"));
-                out.push_str(&format!("  Health: {health}% (Actual vs Design Capacity)\n\n"));
+                out.push_str(&format!(
+                    "  Health: {health}% (Actual vs Design Capacity)\n\n"
+                ));
             }
         }
     }
@@ -5171,7 +5180,9 @@ try {{
                         display_path
                     };
                     out.push_str(&format!("  {name} [{display_path}]\n"));
-                    out.push_str(&format!("    State: {state} | Last run: {last} | Result: {res}\n"));
+                    out.push_str(&format!(
+                        "    State: {state} | Last run: {last} | Result: {res}\n"
+                    ));
                     if !exec.is_empty() && exec != "(no exec)" {
                         let short = if exec.len() > 80 { &exec[..80] } else { exec };
                         out.push_str(&format!("    Runs: {short}\n"));
@@ -5715,7 +5726,10 @@ try {{
             for row in &rows {
                 let parts: Vec<&str> = row.splitn(4, '|').collect();
                 if parts.len() == 4 {
-                    out.push_str(&format!("  {:<15} (pid {:<5}) | {} → {}\n", parts[0], parts[1], parts[2], parts[3]));
+                    out.push_str(&format!(
+                        "  {:<15} (pid {:<5}) | {} → {}\n",
+                        parts[0], parts[1], parts[2], parts[3]
+                    ));
                 }
             }
             if total > n {
@@ -9181,7 +9195,10 @@ $avgR = if ($readStats) {{ ($readStats | Measure-Object -Average).Average }} els
 
 fn inspect_permissions(path: PathBuf, _max_entries: usize) -> Result<String, String> {
     let mut out = String::from("Host inspection: permissions\n\n");
-    out.push_str(&format!("Auditing access control for: {}\n\n", path.display()));
+    out.push_str(&format!(
+        "Auditing access control for: {}\n\n",
+        path.display()
+    ));
 
     #[cfg(target_os = "windows")]
     {
@@ -9321,8 +9338,10 @@ fn inspect_dns_fix_plan(issue: &str) -> Result<String, String> {
     out.push_str("3. **Test Name Resolution**: Use nslookup to query a specific server.\n");
     out.push_str("   `nslookup google.com 8.8.8.8` (Tests if external DNS works)\n");
     out.push_str("4. **Check Adapter DNS**: Ensure local settings match expected nameservers.\n");
-    out.push_str("   `Get-NetIPConfiguration | Select-Object InterfaceAlias, DNSServer` (Windows)\n");
-    
+    out.push_str(
+        "   `Get-NetIPConfiguration | Select-Object InterfaceAlias, DNSServer` (Windows)\n",
+    );
+
     Ok(out)
 }
 
@@ -9411,7 +9430,9 @@ if ($thermal) {
 
     #[cfg(not(target_os = "windows"))]
     {
-        out.push_str("Thermal inspection is currently optimized for Windows performance counters.\n");
+        out.push_str(
+            "Thermal inspection is currently optimized for Windows performance counters.\n",
+        );
     }
 
     Ok(out.trim_end().to_string())
@@ -9447,7 +9468,10 @@ $dli = cscript //nologo C:\Windows\System32\slmgr.vbs /dli
 
 fn inspect_patch_history(max_entries: usize) -> Result<String, String> {
     let mut out = String::from("Host inspection: patch_history\n\n");
-    out.push_str(&format!("Listing the last {} installed Windows updates (KBs)...\n\n", max_entries));
+    out.push_str(&format!(
+        "Listing the last {} installed Windows updates (KBs)...\n\n",
+        max_entries
+    ));
 
     #[cfg(target_os = "windows")]
     {
@@ -9600,7 +9624,9 @@ fn inspect_hyperv() -> Result<String, String> {
         if let Some(o) = output {
             let stdout = String::from_utf8_lossy(&o.stdout);
             if stdout.trim().is_empty() {
-                out.push_str("No Hyper-V Virtual Machines found or Hyper-V module not installed.\n");
+                out.push_str(
+                    "No Hyper-V Virtual Machines found or Hyper-V module not installed.\n",
+                );
             } else {
                 out.push_str(&stdout);
             }
@@ -9646,6 +9672,105 @@ fn inspect_ip_config() -> Result<String, String> {
         if let Some(o) = output {
             out.push_str(&String::from_utf8_lossy(&o.stdout));
         }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+async fn inspect_overclocker() -> Result<String, String> {
+    let mut out = String::from("Host inspection: overclocker\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        out.push_str(
+            "Gathering real-time silicon telemetry (2-second high-fidelity average)...\n\n",
+        );
+
+        // 1. NVIDIA Census
+        let nvidia = Command::new("nvidia-smi")
+            .args([
+                "--query-gpu=name,clocks.current.graphics,clocks.current.memory,fan.speed,power.draw,temperature.gpu",
+                "--format=csv,noheader,nounits",
+            ])
+            .output();
+
+        if let Ok(o) = nvidia {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            if !stdout.trim().is_empty() {
+                out.push_str("=== GPU SENSE (NVIDIA) ===\n");
+                let parts: Vec<&str> = stdout.trim().split(',').map(|s| s.trim()).collect();
+                if parts.len() >= 5 {
+                    out.push_str(&format!("- Model:      {}\n", parts[0]));
+                    out.push_str(&format!("- Graphics:   {} MHz\n", parts[1]));
+                    out.push_str(&format!("- Memory:     {} MHz\n", parts[2]));
+                    out.push_str(&format!("- Fan Speed:  {}%\n", parts[3]));
+                    out.push_str(&format!("- Power Draw: {} W\n", parts[4]));
+                    if parts.len() > 5 {
+                        out.push_str(&format!("- Temperature: {}°C\n", parts[5]));
+                    }
+                }
+                out.push_str("\n");
+            }
+        }
+
+        // 2. CPU Time-Series (2 samples)
+        let ps_cmd = "Get-Counter -Counter '\\Processor Information(_Total)\\Processor Frequency', '\\Processor Information(_Total)\\% of Maximum Frequency' -SampleInterval 1 -MaxSamples 2 | ForEach-Object { $_.CounterSamples } | Group-Object Path | ForEach-Object { \"$($_.Name):$([math]::Round(($_.Group | Measure-Object CookedValue -Average).Average, 0))\" }";
+        let cpu_stats = Command::new("powershell")
+            .args(["-NoProfile", "-Command", ps_cmd])
+            .output();
+
+        if let Ok(o) = cpu_stats {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            if !stdout.trim().is_empty() {
+                out.push_str("=== SILICON CORE (CPU) ===\n");
+                for line in stdout.lines() {
+                    if let Some((path, val)) = line.split_once(':') {
+                        if path.to_lowercase().contains("processor frequency") {
+                            out.push_str(&format!("- Current Freq:  {} MHz (2s Avg)\n", val));
+                        } else if path.to_lowercase().contains("% of maximum frequency") {
+                            out.push_str(&format!("- Throttling:     {}% of Max Capacity\n", val));
+                            let throttle_num = val.parse::<f64>().unwrap_or(100.0);
+                            if throttle_num < 95.0 {
+                                out.push_str(
+                                    "  [WARNING] Active downclocking or power-saving detected.\n",
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. WMI Static Fallback/Context
+        let wmi = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_Processor | Select-Object Name, MaxClockSpeed, CurrentVoltage | ConvertTo-Json",
+            ])
+            .output();
+
+        if let Ok(o) = wmi {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            if let Ok(v) = serde_json::from_str::<Value>(&stdout) {
+                out.push_str("\n=== HARDWARE DNA ===\n");
+                out.push_str(&format!(
+                    "- Rated Max:     {} MHz\n",
+                    v.get("MaxClockSpeed").and_then(|x| x.as_u64()).unwrap_or(0)
+                ));
+                out.push_str(&format!(
+                    "- Voltage:       {} (Raw WMI)\n",
+                    v.get("CurrentVoltage")
+                        .and_then(|x| x.as_u64())
+                        .unwrap_or(0)
+                ));
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Overclocker telemetry is currently optimized for Windows performance counters and NVIDIA drivers.\n");
     }
 
     Ok(out.trim_end().to_string())

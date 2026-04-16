@@ -24,6 +24,10 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Security posture**
 > "Check my security posture: Defender state, last scan age, firewall profiles, Windows activation, and UAC level."
 
+**Silicon Deep-Sense (v0.5.6)**
+> "How's my silicon health looking? I want to see real-time GPU clocks, power draw, fan speed, and high-fidelity CPU frequency averages."
+> *(Triggers Zero-Shot Redirection to: overclocker)*
+
 **Crash and reboot history**
 > "Show me any BSOD or unexpected shutdown events from the last week, and tell me if a reboot is currently pending and why."
 
@@ -290,8 +294,8 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 > "Show me all System errors from the Event Log that occurred in the last 4 hours."
 
 **Diagnostic Analysis and Performance**
-> "Why is my laptop slow? Check if it is overheating, throttling, or under heavy I/O pressure."
-> *(Harness automatically runs: thermal, resource_load, storage)*
+> "Why is my laptop slow? Check if it is overheating, throttling, under heavy I/O pressure, or if my silicon clocks are fluctuating."
+> *(Harness automatically runs: thermal, resource_load, storage, overclocker)*
 
 **Licensing & Patch Audit**
 > "Is my Windows license valid? Check activation status and license details."
@@ -324,6 +328,10 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Scheduled Task Failure Triage**
 > "Audit all scheduled tasks. I want to see the Last Run Time and the numeric Result Code for each. Flag any task that has a non-zero exit result."
 > *(Harness refined: scheduled_tasks)*
+
+**High-Performance Silicon Audit**
+> "Run a high-fidelity silicon performance audit. I need the 2-second average for CPU clock stability and deep NVIDIA metrics for voltage and power limits."
+> *(Harness runs: overclocker)*
 
 ---
 

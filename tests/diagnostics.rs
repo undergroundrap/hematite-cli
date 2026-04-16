@@ -1411,6 +1411,15 @@ async fn test_inspect_host_drivers() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_overclocker_returns_header() {
+    use serde_json::json;
+    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "overclocker" }))
+        .await
+        .expect("inspect overclocker fails");
+    assert!(output.contains("Host inspection: overclocker"));
+}
+
+#[tokio::test]
 async fn test_inspect_host_peripherals() {
     use serde_json::json;
     let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "peripherals" }))
@@ -4930,9 +4939,7 @@ async fn test_inspect_host_dns_lookup_returns_header() {
 async fn test_inspect_host_hyperv_returns_header() {
     use hematite::tools::host_inspect::inspect_host;
     use serde_json::json;
-    let output = inspect_host(&json!({ "topic": "hyperv" }))
-        .await
-        .unwrap();
+    let output = inspect_host(&json!({ "topic": "hyperv" })).await.unwrap();
     assert!(output.contains("Host inspection: hyperv"));
 }
 
@@ -4949,16 +4956,29 @@ async fn test_inspect_host_ip_config_returns_header() {
 #[test]
 fn test_routing_prompts_it_pro_plus() {
     use hematite::agent::routing::all_host_inspection_topics;
-    
+
     // ad_user
-    let topics = all_host_inspection_topics("Analyze the AD user administrator. Show their SID and group memberships.");
-    assert!(topics.contains(&"ad_user"), "should detect ad_user; got: {topics:?}");
+    let topics = all_host_inspection_topics(
+        "Analyze the AD user administrator. Show their SID and group memberships.",
+    );
+    assert!(
+        topics.contains(&"ad_user"),
+        "should detect ad_user; got: {topics:?}"
+    );
 
     // hyperv
-    let topics = all_host_inspection_topics("Inventory my Hyper-V VMs and show their current load.");
-    assert!(topics.contains(&"hyperv"), "should detect hyperv; got: {topics:?}");
+    let topics =
+        all_host_inspection_topics("Inventory my Hyper-V VMs and show their current load.");
+    assert!(
+        topics.contains(&"hyperv"),
+        "should detect hyperv; got: {topics:?}"
+    );
 
     // ip_config
-    let topics = all_host_inspection_topics("Show me a detailed ipconfig /all report with DHCP discovery.");
-    assert!(topics.contains(&"ip_config"), "should detect ip_config; got: {topics:?}");
+    let topics =
+        all_host_inspection_topics("Show me a detailed ipconfig /all report with DHCP discovery.");
+    assert!(
+        topics.contains(&"ip_config"),
+        "should detect ip_config; got: {topics:?}"
+    );
 }

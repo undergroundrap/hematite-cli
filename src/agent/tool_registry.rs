@@ -138,7 +138,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         make_tool(
             "inspect_host",
             "Return a structured read-only inspection of the current machine and environment. \
-             Prefer this over raw shell for questions about OS configuration (firewall, power, uptime), plain-English system health reports, installed developer tools, PATH issues, package-manager and environment health, network state, service state, running processes, desktop items, Downloads size, listening ports, repo health, or directory/disk summaries. \
+             Prefer this over raw shell for questions about OS configuration (firewall, power, uptime), plain-English system health reports, silicon health and high-fidelity hardware telemetry (NVIDIA clocks/fans/power, CPU frequency averaging), installed developer tools, PATH issues, package-manager and environment health, network state, service state, running processes, desktop items, Downloads size, listening ports, repo health, or directory/disk summaries. \
              For high-performance hardware testing, use topic=disk_benchmark to measure real-time kernel disk queue intensity. \
              For remediation questions phrased like 'how do I fix cargo not found', 'how do I fix port 3000 already in use', or 'how do I fix LM Studio not reachable', use topic=fix_plan instead of diagnosis-only topics like env_doctor, path, or ports. \
              Use topic=summary for a compact host snapshot, topic=toolchains for common dev tool versions, topic=path for PATH analysis, topic=env_doctor for package-manager and PATH health, topic=fix_plan for structured remediation plans, topic=network for adapters/IPs/gateways/DNS, topic=services for service status and startup mode, \
