@@ -184,6 +184,8 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **DNS Servers**: Use `topic: "dns_servers"` for the DNS resolvers configured per network adapter (not cache — the actual configured nameservers), annotated with well-known providers (Google, Cloudflare, Quad9, OpenDNS), DoH configuration, and DNS search suffix list.
 - **Summary**: Use `topic: "summary"` (the default when no topic is given) for a general host overview — OS, hostname, uptime, CPU/RAM snapshot, disk health flag, and active network adapters.
 - **Toolchains**: Use `topic: "toolchains"` for installed developer tools — detects Rust, Node, Python, Go, Java, Docker, Git, and other common toolchain binaries with versions.
+- **Prompt Synchronicity Rule**: Any addition of an `inspect_host` topic or a new tool **MUST** be reflected in `src/agent/prompt.rs` and the `CAPABILITIES.md` competency matrix. This ensures the agent uses high-precision tools instead of falling back to raw shell.
+- **Topic Registration**: When adding a topic to `host_inspect.rs`, synchronize its keywords in `routing.rs` and its mandatory instruction in `prompt.rs` in the same PR.
 - **PATH**: Use `topic: "path"` for PATH entry analysis — lists all entries, flags duplicates, missing directories, and shadowed binaries.
 - **Environment Doctor**: Use `topic: "env_doctor"` for a full developer environment health check — PATH sanity, package manager conflicts, toolchain version mismatches, and missing expected tools.
 - **Fix Plan**: Use `topic: "fix_plan"` for a grounded, step-by-step remediation plan for a reported issue. Pass `issue` arg with the problem description; the harness inspects relevant machine state and returns an actionable numbered plan.

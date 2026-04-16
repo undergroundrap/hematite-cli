@@ -273,7 +273,12 @@ Hematite achieves **100% Read-Only Grounding** of the Windows workstation. It no
 
 ![Intensity Report](assets/Intensity_Report.png)
 
-A batch of hardening work landed in April 2026 that made the host inspection layer significantly more reliable:
+### v0.5.5 [Production Release] — Hardened Voice & Diagnostic Redirection
+- **80 unique diagnostic topics**: Technical triage coverage across OS subsystems (BitLocker, SMB, GPO, Hardware Telemetry).
+- **Automated Diagnostic Redirection**: Interception of raw PowerShell commands with redirection to internal tools to bypass shell prompts.
+- **Improved Identity Discovery**: Proactive SID and group lookup for local and active directory users during system audits.
+- **Voice Engine Resilience (v0.1.2)**: Native ONNX synthesis error handling in `hematite-kokoros` to prevent stream termination.
+- **Manifest Synchronization**: Unified metadata auditing for production-ready packaging.
 
 - **Shell-to-inspect_host redirection**: raw diagnostic shell commands (`Get-Process`, `arp -a`, `netstat`) are silently redirected to the appropriate `inspect_host` topic. The model gets structured output instead of raw command text.
 - **Disk benchmark auto-fallback**: if the requested benchmark target path is missing, `inspect_host(topic: "disk_benchmark")` automatically benchmarks the running binary's drive instead of failing.

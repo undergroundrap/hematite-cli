@@ -18,11 +18,12 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 80+ read-only inspection topics span the complete SysAdmin and Network Admin domain — the harness knows the machine it is running on, not just the code it is editing
-- **Shell-to-inspect_host redirection**: raw diagnostic shell commands are silently redirected to the appropriate `inspect_host` topic via the **'Workstation Doctor'** interception matrix — structured output, zero approval friction for read-only probes
-- **Self-Aware Identity Discovery**: the `ad_user` topic proactively retrieves current user SID, groups, and elevated status when no identity is specified, preventing diagnostic loops
-- **Hardware-aware implementation**: the agent can use live hardware telemetry (disk queue depth, VRAM usage, I/O stats) to inform architectural recommendations grounded in the actual machine state
-- **Deep workspace visibility**: the file engine can inspect hidden directories (`.hematite`, `.git`) during diagnostics to locate benchmarking targets and workspace artifacts
+- **Full OS stack coverage**: 80+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
+- **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
+- **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
+- **Hardware telemetry integration**: Uses live disk queue depth, VRAM usage, and I/O metrics to inform architectural grounding.
+- **Workspace inspection visibility**: Access to hidden directories (`.hematite`, `.git`) for locating benchmarking targets and runtime artifacts.
 
 ## 1. Model-Native Reasoning Flow
 
