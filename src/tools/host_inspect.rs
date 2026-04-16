@@ -3284,6 +3284,7 @@ fn parse_unix_services(status_text: &str, startup_text: &str) -> Vec<ServiceEntr
                 .cloned()
                 .or_else(|| Some(load.to_string())),
             display_name: description,
+            start_name: None,
         });
     }
 
@@ -3593,7 +3594,7 @@ fn health_check_recent_errors(watch: &mut Vec<String>, tips: &mut Vec<String>) {
 
 // ── log_check ─────────────────────────────────────────────────────────────────
 
-fn inspect_log_check(lookback_hours: Option<u32>, max_entries: usize) -> Result<String, String> {
+fn inspect_log_check(_lookback_hours: Option<u32>, max_entries: usize) -> Result<String, String> {
     let mut out = String::from("Host inspection: log_check\n\n");
 
     #[cfg(target_os = "windows")]
