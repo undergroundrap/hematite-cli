@@ -3594,7 +3594,7 @@ fn health_check_recent_errors(watch: &mut Vec<String>, tips: &mut Vec<String>) {
 
 // ── log_check ─────────────────────────────────────────────────────────────────
 
-fn inspect_log_check(_lookback_hours: Option<u32>, max_entries: usize) -> Result<String, String> {
+fn inspect_log_check(lookback_hours: Option<u32>, max_entries: usize) -> Result<String, String> {
     let mut out = String::from("Host inspection: log_check\n\n");
 
     #[cfg(target_os = "windows")]
@@ -3649,6 +3649,7 @@ fn inspect_log_check(_lookback_hours: Option<u32>, max_entries: usize) -> Result
 
     #[cfg(not(target_os = "windows"))]
     {
+        let _ = lookback_hours;
         // Use journalctl on Linux/macOS if available.
         let n = max_entries.clamp(1, 50).to_string();
         let output = Command::new("journalctl")
