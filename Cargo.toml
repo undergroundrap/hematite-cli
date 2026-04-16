@@ -1,14 +1,14 @@
 [package]
 name = "hematite-cli"
-version = "0.5.4"
+version = "0.5.5"
 edition = "2021"
-description = "Local AI agent harness for LM Studio — coding assistant, voice, RAG retrieval, and grounded sysadmin diagnostics"
+description = "Senior SysAdmin, Network Admin, and Software Engineer living in your terminal. A high-precision local AI agent harness for LM Studio that runs 100% on your own silicon. Reads repos, edits files, runs builds, and inspects the machine it is running on—including full network state and workstation telemetry."
 readme = "README.md"
 repository = "https://github.com/undergroundrap/hematite-cli"
 homepage = "https://github.com/undergroundrap/hematite-cli"
 license-file = "LICENSE"
-keywords = ["ai", "cli", "local-llm", "lm-studio", "tui"]
-categories = ["command-line-utilities", "development-tools"]
+keywords = ["ai", "harness", "sysadmin", "local-llm", "cli"]
+categories = ["command-line-utilities", "development-tools", "network-management", "system-administration"]
 
 [package.metadata.docs.rs]
 # docs.rs runs on Linux — MSVC targets require lib.exe which is not available.
