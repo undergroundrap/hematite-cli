@@ -8,7 +8,7 @@ repository = "https://github.com/undergroundrap/hematite-cli"
 homepage = "https://github.com/undergroundrap/hematite-cli"
 license-file = "LICENSE"
 keywords = ["ai", "harness", "sysadmin", "local-llm", "cli"]
-categories = ["command-line-utilities", "development-tools", "network-management", "system-administration"]
+categories = ["command-line-utilities", "development-tools", "network-programming", "os"]
 
 [package.metadata.docs.rs]
 # docs.rs runs on Linux — MSVC targets require lib.exe which is not available.
