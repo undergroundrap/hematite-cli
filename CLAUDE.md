@@ -68,6 +68,7 @@ pwsh ./clean.ps1
 - `/clear`: clear visible dialogue and side-panel session state
 - `/forget`: purge saved conversation memory and wipe visible session state
 - `/new`: reset session history while keeping project memory
+- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports @DESKTOP, @DOWNLOADS, @HOME, ~/, .., and absolute paths.
 - `/ask [prompt]`: sticky read-only analysis mode
 - `/code [prompt]`: sticky implementation mode
 - `/architect [prompt]`: sticky plan-first mode that persists a reusable handoff
@@ -106,6 +107,7 @@ pwsh ./clean.ps1
 - `/copy-clean`: copy the transcript with tool calls stripped — prose only
 - `/copy-last`: copy only the last assistant response
 - `/clear`: clear visible dialogue and side-panel session state
+- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one
 - `/attach <path>`: attach a PDF, markdown, or text file as context for the next message then clear
 - `/attach-pick`: open a file picker to select a document attachment
 - `/image <path>`: attach an image for the next message via the vision path

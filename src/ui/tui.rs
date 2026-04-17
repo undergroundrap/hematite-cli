@@ -1985,6 +1985,33 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/cd" => {
+                                                if parts.len() < 2 {
+                                                    app.push_message("System", "Usage: /cd <path>  — teleport to any directory. Supports @DESKTOP, @DOWNLOADS, @HOME, ~/, .., and absolute paths.");
+                                                    app.history_idx = None;
+                                                    continue;
+                                                }
+                                                let raw = parts[1..].join(" ");
+                                                let target = crate::tools::file_ops::resolve_candidate(&raw);
+                                                if !target.exists() {
+                                                    app.push_message("System", &format!("Directory not found: {}", target.display()));
+                                                    app.history_idx = None;
+                                                    continue;
+                                                }
+                                                if !target.is_dir() {
+                                                    app.push_message("System", &format!("Not a directory: {}", target.display()));
+                                                    app.history_idx = None;
+                                                    continue;
+                                                }
+                                                let target_str = target.to_string_lossy().to_string();
+                                                app.push_message("You", &format!("/cd {}", raw));
+                                                app.push_message("System", &format!("Teleporting to {}...", target_str));
+                                                app.push_message("System", "Launching new session. This terminal will close.");
+                                                spawn_dive_in_terminal(&target_str);
+                                                app.write_session_report();
+                                                app.copy_transcript_to_clipboard();
+                                                break;
+                                            }
                                             "/diff" => {
                                                 app.push_message("System", "Fetching session diff...");
                                                 let ws = crate::tools::file_ops::workspace_root();
