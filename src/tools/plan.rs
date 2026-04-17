@@ -1,4 +1,4 @@
-use crate::tools::file_ops::workspace_root;
+use crate::tools::file_ops::hematite_dir;
 use serde_json::{json, Value};
 use std::fs;
 
@@ -133,7 +133,7 @@ impl PlanHandoff {
 }
 
 fn plan_path() -> std::path::PathBuf {
-    workspace_root().join(".hematite").join("PLAN.md")
+    hematite_dir().join("PLAN.md")
 }
 
 pub fn save_plan_handoff(plan: &PlanHandoff) -> Result<(), String> {
@@ -313,7 +313,7 @@ pub async fn generate_walkthrough(args: &Value) -> Result<String, String> {
         .get("summary")
         .and_then(|v| v.as_str())
         .ok_or("generate_walkthrough: 'summary' required")?;
-    let path = workspace_root().join(".hematite").join("WALKTHROUGH.md");
+    let path = hematite_dir().join("WALKTHROUGH.md");
 
     fs::write(&path, summary).map_err(|e| format!("Failed to save walkthrough: {e}"))?;
 

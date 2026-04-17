@@ -28,7 +28,7 @@ pub fn spawn_deep_reflect_system(
             }
 
             let today = date_string();
-            let log_path = PathBuf::from(".hematite_logs").join(format!("{}.log", today));
+            let log_path = crate::tools::file_ops::hematite_dir().join("logs").join(format!("{}.log", today));
             if !log_path.exists() {
                 continue;
             }

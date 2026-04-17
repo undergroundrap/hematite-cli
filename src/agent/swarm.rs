@@ -42,7 +42,7 @@ impl SwarmCoordinator {
         professional: bool,
     ) -> Self {
         let root = crate::tools::file_ops::workspace_root();
-        let hematite_dir = root.join(".hematite");
+        let hematite_dir = crate::tools::file_ops::hematite_dir();
         let scratch_dir = hematite_dir.join("scratch");
 
         let gitignore_path = root.join(".gitignore");

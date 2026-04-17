@@ -158,7 +158,7 @@ impl SystemPromptBuilder {
             }
         }
 
-        let instructions_dir = self.workspace_root.join(".hematite").join("instructions");
+        let instructions_dir = crate::tools::file_ops::hematite_dir().join("instructions");
         if instructions_dir.exists() && instructions_dir.is_dir() {
             if let Ok(entries) = fs::read_dir(instructions_dir) {
                 for entry in entries.flatten() {
@@ -229,7 +229,7 @@ impl SystemPromptBuilder {
             }
         }
 
-        let hematite_dir = self.workspace_root.join(".hematite");
+        let hematite_dir = crate::tools::file_ops::hematite_dir();
         for (name, path) in [
             ("TASK", hematite_dir.join("TASK.md")),
             ("PLAN", hematite_dir.join("PLAN.md")),

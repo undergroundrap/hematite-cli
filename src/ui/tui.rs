@@ -505,8 +505,8 @@ impl App {
 
     /// [Task Analyzer] Parse TASK.md to find the current active goal.
     pub fn update_objective(&mut self) {
-        let root = crate::tools::file_ops::workspace_root();
-        let plan_path = root.join(".hematite").join("PLAN.md");
+        let hdir = crate::tools::file_ops::hematite_dir();
+        let plan_path = hdir.join("PLAN.md");
         if plan_path.exists() {
             if let Some(plan) = crate::tools::plan::load_plan_handoff() {
                 if plan.has_signal() && !plan.goal.trim().is_empty() {
@@ -515,7 +515,7 @@ impl App {
                 }
             }
         }
-        let path = root.join(".hematite").join("TASK.md");
+        let path = hdir.join("TASK.md");
         if let Ok(content) = std::fs::read_to_string(path) {
             for line in content.lines() {
                 let trimmed = line.trim();
@@ -695,26 +695,157 @@ fn copy_text_to_clipboard(text: &str) {
     let _ = child.wait();
 }
 
-/// Spawns a new detached terminal window pre-loaded with the dive-in command.
-/// On Windows, uses PowerShell's Start-Process to ensure the new window is detached.
-fn spawn_dive_in_terminal(path: &str) {
-    if cfg!(windows) {
-        let current_dir = std::env::current_dir()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_default();
-        let command = format!(
-            "cd /d \"{}\" && hematite --teleported-from \"{}\"",
-            path.replace('\\', "/"),
-            current_dir.replace('\\', "/")
-        );
-        let script = format!(
-            "Start-Process cmd.exe -ArgumentList '/k', '{}'",
-            command.replace('\'', "''")
-        );
-        let _ = std::process::Command::new("powershell.exe")
-            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-            .spawn();
+/// Capture the pixel rect of the current console window via a synchronous PowerShell call.
+/// Returns (x, y, width, height) in screen pixels.
+#[cfg(windows)]
+fn get_console_pixel_rect() -> Option<(i32, i32, i32, i32)> {
+    let script = concat!(
+        "Add-Type -TypeDefinition '",
+        "using System;using System.Runtime.InteropServices;",
+        "public class WG{",
+        "[DllImport(\"kernel32\")]public static extern IntPtr GetConsoleWindow();",
+        "[DllImport(\"user32\")]public static extern bool GetWindowRect(IntPtr h,out RECT r);",
+        "[StructLayout(LayoutKind.Sequential)]public struct RECT{public int L,T,R,B;}}",
+        "';",
+        "$h=[WG]::GetConsoleWindow();$r=New-Object WG+RECT;",
+        "[WG]::GetWindowRect($h,[ref]$r)|Out-Null;",
+        "Write-Output \"$($r.L) $($r.T) $($r.R-$r.L) $($r.B-$r.T)\""
+    );
+    let out = std::process::Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .output()
+        .ok()?;
+    let s = String::from_utf8_lossy(&out.stdout);
+    let parts: Vec<i32> = s
+        .split_whitespace()
+        .filter_map(|v| v.trim().parse().ok())
+        .collect();
+    if parts.len() >= 4 {
+        Some((parts[0], parts[1], parts[2], parts[3]))
+    } else {
+        None
     }
+}
+
+/// Find the shell/tab process that should be closed after teleporting away from
+/// the current session. In Windows Terminal we want the tab shell, not the
+/// terminal host process itself.
+#[cfg(windows)]
+fn get_console_close_target_pid_sync() -> Option<u32> {
+    let pid = std::process::id();
+    let script = format!(
+        r#"
+$current = [uint32]{pid}
+$seen = New-Object 'System.Collections.Generic.HashSet[uint32]'
+$shell_pattern = '^(cmd|powershell|pwsh|bash|sh|wsl|ubuntu|debian|kali|arch)$'
+$skip_pattern = '^(WindowsTerminal|wt|OpenConsole|conhost)$'
+$fallback = $null
+$found = $false
+while ($current -gt 0 -and $seen.Add($current)) {{
+    $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$current" -ErrorAction SilentlyContinue
+    if (-not $proc) {{ break }}
+    $parent = [uint32]$proc.ParentProcessId
+    if ($parent -le 0) {{ break }}
+    $parent_proc = Get-Process -Id $parent -ErrorAction SilentlyContinue
+    if ($parent_proc) {{
+        $name = $parent_proc.ProcessName
+        if ($name -match $shell_pattern) {{
+            $found = $true
+            Write-Output $parent
+            break
+        }}
+        if (-not $fallback -and $name -notmatch $skip_pattern) {{
+            $fallback = $parent
+        }}
+    }}
+    $current = $parent
+}}
+if (-not $found -and $fallback) {{ Write-Output $fallback }}
+"#
+    );
+    let out = std::process::Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&out.stdout).trim().parse().ok()
+}
+
+/// Spawns a new detached terminal window pre-navigated to `path`, running Hematite.
+/// - Writes a temp .bat file to avoid quoting issues with paths containing spaces
+/// - Matches the current window's pixel size and position
+/// - Skips the splash screen in the new session (`--no-splash`)
+/// - Closes the originating shell/tab after Hematite exits without killing the
+///   whole Windows Terminal host
+fn spawn_dive_in_terminal(path: &str) {
+    if !cfg!(windows) {
+        return;
+    }
+
+    let pid = std::process::id();
+    let current_dir = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // Capture the shell/tab PID now so the detached cleanup script can close
+    // the original session after Hematite exits.
+    #[cfg(windows)]
+    let close_target_pid = get_console_close_target_pid_sync().unwrap_or(0);
+
+    // Pixel geometry captured synchronously before the hidden PS script runs
+    #[cfg(windows)]
+    let (px, py, pw, ph) = get_console_pixel_rect().unwrap_or((50, 50, 1100, 750));
+
+    // Write a temp .bat file — avoids all quoting issues when paths contain spaces
+    let bat_path = std::env::temp_dir().join("hematite_teleport.bat");
+    let bat_content = format!(
+        "@echo off\r\ncd /d \"{p}\"\r\nhematite --no-splash --teleported-from \"{o}\"\r\n",
+        p = path.replace('"', ""),
+        o = current_dir.replace('"', ""),
+    );
+    if std::fs::write(&bat_path, bat_content).is_err() {
+        return;
+    }
+    let bat_str = bat_path.to_string_lossy().to_string();
+    let bat_ps = bat_str.replace('\'', "''");
+
+    // Async script: spawn the new window, reposition it, wait for us to exit,
+    // then close the original shell/tab process if one was found.
+    let script = format!(
+        r#"
+Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+public class WM {{ [DllImport("user32")] public static extern bool MoveWindow(IntPtr h,int x,int y,int w,int ht,bool b); }}
+'@
+$proc = Start-Process cmd.exe -ArgumentList @('/k', '"{bat}"') -PassThru
+$deadline = (Get-Date).AddSeconds(8)
+while ((Get-Date) -lt $deadline -and $proc.MainWindowHandle -eq [IntPtr]::Zero) {{ Start-Sleep -Milliseconds 100 }}
+if ($proc.MainWindowHandle -ne [IntPtr]::Zero) {{
+    [WM]::MoveWindow($proc.MainWindowHandle, {px}, {py}, {pw}, {ph}, $true) | Out-Null
+}}
+Wait-Process -Id {pid} -ErrorAction SilentlyContinue
+if ({close_pid} -gt 0) {{
+    Stop-Process -Id {close_pid} -Force -ErrorAction SilentlyContinue
+}}
+"#,
+        bat = bat_ps,
+        px = px,
+        py = py,
+        pw = pw,
+        ph = ph,
+        pid = pid,
+        close_pid = close_target_pid,
+    );
+
+    let _ = std::process::Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-WindowStyle",
+            "Hidden",
+            "-Command",
+            &script,
+        ])
+        .spawn();
 }
 
 fn copy_text_to_clipboard_powershell(text: &str) -> bool {
@@ -2461,7 +2592,7 @@ pub async fn run_app<B: Backend>(
                                                     "edit" => {
                                                         let which = parts.get(2).copied().unwrap_or("local").to_ascii_lowercase();
                                                         let target_file = if which == "shared" { "rules.md" } else { "rules.local.md" };
-                                                        let target_path = ws_root.join(".hematite").join(target_file);
+                                                        let target_path = crate::tools::file_ops::hematite_dir().join(target_file);
 
                                                         if !target_path.exists() {
                                                             if let Some(parent) = target_path.parent() {

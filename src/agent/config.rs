@@ -122,9 +122,7 @@ pub struct PermissionRules {
 }
 
 pub fn settings_path() -> std::path::PathBuf {
-    crate::tools::file_ops::workspace_root()
-        .join(".hematite")
-        .join("settings.json")
+    crate::tools::file_ops::hematite_dir().join("settings.json")
 }
 
 /// Load global settings from `~/.hematite/settings.json` if present.

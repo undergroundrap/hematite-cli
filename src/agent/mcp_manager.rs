@@ -1,6 +1,6 @@
 use crate::agent::inference::McpRuntimeState;
 use crate::agent::mcp::*;
-use crate::tools::file_ops::workspace_root;
+use crate::tools::file_ops::hematite_dir;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -105,7 +105,7 @@ impl McpManager {
         }
 
         // 2. Load LOCAL config (.hematite/mcp_servers.json in workspace)
-        let local_path = workspace_root().join(".hematite").join("mcp_servers.json");
+        let local_path = hematite_dir().join("mcp_servers.json");
         if let Ok(local_cfg) = self.read_mcp_file(&local_path) {
             self.merge_configs(&mut config, local_cfg);
         }

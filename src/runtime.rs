@@ -333,9 +333,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         );
         let _ = agent_tx.send(InferenceEvent::Thought(resume_msg)).await;
     } else {
-        let session_path = crate::tools::file_ops::workspace_root()
-            .join(".hematite")
-            .join("session.json");
+        let session_path = crate::tools::file_ops::hematite_dir().join("session.json");
         if !session_path.exists() {
             let first_run_msg = "\nWelcome to Hematite! I'm your local AI workstation assistant.\n\n\
                                  Since this is your first time here, what would you like to do?\n\

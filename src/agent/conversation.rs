@@ -189,9 +189,7 @@ fn session_path() -> std::path::PathBuf {
     if let Ok(overridden) = std::env::var("HEMATITE_SESSION_PATH") {
         return std::path::PathBuf::from(overridden);
     }
-    crate::tools::file_ops::workspace_root()
-        .join(".hematite")
-        .join("session.json")
+    crate::tools::file_ops::hematite_dir().join("session.json")
 }
 
 fn load_session_data() -> (Option<String>, crate::agent::compaction::SessionMemory) {
@@ -209,24 +207,24 @@ fn load_session_data() -> (Option<String>, crate::agent::compaction::SessionMemo
 }
 
 fn reset_task_files() {
+    let hdir = crate::tools::file_ops::hematite_dir();
     let root = crate::tools::file_ops::workspace_root();
-    let _ = std::fs::remove_file(root.join(".hematite").join("TASK.md"));
-    let _ = std::fs::remove_file(root.join(".hematite").join("PLAN.md"));
-    let _ = std::fs::remove_file(root.join(".hematite").join("WALKTHROUGH.md"));
+    let _ = std::fs::remove_file(hdir.join("TASK.md"));
+    let _ = std::fs::remove_file(hdir.join("PLAN.md"));
+    let _ = std::fs::remove_file(hdir.join("WALKTHROUGH.md"));
     let _ = std::fs::remove_file(root.join(".github").join("WALKTHROUGH.md"));
-    let _ = std::fs::write(root.join(".hematite").join("TASK.md"), "");
-    let _ = std::fs::write(root.join(".hematite").join("PLAN.md"), "");
+    let _ = std::fs::write(hdir.join("TASK.md"), "");
+    let _ = std::fs::write(hdir.join("PLAN.md"), "");
 }
 
 fn purge_persistent_memory() {
-    let root = crate::tools::file_ops::workspace_root();
-    let mem_dir = root.join(".hematite").join("memories");
+    let mem_dir = crate::tools::file_ops::hematite_dir().join("memories");
     if mem_dir.exists() {
         let _ = std::fs::remove_dir_all(&mem_dir);
         let _ = std::fs::create_dir_all(&mem_dir);
     }
 
-    let log_dir = root.join(".hematite_logs");
+    let log_dir = crate::tools::file_ops::hematite_dir().join("logs");
     if log_dir.exists() {
         if let Ok(entries) = std::fs::read_dir(&log_dir) {
             for entry in entries.flatten() {
@@ -717,8 +715,10 @@ impl ConversationManager {
 
     fn refresh_vein_index(&mut self) -> usize {
         let count = if self.vein_docs_only_mode() {
-            let root = crate::tools::file_ops::workspace_root();
-            tokio::task::block_in_place(|| self.vein.index_workspace_artifacts(&root))
+            tokio::task::block_in_place(|| {
+                self.vein
+                    .index_workspace_artifacts(&crate::tools::file_ops::hematite_dir())
+            })
         } else {
             tokio::task::block_in_place(|| self.vein.index_project())
         };
@@ -961,9 +961,7 @@ impl ConversationManager {
 
         let history = vec![ChatMessage::system(&dynamic_instructions)];
 
-        let vein_path = crate::tools::file_ops::workspace_root()
-            .join(".hematite")
-            .join("vein.db");
+        let vein_path = crate::tools::file_ops::hematite_dir().join("vein.db");
         let vein_base_url = engine.base_url.clone();
         let vein = crate::memory::vein::Vein::new(&vein_path, vein_base_url.clone())
             .unwrap_or_else(|_| crate::memory::vein::Vein::new(":memory:", vein_base_url).unwrap());
@@ -1743,8 +1741,7 @@ impl ConversationManager {
         }
 
         if user_input.trim() == "/rules" {
-            let root = crate::tools::file_ops::workspace_root();
-            let rules_path = root.join(".hematite").join("rules.md");
+            let rules_path = crate::tools::file_ops::hematite_dir().join("rules.md");
             let report = if rules_path.exists() {
                 match std::fs::read_to_string(&rules_path) {
                     Ok(content) => format!(
@@ -5654,8 +5651,7 @@ fn cap_output_for_tool(text: &str, max_bytes: usize, tool_name: &str) -> String 
 /// Write text to `.hematite/scratch/<tool>_<timestamp>.txt`.
 /// Returns the relative path on success, None if the write fails.
 fn write_output_to_scratch(text: &str, tool_name: &str) -> Option<String> {
-    let root = crate::tools::file_ops::workspace_root();
-    let scratch_dir = root.join(".hematite").join("scratch");
+    let scratch_dir = crate::tools::file_ops::hematite_dir().join("scratch");
     if std::fs::create_dir_all(&scratch_dir).is_err() {
         return None;
     }

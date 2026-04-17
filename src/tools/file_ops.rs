@@ -78,7 +78,7 @@ fn save_ghost_backup(target_path: &str, content: &str) {
     }
 
     // Phase 2: Fallback to local file backup (Ghost Ledger)
-    let ghost_dir = ws.join(".hematite").join("ghost");
+    let ghost_dir = hematite_dir().join("ghost");
     let _ = fs::create_dir_all(&ghost_dir);
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -104,8 +104,7 @@ fn save_ghost_backup(target_path: &str, content: &str) {
 }
 
 pub fn pop_ghost_ledger() -> Result<String, String> {
-    let ws = workspace_root();
-    let ghost_dir = ws.join(".hematite").join("ghost");
+    let ghost_dir = hematite_dir().join("ghost");
     let ledger_path = ghost_dir.join("ledger.txt");
 
     if !ledger_path.exists() {
@@ -127,6 +126,8 @@ pub fn pop_ghost_ledger() -> Result<String, String> {
 
     let target_path = parts[0];
     let backup_path = parts[1];
+
+    let ws = workspace_root();
 
     // Priority 1: Try Git Rollback
     if crate::agent::git::is_git_repo(&ws) {
@@ -946,6 +947,35 @@ pub(crate) fn resolve_candidate(path: &str) -> PathBuf {
     // 1. Handle Special Sovereign Tokens
     let upper = path.to_uppercase();
 
+    // Bare token support — matches exact names with or without @ prefix, with or without
+    // trailing slash. Enables /cd downloads, /cd @DESKTOP, /cd ~ etc.
+    let bare = upper.trim_end_matches('/').trim_start_matches('@');
+    let bare_resolved = match bare {
+        "DESKTOP" => dirs::desktop_dir(),
+        "DOWNLOADS" | "DOWNLOAD" => dirs::download_dir(),
+        "DOCUMENTS" | "DOCS" => dirs::document_dir(),
+        "PICTURES" | "IMAGES" => dirs::picture_dir(),
+        "VIDEOS" | "MOVIES" => dirs::video_dir(),
+        "MUSIC" | "AUDIO" => dirs::audio_dir(),
+        "HOME" => dirs::home_dir(),
+        "TEMP" | "TMP" => Some(std::env::temp_dir()),
+        "CACHE" => dirs::cache_dir(),
+        "CONFIG" => dirs::config_dir(),
+        "DATA" => dirs::data_dir(),
+        _ => None,
+    };
+    // Also handle bare ~ and ~/ as home
+    let bare_resolved = bare_resolved.or_else(|| {
+        if path == "~" || path == "~/" {
+            dirs::home_dir()
+        } else {
+            None
+        }
+    });
+    if let Some(p) = bare_resolved {
+        return p;
+    }
+
     // Helper to resolve via dirs crate
     let resolved = if upper.starts_with("@DESKTOP/") {
         dirs::desktop_dir().map(|p| p.join(&path[9..]))
@@ -1373,6 +1403,39 @@ pub fn workspace_root() -> PathBuf {
         }
     }
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
+/// Returns true if `path` is a known sovereign OS directory (Desktop, Downloads,
+/// Documents, Pictures, Videos, Music). These directories should not accumulate
+/// `.hematite/` workspace state — they use the global `~/.hematite/` instead.
+pub fn is_sovereign_directory(path: &Path) -> bool {
+    let candidates = [
+        dirs::desktop_dir(),
+        dirs::download_dir(),
+        dirs::document_dir(),
+        dirs::picture_dir(),
+        dirs::video_dir(),
+        dirs::audio_dir(),
+    ];
+    candidates
+        .iter()
+        .filter_map(|d| d.as_deref())
+        .any(|d| d == path)
+}
+
+/// Returns the directory where Hematite's runtime state (`.hematite/`) should live.
+///
+/// - In sovereign OS directories (Desktop, Downloads, Documents, Pictures, Videos,
+///   Music): returns `~/.hematite/` so no workspace folder is created there.
+/// - Everywhere else: returns `workspace_root()/.hematite/` as normal.
+pub fn hematite_dir() -> PathBuf {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    if is_sovereign_directory(&cwd) {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(".hematite");
+        }
+    }
+    workspace_root().join(".hematite")
 }
 
 /// Returns true if the workspace root looks like a real project.

@@ -21,6 +21,11 @@ pub struct WorkspaceProfile {
 }
 
 pub fn workspace_profile_path(root: &Path) -> PathBuf {
+    // In sovereign OS directories (Desktop, Downloads, etc.) write to the global dir
+    // so no .hematite/ folder is created there.
+    if crate::tools::file_ops::is_sovereign_directory(root) {
+        return crate::tools::file_ops::hematite_dir().join("workspace_profile.json");
+    }
     root.join(".hematite").join("workspace_profile.json")
 }
 
@@ -144,8 +149,8 @@ pub fn detect_workspace_profile(root: &Path) -> WorkspaceProfile {
     let is_project = looks_like_project_root(root);
     let workspace_mode = if is_project {
         "project"
-    } else if root.join(".hematite").join("docs").exists()
-        || root.join(".hematite").join("imports").exists()
+    } else if crate::tools::file_ops::hematite_dir().join("docs").exists()
+        || crate::tools::file_ops::hematite_dir().join("imports").exists()
     {
         "docs_only"
     } else {
@@ -419,7 +424,11 @@ fn build_summary(
 }
 
 fn load_workspace_verify_config(root: &Path) -> crate::agent::config::VerifyProfilesConfig {
-    let path = root.join(".hematite").join("settings.json");
+    let path = if crate::tools::file_ops::is_sovereign_directory(root) {
+        crate::tools::file_ops::hematite_dir().join("settings.json")
+    } else {
+        root.join(".hematite").join("settings.json")
+    };
     std::fs::read_to_string(path)
         .ok()
         .and_then(|raw| serde_json::from_str::<crate::agent::config::HematiteConfig>(&raw).ok())

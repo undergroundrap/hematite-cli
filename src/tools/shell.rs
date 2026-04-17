@@ -98,7 +98,7 @@ pub async fn execute_streaming(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
-    let sandbox_root = cwd.join(".hematite").join("sandbox");
+    let sandbox_root = crate::tools::file_ops::hematite_dir().join("sandbox");
     let _ = std::fs::create_dir_all(&sandbox_root);
     tokio_cmd.env("HOME", &sandbox_root);
     tokio_cmd.env("TMPDIR", &sandbox_root);
@@ -208,7 +208,7 @@ pub async fn execute_command_in_dir(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
-    let sandbox_root = cwd.join(".hematite").join("sandbox");
+    let sandbox_root = crate::tools::file_ops::hematite_dir().join("sandbox");
     let _ = std::fs::create_dir_all(&sandbox_root);
     tokio_cmd.env("HOME", &sandbox_root);
     tokio_cmd.env("TMPDIR", &sandbox_root);

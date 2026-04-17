@@ -748,7 +748,6 @@ impl Vein {
             ".git",
             "node_modules",
             ".hematite",
-            ".hematite_logs",
         ];
 
         for entry in walkdir::WalkDir::new(&root)
@@ -800,7 +799,7 @@ impl Vein {
             }
         }
 
-        count += self.index_workspace_artifacts(&root);
+        count += self.index_workspace_artifacts(&crate::tools::file_ops::hematite_dir());
 
         count
     }

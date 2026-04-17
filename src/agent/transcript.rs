@@ -14,7 +14,7 @@ pub struct TranscriptLogger {
 #[allow(dead_code)]
 impl TranscriptLogger {
     pub fn new() -> Self {
-        let log_dir = PathBuf::from(".hematite_logs");
+        let log_dir = crate::tools::file_ops::hematite_dir().join("logs");
         let _ = create_dir_all(&log_dir);
 
         // One file per calendar day — DeepReflect reads these during Phase 2 (Gather)

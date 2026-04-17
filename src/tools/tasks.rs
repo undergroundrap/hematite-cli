@@ -1,4 +1,4 @@
-use crate::tools::file_ops::workspace_root;
+use crate::tools::file_ops::hematite_dir;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::PathBuf;
@@ -10,7 +10,7 @@ pub async fn manage_tasks(args: &Value) -> Result<String, String> {
         .get("action")
         .and_then(|v| v.as_str())
         .unwrap_or("list");
-    let task_path = workspace_root().join(".hematite").join("TASK.md");
+    let task_path = hematite_dir().join("TASK.md");
 
     match action {
         "list" => list_tasks(&task_path),
