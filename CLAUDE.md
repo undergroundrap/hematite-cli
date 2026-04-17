@@ -68,7 +68,7 @@ pwsh ./clean.ps1
 - `/clear`: clear visible dialogue and side-panel session state
 - `/forget`: purge saved conversation memory and wipe visible session state
 - `/new`: reset session history while keeping project memory
-- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports @DESKTOP, @DOWNLOADS, @HOME, ~/, .., and absolute paths.
+- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, `@TOKENS`, `..`, and absolute paths.
 - `/ls`: show a numbered navigation map — common OS locations + subdirectories of the current directory. Type `/ls <N>` to teleport directly to entry N. `/ls <path>` lists subdirectories of any path.
 - `/ask [prompt]`: sticky read-only analysis mode
 - `/code [prompt]`: sticky implementation mode
@@ -108,7 +108,7 @@ pwsh ./clean.ps1
 - `/copy-clean`: copy the transcript with tool calls stripped — prose only
 - `/copy-last`: copy only the last assistant response
 - `/clear`: clear visible dialogue and side-panel session state
-- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one
+- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, `@TOKENS`, `..`, and absolute paths.
 - `/attach <path>`: attach a PDF, markdown, or text file as context for the next message then clear
 - `/attach-pick`: open a file picker to select a document attachment
 - `/image <path>`: attach an image for the next message via the vision path
@@ -289,11 +289,13 @@ by the workspace. This means `api_url`, `model`, `voice`, and other preferences 
 in every directory — including non-project launches from the desktop or home folder. The workspace
 config is created automatically on first run in a new directory.
 
-**Workspace profile.** Hematite also writes `.hematite/workspace_profile.json` on startup. It is a
-gitignored, auto-generated project profile containing detected stack/package-manager hints,
-important folders, ignored noise folders, and build/test suggestions. The prompt can use it as
-lightweight grounding before the model starts guessing about repo shape. Use `/workspace-profile`
-to inspect the current generated profile in the TUI.
+**Workspace profile.** Hematite writes `workspace_profile.json` into the active runtime-state
+directory on startup. In normal project workspaces that is `.hematite/workspace_profile.json`; in
+sovereign OS directories such as Desktop or Downloads it falls back to `~/.hematite/workspace_profile.json`
+so no local `.hematite/` folder is created there. The file is auto-generated and gitignored when
+local. It contains detected stack/package-manager hints, important folders, ignored noise folders,
+and build/test suggestions. The prompt can use it as lightweight grounding before the model starts
+guessing about repo shape. Use `/workspace-profile` to inspect the current generated profile in the TUI.
 
 ## API Configuration
 
@@ -389,21 +391,22 @@ The Vein is Hematite's retrieval-augmented generation layer. At the start of eac
 any changed files and queries for context relevant to the user's message. Results are injected into
 the system prompt so the model starts with the right code already in view, reducing tool calls.
 
-**Per-project database:** stored at `.hematite/vein.db` inside the workspace root. Each project
-folder gets its own index. The Vein learns from files on disk and local session artifacts, not from
-cloud state.
+**Per-workspace database:** stored in the active runtime-state directory as `vein.db`. In normal
+project workspaces that means `.hematite/vein.db`; in sovereign OS directories it falls back to
+`~/.hematite/vein.db`. Each real project folder still gets its own index. The Vein learns from
+files on disk and local session artifacts, not from cloud state.
 
 **Non-project directories:** when Hematite is launched outside a real project (no `Cargo.toml`,
 `package.json`, `go.mod`, etc. found walking up from the launch directory), it skips the source-file
-walk but still keeps The Vein active in docs-only mode. `.hematite/docs/`, imported chats in
-`.hematite/imports/`, and recent local session reports remain searchable, and the status badge
-shows `VN:DOC`. A bare `.git` alone does not count
+walk but still keeps The Vein active in docs-only mode. `docs/`, imported chats in `imports/`, and
+recent local session reports in the active runtime-state directory remain searchable, and the status
+badge shows `VN:DOC`. A bare `.git` alone does not count
 as a project workspace.
 
 **Auxiliary local memory inputs:** besides project source, The Vein also indexes:
 
 - `.hematite/docs/` for permanent local reference material
-- `.hematite/reports/` for recent local session reports, chunked by exchange pair (`user` +
+- the runtime-state `reports/` directory for recent local session reports, chunked by exchange pair (`user` +
   `assistant`) and capped to the last 5 sessions / 50 turns per session
 - `.hematite/imports/` for imported chat exports (Claude Code JSONL, Codex CLI JSONL, simple
   role/content JSON, ChatGPT-style `mapping` exports, or `>` transcripts), also chunked as
@@ -486,7 +489,7 @@ fall back to a sliding window. This ensures each retrieved chunk is a coherent, 
 - Naked reasoning prose leaked without `<think>` tags is stripped from visible output before it reaches chat; stray `</think>`, `</function>`, `</tool_call>`, and similar XML artifacts are also stripped
 - `edit_file` and `multi_search_replace` normalize CRLF → LF before matching so model search strings (always LF) work correctly on Windows files; on exact-match failure, Hematite escalates through: (1) rstrip-only match — strips trailing whitespace, preserves indentation; (2) full-strip match — strips all surrounding whitespace; if both fail, scans up to 100 workspace source files for the search string and names the matching file in the error message (cross-file hint); on any fuzzy match, replace-string indentation is delta-corrected automatically
 - Diff preview: before `edit_file`, `patch_hunk`, or `multi_search_replace` is applied, a coloured before/after diff modal is shown in the TUI; user presses Y to apply or N to skip; model is told "Edit declined by user." on N; bypassed in `--yolo` mode
-- Tool output overflow: when a tool result exceeds 8 KB, `cap_output_for_tool` writes the full text to `.hematite/scratch/<tool>_<timestamp>.txt` and returns a truncation notice with the scratch path; the model recovers the full content with `read_file` without repeating the original tool call; large `read_file` results under compact-context mode follow the same scratch path
+- Tool output overflow: when a tool result exceeds 8 KB, `cap_output_for_tool` writes the full text to `.hematite/scratch/<tool>_<timestamp>.txt` inside the active runtime-state directory and returns a truncation notice with the scratch path; the model recovers the full content with `read_file` without repeating the original tool call; large `read_file` results under compact-context mode follow the same scratch path
 - `read_file` satisfies the line-inspection grounding check so the model can go `read_file → edit_file` without a separate `inspect_lines` call
 - Context compaction warnings fire as visible System messages at 70% and 90% context fill; the warning resets below 60% so it only fires once per pressure band
 - Embed model load/unload is detected mid-session: when LM Studio swaps the embedding model (or unloads it), Hematite fires a System message in the TUI immediately so the operator knows semantic search state changed
@@ -509,9 +512,9 @@ docs: update README
 Hematite tracks token usage and session cost in real time.
 
 - Exit (Ctrl+C) and cancel (ESC) flows copy the session transcript to the clipboard
-- Session reports are written to `.hematite/reports/session_YYYY-MM-DD_HH-MM-SS.json` on every exit and cancel
+- Session reports are written to `reports/session_YYYY-MM-DD_HH-MM-SS.json` under the active runtime-state directory on every exit and cancel
 - Report includes: session start timestamp, duration, model, context length, total tokens, estimated cost, turn count, and full transcript
-- `.hematite/reports/` is gitignored — reports are local runtime artifacts
+- The runtime-state `reports/` directory is gitignored when local — reports are local runtime artifacts
 - The Vein indexes recent reports as local retrieval memory by exchange pair, capped to the last 5 sessions and 50 turns per session, tagged as `session` room memory so they do not pollute normal source-file status counts
 - `.hematite/imports/` is the manual cross-tool memory lane: drop useful exported chats there and
   Hematite will index them automatically as imported session exchanges on the next pass

@@ -10,6 +10,20 @@ The goal is simple:
 - LM Studio should remain the local model runtime, not the product brain
 - recurring workflow structure should live in the harness when local models are not dependable enough to infer it every turn
 
+## Runtime State Anchoring
+
+Hematite resolves a runtime-state directory instead of assuming every artifact lives directly under
+the launch directory.
+
+- normal project workspaces use `workspace_root()/.hematite/`
+- sovereign OS directories such as Desktop, Downloads, Documents, Pictures, Videos, and Music use
+  the global `~/.hematite/` directory instead
+- this keeps broad user folders clean while preserving docs-only memory, settings, reports, scratch
+  output, and teleport/session state across launches
+
+If you are changing where session files, Vein artifacts, reports, logs, or workspace metadata live,
+start from `src/tools/file_ops.rs` and its `hematite_dir()` / `is_sovereign_directory()` helpers.
+
 ## Top-Level Entry Points
 
 ### `src/main.rs`
@@ -259,14 +273,14 @@ Owns project instruction discovery.
 Owns session transcript persistence.
 
 - persistent transcript logger for the DeepReflect engine
-- writes exchange pairs to `.hematite/reports/` for Vein indexing
+- writes transcript logs under the resolved runtime-state `logs/` directory
 
 ### `src/agent/workspace_profile.rs`
 
 Owns the auto-generated workspace profile.
 
 - detects stack, package managers, important folders, noise folders, and build/test suggestions
-- written to `.hematite/workspace_profile.json` on startup
+- written to `workspace_profile.json` under the resolved runtime-state directory on startup
 - injected into the prompt as lightweight repo grounding
 - inspectable via `/workspace-profile`
 
@@ -285,8 +299,8 @@ Owns The Vein — local RAG memory engine.
 - SQLite FTS5 BM25 full-text retrieval (always available, zero GPU cost)
 - semantic embedding retrieval via `/v1/embeddings` (optional, requires embedding model in LM Studio)
 - hybrid ranking: semantic hits score 1.0–2.0, BM25 fills to 0.0–1.0
-- indexes project source files, `.hematite/docs/`, `.hematite/reports/`, `.hematite/imports/`
-- per-project database at `.hematite/vein.db`
+- indexes project source files plus the resolved runtime-state `docs/`, `reports/`, and `imports/`
+- database at `vein.db` under the resolved runtime-state directory
 - incremental indexing (only re-indexes changed files by mtime)
 - active-room bias: tracks file edit heat and boosts retrieval toward the hot subsystem
 - memory-type tagging: chunks tagged as `decision`, `problem`, `milestone`, `preference` for intent-matched retrieval

@@ -24,7 +24,8 @@ That is the lens for the capabilities below.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
 - **Hardware telemetry integration**: Uses live disk queue depth, VRAM usage, and I/O metrics to inform architectural grounding.
 - **Deterministic Workstation Routing**: Hardened intent classification that surgically routes workstation requests to precise filesystem tools, pruning risky shell and workflow paths.
-- **Authoritative Path Resolution**: Core-level support for cross-platform tokens (@DESKTOP, @DOCUMENTS, @MUSIC, @VIDEOS, @PICTURES, etc.) using OS-authoritative shell folder hooks.
+- **Authoritative Path Resolution**: Core-level support for sovereign path tokens and bare directory aliases (`downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, `~`, `@DESKTOP`, `@DOCUMENTS`, `@MUSIC`, `@VIDEOS`, `@PICTURES`, etc.) using OS-authoritative shell folder hooks.
+- **Runtime-state anchoring**: Hematite resolves its runtime-state directory centrally so sovereign OS folders such as Desktop and Downloads fall back to `~/.hematite/` instead of accumulating local workspace artifacts.
 - **Heuristic Command Sanitizer**: Mandatory execution gate that blocks natural language injection or conversational "overthinking" from being passed to shell commands.
 - **Workspace inspection visibility**: Access to hidden directories (`.hematite`, `.git`) for locating benchmarking targets and runtime artifacts.
 
@@ -208,11 +209,11 @@ Hematite is built for repeated project use, not one-off prompts.
 - **Streaming-path failure discipline**: plain text generations and startup flows now surface structured provider failures instead of raw stream errors or silent empty completions
 - **LM Studio context-mismatch detection**: provider errors like `n_keep >= n_ctx` are classified as `context_window` failures so Hematite points at the real budget mismatch instead of mislabeling them as generic provider degradation
 - **Budgeted recursive summaries**: compaction summaries are normalized, deduplicated, and clamped to a real line/character budget so recursive context carry-forward stays cheaper and more stable on small local contexts
-- **Session persistence**: active state is saved under `.hematite/`
+- **Session persistence**: active state is saved under the resolved runtime-state directory (`.hematite/` for normal project workspaces, `~/.hematite/` for sovereign OS directories)
 - **Task awareness**: local task and planning files can shape agent behavior
 - **Instruction discovery**: project rules are loaded automatically from workspace instruction files
 - **Sticky workflow modes**: `/ask`, `/code`, `/architect`, `/read-only`, `/teach`, and `/auto` let the operator choose between analysis, implementation, plan-first, hard read-only, and grounded walkthrough behavior
-- **Ultra-Deterministic Teleportation**: Seamlessly transition between folders. When moving to a new workspace, Hematite spawns a fresh, pre-navigated terminal and gracefully closes the original session to maintain workstation hygiene. New sessions include a **Teleportation Handshake** greeting that confirms the origin context and transition reasoning.
+- **Ultra-Deterministic Teleportation**: Seamlessly transition between folders. When moving to a new workspace, Hematite spawns a fresh, pre-navigated terminal, preserves the source window's size and position, skips the splash screen, and gracefully closes the original shell or tab to maintain workstation hygiene. New sessions include a **Teleportation Handshake** greeting that confirms the origin context and transition reasoning.
 - **Teacher mode** (`/teach`) — inspects real machine state first via `inspect_host`, then delivers a numbered step-by-step walkthrough for any admin/config/system task; never executes write operations itself; covers driver installs, Group Policy, firewall rules, SSH key generation, WSL setup, service config, Windows activation, registry edits, scheduled tasks, and disk cleanup
 
 ## 7. Voice and TUI Integration

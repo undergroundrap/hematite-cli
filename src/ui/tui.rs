@@ -573,7 +573,7 @@ impl App {
     }
 
     pub fn write_session_report(&self) {
-        let report_dir = std::path::PathBuf::from(".hematite/reports");
+        let report_dir = crate::tools::file_ops::hematite_dir().join("reports");
         if std::fs::create_dir_all(&report_dir).is_err() {
             return;
         }
@@ -1351,15 +1351,17 @@ fn show_help_message(app: &mut App) {
          /implement-plan   - (Flow) Execute the saved architect handoff in /code\n\
          /read-only [prompt] - (Flow) Hard read-only mode; optional inline prompt\n\
          /teach [prompt]   - (Flow) Teacher mode; inspect machine then walk you through any admin task step-by-step\n\
-           /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
-           /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
+         /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
+         /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
+         /cd <path>        - (Nav) Teleport to another directory and close this session; supports bare tokens like downloads, desktop, docs, home, temp, and ~\n\
+         /ls [path|N]      - (Nav) List common locations or subdirectories; /ls <N> teleports to the numbered entry\n\
          /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
          /workspace-profile - (Profile) Show the auto-generated workspace profile\n\
          /rules            - (Rules) View behavioral guidelines (.hematite/rules.md)\n\
          /version          - (Build) Show the running Hematite version\n\
          /about            - (Info) Show author, repo, and product info\n\
          /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
-           /clear            - (UI) Clear dialogue display only\n\
+         /clear            - (UI) Clear dialogue display only\n\
          /health           - (Diag) Run a synthesized plain-English system health report\n\
          /explain <text>   - (Help) Paste an error to get a non-technical breakdown\n\
          /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
@@ -2121,7 +2123,7 @@ pub async fn run_app<B: Backend>(
                                             }
                                             "/cd" => {
                                                 if parts.len() < 2 {
-                                                    app.push_message("System", "Usage: /cd <path>  — teleport to any directory. Supports @DESKTOP, @DOWNLOADS, @HOME, ~/, .., and absolute paths.");
+                                                    app.push_message("System", "Usage: /cd <path>  — teleport to any directory. Supports bare tokens like downloads, desktop, docs, pictures, videos, music, home, temp, bare ~, @TOKENS, .., and absolute paths.");
                                                     app.history_idx = None;
                                                     continue;
                                                 }

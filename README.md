@@ -681,15 +681,15 @@ pwsh ./scripts/package-windows.ps1 -AddToPath
 
 Restart your terminal after running this. From then on, `cd` into any project folder and type `hematite` — it picks up your project root automatically via `.git` or `Cargo.toml`/`package.json`. Works in PowerShell, CMD, Windows Terminal, VS Code's integrated terminal, and JetBrains IDEs.
 
-**One workspace per session.** Hematite locks onto the directory it was launched in — that's what gets indexed, and that's where all file tools operate. `cd`-ing inside the terminal after launch doesn't move the workspace. To switch projects, exit and relaunch in the new folder. This is intentional: a single locked workspace keeps the model's context clean and prevents tools from operating on the wrong directory. It also means you can run Hematite in a non-project folder — a downloads folder, a scripts directory, anywhere — and it adapts to what's there. Outside a project directory, Hematite skips the source-file walk but still keeps The Vein alive in docs-only mode: `.hematite/docs/`, imported chats in `.hematite/imports/`, and recent local session reports remain searchable, and the status badge shows `VN:DOC`.
+**One workspace per session.** Hematite locks onto the directory it was launched in — that's what gets indexed, and that's where all file tools operate. `cd`-ing inside the terminal after launch doesn't move the workspace. To switch projects, exit and relaunch in the new folder or use `/cd` to teleport there in a fresh session. This is intentional: a single locked workspace keeps the model's context clean and prevents tools from operating on the wrong directory. It also means you can run Hematite in a non-project folder — a downloads folder, a scripts directory, anywhere — and it adapts to what's there. Outside a project directory, Hematite skips the source-file walk but still keeps The Vein alive in docs-only mode: `.hematite/docs/`, imported chats in `.hematite/imports/`, and recent local session reports remain searchable, and the status badge shows `VN:DOC`.
 
 **Home-directory note.** Launching Hematite from your user home directory is valid for workstation inspection, docs-only memory, and general machine questions. It is not a good default for project-specific build, test, script, or repo work. For those, launch Hematite in the target project directory first.
 
 For project-specific questions or commands, launch Hematite in that project's directory before you ask. Hematite's own maintainer workflows are a separate built-in path for working on Hematite itself; they do not mean "run whatever script exists in the current folder."
 
-**Global settings.** Hematite loads `~/.hematite/settings.json` as a fallback when no workspace-level `.hematite/settings.json` exists. This means your model preference, voice settings, and API URL work from any directory — not just from inside a project. Workspace settings always win when both exist.
+**Global settings.** Hematite loads `~/.hematite/settings.json` as a fallback when no workspace-level `.hematite/settings.json` exists. This means your model preference, voice settings, and API URL work from any directory — not just from inside a project. Workspace settings always win when both exist. When you launch Hematite from sovereign OS folders like Desktop, Downloads, Documents, Pictures, Videos, or Music, Hematite keeps its runtime state in `~/.hematite/` instead of creating a local `.hematite/` folder there.
 
-**Workspace profile.** On startup, Hematite also writes `.hematite/workspace_profile.json` for the current workspace. That file is auto-generated and gitignored. It captures the detected stack, package manager, important folders, ignored noise folders, and build/test hints so the harness starts with a grounded project profile instead of guessing from scratch every turn. Use `/workspace-profile` to inspect the current generated profile from inside the TUI.
+**Workspace profile.** On startup, Hematite also writes `workspace_profile.json` into its active runtime-state directory. In normal project workspaces that is `.hematite/workspace_profile.json`; in sovereign OS folders it lands in `~/.hematite/workspace_profile.json` so Hematite does not litter Desktop/Downloads-style directories with workspace metadata. The file is auto-generated and gitignored when local. It captures the detected stack, package manager, important folders, ignored noise folders, and build/test hints so the harness starts with a grounded project profile instead of guessing from scratch every turn. Use `/workspace-profile` to inspect the current generated profile from inside the TUI.
 
 **Behavioral rules.** Drop a `.hematite/rules.md` file in any project and Hematite injects its contents into the system prompt on every turn — no restart needed. Use it to set project-specific agent behavior: coding conventions, files to avoid, architectural constraints, simplicity guidelines, anything. `/rules` shows which rule files are currently active. `/rules edit` opens your personal `.hematite/rules.local.md` (gitignored) in the system editor; `/rules edit shared` opens the shared `.hematite/rules.md` that can be committed with the repo. For larger projects, `.hematite/instructions/<topic>.md` files are injected only when the turn's context mentions that topic — zero token cost otherwise.
 
@@ -751,7 +751,7 @@ Versioning still comes from `Cargo.toml`, so the package names and installer ver
 
 ### Updating Hematite
 
-Updating is as simple as installing a newer packaged release or replacing the existing binary/bundle with a newer one. Project-specific histories, rules, and task files live in each project's `.hematite/` directory and survive upgrades.
+Updating is as simple as installing a newer packaged release or replacing the existing binary/bundle with a newer one. Project-specific histories, rules, and task files live in each project's `.hematite/` directory and survive upgrades. In sovereign OS directories, those runtime artifacts fall back to `~/.hematite/` instead.
 
 ---
 
@@ -857,13 +857,13 @@ Drop a `CLAUDE.md` or `.hematite.md` in your project root. Hematite picks it up 
 
 The Vein is Hematite's retrieval layer. At the start of every turn it re-indexes any changed files and queries for chunks relevant to the user's message. Results are injected directly into the system prompt so the model starts the turn with the right code already visible — reducing wasted `read_file` calls and letting smaller models perform better on unfamiliar codebases.
 
-**The index is per-project.** The database lives at `.hematite/vein.db` inside the workspace root. Run Hematite in a different folder and it gets a completely separate index for that project — no cross-contamination. The index is purely file-driven: it learns from what's on disk, not from the conversation. As you edit code the index stays current automatically because files are only re-indexed when their mtime changes.
+**The index is per-workspace.** In normal project folders the database lives at `.hematite/vein.db` inside the workspace root. In sovereign OS folders like Desktop or Downloads, Hematite uses `~/.hematite/vein.db` instead so those directories stay clean. Run Hematite in a different project folder and it gets a completely separate index for that project — no cross-contamination. The index is purely file-driven: it learns from what's on disk, not from the conversation. As you edit code the index stays current automatically because files are only re-indexed when their mtime changes.
 
 **The Vein now has four local memory inputs:**
 
 - **Project source files** — the main code/config index for real project workspaces.
 - **Reference docs in `.hematite/docs/`** — always indexable local support material, including docs-only launches outside projects.
-- **Recent session reports in `.hematite/reports/`** — the last 5 sessions are indexed as exchange pairs, capped to the last 50 user/assistant turns per session, so prior local decisions can be recalled without flooding the index.
+- **Recent session reports in the runtime-state `reports/` directory** — the last 5 sessions are indexed as exchange pairs, capped to the last 50 user/assistant turns per session, so prior local decisions can be recalled without flooding the index.
 - **Imported chat exports in `.hematite/imports/`** — drop in Claude Code JSONL, Codex CLI JSONL, simple role/content JSON exports, ChatGPT-style `mapping` exports, or already-normalized `>` transcripts and Hematite will index them as imported session memory automatically.
 
 **Two retrieval modes run together:**
@@ -1060,7 +1060,7 @@ Voice settings are configurable via `/voice` or `settings.json`:
 
 ### Session Reports
 
-On every exit (Ctrl+C) or cancel (ESC), Hematite writes a structured JSON report to `.hematite/reports/`:
+On every exit (Ctrl+C) or cancel (ESC), Hematite writes a structured JSON report to its active runtime-state reports directory: `.hematite/reports/` in normal project workspaces, or `~/.hematite/reports/` in sovereign OS folders:
 
 ```json
 {
@@ -1081,7 +1081,7 @@ Hematite also reuses those reports as local retrieval memory. The Vein indexes r
 
 ### Tool Output Overflow to Scratch
 
-When a tool returns more than 8 KB of output, Hematite writes the full content to `.hematite/scratch/<tool>_<timestamp>.txt` and delivers a truncation notice that includes the scratch path. The model can recover the full result with a single `read_file` call without repeating the original tool call. Nothing is silently discarded — large shell outputs, long grep results, and verbose build logs are always retrievable.
+When a tool returns more than 8 KB of output, Hematite writes the full content to `.hematite/scratch/<tool>_<timestamp>.txt` inside the active runtime-state directory and delivers a truncation notice that includes the scratch path. The model can recover the full result with a single `read_file` call without repeating the original tool call. Nothing is silently discarded — large shell outputs, long grep results, and verbose build logs are always retrievable.
 
 ### Tool Loop Guard
 
@@ -1103,15 +1103,22 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 ## TUI Slash Commands
 
 ```text
+/chat             Sticky conversational mode with lighter scaffolding
+/agent            Return to the full coding agent mode
+/reroll           Hatch a new companion soul mid-session
 /auto             Let Hematite choose the narrowest effective workflow
 /ask [prompt]     Sticky read-only analysis mode; optional inline prompt
 /code [prompt]    Sticky implementation mode; optional inline prompt
 /architect [prompt]  Sticky plan-first mode; optional inline prompt that can refresh `.hematite/PLAN.md`
 /implement-plan   Execute the saved architect handoff in `/code`
 /read-only [prompt]  Sticky hard read-only mode; optional inline prompt
+/teach [prompt]   Sticky teacher mode for grounded admin walkthroughs
 /gemma-native [auto|on|off|status]  Auto/force/disable Gemma 4 native formatting
+/runtime-refresh  Re-read the LM Studio model profile and context window now
 /new              Fresh task context; clear chat, pins, and task files
 /forget           Hard forget; purge saved memory and the Vein index too
+/cd <path>        Teleport to another directory; supports bare tokens like downloads, desktop, docs, home, temp, and `~`
+/ls [path|N]      List common locations or subdirectories; `/ls <N>` teleports to the numbered entry
 /vein-inspect     Show indexed Vein memory, hot files, and active room bias
 /workspace-profile Show the auto-generated workspace profile
 /rules            Show which behavioral rule files are active ([v]/[ ] status)
@@ -1124,6 +1131,9 @@ hematite --version Show the same build report from the CLI
 /vein-reset       Wipe the RAG index; rebuilds automatically on next turn
 /think            Enable Gemma-4 native reasoning channel
 /no_think         Enable lower-effort reasoning
+/voice            List all available TTS voices
+/voice N          Select a voice by number
+/read <text>      Speak text aloud directly through the TTS engine
 /lsp              Start language servers manually
 /worktree list    List all git worktrees
 /worktree add <path> [branch]  Create isolated worktree
@@ -1139,9 +1149,9 @@ hematite --version Show the same build report from the CLI
 /copy             Copy the exact session transcript, including help/system output
 /copy-last        Copy the latest Hematite reply only
 /copy-clean       Copy the chat transcript without help/debug boilerplate
+/copy2            Copy the SPECULAR log (reasoning + events)
 /undo             Undo last file edit
 /clear            Clear visible dialogue and side-panel session state
-/teach [prompt]   Sticky teacher mode — inspects real machine state first, then delivers a grounded numbered walkthrough for any admin/config/system task; does not execute write operations
 /health           Run a synthesized plain-English system health report
 /explain <text>   Paste an error to get a non-technical breakdown
 /help             Show all commands
@@ -1204,7 +1214,7 @@ Voice speed and volume are configurable in `.hematite/settings.json`:
 
 ## Configuration
 
-Hematite reads `.hematite/settings.json` from your project root:
+Hematite reads `.hematite/settings.json` from your project root, with `~/.hematite/settings.json` as a global fallback:
 
 ```json
 {
