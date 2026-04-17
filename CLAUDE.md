@@ -69,6 +69,7 @@ pwsh ./clean.ps1
 - `/forget`: purge saved conversation memory and wipe visible session state
 - `/new`: reset session history while keeping project memory
 - `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports @DESKTOP, @DOWNLOADS, @HOME, ~/, .., and absolute paths.
+- `/ls`: show a numbered navigation map — common OS locations + subdirectories of the current directory. Type `/ls <N>` to teleport directly to entry N. `/ls <path>` lists subdirectories of any path.
 - `/ask [prompt]`: sticky read-only analysis mode
 - `/code [prompt]`: sticky implementation mode
 - `/architect [prompt]`: sticky plan-first mode that persists a reusable handoff

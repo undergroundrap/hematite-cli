@@ -225,6 +225,8 @@ pub struct App {
     pub attached_image: Option<AttachedImage>,
     hovered_input_action: Option<InputAction>,
     pub teleported_from: Option<String>,
+    /// Numbered directory list from the last /ls call — used by /ls <N> to teleport.
+    pub nav_list: Vec<std::path::PathBuf>,
 }
 
 impl App {
@@ -1563,6 +1565,7 @@ pub async fn run_app<B: Backend>(
         attached_image: None,
         hovered_input_action: None,
         teleported_from: cockpit.teleported_from.clone(),
+        nav_list: Vec::new(),
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
@@ -2011,6 +2014,90 @@ pub async fn run_app<B: Backend>(
                                                 app.write_session_report();
                                                 app.copy_transcript_to_clipboard();
                                                 break;
+                                            }
+                                            "/ls" => {
+                                                let base: std::path::PathBuf = if parts.len() >= 2 {
+                                                    // /ls <path> or /ls <N>
+                                                    let arg = parts[1..].join(" ");
+                                                    if let Ok(n) = arg.trim().parse::<usize>() {
+                                                        // /ls <N> — teleport to nav_list entry N
+                                                        if n == 0 || n > app.nav_list.len() {
+                                                            app.push_message("System", &format!("No entry {}. Run /ls first to see the list.", n));
+                                                            app.history_idx = None;
+                                                            continue;
+                                                        }
+                                                        let target = app.nav_list[n - 1].clone();
+                                                        let target_str = target.to_string_lossy().to_string();
+                                                        app.push_message("You", &format!("/ls {}", n));
+                                                        app.push_message("System", &format!("Teleporting to {}...", target_str));
+                                                        app.push_message("System", "Launching new session. This terminal will close.");
+                                                        spawn_dive_in_terminal(&target_str);
+                                                        app.write_session_report();
+                                                        app.copy_transcript_to_clipboard();
+                                                        break;
+                                                    } else {
+                                                        crate::tools::file_ops::resolve_candidate(&arg)
+                                                    }
+                                                } else {
+                                                    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+                                                };
+
+                                                // Build numbered nav list
+                                                let mut entries: Vec<std::path::PathBuf> = Vec::new();
+                                                let mut output = String::new();
+
+                                                // Common locations (only when listing current/no-arg)
+                                                let listing_base = parts.len() < 2;
+                                                if listing_base {
+                                                    let common: Vec<(&str, Option<std::path::PathBuf>)> = vec![
+                                                        ("Desktop", dirs::desktop_dir()),
+                                                        ("Downloads", dirs::download_dir()),
+                                                        ("Documents", dirs::document_dir()),
+                                                        ("Pictures", dirs::picture_dir()),
+                                                        ("Home", dirs::home_dir()),
+                                                    ];
+                                                    let valid: Vec<_> = common.into_iter().filter_map(|(label, p)| p.map(|pb| (label, pb))).collect();
+                                                    if !valid.is_empty() {
+                                                        output.push_str("Common locations:\n");
+                                                        for (label, pb) in &valid {
+                                                            entries.push(pb.clone());
+                                                            output.push_str(&format!("  {:>2}.  {:<12}  {}\n", entries.len(), label, pb.display()));
+                                                        }
+                                                    }
+                                                }
+
+                                                // Subdirectories of base path
+                                                let cwd_label = if listing_base {
+                                                    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+                                                } else {
+                                                    base.clone()
+                                                };
+                                                if let Ok(read) = std::fs::read_dir(&cwd_label) {
+                                                    let mut dirs_found: Vec<std::path::PathBuf> = read
+                                                        .filter_map(|e| e.ok())
+                                                        .filter(|e| e.path().is_dir())
+                                                        .map(|e| e.path())
+                                                        .collect();
+                                                    dirs_found.sort();
+                                                    if !dirs_found.is_empty() {
+                                                        output.push_str(&format!("\n{}:\n", cwd_label.display()));
+                                                        for pb in &dirs_found {
+                                                            entries.push(pb.clone());
+                                                            let name = pb.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+                                                            output.push_str(&format!("  {:>2}.  {}\n", entries.len(), name));
+                                                        }
+                                                    }
+                                                }
+
+                                                if entries.is_empty() {
+                                                    app.push_message("System", "No directories found.");
+                                                } else {
+                                                    output.push_str("\nType /ls <N> to teleport to that directory.");
+                                                    app.nav_list = entries;
+                                                    app.push_message("System", &output);
+                                                }
+                                                app.history_idx = None;
+                                                continue;
                                             }
                                             "/diff" => {
                                                 app.push_message("System", "Fetching session diff...");
