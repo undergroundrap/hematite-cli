@@ -6,6 +6,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Ensure cargo is on PATH regardless of how this script was invoked
+$env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 
