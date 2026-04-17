@@ -1420,6 +1420,18 @@ async fn test_inspect_host_overclocker_returns_header() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_overclocker_reports_voltage_telemetry_state() {
+    use serde_json::json;
+    let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "overclocker" }))
+        .await
+        .expect("inspect overclocker fails");
+    assert!(
+        output.contains("=== VOLTAGE TELEMETRY ===") && output.contains("GPU Voltage:"),
+        "overclocker should report voltage telemetry availability explicitly; got:\n{output}"
+    );
+}
+
+#[tokio::test]
 async fn test_inspect_host_peripherals() {
     use serde_json::json;
     let output = hematite::tools::host_inspect::inspect_host(&json!({ "topic": "peripherals" }))

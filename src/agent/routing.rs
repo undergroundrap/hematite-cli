@@ -598,6 +598,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("nvidia stats")
         || lower.contains("silicon health")
         || lower.contains("mhz")
+        || ((lower.contains("voltage") || lower.contains("volts"))
+            && (lower.contains("gpu")
+                || lower.contains("cpu")
+                || lower.contains("nvidia")
+                || lower.contains("silicon")))
         || (lower.contains("gpu")
             && (lower.contains("throttle")
                 || lower.contains("bottleneck")
@@ -1288,6 +1293,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("root cause")
                 || l.contains("nvidia stats")
                 || l.contains("silicon health")
+                || ((l.contains("voltage") || l.contains("volts"))
+                    && (l.contains("gpu")
+                        || l.contains("cpu")
+                        || l.contains("nvidia")
+                        || l.contains("silicon")))
                 || (l.contains("gpu")
                     && (l.contains("throttle")
                         || l.contains("bottleneck")
@@ -1602,6 +1612,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("nvidia stats")
                 || l.contains("silicon health")
                 || l.contains("mhz")
+                || ((l.contains("voltage") || l.contains("volts"))
+                    && (l.contains("gpu")
+                        || l.contains("cpu")
+                        || l.contains("nvidia")
+                        || l.contains("silicon")))
                 || (l.contains("gpu") && (l.contains("throttle") || l.contains("bottleneck")))
         }),
         ("path", |l| {
@@ -2680,6 +2695,14 @@ mod tests {
         );
         assert_eq!(
             preferred_host_inspection_topic("nvidia stats"),
+            Some("overclocker")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("Show me GPU voltage telemetry"),
+            Some("overclocker")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("What are my CPU and GPU volts right now?"),
             Some("overclocker")
         );
     }

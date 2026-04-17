@@ -10738,6 +10738,50 @@ fn inspect_ip_config() -> Result<String, String> {
     Ok(out.trim_end().to_string())
 }
 
+#[cfg(target_os = "windows")]
+fn gpu_voltage_telemetry_note() -> String {
+    let output = Command::new("nvidia-smi")
+        .args(["--help-query-gpu"])
+        .output();
+
+    match output {
+        Ok(o) => {
+            let text = String::from_utf8_lossy(&o.stdout).to_ascii_lowercase();
+            if text.contains("\"voltage\"") || text.contains("voltage.") {
+                "Driver query surface advertises GPU voltage fields, but Hematite is not yet decoding them on this path.".to_string()
+            } else {
+                "Unavailable on this NVIDIA driver path: `nvidia-smi` exposes clocks, fans, power, and throttle reasons here, but not a GPU voltage rail query.".to_string()
+            }
+        }
+        Err(_) => "Unavailable: `nvidia-smi` is not present, so Hematite cannot verify whether this driver path exposes GPU voltage rails.".to_string(),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn decode_wmi_processor_voltage(raw: u64) -> Option<String> {
+    if raw == 0 {
+        return None;
+    }
+    if raw & 0x80 != 0 {
+        let tenths = raw & 0x7f;
+        return Some(format!(
+            "{:.1} V (firmware-reported WMI current voltage)",
+            tenths as f64 / 10.0
+        ));
+    }
+
+    let legacy = match raw {
+        1 => Some("5.0 V"),
+        2 => Some("3.3 V"),
+        4 => Some("2.9 V"),
+        _ => None,
+    }?;
+    Some(format!(
+        "{} (legacy WMI voltage capability flag, not live telemetry)",
+        legacy
+    ))
+}
+
 async fn inspect_overclocker() -> Result<String, String> {
     let mut out = String::from("Host inspection: overclocker\n\n");
 
@@ -10750,7 +10794,7 @@ async fn inspect_overclocker() -> Result<String, String> {
         // 1. NVIDIA Census
         let nvidia = Command::new("nvidia-smi")
             .args([
-                "--query-gpu=name,clocks.current.graphics,clocks.current.memory,fan.speed,power.draw,temperature.gpu,clocks_throttle_reasons.active",
+                "--query-gpu=name,clocks.current.graphics,clocks.current.memory,fan.speed,power.draw,temperature.gpu,power.draw.average,power.draw.instant,power.limit,enforced.power.limit,clocks_throttle_reasons.active",
                 "--format=csv,noheader,nounits",
             ])
             .output();
@@ -10760,16 +10804,28 @@ async fn inspect_overclocker() -> Result<String, String> {
             if !stdout.trim().is_empty() {
                 out.push_str("=== GPU SENSE (NVIDIA) ===\n");
                 let parts: Vec<&str> = stdout.trim().split(',').map(|s| s.trim()).collect();
-                if parts.len() >= 6 {
+                if parts.len() >= 10 {
                     out.push_str(&format!("- Model:      {}\n", parts[0]));
                     out.push_str(&format!("- Graphics:   {} MHz\n", parts[1]));
                     out.push_str(&format!("- Memory:     {} MHz\n", parts[2]));
                     out.push_str(&format!("- Fan Speed:  {}%\n", parts[3]));
                     out.push_str(&format!("- Power Draw: {} W\n", parts[4]));
+                    if !parts[6].eq_ignore_ascii_case("[N/A]") {
+                        out.push_str(&format!("- Power Avg:  {} W\n", parts[6]));
+                    }
+                    if !parts[7].eq_ignore_ascii_case("[N/A]") {
+                        out.push_str(&format!("- Power Inst: {} W\n", parts[7]));
+                    }
+                    if !parts[8].eq_ignore_ascii_case("[N/A]") {
+                        out.push_str(&format!("- Power Cap:  {} W requested\n", parts[8]));
+                    }
+                    if !parts[9].eq_ignore_ascii_case("[N/A]") {
+                        out.push_str(&format!("- Power Enf:  {} W enforced\n", parts[9]));
+                    }
                     out.push_str(&format!("- Temperature: {}°C\n", parts[5]));
 
-                    if parts.len() > 6 {
-                        let throttle_hex = parts[6];
+                    if parts.len() > 10 {
+                        let throttle_hex = parts[10];
                         let reasons = decode_nvidia_throttle_reasons(throttle_hex);
                         if !reasons.is_empty() {
                             out.push_str(&format!("- Throttling:  YES [Reason: {}]\n", reasons));
@@ -10781,6 +10837,12 @@ async fn inspect_overclocker() -> Result<String, String> {
                 out.push_str("\n");
             }
         }
+
+        out.push_str("=== VOLTAGE TELEMETRY ===\n");
+        out.push_str(&format!(
+            "- GPU Voltage:  {}\n\n",
+            gpu_voltage_telemetry_note()
+        ));
 
         // 1b. Session Trends (RAM-only historians)
         let gpu_state = &crate::ui::gpu_monitor::GLOBAL_GPU_STATE;
@@ -10886,12 +10948,18 @@ async fn inspect_overclocker() -> Result<String, String> {
                     "- Rated Max:     {} MHz\n",
                     v.get("MaxClockSpeed").and_then(|x| x.as_u64()).unwrap_or(0)
                 ));
-                out.push_str(&format!(
-                    "- Voltage:       {} (Raw WMI)\n",
-                    v.get("CurrentVoltage")
-                        .and_then(|x| x.as_u64())
-                        .unwrap_or(0)
-                ));
+                match v.get("CurrentVoltage").and_then(|x| x.as_u64()) {
+                    Some(raw) => {
+                        if let Some(decoded) = decode_wmi_processor_voltage(raw) {
+                            out.push_str(&format!("- CPU Voltage:   {}\n", decoded));
+                        } else {
+                            out.push_str(
+                                "- CPU Voltage:   Unavailable or non-telemetry WMI value on this firmware path\n",
+                            );
+                        }
+                    }
+                    None => out.push_str("- CPU Voltage:   Unavailable on this WMI path\n"),
+                }
             }
         }
     }
