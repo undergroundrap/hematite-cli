@@ -1,6 +1,6 @@
 [package]
 name = "hematite-cli"
-version = "0.5.5"
+version = "0.5.6"
 edition = "2021"
 description = "Senior SysAdmin, Network Admin, and Software Engineer living in your terminal. A high-precision local AI agent harness for LM Studio that runs 100% on your own silicon. Reads repos, edits files, runs builds, and inspects the machine it is running on—including full network state and workstation telemetry."
 readme = "README.md"
