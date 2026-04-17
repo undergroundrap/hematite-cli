@@ -2974,6 +2974,7 @@ fn test_inspect_host_unknown_topic_includes_all_new_topics_in_error() {
             "docker_filesystems",
             "wsl",
             "wsl_filesystems",
+            "lan_discovery",
             "ssh",
             "env",
             "hosts_file",
@@ -3204,6 +3205,41 @@ fn test_inspect_host_wsl_filesystems_reports_findings_or_platform_note() {
     });
 }
 
+#[test]
+fn test_inspect_host_lan_discovery_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "lan_discovery" });
+        let output = inspect_host(&args)
+            .await
+            .expect("lan_discovery must return Ok");
+        assert!(
+            output.contains("Host inspection: lan_discovery"),
+            "lan_discovery output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_lan_discovery_reports_findings_or_evidence() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "lan_discovery" });
+        let output = inspect_host(&args)
+            .await
+            .expect("lan_discovery must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== Neighborhood evidence ===")
+            && output.contains("=== Active adapter and gateway summary ===");
+        assert!(
+            has_result,
+            "lan_discovery must report findings and neighborhood evidence; got:\n{output}"
+        );
+    });
+}
+
 // ── ssh ───────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -3381,6 +3417,25 @@ fn test_routing_detects_wsl_filesystems_topic() {
 }
 
 #[test]
+fn test_routing_detects_lan_discovery_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("why can't this machine see my NAS on the local network?"),
+        Some("lan_discovery")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic(
+            "check local network neighborhood discovery, SMB visibility, SSDP/UPnP, and mDNS"
+        ),
+        Some("lan_discovery")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Get-NetNeighbor and SSDP discovery status"),
+        Some("lan_discovery")
+    );
+}
+
+#[test]
 fn test_routing_detects_ssh_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
     assert_eq!(
@@ -3498,6 +3553,22 @@ fn test_all_host_topics_prefers_deep_wsl_filesystem_audit_over_generic_wsl() {
     assert!(
         !topics.contains(&"storage"),
         "should suppress generic storage when wsl_filesystems is present; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_all_host_topics_prefers_lan_discovery_over_generic_network() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics = all_host_inspection_topics(
+        "check local network neighborhood discovery, SMB visibility, SSDP/UPnP, and mDNS",
+    );
+    assert!(
+        topics.contains(&"lan_discovery"),
+        "should detect lan_discovery; got: {topics:?}"
+    );
+    assert!(
+        !topics.contains(&"network"),
+        "should suppress generic network when lan_discovery is present; got: {topics:?}"
     );
 }
 
@@ -5052,6 +5123,10 @@ fn test_routing_prompt_library_network_map() {
     assert!(
         topics.contains(&"dns_cache"),
         "should detect dns_cache; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"lan_discovery"),
+        "should detect lan_discovery for neighborhood mapping; got: {topics:?}"
     );
 }
 

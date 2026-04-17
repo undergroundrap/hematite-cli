@@ -34,6 +34,9 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "env_doctor" => inspect_env_doctor(max_entries),
         "fix_plan" => inspect_fix_plan(parse_issue_text(args), parse_port_filter(args), max_entries).await,
         "network" => inspect_network(max_entries),
+        "lan_discovery" | "network_neighborhood" | "upnp" | "neighborhood" => {
+            inspect_lan_discovery(max_entries)
+        }
         "services" => inspect_services(parse_name_filter(args), max_entries),
         "processes" => inspect_processes(parse_name_filter(args), max_entries),
         "desktop" => inspect_known_directory("Desktop", desktop_dir(), max_entries).await,
@@ -155,7 +158,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "ip_config" | "ip_detail" | "dhcp" => inspect_ip_config(),
         "overclocker" | "thermal_deep" | "clocks" | "voltage" => inspect_overclocker().await,
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -1618,6 +1621,353 @@ fn inspect_network(max_entries: usize) -> Result<String, String> {
             "- ... {} more adapters omitted\n",
             adapters.len() - max_entries
         ));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_lan_discovery(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: lan_discovery\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let n = max_entries.clamp(5, 20);
+        let adapters = collect_network_adapters()?;
+        let services = collect_services().unwrap_or_default();
+        let active_adapters: Vec<&NetworkAdapter> =
+            adapters.iter().filter(|adapter| adapter.is_active()).collect();
+        let gateways: Vec<String> = active_adapters
+            .iter()
+            .flat_map(|adapter| adapter.gateways.clone())
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        let neighbor_script = r#"
+$neighbors = Get-NetNeighbor -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.IPAddress -notlike '127.*' -and
+        $_.IPAddress -notlike '169.254*' -and
+        $_.State -notin @('Unreachable','Invalid')
+    } |
+    Select-Object IPAddress, LinkLayerAddress, State, InterfaceAlias
+$neighbors | ConvertTo-Json -Compress
+"#;
+        let neighbor_text = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", neighbor_script])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        let neighbors: Vec<(String, String, String, String)> =
+            parse_lan_neighbors(&neighbor_text).into_iter().take(n).collect();
+
+        let listener_script = r#"
+Get-NetUDPEndpoint -ErrorAction SilentlyContinue |
+    Where-Object { $_.LocalPort -in 137,138,1900,5353,5355 } |
+    Select-Object LocalAddress, LocalPort, OwningProcess |
+    ForEach-Object {
+        $proc = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).Name
+        "$($_.LocalAddress)|$($_.LocalPort)|$($_.OwningProcess)|$proc"
+    }
+"#;
+        let listener_text = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", listener_script])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        let listeners: Vec<(String, u16, String, String)> = listener_text
+            .lines()
+            .filter_map(|line| {
+                let parts: Vec<&str> = line.trim().split('|').collect();
+                if parts.len() < 4 {
+                    return None;
+                }
+                Some((
+                    parts[0].to_string(),
+                    parts[1].parse::<u16>().ok()?,
+                    parts[2].to_string(),
+                    parts[3].to_string(),
+                ))
+            })
+            .take(n)
+            .collect();
+
+        let smb_mapping_script = r#"
+Get-PSDrive -PSProvider FileSystem | Where-Object { $_.DisplayRoot } |
+    ForEach-Object { "$($_.Name):|$($_.DisplayRoot)" }
+"#;
+        let smb_mappings: Vec<String> = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", smb_mapping_script])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .lines()
+            .take(n)
+            .map(|line| line.trim().to_string())
+            .filter(|line| !line.is_empty())
+            .collect();
+
+        let smb_connections_script = r#"
+Get-SmbConnection -ErrorAction SilentlyContinue |
+    Select-Object ServerName, ShareName, NumOpens |
+    ForEach-Object { "$($_.ServerName)|$($_.ShareName)|$($_.NumOpens)" }
+"#;
+        let smb_connections: Vec<String> = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                smb_connections_script,
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .lines()
+            .take(n)
+            .map(|line| line.trim().to_string())
+            .filter(|line| !line.is_empty())
+            .collect();
+
+        let discovery_service_names = [
+            "FDResPub",
+            "fdPHost",
+            "SSDPSRV",
+            "upnphost",
+            "LanmanServer",
+            "LanmanWorkstation",
+            "lmhosts",
+        ];
+        let discovery_services: Vec<&ServiceEntry> = services
+            .iter()
+            .filter(|entry| {
+                discovery_service_names
+                    .iter()
+                    .any(|name| entry.name.eq_ignore_ascii_case(name))
+            })
+            .collect();
+
+        let mut findings = Vec::new();
+        if active_adapters.is_empty() {
+            findings.push(AuditFinding {
+                finding: "No active LAN adapters were detected.".to_string(),
+                impact: "Neighborhood, SMB, mDNS, SSDP, and printer/NAS discovery cannot work without an active local interface.".to_string(),
+                fix: "Bring up Wi-Fi or Ethernet first, then rerun LAN discovery. If the adapter should be up already, inspect `network` or `connectivity` next.".to_string(),
+            });
+        }
+
+        let stopped_discovery_services: Vec<&ServiceEntry> = discovery_services
+            .iter()
+            .copied()
+            .filter(|entry| {
+                !entry.status.eq_ignore_ascii_case("running")
+                    && !entry.status.eq_ignore_ascii_case("active")
+            })
+            .collect();
+        if !stopped_discovery_services.is_empty() {
+            let names = stopped_discovery_services
+                .iter()
+                .map(|entry| entry.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            findings.push(AuditFinding {
+                finding: format!("Discovery-related services are not running: {names}"),
+                impact: "Windows network neighborhood visibility, SSDP/UPnP discovery, or SMB browse behavior can look broken even when the network itself is fine.".to_string(),
+                fix: "Start the relevant services and set their startup type appropriately. `FDResPub` and `fdPHost` matter for neighborhood visibility; `SSDPSRV` and `upnphost` matter for UPnP.".to_string(),
+            });
+        }
+
+        if listeners.is_empty() {
+            findings.push(AuditFinding {
+                finding: "No discovery-oriented UDP listeners were found on 137, 138, 1900, 5353, or 5355.".to_string(),
+                impact: "NetBIOS, SSDP/UPnP, mDNS, and LLMNR discovery may be inactive on this host, so other devices may not see it automatically.".to_string(),
+                fix: "If auto-discovery is expected, confirm the related services are running and check whether local firewall policy is suppressing these discovery ports.".to_string(),
+            });
+        }
+
+        if !active_adapters.is_empty() && neighbors.len() <= gateways.len() {
+            findings.push(AuditFinding {
+                finding: "Very little neighborhood evidence was observed beyond the default gateway.".to_string(),
+                impact: "That often means discovery traffic is quiet, the LAN is isolated, or peer devices are not advertising themselves.".to_string(),
+                fix: "Check whether the target device is on the same subnet/VLAN, whether discovery is enabled on both sides, and whether the local firewall is allowing discovery protocols.".to_string(),
+            });
+        }
+
+        out.push_str("=== Findings ===\n");
+        if findings.is_empty() {
+            out.push_str("- Finding: LAN discovery signals look healthy from this inspection pass.\n");
+            out.push_str("  Impact: Neighborhood visibility, SMB browsing, and SSDP/mDNS discovery do not show an obvious host-side blocker.\n");
+            out.push_str("  Fix: If one device still cannot be seen, test the specific host/share/printer path next to separate name resolution from service reachability.\n");
+        } else {
+            for finding in &findings {
+                out.push_str(&format!("- Finding: {}\n", finding.finding));
+                out.push_str(&format!("  Impact: {}\n", finding.impact));
+                out.push_str(&format!("  Fix: {}\n", finding.fix));
+            }
+        }
+
+        out.push_str("\n=== Active adapter and gateway summary ===\n");
+        if active_adapters.is_empty() {
+            out.push_str("- No active adapters detected.\n");
+        } else {
+            for adapter in active_adapters.iter().take(n) {
+                let ipv4 = if adapter.ipv4.is_empty() {
+                    "no IPv4".to_string()
+                } else {
+                    adapter.ipv4.join(", ")
+                };
+                let gateway = if adapter.gateways.is_empty() {
+                    "no gateway".to_string()
+                } else {
+                    adapter.gateways.join(", ")
+                };
+                out.push_str(&format!(
+                    "- {} | IPv4: {} | Gateway: {}\n",
+                    adapter.name, ipv4, gateway
+                ));
+            }
+        }
+
+        out.push_str("\n=== Neighborhood evidence ===\n");
+        out.push_str(&format!("- Gateway count: {}\n", gateways.len()));
+        out.push_str(&format!("- Neighbor entries observed: {}\n", neighbors.len()));
+        if neighbors.is_empty() {
+            out.push_str("- No ARP/neighbor evidence retrieved.\n");
+        } else {
+            for (ip, mac, state, iface) in neighbors.iter().take(n) {
+                out.push_str(&format!(
+                    "- {} on {} | MAC: {} | State: {}\n",
+                    ip, iface, mac, state
+                ));
+            }
+        }
+
+        out.push_str("\n=== Discovery services ===\n");
+        if discovery_services.is_empty() {
+            out.push_str("- Discovery service status unavailable.\n");
+        } else {
+            for entry in discovery_services.iter().take(n) {
+                let startup = entry.startup.as_deref().unwrap_or("unknown");
+                out.push_str(&format!(
+                    "- {} | Status: {} | Startup: {}\n",
+                    entry.name, entry.status, startup
+                ));
+            }
+        }
+
+        out.push_str("\n=== Discovery listener surface ===\n");
+        if listeners.is_empty() {
+            out.push_str("- No discovery-oriented UDP listeners detected.\n");
+        } else {
+            for (addr, port, pid, proc_name) in listeners.iter().take(n) {
+                let label = match *port {
+                    137 => "NetBIOS Name Service",
+                    138 => "NetBIOS Datagram",
+                    1900 => "SSDP/UPnP",
+                    5353 => "mDNS",
+                    5355 => "LLMNR",
+                    _ => "Discovery",
+                };
+                let proc_label = if proc_name.is_empty() {
+                    "unknown".to_string()
+                } else {
+                    proc_name.clone()
+                };
+                out.push_str(&format!(
+                    "- {}:{} | {} | PID {} ({})\n",
+                    addr, port, label, pid, proc_label
+                ));
+            }
+        }
+
+        out.push_str("\n=== SMB and neighborhood visibility ===\n");
+        if smb_mappings.is_empty() && smb_connections.is_empty() {
+            out.push_str("- No mapped SMB drives or active SMB connections detected.\n");
+        } else {
+            if !smb_mappings.is_empty() {
+                out.push_str("- Mapped drives:\n");
+                for mapping in smb_mappings.iter().take(n) {
+                    let parts: Vec<&str> = mapping.split('|').collect();
+                    if parts.len() >= 2 {
+                        out.push_str(&format!("  - {} -> {}\n", parts[0], parts[1]));
+                    }
+                }
+            }
+            if !smb_connections.is_empty() {
+                out.push_str("- Active SMB connections:\n");
+                for connection in smb_connections.iter().take(n) {
+                    let parts: Vec<&str> = connection.split('|').collect();
+                    if parts.len() >= 3 {
+                        out.push_str(&format!(
+                            "  - {}\\{} | Opens: {}\n",
+                            parts[0], parts[1], parts[2]
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let n = max_entries.clamp(5, 20);
+        let adapters = collect_network_adapters()?;
+        let arp_output = Command::new("ip")
+            .args(["neigh"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        let neighbors: Vec<&str> = arp_output
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .take(n)
+            .collect();
+
+        out.push_str("=== Findings ===\n");
+        if adapters.iter().any(|adapter| adapter.is_active()) {
+            out.push_str("- Finding: LAN discovery support is partially available on this platform.\n");
+            out.push_str("  Impact: Adapter and neighbor evidence can be inspected, but mDNS/UPnP coverage depends on local tools and services like Avahi.\n");
+            out.push_str("  Fix: If discovery is failing, inspect Avahi/systemd-resolved, local firewall rules, and `udp_ports` next.\n");
+        } else {
+            out.push_str("- Finding: No active LAN adapters were detected.\n");
+            out.push_str("  Impact: Neighborhood discovery cannot work without an active interface.\n");
+            out.push_str("  Fix: Bring up Wi-Fi or Ethernet first, then rerun LAN discovery.\n");
+        }
+
+        out.push_str("\n=== Active adapter and gateway summary ===\n");
+        if adapters.is_empty() {
+            out.push_str("- No adapters detected.\n");
+        } else {
+            for adapter in adapters.iter().take(n) {
+                let ipv4 = if adapter.ipv4.is_empty() {
+                    "no IPv4".to_string()
+                } else {
+                    adapter.ipv4.join(", ")
+                };
+                let gateway = if adapter.gateways.is_empty() {
+                    "no gateway".to_string()
+                } else {
+                    adapter.gateways.join(", ")
+                };
+                out.push_str(&format!(
+                    "- {} | IPv4: {} | Gateway: {}\n",
+                    adapter.name, ipv4, gateway
+                ));
+            }
+        }
+
+        out.push_str("\n=== Neighborhood evidence ===\n");
+        if neighbors.is_empty() {
+            out.push_str("- No neighbor entries detected.\n");
+        } else {
+            for line in neighbors {
+                out.push_str(&format!("- {}\n", line.trim()));
+            }
+        }
     }
 
     Ok(out.trim_end().to_string())
@@ -3203,15 +3553,92 @@ fn value_after_colon(line: &str) -> Option<&str> {
 fn normalize_ipconfig_value(value: &str) -> String {
     value
         .trim()
-        .trim_matches(['(', ')'])
         .trim_end_matches("(Preferred)")
+        .trim_end_matches("(Deprecated)")
+        .trim()
+        .trim_matches(['(', ')'])
         .trim()
         .to_string()
+}
+
+#[cfg(target_os = "windows")]
+fn is_noise_lan_neighbor(ip: &str, mac: &str) -> bool {
+    let mac_upper = mac.to_ascii_uppercase();
+    if mac_upper == "FF-FF-FF-FF-FF-FF" || mac_upper.starts_with("01-00-5E-") {
+        return true;
+    }
+
+    ip == "255.255.255.255"
+        || ip.starts_with("224.")
+        || ip.starts_with("225.")
+        || ip.starts_with("226.")
+        || ip.starts_with("227.")
+        || ip.starts_with("228.")
+        || ip.starts_with("229.")
+        || ip.starts_with("230.")
+        || ip.starts_with("231.")
+        || ip.starts_with("232.")
+        || ip.starts_with("233.")
+        || ip.starts_with("234.")
+        || ip.starts_with("235.")
+        || ip.starts_with("236.")
+        || ip.starts_with("237.")
+        || ip.starts_with("238.")
+        || ip.starts_with("239.")
 }
 
 fn dedup_vec(values: &mut Vec<String>) {
     let mut seen = HashSet::new();
     values.retain(|value| seen.insert(value.clone()));
+}
+
+#[cfg(target_os = "windows")]
+fn parse_lan_neighbors(text: &str) -> Vec<(String, String, String, String)> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+
+    let Ok(value) = serde_json::from_str::<Value>(trimmed) else {
+        return Vec::new();
+    };
+    let entries = match value {
+        Value::Array(items) => items,
+        other => vec![other],
+    };
+
+    let mut neighbors = Vec::new();
+    for entry in entries {
+        let ip = entry
+            .get("IPAddress")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if ip.is_empty() {
+            continue;
+        }
+        let mac = entry
+            .get("LinkLayerAddress")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+        let state = entry
+            .get("State")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+        let iface = entry
+            .get("InterfaceAlias")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+        if is_noise_lan_neighbor(&ip, &mac) {
+            continue;
+        }
+        neighbors.push((ip, mac, state, iface));
+    }
+
+    neighbors
 }
 
 #[cfg(target_os = "windows")]

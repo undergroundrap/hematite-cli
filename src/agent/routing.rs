@@ -415,8 +415,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_domain = lower.contains("domain")
         || lower.contains("active directory")
         || lower.contains("ad join")
-        || lower.contains("workgroup")
-        || lower.contains("netbios");
+        || lower.contains("workgroup");
     let asks_device_health = lower.contains("device health")
         || lower.contains("hardware error")
         || lower.contains("malfunctioning")
@@ -468,6 +467,45 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("env is broken")
         || (lower.contains("dev machine") && lower.contains("off"))
         || (lower.contains("environment") && lower.contains("sane"));
+    let asks_lan_discovery = lower.contains("upnp")
+        || lower.contains("ssdp")
+        || lower.contains("mdns")
+        || lower.contains("bonjour")
+        || lower.contains("llmnr")
+        || lower.contains("network neighborhood")
+        || lower.contains("device discovery")
+        || lower.contains("local discovery")
+        || lower.contains("discover local devices")
+        || lower.contains("discover devices")
+        || lower.contains("browse computers")
+        || (lower.contains("local network")
+            && (lower.contains("discover")
+                || lower.contains("discovery")
+                || lower.contains("neighborhood")
+                || lower.contains("device")
+                || lower.contains("devices")
+                || lower.contains("aware of")))
+        || ((lower.contains("netbios") || lower.contains("smb visibility"))
+            && !lower.contains("active directory"))
+        || ((lower.contains("nas")
+            || lower.contains("printer")
+            || lower.contains("device")
+            || lower.contains("computer")
+            || lower.contains("pc"))
+            && ((lower.contains("can't") && lower.contains("see"))
+                || (lower.contains("cannot") && lower.contains("see"))
+                || (lower.contains("cant") && lower.contains("see"))
+                || lower.contains("can't see")
+                || lower.contains("cannot see")
+                || lower.contains("cant see")
+                || lower.contains("not visible")
+                || lower.contains("not showing up")
+                || lower.contains("not show up")
+                || lower.contains("discover"))
+            && (lower.contains("network")
+                || lower.contains("lan")
+                || lower.contains("local")
+                || lower.contains("neighborhood")));
     let asks_network = (((lower.contains("network") && !lower.contains("active directory"))
         && !lower.contains("stat")
         && !lower.contains("share")
@@ -1088,6 +1126,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("docker_filesystems")
     } else if asks_wsl_filesystems {
         Some("wsl_filesystems")
+    } else if asks_lan_discovery {
+        Some("lan_discovery")
     } else if asks_storage {
         Some("storage")
     } else if asks_gpo {
@@ -1136,6 +1176,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("env_doctor")
     } else if asks_dns_servers {
         Some("dns_servers")
+    } else if asks_lan_discovery {
+        Some("lan_discovery")
     } else if asks_connectivity {
         Some("connectivity")
     } else if asks_wifi {
@@ -1493,6 +1535,47 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 && (l.contains("rule") || l.contains("inbound") || l.contains("outbound")))
                 || l.contains("firewall rule")
         }),
+        ("lan_discovery", |l| {
+            l.contains("upnp")
+                || l.contains("ssdp")
+                || l.contains("mdns")
+                || l.contains("bonjour")
+                || l.contains("llmnr")
+                || l.contains("network neighborhood")
+                || l.contains("device discovery")
+                || l.contains("local discovery")
+                || l.contains("discover local devices")
+                || l.contains("discover devices")
+                || l.contains("browse computers")
+                || (l.contains("local network")
+                    && (l.contains("discover")
+                        || l.contains("discovery")
+                        || l.contains("neighborhood")
+                        || l.contains("device")
+                        || l.contains("devices")
+                        || l.contains("aware of")))
+                || ((l.contains("netbios") || l.contains("smb visibility"))
+                    && !l.contains("active directory"))
+                || ((l.contains("nas")
+                    || l.contains("printer")
+                    || l.contains("device")
+                    || l.contains("computer")
+                    || l.contains("pc"))
+                    && ((l.contains("can't") && l.contains("see"))
+                        || (l.contains("cannot") && l.contains("see"))
+                        || (l.contains("cant") && l.contains("see"))
+                        || l.contains("can't see")
+                        || l.contains("cannot see")
+                        || l.contains("cant see")
+                        || l.contains("not visible")
+                        || l.contains("not showing up")
+                        || l.contains("not show up")
+                        || l.contains("discover"))
+                    && (l.contains("network")
+                        || l.contains("lan")
+                        || l.contains("local")
+                        || l.contains("neighborhood")))
+        }),
         ("network", |l| {
             l.contains("network adapter")
                 || l.contains("ip address")
@@ -1703,7 +1786,6 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("domain", |l| {
             l.contains("domain")
                 || l.contains("workgroup")
-                || l.contains("netbios")
                 || l.contains("active directory")
         }),
         ("device_health", |l| {
@@ -1746,6 +1828,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     if topics.contains(&"wsl_filesystems") {
         topics.retain(|topic| *topic != "wsl");
         topics.retain(|topic| *topic != "storage");
+    }
+    if topics.contains(&"lan_discovery") {
+        topics.retain(|topic| *topic != "network");
     }
 
     topics
