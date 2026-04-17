@@ -739,6 +739,8 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 - **Turn checkpointing** — ✓ Done. `save_session()` writes `.hematite/session.json` after every turn. On next startup, `load_checkpoint()` surfaces the resume hint in SPECULAR and `running_summary` + `session_memory` are reinjected into the model's system prompt. `/new` and `/forget` both clear the session cleanly via `save_empty_session()`.
 - **Computation integrity routing** — ✓ Done. `needs_computation_sandbox()` in `routing.rs` detects math queries and injects a pre-turn nudge. Shell-to-run_code block recovery and Deno parse error recovery are wired in the tool result handler.
 - **Per-project rule injection** — ✓ Done. Hematite now natively checks for `.hematite/rules.md` and `HEMATITE.md` (alongside `CLAUDE.md`) and injects them into the system prompt. Includes a new `/rules` command for viewing and editing guidelines directly from the TUI.
+- **Ultra-Deterministic Teleportation** — ✓ Done. Spawns fresh terminal sessions on workspace transitions with a specialized handshake greeting and origin-path propagation via `--teleported-from`. Includes a Self-Destruct protocol to sync and exit the source terminal automatically.
+- **Native Tool Mandate** — ✓ Done. Triage hierarchy and system prompts now strictly prioritize native surgical tools over MCP mutations for local filesystem operations, enforced by `surgical_filesystem_mode` in `routing.rs`.
 
 ### Tier 1 — High value, local models ready today
 

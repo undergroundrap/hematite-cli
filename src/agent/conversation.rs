@@ -141,7 +141,7 @@ impl Drop for PlanExecutionGuard {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) enum WorkflowMode {
+pub enum WorkflowMode {
     #[default]
     Auto,
     Ask,
@@ -611,24 +611,37 @@ fn is_natural_language_hallucination(input: &str) -> bool {
     let words = lower.split_whitespace().collect::<Vec<_>>();
 
     // 1. Sentences starting with conversational phrases
-    if words.is_empty() { return false; }
+    if words.is_empty() {
+        return false;
+    }
     let first = words[0];
-    if ["make", "create", "i", "can", "please", "we", "let's", "go", "execute", "run", "how"].contains(&first) {
+    if [
+        "make", "create", "i", "can", "please", "we", "let's", "go", "execute", "run", "how",
+    ]
+    .contains(&first)
+    {
         // If it's more than 2 words, it's likely a sentence, not a command
         if words.len() >= 3 {
-             return true;
+            return true;
         }
     }
 
     // 2. Presence of English stop-words that are rare in CLI commands
-    let stop_words = ["the", "a", "an", "on", "my", "your", "for", "with", "into", "onto"];
+    let stop_words = [
+        "the", "a", "an", "on", "my", "your", "for", "with", "into", "onto",
+    ];
     let stop_count = words.iter().filter(|w| stop_words.contains(w)).count();
     if stop_count >= 2 {
         return true;
     }
 
     // 3. Lack of common CLI separators if many words exist
-    if words.len() >= 5 && !input.contains('-') && !input.contains('/') && !input.contains('\\') && !input.contains('.') {
+    if words.len() >= 5
+        && !input.contains('-')
+        && !input.contains('/')
+        && !input.contains('\\')
+        && !input.contains('.')
+    {
         return true;
     }
 
@@ -2181,11 +2194,12 @@ impl ConversationManager {
                     let response = if topics.len() >= 2 {
                         let mut combined = Vec::new();
                         for topic in topics {
-                            let output = crate::tools::host_inspect::inspect_host(&serde_json::json!({
-                                "topic": topic,
-                            }))
-                            .await
-                            .unwrap_or_else(|e| format!("Error (topic {topic}): {e}"));
+                            let output =
+                                crate::tools::host_inspect::inspect_host(&serde_json::json!({
+                                    "topic": topic,
+                                }))
+                                .await
+                                .unwrap_or_else(|e| format!("Error (topic {topic}): {e}"));
                             combined.push(format!("# Topic: {topic}\n{output}"));
                         }
                         combined.join("\n\n---\n\n")
@@ -2754,7 +2768,7 @@ impl ConversationManager {
                     .to_string(),
             );
         }
-        
+
         // ── Native Tool Mandate: nudge model toward create_directory/write_file for local mutations ──
         if loop_intervention.is_none() && intent.surgical_filesystem_mode {
             loop_intervention = Some(
@@ -2893,8 +2907,11 @@ impl ConversationManager {
                 .await;
 
             let turn_tools = if intent.sovereign_mode {
-                self.tools.iter()
-                    .filter(|t| t.function.name != "shell" && t.function.name != "run_workspace_workflow")
+                self.tools
+                    .iter()
+                    .filter(|t| {
+                        t.function.name != "shell" && t.function.name != "run_workspace_workflow"
+                    })
                     .cloned()
                     .collect::<Vec<_>>()
             } else {
@@ -2954,16 +2971,20 @@ impl ConversationManager {
             if text.is_none() && tool_calls.is_none() {
                 if let Some(reasoning) = usage.as_ref().and_then(|u| {
                     if u.completion_tokens > 2000 {
-                         Some(u.completion_tokens)
+                        Some(u.completion_tokens)
                     } else {
-                         None
+                        None
                     }
                 }) {
                     self.emit_operator_checkpoint(
                         &tx,
                         OperatorCheckpointState::BlockedToolLoop,
-                        format!("Reasoning collapse detected ({} tokens of empty output).", reasoning),
-                    ).await;
+                        format!(
+                            "Reasoning collapse detected ({} tokens of empty output).",
+                            reasoning
+                        ),
+                    )
+                    .await;
                     break;
                 }
             }
@@ -3142,9 +3163,10 @@ impl ConversationManager {
 
                     // --- HALLUCINATION SANITIZER ---
                     if normalized_name == "shell" || normalized_name == "run_workspace_workflow" {
-                        let cmd_val = normalized_args.get("command")
+                        let cmd_val = normalized_args
+                            .get("command")
                             .or_else(|| normalized_args.get("workflow"));
-                        
+
                         if let Some(cmd) = cmd_val.and_then(|v| v.as_str()) {
                             if is_natural_language_hallucination(cmd) {
                                 let err_msg = format!(
@@ -3153,7 +3175,12 @@ impl ConversationManager {
                                      Use the correct surgical tool (like `create_directory`) instead of overthinking.",
                                     cmd
                                 );
-                                let _ = tx.send(InferenceEvent::Thought(format!("Sanitizer error: {}", err_msg))).await;
+                                let _ = tx
+                                    .send(InferenceEvent::Thought(format!(
+                                        "Sanitizer error: {}",
+                                        err_msg
+                                    )))
+                                    .await;
                                 results.push(ToolExecutionOutcome {
                                     call_id: call.id.clone(),
                                     tool_name: normalized_name.clone(),
@@ -4847,7 +4874,8 @@ impl ConversationManager {
                     reason,
                     source: _,
                 } => {
-                    let mutation_label = crate::agent::tool_registry::get_mutation_label(&call.name, &args);
+                    let mutation_label =
+                        crate::agent::tool_registry::get_mutation_label(&call.name, &args);
                     let (approve_tx, approve_rx) = tokio::sync::oneshot::channel::<bool>();
                     let _ = tx
                         .send(InferenceEvent::ApprovalRequired {
@@ -5064,7 +5092,9 @@ impl ConversationManager {
                                                 name: "swarm_apply".to_string(),
                                                 display,
                                                 diff: None,
-                                                mutation_label: Some("Swarm Agentic Integration".to_string()),
+                                                mutation_label: Some(
+                                                    "Swarm Agentic Integration".to_string(),
+                                                ),
                                                 responder: approve_tx,
                                             })
                                             .await;
@@ -5114,7 +5144,8 @@ impl ConversationManager {
                             let path_label =
                                 args.get("path").and_then(|v| v.as_str()).unwrap_or("file");
                             let (appr_tx, appr_rx) = tokio::sync::oneshot::channel::<bool>();
-                            let mutation_label = crate::agent::tool_registry::get_mutation_label(&call.name, &args);
+                            let mutation_label =
+                                crate::agent::tool_registry::get_mutation_label(&call.name, &args);
                             let _ = tx
                                 .send(InferenceEvent::ApprovalRequired {
                                     id: real_id.clone(),
@@ -5186,14 +5217,14 @@ impl ConversationManager {
                 self.record_successful_mutation(action_target_path(&call.name, &args).as_deref())
                     .await;
             }
- 
+
             if call.name == "create_directory" {
                 if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
                     let resolved = crate::tools::file_ops::resolve_candidate(path);
                     latest_target_dir = Some(resolved.to_string_lossy().to_string());
                 }
             }
- 
+
             if let Some(receipt) = self.build_action_receipt(&call.name, &args, &output, is_error) {
                 msg_results.push(receipt);
             }

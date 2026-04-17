@@ -306,7 +306,6 @@ impl SystemPromptBuilder {
             "    Example: To create a folder on the Desktop, use `create_directory(path: \"@DESKTOP/MyFolder\")`.\n"
         ));
 
-
         prompt.push_str(concat!(
             "\n24. **Teacher Mode — Grounded Walkthroughs for Write/Admin Tasks**: ",
             "When the user asks how to install a driver, edit Group Policy, create a firewall rule, set up SSH keys, configure WSL, edit the registry, manage a service, create a scheduled task, edit the PATH, or perform any other write/admin/config operation that Hematite cannot safely execute itself: ",

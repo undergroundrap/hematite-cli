@@ -938,7 +938,10 @@ pub fn get_mutation_label(name: &str, args: &Value) -> Option<String> {
             Some(format!("Create/Overwrite File: {}", path))
         }
         "create_directory" => {
-            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("folder");
+            let path = args
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("folder");
             Some(format!("Create Directory: {}", path))
         }
         "edit_file" | "patch_hunk" | "multi_search_replace" => {

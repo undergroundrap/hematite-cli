@@ -2791,7 +2791,7 @@ pub async fn run_app<B: Backend>(
                         spawn_dive_in_terminal(&path);
                         app.push_message("System", &format!("Teleportation initiated: New terminal launched at {}", path));
                         app.push_message("System", "Teleportation complete. Closing original session to maintain workstation hygiene...");
-                        
+
                         // Self-Destruct Sequence: Graceful exit matching Ctrl+Q behavior
                         app.write_session_report();
                         app.copy_transcript_to_clipboard();
@@ -3755,7 +3755,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                     } else {
                         format!(" {}", approval.display)
                     },
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
                 )),
                 Line::from(vec![
                     Span::styled(

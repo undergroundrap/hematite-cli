@@ -945,7 +945,7 @@ fn safe_path_allow_new(path: &str) -> Result<PathBuf, String> {
 pub(crate) fn resolve_candidate(path: &str) -> PathBuf {
     // 1. Handle Special Sovereign Tokens
     let upper = path.to_uppercase();
-    
+
     // Helper to resolve via dirs crate
     let resolved = if upper.starts_with("@DESKTOP/") {
         dirs::desktop_dir().map(|p| p.join(&path[9..]))
@@ -954,7 +954,11 @@ pub(crate) fn resolve_candidate(path: &str) -> PathBuf {
     } else if upper.starts_with("@DOWNLOADS/") {
         dirs::download_dir().map(|p| p.join(&path[11..]))
     } else if upper.starts_with("@PICTURES/") || upper.starts_with("@IMAGES/") {
-        let offset = if upper.starts_with("@PICTURES/") { 10 } else { 8 };
+        let offset = if upper.starts_with("@PICTURES/") {
+            10
+        } else {
+            8
+        };
         dirs::picture_dir().map(|p| p.join(&path[offset..]))
     } else if upper.starts_with("@VIDEOS/") || upper.starts_with("@MOVIES/") {
         let offset = if upper.starts_with("@VIDEOS/") { 8 } else { 8 };

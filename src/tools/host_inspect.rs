@@ -9728,15 +9728,33 @@ async fn inspect_overclocker() -> Result<String, String> {
             out.push_str("=== SILICON TRENDS (Session) ===\n");
             let first = history.front().unwrap();
             let last = history.back().unwrap();
-            
+
             let temp_diff = last.temperature as i32 - first.temperature as i32;
             let clock_diff = last.core_clock as i32 - first.core_clock as i32;
-            
-            let temp_trend = if temp_diff > 1 { "Rising" } else if temp_diff < -1 { "Falling" } else { "Stable" };
-            let clock_trend = if clock_diff > 10 { "Increasing" } else if clock_diff < -10 { "Decreasing" } else { "Stable" };
-            
-            out.push_str(&format!("- Temperature: {} ({}°C anomaly)\n", temp_trend, temp_diff));
-            out.push_str(&format!("- Core Clock:  {} ({} MHz delta)\n", clock_trend, clock_diff));
+
+            let temp_trend = if temp_diff > 1 {
+                "Rising"
+            } else if temp_diff < -1 {
+                "Falling"
+            } else {
+                "Stable"
+            };
+            let clock_trend = if clock_diff > 10 {
+                "Increasing"
+            } else if clock_diff < -10 {
+                "Decreasing"
+            } else {
+                "Stable"
+            };
+
+            out.push_str(&format!(
+                "- Temperature: {} ({}°C anomaly)\n",
+                temp_trend, temp_diff
+            ));
+            out.push_str(&format!(
+                "- Core Clock:  {} ({} MHz delta)\n",
+                clock_trend, clock_diff
+            ));
             out.push_str("\n");
         }
 

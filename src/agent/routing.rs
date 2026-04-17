@@ -1,7 +1,7 @@
 use super::conversation::WorkflowMode;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum QueryIntentClass {
+pub enum QueryIntentClass {
     ProductTruth,
     RuntimeDiagnosis,
     RepoArchitecture,
@@ -12,7 +12,7 @@ pub(crate) enum QueryIntentClass {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum DirectAnswerKind {
+pub enum DirectAnswerKind {
     About,
     LanguageCapability,
     UnsafeWorkflowPressure,
@@ -36,19 +36,19 @@ pub(crate) enum DirectAnswerKind {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct QueryIntent {
-    pub(crate) primary_class: QueryIntentClass,
-    pub(crate) direct_answer: Option<DirectAnswerKind>,
-    pub(crate) grounded_trace_mode: bool,
-    pub(crate) capability_mode: bool,
-    pub(crate) capability_needs_repo: bool,
-    pub(crate) toolchain_mode: bool,
-    pub(crate) host_inspection_mode: bool,
-    pub(crate) maintainer_workflow_mode: bool,
-    pub(crate) workspace_workflow_mode: bool,
-    pub(crate) architecture_overview_mode: bool,
-    pub(crate) sovereign_mode: bool,
-    pub(crate) surgical_filesystem_mode: bool,
+pub struct QueryIntent {
+    pub primary_class: QueryIntentClass,
+    pub direct_answer: Option<DirectAnswerKind>,
+    pub grounded_trace_mode: bool,
+    pub capability_mode: bool,
+    pub capability_needs_repo: bool,
+    pub toolchain_mode: bool,
+    pub host_inspection_mode: bool,
+    pub maintainer_workflow_mode: bool,
+    pub workspace_workflow_mode: bool,
+    pub architecture_overview_mode: bool,
+    pub sovereign_mode: bool,
+    pub surgical_filesystem_mode: bool,
 }
 
 fn contains_any(haystack: &str, needles: &[&str]) -> bool {
@@ -557,17 +557,23 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("overheating")
         || lower.contains("cpu temp");
     let asks_overclocker = lower.contains("overclocker")
-        || lower.contains("gpu")
-        || lower.contains("vram")
-        || lower.contains("nvidia")
+        || lower.contains("nvidia stats")
         || lower.contains("silicon health")
-        || lower.contains("throttle")
-        || lower.contains("bottleneck")
-        || lower.contains("frequency")
         || lower.contains("mhz")
-        || lower.contains("power draw")
-        || lower.contains("gpu fan")
-        || (lower.contains("rtx") && lower.contains("4070"));
+        || (lower.contains("gpu")
+            && (lower.contains("throttle")
+                || lower.contains("bottleneck")
+                || lower.contains("clock")
+                || lower.contains("fan")
+                || lower.contains("power draw")
+                || lower.contains("frequency")));
+    let asks_hardware = lower.contains("cpu model")
+        || lower.contains("ram size")
+        || lower.contains("hardware spec")
+        || (lower.contains("what hardware") && lower.contains("have"))
+        || (lower.contains("gpu") && (lower.contains("what") || lower.contains("show")))
+        || lower.contains("motherboard")
+        || lower.contains("bios version");
     let asks_activation = lower.contains("activation")
         || lower.contains("slmgr")
         || lower.contains("license status")
@@ -598,8 +604,19 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("folder")
         || lower.contains("how big")
         || lower.contains("biggest");
-    let asks_mutation_intent = (lower.contains("make") || lower.contains("create") || lower.contains("mkdir") || lower.contains("organize") || lower.contains("edit") || lower.contains("write") || lower.contains("save") || lower.contains("update"))
-        && (lower.contains("folder") || lower.contains("directory") || lower.contains("file") || lower.contains("code") || lower.contains("desktop"));
+    let asks_mutation_intent = (lower.contains("make")
+        || lower.contains("create")
+        || lower.contains("mkdir")
+        || lower.contains("organize")
+        || lower.contains("edit")
+        || lower.contains("write")
+        || lower.contains("save")
+        || lower.contains("update"))
+        && (lower.contains("folder")
+            || lower.contains("directory")
+            || lower.contains("file")
+            || lower.contains("code")
+            || lower.contains("desktop"));
     let asks_broad_readiness = lower.contains("local development")
         || lower.contains("ready for local development")
         || (lower.contains("machine") && lower.contains("ready"))
@@ -1031,7 +1048,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     } else if asks_overclocker {
         Some("overclocker")
     } else if asks_network_stats {
-        Some("registry_audit")
+        Some("network_stats")
     } else if asks_share_access {
         Some("share_access")
     } else if asks_thermal {
@@ -1116,6 +1133,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("shares")
     } else if asks_health_report {
         Some("health_report")
+    } else if asks_os_config {
+        Some("os_config")
+    } else if asks_hardware || asks_virtualization {
+        Some("hardware")
     } else if asks_network {
         Some("network")
     } else if asks_updates {
@@ -1134,8 +1155,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("recent_crashes")
     } else if asks_log_check {
         Some("log_check")
-    } else if asks_os_config {
-        Some("os_config")
     } else if asks_scheduled_tasks {
         Some("scheduled_tasks")
     } else if asks_dev_conflicts {
@@ -1196,11 +1215,20 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("root cause")
                 || l.contains("nvidia stats")
                 || l.contains("silicon health")
-                || (l.contains("gpu") && (l.contains("throttle") || l.contains("bottleneck") || l.contains("performance")))
+                || (l.contains("gpu")
+                    && (l.contains("throttle")
+                        || l.contains("bottleneck")
+                        || l.contains("performance")))
         }),
         ("directory", |l| {
-            (l.contains("make") || l.contains("create") || l.contains("mkdir") || l.contains("organize"))
-                && (l.contains("folder") || l.contains("directory") || l.contains("project area") || l.contains("desktop"))
+            (l.contains("make")
+                || l.contains("create")
+                || l.contains("mkdir")
+                || l.contains("organize"))
+                && (l.contains("folder")
+                    || l.contains("directory")
+                    || l.contains("project area")
+                    || l.contains("desktop"))
         }),
         ("ad_user", |l| {
             l.contains("ad user")
@@ -1712,37 +1740,39 @@ pub(crate) fn preferred_maintainer_workflow(user_input: &str) -> Option<&'static
 
 pub fn mentions_symbol_search(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
-    contains_any(&lower, &[
-        "find where",
-        "who calls",
-        "who uses",
-        "where is",
-        "is defined",
-        "is used",
-        "find definition",
-        "find references",
-        "go to definition",
-    ]) && contains_any(&lower, &[
-        "function",
-        "struct",
-        "variable",
-        "symbol",
-        "method",
-        "type",
-        "trait",
-        "module",
-    ])
+    contains_any(
+        &lower,
+        &[
+            "find where",
+            "who calls",
+            "who uses",
+            "where is",
+            "is defined",
+            "is used",
+            "find definition",
+            "find references",
+            "go to definition",
+        ],
+    ) && contains_any(
+        &lower,
+        &[
+            "function", "struct", "variable", "symbol", "method", "type", "trait", "module",
+        ],
+    )
 }
 
 pub fn mentions_commit_intent(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
-    contains_any(&lower, &[
-        "git commit",
-        "commit my",
-        "commit the",
-        "commit changes",
-        "save my progress to git",
-    ])
+    contains_any(
+        &lower,
+        &[
+            "git commit",
+            "commit my",
+            "commit the",
+            "commit changes",
+            "save my progress to git",
+        ],
+    )
 }
 
 pub fn preferred_workspace_workflow(user_input: &str) -> Option<&'static str> {
@@ -1818,12 +1848,12 @@ pub fn preferred_workspace_workflow(user_input: &str) -> Option<&'static str> {
         ],
     );
     let asks_script = {
-        let is_make_file_op = lower.contains("make a folder") 
+        let is_make_file_op = lower.contains("make a folder")
             || lower.contains("make a directory")
             || lower.contains("make a file")
             || lower.contains("make a hello.txt")
             || lower.contains("make x");
-        
+
         let has_script_keyword = contains_any(
             &lower,
             &[
@@ -1942,16 +1972,21 @@ pub(crate) fn is_sovereign_mutation(user_input: &str) -> bool {
             "appdata",
         ],
     );
-    let mentions_simple_creation = contains_any(&lower, &[
-        "make a folder", "create a folder", "create folder", "add folder",
-        "new folder", "mkdir", "create directory", "new directory",
-        "make a directory", "generate a folder"
-    ]);
-    
+    let mentions_simple_creation = (lower.contains("make")
+        || lower.contains("create")
+        || lower.contains("add")
+        || lower.contains("new")
+        || lower.contains("mkdir")
+        || lower.contains("generate"))
+        && (lower.contains("folder")
+            || lower.contains("directory")
+            || lower.contains("project area")
+            || lower.contains("file"));
+
     mentions_location && mentions_simple_creation
 }
 
-pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> QueryIntent {
+pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> QueryIntent {
     let lower = user_input.to_lowercase();
     let trimmed = user_input.trim().to_ascii_lowercase();
 
@@ -2318,9 +2353,31 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
 
 fn is_simple_surgical_filesystem_request(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
-    let mentions_creation = contains_any(&lower, &["make a folder", "make a directory", "make a file", "create a folder", "create a directory", "create a file", "new folder", "new directory"]);
-    let mentions_sovereign = contains_any(&lower, &["@desktop", "@documents", "@downloads", "@home", "~/", "@temp"]);
-    
+    let mentions_creation = contains_any(
+        &lower,
+        &[
+            "make a folder",
+            "make a directory",
+            "make a file",
+            "create a folder",
+            "create a directory",
+            "create a file",
+            "new folder",
+            "new directory",
+        ],
+    );
+    let mentions_sovereign = contains_any(
+        &lower,
+        &[
+            "@desktop",
+            "@documents",
+            "@downloads",
+            "@home",
+            "~/",
+            "@temp",
+        ],
+    );
+
     mentions_creation || mentions_sovereign
 }
 
@@ -2457,28 +2514,52 @@ mod tests {
 
     #[test]
     fn test_overclocker_routing() {
-        assert_eq!(preferred_host_inspection_topic("How's my silicon health looking?"), Some("overclocker"));
-        assert_eq!(preferred_host_inspection_topic("Show me GPU clocks"), Some("overclocker"));
-        assert_eq!(preferred_host_inspection_topic("nvidia stats"), Some("overclocker"));
+        assert_eq!(
+            preferred_host_inspection_topic("How's my silicon health looking?"),
+            Some("overclocker")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("Show me GPU clocks"),
+            Some("overclocker")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("nvidia stats"),
+            Some("overclocker")
+        );
     }
 
     #[test]
     fn test_gpu_throttle_routing() {
-        assert_eq!(preferred_host_inspection_topic("Is my GPU currently throttled and why?"), Some("overclocker"));
-        assert_eq!(preferred_host_inspection_topic("Tell me if my GPU is throttled"), Some("overclocker"));
-        assert_eq!(preferred_host_inspection_topic("Is the GPU overheating?"), Some("overclocker"));
+        assert_eq!(
+            preferred_host_inspection_topic("Is my GPU currently throttled and why?"),
+            Some("overclocker")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("Tell me if my GPU is throttled"),
+            Some("overclocker")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("Is the GPU overheating?"),
+            Some("overclocker")
+        );
     }
 
     #[test]
     fn test_host_inspection_gateway() {
         assert!(mentions_host_inspection_question("is my gpu throttled?"));
-        assert!(mentions_host_inspection_question("check vram and silicon health"));
+        assert!(mentions_host_inspection_question(
+            "check vram and silicon health"
+        ));
         assert!(mentions_host_inspection_question("nvidia stats"));
-        
+
         // Negative tests: General coding/repo questions should NOT trigger the gate
         assert!(!mentions_host_inspection_question("What is a Rust macro?"));
-        assert!(!mentions_host_inspection_question("Explain the repository structure."));
+        assert!(!mentions_host_inspection_question(
+            "Explain the repository structure."
+        ));
         assert!(!mentions_host_inspection_question("how do I build this?"));
-        assert!(!mentions_host_inspection_question("is this code efficient?"));
+        assert!(!mentions_host_inspection_question(
+            "is this code efficient?"
+        ));
     }
 }

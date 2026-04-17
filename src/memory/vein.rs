@@ -743,7 +743,13 @@ impl Vein {
             "rs", "toml", "md", "json", "ts", "tsx", "js", "py", "go", "c", "cpp", "h", "yaml",
             "yml", "txt",
         ];
-        const SKIP_DIRS: &[&str] = &["target", ".git", "node_modules", ".hematite", ".hematite_logs"];
+        const SKIP_DIRS: &[&str] = &[
+            "target",
+            ".git",
+            "node_modules",
+            ".hematite",
+            ".hematite_logs",
+        ];
 
         for entry in walkdir::WalkDir::new(&root)
             .follow_links(false)

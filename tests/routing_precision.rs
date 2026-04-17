@@ -6,7 +6,10 @@ use hematite::agent::routing::{
 #[test]
 fn test_diagnostic_priority_collision_fix() {
     let input = "check for any pending reboot reasons";
-    assert_eq!(preferred_host_inspection_topic(input), Some("pending_reboot"));
+    assert_eq!(
+        preferred_host_inspection_topic(input),
+        Some("pending_reboot")
+    );
 }
 
 #[test]
@@ -37,10 +40,7 @@ fn test_lsp_symbol_routing() {
 fn test_commit_intent_routing() {
     let input = "Commit my progress to git";
     assert!(mentions_commit_intent(input));
-    assert_eq!(
-        preferred_workspace_workflow(input),
-        Some("commit_workflow")
-    );
+    assert_eq!(preferred_workspace_workflow(input), Some("commit_workflow"));
 }
 
 #[test]
