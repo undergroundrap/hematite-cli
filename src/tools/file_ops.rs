@@ -945,35 +945,39 @@ fn safe_path_allow_new(path: &str) -> Result<PathBuf, String> {
 fn resolve_candidate(path: &str) -> PathBuf {
     // 1. Handle Special Sovereign Tokens
     let upper = path.to_uppercase();
-    if upper.starts_with("@DESKTOP/") {
-        if let Some(mut p) = home::home_dir().map(|h| h.join("Desktop")) {
-            p.push(&path[9..]);
-            return p;
-        }
-    } else if upper.starts_with("@HOME/") || upper.starts_with("~/") {
-        if let Some(mut p) = home::home_dir() {
-            let offset = if upper.starts_with("@HOME/") { 6 } else { 2 };
-            p.push(&path[offset..]);
-            return p;
-        }
+    
+    // Helper to resolve via dirs crate
+    let resolved = if upper.starts_with("@DESKTOP/") {
+        dirs::desktop_dir().map(|p| p.join(&path[9..]))
     } else if upper.starts_with("@DOCUMENTS/") {
-        if let Some(mut p) = home::home_dir().map(|h| h.join("Documents")) {
-            p.push(&path[11..]);
-            return p;
-        }
+        dirs::document_dir().map(|p| p.join(&path[11..]))
     } else if upper.starts_with("@DOWNLOADS/") {
-        if let Some(mut p) = home::home_dir().map(|h| h.join("Downloads")) {
-            p.push(&path[11..]);
-            return p;
-        }
-    } else if upper.starts_with("@PICTURES/") {
-        if let Some(mut p) = home::home_dir().map(|h| h.join("Pictures")) {
-            p.push(&path[10..]);
-            return p;
-        }
+        dirs::download_dir().map(|p| p.join(&path[11..]))
+    } else if upper.starts_with("@PICTURES/") || upper.starts_with("@IMAGES/") {
+        let offset = if upper.starts_with("@PICTURES/") { 10 } else { 8 };
+        dirs::picture_dir().map(|p| p.join(&path[offset..]))
+    } else if upper.starts_with("@VIDEOS/") || upper.starts_with("@MOVIES/") {
+        let offset = if upper.starts_with("@VIDEOS/") { 8 } else { 8 };
+        dirs::video_dir().map(|p| p.join(&path[offset..]))
+    } else if upper.starts_with("@MUSIC/") || upper.starts_with("@AUDIO/") {
+        let offset = if upper.starts_with("@MUSIC/") { 7 } else { 7 };
+        dirs::audio_dir().map(|p| p.join(&path[offset..]))
+    } else if upper.starts_with("@HOME/") || upper.starts_with("~/") {
+        let offset = if upper.starts_with("@HOME/") { 6 } else { 2 };
+        dirs::home_dir().map(|p| p.join(&path[offset..]))
     } else if upper.starts_with("@TEMP/") {
-        let mut p = std::env::temp_dir();
-        p.push(&path[6..]);
+        Some(std::env::temp_dir().join(&path[6..]))
+    } else if upper.starts_with("@CACHE/") {
+        dirs::cache_dir().map(|p| p.join(&path[7..]))
+    } else if upper.starts_with("@CONFIG/") {
+        dirs::config_dir().map(|p| p.join(&path[8..]))
+    } else if upper.starts_with("@DATA/") {
+        dirs::data_dir().map(|p| p.join(&path[6..]))
+    } else {
+        None
+    };
+
+    if let Some(p) = resolved {
         return p;
     }
 

@@ -1913,7 +1913,24 @@ pub(crate) fn looks_like_mutation_request(user_input: &str) -> bool {
 
 pub(crate) fn is_sovereign_mutation(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
-    let mentions_location = contains_any(&lower, &["desktop", "documents", "downloads", "pictures", "videos", "music", "temp"]);
+    let mentions_location = contains_any(
+        &lower,
+        &[
+            "desktop",
+            "documents",
+            "downloads",
+            "pictures",
+            "images",
+            "videos",
+            "movies",
+            "music",
+            "audio",
+            "temp",
+            "cache",
+            "config",
+            "appdata",
+        ],
+    );
     let mentions_simple_creation = contains_any(&lower, &[
         "make a folder", "create a folder", "create folder", "add folder",
         "new folder", "mkdir", "create directory", "new directory",

@@ -23,6 +23,9 @@ That is the lens for the capabilities below.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
 - **Hardware telemetry integration**: Uses live disk queue depth, VRAM usage, and I/O metrics to inform architectural grounding.
+- **Deterministic Workstation Routing**: Hardened intent classification that surgically routes workstation requests to precise filesystem tools, pruning risky shell and workflow paths.
+- **Authoritative Path Resolution**: Core-level support for cross-platform tokens (@DESKTOP, @DOCUMENTS, @MUSIC, @VIDEOS, @PICTURES, etc.) using OS-authoritative shell folder hooks.
+- **Heuristic Command Sanitizer**: Mandatory execution gate that blocks natural language injection or conversational "overthinking" from being passed to shell commands.
 - **Workspace inspection visibility**: Access to hidden directories (`.hematite`, `.git`) for locating benchmarking targets and runtime artifacts.
 
 ## 1. Model-Native Reasoning Flow
@@ -128,8 +131,8 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Repo Doctor** (`repo_doctor`) — Workspaces health audit: git status, uncommitted changes, and build-file presence
 - **Disk Benchmark** (`disk_benchmark`) — Sequential read/write throughput and latency measurements on the workspace drive
 - **Overclocker Telemetry** (`overclocker`) — Precision real-time silicon performance: NVIDIA graphics/memory clocks, fan speeds, power draw (W), root-cause throttle decoding (Power vs Thermal), and **Session History** (in-memory trends/anomalies) identifying hardware drift since startup.
-- **Directory Audit** (`directory`, `desktop`, `downloads`) — Arbitrary or known directory listing with file metadata and sizes
-- **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths
+- **Authoritative Directory Audit** (`directory`, `desktop`, `downloads`, `music`, `videos`, `pictures`) — High-precision directory listing using OS-level tokens; instantly routes to surgical tools via the deterministic intent engine.
+- **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths.
 
 **Network Admin topics (14+):**
 

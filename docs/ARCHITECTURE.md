@@ -45,6 +45,8 @@ Owns turn orchestration. The main loop of Hematite.
 - runs harness pre-run orchestration (multi-topic `inspect_host` before the model turn)
 - injects `loop_intervention` for computation routing, shell-block recovery, Deno parse error recovery, and repeat-tool guards
 - coordinates tool execution, verification, compaction, recovery, and final output
+- **Heuristic Command Sanitizer**: Enforces a mandatory gate that blocks AI-generated natural language sentences from being passed as shell command arguments.
+- **Turn-Loop Circuit Breaker**: Tracks tool calls within a single turn to terminate repeated (duplicate) calls and prevent infinite reasoning loops.
 - drives session persistence via `save_session()` / `load_checkpoint()`
 
 This file should not drift back into being a tool registry, product-truth catalog, or giant policy dump.
@@ -56,6 +58,7 @@ Owns query intent classification.
 - classifies stable product-truth questions (identity, capability, mode questions)
 - identifies routing classes: architecture, runtime diagnosis, computation sandbox, toolchain questions
 - **Diagnostic Interception Matrix**: coordinates the 'Workstation Doctor' redirection logic, mapping raw shell commands to internal high-precision `inspect_host` topics
+- **Intent-Based Tool Pruning**: Dynamically hides risky workflow tools (shell, swarm, etc.) when a user's query is classified as a surgical filesystem or diagnostic mutation, forcing the model to use deterministic tools.
 - `needs_computation_sandbox()` — detects math/hash/financial/statistical/date queries and triggers pre-turn nudge toward `run_code`
 - keeps prompt-shaped routing logic out of the main turn loop
 
