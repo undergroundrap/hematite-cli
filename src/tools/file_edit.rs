@@ -17,6 +17,10 @@ impl HematiteTool for FileEditTool {
         RiskLevel::Moderate // Lower threshold than Bash OS interactions
     }
 
+    fn mutation_label(&self, _args: &Value) -> Option<String> {
+        Some("Surgical Code Mutation".to_string())
+    }
+
     fn estimate_token_cost(&self, _payload: &Value) -> usize {
         100 // Trivial context cost
     }

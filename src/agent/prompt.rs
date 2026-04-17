@@ -215,6 +215,12 @@ impl SystemPromptBuilder {
             "\n- Hematite Build: {}",
             crate::hematite_version_display()
         ));
+        if let Ok(user) = std::env::var("USERPROFILE") {
+            prompt.push_str(&format!("\n- USERPROFILE (Authoritative): {user}"));
+        }
+        if let Ok(comp) = std::env::var("COMPUTERNAME") {
+            prompt.push_str(&format!("\n- COMPUTERNAME (Authoritative): {comp}"));
+        }
         prompt.push_str("\n- Operating System: Windows (User workspace)");
 
         if git::is_git_repo(&self.workspace_root) {
@@ -288,82 +294,18 @@ impl SystemPromptBuilder {
         prompt.push_str("22. **Search Tool Priority**: For all text search tasks — finding patterns, symbols, function names, or strings in files — always use `grep_files` or `list_files`. Never use the `shell` tool to run `grep`, `find`, `cat`, `head`, or `tail` for read-only inspection. Reserve `shell` for build commands, test runners, and mutations that have no built-in equivalent.");
 
         prompt.push_str(concat!(
-            "23. **Host Inspection Priority**: NEVER use `shell` for any read-only question about the machine or operating system. ",
-            "Always use `inspect_host` with the correct topic. ",
-            "When the user asks for multiple things, make one `inspect_host` call per topic in sequence — NEVER collapse multiple distinct topics into a single generic topic like 'network'. ",
-            "Example: 'show route table, ARP, DNS cache, and traceroute' → four separate inspect_host calls: route_table, arp, dns_cache, traceroute. ",
-            "Topic routing rules (MANDATORY — no exceptions):\n",
-            "  // MANDATORY: When adding topics to host_inspect.rs, you MUST update this system prompt bullet list.\n",
-            "  - 'is my PC up to date?' / 'pending updates?' / 'Windows Update' → topic='updates'\n",
-            "  - 'is antivirus on?' / 'Defender running?' / 'is my PC protected?' / 'Windows activated?' / 'UAC' → topic='security'\n",
-            "  - 'do I need to restart?' / 'reboot required?' / 'pending restart?' → topic='pending_reboot'\n",
-            "  - 'is my drive healthy?' / 'SMART status' / 'hard drive dying?' / 'SSD healthy?' → topic='disk_health'\n",
-            "  - 'battery' / 'battery life' / 'charge level' / 'battery wear' → topic='battery'\n",
-            "  - 'why did PC restart?' / 'BSOD?' / 'blue screen' / 'app crash' / 'crash history' → topic='recent_crashes'\n",
-            "  - 'scheduled tasks' / 'task scheduler' / 'what runs on a timer?' → topic='scheduled_tasks'\n",
-            "  - 'local AD user SID' / 'group memberships' / 'administrator SID' / 'domain identity' → topic='ad_user'\n",
-            "  - 'local users' / 'administrators group' / 'who is logged in' / 'net user' → topic='user_accounts'\n",
-            "  - 'DNS SRV' / 'MX record' / 'TXT record' / 'dig' / 'nslookup' → topic='dns_lookup'\n",
-            "  - 'Hyper-V VMs' / 'VM inventory' / 'virtual machine load' / 'vmmem' → topic='hyperv'\n",
-            "  - 'DHCP lease' / 'IP config' / 'adapter detail' / 'physical address' → topic='ip_config'\n",
-            "  - 'dev conflict' / 'toolchain conflict' / 'python wrong version' / 'duplicate PATH' → topic='dev_conflicts'\n",
-            "  - 'disk space' / 'drive capacity' / 'cache size' / 'storage' → topic='storage'\n",
-            "  - 'CPU model' / 'RAM size' / 'GPU' / 'hardware specs' / 'what hardware do I have?' → topic='hardware'\n",
-            "  - 'silicon health' / 'how are my clocks?' / 'nvidia stats' / 'overclocker' → topic='overclocker'\n",
-            "  - 'max temp' / 'thermal throttle' / 'thermal deep dive' → topic='thermal'\n",
-            "  - 'system health' / 'overall status' → topic='health_report'\n",
-            "  - 'network adapters' / 'IP address' / 'DNS' / 'wifi' → topic='network'\n",
-            "  - 'am I connected?' / 'internet access?' / 'ping google' / 'DNS resolving?' / 'no internet' → topic='connectivity'\n",
-            "  - 'wifi signal' / 'wireless network' / 'what SSID am I on?' / 'access point' → topic='wifi'\n",
-            "  - 'active connections' / 'tcp connections' / 'netstat' / 'open sockets' → topic='connections'\n",
-            "  - 'vpn connected?' / 'is VPN on?' / 'virtual private network' → topic='vpn'\n",
-            "  - 'proxy settings' / 'system proxy' / 'winhttp proxy' → topic='proxy'\n",
-            "  - 'firewall rules' / 'what does the firewall block?' / 'inbound rules' / 'outbound rules' → topic='firewall_rules'\n",
-            "  - 'traceroute' / 'trace route' / 'how many hops?' / 'network path to X' → topic='traceroute' (optional: host arg defaults to 8.8.8.8)\n",
-            "  - 'dns cache' / 'cached dns entries' / 'what dns lookups are cached?' → topic='dns_cache'\n",
-            "  - 'arp table' / 'arp cache' / 'mac addresses on network' / 'ip to mac' → topic='arp'\n",
-            "  - 'route table' / 'routing table' / 'default gateway' / 'network routes' / 'next hop' → topic='route_table'\n",
-            "  - 'running services' / 'service status' → topic='services'\n",
-            "  - 'running processes' / 'what is using RAM?' / 'CPU usage by process' → topic='processes'\n",
-            "  - 'listening ports' / 'what is on port 3000?' → topic='ports'\n",
-            "  - 'resource load' / 'CPU %' / 'RAM %' / 'performance' → topic='resource_load'\n",
-            "  - 'fix cargo not found' / 'fix port in use' → topic='fix_plan'\n",
-            "  - 'how do I install a driver' / 'update GPU driver' → topic='fix_plan' with issue='install driver'\n",
-            "  - 'how do I create a firewall rule' / 'open a port in the firewall' → topic='fix_plan' with issue='create firewall rule'\n",
-            "  - 'how do I generate SSH keys' / 'set up SSH key pair' → topic='fix_plan' with issue='generate ssh key'\n",
-            "  - 'how do I install WSL' / 'set up Windows Subsystem for Linux' → topic='fix_plan' with issue='set up wsl'\n",
-            "  - 'how do I start/stop a service' / 'enable a service at startup' → topic='fix_plan' with issue='configure service'\n",
-            "  - 'how do I activate Windows' / 'windows not activated' → topic='fix_plan' with issue='activate windows'\n",
-            "  - 'how do I edit the registry' / 'add a registry key' → topic='fix_plan' with issue='edit registry'\n",
-            "  - 'how do I create a scheduled task' / 'run script on startup' → topic='fix_plan' with issue='create scheduled task'\n",
-            "  - 'free up disk space' / 'disk full' / 'reclaim space' → topic='fix_plan' with issue='free up disk space'\n",
-            "  - 'how do I edit Group Policy' / 'gpedit' → topic='fix_plan' with issue='edit group policy'\n",
-            "  - 'PATH entries' / 'which tools are installed?' → topic='toolchains' or 'path'\n",
-            "  - 'docker running?' / 'show containers' / 'docker images' / 'compose projects' → topic='docker'\n",
-            "  - 'wsl distros' / 'ubuntu on windows' / 'windows subsystem for linux' → topic='wsl'\n",
-            "  - 'ssh config' / 'ssh keys' / 'sshd running?' / 'known_hosts' / 'authorized_keys' → topic='ssh'\n",
-            "  - 'git config' / 'git global settings' / 'git user.name' / 'git aliases' → topic='git_config'\n",
-            "  - 'installed software' / 'installed programs' / 'what is installed?' / 'winget list' → topic='installed_software'\n",
-            "  - 'environment variables' / 'env vars' / 'show env' / 'JAVA_HOME set?' → topic='env'\n",
-            "  - 'hosts file' / '/etc/hosts' / 'host entries' / 'custom domain redirect' → topic='hosts_file'\n",
-            "  - 'is postgres running?' / 'mysql service' / 'redis up?' / 'local database engines' / 'mongodb' / 'sqlite' → topic='databases'\n",
-            "  - 'local users' / 'who is logged in?' / 'who am i' / 'admin group members' / 'is this elevated?' / 'active sessions' / 'net user' → topic='user_accounts'\n",
-            "  - 'audit policy' / 'what is being logged?' / 'is auditing enabled?' / 'auditpol' / 'security audit' / 'event auditing' → topic='audit_policy'\n",
-            "  - 'SMB shares' / 'network shares' / 'who is using my folder?' / 'mapped drives' / 'net session' / 'SMB1 enabled?' → topic='shares'\n",
-            "  - 'what DNS servers am I using?' / 'configured DNS resolver' / 'nameservers' / 'DNS over HTTPS' / 'DoH configured?' → topic='dns_servers'\n",
-            "  - 'is my drive encrypted?' / 'BitLocker status' / 'manage-bde' / 'disk encryption' → topic='bitlocker'\n",
-            "  - 'RDP enabled?' / 'remote desktop' / 'port 3389' → topic='rdp'\n",
-            "  - 'GPO applied' / 'group policy' → topic='gpo'\n",
-            "  - 'certificates' / 'SSL certs' / 'is it expiring?' → topic='certificates'\n",
-            "  - 'system integrity' / 'SFC' / 'DISM' → topic='integrity'\n",
-            "  - 'devices' / 'Yellow Bangs' / 'hardware errors' → topic='device_health'\n",
-            "  - 'drivers' / 'kernel drivers' → topic='drivers'\n",
-            "  - 'peripherals' / 'USB devices' / 'HID' → topic='peripherals'\n",
-            "  - 'sessions' / 'logon history' → topic='sessions'\n",
-            "  - 'repo health' / 'git status' / 'workspace audit' → topic='repo_doctor'\n",
-            "  Do NOT use shell, Get-ItemProperty, registry reads, wmic, Get-CimInstance, Get-WinEvent, Get-PhysicalDisk, Get-MpComputerStatus, Get-ScheduledTask, docker CLI, wsl CLI, git config, winget, dpkg, or any shell diagnostic command. ",
-            "Use inspect_host exclusively. If env_doctor answers the question, do not follow with path unless the user explicitly asks for raw PATH entries."
+            "23. **Host Inspection Discovery**: For any read-only diagnostic or machine state question, use `inspect_host` with the most relevant topic. Available topics include: hardware, overclocker, thermal, resource_load, processes, services, ports, connections, network, connectivity, wifi, vpn, security, updates, health_report, storage, disk_health, battery, recent_crashes, scheduled_tasks, ad_user, dns_lookup, hyperv, ip_config, docker, wsl, ssh, git_config, env, registry_audit, and fix_plan.\n",
+            "24. **Discovery Principle**: If unsure which topic to use, call `inspect_host(topic: \"summary\")` first. NEVER use `shell` for read-only workstation investigations.\n",
+            "25. **Sequential Multi-Topic**: When asked for distinct subsystems (e.g. 'check firewall and network'), make separate `inspect_host` calls in a sequence.\n",
+            "26. **SOVEREIGN PATHING (Indestructible Creation)**: When creating or accessing files/folders in common user areas, you MUST use the following **Sovereign Tokens** at the start of the `path` argument in `create_directory` or `write_file`. This guarantees 100% path accuracy and prevents shell errors:\n",
+            "    - `@DESKTOP/` -> Use for everything on the Desktop.\n",
+            "    - `@DOCUMENTS/` -> Use for the Documents folder.\n",
+            "    - `@DOWNLOADS/` -> Use for the Downloads folder.\n",
+            "    - `@HOME/` or `~/` -> Use for the user home directory.\n",
+            "    - `@TEMP/` -> Use for the system temp directory.\n",
+            "    Example: To create a folder on the Desktop, use `create_directory(path: \"@DESKTOP/MyFolder\")`.\n"
         ));
+
 
         prompt.push_str(concat!(
             "\n24. **Teacher Mode — Grounded Walkthroughs for Write/Admin Tasks**: ",
@@ -389,8 +331,12 @@ impl SystemPromptBuilder {
             "prime checks or factorization, ",
             "and any calculation where being wrong by even a small amount would matter. ",
             "A model answer for these is a guess. A run_code answer is a proof. ",
-            "When in doubt: write the code, run it, return the real result."
+            "When in doubt: write the code, run it, return the result."
         ));
+        prompt.push_str("28. **Git Commit Discipline**: When instructed to 'commit transitions' or 'save progress to git', you MUST first ensure the current state passes the project's build/test suite if available. If `verify_build` has not been run for the latest changed files, recommend running it immediately before the commit.\n");
+        prompt.push_str("29. **Hardened Shell Discipline**: You must never use the `shell` tool for operations that have a specific mutation tool (e.g. `write_file`, `create_directory`, `patch_hunk`). The `shell` tool is reserved for build/test execution and system-level operations that have no surgical equivalent.\n");
+        prompt.push_str("30. **TOOL DISCIPLINE (Strict)**: If the user asks for a directory or file operation (mkdir, cat, touch, rm, mv), you MUST use the dedicated Hematite tools (create_directory, read_file, update_file/patch_hunk). NEVER improvise with `shell` for these tasks. This prevents path-hallucination and ensures machine-aware safety.\n");
+        prompt.push_str("31. **Isolation Guard (Mega-Directory Avoidance)**: If the current workspace root is a 'Mega-Directory' (Desktop, Documents, Home, or a drive root like C:\\), you MUST nudge the user to move the project into a dedicated subdirectory. This prevents workspace pollution and ensures session indexing does not leak into unrelated projects.\n");
 
         prompt
     }

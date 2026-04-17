@@ -606,6 +606,35 @@ pub fn get_tools() -> Vec<ToolDefinition> {
     crate::agent::tool_registry::get_tools()
 }
 
+fn is_natural_language_hallucination(input: &str) -> bool {
+    let lower = input.to_lowercase();
+    let words = lower.split_whitespace().collect::<Vec<_>>();
+
+    // 1. Sentences starting with conversational phrases
+    if words.is_empty() { return false; }
+    let first = words[0];
+    if ["make", "create", "i", "can", "please", "we", "let's", "go", "execute", "run", "how"].contains(&first) {
+        // If it's more than 2 words, it's likely a sentence, not a command
+        if words.len() >= 3 {
+             return true;
+        }
+    }
+
+    // 2. Presence of English stop-words that are rare in CLI commands
+    let stop_words = ["the", "a", "an", "on", "my", "your", "for", "with", "into", "onto"];
+    let stop_count = words.iter().filter(|w| stop_words.contains(w)).count();
+    if stop_count >= 2 {
+        return true;
+    }
+
+    // 3. Lack of common CLI separators if many words exist
+    if words.len() >= 5 && !input.contains('-') && !input.contains('/') && !input.contains('\\') && !input.contains('.') {
+        return true;
+    }
+
+    false
+}
+
 pub struct ConversationManager {
     /// Full conversation history in OpenAI format.
     pub history: Vec<ChatMessage>,
@@ -2135,12 +2164,28 @@ impl ConversationManager {
                     return Ok(());
                 }
                 DirectAnswerKind::HostInspection => {
-                    let topic = preferred_host_inspection_topic(&effective_user_input).unwrap_or("summary");
-                    let response = crate::tools::host_inspect::inspect_host(&serde_json::json!({
-                        "topic": topic,
-                    }))
-                    .await
-                    .unwrap_or_else(|e| format!("Error: {}", e));
+                    let topics = all_host_inspection_topics(&effective_user_input);
+                    let response = if topics.len() >= 2 {
+                        let mut combined = Vec::new();
+                        for topic in topics {
+                            let output = crate::tools::host_inspect::inspect_host(&serde_json::json!({
+                                "topic": topic,
+                            }))
+                            .await
+                            .unwrap_or_else(|e| format!("Error (topic {topic}): {e}"));
+                            combined.push(format!("# Topic: {topic}\n{output}"));
+                        }
+                        combined.join("\n\n---\n\n")
+                    } else {
+                        let topic = preferred_host_inspection_topic(&effective_user_input)
+                            .unwrap_or("summary");
+                        crate::tools::host_inspect::inspect_host(&serde_json::json!({
+                            "topic": topic,
+                        }))
+                        .await
+                        .unwrap_or_else(|e| format!("Error: {e}"))
+                    };
+
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
                         .await;
                     return Ok(());
@@ -2823,9 +2868,18 @@ impl ConversationManager {
             self.emit_prompt_pressure_for_messages(&tx, &prompt_msgs)
                 .await;
 
+            let turn_tools = if intent.sovereign_mode {
+                self.tools.iter()
+                    .filter(|t| t.function.name != "shell" && t.function.name != "run_workspace_workflow")
+                    .cloned()
+                    .collect::<Vec<_>>()
+            } else {
+                self.tools.clone()
+            };
+
             let (mut text, mut tool_calls, usage, finish_reason) = match self
                 .engine
-                .call_with_tools(&prompt_msgs, &self.tools, routed_model.as_deref())
+                .call_with_tools(&prompt_msgs, &turn_tools, routed_model.as_deref())
                 .await
             {
                 Ok(result) => result,
@@ -2868,6 +2922,27 @@ impl ConversationManager {
                 }
             };
             self.emit_provider_live(&tx).await;
+
+            // ── LOOP GUARD: Reasoning Collapse Detection ──────────────────────────
+            // If the model returns no text AND no tool calls, but has a massive
+            // block of hidden reasoning (often seen as infinite newlines in small models),
+            // trigger a safety stop to prevent token drain.
+            if text.is_none() && tool_calls.is_none() {
+                if let Some(reasoning) = usage.as_ref().and_then(|u| {
+                    if u.completion_tokens > 2000 {
+                         Some(u.completion_tokens)
+                    } else {
+                         None
+                    }
+                }) {
+                    self.emit_operator_checkpoint(
+                        &tx,
+                        OperatorCheckpointState::BlockedToolLoop,
+                        format!("Reasoning collapse detected ({} tokens of empty output).", reasoning),
+                    ).await;
+                    break;
+                }
+            }
 
             // Update TUI token counter with actual usage from LM Studio.
             if let Some(ref u) = usage {
@@ -3040,6 +3115,35 @@ impl ConversationManager {
                         gemma4_model,
                         latest_user_prompt,
                     );
+
+                    // --- HALLUCINATION SANITIZER ---
+                    if normalized_name == "shell" || normalized_name == "run_workspace_workflow" {
+                        let cmd_val = normalized_args.get("command")
+                            .or_else(|| normalized_args.get("workflow"));
+                        
+                        if let Some(cmd) = cmd_val.and_then(|v| v.as_str()) {
+                            if is_natural_language_hallucination(cmd) {
+                                let err_msg = format!(
+                                    "HALLUCINATION BLOCKED: You tried to pass natural language ('{}') into a command field. \
+                                     Commands must be literal executables (e.g. `npm install`, `mkdir path`). \
+                                     Use the correct surgical tool (like `create_directory`) instead of overthinking.",
+                                    cmd
+                                );
+                                let _ = tx.send(InferenceEvent::Thought(format!("Sanitizer error: {}", err_msg))).await;
+                                results.push(ToolExecutionOutcome {
+                                    call_id: call.id.clone(),
+                                    tool_name: normalized_name.clone(),
+                                    args: normalized_args.clone(),
+                                    output: err_msg,
+                                    is_error: true,
+                                    blocked_by_policy: false,
+                                    msg_results: Vec::new(),
+                                });
+                                continue;
+                            }
+                        }
+                    }
+
                     let key = canonical_tool_call_key(&normalized_name, &normalized_args);
                     if seen_call_keys.insert(key) {
                         let repeat_guard_exempt = matches!(
@@ -3176,11 +3280,12 @@ impl ConversationManager {
                         tool_name.as_str(),
                         "verify_build" | "git_commit" | "git_push"
                     );
-                    if *repeat_count >= 3 && !repeat_guard_exempt {
+                    if *repeat_count >= 2 && !repeat_guard_exempt {
                         loop_intervention = Some(format!(
                             "STOP. You have called `{}` with identical arguments {} times and keep getting the same result. \
                              Do not call it again. Either answer directly from what you already know, \
-                             use a different tool or approach, or ask the user for clarification.",
+                             use a different tool or approach (e.g. if reading the same file, use grep or LSP symbols instead), \
+                             or ask the user for clarification.",
                             tool_name, *repeat_count
                         ));
                         let _ = tx
@@ -3189,6 +3294,16 @@ impl ConversationManager {
                                 tool_name, *repeat_count
                             )))
                             .await;
+                    }
+
+                    if *repeat_count >= 3 && !repeat_guard_exempt {
+                        self.emit_runtime_failure(
+                            &tx,
+                            RuntimeFailureClass::ToolLoop,
+                            &format!("Hard termination: `{}` called {} times with identical arguments. Reasoning collapse detected.", tool_name, *repeat_count),
+                        )
+                        .await;
+                        return Ok(());
                     }
 
                     if is_error {
@@ -4691,6 +4806,7 @@ impl ConversationManager {
                     reason,
                     source: _,
                 } => {
+                    let mutation_label = crate::agent::tool_registry::get_mutation_label(&call.name, &args);
                     let (approve_tx, approve_rx) = tokio::sync::oneshot::channel::<bool>();
                     let _ = tx
                         .send(InferenceEvent::ApprovalRequired {
@@ -4698,6 +4814,7 @@ impl ConversationManager {
                             name: call.name.clone(),
                             display: format!("{}\nWhy: {}", display, reason),
                             diff: None,
+                            mutation_label,
                             responder: approve_tx,
                         })
                         .await;
@@ -4906,6 +5023,7 @@ impl ConversationManager {
                                                 name: "swarm_apply".to_string(),
                                                 display,
                                                 diff: None,
+                                                mutation_label: Some("Swarm Agentic Integration".to_string()),
                                                 responder: approve_tx,
                                             })
                                             .await;
@@ -4955,12 +5073,14 @@ impl ConversationManager {
                             let path_label =
                                 args.get("path").and_then(|v| v.as_str()).unwrap_or("file");
                             let (appr_tx, appr_rx) = tokio::sync::oneshot::channel::<bool>();
+                            let mutation_label = crate::agent::tool_registry::get_mutation_label(&call.name, &args);
                             let _ = tx
                                 .send(InferenceEvent::ApprovalRequired {
                                     id: real_id.clone(),
                                     name: call.name.clone(),
                                     display: format!("Edit preview: {}", path_label),
                                     diff: Some(diff_text),
+                                    mutation_label,
                                     responder: appr_tx,
                                 })
                                 .await;

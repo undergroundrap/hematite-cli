@@ -665,6 +665,8 @@ pub enum InferenceEvent {
         /// Pre-formatted diff: lines starting with "- " are removals, "+ " are additions,
         /// "---" is a file header.  None means a plain high-risk approval (no diff).
         diff: Option<String>,
+        /// Intent label for mutation protocol (Cyan box trigger).
+        mutation_label: Option<String>,
         responder: tokio::sync::oneshot::Sender<bool>,
     },
     /// The current agent turn is complete.

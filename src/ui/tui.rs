@@ -35,6 +35,7 @@ pub struct PendingApproval {
     pub diff: Option<String>,
     /// Current scroll offset for the diff body (lines scrolled down).
     pub diff_scroll: u16,
+    pub mutation_label: Option<String>,
     pub responder: tokio::sync::oneshot::Sender<bool>,
 }
 
@@ -2712,13 +2713,14 @@ pub async fn run_app<B: Backend>(
                         app.active_context.retain(|f| f.path != name || f.status != "Running");
                         app.manual_scroll_offset = None;
                     }
-                    InferenceEvent::ApprovalRequired { id: _, name, display, diff, responder } => {
+                    InferenceEvent::ApprovalRequired { id: _, name, display, diff, mutation_label, responder } => {
                         let is_diff = diff.is_some();
                         app.awaiting_approval = Some(PendingApproval {
                             display: display.clone(),
                             tool_name: name,
                             diff,
                             diff_scroll: 0,
+                            mutation_label,
                             responder,
                         });
                         if is_diff {
@@ -3652,7 +3654,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             .split(area);
 
         // ── Modal Header ─────────────────────────────────────────────────────
-        let (title_str, title_color) = if is_diff_preview {
+        let (title_str, title_color) = if let Some(_) = &approval.mutation_label {
+            (" MUTATION REQUESTED — AUTHORISE THE WORKFLOW ", Color::Cyan)
+        } else if is_diff_preview {
             (" DIFF PREVIEW — REVIEW BEFORE APPLYING ", Color::Yellow)
         } else {
             (" HIGH-RISK OPERATION REQUESTED ", Color::Red)
@@ -3687,7 +3691,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         );
 
         // ── Modal Body ───────────────────────────────────────────────────────
-        let border_color = if is_diff_preview {
+        let border_color = if let Some(_) = &approval.mutation_label {
+            Color::Cyan
+        } else if is_diff_preview {
             Color::Yellow
         } else {
             Color::Red
@@ -3698,8 +3704,12 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             let removed = diff_text.lines().filter(|l| l.starts_with("- ")).count();
             let mut body_lines: Vec<Line> = vec![
                 Line::from(Span::styled(
-                    format!(" {}", approval.display),
-                    Style::default().fg(Color::Cyan),
+                    if let Some(label) = &approval.mutation_label {
+                        format!(" INTENT: {}", label)
+                    } else {
+                        format!(" {}", approval.display)
+                    },
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
                 )),
                 Line::from(vec![
                     Span::styled(
@@ -3750,12 +3760,26 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             );
         } else {
             let body_text = vec![
-                Line::from(Span::raw(format!(" Tool: {}", approval.tool_name))),
+                Line::from(Span::raw("")),
                 Line::from(Span::styled(
-                    format!(" ❯ {}", approval.display),
-                    Style::default().fg(Color::Cyan),
+                    if let Some(label) = &approval.mutation_label {
+                        format!(" INTENT: {}", label)
+                    } else {
+                        format!(" ACTION: {}", approval.display)
+                    },
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                )),
+                Line::from(Span::raw("")),
+                Line::from(Span::styled(
+                    format!("  Tool: {}", approval.tool_name),
+                    Style::default().fg(Color::DarkGray),
                 )),
             ];
+            if approval.mutation_label.is_some() {
+                // For mutations, show the original display (e.g. path) as extra info
+            }
             f.render_widget(
                 Paragraph::new(body_text)
                     .block(
@@ -3763,7 +3787,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                             .borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT)
                             .border_style(Style::default().fg(border_color)),
                     )
-                    .wrap(Wrap { trim: true }),
+                    .alignment(ratatui::layout::Alignment::Center),
                 chunks[1],
             );
         }

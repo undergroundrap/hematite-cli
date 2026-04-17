@@ -68,13 +68,6 @@ impl WorkspaceInvocation {
 }
 
 fn require_project_workspace_root() -> Result<PathBuf, String> {
-    if !crate::tools::file_ops::is_project_workspace() {
-        let root = crate::tools::file_ops::workspace_root();
-        return Err(format!(
-            "No project workspace is locked right now. Hematite is currently rooted at {}. Launch Hematite in the target project directory before asking it to run project-specific scripts or commands.",
-            root.display()
-        ));
-    }
     Ok(crate::tools::file_ops::workspace_root())
 }
 

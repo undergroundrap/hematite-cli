@@ -5,6 +5,7 @@ pub trait HematiteTool {
     fn name(&self) -> &'static str;
     fn description(&self) -> &'static str;
     fn risk_level(&self, args: &serde_json::Value) -> RiskLevel;
+    fn mutation_label(&self, args: &serde_json::Value) -> Option<String>;
 
     /// Estimates the context window impact before execution
     fn estimate_token_cost(&self, args: &Value) -> usize;

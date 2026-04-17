@@ -647,6 +647,24 @@ pub async fn list_files(args: &Value) -> Result<String, String> {
     Ok(out)
 }
 
+// ── create_directory ──────────────────────────────────────────────────────────
+
+pub async fn create_directory(args: &Value) -> Result<String, String> {
+    let path = require_str(args, "path")?;
+    let abs = safe_path_allow_new(path)?;
+
+    if abs.exists() {
+        if abs.is_dir() {
+            return Ok(format!("Directory already exists: {path}"));
+        } else {
+            return Err(format!("A file already exists at this path: {path}"));
+        }
+    }
+
+    fs::create_dir_all(&abs).map_err(|e| format!("create_directory: {e} ({path})"))?;
+    Ok(format!("Created directory: {path}"))
+}
+
 // ── grep_files ────────────────────────────────────────────────────────────────
 
 pub async fn grep_files(args: &Value) -> Result<String, String> {
@@ -925,6 +943,41 @@ fn safe_path_allow_new(path: &str) -> Result<PathBuf, String> {
 }
 
 fn resolve_candidate(path: &str) -> PathBuf {
+    // 1. Handle Special Sovereign Tokens
+    let upper = path.to_uppercase();
+    if upper.starts_with("@DESKTOP/") {
+        if let Some(mut p) = home::home_dir().map(|h| h.join("Desktop")) {
+            p.push(&path[9..]);
+            return p;
+        }
+    } else if upper.starts_with("@HOME/") || upper.starts_with("~/") {
+        if let Some(mut p) = home::home_dir() {
+            let offset = if upper.starts_with("@HOME/") { 6 } else { 2 };
+            p.push(&path[offset..]);
+            return p;
+        }
+    } else if upper.starts_with("@DOCUMENTS/") {
+        if let Some(mut p) = home::home_dir().map(|h| h.join("Documents")) {
+            p.push(&path[11..]);
+            return p;
+        }
+    } else if upper.starts_with("@DOWNLOADS/") {
+        if let Some(mut p) = home::home_dir().map(|h| h.join("Downloads")) {
+            p.push(&path[11..]);
+            return p;
+        }
+    } else if upper.starts_with("@PICTURES/") {
+        if let Some(mut p) = home::home_dir().map(|h| h.join("Pictures")) {
+            p.push(&path[10..]);
+            return p;
+        }
+    } else if upper.starts_with("@TEMP/") {
+        let mut p = std::env::temp_dir();
+        p.push(&path[6..]);
+        return p;
+    }
+
+    // 2. Fallback to Standard Resolution
     let p = Path::new(path);
     if p.is_absolute() {
         p.to_path_buf()

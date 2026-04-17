@@ -47,6 +47,7 @@ pub(crate) struct QueryIntent {
     pub(crate) maintainer_workflow_mode: bool,
     pub(crate) workspace_workflow_mode: bool,
     pub(crate) architecture_overview_mode: bool,
+    pub(crate) sovereign_mode: bool,
 }
 
 fn contains_any(haystack: &str, needles: &[&str]) -> bool {
@@ -462,6 +463,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("package managers")
         || lower.contains("shims")
         || lower.contains("path drift")
+        || lower.contains("environment is broken")
+        || lower.contains("env is broken")
         || (lower.contains("dev machine") && lower.contains("off"))
         || (lower.contains("environment") && lower.contains("sane"));
     let asks_network = (((lower.contains("network") && !lower.contains("active directory"))
@@ -513,7 +516,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("toolchains")
         || (lower.contains("installed") && lower.contains("version"))
         || (lower.contains("detect") && lower.contains("version"));
-    let asks_permissions = lower.contains("permission")
+    let _asks_permissions = lower.contains("permission")
         || lower.contains("access control")
         || lower.contains("get-acl")
         || lower.contains("acl ")
@@ -521,14 +524,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("takeown")
         || lower.contains("ntfs permission")
         || (lower.contains("who has") && lower.contains("access"));
-    let asks_login_history = lower.contains("login history")
+    let _asks_login_history = lower.contains("login history")
         || lower.contains("logon history")
         || lower.contains("who logged in")
         || lower.contains("recent logon")
         || lower.contains("failed logon")
         || lower.contains("event id 4624")
         || lower.contains("eventid 4624");
-    let asks_registry_audit = lower.contains("registry audit")
+    let _asks_registry_audit = lower.contains("registry audit")
         || lower.contains("persistence")
         || lower.contains("debugger hijack")
         || lower.contains("ifeo")
@@ -594,6 +597,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("folder")
         || lower.contains("how big")
         || lower.contains("biggest");
+    let asks_mutation_intent = (lower.contains("make") || lower.contains("create") || lower.contains("mkdir") || lower.contains("organize") || lower.contains("edit") || lower.contains("write") || lower.contains("save") || lower.contains("update"))
+        && (lower.contains("folder") || lower.contains("directory") || lower.contains("file") || lower.contains("code") || lower.contains("desktop"));
     let asks_broad_readiness = lower.contains("local development")
         || lower.contains("ready for local development")
         || (lower.contains("machine") && lower.contains("ready"))
@@ -603,7 +608,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("power settings")
         || lower.contains("powercfg")
         || lower.contains("uptime")
-        || lower.contains("reboot")
         || lower.contains("boot time")
         || lower.contains("last boot");
     let asks_health_report = lower.contains("health report")
@@ -997,6 +1001,13 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("udp")
             && (lower.contains("port") || lower.contains("listen") || lower.contains("open")));
 
+    // If the user has a clear mutation intent (create folder, edit file),
+    // we should NOT route to a read-only host inspection topic, as that would
+    // trigger a pre-run crash. The main LLM turn will handle the mutation.
+    if asks_mutation_intent {
+        return None;
+    }
+
     // Priority 1: High-Precision Enterprise Triage (IT Pro Plus)
     if asks_overclocker {
         Some("overclocker")
@@ -1014,11 +1025,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("disk_benchmark")
     } else if asks_fix_plan {
         Some("fix_plan")
-    } else if asks_permissions {
-        Some("permissions")
-    } else if asks_login_history {
-        Some("login_history")
-    } else if asks_registry_audit {
+    } else if asks_env_doctor {
+        Some("env_doctor")
+    } else if asks_overclocker {
+        Some("overclocker")
+    } else if asks_network_stats {
         Some("registry_audit")
     } else if asks_share_access {
         Some("share_access")
@@ -1102,8 +1113,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("udp_ports")
     } else if asks_shares {
         Some("shares")
-    } else if asks_os_config {
-        Some("os_config")
+    } else if asks_health_report {
+        Some("health_report")
     } else if asks_network {
         Some("network")
     } else if asks_updates {
@@ -1122,6 +1133,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("recent_crashes")
     } else if asks_log_check {
         Some("log_check")
+    } else if asks_os_config {
+        Some("os_config")
     } else if asks_scheduled_tasks {
         Some("scheduled_tasks")
     } else if asks_dev_conflicts {
@@ -1158,8 +1171,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("toolchains")
     } else if asks_resource_load {
         Some("resource_load")
-    } else if asks_health_report {
-        Some("health_report")
     } else if asks_directory {
         Some("directory")
     } else if mentions_host_inspection_question(&lower) {
@@ -1185,6 +1196,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("nvidia stats")
                 || l.contains("silicon health")
                 || (l.contains("gpu") && (l.contains("throttle") || l.contains("bottleneck") || l.contains("performance")))
+        }),
+        ("directory", |l| {
+            (l.contains("make") || l.contains("create") || l.contains("mkdir") || l.contains("organize"))
+                && (l.contains("folder") || l.contains("directory") || l.contains("project area") || l.contains("desktop"))
         }),
         ("ad_user", |l| {
             l.contains("ad user")
@@ -1694,7 +1709,42 @@ pub(crate) fn preferred_maintainer_workflow(user_input: &str) -> Option<&'static
     }
 }
 
-pub(crate) fn preferred_workspace_workflow(user_input: &str) -> Option<&'static str> {
+pub fn mentions_symbol_search(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(&lower, &[
+        "find where",
+        "who calls",
+        "who uses",
+        "where is",
+        "is defined",
+        "is used",
+        "find definition",
+        "find references",
+        "go to definition",
+    ]) && contains_any(&lower, &[
+        "function",
+        "struct",
+        "variable",
+        "symbol",
+        "method",
+        "type",
+        "trait",
+        "module",
+    ])
+}
+
+pub fn mentions_commit_intent(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(&lower, &[
+        "git commit",
+        "commit my",
+        "commit the",
+        "commit changes",
+        "save my progress to git",
+    ])
+}
+
+pub fn preferred_workspace_workflow(user_input: &str) -> Option<&'static str> {
     let lower = user_input.to_ascii_lowercase();
     let asks_project_scope = contains_any(
         &lower,
@@ -1787,7 +1837,11 @@ pub(crate) fn preferred_workspace_workflow(user_input: &str) -> Option<&'static 
         ],
     );
 
-    if asks_build
+    if mentions_symbol_search(user_input) {
+        Some("lsp_search")
+    } else if mentions_commit_intent(user_input) {
+        Some("commit_workflow")
+    } else if asks_build
         && (asks_project_scope
             || !contains_any(&lower, &["release.ps1", "package-windows.ps1", "clean.ps1"]))
     {
@@ -1834,9 +1888,39 @@ pub(crate) fn looks_like_mutation_request(user_input: &str) -> bool {
         "delete ",
         "remove ",
         "make the change",
+        "mkdir ",
+        "touch ",
+        "create a folder",
+        "create folder",
+        "new folder",
+        "new file",
+        "write to",
+        "save this",
+        "commit ",
+        "move-item",
+        "remove-item",
+        "copy-item",
+        "rmdir",
+        "mv ",
+        "rm ",
+        "cp ",
+        "set-content",
+        "add-content",
     ]
     .iter()
     .any(|needle| lower.contains(needle))
+}
+
+pub(crate) fn is_sovereign_mutation(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    let mentions_location = contains_any(&lower, &["desktop", "documents", "downloads", "pictures", "videos", "music", "temp"]);
+    let mentions_simple_creation = contains_any(&lower, &[
+        "make a folder", "create a folder", "create folder", "add folder",
+        "new folder", "mkdir", "create directory", "new directory",
+        "make a directory", "generate a folder"
+    ]);
+    
+    mentions_location && mentions_simple_creation
 }
 
 pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> QueryIntent {
@@ -2167,6 +2251,8 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         None
     };
 
+    let sovereign_mode = is_sovereign_mutation(user_input);
+
     let primary_class = if direct_answer.is_some()
         || mentions_stable_product_surface(&lower)
         || mentions_product_truth_routing(&lower)
@@ -2194,9 +2280,10 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         capability_needs_repo,
         toolchain_mode,
         host_inspection_mode,
-        maintainer_workflow_mode,
-        workspace_workflow_mode,
+        maintainer_workflow_mode: maintainer_workflow_mode && !sovereign_mode,
+        workspace_workflow_mode: workspace_workflow_mode && !sovereign_mode,
         architecture_overview_mode,
+        sovereign_mode,
     }
 }
 

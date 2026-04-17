@@ -21,7 +21,9 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "shell",
             &format!(
                 "Execute a command in the host shell ({os}). \
-                     Use this for building, testing, or system operations. \
+                     Use this ONLY for building, testing, or advanced system operations that have no dedicated Hematite tool. \
+                     FORBIDDEN: Never use shell to run `mkdir`, `rm`, `cat`, `head`, `tail`, or `write-file` equivalents. \
+                     Use the dedicated surgical tools (create_directory, read_file, tail_file) instead. \
                      Output is capped at 64KB. Prefer non-interactive commands."
             ),
             serde_json::json!({
@@ -295,6 +297,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "run_workspace_workflow",
             "Run an approval-gated workflow or script in the locked project workspace root. \
              Use this for the current project's build, test, lint, fix, package.json scripts, just/task/make targets, explicit local script paths, or an exact workspace command. \
+             FORBIDDEN: The `command` field MUST be a real executable shell command (e.g. `npm install`, `cargo build`). \
+             NEVER put natural language, user-requests, or conversational intent into the `command` field. \
              This tool is for the active workspace, not for Hematite's own maintainer scripts.",
             serde_json::json!({
                 "type": "object",
@@ -470,7 +474,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         make_tool(
             "write_file",
             "Write content to a file, creating it (and any parent dirs) if needed. \
-             Overwrites existing files.",
+             Overwrites existing files. \
+             SOVEREIGN PATHING: For files in common areas, use `@DESKTOP/file.txt`, `@DOCUMENTS/file.txt`, `@DOWNLOADS/file.txt`, or `@HOME/file.txt` to ensure 100% path accuracy.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -478,6 +483,20 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                     "content": { "type": "string", "description": "Full file content to write" }
                 },
                 "required": ["path", "content"]
+            }),
+        ),
+        make_tool(
+            "create_directory",
+            "Authoritatively create a new directory (and any parent dirs) if they do not exist. \
+             Use this instead of raw shell (mkdir) for all filesystem organization. \
+             Supports both relative paths and absolute paths. \
+             SOVEREIGN PATHING: For directories in common areas, use `@DESKTOP/folder`, `@DOCUMENTS/folder`, `@DOWNLOADS/folder`, or `@HOME/folder` to ensure 100% path accuracy.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "description": "Relative or absolute directory path" }
+                },
+                "required": ["path"]
             }),
         ),
         make_tool(
@@ -850,6 +869,7 @@ pub async fn dispatch_builtin_tool(name: &str, args: &Value) -> Result<String, S
         "inspect_lines" => crate::tools::file_ops::inspect_lines(args).await,
         "tail_file" => crate::tools::file_ops::tail_file(args).await,
         "write_file" => crate::tools::file_ops::write_file(args).await,
+        "create_directory" => crate::tools::file_ops::create_directory(args).await,
         "edit_file" => crate::tools::file_ops::edit_file(args).await,
         "patch_hunk" => crate::tools::file_ops::patch_hunk(args).await,
         "multi_search_replace" => crate::tools::file_ops::multi_search_replace(args).await,
@@ -898,5 +918,37 @@ pub async fn dispatch_builtin_tool(name: &str, args: &Value) -> Result<String, S
                 Err(format!("Unknown tool: '{}'", other))
             }
         }
+    }
+}
+
+pub fn get_mutation_label(name: &str, args: &Value) -> Option<String> {
+    match name {
+        "shell" => {
+            let cmd = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
+            if cmd.contains("rm ") || cmd.contains("del ") {
+                Some("Destructive File Deletion".into())
+            } else if cmd.contains("mkdir ") {
+                Some("Directory Creation".into())
+            } else {
+                Some("Execute Shell Command".into())
+            }
+        }
+        "write_file" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("file");
+            Some(format!("Create/Overwrite File: {}", path))
+        }
+        "create_directory" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("folder");
+            Some(format!("Create Directory: {}", path))
+        }
+        "edit_file" | "patch_hunk" | "multi_search_replace" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("file");
+            Some(format!("Surgical Code Mutation: {}", path))
+        }
+        "git_commit" => Some("Permanent Version History Commit".into()),
+        "git_push" => Some("Remote Origin Synchronisation (Push)".into()),
+        "resolve_host_issue" => Some("System-Level Host Remediation".into()),
+        "run_workspace_workflow" => Some("Automated Workspace Re-alignment".into()),
+        _ => None,
     }
 }
