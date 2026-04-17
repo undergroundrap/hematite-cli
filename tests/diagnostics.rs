@@ -2971,7 +2971,9 @@ fn test_inspect_host_unknown_topic_includes_all_new_topics_in_error() {
             "scheduled_tasks",
             "dev_conflicts",
             "docker",
+            "docker_filesystems",
             "wsl",
+            "wsl_filesystems",
             "ssh",
             "env",
             "hosts_file",
@@ -3093,6 +3095,42 @@ fn test_inspect_host_docker_reports_status_or_not_found() {
     });
 }
 
+#[test]
+fn test_inspect_host_docker_filesystems_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "docker_filesystems" });
+        let output = inspect_host(&args)
+            .await
+            .expect("docker_filesystems must return Ok");
+        assert!(
+            output.contains("Host inspection: docker_filesystems"),
+            "docker_filesystems output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_docker_filesystems_reports_findings_or_not_found() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "docker_filesystems" });
+        let output = inspect_host(&args)
+            .await
+            .expect("docker_filesystems must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            || output.contains("not found")
+            || output.contains("daemon is NOT running")
+            || output.contains("error");
+        assert!(
+            has_result,
+            "docker_filesystems must report findings or installation state; got:\n{output}"
+        );
+    });
+}
+
 // ── wsl ───────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -3126,6 +3164,42 @@ fn test_inspect_host_wsl_reports_distros_or_status() {
         assert!(
             has_result,
             "wsl must report distros, install hint, or platform note; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_wsl_filesystems_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "wsl_filesystems" });
+        let output = inspect_host(&args)
+            .await
+            .expect("wsl_filesystems must return Ok");
+        assert!(
+            output.contains("Host inspection: wsl_filesystems"),
+            "wsl_filesystems output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_wsl_filesystems_reports_findings_or_platform_note() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "wsl_filesystems" });
+        let output = inspect_host(&args)
+            .await
+            .expect("wsl_filesystems must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            || output.contains("Windows-only inspection")
+            || output.contains("wsl --install")
+            || output.contains("error");
+        assert!(
+            has_result,
+            "wsl_filesystems must report findings, install hint, or platform note; got:\n{output}"
         );
     });
 }
@@ -3264,6 +3338,19 @@ fn test_routing_detects_docker_topic() {
 }
 
 #[test]
+fn test_routing_detects_docker_filesystems_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("audit my docker bind mounts and named volumes"),
+        Some("docker_filesystems")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("why is this container missing files from a bind mount?"),
+        Some("docker_filesystems")
+    );
+}
+
+#[test]
 fn test_routing_detects_wsl_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
     assert_eq!(
@@ -3273,6 +3360,23 @@ fn test_routing_detects_wsl_topic() {
     assert_eq!(
         preferred_host_inspection_topic("show me windows subsystem for linux distros"),
         Some("wsl")
+    );
+}
+
+#[test]
+fn test_routing_detects_wsl_filesystems_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("check my wsl filesystem storage and vhdx growth"),
+        Some("wsl_filesystems")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is /mnt/c broken in WSL?"),
+        Some("wsl_filesystems")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("wsl df -h && wsl du -sh /mnt/c"),
+        Some("wsl_filesystems")
     );
 }
 
@@ -3356,6 +3460,44 @@ fn test_all_host_topics_detects_docker_and_ssh_together() {
     assert!(
         topics.len() >= 2,
         "should detect 2+ topics; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_all_host_topics_prefers_deep_docker_filesystem_audit_over_generic_docker() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics =
+        all_host_inspection_topics("audit my Docker bind mounts and named volumes for missing host paths");
+    assert!(
+        topics.contains(&"docker_filesystems"),
+        "should detect docker_filesystems; got: {topics:?}"
+    );
+    assert!(
+        !topics.contains(&"docker"),
+        "should suppress generic docker when docker_filesystems is present; got: {topics:?}"
+    );
+    assert!(
+        !topics.contains(&"storage"),
+        "should suppress generic storage when docker_filesystems is present; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_all_host_topics_prefers_deep_wsl_filesystem_audit_over_generic_wsl() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics =
+        all_host_inspection_topics("check WSL storage growth and whether /mnt/c bridge health looks broken");
+    assert!(
+        topics.contains(&"wsl_filesystems"),
+        "should detect wsl_filesystems; got: {topics:?}"
+    );
+    assert!(
+        !topics.contains(&"wsl"),
+        "should suppress generic wsl when wsl_filesystems is present; got: {topics:?}"
+    );
+    assert!(
+        !topics.contains(&"storage"),
+        "should suppress generic storage when wsl_filesystems is present; got: {topics:?}"
     );
 }
 

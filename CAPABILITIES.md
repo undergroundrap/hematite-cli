@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 81+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Full OS stack coverage**: 83+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
@@ -164,7 +164,7 @@ When the model calls `shell` with a command that matches a structured host inspe
  
 Hematite implements a definitive loop-breaker for auto-redirected shell calls. If the model attempts to call `shell` repeatedly for the same diagnostic intent, the harness provides a short "Action Handled" message instead of flooding the context with redundant telemetry. The **Synchronized Enforcer** ensures that shell diagnostics are only blocked if a native topic is actually available to take over.
 
-**Developer tooling topics (8):**
+**Developer tooling topics (10):**
 
 - **Environment variables** (`env`) — total count, developer/tool vars (CARGO_HOME, JAVA_HOME, GOPATH, VIRTUAL_ENV, DOCKER_HOST, etc.), secret-shaped vars shown as `[SET, N chars]` only — values never exposed; PATH entry count with pointer to the path topic
 - **Hosts file** (`hosts_file`) — reads `/etc/hosts` (Windows: `drivers\etc\hosts`); shows active entries, flags custom non-loopback entries, includes full file content
@@ -174,6 +174,11 @@ Hematite implements a definitive loop-breaker for auto-redirected shell calls. I
 - **Installed software** (`installed_software`) — winget list on Windows (registry scan fallback); dpkg/rpm/pacman on Linux; brew + mas on macOS; paginated with max_entries
 - **Git config** (`git_config`) — global git config grouped by Identity, Core, Commit/Signing, Push/Pull, Credential, Branch sections; local repo config; git aliases; points at missing config if not set up
 - **Databases** (`databases`) — detects running local database engines: PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQLite, SQL Server, CouchDB, Cassandra, Elasticsearch — via CLI version check, TCP port probe, and OS service state; no credentials required
+
+Additional deep-audit developer topics:
+
+- `docker_filesystems` audits bind mounts, named volumes, per-container mount summaries, and Docker Desktop disk-image growth with `finding -> impact -> fix` output
+- `wsl_filesystems` audits WSL distro rootfs usage, host-side `ext4.vhdx` growth, and `/mnt/c` bridge health without starting stopped distros
 
 **Safe remediation:**
 
@@ -215,6 +220,8 @@ Hematite is built for repeated project use, not one-off prompts.
 - **Sticky workflow modes**: `/ask`, `/code`, `/architect`, `/read-only`, `/teach`, and `/auto` let the operator choose between analysis, implementation, plan-first, hard read-only, and grounded walkthrough behavior
 - **Ultra-Deterministic Teleportation**: Seamlessly transition between folders. When moving to a new workspace, Hematite spawns a fresh, pre-navigated terminal, preserves the source window's size and position, skips the splash screen, and gracefully closes the original shell or tab to maintain workstation hygiene. New sessions include a **Teleportation Handshake** greeting that confirms the origin context and transition reasoning.
 - **Teacher mode** (`/teach`) — inspects real machine state first via `inspect_host`, then delivers a numbered step-by-step walkthrough for any admin/config/system task; never executes write operations itself; covers driver installs, Group Policy, firewall rules, SSH key generation, WSL setup, service config, Windows activation, registry edits, scheduled tasks, and disk cleanup
+
+- **Grounded storage walkthroughs**: teacher mode can now build step-by-step remediation around `docker_filesystems` and `wsl_filesystems`, so mount/path/storage fixes start from observed bind mounts, VHDX growth, and bridge health rather than generic advice
 
 ## 7. Voice and TUI Integration
 

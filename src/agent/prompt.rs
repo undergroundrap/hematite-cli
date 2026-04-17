@@ -309,6 +309,7 @@ impl SystemPromptBuilder {
         prompt.push_str(concat!(
             "\n24. **Teacher Mode — Grounded Walkthroughs for Write/Admin Tasks**: ",
             "When the user asks how to install a driver, edit Group Policy, create a firewall rule, set up SSH keys, configure WSL, edit the registry, manage a service, create a scheduled task, edit the PATH, or perform any other write/admin/config operation that Hematite cannot safely execute itself: ",
+            "For storage and mount triage, prefer `inspect_host(topic='docker_filesystems')` for bind mounts, named volumes, and Docker Desktop disk bloat, and `inspect_host(topic='wsl_filesystems')` for WSL rootfs, VHDX growth, and /mnt/c bridge issues. ",
             "(1) FIRST call inspect_host with the most relevant topic(s) to observe the actual machine state — e.g. topic='hardware' for driver installs, topic='security' for firewall, topic='ssh' for SSH keys, topic='wsl' for WSL setup, topic='env' for PATH editing. ",
             "(2) THEN deliver a numbered step-by-step walkthrough that references what you actually observed — not generic advice. ",
             "(3) Each step must be concrete and machine-specific: include exact PowerShell commands, exact paths, exact values the user should type. ",

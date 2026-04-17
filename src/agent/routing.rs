@@ -882,11 +882,38 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("docker compose")
         || lower.contains("docker ps")
         || lower.contains("running container");
+    let asks_docker_filesystems = (lower.contains("docker")
+        || lower.contains("container")
+        || lower.contains("compose")
+        || lower.contains("volume")
+        || lower.contains("bind mount"))
+        && (lower.contains("mount")
+            || lower.contains("volume")
+            || lower.contains("bind")
+            || lower.contains("filesystem")
+            || lower.contains("storage")
+            || lower.contains("path")
+            || lower.contains("missing"));
     let asks_wsl = lower.contains("wsl")
         || lower.contains("windows subsystem")
         || lower.contains("linux distro")
         || lower.contains("ubuntu on windows")
         || (lower.contains("subsystem") && lower.contains("linux"));
+    let asks_wsl_filesystems = (lower.contains("wsl")
+        || lower.contains("windows subsystem")
+        || lower.contains("linux distro")
+        || lower.contains("ubuntu on windows")
+        || (lower.contains("subsystem") && lower.contains("linux")))
+        && (lower.contains("mount")
+            || lower.contains("filesystem")
+            || lower.contains("storage")
+            || lower.contains("disk")
+            || lower.contains("vhdx")
+            || lower.contains("path bridge")
+            || lower.contains("/mnt/c")
+            || lower.contains("wsl df")
+            || lower.contains("wsl du")
+            || lower.contains("du -sh /mnt/c"));
     let asks_ssh = (lower.contains("ssh") && !lower.contains("ssh key") && !lower.contains("git"))
         || lower.contains("sshd")
         || lower.contains("ssh config")
@@ -1057,6 +1084,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("activation")
     } else if asks_patch_history {
         Some("patch_history")
+    } else if asks_docker_filesystems {
+        Some("docker_filesystems")
+    } else if asks_wsl_filesystems {
+        Some("wsl_filesystems")
     } else if asks_storage {
         Some("storage")
     } else if asks_gpo {
@@ -1501,10 +1532,40 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("docker", |l| {
             l.contains("docker") || l.contains("container") || l.contains("running container")
         }),
+        ("docker_filesystems", |l| {
+            (l.contains("docker")
+                || l.contains("container")
+                || l.contains("compose")
+                || l.contains("volume")
+                || l.contains("bind mount"))
+                && (l.contains("mount")
+                    || l.contains("volume")
+                    || l.contains("bind")
+                    || l.contains("filesystem")
+                    || l.contains("storage")
+                    || l.contains("path")
+                    || l.contains("missing"))
+        }),
         ("wsl", |l| {
             l.contains("wsl")
                 || l.contains("windows subsystem")
                 || (l.contains("subsystem") && l.contains("linux"))
+        }),
+        ("wsl_filesystems", |l| {
+            (l.contains("wsl")
+                || l.contains("windows subsystem")
+                || l.contains("linux distro")
+                || (l.contains("subsystem") && l.contains("linux")))
+                && (l.contains("mount")
+                    || l.contains("filesystem")
+                    || l.contains("storage")
+                    || l.contains("disk")
+                    || l.contains("vhdx")
+                    || l.contains("path bridge")
+                    || l.contains("/mnt/c")
+                    || l.contains("wsl df")
+                    || l.contains("wsl du")
+                    || l.contains("du -sh /mnt/c"))
         }),
         ("ssh", |l| {
             l.contains("ssh")
@@ -1677,6 +1738,16 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             topics.push(topic);
         }
     }
+
+    if topics.contains(&"docker_filesystems") {
+        topics.retain(|topic| *topic != "docker");
+        topics.retain(|topic| *topic != "storage");
+    }
+    if topics.contains(&"wsl_filesystems") {
+        topics.retain(|topic| *topic != "wsl");
+        topics.retain(|topic| *topic != "storage");
+    }
+
     topics
 }
 

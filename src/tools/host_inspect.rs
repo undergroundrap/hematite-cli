@@ -78,7 +78,11 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "env" | "environment" | "environment_variables" | "env_vars" => inspect_env(max_entries),
         "hosts_file" | "hosts" | "etc_hosts" => inspect_hosts_file(),
         "docker" | "containers" | "docker_status" => inspect_docker(max_entries),
+        "docker_filesystems" | "docker_mounts" | "docker_storage" | "container_mounts" => {
+            inspect_docker_filesystems(max_entries)
+        }
         "wsl" | "wsl_distros" | "subsystem" => inspect_wsl(),
+        "wsl_filesystems" | "wsl_storage" | "wsl_mounts" => inspect_wsl_filesystems(max_entries),
         "ssh" | "ssh_config" | "ssh_status" => inspect_ssh(),
         "installed_software" | "installed" | "programs" | "software" | "packages" => inspect_installed_software(max_entries),
         "git_config" | "git_global" => inspect_git_config(),
@@ -151,7 +155,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "ip_config" | "ip_detail" | "dhcp" => inspect_ip_config(),
         "overclocker" | "thermal_deep" | "clocks" | "voltage" => inspect_overclocker().await,
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, wsl, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -4082,9 +4086,9 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
             .output()
         {
             Ok(o) => {
+                out.push_str("\nReal-time Disk Intensity:\n");
                 let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
                 if !text.is_empty() {
-                    out.push_str("\nReal-time Disk Intensity:\n");
                     out.push_str(&format!("  Average Disk Queue Length: {text}\n"));
                     if let Ok(q) = text.parse::<f64>() {
                         if q > 2.0 {
@@ -4095,9 +4099,14 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
                             out.push_str("  [~] Disk latency is within healthy bounds.\n");
                         }
                     }
+                } else {
+                    out.push_str("  Average Disk Queue Length: unavailable\n");
                 }
             }
-            Err(_) => {}
+            Err(_) => {
+                out.push_str("\nReal-time Disk Intensity:\n");
+                out.push_str("  Average Disk Queue Length: unavailable\n");
+            }
         }
     }
 
@@ -6642,6 +6651,290 @@ fn inspect_hosts_file() -> Result<String, String> {
 
 // ── docker ────────────────────────────────────────────────────────────────────
 
+struct AuditFinding {
+    finding: String,
+    impact: String,
+    fix: String,
+}
+
+struct DockerMountAudit {
+    mount_type: String,
+    source: Option<String>,
+    destination: String,
+    name: Option<String>,
+    read_write: Option<bool>,
+    driver: Option<String>,
+    exists_on_host: Option<bool>,
+}
+
+struct DockerContainerAudit {
+    name: String,
+    image: String,
+    status: String,
+    mounts: Vec<DockerMountAudit>,
+}
+
+struct DockerVolumeAudit {
+    name: String,
+    driver: String,
+    mountpoint: Option<String>,
+    scope: Option<String>,
+}
+
+#[cfg(target_os = "windows")]
+struct WslDistroAudit {
+    name: String,
+    state: String,
+    version: String,
+}
+
+#[cfg(target_os = "windows")]
+struct WslRootUsage {
+    total_kb: u64,
+    used_kb: u64,
+    avail_kb: u64,
+    use_percent: String,
+    mnt_c_present: Option<bool>,
+}
+
+fn docker_engine_version() -> Result<String, String> {
+    let version_output = Command::new("docker")
+        .args(["version", "--format", "{{.Server.Version}}"])
+        .output();
+
+    match version_output {
+        Err(_) => Err(
+            "Docker: not found on PATH.\nInstall Docker Desktop: https://www.docker.com/products/docker-desktop".to_string(),
+        ),
+        Ok(o) if !o.status.success() => {
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            if stderr.contains("cannot connect")
+                || stderr.contains("Is the docker daemon running")
+                || stderr.contains("pipe")
+                || stderr.contains("socket")
+            {
+                Err(
+                    "Docker: installed but daemon is NOT running.\nStart Docker Desktop or run: sudo systemctl start docker".to_string(),
+                )
+            } else {
+                Err(format!("Docker: error - {}", stderr.trim()))
+            }
+        }
+        Ok(o) => Ok(String::from_utf8_lossy(&o.stdout).trim().to_string()),
+    }
+}
+
+fn parse_docker_mounts(raw: &str) -> Vec<DockerMountAudit> {
+    let Ok(value) = serde_json::from_str::<Value>(raw.trim()) else {
+        return Vec::new();
+    };
+    let Value::Array(entries) = value else {
+        return Vec::new();
+    };
+
+    let mut mounts = Vec::new();
+    for entry in entries {
+        let mount_type = entry
+            .get("Type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+        let source = entry
+            .get("Source")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string());
+        let destination = entry
+            .get("Destination")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?")
+            .to_string();
+        let name = entry
+            .get("Name")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string());
+        let read_write = entry.get("RW").and_then(|v| v.as_bool());
+        let driver = entry
+            .get("Driver")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string());
+        let exists_on_host = if mount_type == "bind" {
+            source.as_deref().map(|path| Path::new(path).exists())
+        } else {
+            None
+        };
+        mounts.push(DockerMountAudit {
+            mount_type,
+            source,
+            destination,
+            name,
+            read_write,
+            driver,
+            exists_on_host,
+        });
+    }
+
+    mounts
+}
+
+fn inspect_docker_volume(name: &str) -> DockerVolumeAudit {
+    let mut audit = DockerVolumeAudit {
+        name: name.to_string(),
+        driver: "unknown".to_string(),
+        mountpoint: None,
+        scope: None,
+    };
+
+    if let Ok(output) = Command::new("docker")
+        .args(["volume", "inspect", name, "--format", "{{json .}}"])
+        .output()
+    {
+        if output.status.success() {
+            if let Ok(value) =
+                serde_json::from_str::<Value>(String::from_utf8_lossy(&output.stdout).trim())
+            {
+                audit.driver = value
+                    .get("Driver")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                audit.mountpoint = value
+                    .get("Mountpoint")
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.to_string());
+                audit.scope = value
+                    .get("Scope")
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.to_string());
+            }
+        }
+    }
+
+    audit
+}
+
+#[cfg(target_os = "windows")]
+fn docker_desktop_disk_image() -> Option<(PathBuf, u64)> {
+    let local_app_data = std::env::var_os("LOCALAPPDATA").map(PathBuf::from)?;
+    for file_name in ["docker_data.vhdx", "ext4.vhdx"] {
+        let path = local_app_data
+            .join("Docker")
+            .join("wsl")
+            .join("disk")
+            .join(file_name);
+        if let Ok(metadata) = fs::metadata(&path) {
+            return Some((path, metadata.len()));
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn clean_wsl_text(raw: &[u8]) -> String {
+    String::from_utf8_lossy(raw)
+        .chars()
+        .filter(|c| *c != '\0')
+        .collect()
+}
+
+#[cfg(target_os = "windows")]
+fn parse_wsl_distros(raw: &str) -> Vec<WslDistroAudit> {
+    let mut distros = Vec::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty()
+            || trimmed.to_uppercase().starts_with("NAME")
+            || trimmed.starts_with("---")
+        {
+            continue;
+        }
+        let normalized = trimmed.trim_start_matches('*').trim();
+        let cols: Vec<&str> = normalized.split_whitespace().collect();
+        if cols.len() < 3 {
+            continue;
+        }
+        let version = cols[cols.len() - 1].to_string();
+        let state = cols[cols.len() - 2].to_string();
+        let name = cols[..cols.len() - 2].join(" ");
+        if !name.is_empty() {
+            distros.push(WslDistroAudit {
+                name,
+                state,
+                version,
+            });
+        }
+    }
+    distros
+}
+
+#[cfg(target_os = "windows")]
+fn wsl_root_usage(distro_name: &str) -> Option<WslRootUsage> {
+    let output = Command::new("wsl")
+        .args([
+            "-d",
+            distro_name,
+            "--",
+            "sh",
+            "-lc",
+            "df -k / 2>/dev/null | tail -n 1; if [ -d /mnt/c ]; then echo __MNTC__:ok; else echo __MNTC__:missing; fi",
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let text = clean_wsl_text(&output.stdout);
+    let mut total_kb = 0;
+    let mut used_kb = 0;
+    let mut avail_kb = 0;
+    let mut use_percent = String::from("unknown");
+    let mut mnt_c_present = None;
+
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("__MNTC__:") {
+            mnt_c_present = Some(trimmed.ends_with("ok"));
+            continue;
+        }
+        let cols: Vec<&str> = trimmed.split_whitespace().collect();
+        if cols.len() >= 6 {
+            total_kb = cols[1].parse::<u64>().unwrap_or(0);
+            used_kb = cols[2].parse::<u64>().unwrap_or(0);
+            avail_kb = cols[3].parse::<u64>().unwrap_or(0);
+            use_percent = cols[4].to_string();
+        }
+    }
+
+    Some(WslRootUsage {
+        total_kb,
+        used_kb,
+        avail_kb,
+        use_percent,
+        mnt_c_present,
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn collect_wsl_vhdx_files() -> Vec<(PathBuf, u64)> {
+    let mut vhds = Vec::new();
+    let Some(local_app_data) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) else {
+        return vhds;
+    };
+    let packages_dir = local_app_data.join("Packages");
+    let Ok(entries) = fs::read_dir(packages_dir) else {
+        return vhds;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path().join("LocalState").join("ext4.vhdx");
+        if let Ok(metadata) = fs::metadata(&path) {
+            vhds.push((path, metadata.len()));
+        }
+    }
+    vhds.sort_by(|a, b| b.1.cmp(&a.1));
+    vhds
+}
+
 fn inspect_docker(max_entries: usize) -> Result<String, String> {
     let mut out = String::from("Host inspection: docker\n\n");
     let n = max_entries.clamp(5, 25);
@@ -6783,6 +7076,197 @@ fn inspect_docker(max_entries: usize) -> Result<String, String> {
 
 // ── wsl ───────────────────────────────────────────────────────────────────────
 
+fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: docker_filesystems\n\n");
+    let n = max_entries.clamp(3, 12);
+
+    match docker_engine_version() {
+        Ok(version) => out.push_str(&format!("Docker Engine: {version}\n")),
+        Err(message) => {
+            out.push_str(&message);
+            return Ok(out.trim_end().to_string());
+        }
+    }
+
+    if let Ok(o) = Command::new("docker").args(["context", "show"]).output() {
+        let ctx = String::from_utf8_lossy(&o.stdout).trim().to_string();
+        if !ctx.is_empty() {
+            out.push_str(&format!("Active context: {ctx}\n"));
+        }
+    }
+    out.push('\n');
+
+    let mut containers = Vec::new();
+    if let Ok(o) = Command::new("docker")
+        .args(["ps", "-a", "--format", "{{.Names}}\t{{.Image}}\t{{.Status}}"])
+        .output()
+    {
+        for line in String::from_utf8_lossy(&o.stdout).lines().take(n) {
+            let cols: Vec<&str> = line.split('\t').collect();
+            if cols.len() < 3 {
+                continue;
+            }
+            let name = cols[0].trim().to_string();
+            if name.is_empty() {
+                continue;
+            }
+            let inspect_output = Command::new("docker")
+                .args(["inspect", &name, "--format", "{{json .Mounts}}"])
+                .output();
+            let mounts = match inspect_output {
+                Ok(result) if result.status.success() => {
+                    parse_docker_mounts(String::from_utf8_lossy(&result.stdout).trim())
+                }
+                _ => Vec::new(),
+            };
+            containers.push(DockerContainerAudit {
+                name,
+                image: cols[1].trim().to_string(),
+                status: cols[2].trim().to_string(),
+                mounts,
+            });
+        }
+    }
+
+    let mut volumes = Vec::new();
+    if let Ok(o) = Command::new("docker")
+        .args(["volume", "ls", "--format", "{{.Name}}\t{{.Driver}}"])
+        .output()
+    {
+        for line in String::from_utf8_lossy(&o.stdout).lines().take(n) {
+            let cols: Vec<&str> = line.split('\t').collect();
+            let Some(name) = cols.first().map(|v| v.trim()).filter(|v| !v.is_empty()) else {
+                continue;
+            };
+            let mut audit = inspect_docker_volume(name);
+            if audit.driver == "unknown" {
+                audit.driver = cols
+                    .get(1)
+                    .map(|v| v.trim())
+                    .filter(|v| !v.is_empty())
+                    .unwrap_or("unknown")
+                    .to_string();
+            }
+            volumes.push(audit);
+        }
+    }
+
+    let mut findings = Vec::new();
+    for container in &containers {
+        for mount in &container.mounts {
+            if mount.mount_type == "bind" && mount.exists_on_host == Some(false) {
+                let source = mount.source.as_deref().unwrap_or("<unknown>");
+                findings.push(AuditFinding {
+                    finding: format!(
+                        "Container '{}' has a bind mount whose host source is missing: {} -> {}",
+                        container.name, source, mount.destination
+                    ),
+                    impact: "The container may fail to start, or it may see an empty or incomplete directory at the target path.".to_string(),
+                    fix: "Create the host path or correct the bind source in docker-compose.yml / docker run, then recreate the container.".to_string(),
+                });
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    if let Some((path, size_bytes)) = docker_desktop_disk_image() {
+        if size_bytes >= 20 * 1024 * 1024 * 1024 {
+            findings.push(AuditFinding {
+                finding: format!(
+                    "Docker Desktop disk image is large: {} at {}",
+                    human_bytes(size_bytes),
+                    path.display()
+                ),
+                impact: "Unused layers, volumes, and build cache can silently consume Windows disk even after projects are deleted.".to_string(),
+                fix: "Review `docker system df`, prune unused images, containers, and volumes if safe, then compact the Docker Desktop disk with your normal maintenance workflow.".to_string(),
+            });
+        }
+    }
+
+    out.push_str("=== Findings ===\n");
+    if findings.is_empty() {
+        out.push_str("- Finding: No missing bind-mount sources or oversized Docker Desktop disk images were detected.\n");
+        out.push_str("  Impact: The Docker host-side filesystem wiring looks sane from this inspection pass.\n");
+        out.push_str("  Fix: If a workload still cannot see files, compare the mount destinations below against the app's expected paths.\n");
+    } else {
+        for finding in &findings {
+            out.push_str(&format!("- Finding: {}\n", finding.finding));
+            out.push_str(&format!("  Impact: {}\n", finding.impact));
+            out.push_str(&format!("  Fix: {}\n", finding.fix));
+        }
+    }
+
+    out.push_str("\n=== Container mount summary ===\n");
+    if containers.is_empty() {
+        out.push_str("- No containers found.\n");
+    } else {
+        for container in &containers {
+            out.push_str(&format!(
+                "- {} ({}) [{}]\n",
+                container.name, container.image, container.status
+            ));
+            if container.mounts.is_empty() {
+                out.push_str("  - no mounts reported\n");
+                continue;
+            }
+            for mount in &container.mounts {
+                let mut source = mount
+                    .name
+                    .clone()
+                    .or_else(|| mount.source.clone())
+                    .unwrap_or_else(|| "<unknown>".to_string());
+                if mount.mount_type == "bind" && mount.exists_on_host == Some(false) {
+                    source.push_str(" [missing]");
+                }
+                let mut extras = Vec::new();
+                if let Some(rw) = mount.read_write {
+                    extras.push(if rw { "rw" } else { "ro" }.to_string());
+                }
+                if let Some(driver) = &mount.driver {
+                    extras.push(format!("driver={driver}"));
+                }
+                let extra_suffix = if extras.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({})", extras.join(", "))
+                };
+                out.push_str(&format!(
+                    "  - {}: {} -> {}{}\n",
+                    mount.mount_type, source, mount.destination, extra_suffix
+                ));
+            }
+        }
+    }
+
+    out.push_str("\n=== Named volumes ===\n");
+    if volumes.is_empty() {
+        out.push_str("- No named volumes found.\n");
+    } else {
+        for volume in &volumes {
+            let mut detail = format!("- {} (driver: {})", volume.name, volume.driver);
+            if let Some(scope) = &volume.scope {
+                detail.push_str(&format!(", scope: {scope}"));
+            }
+            if let Some(mountpoint) = &volume.mountpoint {
+                detail.push_str(&format!(", mountpoint: {mountpoint}"));
+            }
+            out.push_str(&format!("{detail}\n"));
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    if let Some((path, size_bytes)) = docker_desktop_disk_image() {
+        out.push_str("\n=== Docker Desktop disk ===\n");
+        out.push_str(&format!(
+            "- {} at {}\n",
+            human_bytes(size_bytes),
+            path.display()
+        ));
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
 fn inspect_wsl() -> Result<String, String> {
     let mut out = String::from("Host inspection: wsl\n\n");
 
@@ -6867,6 +7351,150 @@ fn inspect_wsl() -> Result<String, String> {
 }
 
 // ── ssh ───────────────────────────────────────────────────────────────────────
+
+fn inspect_wsl_filesystems(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: wsl_filesystems\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let n = max_entries.clamp(3, 12);
+        let list_output = Command::new("wsl").args(["--list", "--verbose"]).output();
+        let distros = match list_output {
+            Err(e) => {
+                out.push_str(&format!("WSL: wsl.exe error: {e}\n"));
+                out.push_str("WSL may not be installed. Enable with: wsl --install\n");
+                return Ok(out.trim_end().to_string());
+            }
+            Ok(o) if !o.status.success() => {
+                let cleaned = clean_wsl_text(&o.stderr);
+                out.push_str(&format!("WSL: error - {}\n", cleaned.trim()));
+                out.push_str("Run: wsl --install\n");
+                return Ok(out.trim_end().to_string());
+            }
+            Ok(o) => parse_wsl_distros(&clean_wsl_text(&o.stdout)),
+        };
+
+        out.push_str(&format!("Distributions detected: {}\n\n", distros.len()));
+
+        let vhdx_files = collect_wsl_vhdx_files();
+        let mut findings = Vec::new();
+        let mut live_usage = Vec::new();
+
+        for distro in distros.iter().take(n) {
+            if distro.state.eq_ignore_ascii_case("Running") {
+                if let Some(usage) = wsl_root_usage(&distro.name) {
+                    if let Some(false) = usage.mnt_c_present {
+                        findings.push(AuditFinding {
+                            finding: format!(
+                                "Distro '{}' is running without /mnt/c available",
+                                distro.name
+                            ),
+                            impact: "Windows to WSL path bridging is broken, so projects under C:\\ may not be reachable from Linux tools.".to_string(),
+                            fix: "Check /etc/wsl.conf automount settings, restart WSL with `wsl --shutdown`, then confirm drvfs automount is enabled.".to_string(),
+                        });
+                    }
+
+                    let percent_num = usage
+                        .use_percent
+                        .trim_end_matches('%')
+                        .parse::<u32>()
+                        .unwrap_or(0);
+                    if percent_num >= 85 {
+                        findings.push(AuditFinding {
+                            finding: format!(
+                                "Distro '{}' root filesystem is {} full",
+                                distro.name, usage.use_percent
+                            ),
+                            impact: "Package installs, git checkouts, and build caches inside WSL can start failing even when Windows still has free space.".to_string(),
+                            fix: "Free space inside the distro first, then shut WSL down and compact the VHDX if the host-side file stays large.".to_string(),
+                        });
+                    }
+                    live_usage.push((distro.name.clone(), usage));
+                }
+            }
+        }
+
+        for (path, size_bytes) in vhdx_files.iter().take(n) {
+            if *size_bytes >= 20 * 1024 * 1024 * 1024 {
+                findings.push(AuditFinding {
+                    finding: format!(
+                        "Host-side WSL disk image is large: {} at {}",
+                        human_bytes(*size_bytes),
+                        path.display()
+                    ),
+                    impact: "Sparse VHDX files can keep consuming Windows disk after files are deleted inside the distro.".to_string(),
+                    fix: "Clean files inside the distro first, then shut WSL down and compact the VHDX with your normal maintenance workflow.".to_string(),
+                });
+            }
+        }
+
+        out.push_str("=== Findings ===\n");
+        if findings.is_empty() {
+            out.push_str("- Finding: No oversized WSL disk images or broken /mnt/c bridge mounts were detected in the sampled distros.\n");
+            out.push_str("  Impact: WSL storage and Windows path bridging look healthy from this inspection pass.\n");
+            out.push_str("  Fix: If a specific project path still fails, inspect the per-distro bridge and disk details below.\n");
+        } else {
+            for finding in &findings {
+                out.push_str(&format!("- Finding: {}\n", finding.finding));
+                out.push_str(&format!("  Impact: {}\n", finding.impact));
+                out.push_str(&format!("  Fix: {}\n", finding.fix));
+            }
+        }
+
+        out.push_str("\n=== Distro bridge and root usage ===\n");
+        if distros.is_empty() {
+            out.push_str("- No WSL distributions found.\n");
+        } else {
+            for distro in distros.iter().take(n) {
+                out.push_str(&format!(
+                    "- {} [state: {}, version: {}]\n",
+                    distro.name, distro.state, distro.version
+                ));
+                if let Some((_, usage)) = live_usage.iter().find(|(name, _)| name == &distro.name)
+                {
+                    out.push_str(&format!(
+                        "  - rootfs: {} used / {} total ({}), free: {}\n",
+                        human_bytes(usage.used_kb * 1024),
+                        human_bytes(usage.total_kb * 1024),
+                        usage.use_percent,
+                        human_bytes(usage.avail_kb * 1024)
+                    ));
+                    match usage.mnt_c_present {
+                        Some(true) => out.push_str("  - /mnt/c bridge: present\n"),
+                        Some(false) => out.push_str("  - /mnt/c bridge: missing\n"),
+                        None => out.push_str("  - /mnt/c bridge: unknown\n"),
+                    }
+                } else if distro.state.eq_ignore_ascii_case("Running") {
+                    out.push_str("  - live rootfs check: unavailable\n");
+                } else {
+                    out.push_str("  - live rootfs check: skipped to avoid starting a stopped distro\n");
+                }
+            }
+        }
+
+        out.push_str("\n=== Host-side VHDX files ===\n");
+        if vhdx_files.is_empty() {
+            out.push_str("- No ext4.vhdx files found under %LOCALAPPDATA%\\Packages. Imported distros may live elsewhere.\n");
+        } else {
+            for (path, size_bytes) in vhdx_files.iter().take(n) {
+                out.push_str(&format!(
+                    "- {} at {}\n",
+                    human_bytes(*size_bytes),
+                    path.display()
+                ));
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = max_entries;
+        out.push_str("WSL filesystem auditing is a Windows-only inspection.\n");
+        out.push_str("On Linux/macOS, use native VM/container storage inspection instead.\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
 
 fn dirs_home() -> Option<PathBuf> {
     std::env::var("HOME")
@@ -8797,6 +9425,7 @@ fn inspect_domain() -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
+        out.push_str("=== Windows Domain / Workgroup Identity ===\n");
         let ps_cmd = "Get-CimInstance Win32_ComputerSystem | Select-Object Name, Domain, PartOfDomain, Workgroup | ConvertTo-Json";
         let output = Command::new("powershell")
             .args(["-NoProfile", "-Command", &ps_cmd])
@@ -8819,7 +9448,6 @@ fn inspect_domain() -> Result<String, String> {
                     .and_then(|v| v.as_str())
                     .unwrap_or("Unknown");
 
-                out.push_str("=== Windows Domain / Workgroup Identity ===\n");
                 out.push_str(&format!(
                     "  Join Status: {}\n",
                     if part_of_domain {
@@ -8837,7 +9465,11 @@ fn inspect_domain() -> Result<String, String> {
                 if let Some(name) = val.get("Name").and_then(|v| v.as_str()) {
                     out.push_str(&format!("  NetBIOS Name: {}\n", name));
                 }
+            } else {
+                out.push_str("  Domain identity data unavailable from WMI.\n");
             }
+        } else {
+            out.push_str("  Domain identity data unavailable from WMI.\n");
         }
     }
 
@@ -8907,6 +9539,7 @@ fn inspect_drivers(max_entries: usize) -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
+        out.push_str("=== Active System Drivers (CIM Snapshot) ===\n");
         let ps_cmd = format!("Get-CimInstance Win32_SystemDriver | Select-Object Name, Description, State, Status | Select-Object -First {} | ForEach-Object {{ \"  $($_.Name): $($_.State) ($($_.Status)) - $($_.Description)\" }}", max_entries);
         let output = Command::new("powershell")
             .args(["-NoProfile", "-Command", &ps_cmd])
@@ -8916,9 +9549,8 @@ fn inspect_drivers(max_entries: usize) -> Result<String, String> {
             .unwrap_or_default();
 
         if output.trim().is_empty() {
-            out.push_str("No drivers retrieved via WMI.\n");
+            out.push_str("  No drivers retrieved via WMI.\n");
         } else {
-            out.push_str("=== Active System Drivers (CIM Snapshot) ===\n");
             out.push_str(&output);
         }
     }
@@ -9001,6 +9633,7 @@ fn inspect_sessions(max_entries: usize) -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
+        out.push_str("=== Active Logon Sessions (WMI Snapshot) ===\n");
         let script = r#"Get-CimInstance Win32_LogonSession | ForEach-Object {
     "$($_.LogonId)|$($_.StartTime)|$($_.LogonType)|$($_.AuthenticationPackage)"
 }"#;
@@ -9011,9 +9644,8 @@ fn inspect_sessions(max_entries: usize) -> Result<String, String> {
             let text = String::from_utf8_lossy(&o.stdout);
             let lines: Vec<&str> = text.lines().collect();
             if lines.is_empty() {
-                out.push_str("No active logon sessions enumerated via WMI.\n");
+                out.push_str("  No active logon sessions enumerated via WMI.\n");
             } else {
-                out.push_str("=== Active Logon Sessions (WMI Snapshot) ===\n");
                 for line in lines
                     .iter()
                     .take(max_entries)
@@ -9040,6 +9672,8 @@ fn inspect_sessions(max_entries: usize) -> Result<String, String> {
                     }
                 }
             }
+        } else {
+            out.push_str("  Active logon session data unavailable from WMI.\n");
         }
     }
 
