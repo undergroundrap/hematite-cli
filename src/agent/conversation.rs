@@ -693,6 +693,8 @@ pub struct ConversationManager {
     pub turn_count: u32,
     /// Last user message sent to the model — persisted as checkpoint goal.
     pub last_goal: Option<String>,
+    /// Most recent project directory created this session (Automatic Dive-In).
+    pub latest_target_dir: Option<String>,
 }
 
 impl ConversationManager {
@@ -795,6 +797,9 @@ impl ConversationManager {
             if !chunk.is_empty() {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
+        }
+        if let Some(path) = self.latest_target_dir.take() {
+            let _ = tx.send(InferenceEvent::CopyDiveInCommand(path)).await;
         }
         let _ = tx.send(InferenceEvent::Done).await;
         self.trim_history(80);
@@ -986,7 +991,15 @@ impl ConversationManager {
             repo_map: None,
             turn_count: 0,
             last_goal: None,
+            latest_target_dir: None,
         }
+    }
+
+    async fn emit_done_events(&mut self, tx: &tokio::sync::mpsc::Sender<InferenceEvent>) {
+        if let Some(path) = self.latest_target_dir.take() {
+            let _ = tx.send(InferenceEvent::CopyDiveInCommand(path)).await;
+        }
+        let _ = tx.send(InferenceEvent::Done).await;
     }
 
     /// Index the project into The Vein. Call once after construction.
@@ -2741,6 +2754,17 @@ impl ConversationManager {
                     .to_string(),
             );
         }
+        
+        // ── Native Tool Mandate: nudge model toward create_directory/write_file for local mutations ──
+        if loop_intervention.is_none() && intent.surgical_filesystem_mode {
+            loop_intervention = Some(
+                "NATIVE TOOL MANDATE: Your request involves local directory or file creation. \
+                 You MUST use Hematite's native surgical tools (`create_directory`, `write_file`, `update_file`, `patch_hunk`). \
+                 External `mcp__filesystem__*` mutation tools are BLOCKED for these actions and will fail. \
+                 Use `@DESKTOP/`, `@DOCUMENTS/`, or `@DOWNLOADS/` sovereign tokens for 100% path accuracy."
+                    .to_string(),
+            );
+        }
 
         let mut implementation_started = false;
         let mut non_mutating_plan_steps = 0usize;
@@ -3138,6 +3162,7 @@ impl ConversationManager {
                                     is_error: true,
                                     blocked_by_policy: false,
                                     msg_results: Vec::new(),
+                                    latest_target_dir: None,
                                 });
                                 continue;
                             }
@@ -3234,6 +3259,9 @@ impl ConversationManager {
                     }
 
                     // Update State for Verification Loop
+                    if let Some(path) = res.latest_target_dir {
+                        self.latest_target_dir = Some(path);
+                    }
                     if matches!(
                         tool_name.as_str(),
                         "patch_hunk" | "write_file" | "edit_file" | "multi_search_replace"
@@ -3857,7 +3885,7 @@ impl ConversationManager {
                         .await;
                 }
 
-                let _ = tx.send(InferenceEvent::Done).await;
+                self.emit_done_events(&tx).await;
                 break;
             } else {
                 let detail = "Model returned an empty response.";
@@ -4665,7 +4693,19 @@ fn rewrite_host_tool_call(
             return;
         }
     }
-    if *tool_name != "run_hematite_maintainer_workflow" {
+    let is_surgical_tool = matches!(
+        tool_name.as_str(),
+        "create_directory"
+            | "write_file"
+            | "edit_file"
+            | "patch_hunk"
+            | "multi_replace_file_content"
+            | "replace_file_content"
+            | "move_file"
+            | "delete_file"
+    );
+
+    if !is_surgical_tool && *tool_name != "run_hematite_maintainer_workflow" {
         if let Some(prompt_args) =
             latest_user_prompt.and_then(infer_maintainer_workflow_args_from_prompt)
         {
@@ -4674,7 +4714,7 @@ fn rewrite_host_tool_call(
             return;
         }
     }
-    if *tool_name != "run_workspace_workflow" {
+    if !is_surgical_tool && *tool_name != "run_workspace_workflow" {
         if let Some(prompt_args) =
             latest_user_prompt.and_then(infer_workspace_workflow_args_from_prompt)
         {
@@ -4756,6 +4796,7 @@ impl ConversationManager {
         real_id: String,
     ) -> ToolExecutionOutcome {
         let mut msg_results = Vec::new();
+        let mut latest_target_dir = None;
         let gemma4_model =
             crate::agent::inference::is_gemma4_model_name(&self.engine.current_model());
         let normalized_arguments = if gemma4_model {
@@ -5145,7 +5186,14 @@ impl ConversationManager {
                 self.record_successful_mutation(action_target_path(&call.name, &args).as_deref())
                     .await;
             }
-
+ 
+            if call.name == "create_directory" {
+                if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
+                    let resolved = crate::tools::file_ops::resolve_candidate(path);
+                    latest_target_dir = Some(resolved.to_string_lossy().to_string());
+                }
+            }
+ 
             if let Some(receipt) = self.build_action_receipt(&call.name, &args, &output, is_error) {
                 msg_results.push(receipt);
             }
@@ -5196,6 +5244,7 @@ impl ConversationManager {
             is_error,
             blocked_by_policy,
             msg_results,
+            latest_target_dir,
         }
     }
 }
@@ -5210,6 +5259,7 @@ struct ToolExecutionOutcome {
     is_error: bool,
     blocked_by_policy: bool,
     msg_results: Vec<ChatMessage>,
+    latest_target_dir: Option<String>,
 }
 
 #[derive(Clone)]

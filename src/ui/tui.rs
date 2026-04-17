@@ -224,6 +224,7 @@ pub struct App {
     pub attached_context: Option<(String, String)>,
     pub attached_image: Option<AttachedImage>,
     hovered_input_action: Option<InputAction>,
+    pub teleported_from: Option<String>,
 }
 
 impl App {
@@ -690,6 +691,28 @@ fn copy_text_to_clipboard(text: &str) {
         let _ = stdin.write_all(text.as_bytes());
     }
     let _ = child.wait();
+}
+
+/// Spawns a new detached terminal window pre-loaded with the dive-in command.
+/// On Windows, uses PowerShell's Start-Process to ensure the new window is detached.
+fn spawn_dive_in_terminal(path: &str) {
+    if cfg!(windows) {
+        let current_dir = std::env::current_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let command = format!(
+            "cd /d \"{}\" && hematite --teleported-from \"{}\"",
+            path.replace('\\', "/"),
+            current_dir.replace('\\', "/")
+        );
+        let script = format!(
+            "Start-Process cmd.exe -ArgumentList '/k', '{}'",
+            command.replace('\'', "''")
+        );
+        let _ = std::process::Command::new("powershell.exe")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .spawn();
+    }
 }
 
 fn copy_text_to_clipboard_powershell(text: &str) -> bool {
@@ -1539,10 +1562,21 @@ pub async fn run_app<B: Backend>(
         attached_context: None,
         attached_image: None,
         hovered_input_action: None,
+        teleported_from: cockpit.teleported_from.clone(),
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
     app.push_message("Hematite", "Initialising Engine & Hardware...");
+
+    if let Some(origin) = &app.teleported_from {
+        app.push_message(
+            "System",
+            &format!(
+                "Teleportation complete. You've arrived from {}. Hematite has launched this fresh session to ensure your original terminal remains clean and your context is grounded in this target workspace. What's our next move?",
+                origin
+            ),
+        );
+    }
 
     // ── Splash Screen ─────────────────────────────────────────────────────────
     // Blocking splash — user must press Enter to proceed.
@@ -2750,6 +2784,18 @@ pub async fn run_app<B: Backend>(
                         // Clear single-agent task bars on completion
                         app.active_workers.remove("AGENT");
                         app.worker_labels.remove("AGENT");
+                    }
+                    InferenceEvent::CopyDiveInCommand(path) => {
+                        let command = format!("cd \"{}\" && hematite", path.replace('\\', "/"));
+                        copy_text_to_clipboard(&command);
+                        spawn_dive_in_terminal(&path);
+                        app.push_message("System", &format!("Teleportation initiated: New terminal launched at {}", path));
+                        app.push_message("System", "Teleportation complete. Closing original session to maintain workstation hygiene...");
+                        
+                        // Self-Destruct Sequence: Graceful exit matching Ctrl+Q behavior
+                        app.write_session_report();
+                        app.copy_transcript_to_clipboard();
+                        break;
                     }
                     InferenceEvent::Error(e) => {
                         app.record_error();

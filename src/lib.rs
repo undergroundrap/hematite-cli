@@ -156,6 +156,9 @@ pub struct CliCockpit {
 
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
+
+    #[arg(long, hide = true)]
+    pub teleported_from: Option<String>,
 }
 
 #[cfg(test)]

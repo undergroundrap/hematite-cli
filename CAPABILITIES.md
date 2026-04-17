@@ -212,6 +212,7 @@ Hematite is built for repeated project use, not one-off prompts.
 - **Task awareness**: local task and planning files can shape agent behavior
 - **Instruction discovery**: project rules are loaded automatically from workspace instruction files
 - **Sticky workflow modes**: `/ask`, `/code`, `/architect`, `/read-only`, `/teach`, and `/auto` let the operator choose between analysis, implementation, plan-first, hard read-only, and grounded walkthrough behavior
+- **Ultra-Deterministic Teleportation**: Seamlessly transition between folders. When moving to a new workspace, Hematite spawns a fresh, pre-navigated terminal and gracefully closes the original session to maintain workstation hygiene. New sessions include a **Teleportation Handshake** greeting that confirms the origin context and transition reasoning.
 - **Teacher mode** (`/teach`) — inspects real machine state first via `inspect_host`, then delivers a numbered step-by-step walkthrough for any admin/config/system task; never executes write operations itself; covers driver installs, Group Policy, firewall rules, SSH key generation, WSL setup, service config, Windows activation, registry edits, scheduled tasks, and disk cleanup
 
 ## 7. Voice and TUI Integration

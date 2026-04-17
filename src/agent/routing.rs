@@ -48,6 +48,7 @@ pub(crate) struct QueryIntent {
     pub(crate) workspace_workflow_mode: bool,
     pub(crate) architecture_overview_mode: bool,
     pub(crate) sovereign_mode: bool,
+    pub(crate) surgical_filesystem_mode: bool,
 }
 
 fn contains_any(haystack: &str, needles: &[&str]) -> bool {
@@ -1816,26 +1817,36 @@ pub fn preferred_workspace_workflow(user_input: &str) -> Option<&'static str> {
             "yarn fix",
         ],
     );
-    let asks_script = contains_any(
-        &lower,
-        &[
-            "npm run ",
-            "pnpm run ",
-            "yarn ",
-            "bun run ",
-            "make ",
-            "just ",
-            "task ",
-            "scripts/",
-            ".\\scripts\\",
-            "./scripts/",
-            ".ps1",
-            ".sh",
-            ".py",
-            ".cmd",
-            ".bat",
-        ],
-    );
+    let asks_script = {
+        let is_make_file_op = lower.contains("make a folder") 
+            || lower.contains("make a directory")
+            || lower.contains("make a file")
+            || lower.contains("make a hello.txt")
+            || lower.contains("make x");
+        
+        let has_script_keyword = contains_any(
+            &lower,
+            &[
+                "npm run ",
+                "pnpm run ",
+                "yarn ",
+                "bun run ",
+                "make ",
+                "just ",
+                "task ",
+                "scripts/",
+                ".\\scripts\\",
+                "./scripts/",
+                ".ps1",
+                ".sh",
+                ".py",
+                ".cmd",
+                ".bat",
+            ],
+        );
+
+        has_script_keyword && !is_make_file_op
+    };
 
     if mentions_symbol_search(user_input) {
         Some("lsp_search")
@@ -2301,7 +2312,16 @@ pub(crate) fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &st
         workspace_workflow_mode: workspace_workflow_mode && !sovereign_mode,
         architecture_overview_mode,
         sovereign_mode,
+        surgical_filesystem_mode: is_simple_surgical_filesystem_request(user_input),
     }
+}
+
+fn is_simple_surgical_filesystem_request(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    let mentions_creation = contains_any(&lower, &["make a folder", "make a directory", "make a file", "create a folder", "create a directory", "create a file", "new folder", "new directory"]);
+    let mentions_sovereign = contains_any(&lower, &["@desktop", "@documents", "@downloads", "@home", "~/", "@temp"]);
+    
+    mentions_creation || mentions_sovereign
 }
 
 pub(crate) fn is_capability_probe_tool(name: &str) -> bool {

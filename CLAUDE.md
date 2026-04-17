@@ -20,8 +20,15 @@ cargo run -- --rusty
 cargo run -- --yolo
 cargo run -- --brief
 cargo run -- --stats
+cargo run -- --teleported-from <path>
 pwsh ./clean.ps1
 ```
+
+## Core Protocol: Teleportation & Handshake
+
+- **Workspace Teleportation**: When diving into a new directory, Hematite spawns a fresh terminal session pre-navigated to the target.
+- **Self-Destruct**: The original terminal session performs a clean exit after the handoff to ensure workstation hygiene.
+- **Teleportation Handshake**: New sessions arriving via teleportation (flagged by `--teleported-from`) display a specialized greeting confirming the origin and intent.
 
 > **Important:** `cargo build` / `cargo run` only update `target/debug/hematite.exe`. If you run
 > Hematite from the portable dist (`dist\windows\Hematite-X.Y.Z-portable\hematite.exe`) — which is

@@ -733,6 +733,8 @@ pub enum InferenceEvent {
         shiny: bool,
         personality: String,
     },
+    /// A "Dive-In" command (cd <dir> && hematite) to be copied to the clipboard.
+    CopyDiveInCommand(String),
     /// Embed model loaded/unloaded mid-session.
     EmbedProfile { model_id: Option<String> },
     /// A single line of live shell output, streamed while the command runs.

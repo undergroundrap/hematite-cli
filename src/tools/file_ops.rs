@@ -942,7 +942,7 @@ fn safe_path_allow_new(path: &str) -> Result<PathBuf, String> {
     Ok(abs)
 }
 
-fn resolve_candidate(path: &str) -> PathBuf {
+pub(crate) fn resolve_candidate(path: &str) -> PathBuf {
     // 1. Handle Special Sovereign Tokens
     let upper = path.to_uppercase();
     

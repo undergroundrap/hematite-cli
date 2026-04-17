@@ -14,7 +14,7 @@ The goal is simple:
 
 ### `src/main.rs`
 
-CLI entry point. Parses flags (`--no-splash`, `--yolo`, `--rusty`, `--brief`, `--stats`), then delegates to `src/runtime.rs`.
+CLI entry point. Parses flags (`--no-splash`, `--yolo`, `--rusty`, `--brief`, `--stats`, `--teleported-from`), then delegates to `src/runtime.rs`.
 
 ### `src/runtime.rs`
 
@@ -24,6 +24,7 @@ Owns runtime assembly and startup.
 - wires agent channels, watcher channels, voice, swarm, and LM Studio profile sync
 - resolves the workspace root, loads config, launches the Vein, and spawns the agent loop
 - handles the CWD guard (relocates to home if launched from an inaccessible system path)
+- **Teleportation Handshake**: Initializes the session with a context-aware greeting when arriving from a previous workspace.
 
 If you are changing startup ownership, channel plumbing, or steady-state runtime boot, start here.
 
@@ -451,6 +452,7 @@ Owns the operator interface.
 - voice toggle state
 - `@` file autocomplete in the input field
 - all slash-command UI flows
+- **Self-Destruct Protocol**: coordinates clean workspace transitions by spawning a new terminal instance and breaking the original event loop.
 
 The TUI renders typed runtime truth from the agent/runtime layer. It is not the source of truth for provider health, recovery, or policy state.
 
