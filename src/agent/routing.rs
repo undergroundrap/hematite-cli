@@ -274,6 +274,16 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "optional feature",
             "printer",
             "print queue",
+            "audio",
+            "sound",
+            "speaker",
+            "speakers",
+            "microphone",
+            "mic",
+            "bluetooth",
+            "pairing",
+            "headset",
+            "headphones",
             "winrm",
             "psremoting",
             "network stats",
@@ -423,6 +433,55 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("hardware failing");
     let asks_drivers =
         lower.contains("driver") || lower.contains("kmod") || lower.contains("kernel module");
+    let asks_audio = lower.contains("no sound")
+        || lower.contains("audio service")
+        || lower.contains("windows audio")
+        || lower.contains("speaker")
+        || lower.contains("speakers")
+        || lower.contains("microphone")
+        || lower.contains(" mic ")
+        || lower.starts_with("mic ")
+        || lower.contains("mic not")
+        || lower.contains("headset")
+        || lower.contains("headphones")
+        || lower.contains("playback device")
+        || lower.contains("recording device")
+        || lower.contains("audio endpoint")
+        || lower.contains("audioendpointbuilder")
+        || ((lower.contains("audio") || lower.contains("sound"))
+            && (lower.contains("device")
+                || lower.contains("driver")
+                || lower.contains("service")
+                || lower.contains("working")
+                || lower.contains("broken")
+                || lower.contains("input")
+                || lower.contains("output")
+                || lower.contains("crackling")
+                || lower.contains("mute")
+                || lower.contains("muted")
+                || lower.contains("volume")
+                || lower.contains("speaker")
+                || lower.contains("microphone")))
+        && !lower.contains("audio file")
+        && !lower.contains("voice engine");
+    let asks_bluetooth = lower.contains("bluetooth")
+        || lower.contains("pairing")
+        || lower.contains("paired device")
+        || lower.contains("paired devices")
+        || lower.contains("bthserv")
+        || lower.contains("bthavctpsvc")
+        || lower.contains("btagservice")
+        || lower.contains("bluetoothuserservice")
+        || lower.contains("wireless headset")
+        || lower.contains("wireless earbuds")
+        || ((lower.contains("headset") || lower.contains("headphones"))
+            && (lower.contains("disconnect")
+                || lower.contains("pair")
+                || lower.contains("reconnect")
+                || lower.contains("bluetooth")))
+        || ((lower.contains("won't") || lower.contains("cannot") || lower.contains("can't"))
+            && (lower.contains("pair") || lower.contains("connect"))
+            && lower.contains("bluetooth"));
     let asks_peripherals = lower.contains("peripheral")
         || lower.contains("usb")
         || lower.contains("keyboard")
@@ -1127,6 +1186,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("activation")
     } else if asks_patch_history {
         Some("patch_history")
+    } else if asks_bluetooth {
+        Some("bluetooth")
+    } else if asks_audio {
+        Some("audio")
     } else if asks_docker_filesystems {
         Some("docker_filesystems")
     } else if asks_wsl_filesystems {
@@ -1393,6 +1456,54 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         }),
         ("patch_history", |l| {
             l.contains("patch history") || l.contains("hotfix") || l.contains("kb history")
+        }),
+        ("bluetooth", |l| {
+            l.contains("bluetooth")
+                || l.contains("pairing")
+                || l.contains("paired device")
+                || l.contains("paired devices")
+                || l.contains("bthserv")
+                || l.contains("bthavctpsvc")
+                || l.contains("btagservice")
+                || l.contains("bluetoothuserservice")
+                || ((l.contains("headset") || l.contains("headphones"))
+                    && (l.contains("disconnect")
+                        || l.contains("pair")
+                        || l.contains("reconnect")
+                        || l.contains("bluetooth")))
+        }),
+        ("audio", |l| {
+            l.contains("no sound")
+                || l.contains("audio service")
+                || l.contains("windows audio")
+                || l.contains("speaker")
+                || l.contains("speakers")
+                || l.contains("microphone")
+                || l.contains(" mic ")
+                || l.starts_with("mic ")
+                || l.contains("mic not")
+                || l.contains("headset")
+                || l.contains("headphones")
+                || l.contains("playback device")
+                || l.contains("recording device")
+                || l.contains("audio endpoint")
+                || l.contains("audioendpointbuilder")
+                || (((l.contains("audio") || l.contains("sound"))
+                    && (l.contains("device")
+                        || l.contains("driver")
+                        || l.contains("service")
+                        || l.contains("working")
+                        || l.contains("broken")
+                        || l.contains("input")
+                        || l.contains("output")
+                        || l.contains("crackling")
+                        || l.contains("mute")
+                        || l.contains("muted")
+                        || l.contains("volume")
+                        || l.contains("speaker")
+                        || l.contains("microphone")))
+                    && !l.contains("audio file")
+                    && !l.contains("voice engine"))
         }),
         ("pending_reboot", |l| {
             l.contains("pending reboot")
@@ -1846,6 +1957,12 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     }
     if topics.contains(&"lan_discovery") {
         topics.retain(|topic| *topic != "network");
+    }
+    if topics.contains(&"audio") {
+        topics.retain(|topic| *topic != "peripherals");
+    }
+    if topics.contains(&"bluetooth") {
+        topics.retain(|topic| *topic != "peripherals");
     }
 
     topics

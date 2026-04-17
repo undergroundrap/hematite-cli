@@ -37,6 +37,12 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "lan_discovery" | "network_neighborhood" | "upnp" | "neighborhood" => {
             inspect_lan_discovery(max_entries)
         }
+        "audio" | "sound" | "microphone" | "speakers" | "speaker" | "mic" => {
+            inspect_audio(max_entries)
+        }
+        "bluetooth" | "bt" | "paired_devices" | "wireless_audio" => {
+            inspect_bluetooth(max_entries)
+        }
         "services" => inspect_services(parse_name_filter(args), max_entries),
         "processes" => inspect_processes(parse_name_filter(args), max_entries),
         "desktop" => inspect_known_directory("Desktop", desktop_dir(), max_entries).await,
@@ -158,7 +164,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "ip_config" | "ip_detail" | "dhcp" => inspect_ip_config(),
         "overclocker" | "thermal_deep" | "clocks" | "voltage" => inspect_overclocker().await,
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -3685,6 +3691,120 @@ fn parse_windows_services_json(text: &str) -> Result<Vec<ServiceEntry>, String> 
     Ok(services)
 }
 
+#[cfg(target_os = "windows")]
+fn windows_json_entries(node: Option<&Value>) -> Vec<Value> {
+    match node.cloned() {
+        Some(Value::Array(items)) => items,
+        Some(other) => vec![other],
+        None => Vec::new(),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn parse_windows_pnp_devices(node: Option<&Value>) -> Vec<WindowsPnpDevice> {
+    windows_json_entries(node)
+        .into_iter()
+        .filter_map(|entry| {
+            let name = entry
+                .get("FriendlyName")
+                .and_then(|v| v.as_str())
+                .or_else(|| entry.get("Name").and_then(|v| v.as_str()))
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if name.is_empty() {
+                return None;
+            }
+            Some(WindowsPnpDevice {
+                name,
+                status: entry
+                    .get("Status")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown")
+                    .trim()
+                    .to_string(),
+                problem: entry
+                    .get("Problem")
+                    .and_then(|v| v.as_u64())
+                    .or_else(|| entry.get("Problem").and_then(|v| v.as_i64()).map(|v| v as u64)),
+                class_name: entry
+                    .get("Class")
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.trim().to_string()),
+                instance_id: entry
+                    .get("InstanceId")
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.trim().to_string()),
+            })
+        })
+        .collect()
+}
+
+#[cfg(target_os = "windows")]
+fn parse_windows_sound_devices(node: Option<&Value>) -> Vec<WindowsSoundDevice> {
+    windows_json_entries(node)
+        .into_iter()
+        .filter_map(|entry| {
+            let name = entry
+                .get("Name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if name.is_empty() {
+                return None;
+            }
+            Some(WindowsSoundDevice {
+                name,
+                status: entry
+                    .get("Status")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown")
+                    .trim()
+                    .to_string(),
+                manufacturer: entry
+                    .get("Manufacturer")
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.trim().to_string()),
+            })
+        })
+        .collect()
+}
+
+#[cfg(target_os = "windows")]
+fn windows_device_has_issue(device: &WindowsPnpDevice) -> bool {
+    !device.status.eq_ignore_ascii_case("ok")
+        && !device.status.eq_ignore_ascii_case("unknown")
+        || device.problem.unwrap_or(0) != 0
+}
+
+#[cfg(target_os = "windows")]
+fn windows_sound_device_has_issue(device: &WindowsSoundDevice) -> bool {
+    !device.status.eq_ignore_ascii_case("ok") && !device.status.eq_ignore_ascii_case("unknown")
+}
+
+#[cfg(target_os = "windows")]
+fn is_microphone_like_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.contains("microphone")
+        || lower.contains("mic")
+        || lower.contains("input")
+        || lower.contains("array")
+        || lower.contains("capture")
+        || lower.contains("record")
+}
+
+#[cfg(target_os = "windows")]
+fn is_bluetooth_like_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.contains("bluetooth") || lower.contains("hands-free") || lower.contains("a2dp")
+}
+
+#[cfg(target_os = "windows")]
+fn service_is_running(service: &ServiceEntry) -> bool {
+    service.status.eq_ignore_ascii_case("running") || service.status.eq_ignore_ascii_case("active")
+}
+
 #[cfg(not(target_os = "windows"))]
 fn parse_unix_services(status_text: &str, startup_text: &str) -> Vec<ServiceEntry> {
     let mut startup_modes = std::collections::HashMap::<String, String>::new();
@@ -7084,6 +7204,24 @@ struct AuditFinding {
     fix: String,
 }
 
+#[cfg(target_os = "windows")]
+#[derive(Debug, Clone)]
+struct WindowsPnpDevice {
+    name: String,
+    status: String,
+    problem: Option<u64>,
+    class_name: Option<String>,
+    instance_id: Option<String>,
+}
+
+#[cfg(target_os = "windows")]
+#[derive(Debug, Clone)]
+struct WindowsSoundDevice {
+    name: String,
+    status: String,
+    manufacturer: Option<String>,
+}
+
 struct DockerMountAudit {
     mount_type: String,
     source: Option<String>,
@@ -9420,6 +9558,494 @@ fn inspect_windows_features(max_entries: usize) -> Result<String, String> {
     {
         let _ = max_entries;
         out.push_str("Windows Optional Features are Windows-specific. On Linux, check your package manager.\n");
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_audio(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: audio\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let n = max_entries.clamp(5, 20);
+        let services = collect_services().unwrap_or_default();
+        let core_service_names = ["Audiosrv", "AudioEndpointBuilder"];
+        let bluetooth_audio_service_names = ["BthAvctpSvc", "BTAGService"];
+
+        let core_services: Vec<&ServiceEntry> = services
+            .iter()
+            .filter(|entry| {
+                core_service_names
+                    .iter()
+                    .any(|name| entry.name.eq_ignore_ascii_case(name))
+            })
+            .collect();
+        let bluetooth_audio_services: Vec<&ServiceEntry> = services
+            .iter()
+            .filter(|entry| {
+                bluetooth_audio_service_names
+                    .iter()
+                    .any(|name| entry.name.eq_ignore_ascii_case(name))
+            })
+            .collect();
+
+        let probe_script = r#"
+$media = @(Get-PnpDevice -Class Media -ErrorAction SilentlyContinue |
+    Select-Object FriendlyName, Status, Problem, Class, InstanceId)
+$endpoints = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue |
+    Select-Object FriendlyName, Status, Problem, Class, InstanceId)
+$sound = @(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue |
+    Select-Object Name, Status, Manufacturer, PNPDeviceID)
+[pscustomobject]@{
+    Media = $media
+    Endpoints = $endpoints
+    SoundDevices = $sound
+} | ConvertTo-Json -Compress -Depth 4
+"#;
+        let probe_raw = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", probe_script])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        let probe_loaded = !probe_raw.trim().is_empty();
+        let probe_value = serde_json::from_str::<Value>(probe_raw.trim()).unwrap_or(Value::Null);
+
+        let endpoints = parse_windows_pnp_devices(probe_value.get("Endpoints"));
+        let media_devices = parse_windows_pnp_devices(probe_value.get("Media"));
+        let sound_devices = parse_windows_sound_devices(probe_value.get("SoundDevices"));
+
+        let playback_endpoints: Vec<&WindowsPnpDevice> = endpoints
+            .iter()
+            .filter(|device| !is_microphone_like_name(&device.name))
+            .collect();
+        let recording_endpoints: Vec<&WindowsPnpDevice> = endpoints
+            .iter()
+            .filter(|device| is_microphone_like_name(&device.name))
+            .collect();
+        let bluetooth_endpoints: Vec<&WindowsPnpDevice> = endpoints
+            .iter()
+            .filter(|device| is_bluetooth_like_name(&device.name))
+            .collect();
+        let endpoint_problems: Vec<&WindowsPnpDevice> = endpoints
+            .iter()
+            .filter(|device| windows_device_has_issue(device))
+            .collect();
+        let media_problems: Vec<&WindowsPnpDevice> = media_devices
+            .iter()
+            .filter(|device| windows_device_has_issue(device))
+            .collect();
+        let sound_problems: Vec<&WindowsSoundDevice> = sound_devices
+            .iter()
+            .filter(|device| windows_sound_device_has_issue(device))
+            .collect();
+
+        let mut findings = Vec::new();
+
+        let stopped_core_services: Vec<&ServiceEntry> = core_services
+            .iter()
+            .copied()
+            .filter(|service| !service_is_running(service))
+            .collect();
+        if !stopped_core_services.is_empty() {
+            let names = stopped_core_services
+                .iter()
+                .map(|service| service.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            findings.push(AuditFinding {
+                finding: format!("Core audio services are not running: {names}"),
+                impact: "Playback and recording devices can vanish or fail even when the hardware is physically present.".to_string(),
+                fix: "Start Windows Audio (`Audiosrv`) and Windows Audio Endpoint Builder, then recheck the endpoint inventory before reinstalling drivers.".to_string(),
+            });
+        }
+
+        if probe_loaded && endpoints.is_empty() && media_devices.is_empty() && sound_devices.is_empty()
+        {
+            findings.push(AuditFinding {
+                finding: "No audio endpoints or sound hardware were detected in the Windows device inventory.".to_string(),
+                impact: "Windows currently has no obvious playback or recording path to hand to apps, so 'no sound' or 'mic missing' behavior is expected.".to_string(),
+                fix: "Check whether the audio device is disabled in Device Manager, disconnected at the hardware level, or blocked by a vendor driver package that failed to load.".to_string(),
+            });
+        }
+
+        if !endpoint_problems.is_empty() || !media_problems.is_empty() || !sound_problems.is_empty() {
+            let mut problem_labels = Vec::new();
+            problem_labels.extend(
+                endpoint_problems
+                    .iter()
+                    .take(3)
+                    .map(|device| device.name.clone()),
+            );
+            problem_labels.extend(
+                media_problems
+                    .iter()
+                    .take(3)
+                    .map(|device| device.name.clone()),
+            );
+            problem_labels.extend(
+                sound_problems
+                    .iter()
+                    .take(3)
+                    .map(|device| device.name.clone()),
+            );
+            findings.push(AuditFinding {
+                finding: format!(
+                    "Windows reports audio device issues for: {}",
+                    problem_labels.join(", ")
+                ),
+                impact: "Apps can lose speakers, microphones, or headset paths when endpoint or media-class devices are degraded, disabled, or driver-broken.".to_string(),
+                fix: "Inspect the affected audio devices in Device Manager, confirm the vendor driver is healthy, and re-enable or reinstall the failing endpoint before troubleshooting apps.".to_string(),
+            });
+        }
+
+        let stopped_bt_audio_services: Vec<&ServiceEntry> = bluetooth_audio_services
+            .iter()
+            .copied()
+            .filter(|service| !service_is_running(service))
+            .collect();
+        if !bluetooth_endpoints.is_empty() && !stopped_bt_audio_services.is_empty() {
+            let names = stopped_bt_audio_services
+                .iter()
+                .map(|service| service.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            findings.push(AuditFinding {
+                finding: format!(
+                    "Bluetooth-branded audio endpoints exist, but Bluetooth audio services are not fully running: {names}"
+                ),
+                impact: "Headsets may pair yet fail to expose the correct playback or microphone profile, especially after wake or reconnect events.".to_string(),
+                fix: "Restart the Bluetooth audio services and reconnect the headset before blaming the application layer.".to_string(),
+            });
+        }
+
+        out.push_str("=== Findings ===\n");
+        if findings.is_empty() {
+            out.push_str("- Finding: No obvious Windows audio-service outage or device-inventory failure was detected.\n");
+            out.push_str("  Impact: Playback and recording look structurally present from this inspection pass.\n");
+            out.push_str("  Fix: If a specific app still has no sound or mic input, compare the endpoint inventory below against that app's selected input/output devices.\n");
+        } else {
+            for finding in &findings {
+                out.push_str(&format!("- Finding: {}\n", finding.finding));
+                out.push_str(&format!("  Impact: {}\n", finding.impact));
+                out.push_str(&format!("  Fix: {}\n", finding.fix));
+            }
+        }
+
+        out.push_str("\n=== Audio services ===\n");
+        if core_services.is_empty() && bluetooth_audio_services.is_empty() {
+            out.push_str("- No Windows audio services were retrieved from the service inventory.\n");
+        } else {
+            for service in core_services.iter().chain(bluetooth_audio_services.iter()) {
+                out.push_str(&format!(
+                    "- {} | Status: {} | Startup: {}\n",
+                    service.name,
+                    service.status,
+                    service.startup.as_deref().unwrap_or("Unknown")
+                ));
+            }
+        }
+
+        out.push_str("\n=== Playback and recording endpoints ===\n");
+        if !probe_loaded {
+            out.push_str("- Windows endpoint inventory probe returned no data.\n");
+        } else if endpoints.is_empty() {
+            out.push_str("- No audio endpoints detected.\n");
+        } else {
+            out.push_str(&format!(
+                "- Playback-style endpoints: {} | Recording-style endpoints: {}\n",
+                playback_endpoints.len(),
+                recording_endpoints.len()
+            ));
+            for device in playback_endpoints.iter().take(n) {
+                out.push_str(&format!(
+                    "- [PLAYBACK] {} | Status: {}{}\n",
+                    device.name,
+                    device.status,
+                    device
+                        .problem
+                        .filter(|problem| *problem != 0)
+                        .map(|problem| format!(" | ProblemCode: {problem}"))
+                        .unwrap_or_default()
+                ));
+            }
+            for device in recording_endpoints.iter().take(n) {
+                out.push_str(&format!(
+                    "- [MIC] {} | Status: {}{}\n",
+                    device.name,
+                    device.status,
+                    device
+                        .problem
+                        .filter(|problem| *problem != 0)
+                        .map(|problem| format!(" | ProblemCode: {problem}"))
+                        .unwrap_or_default()
+                ));
+            }
+        }
+
+        out.push_str("\n=== Sound hardware devices ===\n");
+        if sound_devices.is_empty() {
+            out.push_str("- No Win32_SoundDevice entries were returned.\n");
+        } else {
+            for device in sound_devices.iter().take(n) {
+                out.push_str(&format!(
+                    "- {} | Status: {}{}\n",
+                    device.name,
+                    device.status,
+                    device
+                        .manufacturer
+                        .as_deref()
+                        .map(|manufacturer| format!(" | Vendor: {manufacturer}"))
+                        .unwrap_or_default()
+                ));
+            }
+        }
+
+        out.push_str("\n=== Media-class device inventory ===\n");
+        if media_devices.is_empty() {
+            out.push_str("- No media-class PnP devices were returned.\n");
+        } else {
+            for device in media_devices.iter().take(n) {
+                out.push_str(&format!(
+                    "- {} | Status: {}{}\n",
+                    device.name,
+                    device.status,
+                    device
+                        .class_name
+                        .as_deref()
+                        .map(|class_name| format!(" | Class: {class_name}"))
+                        .unwrap_or_default()
+                ));
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = max_entries;
+        out.push_str("Audio inspection currently provides deep endpoint and service coverage on Windows.\n");
+        out.push_str(
+            "On Linux/macOS, ask narrower questions about PipeWire/PulseAudio/ALSA state if you want a dedicated native audit path added.\n",
+        );
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+fn inspect_bluetooth(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: bluetooth\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let n = max_entries.clamp(5, 20);
+        let services = collect_services().unwrap_or_default();
+        let bluetooth_services: Vec<&ServiceEntry> = services
+            .iter()
+            .filter(|entry| {
+                entry.name.eq_ignore_ascii_case("bthserv")
+                    || entry.name.eq_ignore_ascii_case("BthAvctpSvc")
+                    || entry.name.eq_ignore_ascii_case("BTAGService")
+                    || entry.name.starts_with("BluetoothUserService")
+                    || entry
+                        .display_name
+                        .as_deref()
+                        .unwrap_or("")
+                        .to_ascii_lowercase()
+                        .contains("bluetooth")
+            })
+            .collect();
+
+        let probe_script = r#"
+$radios = @(Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue |
+    Select-Object FriendlyName, Status, Problem, Class, InstanceId)
+$devices = @(Get-PnpDevice -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.Class -eq 'Bluetooth' -or
+        $_.FriendlyName -match 'Bluetooth' -or
+        $_.InstanceId -like 'BTH*'
+    } |
+    Select-Object FriendlyName, Status, Problem, Class, InstanceId)
+$audio = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue |
+    Where-Object { $_.FriendlyName -match 'Bluetooth|Hands-Free|A2DP' } |
+    Select-Object FriendlyName, Status, Problem, Class, InstanceId)
+[pscustomobject]@{
+    Radios = $radios
+    Devices = $devices
+    AudioEndpoints = $audio
+} | ConvertTo-Json -Compress -Depth 4
+"#;
+        let probe_raw = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", probe_script])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        let probe_loaded = !probe_raw.trim().is_empty();
+        let probe_value = serde_json::from_str::<Value>(probe_raw.trim()).unwrap_or(Value::Null);
+
+        let radios = parse_windows_pnp_devices(probe_value.get("Radios"));
+        let devices = parse_windows_pnp_devices(probe_value.get("Devices"));
+        let audio_endpoints = parse_windows_pnp_devices(probe_value.get("AudioEndpoints"));
+        let radio_problems: Vec<&WindowsPnpDevice> = radios
+            .iter()
+            .filter(|device| windows_device_has_issue(device))
+            .collect();
+        let device_problems: Vec<&WindowsPnpDevice> = devices
+            .iter()
+            .filter(|device| windows_device_has_issue(device))
+            .collect();
+
+        let mut findings = Vec::new();
+
+        if probe_loaded && radios.is_empty() {
+            findings.push(AuditFinding {
+                finding: "No Bluetooth radio or adapter was detected in the device inventory.".to_string(),
+                impact: "Pairing, reconnects, and Bluetooth audio paths cannot work without a healthy local radio.".to_string(),
+                fix: "Check whether Bluetooth is disabled in firmware, turned off in Windows, or missing its vendor driver.".to_string(),
+            });
+        }
+
+        let stopped_bluetooth_services: Vec<&ServiceEntry> = bluetooth_services
+            .iter()
+            .copied()
+            .filter(|service| !service_is_running(service))
+            .collect();
+        if !stopped_bluetooth_services.is_empty() {
+            let names = stopped_bluetooth_services
+                .iter()
+                .map(|service| service.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            findings.push(AuditFinding {
+                finding: format!("Bluetooth-related services are not fully running: {names}"),
+                impact: "Discovery, pairing, reconnects, and headset profile switching can all fail even when the adapter appears installed.".to_string(),
+                fix: "Start the Bluetooth Support Service first, then reconnect the device and recheck the adapter and endpoint state.".to_string(),
+            });
+        }
+
+        if !radio_problems.is_empty() || !device_problems.is_empty() {
+            let problem_labels = radio_problems
+                .iter()
+                .chain(device_problems.iter())
+                .take(5)
+                .map(|device| device.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            findings.push(AuditFinding {
+                finding: format!("Windows reports Bluetooth device issues for: {problem_labels}"),
+                impact: "A degraded radio or paired-device node can cause pairing loops, sudden disconnects, or one-way headset behavior.".to_string(),
+                fix: "Inspect the failing Bluetooth devices in Device Manager, confirm the driver stack is healthy, then remove and re-pair the affected endpoint if needed.".to_string(),
+            });
+        }
+
+        if !audio_endpoints.is_empty()
+            && bluetooth_services
+                .iter()
+                .any(|service| service.name.eq_ignore_ascii_case("BthAvctpSvc"))
+            && bluetooth_services
+                .iter()
+                .filter(|service| service.name.eq_ignore_ascii_case("BthAvctpSvc"))
+                .any(|service| !service_is_running(service))
+        {
+            findings.push(AuditFinding {
+                finding: "Bluetooth audio endpoints exist, but the Bluetooth AVCTP service is not running.".to_string(),
+                impact: "Headsets can connect yet expose the wrong audio role or lose media controls and microphone availability.".to_string(),
+                fix: "Restart the AVCTP service and reconnect the headset before troubleshooting the app or conferencing tool.".to_string(),
+            });
+        }
+
+        out.push_str("=== Findings ===\n");
+        if findings.is_empty() {
+            out.push_str("- Finding: No obvious Bluetooth radio, service, or paired-device failure was detected.\n");
+            out.push_str("  Impact: The Bluetooth stack looks structurally healthy from this inspection pass.\n");
+            out.push_str("  Fix: If one specific device still fails, focus next on that device's pairing history, driver node, and audio endpoint role.\n");
+        } else {
+            for finding in &findings {
+                out.push_str(&format!("- Finding: {}\n", finding.finding));
+                out.push_str(&format!("  Impact: {}\n", finding.impact));
+                out.push_str(&format!("  Fix: {}\n", finding.fix));
+            }
+        }
+
+        out.push_str("\n=== Bluetooth services ===\n");
+        if bluetooth_services.is_empty() {
+            out.push_str("- No Bluetooth-related services were retrieved from the service inventory.\n");
+        } else {
+            for service in bluetooth_services.iter().take(n) {
+                out.push_str(&format!(
+                    "- {} | Status: {} | Startup: {}\n",
+                    service.name,
+                    service.status,
+                    service.startup.as_deref().unwrap_or("Unknown")
+                ));
+            }
+        }
+
+        out.push_str("\n=== Bluetooth radios and adapters ===\n");
+        if !probe_loaded {
+            out.push_str("- Windows Bluetooth adapter inventory probe returned no data.\n");
+        } else if radios.is_empty() {
+            out.push_str("- No Bluetooth radios detected.\n");
+        } else {
+            for device in radios.iter().take(n) {
+                out.push_str(&format!(
+                    "- {} | Status: {}{}\n",
+                    device.name,
+                    device.status,
+                    device
+                        .problem
+                        .filter(|problem| *problem != 0)
+                        .map(|problem| format!(" | ProblemCode: {problem}"))
+                        .unwrap_or_default()
+                ));
+            }
+        }
+
+        out.push_str("\n=== Bluetooth-associated devices ===\n");
+        if devices.is_empty() {
+            out.push_str("- No Bluetooth-associated device nodes detected.\n");
+        } else {
+            for device in devices.iter().take(n) {
+                out.push_str(&format!(
+                    "- {} | Status: {}{}\n",
+                    device.name,
+                    device.status,
+                    device
+                        .class_name
+                        .as_deref()
+                        .map(|class_name| format!(" | Class: {class_name}"))
+                        .unwrap_or_default()
+                ));
+            }
+        }
+
+        out.push_str("\n=== Bluetooth audio endpoints ===\n");
+        if audio_endpoints.is_empty() {
+            out.push_str("- No Bluetooth-branded audio endpoints detected.\n");
+        } else {
+            for device in audio_endpoints.iter().take(n) {
+                out.push_str(&format!(
+                    "- {} | Status: {}{}\n",
+                    device.name,
+                    device.status,
+                    device
+                        .instance_id
+                        .as_deref()
+                        .map(|instance_id| format!(" | Instance: {instance_id}"))
+                        .unwrap_or_default()
+                ));
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = max_entries;
+        out.push_str("Bluetooth inspection currently provides deep service and device coverage on Windows.\n");
+        out.push_str(
+            "On Linux/macOS, ask a narrower Bluetooth question if you want a dedicated native audit path added.\n",
+        );
     }
 
     Ok(out.trim_end().to_string())

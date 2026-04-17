@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **84+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **86+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -26,9 +26,10 @@ pwsh ./clean.ps1
 
 ## Core Protocol: Teleportation & Handshake
 
-- **Workspace Teleportation**: When diving into a new directory, Hematite spawns a fresh terminal session pre-navigated to the target.
-- **Self-Destruct**: The original terminal session performs a clean exit after the handoff to ensure workstation hygiene.
+- **Workspace Teleportation**: When diving into a new directory, Hematite spawns a fresh terminal session pre-navigated to the target. The new window opens at the same pixel size and position as the originating window, and launches with `--no-splash` for a seamless transition.
+- **Self-Destruct**: The original terminal session performs a clean exit after the handoff to ensure workstation hygiene. A background watcher detects when Hematite exits and kills the originating `cmd.exe`. Windows Terminal tabs are explicitly excluded (killing `WindowsTerminal.exe` would close all tabs).
 - **Teleportation Handshake**: New sessions arriving via teleportation (flagged by `--teleported-from`) display a specialized greeting confirming the origin and intent.
+- **Sovereign Directory Guard**: Teleporting to or launching from Desktop, Downloads, Documents, Pictures, Videos, or Music does not create a local `.hematite/` folder there. All runtime state (settings, vein, session, logs, scratch) routes to `~/.hematite/` instead, keeping OS directories clean. Real project directories are unaffected.
 
 > **Important:** `cargo build` / `cargo run` only update `target/debug/hematite.exe`. If you run
 > Hematite from the portable dist (`dist\windows\Hematite-X.Y.Z-portable\hematite.exe`) — which is
@@ -189,6 +190,8 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **WSL**: Use `topic: "wsl"` for Windows Subsystem for Linux — installed distros, running state, WSL version. Windows-only; reports gracefully on Linux/macOS.
 - **WSL Filesystems**: Use `topic: "wsl_filesystems"` for WSL rootfs usage, host-side `ext4.vhdx` growth, and `/mnt/c` bridge health without starting stopped distros.
 - **LAN Discovery**: Use `topic: "lan_discovery"` for neighborhood, NAS/printer visibility, NetBIOS/SMB browse evidence, mDNS/SSDP/UPnP listener surface, gateway/device-discovery hints, and a plain-English diagnosis path for discovery failures.
+- **Audio**: Use `topic: "audio"` for Windows Audio service health, playback and recording endpoint inventory, speaker and microphone path triage, and Bluetooth-audio crossover.
+- **Bluetooth**: Use `topic: "bluetooth"` for radio presence, Bluetooth service health, paired-device inventory, reconnect and pairing issues, and headset-role diagnostics.
 - **SSH**: Use `topic: "ssh"` for SSH client version, sshd service state, `~/.ssh` directory inventory (known_hosts count, authorized_keys count, private key files), and `~/.ssh/config` host entries.
 - **Installed Software**: Use `topic: "installed_software"` for installed programs — winget list on Windows (registry fallback), dpkg/rpm/pacman on Linux, brew + mas on macOS.
 - **Git Config**: Use `topic: "git_config"` for global git configuration audit — user identity, core settings, signing config, push/pull defaults, credential helper, branch defaults, local repo config, and git aliases.
@@ -732,7 +735,7 @@ pwsh ./clean.ps1 -Deep -PruneDist   # + old dist/ artifacts, keeps only current 
 pwsh ./clean.ps1 -Reset   # + PLAN.md, TASK.md (full blank-slate, simulates new user)
 ```
 
-Regular clean removes runtime artifacts: ghost backups, scratch files, session memories, sandbox output, reports, and logs. Deep also removes build outputs and the vein database. `-PruneDist` is opt-in and removes stale packaged artifacts under `dist/` while keeping only the current `Cargo.toml` version. Reset goes further and wipes session state files — use this to simulate a first-run experience without touching `settings.json` or `mcp_servers.json`.
+Regular clean removes runtime artifacts: ghost backups, scratch files, session memories, sandbox output, reports, and logs (`.hematite/logs/`). Deep also removes build outputs and the vein database. Note: session logs previously written to `.hematite_logs/` in the project root now live at `.hematite/logs/` — delete any leftover `.hematite_logs/` directories manually. `-PruneDist` is opt-in and removes stale packaged artifacts under `dist/` while keeping only the current `Cargo.toml` version. Reset goes further and wipes session state files — use this to simulate a first-run experience without touching `settings.json` or `mcp_servers.json`.
 
 For Hematite, disk growth is a normal maintenance concern. This is a heavy native Rust project with release packaging, ORT/DirectML sidecars, tests, and repeated debug/release builds. `target/` can climb into the tens of gigabytes quickly, and after enough iteration it is believable to hit 50-100 GB of local build output. Treat periodic deep cleanup as part of the normal workflow. When disk pressure matters, run `pwsh ./clean.ps1 -Deep`; if you also want to keep only the latest packaged release artifacts, use `pwsh ./clean.ps1 -Deep -PruneDist`. Remember that the next full rebuild will be slower because you deliberately wiped cached build state.
 
@@ -748,17 +751,17 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 - **Turn checkpointing** — ✓ Done. `save_session()` writes `.hematite/session.json` after every turn. On next startup, `load_checkpoint()` surfaces the resume hint in SPECULAR and `running_summary` + `session_memory` are reinjected into the model's system prompt. `/new` and `/forget` both clear the session cleanly via `save_empty_session()`.
 - **Computation integrity routing** — ✓ Done. `needs_computation_sandbox()` in `routing.rs` detects math queries and injects a pre-turn nudge. Shell-to-run_code block recovery and Deno parse error recovery are wired in the tool result handler.
 - **Per-project rule injection** — ✓ Done. Hematite now natively checks for `.hematite/rules.md` and `HEMATITE.md` (alongside `CLAUDE.md`) and injects them into the system prompt. Includes a new `/rules` command for viewing and editing guidelines directly from the TUI.
-- **Ultra-Deterministic Teleportation** — ✓ Done. Spawns fresh terminal sessions on workspace transitions with a specialized handshake greeting and origin-path propagation via `--teleported-from`. Includes a Self-Destruct protocol to sync and exit the source terminal automatically.
+- **Ultra-Deterministic Teleportation** — ✓ Done. Spawns fresh terminal sessions on workspace transitions with a specialized handshake greeting and origin-path propagation via `--teleported-from`. New window matches the originating window's pixel size and position; launches without splash screen. Source terminal auto-closes via a background watcher on the parent `cmd.exe` (Windows Terminal excluded). Sovereign OS directories (Desktop, Downloads, Documents, Pictures, Videos, Music) redirect all runtime state to `~/.hematite/` — no `.hematite/` folders created in those locations. Bare name support: `/cd downloads`, `/cd desktop`, `/cd ~` all resolve without `@` prefix.
 - **Native Tool Mandate** — ✓ Done. Triage hierarchy and system prompts now strictly prioritize native surgical tools over MCP mutations for local filesystem operations, enforced by `surgical_filesystem_mode` in `routing.rs`.
 
 - **Deep WSL / Docker filesystem auditing** — ✓ Done. Shipped as `inspect_host(topic: "docker_filesystems")` and `inspect_host(topic: "wsl_filesystems")`. Covers bind mounts, named volumes, Docker Desktop disk-image growth, WSL rootfs usage, host-side `ext4.vhdx` sizing, and `/mnt/c` bridge checks, with output shaped as `finding -> impact -> exact fix steps`.
 - **Advanced LAN / UPnP / neighborhood inspection** — ✓ Done. Shipped as `inspect_host(topic: "lan_discovery")`. Covers neighborhood discovery summary, SMB/NetBIOS visibility, mDNS/SSDP/UPnP listener surface, gateway/device-discovery hints, and plain-English diagnosis for “discovery broken vs service missing vs firewall blocked”.
 - **Voltage telemetry for overclocker** — ✓ Done. `overclocker` now reports real board-power context plus explicit GPU-voltage availability on the active NVIDIA driver path, and only shows CPU voltage when WMI exposes a decodable firmware-reported value. The wording stays strict: power draw is not presented as voltage telemetry.
+- **Audio + microphone troubleshooting** — ✓ Done. Shipped as `inspect_host(topic: "audio")`. Covers Windows Audio service health, playback and recording endpoint inventory, microphone and speaker path checks, Bluetooth-audio crossover, and plain-English diagnosis for “no sound / bad mic / crackling”.
+- **Bluetooth troubleshooting** — ✓ Done. Shipped as `inspect_host(topic: "bluetooth")`. Covers Bluetooth radio presence, service health, paired-device inventory, Bluetooth audio endpoint crossover, and plain-English diagnosis for “won’t pair / keeps disconnecting / wrong headset role”.
 
 ### Next Up — highest-value missing support lanes
 
-- **Audio + microphone troubleshooting** — add `inspect_host(topic: "audio")` for endpoint detection, default playback/recording devices, muted or disabled states, audio service health, Bluetooth audio-path conflicts, and plain-English fixes for “no sound / bad mic / crackling”.
-- **Bluetooth troubleshooting** — add `inspect_host(topic: "bluetooth")` for radio presence, adapter state, paired-device inventory, audio-device role collisions, driver state, and clear diagnosis for “won’t pair / keeps disconnecting / one-way audio”.
 - **Camera + privacy-permission auditing** — add `inspect_host(topic: "camera")` for device presence, driver state, Windows privacy gates, app permission state, and likely causes for “camera missing / app can’t see webcam”.
 - **Windows Hello / sign-in recovery** — add `inspect_host(topic: "sign_in")` for PIN and Hello readiness, biometric device state, profile-health signals, and operator guidance for “can’t sign in / Hello broke / profile feels corrupt”.
 - **Search indexing diagnostics** — add `inspect_host(topic: "search_index")` for Windows Search service state, indexer health, backlog or disabled-state detection, and fixes for “search is broken / indexing stuck”.

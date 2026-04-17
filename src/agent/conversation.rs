@@ -1539,7 +1539,7 @@ impl ConversationManager {
                         "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: Shell is blocked for host inspection. The diagnostic data above fulfills your request. Use inspect_host directly for further diagnostics.]"
                     )),
                     Err(e) => Err(format!(
-                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, lan_discovery, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, docker_filesystems, wsl, wsl_filesystems, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
+                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, lan_discovery, audio, bluetooth, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, docker_filesystems, wsl, wsl_filesystems, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
                     )),
                 };
             }
@@ -2454,6 +2454,8 @@ impl ConversationManager {
                  - WSL distros / WSL version / distro state -> `wsl`\n\
                  - WSL storage / VHDX growth / /mnt/c bridge health -> `wsl_filesystems`\n\
                  - Local network discovery / NAS or printer visibility / neighborhood / mDNS / SSDP / UPnP / NetBIOS -> `lan_discovery`\n\
+                 - Speakers / microphones / playback devices / Windows Audio service -> `audio`\n\
+                 - Bluetooth radios / pairing / reconnect issues / headset roles -> `bluetooth`\n\
                  Only use `shell` if the question truly cannot be answered by any topic above.\n\
                  NEVER tell the user to run PowerShell, cmd, or shell commands themselves. If the data is incomplete, say so and tell them to ask a more specific question instead.\n\
                  NEVER expose internal tool names or API syntax (like `inspect_host(topic=...)`) in your response. Refer to capabilities in plain English: say 'ask me for a fix plan' not 'run inspect_host(topic=fix_plan)'.\n"
@@ -2530,7 +2532,7 @@ impl ConversationManager {
                      3. End with a verification step the user can run to confirm success.\n\
                      4. Do NOT execute write operations yourself. You are the teacher; the user performs the steps.\n\
                      5. Treat the user as capable — give precise instructions, not hedged warnings.\n\
-                     Relevant inspect_host topics for common tasks: hardware (driver installs), overclocker (GPU/silicon vitals), security (firewall), ssh (SSH keys), wsl (WSL setup), wsl_filesystems (WSL disk and path-bridge issues), docker_filesystems (bind mounts and named volumes), lan_discovery (printer/NAS/neighborhood discovery issues), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
+                     Relevant inspect_host topics for common tasks: hardware (driver installs), overclocker (GPU/silicon vitals), security (firewall), ssh (SSH keys), wsl (WSL setup), wsl_filesystems (WSL disk and path-bridge issues), docker_filesystems (bind mounts and named volumes), lan_discovery (printer/NAS/neighborhood discovery issues), audio (speaker/microphone/service issues), bluetooth (pairing/radio/headset issues), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
                 ),
                 WorkflowMode::Chat => {} // replaced by build_chat_system_prompt below
             }
@@ -5540,6 +5542,18 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "avahi-browse",
         "route print",
         "ip neigh",
+        // audio / bluetooth — always use inspect_host
+        "get-pnpdevice -class audioendpoint",
+        "get-pnpdevice -class media",
+        "win32_sounddevice",
+        "audiosrv",
+        "audioendpointbuilder",
+        "windows audio",
+        "get-pnpdevice -class bluetooth",
+        "bthserv",
+        "bthavctpsvc",
+        "btagservice",
+        "bluetoothuserservice",
         // active directory - always use inspect_host
         "get-aduser",
         "get-addomain",
@@ -6280,6 +6294,18 @@ mod tests {
         assert!(shell_looks_like_structured_host_inspection(
             "Get-Service FDResPub,fdPHost,SSDPSRV,upnphost"
         ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-PnpDevice -Class AudioEndpoint"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-CimInstance Win32_SoundDevice"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-PnpDevice -Class Bluetooth"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-Service bthserv,BthAvctpSvc,BTAGService"
+        ));
     }
 
     #[test]
@@ -6343,6 +6369,34 @@ mod tests {
                 "How do I fix Hematite when LM Studio is not reachable on localhost:1234?"
             ),
             Some("fix_plan")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_audio_for_sound_and_microphone_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic("Why is there no sound from my speakers right now?"),
+            Some("audio")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic(
+                "Check my microphone and playback devices because Windows Audio seems broken."
+            ),
+            Some("audio")
+        );
+    }
+
+    #[test]
+    fn intent_router_picks_bluetooth_for_pairing_and_headset_questions() {
+        assert_eq!(
+            preferred_host_inspection_topic(
+                "Why won't this Bluetooth headset pair and stay connected?"
+            ),
+            Some("bluetooth")
+        );
+        assert_eq!(
+            preferred_host_inspection_topic("Check my Bluetooth radio and pairing status."),
+            Some("bluetooth")
         );
     }
 

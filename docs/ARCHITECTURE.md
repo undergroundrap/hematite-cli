@@ -364,7 +364,7 @@ Sandboxed code execution (`run_code` tool).
 
 ### `src/tools/host_inspect.rs`
 
-SysAdmin and Network Admin inspection (`inspect_host` tool). 84+ read-only topics covering the full OS stack. Recent additions include `docker_filesystems`, `wsl_filesystems`, and `lan_discovery` for mount/storage truth and local-network neighborhood discovery. See CLAUDE.md for the complete topic reference.
+SysAdmin and Network Admin inspection (`inspect_host` tool). 86+ read-only topics covering the full OS stack. Recent additions include `docker_filesystems`, `wsl_filesystems`, `lan_discovery`, `audio`, and `bluetooth` for mount/storage truth, local-network neighborhood discovery, and workstation endpoint triage. See CLAUDE.md for the complete topic reference.
 
 ### `src/tools/guard.rs`
 
