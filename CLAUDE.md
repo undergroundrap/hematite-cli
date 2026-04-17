@@ -742,7 +742,7 @@ Hematite is designed around the real constraint of a single consumer GPU running
 
 This roadmap reflects that design philosophy: things that are worth doing now because they work with the model's actual capability, and things to revisit when local models improve.
 
-### Shipped — formerly Tier 1
+### Shipped
 
 - **Streaming shell output** — ✓ Done. `execute_streaming` streams each stdout/stderr line to the SPECULAR panel as it arrives via `InferenceEvent::ShellLine`. `verify_build` uses the same path. Background tasks fall back to blocking execution.
 - **Turn checkpointing** — ✓ Done. `save_session()` writes `.hematite/session.json` after every turn. On next startup, `load_checkpoint()` surfaces the resume hint in SPECULAR and `running_summary` + `session_memory` are reinjected into the model's system prompt. `/new` and `/forget` both clear the session cleanly via `save_empty_session()`.
@@ -751,14 +751,22 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 - **Ultra-Deterministic Teleportation** — ✓ Done. Spawns fresh terminal sessions on workspace transitions with a specialized handshake greeting and origin-path propagation via `--teleported-from`. Includes a Self-Destruct protocol to sync and exit the source terminal automatically.
 - **Native Tool Mandate** — ✓ Done. Triage hierarchy and system prompts now strictly prioritize native surgical tools over MCP mutations for local filesystem operations, enforced by `surgical_filesystem_mode` in `routing.rs`.
 
-### Tier 1 — High value, local models ready today
-
 - **Deep WSL / Docker filesystem auditing** — ✓ Done. Shipped as `inspect_host(topic: "docker_filesystems")` and `inspect_host(topic: "wsl_filesystems")`. Covers bind mounts, named volumes, Docker Desktop disk-image growth, WSL rootfs usage, host-side `ext4.vhdx` sizing, and `/mnt/c` bridge checks, with output shaped as `finding -> impact -> exact fix steps`.
 - **Advanced LAN / UPnP / neighborhood inspection** — ✓ Done. Shipped as `inspect_host(topic: "lan_discovery")`. Covers neighborhood discovery summary, SMB/NetBIOS visibility, mDNS/SSDP/UPnP listener surface, gateway/device-discovery hints, and plain-English diagnosis for “discovery broken vs service missing vs firewall blocked”.
 - **Voltage telemetry for overclocker** — ✓ Done. `overclocker` now reports real board-power context plus explicit GPU-voltage availability on the active NVIDIA driver path, and only shows CPU voltage when WMI exposes a decodable firmware-reported value. The wording stays strict: power draw is not presented as voltage telemetry.
-- **Per-workspace model profiles** — let `.hematite/settings.json` specify a preferred model, context ceiling, and embed model per project; useful when different repos need different size/speed tradeoffs. LM Studio makes manual model swaps easy and Hematite detects the active model automatically, so this is low priority until users hit the friction.
+
+### Next Up — highest-value missing support lanes
+
+- **Audio + microphone troubleshooting** — add `inspect_host(topic: "audio")` for endpoint detection, default playback/recording devices, muted or disabled states, audio service health, Bluetooth audio-path conflicts, and plain-English fixes for “no sound / bad mic / crackling”.
+- **Bluetooth troubleshooting** — add `inspect_host(topic: "bluetooth")` for radio presence, adapter state, paired-device inventory, audio-device role collisions, driver state, and clear diagnosis for “won’t pair / keeps disconnecting / one-way audio”.
+- **Camera + privacy-permission auditing** — add `inspect_host(topic: "camera")` for device presence, driver state, Windows privacy gates, app permission state, and likely causes for “camera missing / app can’t see webcam”.
+- **Windows Hello / sign-in recovery** — add `inspect_host(topic: "sign_in")` for PIN and Hello readiness, biometric device state, profile-health signals, and operator guidance for “can’t sign in / Hello broke / profile feels corrupt”.
+- **Search indexing diagnostics** — add `inspect_host(topic: "search_index")` for Windows Search service state, indexer health, backlog or disabled-state detection, and fixes for “search is broken / indexing stuck”.
+- **Enterprise enrollment diagnostics** — add `inspect_host(topic: "mdm_enrollment")` for Intune / Autopilot / MDM enrollment state, common ESP blockers, and the first concrete support lane for managed Windows fleets.
 
 ### Deferred — implement if users request it
+
+- **Per-workspace model profiles** — let `.hematite/settings.json` specify a preferred model, context ceiling, and embed model per project; useful when different repos need different size/speed tradeoffs. LM Studio makes manual model swaps easy and Hematite detects the active model automatically, so this is low priority until users hit the friction.
 
 - **Whisper voice input** — closes the voice loop (TTS out already ships; this adds STT in). Deferred because Hematite's primary users are keyboard-comfortable developers where typing is faster and more accurate than voice for code-specific terminology. If you want to add it: use `whisper-rs` (Rust bindings to `whisper.cpp`, statically linked — no extra DLLs), `cpal` for audio capture, and embed the `tiny.en` or `base.en` GGUF model via `include_bytes!` at compile time following the same pattern as Kokoro's ONNX model. Wire a `Ctrl+M` hotkey in `tui.rs`, add a recording loop in `src/ui/voice.rs`, and pipe the transcript into the TUI input field. The result is a single self-contained binary with no install requirements — the binary just grows by ~75–150 MB depending on which model you embed. Enable it behind `--features embedded-whisper` so users who don't want the size increase can skip it.
 
