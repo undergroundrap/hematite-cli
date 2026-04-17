@@ -23,8 +23,9 @@ jobs:
       - name: Cache Rust build outputs
         uses: Swatinem/rust-cache@v2
 
-      - name: Cache voice model assets
-        uses: actions/cache@v4
+      - name: Restore voice model assets cache
+        uses: actions/cache/restore@v4
+        id: cache-voice
         with:
           path: .hematite/assets/voice
           key: kokoro-voice-assets-v1.0
@@ -43,6 +44,13 @@ jobs:
           if (-not (Test-Path "$assetsDir\voices.bin")) {
             Invoke-WebRequest -Uri "$base/voices-v1.0.bin" -OutFile "$assetsDir\voices.bin" -TimeoutSec 120
           }
+
+      - name: Save voice model assets cache
+        if: always() && steps.cache-voice.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .hematite/assets/voice
+          key: kokoro-voice-assets-v1.0
 
       - name: Install Inno Setup
         shell: powershell

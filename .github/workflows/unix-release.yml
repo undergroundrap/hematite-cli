@@ -34,8 +34,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libpcaudio-dev libsonic-dev
 
-      - name: Cache voice model assets
-        uses: actions/cache@v4
+      - name: Restore voice model assets cache
+        uses: actions/cache/restore@v4
+        id: cache-voice
         with:
           path: .hematite/assets/voice
           key: kokoro-voice-assets-v1.0
@@ -48,6 +49,13 @@ jobs:
           base="https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
           [[ -f .hematite/assets/voice/kokoro-v1.0.onnx ]] || curl -L --retry 3 --max-time 300 -o .hematite/assets/voice/kokoro-v1.0.onnx "$base/kokoro-v1.0.onnx"
           [[ -f .hematite/assets/voice/voices.bin ]] || curl -L --retry 3 --max-time 120 -o .hematite/assets/voice/voices.bin "$base/voices-v1.0.bin"
+
+      - name: Save voice model assets cache
+        if: always() && steps.cache-voice.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .hematite/assets/voice
+          key: kokoro-voice-assets-v1.0
 
       - name: Build portable archive
         shell: bash
