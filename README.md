@@ -202,9 +202,6 @@ For structured workstation and network questions, prefer `inspect_host` first. I
 
 **Developer tooling topics:** **environment variables** (`env`), hosts file (`hosts_file`), **Docker state** + containers + images (`docker`), WSL distros (`wsl`), **SSH config** + key inventory (`ssh`), installed software (`installed_software`), **global git config** (`git_config`), and running **local database engines** — PostgreSQL, MySQL, MongoDB, Redis, SQLite, SQL Server, and more (`databases`).
 
-*🚀 v0.5.6 Expansion Zones: Ongoing development focuses on implementation paths for Voltage/Fan/Clock precision, Advanced LAN (UPnP/Neighborhood), and Deep WSL/Docker filesystem auditing.*
-
-
 **Harness pre-run:** when you ask about multiple topics in one message (e.g. "show me route table, ARP, DNS cache, and traceroute"), Hematite automatically runs all inspect_host calls before the model turn and injects the combined data as context. The model synthesizes a clear answer from real data — no redundant tool calls, no orchestration back-and-forth.
 
 - **Safe Remediation**: Use `resolve_host_issue` for bounded, user-gated fixes like installing missing packages (winget), restarting services, or clearing caches.
