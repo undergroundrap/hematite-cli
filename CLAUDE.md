@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **98+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **100+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -213,6 +213,10 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **DNS Servers**: Use `topic: "dns_servers"` for the DNS resolvers configured per network adapter (not cache — the actual configured nameservers), annotated with well-known providers (Google, Cloudflare, Quad9, OpenDNS), DoH configuration, and DNS search suffix list.
 - **Latency**: Use `topic: "latency"` for ping RTT (min/avg/max) and packet loss to the default gateway, Cloudflare DNS (1.1.1.1), and Google DNS (8.8.8.8) — findings for unreachable targets, high packet loss (≥25%), and elevated average RTT (>150ms).
 - **Network Adapter**: Use `topic: "network_adapter"` for NIC inventory (link speed, MAC, driver version), offload settings (LSO/RSS/TCP checksum offload/jumbo frames) per adapter, error and discard counters, and wake-on-LAN / power management state; findings for adapter errors and half-duplex mismatches.
+- **DHCP Lease**: Use `topic: "dhcp"` for DHCP lease details per adapter — server IP, lease obtained time, lease expires time, subnet mask, DNS servers assigned by DHCP; findings for expired or imminently-expiring leases.
+- **MTU**: Use `topic: "mtu"` for per-adapter IPv4/IPv6 MTU and path MTU discovery (DF-bit ping test to 8.8.8.8 at 1472/1400/1280/576 bytes); findings for restricted MTU, VPN fragmentation issues, or ICMP-blocked paths.
+- **DNS Lookup**: Use `topic: "dns_lookup"` with a required `name` arg for active DNS resolution of a specific hostname — returns A, MX, TXT, SRV, or any record type; use `type` arg to specify (default: SRV). Example: `inspect_host(topic: "dns_lookup", name: "example.com", type: "A")`.
+- **IP Config**: Use `topic: "ip_config"` for full adapter IP detail equivalent to `ipconfig /all` — DHCP enabled state, IP addresses, gateway, DNS servers per adapter; useful when you need a complete adapter inventory without DHCP lease timing.
 - **Summary**: Use `topic: "summary"` (the default when no topic is given) for a general host overview — OS, hostname, uptime, CPU/RAM snapshot, disk health flag, and active network adapters.
 - **Toolchains**: Use `topic: "toolchains"` for installed developer tools — detects Rust, Node, Python, Go, Java, Docker, Git, and other common toolchain binaries with versions.
 - **Prompt Synchronicity Rule**: Any addition of an `inspect_host` topic or a new tool **MUST** be reflected in `src/agent/prompt.rs` and the `CAPABILITIES.md` competency matrix. This ensures the agent uses high-precision tools instead of falling back to raw shell.

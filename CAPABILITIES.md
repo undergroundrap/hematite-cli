@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 98+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Full OS stack coverage**: 100+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
@@ -147,10 +147,12 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Authoritative Directory Audit** (`directory`, `desktop`, `downloads`, `music`, `videos`, `pictures`) — High-precision directory listing using OS-level tokens; instantly routes to surgical tools via the deterministic intent engine.
 - **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths.
 
-**Network Admin topics (17+):**
+**Network Admin topics (19+):**
 
 - **Latency** (`latency`) — ping RTT (min/avg/max) and packet loss to the default gateway, Cloudflare DNS (1.1.1.1), and Google DNS (8.8.8.8); findings for unreachable targets, high packet loss, and elevated latency
 - **Network Adapter** (`network_adapter`) — NIC inventory (link speed, MAC, driver version), offload settings (LSO/RSS/TCP checksum offload/jumbo frames) per adapter, error and discard counters, and wake-on-LAN / power management state
+- **DHCP Lease** (`dhcp`) — DHCP lease details per adapter: server IP, lease obtained, lease expires, subnet mask, DNS servers; findings for expired or imminently-expiring leases
+- **MTU** (`mtu`) — per-adapter IPv4/IPv6 MTU via `Get-NetIPInterface`; path MTU discovery test to 8.8.8.8 using DF-bit pings at 1472/1400/1280/576 bytes; findings for restricted MTU, VPN fragmentation, or blocked ICMP
 - **Connectivity** (`connectivity`) — internet reachability test (DNS + ICMP + HTTPS) with latency and failure diagnosis
 - **Wi-Fi** (`wifi`) — connected SSID, signal strength, channel, frequency band, and adapter details
 - **Active connections** (`connections`) — all established and listening TCP/UDP connections with owning process

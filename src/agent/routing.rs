@@ -640,6 +640,26 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("uefi security")
         || (lower.contains("bitlocker") && lower.contains("chip"))
         || (lower.contains("windows 11") && lower.contains("tpm"));
+    let asks_dhcp = lower.contains("dhcp lease")
+        || lower.contains("lease expires")
+        || lower.contains("lease obtained")
+        || lower.contains("dhcp server")
+        || lower.contains("ip lease")
+        || lower.contains("lease time")
+        || lower.contains("lease renew")
+        || lower.contains("renew lease")
+        || (lower.contains("dhcp") && (lower.contains("detail") || lower.contains("info") || lower.contains("check") || lower.contains("show")))
+        || (lower.contains("ip") && lower.contains("lease"));
+    let asks_mtu = lower.contains("mtu")
+        || lower.contains("path mtu")
+        || lower.contains("pmtu")
+        || lower.contains("jumbo frame") && lower.contains("test")
+        || lower.contains("frame size")
+        || lower.contains("mtu discovery")
+        || lower.contains("fragmentation")
+        || (lower.contains("packet") && lower.contains("size") && lower.contains("max"))
+        || (lower.contains("vpn") && lower.contains("mtu"))
+        || (lower.contains("mtu") && lower.contains("check"));
     let asks_latency = lower.contains("ping")
         || lower.contains("latency")
         || lower.contains("packet loss")
@@ -1381,6 +1401,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("env_doctor")
     } else if asks_overclocker {
         Some("overclocker")
+    } else if asks_dhcp {
+        Some("dhcp")
+    } else if asks_mtu {
+        Some("mtu")
     } else if asks_latency {
         Some("latency")
     } else if asks_network_stats {
@@ -1852,6 +1876,23 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("trusted platform module")
                 || l.contains("firmware security")
                 || l.contains("uefi security")
+        }),
+        ("dhcp", |l| {
+            l.contains("dhcp lease")
+                || l.contains("lease expires")
+                || l.contains("dhcp server")
+                || l.contains("ip lease")
+                || l.contains("lease renew")
+                || (l.contains("dhcp") && (l.contains("detail") || l.contains("info") || l.contains("check")))
+        }),
+        ("mtu", |l| {
+            l.contains("mtu")
+                || l.contains("path mtu")
+                || l.contains("pmtu")
+                || l.contains("frame size")
+                || l.contains("fragmentation")
+                || (l.contains("vpn") && l.contains("mtu"))
+                || (l.contains("packet") && l.contains("size") && l.contains("max"))
         }),
         ("latency", |l| {
             l.contains("ping")

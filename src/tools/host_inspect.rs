@@ -174,7 +174,9 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_dns_lookup(&name, record_type)
         }
         "hyperv" | "hyper-v" | "vms" => inspect_hyperv(),
-        "ip_config" | "ip_detail" | "dhcp" => inspect_ip_config(),
+        "ip_config" | "ip_detail" => inspect_ip_config(),
+        "dhcp" | "dhcp_lease" | "lease" | "dhcp_detail" => inspect_dhcp(),
+        "mtu" | "path_mtu" | "pmtu" | "frame_size" | "mtu_discovery" => inspect_mtu(),
         "overclocker" | "thermal_deep" | "clocks" | "voltage" => inspect_overclocker().await,
         "display_config" | "display" | "monitor" | "monitors" | "resolution" | "refresh_rate" | "screen" => {
             inspect_display_config(max_entries)
@@ -198,7 +200,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_network_adapter()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -13466,6 +13468,242 @@ fn inspect_network_adapter() -> Result<String, String> {
                 out.push_str(&format!("- {l}\n"));
             }
         }
+    }
+    Ok(out)
+}
+
+#[cfg(windows)]
+fn inspect_dhcp() -> Result<String, String> {
+    let mut out = String::new();
+
+    out.push_str("=== DHCP lease details (per adapter) ===\n");
+    let ps_dhcp = r#"
+$adapters = Get-WmiObject Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue |
+    Where-Object { $_.IPEnabled -eq $true }
+foreach ($a in $adapters) {
+    "--- $($a.Description) ---"
+    "  DHCP Enabled:      $($a.DHCPEnabled)"
+    if ($a.DHCPEnabled) {
+        "  DHCP Server:       $($a.DHCPServer)"
+        $obtained = $a.ConvertToDateTime($a.DHCPLeaseObtained) 2>$null
+        $expires  = $a.ConvertToDateTime($a.DHCPLeaseExpires)  2>$null
+        "  Lease Obtained:    $obtained"
+        "  Lease Expires:     $expires"
+    }
+    "  IP Address:        $($a.IPAddress -join ', ')"
+    "  Subnet Mask:       $($a.IPSubnet -join ', ')"
+    "  Default Gateway:   $($a.DefaultIPGateway -join ', ')"
+    "  DNS Servers:       $($a.DNSServerSearchOrder -join ', ')"
+    "  MAC Address:       $($a.MACAddress)"
+    ""
+}
+"#;
+    match run_powershell(ps_dhcp) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim_end();
+                if !l.is_empty() {
+                    out.push_str(&format!("{l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- DHCP query error: {e}\n")),
+    }
+
+    // Findings: check for expired or very-soon-expiring leases
+    let mut findings: Vec<String> = Vec::new();
+    let ps_expiry = r#"
+$adapters = Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { $_.DHCPEnabled -and $_.IPEnabled }
+foreach ($a in $adapters) {
+    try {
+        $exp = $a.ConvertToDateTime($a.DHCPLeaseExpires)
+        $now = Get-Date
+        $hrs = ($exp - $now).TotalHours
+        if ($hrs -lt 0) { "$($a.Description): EXPIRED" }
+        elseif ($hrs -lt 2) { "$($a.Description): expires in $([Math]::Round($hrs,1)) hours" }
+    } catch {}
+}
+"#;
+    if let Ok(o) = run_powershell(ps_expiry) {
+        for line in o.lines() {
+            let l = line.trim();
+            if !l.is_empty() {
+                if l.contains("EXPIRED") {
+                    findings.push(format!("DHCP lease EXPIRED on adapter: {l}"));
+                } else if l.contains("expires in") {
+                    findings.push(format!("DHCP lease expiring soon — {l}"));
+                }
+            }
+        }
+    }
+
+    let mut result = String::from("Host inspection: dhcp\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- DHCP leases look healthy.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_dhcp() -> Result<String, String> {
+    let mut out = String::from("Host inspection: dhcp\n\n=== Findings ===\n- DHCP lease inspection running on Unix.\n\n");
+    out.push_str("=== DHCP leases (dhclient / NetworkManager) ===\n");
+    for path in &["/var/lib/dhcp/dhclient.leases", "/var/lib/NetworkManager"] {
+        if std::path::Path::new(path).exists() {
+            let cat = std::process::Command::new("cat").arg(path).output();
+            if let Ok(o) = cat {
+                let text = String::from_utf8_lossy(&o.stdout);
+                for line in text.lines().take(40) {
+                    let l = line.trim();
+                    if l.contains("lease") || l.contains("expire") || l.contains("server") || l.contains("address") {
+                        out.push_str(&format!("- {l}\n"));
+                    }
+                }
+            }
+        }
+    }
+    // Also try ip addr for current IPs
+    let ip = std::process::Command::new("ip").args(["addr", "show"]).output();
+    if let Ok(o) = ip {
+        out.push_str("\n=== Current IP addresses (ip addr) ===\n");
+        for line in String::from_utf8_lossy(&o.stdout).lines() {
+            let l = line.trim();
+            if l.starts_with("inet") || l.contains("dynamic") {
+                out.push_str(&format!("- {l}\n"));
+            }
+        }
+    }
+    Ok(out)
+}
+
+#[cfg(windows)]
+fn inspect_mtu() -> Result<String, String> {
+    let mut out = String::new();
+
+    out.push_str("=== Per-adapter MTU (IPv4) ===\n");
+    let ps_mtu = r#"
+Get-NetIPInterface | Where-Object { $_.AddressFamily -eq "IPv4" } |
+    Sort-Object ConnectionState, InterfaceAlias |
+    ForEach-Object {
+        "$($_.InterfaceAlias) | MTU: $($_.NlMtu) bytes | State: $($_.ConnectionState)"
+    }
+"#;
+    match run_powershell(ps_mtu) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- MTU query error: {e}\n")),
+    }
+
+    out.push_str("\n=== Per-adapter MTU (IPv6) ===\n");
+    let ps_mtu6 = r#"
+Get-NetIPInterface | Where-Object { $_.AddressFamily -eq "IPv6" } |
+    Sort-Object ConnectionState, InterfaceAlias |
+    ForEach-Object {
+        "$($_.InterfaceAlias) | MTU: $($_.NlMtu) bytes | State: $($_.ConnectionState)"
+    }
+"#;
+    match run_powershell(ps_mtu6) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- IPv6 MTU query error: {e}\n")),
+    }
+
+    out.push_str("\n=== Path MTU discovery (ping DF-bit to 8.8.8.8) ===\n");
+    // Send a 1472-byte payload (1500 - 28 IP+ICMP headers) to test standard Ethernet MTU
+    let ps_pmtu = r#"
+$sizes = @(1472, 1400, 1280, 576)
+$result = $null
+foreach ($s in $sizes) {
+    $r = Test-Connection -ComputerName "8.8.8.8" -Count 1 -BufferSize $s -ErrorAction SilentlyContinue
+    if ($r) { $result = $s; break }
+}
+if ($result) { "Largest successful payload: $result bytes (path MTU >= $($result + 28) bytes)" }
+else { "All test sizes failed — path MTU may be very restricted or ICMP is blocked" }
+"#;
+    match run_powershell(ps_pmtu) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Path MTU test error: {e}\n")),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("MTU: 576 bytes") {
+        findings.push("576-byte MTU detected — severely restricted path, likely a misconfigured VPN or legacy link.".into());
+    }
+    if out.contains("MTU: 1280 bytes") && !out.contains("IPv6") {
+        findings.push("1280-byte MTU on an IPv4 interface is unusually low — check VPN or PPPoE config.".into());
+    }
+    if out.contains("All test sizes failed") {
+        findings.push("Path MTU test failed — ICMP may be blocked by firewall or all tested sizes exceed the path limit.".into());
+    }
+
+    let mut result = String::from("Host inspection: mtu\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- MTU configuration looks normal.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_mtu() -> Result<String, String> {
+    let mut out = String::from("Host inspection: mtu\n\n=== Findings ===\n- MTU inspection running on Unix.\n\n");
+
+    out.push_str("=== Per-interface MTU (ip link) ===\n");
+    let ip = std::process::Command::new("ip").args(["link", "show"]).output();
+    if let Ok(o) = ip {
+        for line in String::from_utf8_lossy(&o.stdout).lines() {
+            let l = line.trim();
+            if l.contains("mtu") || l.starts_with("\\d") {
+                out.push_str(&format!("- {l}\n"));
+            }
+        }
+    }
+
+    out.push_str("\n=== Path MTU test (ping -M do to 8.8.8.8) ===\n");
+    let ping = std::process::Command::new("ping")
+        .args(["-c", "1", "-M", "do", "-s", "1472", "8.8.8.8"])
+        .output();
+    match ping {
+        Ok(o) => {
+            let body = String::from_utf8_lossy(&o.stdout);
+            for line in body.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Ping error: {e}\n")),
     }
     Ok(out)
 }

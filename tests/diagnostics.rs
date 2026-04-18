@@ -3640,6 +3640,70 @@ fn test_inspect_host_tpm_reports_findings_and_sections() {
     });
 }
 
+// ── dhcp ──────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_dhcp_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "dhcp" });
+        let output = inspect_host(&args).await.expect("dhcp must return Ok");
+        assert!(
+            output.contains("Host inspection: dhcp"),
+            "dhcp output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_dhcp_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "dhcp" });
+        let output = inspect_host(&args).await.expect("dhcp must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== DHCP lease details");
+        assert!(
+            has_result,
+            "dhcp must report findings and lease sections; got:\n{output}"
+        );
+    });
+}
+
+// ── mtu ───────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_mtu_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "mtu" });
+        let output = inspect_host(&args).await.expect("mtu must return Ok");
+        assert!(
+            output.contains("Host inspection: mtu"),
+            "mtu output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_mtu_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "mtu" });
+        let output = inspect_host(&args).await.expect("mtu must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && (output.contains("=== Per-adapter MTU") || output.contains("MTU"));
+        assert!(
+            has_result,
+            "mtu must report findings and MTU sections; got:\n{output}"
+        );
+    });
+}
+
 // ── latency ───────────────────────────────────────────────────────────────────
 
 #[test]
@@ -5711,6 +5775,24 @@ fn test_routing_detects_network_adapter_topic() {
     assert_eq!(preferred_host_inspection_topic(prompt), Some("network_adapter"));
     let topics = all_host_inspection_topics(prompt);
     assert!(topics.contains(&"network_adapter"), "should detect network_adapter; got: {topics:?}");
+}
+
+#[test]
+fn test_routing_detects_dhcp_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt = "Show me my DHCP lease details — when does it expire and which DHCP server assigned it?";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("dhcp"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(topics.contains(&"dhcp"), "should detect dhcp; got: {topics:?}");
+}
+
+#[test]
+fn test_routing_detects_mtu_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt = "Check my MTU settings — I think VPN fragmentation is causing issues.";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("mtu"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(topics.contains(&"mtu"), "should detect mtu; got: {topics:?}");
 }
 
 // ── IT Pro Plus Diagnostics ──────────────────────────────────────────────────

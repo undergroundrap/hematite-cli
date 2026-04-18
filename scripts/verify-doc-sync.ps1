@@ -62,7 +62,7 @@ foreach ($Doc in $Docs) {
         # Check for Network Admin category count (15+) if it's CAPABILITIES
         if ($DocContent -match "Network Admin topics \((\d+)\+?\)") {
             $NetAdminDocCount = [int]$Matches[1]
-            $ExpectedNetAdmin = 17
+            $ExpectedNetAdmin = 19
             if ($NetAdminDocCount -eq $ExpectedNetAdmin) {
                  Write-Host "[DOC] ${Doc}: Network Admin Category Match ($NetAdminDocCount+)" -ForegroundColor Green
             } else {
