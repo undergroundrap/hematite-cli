@@ -3663,8 +3663,8 @@ fn test_inspect_host_dhcp_reports_findings_and_sections() {
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "dhcp" });
         let output = inspect_host(&args).await.expect("dhcp must return Ok");
-        let has_result = output.contains("=== Findings ===")
-            && output.contains("=== DHCP lease details");
+        let has_result =
+            output.contains("=== Findings ===") && output.contains("=== DHCP lease details");
         assert!(
             has_result,
             "dhcp must report findings and lease sections; got:\n{output}"
@@ -3728,7 +3728,9 @@ fn test_inspect_host_latency_reports_findings_and_sections() {
         let args = serde_json::json!({ "topic": "latency" });
         let output = inspect_host(&args).await.expect("latency must return Ok");
         let has_result = output.contains("=== Findings ===")
-            && (output.contains("=== Ping:") || output.contains("Cloudflare") || output.contains("Google"));
+            && (output.contains("=== Ping:")
+                || output.contains("Cloudflare")
+                || output.contains("Google"));
         assert!(
             has_result,
             "latency must report findings and ping sections; got:\n{output}"
@@ -3744,7 +3746,9 @@ fn test_inspect_host_network_adapter_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "network_adapter" });
-        let output = inspect_host(&args).await.expect("network_adapter must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("network_adapter must return Ok");
         assert!(
             output.contains("Host inspection: network_adapter"),
             "network_adapter output must contain header; got:\n{output}"
@@ -3758,9 +3762,11 @@ fn test_inspect_host_network_adapter_reports_findings_and_sections() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "network_adapter" });
-        let output = inspect_host(&args).await.expect("network_adapter must return Ok");
-        let has_result = output.contains("=== Findings ===")
-            && output.contains("=== Network adapters ===");
+        let output = inspect_host(&args)
+            .await
+            .expect("network_adapter must return Ok");
+        let has_result =
+            output.contains("=== Findings ===") && output.contains("=== Network adapters ===");
         assert!(
             has_result,
             "network_adapter must report findings and adapter sections; got:\n{output}"
@@ -5756,7 +5762,10 @@ fn test_routing_detects_tpm_topic() {
         "Check TPM, Secure Boot, and firmware mode and tell me if this machine is Windows 11 ready.";
     assert_eq!(preferred_host_inspection_topic(prompt), Some("tpm"));
     let topics = all_host_inspection_topics(prompt);
-    assert!(topics.contains(&"tpm"), "should detect tpm; got: {topics:?}");
+    assert!(
+        topics.contains(&"tpm"),
+        "should detect tpm; got: {topics:?}"
+    );
 }
 
 #[test]
@@ -5765,25 +5774,38 @@ fn test_routing_detects_latency_topic() {
     let prompt = "My internet feels slow and I'm seeing high latency — can you ping the gateway and check for packet loss?";
     assert_eq!(preferred_host_inspection_topic(prompt), Some("latency"));
     let topics = all_host_inspection_topics(prompt);
-    assert!(topics.contains(&"latency"), "should detect latency; got: {topics:?}");
+    assert!(
+        topics.contains(&"latency"),
+        "should detect latency; got: {topics:?}"
+    );
 }
 
 #[test]
 fn test_routing_detects_network_adapter_topic() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let prompt = "Check my NIC settings — I want to see link speed, offload settings, and any adapter errors.";
-    assert_eq!(preferred_host_inspection_topic(prompt), Some("network_adapter"));
+    assert_eq!(
+        preferred_host_inspection_topic(prompt),
+        Some("network_adapter")
+    );
     let topics = all_host_inspection_topics(prompt);
-    assert!(topics.contains(&"network_adapter"), "should detect network_adapter; got: {topics:?}");
+    assert!(
+        topics.contains(&"network_adapter"),
+        "should detect network_adapter; got: {topics:?}"
+    );
 }
 
 #[test]
 fn test_routing_detects_dhcp_topic() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
-    let prompt = "Show me my DHCP lease details — when does it expire and which DHCP server assigned it?";
+    let prompt =
+        "Show me my DHCP lease details — when does it expire and which DHCP server assigned it?";
     assert_eq!(preferred_host_inspection_topic(prompt), Some("dhcp"));
     let topics = all_host_inspection_topics(prompt);
-    assert!(topics.contains(&"dhcp"), "should detect dhcp; got: {topics:?}");
+    assert!(
+        topics.contains(&"dhcp"),
+        "should detect dhcp; got: {topics:?}"
+    );
 }
 
 #[test]
@@ -5792,7 +5814,10 @@ fn test_routing_detects_mtu_topic() {
     let prompt = "Check my MTU settings — I think VPN fragmentation is causing issues.";
     assert_eq!(preferred_host_inspection_topic(prompt), Some("mtu"));
     let topics = all_host_inspection_topics(prompt);
-    assert!(topics.contains(&"mtu"), "should detect mtu; got: {topics:?}");
+    assert!(
+        topics.contains(&"mtu"),
+        "should detect mtu; got: {topics:?}"
+    );
 }
 
 // ── IT Pro Plus Diagnostics ──────────────────────────────────────────────────
@@ -5800,7 +5825,8 @@ fn test_routing_detects_mtu_topic() {
 #[test]
 fn test_routing_detects_onedrive_topic() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
-    let prompt = "Check OneDrive sync health and tell me if my Desktop/Documents backup is working.";
+    let prompt =
+        "Check OneDrive sync health and tell me if my Desktop/Documents backup is working.";
     assert_eq!(preferred_host_inspection_topic(prompt), Some("onedrive"));
     let topics = all_host_inspection_topics(prompt);
     assert!(
@@ -5813,7 +5839,10 @@ fn test_routing_detects_onedrive_topic() {
 fn test_routing_detects_installer_health_topic() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let prompt = "Why are MSI and winget installs failing on this Windows machine?";
-    assert_eq!(preferred_host_inspection_topic(prompt), Some("installer_health"));
+    assert_eq!(
+        preferred_host_inspection_topic(prompt),
+        Some("installer_health")
+    );
     let topics = all_host_inspection_topics(prompt);
     assert!(
         topics.contains(&"installer_health"),
@@ -5930,4 +5959,199 @@ fn test_hallucination_sanitizer_logic() {
 
     // This is a manual logic check since the function is private to conversation.rs
     // In a real scenario, we'd make it pub(crate) for testing.
+}
+
+// ── IPv6 ────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_ipv6_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "ipv6" });
+        let out = inspect_host(&args).await.expect("ipv6 must return Ok");
+        assert!(
+            out.contains("ipv6"),
+            "ipv6 output must contain topic header; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_ipv6_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "ipv6" });
+        let out = inspect_host(&args).await.expect("ipv6 must return Ok");
+        assert!(
+            out.contains("Findings") || out.contains("IPv6"),
+            "ipv6 output must contain Findings or IPv6 section; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_ipv6_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Show my IPv6 addresses and prefix",
+        "Is SLAAC or DHCPv6 assigning my address?",
+        "Check IPv6 config on this machine",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("ipv6"), "Expected ipv6 for: {q}");
+    }
+}
+
+// ── TCP Parameters ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_tcp_params_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "tcp_params" });
+        let out = inspect_host(&args)
+            .await
+            .expect("tcp_params must return Ok");
+        assert!(
+            out.contains("tcp_params"),
+            "tcp_params output must contain topic header; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_tcp_params_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "tcp_params" });
+        let out = inspect_host(&args)
+            .await
+            .expect("tcp_params must return Ok");
+        assert!(
+            out.contains("Findings") || out.contains("TCP"),
+            "tcp_params output must contain Findings or TCP section; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_tcp_params_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Check TCP autotuning settings",
+        "What congestion algorithm is Windows using?",
+        "Show TCP parameters and receive window size",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("tcp_params"), "Expected tcp_params for: {q}");
+    }
+}
+
+// ── WLAN Profiles ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_wlan_profiles_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "wlan_profiles" });
+        let out = inspect_host(&args)
+            .await
+            .expect("wlan_profiles must return Ok");
+        assert!(
+            out.contains("wlan_profiles"),
+            "wlan_profiles output must contain topic header; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_wlan_profiles_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "wlan_profiles" });
+        let out = inspect_host(&args)
+            .await
+            .expect("wlan_profiles must return Ok");
+        assert!(
+            out.contains("Findings")
+                || out.contains("wireless")
+                || out.contains("profile")
+                || out.contains("WLAN")
+                || out.contains("wifi"),
+            "wlan_profiles output must contain wireless profile info or findings; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_wlan_profiles_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Show my saved wifi networks",
+        "Audit wlan profile security — any WEP or open auth?",
+        "List saved wireless networks on this machine",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(
+            topic,
+            Some("wlan_profiles"),
+            "Expected wlan_profiles for: {q}"
+        );
+    }
+}
+
+// ── IPSec ───────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_ipsec_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "ipsec" });
+        let out = inspect_host(&args).await.expect("ipsec must return Ok");
+        assert!(
+            out.contains("ipsec"),
+            "ipsec output must contain topic header; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_ipsec_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "ipsec" });
+        let out = inspect_host(&args).await.expect("ipsec must return Ok");
+        assert!(
+            out.contains("Findings")
+                || out.contains("IPSec")
+                || out.contains("IKE")
+                || out.contains("SA"),
+            "ipsec output must contain Findings or IPSec section; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_ipsec_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Check IPSec security associations",
+        "Is there an active IKE tunnel?",
+        "Show IPSec policy and SA state",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("ipsec"), "Expected ipsec for: {q}");
+    }
 }

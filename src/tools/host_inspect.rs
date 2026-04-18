@@ -177,6 +177,10 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "ip_config" | "ip_detail" => inspect_ip_config(),
         "dhcp" | "dhcp_lease" | "lease" | "dhcp_detail" => inspect_dhcp(),
         "mtu" | "path_mtu" | "pmtu" | "frame_size" | "mtu_discovery" => inspect_mtu(),
+        "ipv6" | "ipv6_status" | "ipv6_address" | "ipv6_prefix" | "ipv6_config" | "slaac" | "dhcpv6" => inspect_ipv6(),
+        "tcp_params" | "tcp_settings" | "tcp_autotuning" | "tcp_config" | "tcp_tuning" | "tcp_window" => inspect_tcp_params(),
+        "wlan_profiles" | "wifi_profiles" | "wireless_profiles" | "saved_wifi" | "saved_networks" => inspect_wlan_profiles(),
+        "ipsec" | "ipsec_sa" | "ipsec_policy" | "ipsec_rules" | "ipsec_tunnel" | "ike" => inspect_ipsec(),
         "overclocker" | "thermal_deep" | "clocks" | "voltage" => inspect_overclocker().await,
         "display_config" | "display" | "monitor" | "monitors" | "resolution" | "refresh_rate" | "screen" => {
             inspect_display_config(max_entries)
@@ -200,7 +204,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_network_adapter()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -245,9 +249,7 @@ fn admin_sensitive_topic_scope(topic: &str) -> Option<&'static str> {
         "gpo" | "group_policy" | "applied_policies" => Some("Group Policy"),
         "audit_policy" | "audit" | "auditpol" => Some("audit policy"),
         "winrm" | "remote_management" | "psremoting" => Some("WinRM"),
-        "bitlocker" | "encryption" | "drive_encryption" | "bitlocker_status" => {
-            Some("BitLocker")
-        }
+        "bitlocker" | "encryption" | "drive_encryption" | "bitlocker_status" => Some("BitLocker"),
         "windows_features" | "optional_features" | "installed_features" | "features" => {
             Some("Windows Features")
         }
@@ -12164,13 +12166,19 @@ if ($all.Count -eq 0) {
         findings.push("msiexec.exe is missing from System32 - MSI installs will fail until Windows Installer is repaired.".into());
     }
     if out.contains("winget | Missing") {
-        findings.push("winget is missing - App Installer may not be installed or registered for this user.".into());
+        findings.push(
+            "winget is missing - App Installer may not be installed or registered for this user."
+                .into(),
+        );
     }
     if out.contains("DesktopAppInstaller | Status: Missing") {
         findings.push("Microsoft Desktop App Installer is missing - winget and some app-installer flows will be unavailable.".into());
     }
     if out.contains("Microsoft.WindowsStore | Status: Missing") {
-        findings.push("Microsoft Store package is missing - Store-sourced installs and repairs may not work.".into());
+        findings.push(
+            "Microsoft Store package is missing - Store-sourced installs and repairs may not work."
+                .into(),
+        );
     }
     if out.contains("RebootPending:") || out.contains("PendingFileRenameOperations: Yes") {
         findings.push("A pending reboot is present - installer transactions may stay blocked until the machine restarts.".into());
@@ -12375,7 +12383,10 @@ if (Test-Path $shell) {
         findings.push("OneDrive client installation could not be confirmed from standard paths in this session.".into());
     }
     if out.contains("No OneDrive accounts configured") {
-        findings.push("No OneDrive accounts are configured - sync cannot start until the user signs in.".into());
+        findings.push(
+            "No OneDrive accounts are configured - sync cannot start until the user signs in."
+                .into(),
+        );
     }
     if out.contains("Process: Not running") && !out.contains("No OneDrive accounts configured") {
         findings.push("OneDrive accounts exist but the sync client is not running - sync may be paused until OneDrive starts.".into());
@@ -12384,18 +12395,19 @@ if (Test-Path $shell) {
         findings.push("One or more configured OneDrive sync roots do not exist on disk - account linkage or folder redirection may be broken.".into());
     }
     if out.contains("DisableFileSyncNGSC=1") {
-        findings.push("A OneDrive policy is disabling the sync client (DisableFileSyncNGSC=1).".into());
+        findings
+            .push("A OneDrive policy is disabling the sync client (DisableFileSyncNGSC=1).".into());
     }
     if out.contains("KFMBlockOptIn=1") {
-        findings.push("A policy is blocking Known Folder Backup enrollment (KFMBlockOptIn=1).".into());
+        findings
+            .push("A policy is blocking Known Folder Backup enrollment (KFMBlockOptIn=1).".into());
     }
     if out.contains("SyncRoot: C:\\") {
         let mut missing_kfm: Vec<&str> = Vec::new();
         for folder in ["Desktop", "Documents", "Pictures"] {
-            if out
-                .lines()
-                .any(|line| line.contains(&format!("{folder} | Path:")) && line.contains("| In OneDrive: No"))
-            {
+            if out.lines().any(|line| {
+                line.contains(&format!("{folder} | Path:")) && line.contains("| In OneDrive: No")
+            }) {
                 missing_kfm.push(folder);
             }
         }
@@ -12967,7 +12979,11 @@ $entries | Select-Object -Last 20 | ForEach-Object {
 "#;
     match run_powershell(ps_list) {
         Ok(o) => {
-            let lines: Vec<&str> = o.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+            let lines: Vec<&str> = o
+                .lines()
+                .map(|l| l.trim())
+                .filter(|l| !l.is_empty())
+                .collect();
             if lines.is_empty() {
                 out.push_str("- No credential entries found\n");
             } else {
@@ -13128,7 +13144,9 @@ switch ($fw) {
         findings.push("No TPM detected — BitLocker hardware encryption and Windows 11 security features unavailable.".into());
     }
     if out.contains("TpmReady:            False") {
-        findings.push("TPM present but not ready — may need initialization in BIOS/UEFI settings.".into());
+        findings.push(
+            "TPM present but not ready — may need initialization in BIOS/UEFI settings.".into(),
+        );
     }
     if out.contains("SpecVersion:  1.2") {
         findings.push("TPM 1.2 detected — Windows 11 requires TPM 2.0.".into());
@@ -13137,7 +13155,9 @@ switch ($fw) {
         findings.push("Secure Boot is disabled — recommended to enable in UEFI firmware for Windows 11 compliance.".into());
     }
     if out.contains("Firmware type: BIOS (Legacy)") {
-        findings.push("Legacy BIOS detected — Secure Boot and modern TPM require UEFI firmware.".into());
+        findings.push(
+            "Legacy BIOS detected — Secure Boot and modern TPM require UEFI firmware.".into(),
+        );
     }
 
     if out.contains("TPM module unavailable")
@@ -13173,7 +13193,10 @@ switch ($fw) {
 
 #[cfg(not(windows))]
 fn inspect_tpm() -> Result<String, String> {
-    Ok("Host inspection: tpm\n\n=== Findings ===\n- TPM/Secure Boot inspection is Windows-only.\n".into())
+    Ok(
+        "Host inspection: tpm\n\n=== Findings ===\n- TPM/Secure Boot inspection is Windows-only.\n"
+            .into(),
+    )
 }
 
 #[cfg(windows)]
@@ -13233,7 +13256,9 @@ if ($r) {{
                     }
                 }
                 if body.contains("UNREACHABLE") {
-                    findings.push(format!("{label} ({host}) is unreachable — possible routing or firewall issue."));
+                    findings.push(format!(
+                        "{label} ({host}) is unreachable — possible routing or firewall issue."
+                    ));
                 } else if let Some(loss_line) = body.lines().find(|l| l.contains("Packet loss")) {
                     let pct: u32 = loss_line
                         .chars()
@@ -13249,7 +13274,8 @@ if ($r) {{
                         // parse avg from "RTT min/avg/max: Xms / Yms / Zms"
                         let parts: Vec<&str> = rtt_line.split('/').collect();
                         if parts.len() >= 2 {
-                            let avg_str: String = parts[1].chars().filter(|c| c.is_ascii_digit()).collect();
+                            let avg_str: String =
+                                parts[1].chars().filter(|c| c.is_ascii_digit()).collect();
                             let avg: u32 = avg_str.parse().unwrap_or(0);
                             if avg > 150 {
                                 findings.push(format!("{label} ({host}): high average RTT ({avg}ms) — check for congestion or routing issues."));
@@ -13359,9 +13385,15 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
 "#;
     match run_powershell(ps_offload) {
         Ok(o) => {
-            let lines: Vec<&str> = o.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+            let lines: Vec<&str> = o
+                .lines()
+                .map(|l| l.trim())
+                .filter(|l| !l.is_empty())
+                .collect();
             if lines.is_empty() {
-                out.push_str("- No offload settings exposed by driver (common on virtual/Wi-Fi adapters)\n");
+                out.push_str(
+                    "- No offload settings exposed by driver (common on virtual/Wi-Fi adapters)\n",
+                );
             } else {
                 for l in &lines {
                     out.push_str(&format!("- {l}\n"));
@@ -13382,7 +13414,11 @@ Get-NetAdapterStatistics | ForEach-Object {
 "#;
     match run_powershell(ps_errors) {
         Ok(o) => {
-            let lines: Vec<&str> = o.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+            let lines: Vec<&str> = o
+                .lines()
+                .map(|l| l.trim())
+                .filter(|l| !l.is_empty())
+                .collect();
             if lines.is_empty() {
                 out.push_str("- No adapter errors or discards detected.\n");
             } else {
@@ -13405,7 +13441,11 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
 "#;
     match run_powershell(ps_wol) {
         Ok(o) => {
-            let lines: Vec<&str> = o.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+            let lines: Vec<&str> = o
+                .lines()
+                .map(|l| l.trim())
+                .filter(|l| !l.is_empty())
+                .collect();
             if lines.is_empty() {
                 out.push_str("- Power management data unavailable for active adapters.\n");
             } else {
@@ -13420,7 +13460,8 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
     let mut findings: Vec<String> = Vec::new();
     // Check for error-prone adapters
     if out.contains("RX errors:") || out.contains("TX errors:") {
-        findings.push("Adapter errors detected — check cabling, driver, or duplex mismatch.".into());
+        findings
+            .push("Adapter errors detected — check cabling, driver, or duplex mismatch.".into());
     }
     // Check for half-duplex (rare but still seen on older switches)
     if out.contains("Half") {
@@ -13464,7 +13505,8 @@ fn inspect_network_adapter() -> Result<String, String> {
     if let Ok(o) = ip_stats {
         for line in String::from_utf8_lossy(&o.stdout).lines() {
             let l = line.trim();
-            if l.contains("RX") || l.contains("TX") || l.contains("errors") || l.contains("dropped") {
+            if l.contains("RX") || l.contains("TX") || l.contains("errors") || l.contains("dropped")
+            {
                 out.push_str(&format!("- {l}\n"));
             }
         }
@@ -13552,7 +13594,9 @@ foreach ($a in $adapters) {
 
 #[cfg(not(windows))]
 fn inspect_dhcp() -> Result<String, String> {
-    let mut out = String::from("Host inspection: dhcp\n\n=== Findings ===\n- DHCP lease inspection running on Unix.\n\n");
+    let mut out = String::from(
+        "Host inspection: dhcp\n\n=== Findings ===\n- DHCP lease inspection running on Unix.\n\n",
+    );
     out.push_str("=== DHCP leases (dhclient / NetworkManager) ===\n");
     for path in &["/var/lib/dhcp/dhclient.leases", "/var/lib/NetworkManager"] {
         if std::path::Path::new(path).exists() {
@@ -13561,7 +13605,11 @@ fn inspect_dhcp() -> Result<String, String> {
                 let text = String::from_utf8_lossy(&o.stdout);
                 for line in text.lines().take(40) {
                     let l = line.trim();
-                    if l.contains("lease") || l.contains("expire") || l.contains("server") || l.contains("address") {
+                    if l.contains("lease")
+                        || l.contains("expire")
+                        || l.contains("server")
+                        || l.contains("address")
+                    {
                         out.push_str(&format!("- {l}\n"));
                     }
                 }
@@ -13569,7 +13617,9 @@ fn inspect_dhcp() -> Result<String, String> {
         }
     }
     // Also try ip addr for current IPs
-    let ip = std::process::Command::new("ip").args(["addr", "show"]).output();
+    let ip = std::process::Command::new("ip")
+        .args(["addr", "show"])
+        .output();
     if let Ok(o) = ip {
         out.push_str("\n=== Current IP addresses (ip addr) ===\n");
         for line in String::from_utf8_lossy(&o.stdout).lines() {
@@ -13655,7 +13705,10 @@ else { "All test sizes failed — path MTU may be very restricted or ICMP is blo
         findings.push("576-byte MTU detected — severely restricted path, likely a misconfigured VPN or legacy link.".into());
     }
     if out.contains("MTU: 1280 bytes") && !out.contains("IPv6") {
-        findings.push("1280-byte MTU on an IPv4 interface is unusually low — check VPN or PPPoE config.".into());
+        findings.push(
+            "1280-byte MTU on an IPv4 interface is unusually low — check VPN or PPPoE config."
+                .into(),
+        );
     }
     if out.contains("All test sizes failed") {
         findings.push("Path MTU test failed — ICMP may be blocked by firewall or all tested sizes exceed the path limit.".into());
@@ -13676,10 +13729,14 @@ else { "All test sizes failed — path MTU may be very restricted or ICMP is blo
 
 #[cfg(not(windows))]
 fn inspect_mtu() -> Result<String, String> {
-    let mut out = String::from("Host inspection: mtu\n\n=== Findings ===\n- MTU inspection running on Unix.\n\n");
+    let mut out = String::from(
+        "Host inspection: mtu\n\n=== Findings ===\n- MTU inspection running on Unix.\n\n",
+    );
 
     out.push_str("=== Per-interface MTU (ip link) ===\n");
-    let ip = std::process::Command::new("ip").args(["link", "show"]).output();
+    let ip = std::process::Command::new("ip")
+        .args(["link", "show"])
+        .output();
     if let Ok(o) = ip {
         for line in String::from_utf8_lossy(&o.stdout).lines() {
             let l = line.trim();
@@ -13746,6 +13803,448 @@ fn inspect_cpu_power() -> Result<String, String> {
         let g = g.trim();
         if !g.is_empty() {
             out.push_str(&format!("- Governor: {g}\n"));
+        }
+    }
+    Ok(out)
+}
+
+// ── IPv6 ────────────────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_ipv6() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+# Per-adapter IPv6 addresses
+$result.AppendLine("=== IPv6 addresses per adapter ===") | Out-Null
+$adapters = Get-NetIPAddress -AddressFamily IPv6 -ErrorAction SilentlyContinue |
+    Where-Object { $_.IPAddress -notmatch '^::1$' } |
+    Sort-Object InterfaceAlias
+foreach ($a in $adapters) {
+    $prefix = $a.PrefixOrigin
+    $suffix = $a.SuffixOrigin
+    $scope  = $a.AddressState
+    $result.AppendLine("  [$($a.InterfaceAlias)] $($a.IPAddress)/$($a.PrefixLength)  origin=$prefix/$suffix  state=$scope") | Out-Null
+}
+if (-not $adapters) { $result.AppendLine("  No global/link-local IPv6 addresses found.") | Out-Null }
+
+# Default gateway IPv6
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== IPv6 default gateway ===") | Out-Null
+$gw6 = Get-NetRoute -AddressFamily IPv6 -DestinationPrefix '::/0' -ErrorAction SilentlyContinue
+if ($gw6) {
+    foreach ($g in $gw6) {
+        $result.AppendLine("  [$($g.InterfaceAlias)] via $($g.NextHop)  metric=$($g.RouteMetric)") | Out-Null
+    }
+} else {
+    $result.AppendLine("  No IPv6 default gateway configured.") | Out-Null
+}
+
+# DHCPv6 lease info
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== DHCPv6 / prefix delegation ===") | Out-Null
+$dhcpv6 = Get-NetIPAddress -AddressFamily IPv6 -ErrorAction SilentlyContinue |
+    Where-Object { $_.PrefixOrigin -eq 'Dhcp' -or $_.SuffixOrigin -eq 'Dhcp' }
+if ($dhcpv6) {
+    foreach ($d in $dhcpv6) {
+        $result.AppendLine("  [$($d.InterfaceAlias)] $($d.IPAddress) (DHCPv6-assigned)") | Out-Null
+    }
+} else {
+    $result.AppendLine("  No DHCPv6-assigned addresses found (SLAAC or static in use).") | Out-Null
+}
+
+# Privacy extensions
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Privacy extensions (RFC 4941) ===") | Out-Null
+try {
+    $priv = netsh interface ipv6 show privacy
+    $result.AppendLine(($priv -join "`n")) | Out-Null
+} catch {
+    $result.AppendLine("  Could not retrieve privacy extension state.") | Out-Null
+}
+
+# Tunnel adapters
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Tunnel adapters ===") | Out-Null
+$tunnels = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.InterfaceDescription -match 'Teredo|6to4|ISATAP|Tunnel' }
+if ($tunnels) {
+    foreach ($t in $tunnels) {
+        $result.AppendLine("  $($t.Name): $($t.InterfaceDescription)  Status=$($t.Status)") | Out-Null
+    }
+} else {
+    $result.AppendLine("  No Teredo/6to4/ISATAP tunnel adapters found.") | Out-Null
+}
+
+# Findings
+$findings = [System.Collections.Generic.List[string]]::new()
+$globalAddrs = Get-NetIPAddress -AddressFamily IPv6 -ErrorAction SilentlyContinue |
+    Where-Object { $_.IPAddress -match '^2[0-9a-f]{3}:' -or $_.IPAddress -match '^fc|^fd' }
+if (-not $globalAddrs) { $findings.Add("No global unicast IPv6 address assigned — IPv6 internet access may be unavailable.") }
+$noGw6 = -not (Get-NetRoute -AddressFamily IPv6 -DestinationPrefix '::/0' -ErrorAction SilentlyContinue)
+if ($noGw6) { $findings.Add("No IPv6 default gateway — IPv6 routing not active.") }
+
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Findings ===") | Out-Null
+if ($findings.Count -eq 0) {
+    $result.AppendLine("- IPv6 configuration looks healthy.") | Out-Null
+} else {
+    foreach ($f in $findings) { $result.AppendLine("- $f") | Out-Null }
+}
+
+Write-Output $result.ToString()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: ipv6\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_ipv6() -> Result<String, String> {
+    let mut out = String::from("Host inspection: ipv6\n\n=== IPv6 addresses (ip -6 addr) ===\n");
+    if let Ok(o) = std::process::Command::new("ip")
+        .args(["-6", "addr", "show"])
+        .output()
+    {
+        out.push_str(&String::from_utf8_lossy(&o.stdout));
+    }
+    out.push_str("\n=== IPv6 routes (ip -6 route) ===\n");
+    if let Ok(o) = std::process::Command::new("ip")
+        .args(["-6", "route"])
+        .output()
+    {
+        out.push_str(&String::from_utf8_lossy(&o.stdout));
+    }
+    Ok(out)
+}
+
+// ── TCP Parameters ──────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_tcp_params() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+# Autotuning and global TCP settings
+$result.AppendLine("=== TCP global settings (netsh) ===") | Out-Null
+try {
+    $global = netsh interface tcp show global
+    foreach ($line in $global) {
+        $l = $line.Trim()
+        if ($l -and $l -notmatch '^---' -and $l -notmatch '^TCP Global') {
+            $result.AppendLine("  $l") | Out-Null
+        }
+    }
+} catch {
+    $result.AppendLine("  Could not retrieve TCP global settings.") | Out-Null
+}
+
+# Supplemental params via Get-NetTCPSetting
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== TCP settings profiles ===") | Out-Null
+try {
+    $tcpSettings = Get-NetTCPSetting -ErrorAction SilentlyContinue
+    foreach ($s in $tcpSettings) {
+        $result.AppendLine("  Profile: $($s.SettingName)") | Out-Null
+        $result.AppendLine("    CongestionProvider:      $($s.CongestionProvider)") | Out-Null
+        $result.AppendLine("    InitialCongestionWindow: $($s.InitialCongestionWindowMss) MSS") | Out-Null
+        $result.AppendLine("    AutoTuningLevelLocal:    $($s.AutoTuningLevelLocal)") | Out-Null
+        $result.AppendLine("    ScalingHeuristics:       $($s.ScalingHeuristics)") | Out-Null
+        $result.AppendLine("    DynamicPortRangeStart:   $($s.DynamicPortRangeStartPort)") | Out-Null
+        $result.AppendLine("    DynamicPortRangeEnd:     $($s.DynamicPortRangeStartPort + $s.DynamicPortRangeNumberOfPorts - 1)") | Out-Null
+        $result.AppendLine("") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Get-NetTCPSetting unavailable.") | Out-Null
+}
+
+# Chimney offload state
+$result.AppendLine("=== TCP Chimney offload ===") | Out-Null
+try {
+    $chimney = netsh interface tcp show chimney
+    $result.AppendLine(($chimney -join "`n  ")) | Out-Null
+} catch {
+    $result.AppendLine("  Could not retrieve chimney state.") | Out-Null
+}
+
+# ECN state
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== ECN capability ===") | Out-Null
+try {
+    $ecn = netsh interface tcp show ecncapability
+    $result.AppendLine(($ecn -join "`n  ")) | Out-Null
+} catch {
+    $result.AppendLine("  Could not retrieve ECN state.") | Out-Null
+}
+
+# Findings
+$findings = [System.Collections.Generic.List[string]]::new()
+try {
+    $ts = Get-NetTCPSetting -SettingName 'Internet' -ErrorAction SilentlyContinue
+    if ($ts -and $ts.AutoTuningLevelLocal -eq 'Disabled') {
+        $findings.Add("TCP autotuning is DISABLED on the Internet profile — may limit throughput on high-latency links.")
+    }
+    if ($ts -and $ts.CongestionProvider -ne 'CUBIC' -and $ts.CongestionProvider -ne 'NewReno' -and $ts.CongestionProvider) {
+        $findings.Add("Non-standard congestion provider: $($ts.CongestionProvider)")
+    }
+} catch {}
+
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Findings ===") | Out-Null
+if ($findings.Count -eq 0) {
+    $result.AppendLine("- TCP parameters look normal.") | Out-Null
+} else {
+    foreach ($f in $findings) { $result.AppendLine("- $f") | Out-Null }
+}
+
+Write-Output $result.ToString()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: tcp_params\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_tcp_params() -> Result<String, String> {
+    let mut out = String::from("Host inspection: tcp_params\n\n=== TCP kernel parameters ===\n");
+    for key in &[
+        "net.ipv4.tcp_congestion_control",
+        "net.ipv4.tcp_rmem",
+        "net.ipv4.tcp_wmem",
+        "net.ipv4.tcp_window_scaling",
+        "net.ipv4.tcp_ecn",
+        "net.ipv4.tcp_timestamps",
+    ] {
+        if let Ok(o) = std::process::Command::new("sysctl").arg(key).output() {
+            out.push_str(&format!(
+                "  {}\n",
+                String::from_utf8_lossy(&o.stdout).trim()
+            ));
+        }
+    }
+    Ok(out)
+}
+
+// ── WLAN Profiles ───────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_wlan_profiles() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+# List all saved profiles
+$result.AppendLine("=== Saved wireless profiles ===") | Out-Null
+try {
+    $profilesRaw = netsh wlan show profiles
+    $profiles = $profilesRaw | Select-String 'All User Profile\s*:\s*(.+)' | ForEach-Object {
+        $_.Matches[0].Groups[1].Value.Trim()
+    }
+
+    if (-not $profiles) {
+        $result.AppendLine("  No saved wireless profiles found.") | Out-Null
+    } else {
+        foreach ($p in $profiles) {
+            $result.AppendLine("") | Out-Null
+            $result.AppendLine("  Profile: $p") | Out-Null
+            # Get detail for each profile
+            $detail = netsh wlan show profile name="$p" key=clear 2>$null
+            $auth      = ($detail | Select-String 'Authentication\s*:\s*(.+)') | Select-Object -First 1
+            $cipher    = ($detail | Select-String 'Cipher\s*:\s*(.+)') | Select-Object -First 1
+            $conn      = ($detail | Select-String 'Connection mode\s*:\s*(.+)') | Select-Object -First 1
+            $autoConn  = ($detail | Select-String 'Connect automatically\s*:\s*(.+)') | Select-Object -First 1
+            if ($auth)     { $result.AppendLine("    Authentication:    $($auth.Matches[0].Groups[1].Value.Trim())") | Out-Null }
+            if ($cipher)   { $result.AppendLine("    Cipher:            $($cipher.Matches[0].Groups[1].Value.Trim())") | Out-Null }
+            if ($conn)     { $result.AppendLine("    Connection mode:   $($conn.Matches[0].Groups[1].Value.Trim())") | Out-Null }
+            if ($autoConn) { $result.AppendLine("    Auto-connect:      $($autoConn.Matches[0].Groups[1].Value.Trim())") | Out-Null }
+        }
+    }
+} catch {
+    $result.AppendLine("  netsh wlan unavailable (no wireless adapter or WLAN service not running).") | Out-Null
+}
+
+# Currently connected SSID
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Currently connected ===") | Out-Null
+try {
+    $conn = netsh wlan show interfaces
+    $ssid   = ($conn | Select-String 'SSID\s*:\s*(?!BSSID)(.+)') | Select-Object -First 1
+    $bssid  = ($conn | Select-String 'BSSID\s*:\s*(.+)') | Select-Object -First 1
+    $signal = ($conn | Select-String 'Signal\s*:\s*(.+)') | Select-Object -First 1
+    $radio  = ($conn | Select-String 'Radio type\s*:\s*(.+)') | Select-Object -First 1
+    if ($ssid)   { $result.AppendLine("  SSID:       $($ssid.Matches[0].Groups[1].Value.Trim())") | Out-Null }
+    if ($bssid)  { $result.AppendLine("  BSSID:      $($bssid.Matches[0].Groups[1].Value.Trim())") | Out-Null }
+    if ($signal) { $result.AppendLine("  Signal:     $($signal.Matches[0].Groups[1].Value.Trim())") | Out-Null }
+    if ($radio)  { $result.AppendLine("  Radio type: $($radio.Matches[0].Groups[1].Value.Trim())") | Out-Null }
+    if (-not $ssid) { $result.AppendLine("  Not connected to any wireless network.") | Out-Null }
+} catch {
+    $result.AppendLine("  Could not query wireless interface state.") | Out-Null
+}
+
+# Findings
+$findings = [System.Collections.Generic.List[string]]::new()
+try {
+    $allDetail = netsh wlan show profiles 2>$null
+    $profileNames = $allDetail | Select-String 'All User Profile\s*:\s*(.+)' | ForEach-Object {
+        $_.Matches[0].Groups[1].Value.Trim()
+    }
+    foreach ($pn in $profileNames) {
+        $det = netsh wlan show profile name="$pn" key=clear 2>$null
+        $authLine = ($det | Select-String 'Authentication\s*:\s*(.+)') | Select-Object -First 1
+        if ($authLine) {
+            $authVal = $authLine.Matches[0].Groups[1].Value.Trim()
+            if ($authVal -match 'Open|WEP|None') {
+                $findings.Add("Profile '$pn' uses weak/open authentication: $authVal")
+            }
+        }
+    }
+} catch {}
+
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Findings ===") | Out-Null
+if ($findings.Count -eq 0) {
+    $result.AppendLine("- All saved wireless profiles use acceptable authentication.") | Out-Null
+} else {
+    foreach ($f in $findings) { $result.AppendLine("- $f") | Out-Null }
+}
+
+Write-Output $result.ToString()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: wlan_profiles\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_wlan_profiles() -> Result<String, String> {
+    let mut out =
+        String::from("Host inspection: wlan_profiles\n\n=== Saved wireless profiles ===\n");
+    // Try nmcli (NetworkManager)
+    if let Ok(o) = std::process::Command::new("nmcli")
+        .args(["-t", "-f", "NAME,TYPE,DEVICE", "connection", "show"])
+        .output()
+    {
+        for line in String::from_utf8_lossy(&o.stdout).lines() {
+            if line.contains("wireless") || line.contains("wifi") {
+                out.push_str(&format!("  {line}\n"));
+            }
+        }
+    } else {
+        out.push_str("  nmcli not available.\n");
+    }
+    Ok(out)
+}
+
+// ── IPSec ───────────────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_ipsec() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+# IPSec rules (firewall-integrated)
+$result.AppendLine("=== IPSec connection security rules ===") | Out-Null
+try {
+    $rules = Get-NetIPsecRule -ErrorAction SilentlyContinue | Where-Object { $_.Enabled -eq 'True' }
+    if ($rules) {
+        foreach ($r in $rules) {
+            $result.AppendLine("  [$($r.DisplayName)]") | Out-Null
+            $result.AppendLine("    Mode:       $($r.Mode)") | Out-Null
+            $result.AppendLine("    Action:     $($r.Action)") | Out-Null
+            $result.AppendLine("    InProfile:  $($r.Profile)") | Out-Null
+        }
+    } else {
+        $result.AppendLine("  No enabled IPSec connection security rules found.") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Get-NetIPsecRule unavailable.") | Out-Null
+}
+
+# Active main-mode SAs
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Active IPSec main-mode SAs ===") | Out-Null
+try {
+    $mmSAs = Get-NetIPsecMainModeSA -ErrorAction SilentlyContinue
+    if ($mmSAs) {
+        foreach ($sa in $mmSAs) {
+            $result.AppendLine("  Local: $($sa.LocalAddress)  <-->  Remote: $($sa.RemoteAddress)") | Out-Null
+            $result.AppendLine("    AuthMethod: $($sa.LocalFirstId)  Cipher: $($sa.Cipher)") | Out-Null
+        }
+    } else {
+        $result.AppendLine("  No active main-mode IPSec SAs.") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Get-NetIPsecMainModeSA unavailable.") | Out-Null
+}
+
+# Active quick-mode SAs
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Active IPSec quick-mode SAs ===") | Out-Null
+try {
+    $qmSAs = Get-NetIPsecQuickModeSA -ErrorAction SilentlyContinue
+    if ($qmSAs) {
+        foreach ($sa in $qmSAs) {
+            $result.AppendLine("  Local: $($sa.LocalAddress)  <-->  Remote: $($sa.RemoteAddress)") | Out-Null
+            $result.AppendLine("    Encapsulation: $($sa.EncapsulationMode)  Protocol: $($sa.TransportLayerProtocol)") | Out-Null
+        }
+    } else {
+        $result.AppendLine("  No active quick-mode IPSec SAs.") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Get-NetIPsecQuickModeSA unavailable.") | Out-Null
+}
+
+# IKE service state
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== IKE / IPSec Policy Agent service ===") | Out-Null
+$ikeAgentSvc = Get-Service -Name 'PolicyAgent' -ErrorAction SilentlyContinue
+if ($ikeAgentSvc) {
+    $result.AppendLine("  PolicyAgent (IPSec Policy Agent): $($ikeAgentSvc.Status)") | Out-Null
+} else {
+    $result.AppendLine("  PolicyAgent service not found.") | Out-Null
+}
+
+# Findings
+$findings = [System.Collections.Generic.List[string]]::new()
+$mmSACount = 0
+try { $mmSACount = (Get-NetIPsecMainModeSA -ErrorAction SilentlyContinue | Measure-Object).Count } catch {}
+if ($mmSACount -gt 0) {
+    $findings.Add("$mmSACount active IPSec main-mode SA(s) — IPSec tunnel is active.")
+}
+
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Findings ===") | Out-Null
+if ($findings.Count -eq 0) {
+    $result.AppendLine("- No active IPSec SAs detected (no IPSec tunnel currently established).") | Out-Null
+} else {
+    foreach ($f in $findings) { $result.AppendLine("- $f") | Out-Null }
+}
+
+Write-Output $result.ToString()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: ipsec\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_ipsec() -> Result<String, String> {
+    let mut out = String::from("Host inspection: ipsec\n\n=== IPSec SAs (ip xfrm state) ===\n");
+    if let Ok(o) = std::process::Command::new("ip")
+        .args(["xfrm", "state"])
+        .output()
+    {
+        let body = String::from_utf8_lossy(&o.stdout);
+        if body.trim().is_empty() {
+            out.push_str("  No active IPSec SAs.\n");
+        } else {
+            out.push_str(&body);
+        }
+    }
+    out.push_str("\n=== IPSec policies (ip xfrm policy) ===\n");
+    if let Ok(o) = std::process::Command::new("ip")
+        .args(["xfrm", "policy"])
+        .output()
+    {
+        let body = String::from_utf8_lossy(&o.stdout);
+        if body.trim().is_empty() {
+            out.push_str("  No IPSec policies.\n");
+        } else {
+            out.push_str(&body);
         }
     }
     Ok(out)

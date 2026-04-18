@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **100+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **104+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -215,6 +215,10 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Network Adapter**: Use `topic: "network_adapter"` for NIC inventory (link speed, MAC, driver version), offload settings (LSO/RSS/TCP checksum offload/jumbo frames) per adapter, error and discard counters, and wake-on-LAN / power management state; findings for adapter errors and half-duplex mismatches.
 - **DHCP Lease**: Use `topic: "dhcp"` for DHCP lease details per adapter — server IP, lease obtained time, lease expires time, subnet mask, DNS servers assigned by DHCP; findings for expired or imminently-expiring leases.
 - **MTU**: Use `topic: "mtu"` for per-adapter IPv4/IPv6 MTU and path MTU discovery (DF-bit ping test to 8.8.8.8 at 1472/1400/1280/576 bytes); findings for restricted MTU, VPN fragmentation issues, or ICMP-blocked paths.
+- **IPv6**: Use `topic: "ipv6"` for per-adapter IPv6 addresses (global/link-local/ULA) with prefix origin (SLAAC/DHCPv6/static), IPv6 default gateway, DHCPv6 lease assignments, privacy extension state (RFC 4941), and tunnel adapter inventory (Teredo/6to4/ISATAP); findings for no global address or missing IPv6 gateway.
+- **TCP Parameters**: Use `topic: "tcp_params"` for TCP autotuning level, congestion provider (CUBIC/NewReno), initial congestion window, scaling heuristics, dynamic port range, chimney offload state, and ECN capability; findings for disabled autotuning or non-standard congestion provider.
+- **WLAN Profiles**: Use `topic: "wlan_profiles"` for saved wireless profiles with authentication type (WPA2/WPA3/WEP/Open), cipher, connection mode, and auto-connect state; currently connected SSID, BSSID, signal, and radio type; findings for profiles using weak/open authentication.
+- **IPSec**: Use `topic: "ipsec"` for enabled IPSec connection security rules, active main-mode and quick-mode SAs with local/remote address pairs, IKE Policy Agent service state; findings for active tunnels.
 - **DNS Lookup**: Use `topic: "dns_lookup"` with a required `name` arg for active DNS resolution of a specific hostname — returns A, MX, TXT, SRV, or any record type; use `type` arg to specify (default: SRV). Example: `inspect_host(topic: "dns_lookup", name: "example.com", type: "A")`.
 - **IP Config**: Use `topic: "ip_config"` for full adapter IP detail equivalent to `ipconfig /all` — DHCP enabled state, IP addresses, gateway, DNS servers per adapter; useful when you need a complete adapter inventory without DHCP lease timing.
 - **Summary**: Use `topic: "summary"` (the default when no topic is given) for a general host overview — OS, hostname, uptime, CPU/RAM snapshot, disk health flag, and active network adapters.
