@@ -810,8 +810,10 @@ fn spawn_dive_in_terminal(path: &str) {
 
     // Async script: spawn the new window, reposition it, wait for us to exit,
     // then close the original shell/tab process if one was found.
-    let script = format!(
-        r#"
+    #[cfg(windows)]
+    {
+        let script = format!(
+            r#"
 Add-Type -TypeDefinition @'
 using System; using System.Runtime.InteropServices;
 public class WM {{ [DllImport("user32")] public static extern bool MoveWindow(IntPtr h,int x,int y,int w,int ht,bool b); }}
@@ -827,25 +829,26 @@ if ({close_pid} -gt 0) {{
     Stop-Process -Id {close_pid} -Force -ErrorAction SilentlyContinue
 }}
 "#,
-        bat = bat_ps,
-        px = px,
-        py = py,
-        pw = pw,
-        ph = ph,
-        pid = pid,
-        close_pid = close_target_pid,
-    );
+            bat = bat_ps,
+            px = px,
+            py = py,
+            pw = pw,
+            ph = ph,
+            pid = pid,
+            close_pid = close_target_pid,
+        );
 
-    let _ = std::process::Command::new("powershell.exe")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-WindowStyle",
-            "Hidden",
-            "-Command",
-            &script,
-        ])
-        .spawn();
+        let _ = std::process::Command::new("powershell.exe")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
+                "-Command",
+                &script,
+            ])
+            .spawn();
+    }
 }
 
 fn copy_text_to_clipboard_powershell(text: &str) -> bool {
