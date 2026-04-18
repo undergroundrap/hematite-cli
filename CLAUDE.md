@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **96+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **98+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -211,6 +211,8 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Audit Policy**: Use `topic: "audit_policy"` for Windows audit policy (auditpol /get /category:*) — shows which event categories are logging Success/Failure. Flags if no categories are enabled. Requires Administrator elevation on Windows; falls back to auditd on Linux.
 - **Shares**: Use `topic: "shares"` for SMB shares this machine is exposing (flags custom non-admin shares), SMB server security settings (SMB1/SMB2 state, signing required, encryption), and mapped network drives. Warns if SMB1 is enabled.
 - **DNS Servers**: Use `topic: "dns_servers"` for the DNS resolvers configured per network adapter (not cache — the actual configured nameservers), annotated with well-known providers (Google, Cloudflare, Quad9, OpenDNS), DoH configuration, and DNS search suffix list.
+- **Latency**: Use `topic: "latency"` for ping RTT (min/avg/max) and packet loss to the default gateway, Cloudflare DNS (1.1.1.1), and Google DNS (8.8.8.8) — findings for unreachable targets, high packet loss (≥25%), and elevated average RTT (>150ms).
+- **Network Adapter**: Use `topic: "network_adapter"` for NIC inventory (link speed, MAC, driver version), offload settings (LSO/RSS/TCP checksum offload/jumbo frames) per adapter, error and discard counters, and wake-on-LAN / power management state; findings for adapter errors and half-duplex mismatches.
 - **Summary**: Use `topic: "summary"` (the default when no topic is given) for a general host overview — OS, hostname, uptime, CPU/RAM snapshot, disk health flag, and active network adapters.
 - **Toolchains**: Use `topic: "toolchains"` for installed developer tools — detects Rust, Node, Python, Go, Java, Docker, Git, and other common toolchain binaries with versions.
 - **Prompt Synchronicity Rule**: Any addition of an `inspect_host` topic or a new tool **MUST** be reflected in `src/agent/prompt.rs` and the `CAPABILITIES.md` competency matrix. This ensures the agent uses high-precision tools instead of falling back to raw shell.

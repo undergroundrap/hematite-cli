@@ -191,8 +191,14 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "tpm" | "secure_boot" | "uefi" | "tpm_status" | "secureboot" | "firmware_security" => {
             inspect_tpm()
         }
+        "latency" | "ping" | "ping_test" | "rtt" | "packet_loss" | "reachability" => {
+            inspect_latency()
+        }
+        "network_adapter" | "nic" | "nic_settings" | "adapter_settings" | "nic_offload" | "nic_advanced" => {
+            inspect_network_adapter()
+        }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -13166,6 +13172,302 @@ switch ($fw) {
 #[cfg(not(windows))]
 fn inspect_tpm() -> Result<String, String> {
     Ok("Host inspection: tpm\n\n=== Findings ===\n- TPM/Secure Boot inspection is Windows-only.\n".into())
+}
+
+#[cfg(windows)]
+fn inspect_latency() -> Result<String, String> {
+    let mut out = String::new();
+
+    // Resolve default gateway from the routing table
+    let ps_gw = r#"
+$gw = (Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue |
+       Sort-Object RouteMetric | Select-Object -First 1).NextHop
+if ($gw) { $gw } else { "" }
+"#;
+    let gateway = run_powershell(ps_gw)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let targets: Vec<(&str, String)> = {
+        let mut t = Vec::new();
+        if let Some(ref gw) = gateway {
+            t.push(("Default gateway", gw.clone()));
+        }
+        t.push(("Cloudflare DNS", "1.1.1.1".into()));
+        t.push(("Google DNS", "8.8.8.8".into()));
+        t
+    };
+
+    let mut findings: Vec<String> = Vec::new();
+
+    for (label, host) in &targets {
+        out.push_str(&format!("\n=== Ping: {label} ({host}) ===\n"));
+        // Test-NetConnection gives RTT; -InformationLevel Quiet just returns bool, so use ping
+        let ps_ping = format!(
+            r#"
+$r = Test-Connection -ComputerName "{host}" -Count 4 -ErrorAction SilentlyContinue
+if ($r) {{
+    $rtts = $r | ForEach-Object {{ $_.ResponseTime }}
+    $min  = ($rtts | Measure-Object -Minimum).Minimum
+    $max  = ($rtts | Measure-Object -Maximum).Maximum
+    $avg  = [Math]::Round(($rtts | Measure-Object -Average).Average, 1)
+    $loss = [Math]::Round((4 - $r.Count) / 4 * 100)
+    "RTT min/avg/max: ${{min}}ms / ${{avg}}ms / ${{max}}ms"
+    "Packet loss: ${{loss}}%"
+    "Sent: 4  Received: $($r.Count)"
+}} else {{
+    "UNREACHABLE — 100% packet loss"
+}}
+"#
+        );
+        match run_powershell(&ps_ping) {
+            Ok(o) => {
+                let body = o.trim().to_string();
+                for line in body.lines() {
+                    let l = line.trim();
+                    if !l.is_empty() {
+                        out.push_str(&format!("- {l}\n"));
+                    }
+                }
+                if body.contains("UNREACHABLE") {
+                    findings.push(format!("{label} ({host}) is unreachable — possible routing or firewall issue."));
+                } else if let Some(loss_line) = body.lines().find(|l| l.contains("Packet loss")) {
+                    let pct: u32 = loss_line
+                        .chars()
+                        .filter(|c| c.is_ascii_digit())
+                        .collect::<String>()
+                        .parse()
+                        .unwrap_or(0);
+                    if pct >= 25 {
+                        findings.push(format!("{label} ({host}): {pct}% packet loss detected — possible network instability."));
+                    }
+                    // High latency check
+                    if let Some(rtt_line) = body.lines().find(|l| l.contains("RTT min/avg/max")) {
+                        // parse avg from "RTT min/avg/max: Xms / Yms / Zms"
+                        let parts: Vec<&str> = rtt_line.split('/').collect();
+                        if parts.len() >= 2 {
+                            let avg_str: String = parts[1].chars().filter(|c| c.is_ascii_digit()).collect();
+                            let avg: u32 = avg_str.parse().unwrap_or(0);
+                            if avg > 150 {
+                                findings.push(format!("{label} ({host}): high average RTT ({avg}ms) — check for congestion or routing issues."));
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => out.push_str(&format!("- Ping error: {e}\n")),
+        }
+    }
+
+    let mut result = String::from("Host inspection: latency\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- Latency and reachability look normal.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_latency() -> Result<String, String> {
+    let mut out = String::from("Host inspection: latency\n\n=== Findings ===\n");
+    let targets = [("Cloudflare DNS", "1.1.1.1"), ("Google DNS", "8.8.8.8")];
+    let mut findings: Vec<String> = Vec::new();
+
+    for (label, host) in &targets {
+        out.push_str(&format!("\n=== Ping: {label} ({host}) ===\n"));
+        let ping = std::process::Command::new("ping")
+            .args(["-c", "4", "-W", "2", host])
+            .output();
+        match ping {
+            Ok(o) => {
+                let body = String::from_utf8_lossy(&o.stdout).into_owned();
+                for line in body.lines() {
+                    let l = line.trim();
+                    if l.contains("ms") || l.contains("loss") || l.contains("transmitted") {
+                        out.push_str(&format!("- {l}\n"));
+                    }
+                }
+                if body.contains("100% packet loss") || body.contains("100.0% packet loss") {
+                    findings.push(format!("{label} ({host}) is unreachable."));
+                }
+            }
+            Err(e) => out.push_str(&format!("- ping error: {e}\n")),
+        }
+    }
+
+    if findings.is_empty() {
+        out.insert_str(
+            "Host inspection: latency\n\n=== Findings ===\n".len(),
+            "- Latency and reachability look normal.\n",
+        );
+    } else {
+        let mut prefix = String::new();
+        for f in &findings {
+            prefix.push_str(&format!("- Finding: {f}\n"));
+        }
+        out.insert_str(
+            "Host inspection: latency\n\n=== Findings ===\n".len(),
+            &prefix,
+        );
+    }
+    Ok(out)
+}
+
+#[cfg(windows)]
+fn inspect_network_adapter() -> Result<String, String> {
+    let mut out = String::new();
+
+    out.push_str("=== Network adapters ===\n");
+    let ps_adapters = r#"
+Get-NetAdapter | Sort-Object Status,Name | ForEach-Object {
+    $speed = if ($_.LinkSpeed) { $_.LinkSpeed } else { "Unknown" }
+    "$($_.Name) | Status: $($_.Status) | Speed: $speed | MAC: $($_.MacAddress) | Driver: $($_.DriverVersion)"
+}
+"#;
+    match run_powershell(ps_adapters) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Adapter query error: {e}\n")),
+    }
+
+    out.push_str("\n=== Offload and performance settings (Up adapters) ===\n");
+    let ps_offload = r#"
+Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
+    $name = $_.Name
+    $props = Get-NetAdapterAdvancedProperty -Name $name -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -match "Offload|RSS|Jumbo|Buffer|Flow|Interrupt|Checksum|Large Send" } |
+        Select-Object DisplayName, DisplayValue
+    if ($props) {
+        "--- $name ---"
+        $props | ForEach-Object { "  $($_.DisplayName): $($_.DisplayValue)" }
+    }
+}
+"#;
+    match run_powershell(ps_offload) {
+        Ok(o) => {
+            let lines: Vec<&str> = o.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+            if lines.is_empty() {
+                out.push_str("- No offload settings exposed by driver (common on virtual/Wi-Fi adapters)\n");
+            } else {
+                for l in &lines {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Offload query error: {e}\n")),
+    }
+
+    out.push_str("\n=== Adapter error counters ===\n");
+    let ps_errors = r#"
+Get-NetAdapterStatistics | ForEach-Object {
+    $errs = $_.ReceivedPacketErrors + $_.OutboundPacketErrors + $_.ReceivedDiscardedPackets + $_.OutboundDiscardedPackets
+    if ($errs -gt 0) {
+        "$($_.Name) | RX errors: $($_.ReceivedPacketErrors) | TX errors: $($_.OutboundPacketErrors) | RX discards: $($_.ReceivedDiscardedPackets) | TX discards: $($_.OutboundDiscardedPackets)"
+    }
+}
+"#;
+    match run_powershell(ps_errors) {
+        Ok(o) => {
+            let lines: Vec<&str> = o.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+            if lines.is_empty() {
+                out.push_str("- No adapter errors or discards detected.\n");
+            } else {
+                for l in &lines {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Error counter query: {e}\n")),
+    }
+
+    out.push_str("\n=== Wake-on-LAN and power settings ===\n");
+    let ps_wol = r#"
+Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
+    $wol = Get-NetAdapterPowerManagement -Name $_.Name -ErrorAction SilentlyContinue
+    if ($wol) {
+        "$($_.Name) | WakeOnMagicPacket: $($wol.WakeOnMagicPacket) | AllowComputerToTurnOffDevice: $($wol.AllowComputerToTurnOffDevice)"
+    }
+}
+"#;
+    match run_powershell(ps_wol) {
+        Ok(o) => {
+            let lines: Vec<&str> = o.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+            if lines.is_empty() {
+                out.push_str("- Power management data unavailable for active adapters.\n");
+            } else {
+                for l in &lines {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- WoL query error: {e}\n")),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    // Check for error-prone adapters
+    if out.contains("RX errors:") || out.contains("TX errors:") {
+        findings.push("Adapter errors detected — check cabling, driver, or duplex mismatch.".into());
+    }
+    // Check for half-duplex (rare but still seen on older switches)
+    if out.contains("Half") {
+        findings.push("Half-duplex adapter detected — likely a duplex mismatch with the switch; set both sides to full-duplex.".into());
+    }
+
+    let mut result = String::from("Host inspection: network_adapter\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- Network adapter configuration looks normal.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_network_adapter() -> Result<String, String> {
+    let mut out = String::from("Host inspection: network_adapter\n\n=== Findings ===\n- Network adapter inspection running on Unix.\n\n");
+
+    out.push_str("=== Network adapters (ip link) ===\n");
+    let ip_link = std::process::Command::new("ip")
+        .args(["link", "show"])
+        .output();
+    if let Ok(o) = ip_link {
+        for line in String::from_utf8_lossy(&o.stdout).lines() {
+            let l = line.trim();
+            if !l.is_empty() {
+                out.push_str(&format!("- {l}\n"));
+            }
+        }
+    }
+
+    out.push_str("\n=== Adapter statistics (ip -s link) ===\n");
+    let ip_stats = std::process::Command::new("ip")
+        .args(["-s", "link", "show"])
+        .output();
+    if let Ok(o) = ip_stats {
+        for line in String::from_utf8_lossy(&o.stdout).lines() {
+            let l = line.trim();
+            if l.contains("RX") || l.contains("TX") || l.contains("errors") || l.contains("dropped") {
+                out.push_str(&format!("- {l}\n"));
+            }
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(not(windows))]

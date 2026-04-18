@@ -3640,6 +3640,70 @@ fn test_inspect_host_tpm_reports_findings_and_sections() {
     });
 }
 
+// ── latency ───────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_latency_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "latency" });
+        let output = inspect_host(&args).await.expect("latency must return Ok");
+        assert!(
+            output.contains("Host inspection: latency"),
+            "latency output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_latency_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "latency" });
+        let output = inspect_host(&args).await.expect("latency must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && (output.contains("=== Ping:") || output.contains("Cloudflare") || output.contains("Google"));
+        assert!(
+            has_result,
+            "latency must report findings and ping sections; got:\n{output}"
+        );
+    });
+}
+
+// ── network_adapter ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_network_adapter_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "network_adapter" });
+        let output = inspect_host(&args).await.expect("network_adapter must return Ok");
+        assert!(
+            output.contains("Host inspection: network_adapter"),
+            "network_adapter output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_network_adapter_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "network_adapter" });
+        let output = inspect_host(&args).await.expect("network_adapter must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== Network adapters ===");
+        assert!(
+            has_result,
+            "network_adapter must report findings and adapter sections; got:\n{output}"
+        );
+    });
+}
+
 // ── ssh ───────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -5629,6 +5693,24 @@ fn test_routing_detects_tpm_topic() {
     assert_eq!(preferred_host_inspection_topic(prompt), Some("tpm"));
     let topics = all_host_inspection_topics(prompt);
     assert!(topics.contains(&"tpm"), "should detect tpm; got: {topics:?}");
+}
+
+#[test]
+fn test_routing_detects_latency_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt = "My internet feels slow and I'm seeing high latency — can you ping the gateway and check for packet loss?";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("latency"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(topics.contains(&"latency"), "should detect latency; got: {topics:?}");
+}
+
+#[test]
+fn test_routing_detects_network_adapter_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt = "Check my NIC settings — I want to see link speed, offload settings, and any adapter errors.";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("network_adapter"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(topics.contains(&"network_adapter"), "should detect network_adapter; got: {topics:?}");
 }
 
 // ── IT Pro Plus Diagnostics ──────────────────────────────────────────────────

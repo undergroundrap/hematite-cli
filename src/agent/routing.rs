@@ -640,6 +640,37 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("uefi security")
         || (lower.contains("bitlocker") && lower.contains("chip"))
         || (lower.contains("windows 11") && lower.contains("tpm"));
+    let asks_latency = lower.contains("ping")
+        || lower.contains("latency")
+        || lower.contains("packet loss")
+        || lower.contains("rtt")
+        || lower.contains("round trip")
+        || lower.contains("reachability")
+        || lower.contains("ping test")
+        || (lower.contains("network") && lower.contains("slow"))
+        || (lower.contains("internet") && lower.contains("slow"))
+        || (lower.contains("connection") && lower.contains("slow"))
+        || (lower.contains("high") && lower.contains("latency"))
+        || lower.contains("network lag")
+        || lower.contains("jitter");
+    let asks_network_adapter = lower.contains("nic settings")
+        || lower.contains("nic offload")
+        || lower.contains("adapter settings")
+        || lower.contains("adapter offload")
+        || lower.contains("jumbo frame")
+        || lower.contains("rss setting")
+        || lower.contains("tcp offload")
+        || lower.contains("lso")
+        || lower.contains("checksum offload")
+        || lower.contains("wake on lan")
+        || lower.contains("wake-on-lan")
+        || lower.contains("wol")
+        || lower.contains("nic advanced")
+        || lower.contains("adapter error")
+        || lower.contains("duplex mismatch")
+        || lower.contains("link speed")
+        || lower.contains("network adapter settings")
+        || (lower.contains("nic") && (lower.contains("driver") || lower.contains("setting") || lower.contains("error") || lower.contains("config")));
     let asks_peripherals = lower.contains("peripheral")
         || lower.contains("usb")
         || lower.contains("keyboard")
@@ -1316,7 +1347,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("adapter") && lower.contains("stat"))
         || (lower.contains("nic") && lower.contains("stat"))
         || lower.contains("throughput")
-        || lower.contains("packet loss")
         || lower.contains("dropped packet");
     let asks_udp_ports = lower.contains("udp port")
         || lower.contains("udp listener")
@@ -1351,6 +1381,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("env_doctor")
     } else if asks_overclocker {
         Some("overclocker")
+    } else if asks_latency {
+        Some("latency")
     } else if asks_network_stats {
         Some("network_stats")
     } else if asks_share_access {
@@ -1385,6 +1417,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("credentials")
     } else if asks_tpm {
         Some("tpm")
+    } else if asks_network_adapter {
+        Some("network_adapter")
     } else if asks_permissions {
         Some("permissions")
     } else if asks_login_history {
@@ -1818,6 +1852,30 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("trusted platform module")
                 || l.contains("firmware security")
                 || l.contains("uefi security")
+        }),
+        ("latency", |l| {
+            l.contains("ping")
+                || l.contains("latency")
+                || l.contains("packet loss")
+                || l.contains("rtt")
+                || l.contains("round trip")
+                || l.contains("network lag")
+                || l.contains("jitter")
+                || (l.contains("network") && l.contains("slow"))
+                || (l.contains("internet") && l.contains("slow"))
+        }),
+        ("network_adapter", |l| {
+            l.contains("nic settings")
+                || l.contains("nic offload")
+                || l.contains("adapter settings")
+                || l.contains("jumbo frame")
+                || l.contains("tcp offload")
+                || l.contains("wake on lan")
+                || l.contains("wake-on-lan")
+                || l.contains("link speed")
+                || l.contains("duplex mismatch")
+                || l.contains("adapter error")
+                || (l.contains("nic") && (l.contains("driver") || l.contains("error")))
         }),
         ("pending_reboot", |l| {
             l.contains("pending reboot")
