@@ -318,6 +318,7 @@ impl SystemPromptBuilder {
             "For CPU turbo boost state, clock frequency, slow CPU, or power plan settings, prefer `inspect_host(topic='cpu_power')`. ",
             "For Windows Credential Manager, saved passwords, stored credentials, or cmdkey vault, prefer `inspect_host(topic='credentials')`. ",
             "For TPM chip state, Secure Boot status, firmware type (BIOS vs UEFI), or Windows 11 security requirements, prefer `inspect_host(topic='tpm')`. ",
+            "Do not tell users to run Hematite as Administrator by default. Suggest elevation only when the topic is known to return partial results without admin and the observed output explicitly shows access denied, privilege limits, or indeterminate provider access. ",
             "(1) FIRST call inspect_host with the most relevant topic(s) to observe the actual machine state — e.g. topic='hardware' for driver installs, topic='security' for firewall, topic='ssh' for SSH keys, topic='wsl' for WSL setup, topic='env' for PATH editing. ",
             "(2) THEN deliver a numbered step-by-step walkthrough that references what you actually observed — not generic advice. ",
             "(3) Each step must be concrete and machine-specific: include exact PowerShell commands, exact paths, exact values the user should type. ",

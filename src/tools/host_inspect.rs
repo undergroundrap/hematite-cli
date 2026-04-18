@@ -27,7 +27,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         topic = "ad_user".to_string();
     }
 
-    match topic.as_str() {
+    let result = match topic.as_str() {
         "summary" => inspect_summary(max_entries),
         "toolchains" => inspect_toolchains(),
         "path" => inspect_path(max_entries),
@@ -190,6 +190,76 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             other
         )),
 
+    };
+
+    result.map(|body| annotate_privilege_limited_output(topic.as_str(), body))
+}
+
+fn annotate_privilege_limited_output(topic: &str, body: String) -> String {
+    let Some(scope) = admin_sensitive_topic_scope(topic) else {
+        return body;
+    };
+    let lower = body.to_lowercase();
+    let privilege_limited = lower.contains("access denied")
+        || lower.contains("administrator privilege is required")
+        || lower.contains("administrator privileges required")
+        || lower.contains("requires administrator")
+        || lower.contains("requires elevation")
+        || lower.contains("non-admin session")
+        || lower.contains("could not be fully determined from this session");
+    if !privilege_limited || lower.contains("=== elevation note ===") {
+        return body;
+    }
+
+    let mut annotated = body;
+    annotated.push_str("\n=== Elevation note ===\n");
+    annotated.push_str("- Hematite should stay non-admin by default.\n");
+    annotated.push_str(
+        "- This result may be partial because Windows restricted one or more read-only provider calls in the current session.\n",
+    );
+    annotated.push_str(&format!(
+        "- Rerun Hematite as Administrator only if you need a definitive {scope} answer.\n"
+    ));
+    annotated
+}
+
+fn admin_sensitive_topic_scope(topic: &str) -> Option<&'static str> {
+    match topic {
+        "tpm" | "secure_boot" | "uefi" | "tpm_status" | "secureboot" | "firmware_security" => {
+            Some("TPM / Secure Boot / firmware")
+        }
+        "gpo" | "group_policy" | "applied_policies" => Some("Group Policy"),
+        "audit_policy" | "audit" | "auditpol" => Some("audit policy"),
+        "winrm" | "remote_management" | "psremoting" => Some("WinRM"),
+        "bitlocker" | "encryption" | "drive_encryption" | "bitlocker_status" => {
+            Some("BitLocker")
+        }
+        "windows_features" | "optional_features" | "installed_features" | "features" => {
+            Some("Windows Features")
+        }
+        "udp_ports" | "udp_listeners" | "udp" => Some("UDP listener"),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod privilege_hint_tests {
+    use super::annotate_privilege_limited_output;
+
+    #[test]
+    fn annotate_privilege_limited_output_only_tags_admin_sensitive_topics() {
+        let body = "Host inspection: network\nError: Access denied.\n".to_string();
+        let annotated = annotate_privilege_limited_output("network", body.clone());
+        assert_eq!(annotated, body);
+    }
+
+    #[test]
+    fn annotate_privilege_limited_output_adds_targeted_note_for_tpm() {
+        let body = "Host inspection: tpm\n\n=== Findings ===\n- Finding: TPM / Secure Boot state could not be fully determined from this session - firmware mode, privileges, or Windows TPM providers may be limiting visibility.\n".to_string();
+        let annotated = annotate_privilege_limited_output("tpm", body);
+        assert!(annotated.contains("=== Elevation note ==="));
+        assert!(annotated.contains("stay non-admin by default"));
+        assert!(annotated.contains("definitive TPM / Secure Boot / firmware answer"));
     }
 }
 
@@ -12571,10 +12641,19 @@ if ($wmi) {
 
     out.push_str("\n=== Secure Boot state ===\n");
     let ps_sb = r#"
-$sb = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
-if ($null -ne $sb) {
+try {
+    $sb = Confirm-SecureBootUEFI -ErrorAction Stop
     if ($sb) { "Secure Boot: ENABLED" } else { "Secure Boot: DISABLED" }
-} else { "Secure Boot: N/A (cmdlet unavailable or Legacy BIOS)" }
+} catch {
+    $msg = $_.Exception.Message
+    if ($msg -match "Access was denied" -or $msg -match "proper privileges") {
+        "Secure Boot: Unknown (administrator privileges required)"
+    } elseif ($msg -match "Cmdlet not supported on this platform") {
+        "Secure Boot: N/A (Legacy BIOS or unsupported firmware)"
+    } else {
+        "Secure Boot: N/A ($msg)"
+    }
+}
 "#;
     match run_powershell(ps_sb) {
         Ok(o) => {
@@ -12594,7 +12673,11 @@ $fw = (Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control -Name "PEFirmware
 switch ($fw) {
     1 { "Firmware type: BIOS (Legacy)" }
     2 { "Firmware type: UEFI" }
-    default { "Firmware type: Unknown or not set" }
+    default {
+        $bcd = bcdedit /enum firmware 2>$null
+        if ($LASTEXITCODE -eq 0 -and $bcd) { "Firmware type: UEFI (bcdedit fallback)" }
+        else { "Firmware type: Unknown or not set" }
+    }
 }
 "#;
     match run_powershell(ps_fw) {
@@ -12630,6 +12713,7 @@ switch ($fw) {
     if out.contains("TPM module unavailable")
         || out.contains("Win32_Tpm WMI class unavailable")
         || out.contains("Secure Boot: N/A")
+        || out.contains("Secure Boot: Unknown")
         || out.contains("Firmware type: Unknown or not set")
         || out.contains("TpmPresent:          Unknown")
         || out.contains("TpmReady:            Unknown")
