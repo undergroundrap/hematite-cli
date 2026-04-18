@@ -47,6 +47,9 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "sign_in" | "windows_hello" | "hello" | "pin" | "login_issues" | "signin" => {
             inspect_sign_in(max_entries)
         }
+        "installer_health" | "installer" | "msi" | "msiexec" | "app_installer" => {
+            inspect_installer_health(max_entries)
+        }
         "onedrive" | "sync_client" | "cloud_sync" | "known_folder_backup" => {
             inspect_onedrive(max_entries)
         }
@@ -189,7 +192,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_tpm()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -11994,6 +11997,199 @@ ForEach-Object {
 #[cfg(not(windows))]
 fn inspect_sign_in(_max_entries: usize) -> Result<String, String> {
     Ok("Host inspection: sign_in\nSign-in / Windows Hello inspection is Windows-only.".into())
+}
+
+// ── inspect_installer_health ──────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_installer_health(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("=== Installer engines ===\n");
+
+    let ps_engines = r#"
+$services = 'msiserver','AppXSvc','ClipSVC','InstallService'
+foreach ($name in $services) {
+    $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+    if ($svc) {
+        $cim = Get-CimInstance Win32_Service -Filter "Name='$name'" -ErrorAction SilentlyContinue
+        $startType = if ($cim) { $cim.StartMode } else { 'Unknown' }
+        "$name | Status: $($svc.Status) | StartType: $startType"
+    } else {
+        "$name | Not present"
+    }
+}
+if (Test-Path "$env:WINDIR\System32\msiexec.exe") {
+    "msiexec.exe | Present: Yes"
+} else {
+    "msiexec.exe | Present: No"
+}
+"#;
+    match run_powershell(ps_engines) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 6) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect installer engine services\n"),
+    }
+
+    out.push_str("\n=== winget and App Installer ===\n");
+    let ps_winget = r#"
+$cmd = Get-Command winget -ErrorAction SilentlyContinue
+if ($cmd) {
+    try {
+        $v = & winget --version 2>$null
+        if ($LASTEXITCODE -eq 0 -and $v) { "winget | Version: $v" } else { "winget | Present but version query failed" }
+    } catch { "winget | Present but invocation failed" }
+} else {
+    "winget | Missing"
+}
+$appInstaller = Get-AppxPackage Microsoft.DesktopAppInstaller -ErrorAction SilentlyContinue
+if ($appInstaller) {
+    "DesktopAppInstaller | Version: $($appInstaller.Version) | Status: Present"
+} else {
+    "DesktopAppInstaller | Status: Missing"
+}
+"#;
+    match run_powershell(ps_winget) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect winget/App Installer state\n"),
+    }
+
+    out.push_str("\n=== Microsoft Store packages ===\n");
+    let ps_store = r#"
+$store = Get-AppxPackage Microsoft.WindowsStore -ErrorAction SilentlyContinue
+if ($store) {
+    "Microsoft.WindowsStore | Version: $($store.Version) | Status: Present"
+} else {
+    "Microsoft.WindowsStore | Status: Missing"
+}
+"#;
+    match run_powershell(ps_store) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Microsoft Store package state\n"),
+    }
+
+    out.push_str("\n=== Reboot and transaction blockers ===\n");
+    let ps_blockers = r#"
+$pending = $false
+if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') {
+    "RebootPending: CBS"
+    $pending = $true
+}
+if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') {
+    "RebootPending: WindowsUpdate"
+    $pending = $true
+}
+$rename = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue).PendingFileRenameOperations
+if ($rename) {
+    "PendingFileRenameOperations: Yes"
+    $pending = $true
+}
+if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\InProgress') {
+    "InstallerInProgress: Yes"
+    $pending = $true
+}
+if (-not $pending) { "No pending reboot or installer-in-progress flag detected" }
+"#;
+    match run_powershell(ps_blockers) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect reboot or transaction blockers\n"),
+    }
+
+    out.push_str("\n=== Recent installer failures (7d) ===\n");
+    let ps_failures = r#"
+$cutoff = (Get-Date).AddDays(-7)
+$msi = Get-WinEvent -FilterHashtable @{ LogName='Application'; ProviderName='MsiInstaller'; StartTime=$cutoff; Level=2 } -MaxEvents 6 -ErrorAction SilentlyContinue |
+    ForEach-Object { "MSI | $($_.TimeCreated.ToString('MM-dd HH:mm')) | EventId: $($_.Id) | $($_.Message -replace '\s+', ' ')" }
+$appx = Get-WinEvent -LogName 'Microsoft-Windows-AppXDeploymentServer/Operational' -ErrorAction SilentlyContinue -MaxEvents 30 |
+    Where-Object { $_.LevelDisplayName -eq 'Error' -and $_.TimeCreated -ge $cutoff } |
+    Select-Object -First 6 |
+    ForEach-Object { "AppX | $($_.TimeCreated.ToString('MM-dd HH:mm')) | EventId: $($_.Id) | $($_.Message -replace '\s+', ' ')" }
+$all = @($msi) + @($appx)
+if ($all.Count -eq 0) {
+    "No recent MSI/AppX installer errors detected"
+} else {
+    $all | Select-Object -First 8
+}
+"#;
+    match run_powershell(ps_failures) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 2) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect recent installer failure events\n"),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("msiserver | Status: Stopped | StartType: Disabled") {
+        findings.push("Windows Installer service (msiserver) is disabled - MSI installs cannot start until it is re-enabled.".into());
+    }
+    if out.contains("msiexec.exe | Present: No") {
+        findings.push("msiexec.exe is missing from System32 - MSI installs will fail until Windows Installer is repaired.".into());
+    }
+    if out.contains("winget | Missing") {
+        findings.push("winget is missing - App Installer may not be installed or registered for this user.".into());
+    }
+    if out.contains("DesktopAppInstaller | Status: Missing") {
+        findings.push("Microsoft Desktop App Installer is missing - winget and some app-installer flows will be unavailable.".into());
+    }
+    if out.contains("Microsoft.WindowsStore | Status: Missing") {
+        findings.push("Microsoft Store package is missing - Store-sourced installs and repairs may not work.".into());
+    }
+    if out.contains("RebootPending:") || out.contains("PendingFileRenameOperations: Yes") {
+        findings.push("A pending reboot is present - installer transactions may stay blocked until the machine restarts.".into());
+    }
+    if out.contains("InstallerInProgress: Yes") {
+        findings.push("Windows reports an installer transaction already in progress - concurrent installs may fail until it clears.".into());
+    }
+    if out.contains("MSI | ") || out.contains("AppX | ") {
+        findings.push("Recent installer failures were recorded in the event logs - check the MSI/AppX error lines below for the failing package or deployment path.".into());
+    }
+
+    let mut result = String::from("Host inspection: installer_health\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- No obvious installer-platform blocker detected.\n");
+    } else {
+        for finding in &findings {
+            result.push_str(&format!("- Finding: {finding}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_installer_health(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: installer_health\n\n=== Findings ===\n- Installer health is currently Windows-first. Linux/macOS package-manager triage can be added later.\n".into())
 }
 
 // ── inspect_search_index ──────────────────────────────────────────────────────

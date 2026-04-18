@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **95+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **96+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -194,6 +194,7 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Bluetooth**: Use `topic: "bluetooth"` for radio presence, Bluetooth service health, paired-device inventory, reconnect and pairing issues, and headset-role diagnostics.
 - **Camera**: Use `topic: "camera"` for PnP camera/webcam device inventory, Windows camera privacy registry state, Windows Hello biometric camera detection, and plain-English diagnosis for "camera not working / blocked by privacy settings".
 - **Sign-In / Windows Hello**: Use `topic: "sign_in"` for Windows Hello and biometric service state (WBioSrvc), recent logon failure events (EventID 4625), enrolled credential providers, and plain-English diagnosis for "PIN/fingerprint not working / can't sign in".
+- **Installer Health**: Use `topic: "installer_health"` for Windows Installer (`msiserver`), AppX/Store install services, `winget`/Desktop App Installer presence, Microsoft Store package health, reboot or in-progress installer blockers, and recent MSI/AppX failure evidence.
 - **OneDrive**: Use `topic: "onedrive"` for client install/running state, configured accounts, sync-root existence, policy blockers, and Known Folder Backup/Desktop/Documents/Pictures redirection state.
 - **Search Index**: Use `topic: "search_index"` for Windows Search (WSearch) service state, indexer registry configuration, indexed locations, recent indexer errors, and plain-English diagnosis for "search not finding files / indexer stopped".
 - **Display Config**: Use `topic: "display_config"` for active monitor resolution, refresh rate, DPI/scaling, video adapter driver version, and connected monitor names — answers "what refresh rate / how many monitors / is my DPI correct".

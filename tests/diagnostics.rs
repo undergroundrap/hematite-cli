@@ -3405,6 +3405,41 @@ fn test_inspect_host_onedrive_returns_header() {
 }
 
 #[test]
+fn test_inspect_host_installer_health_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "installer_health" });
+        let output = inspect_host(&args)
+            .await
+            .expect("installer_health must return Ok");
+        assert!(
+            output.contains("Host inspection: installer_health"),
+            "installer_health output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_installer_health_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "installer_health" });
+        let output = inspect_host(&args)
+            .await
+            .expect("installer_health must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== Installer engines ===")
+            && output.contains("=== winget and App Installer ===");
+        assert!(
+            has_result,
+            "installer_health must report findings and installer sections; got:\n{output}"
+        );
+    });
+}
+
+#[test]
 fn test_inspect_host_onedrive_reports_findings_and_sections() {
     use hematite::tools::host_inspect::inspect_host;
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -5607,6 +5642,18 @@ fn test_routing_detects_onedrive_topic() {
     assert!(
         topics.contains(&"onedrive"),
         "should detect onedrive; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_routing_detects_installer_health_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt = "Why are MSI and winget installs failing on this Windows machine?";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("installer_health"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"installer_health"),
+        "should detect installer_health; got: {topics:?}"
     );
 }
 

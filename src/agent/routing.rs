@@ -286,6 +286,13 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "headphones",
             "camera",
             "webcam",
+            "installer",
+            "installer broken",
+            "msi",
+            "msiexec",
+            "winget broken",
+            "microsoft store",
+            "app installer",
             "onedrive",
             "one drive",
             "files on-demand",
@@ -531,6 +538,25 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("biometric service")
         || (lower.contains("profile") && lower.contains("corrupt"))
         || lower.contains("wbiosrvc");
+    let asks_installer_health = lower.contains("installer health")
+        || lower.contains("installer broken")
+        || lower.contains("msiexec")
+        || lower.contains("msi installer")
+        || lower.contains("windows installer")
+        || lower.contains("app installer")
+        || lower.contains("desktopappinstaller")
+        || lower.contains("microsoft store")
+        || lower.contains("winget broken")
+        || (lower.contains("can't install") && (lower.contains("app") || lower.contains("apps") || lower.contains("program")))
+        || (lower.contains("cannot install") && (lower.contains("app") || lower.contains("apps") || lower.contains("program")))
+        || (lower.contains("cant install") && (lower.contains("app") || lower.contains("apps") || lower.contains("program")))
+        || ((lower.contains("install") || lower.contains("installer"))
+            && (lower.contains("fail")
+                || lower.contains("failing")
+                || lower.contains("broken")
+                || lower.contains("stuck")
+                || lower.contains("error"))
+            && !lower.contains("windows update"));
     let asks_onedrive = lower.contains("onedrive")
         || lower.contains("one drive")
         || lower.contains("files on-demand")
@@ -1343,6 +1369,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("camera")
     } else if asks_sign_in {
         Some("sign_in")
+    } else if asks_installer_health {
+        Some("installer_health")
     } else if asks_onedrive {
         Some("onedrive")
     } else if asks_search_index {
@@ -1707,6 +1735,24 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("credential provider")
                 || l.contains("biometric service")
                 || l.contains("wbiosrvc")
+        }),
+        ("installer_health", |l| {
+            l.contains("installer health")
+                || l.contains("installer broken")
+                || l.contains("msiexec")
+                || l.contains("msi installer")
+                || l.contains("windows installer")
+                || l.contains("app installer")
+                || l.contains("desktopappinstaller")
+                || l.contains("microsoft store")
+                || l.contains("winget broken")
+                || ((l.contains("install") || l.contains("installer"))
+                    && (l.contains("fail")
+                        || l.contains("failing")
+                        || l.contains("broken")
+                        || l.contains("stuck")
+                        || l.contains("error"))
+                    && !l.contains("windows update"))
         }),
         ("onedrive", |l| {
             l.contains("onedrive")

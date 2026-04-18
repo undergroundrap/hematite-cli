@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 95+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Full OS stack coverage**: 96+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
@@ -82,7 +82,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (70+):**
+**SysAdmin topics (71+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
@@ -123,6 +123,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Bluetooth** (`bluetooth`) — Bluetooth radio state, service health, paired-device inventory, headset/audio endpoint crossover, and plain-English diagnosis for “won’t pair / keeps disconnecting / wrong headset role”
 - **Camera** (`camera`) — PnP camera/webcam device inventory, Windows camera privacy registry state, Windows Hello biometric camera detection, and plain-English diagnosis for “camera not working / blocked by privacy settings”
 - **Sign-In / Windows Hello** (`sign_in`) — Windows Hello and biometric service state, WBioSrvc health, recent logon failure events (EventID 4625), enrolled credential providers, and plain-English diagnosis for “PIN/fingerprint not working / can’t sign in”
+- **Installer Health** (`installer_health`) — Windows Installer (`msiserver`), AppX/Store install services, `winget`/Desktop App Installer presence, Microsoft Store package health, pending reboot or in-progress installer blockers, and recent MSI/AppX failure evidence
 - **OneDrive** (`onedrive`) — client install/running state, configured accounts, sync-root existence, OneDrive policy blockers, and Known Folder Backup/Desktop/Documents/Pictures redirection state
 - **Search Index** (`search_index`) — Windows Search (WSearch) service state, indexer registry configuration, indexed locations (shell namespaces + registry fallback), recent indexer errors, and plain-English diagnosis for “search not finding files / indexer stopped”
 - **Display Config** (`display_config`) — active monitor resolution, refresh rate, bits-per-pixel, video adapter driver version, connected monitor names/PnP IDs, and DPI/scaling percentage via Win32 GDI
