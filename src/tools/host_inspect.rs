@@ -47,6 +47,9 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "sign_in" | "windows_hello" | "hello" | "pin" | "login_issues" | "signin" => {
             inspect_sign_in(max_entries)
         }
+        "onedrive" | "sync_client" | "cloud_sync" | "known_folder_backup" => {
+            inspect_onedrive(max_entries)
+        }
         "search_index" | "windows_search" | "indexing" | "search" => {
             inspect_search_index(max_entries)
         }
@@ -186,7 +189,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_tpm()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, search_index, display_config, ntp, cpu_power, credentials, tpm, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -11994,6 +11997,229 @@ fn inspect_sign_in(_max_entries: usize) -> Result<String, String> {
 }
 
 // ── inspect_search_index ──────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_onedrive(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("=== OneDrive client ===\n");
+
+    let ps_client = r#"
+$candidatePaths = @(
+    (Join-Path $env:LOCALAPPDATA 'Microsoft\OneDrive\OneDrive.exe'),
+    (Join-Path $env:ProgramFiles 'Microsoft OneDrive\OneDrive.exe'),
+    (Join-Path ${env:ProgramFiles(x86)} 'Microsoft OneDrive\OneDrive.exe')
+) | Where-Object { $_ -and (Test-Path $_) }
+$proc = Get-Process OneDrive -ErrorAction SilentlyContinue | Select-Object -First 1
+$exe = $candidatePaths | Select-Object -First 1
+if (-not $exe -and $proc) {
+    try { $exe = $proc.Path } catch {}
+}
+if ($exe) {
+    "Installed: Yes"
+    "Executable: $exe"
+    try { "Version: $((Get-Item $exe).VersionInfo.FileVersion)" } catch {}
+} else {
+    "Installed: Unknown"
+}
+if ($proc) {
+    "Process: Running | PID: $($proc.Id)"
+} else {
+    "Process: Not running"
+}
+"#;
+    match run_powershell(ps_client) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect OneDrive client state\n"),
+    }
+
+    out.push_str("\n=== OneDrive accounts ===\n");
+    let ps_accounts = r#"
+function MaskEmail([string]$Email) {
+    if ([string]::IsNullOrWhiteSpace($Email) -or $Email -notmatch '@') { return 'Unknown' }
+    $parts = $Email.Split('@', 2)
+    $local = $parts[0]
+    $domain = $parts[1]
+    if ($local.Length -le 1) { return "*@$domain" }
+    return ($local.Substring(0,1) + "***@" + $domain)
+}
+$base = 'HKCU:\Software\Microsoft\OneDrive\Accounts'
+if (Test-Path $base) {
+    Get-ChildItem $base -ErrorAction SilentlyContinue |
+        Sort-Object PSChildName |
+        Select-Object -First 12 |
+        ForEach-Object {
+            $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+            $kind = if ($_.PSChildName -eq 'Personal') { 'Personal' } else { 'Business' }
+            $mail = MaskEmail ([string]$p.UserEmail)
+            $root = if ([string]::IsNullOrWhiteSpace([string]$p.UserFolder)) { 'Unknown' } else { [Environment]::ExpandEnvironmentVariables([string]$p.UserFolder) }
+            $exists = if ($root -eq 'Unknown') { 'Unknown' } elseif (Test-Path $root) { 'Yes' } else { 'No' }
+            "$kind | Email: $mail | SyncRoot: $root | Exists: $exists"
+        }
+} else {
+    "No OneDrive accounts configured"
+}
+"#;
+    match run_powershell(ps_accounts) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not read OneDrive account registry state\n"),
+    }
+
+    out.push_str("\n=== OneDrive policy overrides ===\n");
+    let ps_policy = r#"
+$paths = @(
+    'HKLM:\SOFTWARE\Policies\Microsoft\OneDrive',
+    'HKCU:\SOFTWARE\Policies\Microsoft\OneDrive'
+)
+$names = @(
+    'DisableFileSyncNGSC',
+    'DisableLibrariesDefaultSaveToOneDrive',
+    'KFMSilentOptIn',
+    'KFMBlockOptIn',
+    'SilentAccountConfig'
+)
+$found = $false
+foreach ($path in $paths) {
+    if (Test-Path $path) {
+        $p = Get-ItemProperty $path -ErrorAction SilentlyContinue
+        foreach ($name in $names) {
+            $value = $p.$name
+            if ($null -ne $value -and [string]$value -ne '') {
+                "$path | $name=$value"
+                $found = $true
+            }
+        }
+    }
+}
+if (-not $found) { "No OneDrive policy overrides detected" }
+"#;
+    match run_powershell(ps_policy) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not read OneDrive policy state\n"),
+    }
+
+    out.push_str("\n=== Known Folder Backup ===\n");
+    let ps_kfm = r#"
+$base = 'HKCU:\Software\Microsoft\OneDrive\Accounts'
+$roots = @()
+if (Test-Path $base) {
+    Get-ChildItem $base -ErrorAction SilentlyContinue | ForEach-Object {
+        $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+        if ($p.UserFolder) {
+            $roots += [Environment]::ExpandEnvironmentVariables([string]$p.UserFolder)
+        }
+    }
+}
+$roots = $roots | Select-Object -Unique
+$shell = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
+if (Test-Path $shell) {
+    $props = Get-ItemProperty $shell -ErrorAction SilentlyContinue
+    $folders = @(
+        @{ Name='Desktop'; Value=$props.Desktop },
+        @{ Name='Documents'; Value=$props.Personal },
+        @{ Name='Pictures'; Value=$props.'My Pictures' }
+    )
+    foreach ($folder in $folders) {
+        $path = [Environment]::ExpandEnvironmentVariables([string]$folder.Value)
+        if ([string]::IsNullOrWhiteSpace($path)) { $path = 'Unknown' }
+        $protected = $false
+        foreach ($root in $roots) {
+            if (-not [string]::IsNullOrWhiteSpace([string]$root) -and $path.ToLower().StartsWith($root.ToLower())) {
+                $protected = $true
+                break
+            }
+        }
+        "$($folder.Name) | Path: $path | In OneDrive: $(if ($protected) { 'Yes' } else { 'No' })"
+    }
+} else {
+    "Explorer shell folders unavailable"
+}
+"#;
+    match run_powershell(ps_kfm) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Known Folder Backup state\n"),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("Installed: Unknown") && !out.contains("Process: Running") {
+        findings.push("OneDrive client installation could not be confirmed from standard paths in this session.".into());
+    }
+    if out.contains("No OneDrive accounts configured") {
+        findings.push("No OneDrive accounts are configured - sync cannot start until the user signs in.".into());
+    }
+    if out.contains("Process: Not running") && !out.contains("No OneDrive accounts configured") {
+        findings.push("OneDrive accounts exist but the sync client is not running - sync may be paused until OneDrive starts.".into());
+    }
+    if out.contains("Exists: No") {
+        findings.push("One or more configured OneDrive sync roots do not exist on disk - account linkage or folder redirection may be broken.".into());
+    }
+    if out.contains("DisableFileSyncNGSC=1") {
+        findings.push("A OneDrive policy is disabling the sync client (DisableFileSyncNGSC=1).".into());
+    }
+    if out.contains("KFMBlockOptIn=1") {
+        findings.push("A policy is blocking Known Folder Backup enrollment (KFMBlockOptIn=1).".into());
+    }
+    if out.contains("SyncRoot: C:\\") {
+        let mut missing_kfm: Vec<&str> = Vec::new();
+        for folder in ["Desktop", "Documents", "Pictures"] {
+            if out
+                .lines()
+                .any(|line| line.contains(&format!("{folder} | Path:")) && line.contains("| In OneDrive: No"))
+            {
+                missing_kfm.push(folder);
+            }
+        }
+        if !missing_kfm.is_empty() {
+            findings.push(format!(
+                "Known Folder Backup is not protecting {} - those folders are outside the OneDrive sync root.",
+                missing_kfm.join(", ")
+            ));
+        }
+    }
+
+    let mut result = String::from("Host inspection: onedrive\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- No obvious OneDrive client, account, or policy blocker detected.\n");
+    } else {
+        for finding in &findings {
+            result.push_str(&format!("- Finding: {finding}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_onedrive(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: onedrive\n\n=== Findings ===\n- OneDrive inspection is currently Windows-first. macOS/Linux support can be added later.\n".into())
+}
 
 #[cfg(windows)]
 fn inspect_search_index(_max_entries: usize) -> Result<String, String> {

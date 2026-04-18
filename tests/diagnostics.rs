@@ -3391,6 +3391,37 @@ fn test_inspect_host_search_index_returns_header() {
 }
 
 #[test]
+fn test_inspect_host_onedrive_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "onedrive" });
+        let output = inspect_host(&args).await.expect("onedrive must return Ok");
+        assert!(
+            output.contains("Host inspection: onedrive"),
+            "onedrive output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_onedrive_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "onedrive" });
+        let output = inspect_host(&args).await.expect("onedrive must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== OneDrive client ===")
+            && output.contains("=== OneDrive accounts ===");
+        assert!(
+            has_result,
+            "onedrive must report findings and OneDrive sections; got:\n{output}"
+        );
+    });
+}
+
+#[test]
 fn test_inspect_host_search_index_reports_findings_and_sections() {
     use hematite::tools::host_inspect::inspect_host;
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -5566,6 +5597,18 @@ fn test_routing_detects_tpm_topic() {
 }
 
 // ── IT Pro Plus Diagnostics ──────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_onedrive_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt = "Check OneDrive sync health and tell me if my Desktop/Documents backup is working.";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("onedrive"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"onedrive"),
+        "should detect onedrive; got: {topics:?}"
+    );
+}
 
 #[tokio::test]
 async fn test_inspect_host_ad_user_returns_header() {

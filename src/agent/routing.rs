@@ -286,6 +286,11 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "headphones",
             "camera",
             "webcam",
+            "onedrive",
+            "one drive",
+            "files on-demand",
+            "known folder backup",
+            "sharepoint sync",
             "windows hello",
             "hello not working",
             "sign in issue",
@@ -526,6 +531,20 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("biometric service")
         || (lower.contains("profile") && lower.contains("corrupt"))
         || lower.contains("wbiosrvc");
+    let asks_onedrive = lower.contains("onedrive")
+        || lower.contains("one drive")
+        || lower.contains("files on-demand")
+        || lower.contains("known folder backup")
+        || lower.contains("known folder move")
+        || lower.contains("kfm")
+        || lower.contains("sharepoint sync")
+        || lower.contains("sync root")
+        || ((lower.contains("desktop") || lower.contains("documents") || lower.contains("pictures"))
+            && lower.contains("backup")
+            && (lower.contains("onedrive") || lower.contains("cloud") || lower.contains("sync")))
+        || ((lower.contains("desktop") || lower.contains("documents") || lower.contains("pictures"))
+            && lower.contains("sync")
+            && (lower.contains("onedrive") || lower.contains("sharepoint") || lower.contains("cloud")));
     let asks_search_index = (lower.contains("search")
         && (lower.contains("broken")
             || lower.contains("not working")
@@ -1324,6 +1343,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("camera")
     } else if asks_sign_in {
         Some("sign_in")
+    } else if asks_onedrive {
+        Some("onedrive")
     } else if asks_search_index {
         Some("search_index")
     } else if asks_display_config {
@@ -1686,6 +1707,22 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("credential provider")
                 || l.contains("biometric service")
                 || l.contains("wbiosrvc")
+        }),
+        ("onedrive", |l| {
+            l.contains("onedrive")
+                || l.contains("one drive")
+                || l.contains("files on-demand")
+                || l.contains("known folder backup")
+                || l.contains("known folder move")
+                || l.contains("kfm")
+                || l.contains("sharepoint sync")
+                || l.contains("sync root")
+                || ((l.contains("desktop") || l.contains("documents") || l.contains("pictures"))
+                    && l.contains("backup")
+                    && (l.contains("onedrive") || l.contains("cloud") || l.contains("sync")))
+                || ((l.contains("desktop") || l.contains("documents") || l.contains("pictures"))
+                    && l.contains("sync")
+                    && (l.contains("onedrive") || l.contains("sharepoint") || l.contains("cloud")))
         }),
         ("search_index", |l| {
             l.contains("search index")

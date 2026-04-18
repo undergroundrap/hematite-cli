@@ -364,7 +364,7 @@ Sandboxed code execution (`run_code` tool).
 
 ### `src/tools/host_inspect.rs`
 
-SysAdmin and Network Admin inspection (`inspect_host` tool). 94+ read-only topics covering the full OS stack. Recent additions include `camera`, `sign_in`, `search_index`, `display_config`, `ntp`, `cpu_power`, `credentials`, and `tpm` on top of the earlier `docker_filesystems`, `wsl_filesystems`, `lan_discovery`, `audio`, and `bluetooth` work. See CLAUDE.md for the complete topic reference.
+SysAdmin and Network Admin inspection (`inspect_host` tool). 95+ read-only topics covering the full OS stack. Recent additions include `camera`, `sign_in`, `onedrive`, `search_index`, `display_config`, `ntp`, `cpu_power`, `credentials`, and `tpm` on top of the earlier `docker_filesystems`, `wsl_filesystems`, `lan_discovery`, `audio`, and `bluetooth` work. See CLAUDE.md for the complete topic reference.
 
 ### `src/tools/guard.rs`
 
