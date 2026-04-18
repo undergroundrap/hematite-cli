@@ -43,6 +43,13 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "bluetooth" | "bt" | "paired_devices" | "wireless_audio" => {
             inspect_bluetooth(max_entries)
         }
+        "camera" | "webcam" | "camera_privacy" => inspect_camera(max_entries),
+        "sign_in" | "windows_hello" | "hello" | "pin" | "login_issues" | "signin" => {
+            inspect_sign_in(max_entries)
+        }
+        "search_index" | "windows_search" | "indexing" | "search" => {
+            inspect_search_index(max_entries)
+        }
         "services" => inspect_services(parse_name_filter(args), max_entries),
         "processes" => inspect_processes(parse_name_filter(args), max_entries),
         "desktop" => inspect_known_directory("Desktop", desktop_dir(), max_entries).await,
@@ -1640,8 +1647,10 @@ fn inspect_lan_discovery(max_entries: usize) -> Result<String, String> {
         let n = max_entries.clamp(5, 20);
         let adapters = collect_network_adapters()?;
         let services = collect_services().unwrap_or_default();
-        let active_adapters: Vec<&NetworkAdapter> =
-            adapters.iter().filter(|adapter| adapter.is_active()).collect();
+        let active_adapters: Vec<&NetworkAdapter> = adapters
+            .iter()
+            .filter(|adapter| adapter.is_active())
+            .collect();
         let gateways: Vec<String> = active_adapters
             .iter()
             .flat_map(|adapter| adapter.gateways.clone())
@@ -1665,8 +1674,10 @@ $neighbors | ConvertTo-Json -Compress
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .unwrap_or_default();
-        let neighbors: Vec<(String, String, String, String)> =
-            parse_lan_neighbors(&neighbor_text).into_iter().take(n).collect();
+        let neighbors: Vec<(String, String, String, String)> = parse_lan_neighbors(&neighbor_text)
+            .into_iter()
+            .take(n)
+            .collect();
 
         let listener_script = r#"
 Get-NetUDPEndpoint -ErrorAction SilentlyContinue |
@@ -1705,7 +1716,12 @@ Get-PSDrive -PSProvider FileSystem | Where-Object { $_.DisplayRoot } |
     ForEach-Object { "$($_.Name):|$($_.DisplayRoot)" }
 "#;
         let smb_mappings: Vec<String> = Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-Command", smb_mapping_script])
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                smb_mapping_script,
+            ])
             .output()
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -1804,7 +1820,9 @@ Get-SmbConnection -ErrorAction SilentlyContinue |
 
         out.push_str("=== Findings ===\n");
         if findings.is_empty() {
-            out.push_str("- Finding: LAN discovery signals look healthy from this inspection pass.\n");
+            out.push_str(
+                "- Finding: LAN discovery signals look healthy from this inspection pass.\n",
+            );
             out.push_str("  Impact: Neighborhood visibility, SMB browsing, and SSDP/mDNS discovery do not show an obvious host-side blocker.\n");
             out.push_str("  Fix: If one device still cannot be seen, test the specific host/share/printer path next to separate name resolution from service reachability.\n");
         } else {
@@ -1839,7 +1857,10 @@ Get-SmbConnection -ErrorAction SilentlyContinue |
 
         out.push_str("\n=== Neighborhood evidence ===\n");
         out.push_str(&format!("- Gateway count: {}\n", gateways.len()));
-        out.push_str(&format!("- Neighbor entries observed: {}\n", neighbors.len()));
+        out.push_str(&format!(
+            "- Neighbor entries observed: {}\n",
+            neighbors.len()
+        ));
         if neighbors.is_empty() {
             out.push_str("- No ARP/neighbor evidence retrieved.\n");
         } else {
@@ -1935,12 +1956,16 @@ Get-SmbConnection -ErrorAction SilentlyContinue |
 
         out.push_str("=== Findings ===\n");
         if adapters.iter().any(|adapter| adapter.is_active()) {
-            out.push_str("- Finding: LAN discovery support is partially available on this platform.\n");
+            out.push_str(
+                "- Finding: LAN discovery support is partially available on this platform.\n",
+            );
             out.push_str("  Impact: Adapter and neighbor evidence can be inspected, but mDNS/UPnP coverage depends on local tools and services like Avahi.\n");
             out.push_str("  Fix: If discovery is failing, inspect Avahi/systemd-resolved, local firewall rules, and `udp_ports` next.\n");
         } else {
             out.push_str("- Finding: No active LAN adapters were detected.\n");
-            out.push_str("  Impact: Neighborhood discovery cannot work without an active interface.\n");
+            out.push_str(
+                "  Impact: Neighborhood discovery cannot work without an active interface.\n",
+            );
             out.push_str("  Fix: Bring up Wi-Fi or Ethernet first, then rerun LAN discovery.\n");
         }
 
@@ -3723,10 +3748,12 @@ fn parse_windows_pnp_devices(node: Option<&Value>) -> Vec<WindowsPnpDevice> {
                     .unwrap_or("Unknown")
                     .trim()
                     .to_string(),
-                problem: entry
-                    .get("Problem")
-                    .and_then(|v| v.as_u64())
-                    .or_else(|| entry.get("Problem").and_then(|v| v.as_i64()).map(|v| v as u64)),
+                problem: entry.get("Problem").and_then(|v| v.as_u64()).or_else(|| {
+                    entry
+                        .get("Problem")
+                        .and_then(|v| v.as_i64())
+                        .map(|v| v as u64)
+                }),
                 class_name: entry
                     .get("Class")
                     .and_then(|v| v.as_str())
@@ -3773,8 +3800,7 @@ fn parse_windows_sound_devices(node: Option<&Value>) -> Vec<WindowsSoundDevice> 
 
 #[cfg(target_os = "windows")]
 fn windows_device_has_issue(device: &WindowsPnpDevice) -> bool {
-    !device.status.eq_ignore_ascii_case("ok")
-        && !device.status.eq_ignore_ascii_case("unknown")
+    !device.status.eq_ignore_ascii_case("ok") && !device.status.eq_ignore_ascii_case("unknown")
         || device.problem.unwrap_or(0) != 0
 }
 
@@ -7663,7 +7689,12 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
 
     let mut containers = Vec::new();
     if let Ok(o) = Command::new("docker")
-        .args(["ps", "-a", "--format", "{{.Names}}\t{{.Image}}\t{{.Status}}"])
+        .args([
+            "ps",
+            "-a",
+            "--format",
+            "{{.Names}}\t{{.Image}}\t{{.Status}}",
+        ])
         .output()
     {
         for line in String::from_utf8_lossy(&o.stdout).lines().take(n) {
@@ -8015,8 +8046,7 @@ fn inspect_wsl_filesystems(max_entries: usize) -> Result<String, String> {
                     "- {} [state: {}, version: {}]\n",
                     distro.name, distro.state, distro.version
                 ));
-                if let Some((_, usage)) = live_usage.iter().find(|(name, _)| name == &distro.name)
-                {
+                if let Some((_, usage)) = live_usage.iter().find(|(name, _)| name == &distro.name) {
                     out.push_str(&format!(
                         "  - rootfs: {} used / {} total ({}), free: {}\n",
                         human_bytes(usage.used_kb * 1024),
@@ -8032,7 +8062,9 @@ fn inspect_wsl_filesystems(max_entries: usize) -> Result<String, String> {
                 } else if distro.state.eq_ignore_ascii_case("Running") {
                     out.push_str("  - live rootfs check: unavailable\n");
                 } else {
-                    out.push_str("  - live rootfs check: skipped to avoid starting a stopped distro\n");
+                    out.push_str(
+                        "  - live rootfs check: skipped to avoid starting a stopped distro\n",
+                    );
                 }
             }
         }
@@ -9661,7 +9693,10 @@ $sound = @(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue |
             });
         }
 
-        if probe_loaded && endpoints.is_empty() && media_devices.is_empty() && sound_devices.is_empty()
+        if probe_loaded
+            && endpoints.is_empty()
+            && media_devices.is_empty()
+            && sound_devices.is_empty()
         {
             findings.push(AuditFinding {
                 finding: "No audio endpoints or sound hardware were detected in the Windows device inventory.".to_string(),
@@ -9670,7 +9705,8 @@ $sound = @(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue |
             });
         }
 
-        if !endpoint_problems.is_empty() || !media_problems.is_empty() || !sound_problems.is_empty() {
+        if !endpoint_problems.is_empty() || !media_problems.is_empty() || !sound_problems.is_empty()
+        {
             let mut problem_labels = Vec::new();
             problem_labels.extend(
                 endpoint_problems
@@ -9735,7 +9771,9 @@ $sound = @(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue |
 
         out.push_str("\n=== Audio services ===\n");
         if core_services.is_empty() && bluetooth_audio_services.is_empty() {
-            out.push_str("- No Windows audio services were retrieved from the service inventory.\n");
+            out.push_str(
+                "- No Windows audio services were retrieved from the service inventory.\n",
+            );
         } else {
             for service in core_services.iter().chain(bluetooth_audio_services.iter()) {
                 out.push_str(&format!(
@@ -9824,7 +9862,9 @@ $sound = @(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue |
     #[cfg(not(target_os = "windows"))]
     {
         let _ = max_entries;
-        out.push_str("Audio inspection currently provides deep endpoint and service coverage on Windows.\n");
+        out.push_str(
+            "Audio inspection currently provides deep endpoint and service coverage on Windows.\n",
+        );
         out.push_str(
             "On Linux/macOS, ask narrower questions about PipeWire/PulseAudio/ALSA state if you want a dedicated native audit path added.\n",
         );
@@ -9970,7 +10010,9 @@ $audio = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue |
 
         out.push_str("\n=== Bluetooth services ===\n");
         if bluetooth_services.is_empty() {
-            out.push_str("- No Bluetooth-related services were retrieved from the service inventory.\n");
+            out.push_str(
+                "- No Bluetooth-related services were retrieved from the service inventory.\n",
+            );
         } else {
             for service in bluetooth_services.iter().take(n) {
                 out.push_str(&format!(
@@ -11640,4 +11682,370 @@ fn decode_nvidia_throttle_reasons(hex: &str) -> String {
     }
 
     reasons.join(", ")
+}
+
+// ── PowerShell helper (used by camera / sign_in / search_index) ───────────────
+
+#[cfg(windows)]
+fn run_powershell(script: &str) -> Result<String, String> {
+    use std::process::Command;
+    let out = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .output()
+        .map_err(|e| format!("powershell launch failed: {e}"))?;
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+// ── inspect_camera ────────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_camera(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("=== Camera devices ===\n");
+
+    // PnP camera devices
+    let ps_devices = r#"
+Get-PnpDevice -Class Camera -ErrorAction SilentlyContinue | Select-Object -First 20 |
+ForEach-Object {
+    $status = if ($_.Status -eq 'OK') { 'OK' } else { $_.Status }
+    "$($_.FriendlyName) | Status: $status | InstanceId: $($_.InstanceId)"
+}
+"#;
+    match run_powershell(ps_devices) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- No camera devices found via PnP\n"),
+    }
+
+    // Windows privacy / capability gate
+    out.push_str("\n=== Windows camera privacy ===\n");
+    let ps_privacy = r#"
+$camKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam'
+$global = (Get-ItemProperty -Path $camKey -Name Value -ErrorAction SilentlyContinue).Value
+"Global: $global"
+$apps = Get-ChildItem $camKey -ErrorAction SilentlyContinue |
+    Where-Object { $_.PSChildName -ne 'NonPackaged' } |
+    ForEach-Object {
+        $v = (Get-ItemProperty $_.PSPath -Name Value -ErrorAction SilentlyContinue).Value
+        if ($v) { "  $($_.PSChildName): $v" }
+    }
+$apps
+"#;
+    match run_powershell(ps_privacy) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim_end();
+                if !l.is_empty() {
+                    out.push_str(&format!("{l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not read camera privacy registry\n"),
+    }
+
+    // Windows Hello camera (IR / face auth)
+    out.push_str("\n=== Biometric / Hello camera ===\n");
+    let ps_bio = r#"
+Get-PnpDevice -Class Biometric -ErrorAction SilentlyContinue | Select-Object -First 10 |
+ForEach-Object { "$($_.FriendlyName) | Status: $($_.Status)" }
+"#;
+    match run_powershell(ps_bio) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- No biometric devices found\n"),
+    }
+
+    // Findings
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("Status: Error") || out.contains("Status: Unknown") {
+        findings.push("One or more camera devices report a non-OK status — check Device Manager for driver errors.".into());
+    }
+    if out.contains("Global: Deny") {
+        findings.push("Camera access is globally DENIED in Windows privacy settings — apps cannot use the camera until this is re-enabled (Settings > Privacy > Camera).".into());
+    }
+
+    let mut result = String::from("Host inspection: camera\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- No obvious camera or privacy gate issue detected.\n");
+        result.push_str("  If an app still can't see the camera, check its individual permission in Settings > Privacy > Camera.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_camera(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: camera\nCamera inspection is Windows-only.".into())
+}
+
+// ── inspect_sign_in ───────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_sign_in(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("=== Windows Hello and sign-in state ===\n");
+
+    // Windows Hello PIN and face/fingerprint readiness
+    let ps_hello = r#"
+$helloKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI'
+$pinConfigured = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Provisioning\FingerPrint' -ErrorAction SilentlyContinue
+$faceConfigured = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\WbioSrvc' -Name Start -ErrorAction SilentlyContinue).Start
+"PIN-style logon path: $helloKey"
+"WbioSrvc start type: $faceConfigured"
+"FingerPrint key present: $pinConfigured"
+"#;
+    match run_powershell(ps_hello) {
+        Ok(o) => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Hello query error: {e}\n")),
+    }
+
+    // Biometric service state
+    out.push_str("\n=== Biometric service ===\n");
+    let ps_bio_svc = r#"
+$svc = Get-Service WbioSrvc -ErrorAction SilentlyContinue
+if ($svc) { "WbioSrvc | Status: $($svc.Status) | StartType: $($svc.StartType)" }
+else { "WbioSrvc not found" }
+"#;
+    match run_powershell(ps_bio_svc) {
+        Ok(o) => out.push_str(&format!("- {}\n", o.trim())),
+        Err(_) => out.push_str("- Could not query biometric service\n"),
+    }
+
+    // Recent logon failure events
+    out.push_str("\n=== Recent sign-in failures (last 24h) ===\n");
+    let ps_events = r#"
+$cutoff = (Get-Date).AddHours(-24)
+Get-WinEvent -LogName Security -FilterXPath "*[System[EventID=4625 and TimeCreated[timediff(@SystemTime) <= 86400000]]]" -MaxEvents 10 -ErrorAction SilentlyContinue |
+ForEach-Object {
+    $xml = [xml]$_.ToXml()
+    $reason = ($xml.Event.EventData.Data | Where-Object { $_.Name -eq 'FailureReason' }).'#text'
+    $account = ($xml.Event.EventData.Data | Where-Object { $_.Name -eq 'TargetUserName' }).'#text'
+    "$($_.TimeCreated.ToString('HH:mm')) | Account: $account | Reason: $reason"
+} | Select-Object -First 10
+"#;
+    match run_powershell(ps_events) {
+        Ok(o) if !o.trim().is_empty() => {
+            let count = o.lines().filter(|l| !l.trim().is_empty()).count();
+            out.push_str(&format!("- {count} recent logon failure(s) detected:\n"));
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("  {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- No sign-in failures in the last 24h (or insufficient privileges to read Security log)\n"),
+    }
+
+    // Credential providers
+    out.push_str("\n=== Active credential providers ===\n");
+    let ps_cp = r#"
+Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers' -ErrorAction SilentlyContinue |
+ForEach-Object {
+    $name = (Get-ItemProperty $_.PSPath -Name '(default)' -ErrorAction SilentlyContinue).'(default)'
+    if ($name) { $name }
+} | Select-Object -First 15
+"#;
+    match run_powershell(ps_cp) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not enumerate credential providers\n"),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("WbioSrvc | Status: Stopped") {
+        findings.push("Windows Biometric Service is stopped — Windows Hello face/fingerprint will not work until it is running.".into());
+    }
+    if out.contains("recent logon failure") && !out.contains("0 recent") {
+        findings.push("Recent sign-in failures detected — check the Security event log for account lockout or credential issues.".into());
+    }
+
+    let mut result = String::from("Host inspection: sign_in\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- No obvious sign-in or Windows Hello service failure detected.\n");
+        result.push_str("  If Hello is prompting for PIN or won't recognize you, try Settings > Accounts > Sign-in options > Repair.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_sign_in(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: sign_in\nSign-in / Windows Hello inspection is Windows-only.".into())
+}
+
+// ── inspect_search_index ──────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_search_index(_max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("=== Windows Search service ===\n");
+
+    // Service state
+    let ps_svc = r#"
+$svc = Get-Service WSearch -ErrorAction SilentlyContinue
+if ($svc) { "WSearch | Status: $($svc.Status) | StartType: $($svc.StartType)" }
+else { "WSearch service not found" }
+"#;
+    match run_powershell(ps_svc) {
+        Ok(o) => out.push_str(&format!("- {}\n", o.trim())),
+        Err(_) => out.push_str("- Could not query WSearch service\n"),
+    }
+
+    // Indexer state via registry
+    out.push_str("\n=== Indexer state ===\n");
+    let ps_idx = r#"
+$key = 'HKLM:\SOFTWARE\Microsoft\Windows Search'
+$props = Get-ItemProperty $key -ErrorAction SilentlyContinue
+if ($props) {
+    "SetupCompletedSuccessfully: $($props.SetupCompletedSuccessfully)"
+    "IsContentIndexingEnabled: $($props.IsContentIndexingEnabled)"
+    "DataDirectory: $($props.DataDirectory)"
+} else { "Registry key not found" }
+"#;
+    match run_powershell(ps_idx) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(_) => out.push_str("- Could not read indexer registry\n"),
+    }
+
+    // Indexed locations
+    out.push_str("\n=== Indexed locations ===\n");
+    let ps_locs = r#"
+$comObj = New-Object -ComObject Microsoft.Search.Administration.CSearchManager -ErrorAction SilentlyContinue
+if ($comObj) {
+    $catalog = $comObj.GetCatalog('SystemIndex')
+    $manager = $catalog.GetCrawlScopeManager()
+    $rules = $manager.EnumerateRoots()
+    while ($true) {
+        try {
+            $root = $rules.Next(1)
+            if ($root.Count -eq 0) { break }
+            $r = $root[0]
+            "  $($r.RootURL) | Default: $($r.IsDefault) | Included: $($r.IsIncluded)"
+        } catch { break }
+    }
+} else { "  COM admin interface not available (normal on non-admin sessions)" }
+"#;
+    match run_powershell(ps_locs) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines() {
+                let l = line.trim_end();
+                if !l.is_empty() {
+                    out.push_str(&format!("{l}\n"));
+                }
+            }
+        }
+        _ => {
+            // Fallback: read from registry
+            let ps_reg = r#"
+Get-ChildItem 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search\Indexer\Sources' -ErrorAction SilentlyContinue |
+ForEach-Object { "  $($_.PSChildName)" } | Select-Object -First 20
+"#;
+            match run_powershell(ps_reg) {
+                Ok(o) if !o.trim().is_empty() => {
+                    for line in o.lines() {
+                        let l = line.trim_end();
+                        if !l.is_empty() {
+                            out.push_str(&format!("{l}\n"));
+                        }
+                    }
+                }
+                _ => out.push_str("  - Could not enumerate indexed locations\n"),
+            }
+        }
+    }
+
+    // Recent indexing errors from event log
+    out.push_str("\n=== Recent indexer errors (last 24h) ===\n");
+    let ps_evts = r#"
+Get-WinEvent -LogName 'Microsoft-Windows-Search/Operational' -MaxEvents 5 -ErrorAction SilentlyContinue |
+Where-Object { $_.LevelDisplayName -eq 'Error' -or $_.LevelDisplayName -eq 'Warning' } |
+ForEach-Object { "$($_.TimeCreated.ToString('HH:mm')) [$($_.LevelDisplayName)] $($_.Message.Substring(0, [Math]::Min(120, $_.Message.Length)))" }
+"#;
+    match run_powershell(ps_evts) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- No recent indexer errors found\n"),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("Status: Stopped") {
+        findings.push("Windows Search (WSearch) is stopped — search results will be slow or empty. Start the service: `Start-Service WSearch`.".into());
+    }
+    if out.contains("IsContentIndexingEnabled: 0")
+        || out.contains("IsContentIndexingEnabled: False")
+    {
+        findings.push(
+            "Content indexing is disabled — file content won't be searchable, only filenames."
+                .into(),
+        );
+    }
+    if out.contains("SetupCompletedSuccessfully: 0")
+        || out.contains("SetupCompletedSuccessfully: False")
+    {
+        findings.push("Search indexer setup did not complete successfully — index may be corrupt. Rebuild: Settings > Search > Searching Windows > Advanced > Rebuild.".into());
+    }
+
+    let mut result = String::from("Host inspection: search_index\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- Windows Search service and indexer appear healthy.\n");
+        result.push_str("  If search still feels slow, the index may just be catching up — check indexing status in Settings > Search > Searching Windows.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_search_index(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: search_index\nSearch index inspection is Windows-only.".into())
 }

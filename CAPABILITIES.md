@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 86+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Full OS stack coverage**: 89+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
@@ -82,7 +82,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (61+):**
+**SysAdmin topics (64+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
@@ -121,6 +121,9 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Peripherals** (`peripherals`) — deep-dive into USB controllers, HID devices (keyboard/mouse class), and connected monitors
 - **Audio** (`audio`) — Windows Audio service health, playback/recording endpoint inventory, microphone/speaker path checks, Bluetooth-audio crossover, and plain-English diagnosis for “no sound / bad mic / crackling”
 - **Bluetooth** (`bluetooth`) — Bluetooth radio state, service health, paired-device inventory, headset/audio endpoint crossover, and plain-English diagnosis for “won’t pair / keeps disconnecting / wrong headset role”
+- **Camera** (`camera`) — PnP camera/webcam device inventory, Windows camera privacy registry state, Windows Hello biometric camera detection, and plain-English diagnosis for “camera not working / blocked by privacy settings”
+- **Sign-In / Windows Hello** (`sign_in`) — Windows Hello and biometric service state, WBioSrvc health, recent logon failure events (EventID 4625), enrolled credential providers, and plain-English diagnosis for “PIN/fingerprint not working / can’t sign in”
+- **Search Index** (`search_index`) — Windows Search (WSearch) service state, indexer registry configuration, indexed locations (shell namespaces + registry fallback), recent indexer errors, and plain-English diagnosis for “search not finding files / indexer stopped”
 - **Group Policy** (`gpo`) — applied Group Policy Objects (computer scope), filtering status; requires Administrator elevation on Windows
 - **Certificates** (`certificates`) — local personal certificates with subject, thumbprint, expiry date; flags certs expiring within 30 days
 - **Integrity** (`integrity`) — Windows component store health via SFC/DISM registry and log visibility; flags Corrupt or AutoRepairNeeded state

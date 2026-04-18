@@ -284,6 +284,14 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "pairing",
             "headset",
             "headphones",
+            "camera",
+            "webcam",
+            "windows hello",
+            "hello not working",
+            "sign in issue",
+            "search index",
+            "windows search",
+            "indexer",
             "winrm",
             "psremoting",
             "network stats",
@@ -462,8 +470,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("volume")
                 || lower.contains("speaker")
                 || lower.contains("microphone")))
-        && !lower.contains("audio file")
-        && !lower.contains("voice engine");
+            && !lower.contains("audio file")
+            && !lower.contains("voice engine");
     let asks_bluetooth = lower.contains("bluetooth")
         || lower.contains("pairing")
         || lower.contains("paired device")
@@ -482,6 +490,42 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || ((lower.contains("won't") || lower.contains("cannot") || lower.contains("can't"))
             && (lower.contains("pair") || lower.contains("connect"))
             && lower.contains("bluetooth"));
+    let asks_camera = lower.contains("camera")
+        || lower.contains("webcam")
+        || lower.contains("web cam")
+        || (lower.contains("app") && lower.contains("can't see") && lower.contains("camera"))
+        || (lower.contains("camera") && lower.contains("permission"))
+        || (lower.contains("camera") && lower.contains("privacy"))
+        || (lower.contains("camera") && lower.contains("not working"))
+        || (lower.contains("camera") && lower.contains("missing"))
+        || lower.contains("camera_privacy");
+    let asks_sign_in = lower.contains("windows hello")
+        || (lower.contains("hello") && lower.contains("not working"))
+        || (lower.contains("pin")
+            && (lower.contains("broken")
+                || lower.contains("not working")
+                || lower.contains("forgot")))
+        || (lower.contains("can't sign in")
+            || lower.contains("cannot sign in")
+            || lower.contains("cant sign in"))
+        || (lower.contains("sign") && lower.contains("in") && lower.contains("issue"))
+        || lower.contains("logon failure")
+        || lower.contains("credential provider")
+        || lower.contains("biometric service")
+        || (lower.contains("profile") && lower.contains("corrupt"))
+        || lower.contains("wbiosrvc");
+    let asks_search_index = (lower.contains("search")
+        && (lower.contains("broken")
+            || lower.contains("not working")
+            || lower.contains("slow")
+            || lower.contains("indexing")
+            || lower.contains("index")))
+        || lower.contains("wsearch")
+        || lower.contains("windows search")
+        || lower.contains("search index")
+        || lower.contains("indexer")
+        || (lower.contains("search") && lower.contains("stuck"))
+        || (lower.contains("search") && lower.contains("results") && lower.contains("show"));
     let asks_peripherals = lower.contains("peripheral")
         || lower.contains("usb")
         || lower.contains("keyboard")
@@ -1190,6 +1234,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("bluetooth")
     } else if asks_audio {
         Some("audio")
+    } else if asks_camera {
+        Some("camera")
+    } else if asks_sign_in {
+        Some("sign_in")
+    } else if asks_search_index {
+        Some("search_index")
     } else if asks_docker_filesystems {
         Some("docker_filesystems")
     } else if asks_wsl_filesystems {
@@ -1504,6 +1554,31 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                         || l.contains("microphone")))
                     && !l.contains("audio file")
                     && !l.contains("voice engine"))
+        }),
+        ("camera", |l| {
+            l.contains("camera")
+                || l.contains("webcam")
+                || l.contains("web cam")
+                || (l.contains("camera") && l.contains("permission"))
+                || (l.contains("camera") && l.contains("privacy"))
+        }),
+        ("sign_in", |l| {
+            l.contains("windows hello")
+                || l.contains("sign in")
+                || l.contains("cant sign in")
+                || l.contains("can't sign in")
+                || (l.contains("pin") && (l.contains("broken") || l.contains("not working")))
+                || l.contains("credential provider")
+                || l.contains("biometric service")
+                || l.contains("wbiosrvc")
+        }),
+        ("search_index", |l| {
+            l.contains("search index")
+                || l.contains("windows search")
+                || l.contains("wsearch")
+                || l.contains("indexer")
+                || (l.contains("search") && l.contains("broken"))
+                || (l.contains("search") && l.contains("not working"))
         }),
         ("pending_reboot", |l| {
             l.contains("pending reboot")
@@ -1910,9 +1985,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("integrity") || l.contains("sfc") || l.contains("dism")
         }),
         ("domain", |l| {
-            l.contains("domain")
-                || l.contains("workgroup")
-                || l.contains("active directory")
+            l.contains("domain") || l.contains("workgroup") || l.contains("active directory")
         }),
         ("device_health", |l| {
             l.contains("device health")

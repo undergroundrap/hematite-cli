@@ -3314,6 +3314,100 @@ fn test_inspect_host_bluetooth_reports_findings_or_inventory() {
     });
 }
 
+#[test]
+fn test_inspect_host_camera_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "camera" });
+        let output = inspect_host(&args).await.expect("camera must return Ok");
+        assert!(
+            output.contains("Host inspection: camera"),
+            "camera output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_camera_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "camera" });
+        let output = inspect_host(&args).await.expect("camera must return Ok");
+        let has_result =
+            output.contains("=== Findings ===") && output.contains("=== Camera devices ===");
+        assert!(
+            has_result,
+            "camera must report findings and device inventory; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_sign_in_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "sign_in" });
+        let output = inspect_host(&args).await.expect("sign_in must return Ok");
+        assert!(
+            output.contains("Host inspection: sign_in"),
+            "sign_in output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_sign_in_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "sign_in" });
+        let output = inspect_host(&args).await.expect("sign_in must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && (output.contains("=== Windows Hello") || output.contains("=== Biometric"));
+        assert!(
+            has_result,
+            "sign_in must report findings and Hello/biometric section; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_search_index_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "search_index" });
+        let output = inspect_host(&args)
+            .await
+            .expect("search_index must return Ok");
+        assert!(
+            output.contains("Host inspection: search_index"),
+            "search_index output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_search_index_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "search_index" });
+        let output = inspect_host(&args)
+            .await
+            .expect("search_index must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== Windows Search service ===");
+        assert!(
+            has_result,
+            "search_index must report findings and WSearch service section; got:\n{output}"
+        );
+    });
+}
+
 // ── ssh ───────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -3528,7 +3622,9 @@ fn test_routing_detects_audio_topic() {
 fn test_routing_detects_bluetooth_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
     assert_eq!(
-        preferred_host_inspection_topic("why won't this Bluetooth headset pair and stay connected?"),
+        preferred_host_inspection_topic(
+            "why won't this Bluetooth headset pair and stay connected?"
+        ),
         Some("bluetooth")
     );
     assert_eq!(
@@ -3623,8 +3719,9 @@ fn test_all_host_topics_detects_docker_and_ssh_together() {
 #[test]
 fn test_all_host_topics_prefers_deep_docker_filesystem_audit_over_generic_docker() {
     use hematite::agent::routing::all_host_inspection_topics;
-    let topics =
-        all_host_inspection_topics("audit my Docker bind mounts and named volumes for missing host paths");
+    let topics = all_host_inspection_topics(
+        "audit my Docker bind mounts and named volumes for missing host paths",
+    );
     assert!(
         topics.contains(&"docker_filesystems"),
         "should detect docker_filesystems; got: {topics:?}"
@@ -3642,8 +3739,9 @@ fn test_all_host_topics_prefers_deep_docker_filesystem_audit_over_generic_docker
 #[test]
 fn test_all_host_topics_prefers_deep_wsl_filesystem_audit_over_generic_wsl() {
     use hematite::agent::routing::all_host_inspection_topics;
-    let topics =
-        all_host_inspection_topics("check WSL storage growth and whether /mnt/c bridge health looks broken");
+    let topics = all_host_inspection_topics(
+        "check WSL storage growth and whether /mnt/c bridge health looks broken",
+    );
     assert!(
         topics.contains(&"wsl_filesystems"),
         "should detect wsl_filesystems; got: {topics:?}"
@@ -3680,8 +3778,14 @@ fn test_all_host_topics_detects_audio_and_bluetooth_together_for_headset_triage(
     let topics = all_host_inspection_topics(
         "my bluetooth headset connects but there is no sound and the mic keeps dropping",
     );
-    assert!(topics.contains(&"bluetooth"), "should detect bluetooth; got: {topics:?}");
-    assert!(topics.contains(&"audio"), "should detect audio; got: {topics:?}");
+    assert!(
+        topics.contains(&"bluetooth"),
+        "should detect bluetooth; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"audio"),
+        "should detect audio; got: {topics:?}"
+    );
 }
 
 #[test]
@@ -3689,7 +3793,10 @@ fn test_all_host_topics_prefers_audio_over_generic_peripherals() {
     use hematite::agent::routing::all_host_inspection_topics;
     let topics =
         all_host_inspection_topics("my speakers have no sound and my microphone is broken");
-    assert!(topics.contains(&"audio"), "should detect audio; got: {topics:?}");
+    assert!(
+        topics.contains(&"audio"),
+        "should detect audio; got: {topics:?}"
+    );
     assert!(
         !topics.contains(&"peripherals"),
         "should suppress generic peripherals when audio is present; got: {topics:?}"
@@ -3699,8 +3806,12 @@ fn test_all_host_topics_prefers_audio_over_generic_peripherals() {
 #[test]
 fn test_all_host_topics_prefers_bluetooth_over_generic_peripherals() {
     use hematite::agent::routing::all_host_inspection_topics;
-    let topics = all_host_inspection_topics("check my Bluetooth headset pairing and reconnect loop");
-    assert!(topics.contains(&"bluetooth"), "should detect bluetooth; got: {topics:?}");
+    let topics =
+        all_host_inspection_topics("check my Bluetooth headset pairing and reconnect loop");
+    assert!(
+        topics.contains(&"bluetooth"),
+        "should detect bluetooth; got: {topics:?}"
+    );
     assert!(
         !topics.contains(&"peripherals"),
         "should suppress generic peripherals when bluetooth is present; got: {topics:?}"

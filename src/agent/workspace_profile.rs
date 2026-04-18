@@ -150,7 +150,9 @@ pub fn detect_workspace_profile(root: &Path) -> WorkspaceProfile {
     let workspace_mode = if is_project {
         "project"
     } else if crate::tools::file_ops::hematite_dir().join("docs").exists()
-        || crate::tools::file_ops::hematite_dir().join("imports").exists()
+        || crate::tools::file_ops::hematite_dir()
+            .join("imports")
+            .exists()
     {
         "docs_only"
     } else {
