@@ -53,6 +53,30 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Traceroute**
 > "Trace the network path to 8.8.8.8 and tell me where the latency spikes are."
 
+**Latency and reachability**
+> "Check ping RTT and packet loss to my gateway, Cloudflare, and Google DNS. Flag anything unreachable or high latency."
+
+**NIC diagnostics**
+> "Audit my network adapter settings — link speed, offload capabilities (LSO/RSS/checksum), error counters, and wake-on-LAN state."
+
+**DHCP lease**
+> "Show me my DHCP lease details — which server assigned my IP, when does it expire, and what DNS servers did it hand me?"
+
+**MTU and fragmentation**
+> "Check my MTU settings per adapter and run a path MTU discovery test to 8.8.8.8. I think VPN fragmentation is causing issues."
+
+**IPv6 status**
+> "Show my IPv6 addresses — am I using SLAAC or DHCPv6? Check for a global unicast address and tell me if privacy extensions are enabled."
+
+**TCP tuning**
+> "Show TCP autotuning level, congestion provider, and ECN state on this machine."
+
+**Saved WiFi profiles audit**
+> "List all saved wireless profiles with their authentication type. Flag anything using WEP or open auth."
+
+**IPSec tunnel state**
+> "Check for active IPSec security associations and IKE tunnel state. Is the Policy Agent service running?"
+
 ---
 
 ## Developer Tooling
@@ -289,6 +313,26 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 
 **Network Throughput (Rate-based)**
 > "Show me my current network throughput in Mbps for the active adapter. I want to see the current RX/TX rate, not just totals since boot."
+
+**Full network stack triage**
+> "Run a complete network stack triage: latency to gateway and internet, DHCP lease status, MTU per adapter, DNS nameservers, and active TCP connections."
+> *(Harness pre-runs: latency, dhcp, mtu, dns_servers, connections)*
+
+**IPv6 deep-dive**
+> "Give me a full IPv6 diagnostic: addresses per adapter, SLAAC vs DHCPv6, default gateway, privacy extension state, and any tunnel adapters."
+> *(Harness runs: ipv6)*
+
+**TCP stack health**
+> "Audit TCP stack settings: autotuning level, congestion algorithm, ECN capability, chimney offload, and dynamic port range."
+> *(Harness runs: tcp_params)*
+
+**Wireless security audit**
+> "Audit all saved wireless profiles for weak authentication (WEP, open). Show me what's currently connected and at what signal strength."
+> *(Harness runs: wlan_profiles, wifi)*
+
+**VPN and tunnel audit**
+> "Check for active VPN adapters, IPSec security associations, and IKE tunnel state. Is anything tunneling traffic right now?"
+> *(Harness runs: vpn, ipsec)*
 
 **Time-Windowed Log Analysis**
 > "Show me all System errors from the Event Log that occurred in the last 4 hours."
