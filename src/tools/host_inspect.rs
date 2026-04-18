@@ -179,8 +179,14 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "cpu_power" | "turbo_boost" | "cpu_frequency" | "cpu_freq" | "processor_power" | "boost" => {
             inspect_cpu_power()
         }
+        "credentials" | "credential_manager" | "saved_passwords" | "stored_credentials" => {
+            inspect_credentials(max_entries)
+        }
+        "tpm" | "secure_boot" | "uefi" | "tpm_status" | "secureboot" | "firmware_security" => {
+            inspect_tpm()
+        }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, search_index, display_config, ntp, cpu_power, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, search_index, display_config, ntp, cpu_power, credentials, tpm, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -12414,6 +12420,246 @@ if ($pwr) {
     result.push('\n');
     result.push_str(&out);
     Ok(result)
+}
+
+#[cfg(windows)]
+fn inspect_credentials(_max_entries: usize) -> Result<String, String> {
+    let mut out = String::new();
+
+    out.push_str("=== Credential vault summary ===\n");
+    let ps_summary = r#"
+$raw = cmdkey /list 2>&1
+$lines = $raw -split "`n"
+$total = ($lines | Where-Object { $_ -match "Target:" }).Count
+"Total stored credentials: $total"
+$windows = ($lines | Where-Object { $_ -match "Type: Windows" }).Count
+$generic = ($lines | Where-Object { $_ -match "Type: Generic" }).Count
+$cert    = ($lines | Where-Object { $_ -match "Type: Certificate" }).Count
+"  Windows credentials: $windows"
+"  Generic credentials: $generic"
+"  Certificate-based:   $cert"
+"#;
+    match run_powershell(ps_summary) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Credential summary error: {e}\n")),
+    }
+
+    out.push_str("\n=== Credential targets (up to 20) ===\n");
+    let ps_list = r#"
+$raw = cmdkey /list 2>&1
+$entries = @(); $cur = @{}
+foreach ($line in ($raw -split "`n")) {
+    $l = $line.Trim()
+    if     ($l -match "^Target:\s*(.+)")  { $cur = @{ Target=$Matches[1] } }
+    elseif ($l -match "^Type:\s*(.+)"   -and $cur.Target) { $cur.Type=$Matches[1] }
+    elseif ($l -match "^User:\s*(.+)"   -and $cur.Target) { $cur.User=$Matches[1]; $entries+=$cur; $cur=@{} }
+}
+$entries | Select-Object -Last 20 | ForEach-Object {
+    "[$($_.Type)] $($_.Target)  (user: $($_.User))"
+}
+"#;
+    match run_powershell(ps_list) {
+        Ok(o) => {
+            let lines: Vec<&str> = o.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+            if lines.is_empty() {
+                out.push_str("- No credential entries found\n");
+            } else {
+                for l in &lines {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Credential list error: {e}\n")),
+    }
+
+    let total_creds: usize = {
+        let ps_count = r#"(cmdkey /list 2>&1 | Select-String "Target:").Count"#;
+        run_powershell(ps_count)
+            .ok()
+            .and_then(|s| s.trim().parse().ok())
+            .unwrap_or(0)
+    };
+
+    let mut findings: Vec<String> = Vec::new();
+    if total_creds > 30 {
+        findings.push(format!(
+            "{total_creds} stored credentials found — consider auditing for stale entries."
+        ));
+    }
+
+    let mut result = String::from("Host inspection: credentials\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- Credential store looks normal.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_credentials(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: credentials\n\n=== Findings ===\n- Credential Manager is Windows-only. Use `secret-tool` or `pass` on Linux.\n".into())
+}
+
+#[cfg(windows)]
+fn inspect_tpm() -> Result<String, String> {
+    let mut out = String::new();
+
+    out.push_str("=== TPM state ===\n");
+    let ps_tpm = r#"
+function Emit-Field([string]$Name, $Value, [string]$Fallback = "Unknown") {
+    $text = if ($null -eq $Value) { "" } else { [string]$Value }
+    if ([string]::IsNullOrWhiteSpace($text)) { $text = $Fallback }
+    "$Name$text"
+}
+$t = Get-Tpm -ErrorAction SilentlyContinue
+if ($t) {
+    Emit-Field "TpmPresent:          " $t.TpmPresent
+    Emit-Field "TpmReady:            " $t.TpmReady
+    Emit-Field "TpmEnabled:          " $t.TpmEnabled
+    Emit-Field "TpmOwned:            " $t.TpmOwned
+    Emit-Field "RestartPending:      " $t.RestartPending
+    Emit-Field "ManufacturerIdTxt:   " $t.ManufacturerIdTxt
+    Emit-Field "ManufacturerVersion: " $t.ManufacturerVersion
+} else { "TPM module unavailable" }
+"#;
+    match run_powershell(ps_tpm) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Get-Tpm error: {e}\n")),
+    }
+
+    out.push_str("\n=== TPM spec version (WMI) ===\n");
+    let ps_spec = r#"
+$wmi = Get-CimInstance -Namespace root\cimv2\security\microsofttpm -ClassName Win32_Tpm -ErrorAction SilentlyContinue
+if ($wmi) {
+    $spec = if ([string]::IsNullOrWhiteSpace([string]$wmi.SpecVersion)) { "Unknown" } else { [string]$wmi.SpecVersion }
+    "SpecVersion:  $spec"
+    "IsActivated:  $(if ($null -eq $wmi.IsActivated_InitialValue) { 'Unknown' } else { $wmi.IsActivated_InitialValue })"
+    "IsEnabled:    $(if ($null -eq $wmi.IsEnabled_InitialValue) { 'Unknown' } else { $wmi.IsEnabled_InitialValue })"
+    "IsOwned:      $(if ($null -eq $wmi.IsOwned_InitialValue) { 'Unknown' } else { $wmi.IsOwned_InitialValue })"
+} else { "Win32_Tpm WMI class unavailable (may need elevation or no TPM)" }
+"#;
+    match run_powershell(ps_spec) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Win32_Tpm WMI error: {e}\n")),
+    }
+
+    out.push_str("\n=== Secure Boot state ===\n");
+    let ps_sb = r#"
+$sb = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+if ($null -ne $sb) {
+    if ($sb) { "Secure Boot: ENABLED" } else { "Secure Boot: DISABLED" }
+} else { "Secure Boot: N/A (cmdlet unavailable or Legacy BIOS)" }
+"#;
+    match run_powershell(ps_sb) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Secure Boot check error: {e}\n")),
+    }
+
+    out.push_str("\n=== Firmware type ===\n");
+    let ps_fw = r#"
+$fw = (Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control -Name "PEFirmwareType" -ErrorAction SilentlyContinue).PEFirmwareType
+switch ($fw) {
+    1 { "Firmware type: BIOS (Legacy)" }
+    2 { "Firmware type: UEFI" }
+    default { "Firmware type: Unknown or not set" }
+}
+"#;
+    match run_powershell(ps_fw) {
+        Ok(o) => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        Err(e) => out.push_str(&format!("- Firmware type error: {e}\n")),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    let mut indeterminate = false;
+    if out.contains("TpmPresent:          False") {
+        findings.push("No TPM detected — BitLocker hardware encryption and Windows 11 security features unavailable.".into());
+    }
+    if out.contains("TpmReady:            False") {
+        findings.push("TPM present but not ready — may need initialization in BIOS/UEFI settings.".into());
+    }
+    if out.contains("SpecVersion:  1.2") {
+        findings.push("TPM 1.2 detected — Windows 11 requires TPM 2.0.".into());
+    }
+    if out.contains("Secure Boot: DISABLED") {
+        findings.push("Secure Boot is disabled — recommended to enable in UEFI firmware for Windows 11 compliance.".into());
+    }
+    if out.contains("Firmware type: BIOS (Legacy)") {
+        findings.push("Legacy BIOS detected — Secure Boot and modern TPM require UEFI firmware.".into());
+    }
+
+    if out.contains("TPM module unavailable")
+        || out.contains("Win32_Tpm WMI class unavailable")
+        || out.contains("Secure Boot: N/A")
+        || out.contains("Firmware type: Unknown or not set")
+        || out.contains("TpmPresent:          Unknown")
+        || out.contains("TpmReady:            Unknown")
+        || out.contains("TpmEnabled:          Unknown")
+    {
+        indeterminate = true;
+    }
+    if indeterminate {
+        findings.push(
+            "TPM / Secure Boot state could not be fully determined from this session - firmware mode, privileges, or Windows TPM providers may be limiting visibility."
+                .into(),
+        );
+    }
+
+    let mut result = String::from("Host inspection: tpm\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- TPM and Secure Boot appear healthy.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_tpm() -> Result<String, String> {
+    Ok("Host inspection: tpm\n\n=== Findings ===\n- TPM/Secure Boot inspection is Windows-only.\n".into())
 }
 
 #[cfg(not(windows))]

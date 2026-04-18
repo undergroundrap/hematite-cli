@@ -3508,6 +3508,72 @@ fn test_inspect_host_cpu_power_reports_findings_and_sections() {
     });
 }
 
+#[test]
+fn test_inspect_host_credentials_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "credentials" });
+        let output = inspect_host(&args)
+            .await
+            .expect("credentials must return Ok");
+        assert!(
+            output.contains("Host inspection: credentials"),
+            "credentials output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_credentials_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "credentials" });
+        let output = inspect_host(&args)
+            .await
+            .expect("credentials must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== Credential vault summary ===")
+            && output.contains("=== Credential targets");
+        assert!(
+            has_result,
+            "credentials must report findings and credential sections; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_tpm_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "tpm" });
+        let output = inspect_host(&args).await.expect("tpm must return Ok");
+        assert!(
+            output.contains("Host inspection: tpm"),
+            "tpm output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_tpm_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "tpm" });
+        let output = inspect_host(&args).await.expect("tpm must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== TPM state ===")
+            && output.contains("=== Secure Boot state ===");
+        assert!(
+            has_result,
+            "tpm must report findings and TPM/Secure Boot sections; got:\n{output}"
+        );
+    });
+}
+
 // ── ssh ───────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -5474,6 +5540,29 @@ fn test_routing_prompt_library_network_map() {
         topics.contains(&"lan_discovery"),
         "should detect lan_discovery for neighborhood mapping; got: {topics:?}"
     );
+}
+
+#[test]
+fn test_routing_detects_credentials_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt =
+        "Audit my stored Windows credentials and tell me if Credential Manager hygiene looks risky.";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("credentials"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"credentials"),
+        "should detect credentials; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_routing_detects_tpm_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt =
+        "Check TPM, Secure Boot, and firmware mode and tell me if this machine is Windows 11 ready.";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("tpm"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(topics.contains(&"tpm"), "should detect tpm; got: {topics:?}");
 }
 
 // ── IT Pro Plus Diagnostics ──────────────────────────────────────────────────

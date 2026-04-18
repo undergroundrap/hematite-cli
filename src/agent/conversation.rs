@@ -1539,7 +1539,7 @@ impl ConversationManager {
                         "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: Shell is blocked for host inspection. The diagnostic data above fulfills your request. Use inspect_host directly for further diagnostics.]"
                     )),
                     Err(e) => Err(format!(
-                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, lan_discovery, audio, bluetooth, camera, sign_in, search_index, display_config, ntp, cpu_power, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, docker_filesystems, wsl, wsl_filesystems, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
+                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, lan_discovery, audio, bluetooth, camera, sign_in, search_index, display_config, ntp, cpu_power, credentials, tpm, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, docker_filesystems, wsl, wsl_filesystems, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
                     )),
                 };
             }
@@ -2456,6 +2456,8 @@ impl ConversationManager {
                  - Local network discovery / NAS or printer visibility / neighborhood / mDNS / SSDP / UPnP / NetBIOS -> `lan_discovery`\n\
                  - Speakers / microphones / playback devices / Windows Audio service -> `audio`\n\
                  - Bluetooth radios / pairing / reconnect issues / headset roles -> `bluetooth`\n\
+                 - Credential Manager / stored Windows credentials / saved passwords / cmdkey vault hygiene -> `credentials`\n\
+                 - TPM / Secure Boot / firmware mode / Windows 11 readiness -> `tpm`\n\
                  Only use `shell` if the question truly cannot be answered by any topic above.\n\
                  NEVER tell the user to run PowerShell, cmd, or shell commands themselves. If the data is incomplete, say so and tell them to ask a more specific question instead.\n\
                  NEVER expose internal tool names or API syntax (like `inspect_host(topic=...)`) in your response. Refer to capabilities in plain English: say 'ask me for a fix plan' not 'run inspect_host(topic=fix_plan)'.\n"
@@ -2532,7 +2534,7 @@ impl ConversationManager {
                      3. End with a verification step the user can run to confirm success.\n\
                      4. Do NOT execute write operations yourself. You are the teacher; the user performs the steps.\n\
                      5. Treat the user as capable — give precise instructions, not hedged warnings.\n\
-                     Relevant inspect_host topics for common tasks: hardware (driver installs), overclocker (GPU/silicon vitals), security (firewall), ssh (SSH keys), wsl (WSL setup), wsl_filesystems (WSL disk and path-bridge issues), docker_filesystems (bind mounts and named volumes), lan_discovery (printer/NAS/neighborhood discovery issues), audio (speaker/microphone/service issues), bluetooth (pairing/radio/headset issues), camera (webcam/camera devices/privacy), sign_in (Windows Hello/biometric/logon failures), search_index (Windows Search indexer/WSearch), display_config (monitor/resolution/refresh rate/DPI), ntp (clock sync/NTP/w32tm), cpu_power (turbo boost/CPU frequency/power plan), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
+                     Relevant inspect_host topics for common tasks: hardware (driver installs), overclocker (GPU/silicon vitals), security (firewall), ssh (SSH keys), wsl (WSL setup), wsl_filesystems (WSL disk and path-bridge issues), docker_filesystems (bind mounts and named volumes), lan_discovery (printer/NAS/neighborhood discovery issues), audio (speaker/microphone/service issues), bluetooth (pairing/radio/headset issues), camera (webcam/camera devices/privacy), sign_in (Windows Hello/biometric/logon failures), search_index (Windows Search indexer/WSearch), display_config (monitor/resolution/refresh rate/DPI), ntp (clock sync/NTP/w32tm), cpu_power (turbo boost/CPU frequency/power plan), credentials (Credential Manager/saved passwords/cmdkey), tpm (TPM chip/Secure Boot/firmware type), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
                 ),
                 WorkflowMode::Chat => {} // replaced by build_chat_system_prompt below
             }
@@ -5554,6 +5556,12 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "bthavctpsvc",
         "btagservice",
         "bluetoothuserservice",
+        "cmdkey",
+        "credential manager",
+        "get-tpm",
+        "confirm-securebootuefi",
+        "win32_tpm",
+        "secure boot",
         // active directory - always use inspect_host
         "get-aduser",
         "get-addomain",
@@ -6305,6 +6313,11 @@ mod tests {
         ));
         assert!(shell_looks_like_structured_host_inspection(
             "Get-Service bthserv,BthAvctpSvc,BTAGService"
+        ));
+        assert!(shell_looks_like_structured_host_inspection("cmdkey /list"));
+        assert!(shell_looks_like_structured_host_inspection("Get-Tpm"));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Confirm-SecureBootUEFI"
         ));
     }
 

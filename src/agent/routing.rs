@@ -577,6 +577,24 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("cpu") && lower.contains("slow"))
         || (lower.contains("cpu") && lower.contains("underclocking"))
         || (lower.contains("boost") && lower.contains("disabled"));
+    let asks_credentials = lower.contains("credential manager")
+        || lower.contains("credential store")
+        || lower.contains("saved password")
+        || lower.contains("stored credential")
+        || lower.contains("saved credential")
+        || lower.contains("credential vault")
+        || lower.contains("cmdkey")
+        || (lower.contains("credential") && lower.contains("list"))
+        || (lower.contains("password") && lower.contains("vault"))
+        || (lower.contains("windows") && lower.contains("credential"));
+    let asks_tpm = lower.contains("tpm")
+        || lower.contains("secure boot")
+        || lower.contains("secureboot")
+        || lower.contains("trusted platform module")
+        || lower.contains("firmware security")
+        || lower.contains("uefi security")
+        || (lower.contains("bitlocker") && lower.contains("chip"))
+        || (lower.contains("windows 11") && lower.contains("tpm"));
     let asks_peripherals = lower.contains("peripheral")
         || lower.contains("usb")
         || lower.contains("keyboard")
@@ -709,7 +727,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("toolchains")
         || (lower.contains("installed") && lower.contains("version"))
         || (lower.contains("detect") && lower.contains("version"));
-    let _asks_permissions = lower.contains("permission")
+    let asks_permissions = lower.contains("permission")
         || lower.contains("access control")
         || lower.contains("get-acl")
         || lower.contains("acl ")
@@ -717,14 +735,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("takeown")
         || lower.contains("ntfs permission")
         || (lower.contains("who has") && lower.contains("access"));
-    let _asks_login_history = lower.contains("login history")
+    let asks_login_history = lower.contains("login history")
         || lower.contains("logon history")
         || lower.contains("who logged in")
         || lower.contains("recent logon")
         || lower.contains("failed logon")
         || lower.contains("event id 4624")
         || lower.contains("eventid 4624");
-    let _asks_registry_audit = lower.contains("registry audit")
+    let asks_registry_audit = lower.contains("registry audit")
         || lower.contains("persistence")
         || lower.contains("debugger hijack")
         || lower.contains("ifeo")
@@ -763,7 +781,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("clock")
                 || lower.contains("fan")
                 || lower.contains("power draw")
-                || lower.contains("frequency")));
+                || lower.contains("frequency")
+                || lower.contains("overheating")));
     let asks_hardware = lower.contains("cpu model")
         || lower.contains("ram size")
         || lower.contains("hardware spec")
@@ -1200,7 +1219,23 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("dns search suffix")
         || lower.contains("configured dns")
         || lower.contains("get-dnsclientserveraddress"))
-        && !lower.contains("dns cache");
+        && !lower.contains("dns cache")
+        && (!lower.contains("adapter")
+            || contains_any(
+                &lower,
+                &[
+                    "dns server",
+                    "dns resolver",
+                    "nameserver",
+                    "configured dns",
+                    "per adapter",
+                    "which dns",
+                    "what dns",
+                    "get-dnsclientserveraddress",
+                ],
+            ))
+        && !lower.contains("ip address")
+        && !lower.contains("gateway");
     let asks_bitlocker = lower.contains("bitlocker")
         || (lower.contains("drive") && lower.contains("encrypt"))
         || (lower.contains("disk") && lower.contains("encrypt"))
@@ -1297,6 +1332,16 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("ntp")
     } else if asks_cpu_power {
         Some("cpu_power")
+    } else if asks_credentials {
+        Some("credentials")
+    } else if asks_tpm {
+        Some("tpm")
+    } else if asks_permissions {
+        Some("permissions")
+    } else if asks_login_history {
+        Some("login_history")
+    } else if asks_registry_audit {
+        Some("registry_audit")
     } else if asks_docker_filesystems {
         Some("docker_filesystems")
     } else if asks_wsl_filesystems {
@@ -1379,14 +1424,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("udp_ports")
     } else if asks_shares {
         Some("shares")
+    } else if asks_network {
+        Some("network")
     } else if asks_health_report {
         Some("health_report")
     } else if asks_os_config {
         Some("os_config")
     } else if asks_hardware || asks_virtualization {
         Some("hardware")
-    } else if asks_network {
-        Some("network")
     } else if asks_updates {
         Some("updates")
     } else if asks_audit_policy {
@@ -1429,9 +1474,21 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("processes")
     } else if asks_repo_doctor {
         Some("repo_doctor")
-    } else if lower.contains("desktop") {
+    } else if lower.contains("desktop")
+        && (lower.contains("show")
+            || lower.contains("list")
+            || lower.contains("what is in")
+            || lower.contains("what's in")
+            || lower.contains("folder"))
+    {
         Some("desktop")
-    } else if lower.contains("downloads") {
+    } else if lower.contains("downloads")
+        && (lower.contains("show")
+            || lower.contains("list")
+            || lower.contains("what is in")
+            || lower.contains("what's in")
+            || lower.contains("folder"))
+    {
         Some("downloads")
     } else if asks_path {
         Some("path")
@@ -1471,7 +1528,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("gpu")
                     && (l.contains("throttle")
                         || l.contains("bottleneck")
-                        || l.contains("performance")))
+                        || l.contains("performance")
+                        || l.contains("overheating")))
         }),
         ("directory", |l| {
             (l.contains("make")
@@ -1660,6 +1718,23 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("cpu power")
                 || l.contains("power plan")
                 || (l.contains("cpu") && l.contains("slow"))
+        }),
+        ("credentials", |l| {
+            l.contains("credential manager")
+                || l.contains("credential store")
+                || l.contains("saved password")
+                || l.contains("stored credential")
+                || l.contains("credential vault")
+                || l.contains("cmdkey")
+                || (l.contains("credential") && l.contains("list"))
+                || (l.contains("windows") && l.contains("credential"))
+        }),
+        ("tpm", |l| {
+            l.contains("tpm")
+                || l.contains("secure boot")
+                || l.contains("trusted platform module")
+                || l.contains("firmware security")
+                || l.contains("uefi security")
         }),
         ("pending_reboot", |l| {
             l.contains("pending reboot")
@@ -1884,7 +1959,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                         || l.contains("cpu")
                         || l.contains("nvidia")
                         || l.contains("silicon")))
-                || (l.contains("gpu") && (l.contains("throttle") || l.contains("bottleneck")))
+                || (l.contains("gpu")
+                    && (l.contains("throttle")
+                        || l.contains("bottleneck")
+                        || l.contains("overheating")))
         }),
         ("path", |l| {
             l.contains("path entries") || l.contains("raw path")
@@ -2750,7 +2828,10 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
         )
     {
         Some(DirectAnswerKind::Toolchain)
-    } else if host_inspection_mode && mentions_host_inspection_question(&lower) {
+    } else if !architecture_overview_mode
+        && host_inspection_mode
+        && mentions_host_inspection_question(&lower)
+    {
         Some(DirectAnswerKind::HostInspection)
     } else {
         None
@@ -2758,13 +2839,13 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
 
     let sovereign_mode = is_sovereign_mutation(user_input);
 
-    let primary_class = if direct_answer.is_some()
+    let primary_class = if architecture_overview_mode {
+        QueryIntentClass::RepoArchitecture
+    } else if direct_answer.is_some()
         || mentions_stable_product_surface(&lower)
         || mentions_product_truth_routing(&lower)
     {
         QueryIntentClass::ProductTruth
-    } else if architecture_overview_mode {
-        QueryIntentClass::RepoArchitecture
     } else if toolchain_mode {
         QueryIntentClass::Toolchain
     } else if capability_mode {
