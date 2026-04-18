@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 89+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Full OS stack coverage**: 92+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
@@ -82,7 +82,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (64+):**
+**SysAdmin topics (67+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
@@ -124,6 +124,9 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Camera** (`camera`) — PnP camera/webcam device inventory, Windows camera privacy registry state, Windows Hello biometric camera detection, and plain-English diagnosis for “camera not working / blocked by privacy settings”
 - **Sign-In / Windows Hello** (`sign_in`) — Windows Hello and biometric service state, WBioSrvc health, recent logon failure events (EventID 4625), enrolled credential providers, and plain-English diagnosis for “PIN/fingerprint not working / can’t sign in”
 - **Search Index** (`search_index`) — Windows Search (WSearch) service state, indexer registry configuration, indexed locations (shell namespaces + registry fallback), recent indexer errors, and plain-English diagnosis for “search not finding files / indexer stopped”
+- **Display Config** (`display_config`) — active monitor resolution, refresh rate, bits-per-pixel, video adapter driver version, connected monitor names/PnP IDs, and DPI/scaling percentage via Win32 GDI
+- **NTP / Time Sync** (`ntp`) — Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers/registry, and plain-English diagnosis for clock drift or sync failure
+- **CPU Power** (`cpu_power`) — active power plan, processor min/max state and turbo boost mode, current CPU clock and load via WMI Win32_Processor, thermal zone temperatures, and diagnosis for “CPU stuck slow / boost disabled / power plan capping frequency”
 - **Group Policy** (`gpo`) — applied Group Policy Objects (computer scope), filtering status; requires Administrator elevation on Windows
 - **Certificates** (`certificates`) — local personal certificates with subject, thumbprint, expiry date; flags certs expiring within 30 days
 - **Integrity** (`integrity`) — Windows component store health via SFC/DISM registry and log visibility; flags Corrupt or AutoRepairNeeded state

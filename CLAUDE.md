@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **89+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **92+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -195,6 +195,9 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Camera**: Use `topic: "camera"` for PnP camera/webcam device inventory, Windows camera privacy registry state, Windows Hello biometric camera detection, and plain-English diagnosis for "camera not working / blocked by privacy settings".
 - **Sign-In / Windows Hello**: Use `topic: "sign_in"` for Windows Hello and biometric service state (WBioSrvc), recent logon failure events (EventID 4625), enrolled credential providers, and plain-English diagnosis for "PIN/fingerprint not working / can't sign in".
 - **Search Index**: Use `topic: "search_index"` for Windows Search (WSearch) service state, indexer registry configuration, indexed locations, recent indexer errors, and plain-English diagnosis for "search not finding files / indexer stopped".
+- **Display Config**: Use `topic: "display_config"` for active monitor resolution, refresh rate, DPI/scaling, video adapter driver version, and connected monitor names — answers "what refresh rate / how many monitors / is my DPI correct".
+- **NTP / Time Sync**: Use `topic: "ntp"` for Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers, and plain-English diagnosis for clock drift or sync failure.
+- **CPU Power**: Use `topic: "cpu_power"` for active power plan, processor min/max state, turbo boost mode, current CPU clock and load, thermal zone temperatures, and diagnosis for "CPU stuck slow / boost disabled / power plan capping frequency".
 - **SSH**: Use `topic: "ssh"` for SSH client version, sshd service state, `~/.ssh` directory inventory (known_hosts count, authorized_keys count, private key files), and `~/.ssh/config` host entries.
 - **Installed Software**: Use `topic: "installed_software"` for installed programs — winget list on Windows (registry fallback), dpkg/rpm/pacman on Linux, brew + mas on macOS.
 - **Git Config**: Use `topic: "git_config"` for global git configuration audit — user identity, core settings, signing config, push/pull defaults, credential helper, branch defaults, local repo config, and git aliases.
@@ -764,6 +767,9 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 - **Camera + privacy-permission auditing** — ✓ Done. Shipped as `inspect_host(topic: “camera”)`. Covers PnP camera/webcam device inventory, Windows camera privacy registry state, Windows Hello biometric camera detection, and plain-English diagnosis for “camera not working / blocked by privacy settings”.
 - **Windows Hello / sign-in recovery** — ✓ Done. Shipped as `inspect_host(topic: “sign_in”)`. Covers Windows Hello and biometric service state (WBioSrvc), recent logon failure events (EventID 4625), enrolled credential providers, and plain-English diagnosis for “PIN/fingerprint not working / can’t sign in”.
 - **Search indexing diagnostics** — ✓ Done. Shipped as `inspect_host(topic: “search_index”)`. Covers Windows Search (WSearch) service state, indexer registry configuration, indexed locations, recent indexer errors, and plain-English diagnosis for “search not finding files / indexer stopped”.
+- **Display configuration** — ✓ Done. Shipped as `inspect_host(topic: “display_config”)`. Covers active monitor resolution, refresh rate, bits-per-pixel, video adapter driver version, connected monitor PnP names, and DPI/scaling percentage via Win32 GDI.
+- **NTP / time sync** — ✓ Done. Shipped as `inspect_host(topic: “ntp”)`. Covers Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers (registry fallback), and plain-English diagnosis for clock drift or sync failure.
+- **CPU power and frequency** — ✓ Done. Shipped as `inspect_host(topic: “cpu_power”)`. Covers active power plan, processor min/max state and turbo boost mode, current CPU clock and load via WMI Win32_Processor, thermal zone temperatures, and diagnosis for “CPU stuck slow / boost disabled / power plan capping frequency”.
 
 ### Next Up — highest-value missing support lanes
 

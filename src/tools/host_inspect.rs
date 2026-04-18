@@ -170,8 +170,17 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "hyperv" | "hyper-v" | "vms" => inspect_hyperv(),
         "ip_config" | "ip_detail" | "dhcp" => inspect_ip_config(),
         "overclocker" | "thermal_deep" | "clocks" | "voltage" => inspect_overclocker().await,
+        "display_config" | "display" | "monitor" | "monitors" | "resolution" | "refresh_rate" | "screen" => {
+            inspect_display_config(max_entries)
+        }
+        "ntp" | "time_sync" | "time_synchronization" | "clock_sync" | "w32tm" | "clock" => {
+            inspect_ntp()
+        }
+        "cpu_power" | "turbo_boost" | "cpu_frequency" | "cpu_freq" | "processor_power" | "boost" => {
+            inspect_cpu_power()
+        }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, search_index, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, search_index, display_config, ntp, cpu_power, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -12049,4 +12058,403 @@ ForEach-Object { "$($_.TimeCreated.ToString('HH:mm')) [$($_.LevelDisplayName)] $
 #[cfg(not(windows))]
 fn inspect_search_index(_max_entries: usize) -> Result<String, String> {
     Ok("Host inspection: search_index\nSearch index inspection is Windows-only.".into())
+}
+
+// ── inspect_display_config ────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_display_config(max_entries: usize) -> Result<String, String> {
+    let mut out = String::new();
+
+    // Active displays via CIM
+    out.push_str("=== Active displays ===\n");
+    let ps_displays = r#"
+Get-CimInstance -ClassName CIM_VideoControllerResolution -ErrorAction SilentlyContinue |
+Select-Object -First 20 |
+ForEach-Object {
+    "$($_.HorizontalResolution)x$($_.VerticalResolution) @ $($_.RefreshRate)Hz | Colors: $($_.NumberOfColors)"
+}
+"#;
+    match run_powershell(ps_displays) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not enumerate display resolutions via CIM\n"),
+    }
+
+    // GPU / video adapter
+    out.push_str("\n=== Video adapters ===\n");
+    let ps_gpu = r#"
+Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Select-Object -First 4 |
+ForEach-Object {
+    $res = "$($_.CurrentHorizontalResolution)x$($_.CurrentVerticalResolution)"
+    $hz  = "$($_.CurrentRefreshRate) Hz"
+    $bits = "$($_.CurrentBitsPerPixel) bpp"
+    "$($_.Name) | $res @ $hz | $bits | Driver: $($_.DriverVersion)"
+}
+"#;
+    match run_powershell(ps_gpu) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not query video adapter info\n"),
+    }
+
+    // Monitor names via Win32_DesktopMonitor
+    out.push_str("\n=== Connected monitors ===\n");
+    let ps_monitors = r#"
+Get-CimInstance Win32_DesktopMonitor -ErrorAction SilentlyContinue | Select-Object -First 8 |
+ForEach-Object { "$($_.Name) | Status: $($_.Status) | PnP: $($_.PNPDeviceID)" }
+"#;
+    match run_powershell(ps_monitors) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- No monitor info available via WMI\n"),
+    }
+
+    // DPI scaling
+    out.push_str("\n=== DPI / scaling ===\n");
+    let ps_dpi = r#"
+Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+public class DPI {
+    [DllImport("user32")] public static extern IntPtr GetDC(IntPtr hwnd);
+    [DllImport("gdi32")]  public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+    [DllImport("user32")] public static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
+}
+'@ -ErrorAction SilentlyContinue
+try {
+    $hdc  = [DPI]::GetDC([IntPtr]::Zero)
+    $dpiX = [DPI]::GetDeviceCaps($hdc, 88)
+    $dpiY = [DPI]::GetDeviceCaps($hdc, 90)
+    [DPI]::ReleaseDC([IntPtr]::Zero, $hdc) | Out-Null
+    $scale = [Math]::Round($dpiX / 96.0 * 100)
+    "DPI: ${dpiX}x${dpiY} | Scale: ${scale}%"
+} catch { "DPI query unavailable" }
+"#;
+    match run_powershell(ps_dpi) {
+        Ok(o) if !o.trim().is_empty() => {
+            out.push_str(&format!("- {}\n", o.trim()));
+        }
+        _ => out.push_str("- DPI info unavailable\n"),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("0x0") || out.contains("@ 0 Hz") {
+        findings.push("One or more adapters report zero resolution or refresh rate — display may be asleep or misconfigured.".into());
+    }
+
+    let mut result = String::from("Host inspection: display_config\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- Display configuration appears normal.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_display_config(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: display_config\nDisplay config inspection is Windows-only.".into())
+}
+
+// ── inspect_ntp ───────────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_ntp() -> Result<String, String> {
+    let mut out = String::new();
+
+    // w32tm status
+    out.push_str("=== Windows Time service ===\n");
+    let ps_svc = r#"
+$svc = Get-Service W32Time -ErrorAction SilentlyContinue
+if ($svc) { "W32Time | Status: $($svc.Status) | StartType: $($svc.StartType)" }
+else { "W32Time service not found" }
+"#;
+    match run_powershell(ps_svc) {
+        Ok(o) => out.push_str(&format!("- {}\n", o.trim())),
+        Err(_) => out.push_str("- Could not query W32Time service\n"),
+    }
+
+    // NTP source and last sync
+    out.push_str("\n=== NTP source and sync status ===\n");
+    let ps_sync = r#"
+$q = w32tm /query /status 2>$null
+if ($q) { $q } else { "w32tm query unavailable" }
+"#;
+    match run_powershell(ps_sync) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("  {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("  - Could not query w32tm status\n"),
+    }
+
+    // Configured NTP server
+    out.push_str("\n=== Configured NTP servers ===\n");
+    let ps_peers = r#"
+w32tm /query /peers 2>$null | Select-Object -First 10
+"#;
+    match run_powershell(ps_peers) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("  {l}\n"));
+                }
+            }
+        }
+        _ => {
+            // Fallback: registry
+            let ps_reg = r#"
+(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters' -Name NtpServer -ErrorAction SilentlyContinue).NtpServer
+"#;
+            match run_powershell(ps_reg) {
+                Ok(o) if !o.trim().is_empty() => {
+                    out.push_str(&format!("  NtpServer (registry): {}\n", o.trim()));
+                }
+                _ => out.push_str("  - Could not enumerate NTP peers\n"),
+            }
+        }
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("W32Time | Status: Stopped") {
+        findings.push("Windows Time service is stopped — system clock will drift and may cause authentication or certificate failures. Start with: `Start-Service W32Time`.".into());
+    }
+    if out.contains("The computer did not resync") || out.contains("Error") {
+        findings.push("w32tm reports a sync error — check NTP server reachability or run `w32tm /resync /force`.".into());
+    }
+
+    let mut result = String::from("Host inspection: ntp\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- Windows Time service and NTP sync appear healthy.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_ntp() -> Result<String, String> {
+    // Linux/macOS: check timedatectl / chrony / ntpq
+    let mut out = String::from("Host inspection: ntp\n\n=== Findings ===\n");
+
+    let timedatectl = std::process::Command::new("timedatectl")
+        .arg("status")
+        .output();
+
+    if let Ok(o) = timedatectl {
+        let text = String::from_utf8_lossy(&o.stdout);
+        if text.contains("synchronized: yes") || text.contains("NTP synchronized: yes") {
+            out.push_str("- NTP synchronized: yes\n\n=== timedatectl status ===\n");
+        } else {
+            out.push_str("- Finding: NTP not synchronized — run `timedatectl set-ntp true`\n\n=== timedatectl status ===\n");
+        }
+        for line in text.lines() {
+            let l = line.trim();
+            if !l.is_empty() {
+                out.push_str(&format!("  {l}\n"));
+            }
+        }
+        return Ok(out);
+    }
+
+    // macOS fallback
+    let sntp = std::process::Command::new("sntp")
+        .args(["-d", "time.apple.com"])
+        .output();
+    if let Ok(o) = sntp {
+        out.push_str("- NTP check via sntp:\n");
+        out.push_str(&String::from_utf8_lossy(&o.stdout));
+        return Ok(out);
+    }
+
+    out.push_str("- NTP status unavailable (no timedatectl or sntp found)\n");
+    Ok(out)
+}
+
+// ── inspect_cpu_power ─────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_cpu_power() -> Result<String, String> {
+    let mut out = String::new();
+
+    // Active power plan
+    out.push_str("=== Active power plan ===\n");
+    let ps_plan = r#"
+$plan = powercfg /getactivescheme 2>$null
+if ($plan) { $plan } else { "Could not query power scheme" }
+"#;
+    match run_powershell(ps_plan) {
+        Ok(o) if !o.trim().is_empty() => out.push_str(&format!("- {}\n", o.trim())),
+        _ => out.push_str("- Could not read active power plan\n"),
+    }
+
+    // Processor min/max state and boost policy
+    out.push_str("\n=== Processor performance policy ===\n");
+    let ps_proc = r#"
+$active = (powercfg /getactivescheme) -replace '.*GUID: ([a-f0-9-]+).*','$1'
+$min = powercfg /query $active SUB_PROCESSOR PROCTHROTTLEMIN 2>$null | Where-Object { $_ -match 'Current AC Power Setting Index' }
+$max = powercfg /query $active SUB_PROCESSOR PROCTHROTTLEMAX 2>$null | Where-Object { $_ -match 'Current AC Power Setting Index' }
+$boost = powercfg /query $active SUB_PROCESSOR PERFBOOSTMODE 2>$null | Where-Object { $_ -match 'Current AC Power Setting Index' }
+if ($min)   { "Min processor state:  $(([Convert]::ToInt32(($min -split '0x')[1],16)))%" }
+if ($max)   { "Max processor state:  $(([Convert]::ToInt32(($max -split '0x')[1],16)))%" }
+if ($boost) {
+    $bval = [Convert]::ToInt32(($boost -split '0x')[1],16)
+    $bname = switch ($bval) { 0{'Disabled'} 1{'Enabled'} 2{'Aggressive'} 3{'Efficient Enabled'} 4{'Efficient Aggressive'} default{"Unknown ($bval)"} }
+    "Turbo boost mode:     $bname"
+}
+"#;
+    match run_powershell(ps_proc) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not query processor performance settings\n"),
+    }
+
+    // Current CPU frequency via WMI
+    out.push_str("\n=== CPU frequency ===\n");
+    let ps_freq = r#"
+Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 4 |
+ForEach-Object {
+    $cur = $_.CurrentClockSpeed
+    $max = $_.MaxClockSpeed
+    $load = $_.LoadPercentage
+    "$($_.Name.Trim()) | Current: ${cur} MHz | Max: ${max} MHz | Load: ${load}%"
+}
+"#;
+    match run_powershell(ps_freq) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not query CPU frequency via WMI\n"),
+    }
+
+    // Throttle reason from ETW (quick check)
+    out.push_str("\n=== Throttling indicators ===\n");
+    let ps_throttle = r#"
+$pwr = Get-CimInstance -Namespace root\wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue
+if ($pwr) {
+    $pwr | Select-Object -First 4 | ForEach-Object {
+        $c = [Math]::Round(($_.CurrentTemperature / 10.0) - 273.15, 1)
+        "Thermal zone $($_.InstanceName): ${c}°C"
+    }
+} else { "Thermal zone WMI not available (normal on consumer hardware)" }
+"#;
+    match run_powershell(ps_throttle) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines() {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Thermal zone info unavailable\n"),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("Max processor state:  0%") || out.contains("Max processor state:  1%") {
+        findings.push("Max processor state is near 0% — CPU is being hard-capped by the power plan. Check power plan settings.".into());
+    }
+    if out.contains("Turbo boost mode:     Disabled") {
+        findings.push("Turbo Boost is disabled in the active power plan — CPU cannot exceed base clock speed.".into());
+    }
+    if out.contains("Min processor state:  100%") {
+        findings.push("Min processor state is 100% — CPU is pinned at max clock. Good for performance, increases power/heat.".into());
+    }
+
+    let mut result = String::from("Host inspection: cpu_power\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- CPU power and frequency settings appear normal.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_cpu_power() -> Result<String, String> {
+    let mut out = String::from("Host inspection: cpu_power\n\n=== Findings ===\n- CPU power inspection running on Unix.\n\n");
+
+    // Linux: cpufreq-info or /sys/devices/system/cpu
+    out.push_str("=== CPU frequency (Linux) ===\n");
+    let cat_scaling = std::process::Command::new("cat")
+        .arg("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")
+        .output();
+    if let Ok(o) = cat_scaling {
+        let khz: u64 = String::from_utf8_lossy(&o.stdout)
+            .trim()
+            .parse()
+            .unwrap_or(0);
+        if khz > 0 {
+            out.push_str(&format!("- Current: {} MHz\n", khz / 1000));
+        }
+    }
+    let cat_max = std::process::Command::new("cat")
+        .arg("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq")
+        .output();
+    if let Ok(o) = cat_max {
+        let khz: u64 = String::from_utf8_lossy(&o.stdout)
+            .trim()
+            .parse()
+            .unwrap_or(0);
+        if khz > 0 {
+            out.push_str(&format!("- Max: {} MHz\n", khz / 1000));
+        }
+    }
+    let governor = std::process::Command::new("cat")
+        .arg("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+        .output();
+    if let Ok(o) = governor {
+        let g = String::from_utf8_lossy(&o.stdout);
+        let g = g.trim();
+        if !g.is_empty() {
+            out.push_str(&format!("- Governor: {g}\n"));
+        }
+    }
+    Ok(out)
 }

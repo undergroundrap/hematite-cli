@@ -292,6 +292,18 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "search index",
             "windows search",
             "indexer",
+            "monitor resolution",
+            "display config",
+            "refresh rate",
+            "screen dpi",
+            "ntp",
+            "time sync",
+            "clock drift",
+            "w32tm",
+            "turbo boost",
+            "cpu frequency",
+            "cpu clock",
+            "power plan",
             "winrm",
             "psremoting",
             "network stats",
@@ -526,6 +538,45 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("indexer")
         || (lower.contains("search") && lower.contains("stuck"))
         || (lower.contains("search") && lower.contains("results") && lower.contains("show"));
+    let asks_display_config = lower.contains("monitor")
+        || lower.contains("display")
+        || lower.contains("resolution")
+        || lower.contains("refresh rate")
+        || lower.contains("refresh hz")
+        || lower.contains("screen config")
+        || lower.contains("dpi")
+        || lower.contains("scaling")
+        || lower.contains("hdmi")
+        || lower.contains("displayport")
+        || lower.contains("how many screens")
+        || lower.contains("multi-monitor")
+        || lower.contains("second screen")
+        || lower.contains("external display");
+    let asks_ntp = lower.contains("ntp")
+        || lower.contains("time sync")
+        || lower.contains("clock sync")
+        || lower.contains("w32tm")
+        || lower.contains("clock drift")
+        || lower.contains("system clock")
+        || lower.contains("time server")
+        || (lower.contains("time") && lower.contains("drift"))
+        || (lower.contains("clock") && lower.contains("wrong"))
+        || (lower.contains("time") && lower.contains("wrong"));
+    let asks_cpu_power = lower.contains("turbo boost")
+        || lower.contains("cpu frequency")
+        || lower.contains("cpu freq")
+        || lower.contains("processor frequency")
+        || lower.contains("cpu clock")
+        || lower.contains("cpu speed")
+        || lower.contains("processor speed")
+        || lower.contains("cpu stuck")
+        || lower.contains("cpu slow")
+        || lower.contains("power plan")
+        || lower.contains("cpu power")
+        || lower.contains("processor state")
+        || (lower.contains("cpu") && lower.contains("slow"))
+        || (lower.contains("cpu") && lower.contains("underclocking"))
+        || (lower.contains("boost") && lower.contains("disabled"));
     let asks_peripherals = lower.contains("peripheral")
         || lower.contains("usb")
         || lower.contains("keyboard")
@@ -1240,6 +1291,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("sign_in")
     } else if asks_search_index {
         Some("search_index")
+    } else if asks_display_config {
+        Some("display_config")
+    } else if asks_ntp {
+        Some("ntp")
+    } else if asks_cpu_power {
+        Some("cpu_power")
     } else if asks_docker_filesystems {
         Some("docker_filesystems")
     } else if asks_wsl_filesystems {
@@ -1579,6 +1636,30 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("indexer")
                 || (l.contains("search") && l.contains("broken"))
                 || (l.contains("search") && l.contains("not working"))
+        }),
+        ("display_config", |l| {
+            l.contains("monitor")
+                || l.contains("display")
+                || l.contains("resolution")
+                || l.contains("refresh rate")
+                || l.contains("dpi")
+                || l.contains("scaling")
+        }),
+        ("ntp", |l| {
+            l.contains("ntp")
+                || l.contains("time sync")
+                || l.contains("clock sync")
+                || l.contains("w32tm")
+                || l.contains("clock drift")
+                || (l.contains("time") && l.contains("drift"))
+        }),
+        ("cpu_power", |l| {
+            l.contains("turbo boost")
+                || l.contains("cpu frequency")
+                || l.contains("cpu clock")
+                || l.contains("cpu power")
+                || l.contains("power plan")
+                || (l.contains("cpu") && l.contains("slow"))
         }),
         ("pending_reboot", |l| {
             l.contains("pending reboot")

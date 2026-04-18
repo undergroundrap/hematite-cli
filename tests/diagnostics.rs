@@ -3408,6 +3408,106 @@ fn test_inspect_host_search_index_reports_findings_and_sections() {
     });
 }
 
+// ── display_config ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_display_config_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "display_config" });
+        let output = inspect_host(&args)
+            .await
+            .expect("display_config must return Ok");
+        assert!(
+            output.contains("Host inspection: display_config"),
+            "display_config output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_display_config_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "display_config" });
+        let output = inspect_host(&args)
+            .await
+            .expect("display_config must return Ok");
+        let has_result =
+            output.contains("=== Findings ===") && output.contains("=== Video adapters ===");
+        assert!(
+            has_result,
+            "display_config must report findings and video adapter section; got:\n{output}"
+        );
+    });
+}
+
+// ── ntp ───────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_ntp_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "ntp" });
+        let output = inspect_host(&args).await.expect("ntp must return Ok");
+        assert!(
+            output.contains("Host inspection: ntp"),
+            "ntp output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_ntp_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "ntp" });
+        let output = inspect_host(&args).await.expect("ntp must return Ok");
+        let has_result =
+            output.contains("=== Findings ===") && output.contains("=== Windows Time service ===");
+        assert!(
+            has_result,
+            "ntp must report findings and Windows Time service section; got:\n{output}"
+        );
+    });
+}
+
+// ── cpu_power ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_cpu_power_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "cpu_power" });
+        let output = inspect_host(&args).await.expect("cpu_power must return Ok");
+        assert!(
+            output.contains("Host inspection: cpu_power"),
+            "cpu_power output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_cpu_power_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "cpu_power" });
+        let output = inspect_host(&args).await.expect("cpu_power must return Ok");
+        let has_result =
+            output.contains("=== Findings ===") && output.contains("=== CPU frequency ===");
+        assert!(
+            has_result,
+            "cpu_power must report findings and CPU frequency section; got:\n{output}"
+        );
+    });
+}
+
 // ── ssh ───────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -5140,7 +5240,7 @@ fn test_routing_detects_route_table_topic() {
 fn test_routing_detects_os_config_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
     assert_eq!(
-        preferred_host_inspection_topic("show OS configuration and power plan"),
+        preferred_host_inspection_topic("show uptime and last boot time"),
         Some("os_config")
     );
     assert_eq!(
