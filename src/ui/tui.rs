@@ -776,26 +776,16 @@ if (-not $found -and $fallback) {{ Write-Output $fallback }}
 /// - Skips the splash screen in the new session (`--no-splash`)
 /// - Closes the originating shell/tab after Hematite exits without killing the
 ///   whole Windows Terminal host
+#[cfg(windows)]
 fn spawn_dive_in_terminal(path: &str) {
-    if !cfg!(windows) {
-        return;
-    }
-
     let pid = std::process::id();
     let current_dir = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    // Capture the shell/tab PID now so the detached cleanup script can close
-    // the original session after Hematite exits.
-    #[cfg(windows)]
     let close_target_pid = get_console_close_target_pid_sync().unwrap_or(0);
-
-    // Pixel geometry captured synchronously before the hidden PS script runs
-    #[cfg(windows)]
     let (px, py, pw, ph) = get_console_pixel_rect().unwrap_or((50, 50, 1100, 750));
 
-    // Write a temp .bat file — avoids all quoting issues when paths contain spaces
     let bat_path = std::env::temp_dir().join("hematite_teleport.bat");
     let bat_content = format!(
         "@echo off\r\ncd /d \"{p}\"\r\nhematite --no-splash --teleported-from \"{o}\"\r\n",
@@ -808,12 +798,8 @@ fn spawn_dive_in_terminal(path: &str) {
     let bat_str = bat_path.to_string_lossy().to_string();
     let bat_ps = bat_str.replace('\'', "''");
 
-    // Async script: spawn the new window, reposition it, wait for us to exit,
-    // then close the original shell/tab process if one was found.
-    #[cfg(windows)]
-    {
-        let script = format!(
-            r#"
+    let script = format!(
+        r#"
 Add-Type -TypeDefinition @'
 using System; using System.Runtime.InteropServices;
 public class WM {{ [DllImport("user32")] public static extern bool MoveWindow(IntPtr h,int x,int y,int w,int ht,bool b); }}
@@ -829,27 +815,29 @@ if ({close_pid} -gt 0) {{
     Stop-Process -Id {close_pid} -Force -ErrorAction SilentlyContinue
 }}
 "#,
-            bat = bat_ps,
-            px = px,
-            py = py,
-            pw = pw,
-            ph = ph,
-            pid = pid,
-            close_pid = close_target_pid,
-        );
+        bat = bat_ps,
+        px = px,
+        py = py,
+        pw = pw,
+        ph = ph,
+        pid = pid,
+        close_pid = close_target_pid,
+    );
 
-        let _ = std::process::Command::new("powershell.exe")
-            .args([
-                "-NoProfile",
-                "-NonInteractive",
-                "-WindowStyle",
-                "Hidden",
-                "-Command",
-                &script,
-            ])
-            .spawn();
-    }
+    let _ = std::process::Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-WindowStyle",
+            "Hidden",
+            "-Command",
+            &script,
+        ])
+        .spawn();
 }
+
+#[cfg(not(windows))]
+fn spawn_dive_in_terminal(_path: &str) {}
 
 fn copy_text_to_clipboard_powershell(text: &str) -> bool {
     let temp_path = std::env::temp_dir().join(format!(

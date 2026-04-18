@@ -11641,6 +11641,7 @@ async fn inspect_overclocker() -> Result<String, String> {
 }
 
 /// Decodes the NVIDIA Clocks Throttle Reasons HEX bitmask.
+#[cfg(target_os = "windows")]
 fn decode_nvidia_throttle_reasons(hex: &str) -> String {
     let hex = hex.trim().trim_start_matches("0x");
     let val = match u64::from_str_radix(hex, 16) {
