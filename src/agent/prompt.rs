@@ -316,6 +316,7 @@ impl SystemPromptBuilder {
             "For MSI, winget, App Installer, or Microsoft Store install failures, prefer `inspect_host(topic='installer_health')`. ",
             "For OneDrive sync health, Files On-Demand, Known Folder Backup, or SharePoint sync-root blockers, prefer `inspect_host(topic='onedrive')`. ",
             "For browser slowness, crashes, WebView2 health, default-browser issues, or browser proxy/policy interference, prefer `inspect_host(topic='browser_health')`. ",
+            "For Outlook health, slowness, crash triage, OST/PST file sizing, mail profile audit, or add-in pressure, prefer `inspect_host(topic='outlook')`. ",
             "For monitor resolution, refresh rate, DPI/scaling, or connected display questions, prefer `inspect_host(topic='display_config')`. ",
             "For NTP sync, clock drift, w32tm failures, or time server config, prefer `inspect_host(topic='ntp')`. ",
             "For CPU turbo boost state, clock frequency, slow CPU, or power plan settings, prefer `inspect_host(topic='cpu_power')`. ",

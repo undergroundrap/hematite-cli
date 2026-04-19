@@ -614,6 +614,15 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("slow")
                 || lower.contains("proxy")
                 || lower.contains("policy")));
+    let asks_outlook = lower.contains("outlook")
+        || lower.contains("ms outlook")
+        || lower.contains("microsoft outlook")
+        || (lower.contains("ost") && lower.contains("mail"))
+        || (lower.contains("pst") && lower.contains("mail"))
+        || (lower.contains("add-in") && lower.contains("mail"))
+        || (lower.contains("addin") && lower.contains("outlook"))
+        || (lower.contains("email client") && (lower.contains("slow") || lower.contains("crash") || lower.contains("broken") || lower.contains("hanging")))
+        || (lower.contains("mail profile") && lower.contains("corrupt"));
     let asks_search_index = (lower.contains("search")
         && (lower.contains("broken")
             || lower.contains("not working")
@@ -1627,6 +1636,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("onedrive")
     } else if asks_browser_health {
         Some("browser_health")
+    } else if asks_outlook {
+        Some("outlook")
     } else if asks_search_index {
         Some("search_index")
     } else if asks_display_config {
@@ -2072,6 +2083,14 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                         || l.contains("opens wrong")
                         || l.contains("wrong browser")
                         || l.contains("wrong app")))
+        }),
+        ("outlook", |l| {
+            l.contains("outlook")
+                || l.contains("ms outlook")
+                || l.contains("microsoft outlook")
+                || (l.contains("ost") && l.contains("mail"))
+                || (l.contains("pst") && l.contains("mail"))
+                || (l.contains("add-in") && l.contains("mail"))
         }),
         ("search_index", |l| {
             l.contains("search index")

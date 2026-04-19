@@ -3492,6 +3492,37 @@ fn test_inspect_host_onedrive_reports_findings_and_sections() {
 }
 
 #[test]
+fn test_inspect_host_outlook_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "outlook" });
+        let output = inspect_host(&args).await.expect("outlook must return Ok");
+        assert!(
+            output.contains("Host inspection: outlook"),
+            "outlook output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_outlook_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "outlook" });
+        let output = inspect_host(&args).await.expect("outlook must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== Outlook install inventory ===")
+            && output.contains("=== Mail profiles ===");
+        assert!(
+            has_result,
+            "outlook must report findings and core sections; got:\n{output}"
+        );
+    });
+}
+
+#[test]
 fn test_inspect_host_search_index_reports_findings_and_sections() {
     use hematite::tools::host_inspect::inspect_host;
     let rt = tokio::runtime::Runtime::new().unwrap();

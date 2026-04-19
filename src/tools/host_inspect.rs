@@ -56,6 +56,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "browser_health" | "browser" | "webview2" | "default_browser" => {
             inspect_browser_health(max_entries)
         }
+        "outlook" | "outlook_health" | "ms_outlook" => inspect_outlook(max_entries),
         "search_index" | "windows_search" | "indexing" | "search" => {
             inspect_search_index(max_entries)
         }
@@ -216,7 +217,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_network_adapter()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, outlook, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -12806,6 +12807,356 @@ if ($events) {
 #[cfg(not(windows))]
 fn inspect_browser_health(_max_entries: usize) -> Result<String, String> {
     Ok("Host inspection: browser_health\n\n=== Findings ===\n- Browser health is currently Windows-first. Linux/macOS browser triage can be added later.\n".into())
+}
+
+#[cfg(windows)]
+fn inspect_outlook(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("=== Outlook install inventory ===\n");
+
+    let ps_install = r#"
+$installPaths = @(
+    (Join-Path $env:ProgramFiles 'Microsoft Office\root\Office16\OUTLOOK.EXE'),
+    (Join-Path ${env:ProgramFiles(x86)} 'Microsoft Office\root\Office16\OUTLOOK.EXE'),
+    (Join-Path $env:ProgramFiles 'Microsoft Office\Office16\OUTLOOK.EXE'),
+    (Join-Path ${env:ProgramFiles(x86)} 'Microsoft Office\Office16\OUTLOOK.EXE'),
+    (Join-Path $env:ProgramFiles 'Microsoft Office\Office15\OUTLOOK.EXE'),
+    (Join-Path ${env:ProgramFiles(x86)} 'Microsoft Office\Office15\OUTLOOK.EXE')
+)
+$exe = $installPaths | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+if ($exe) {
+    $version = try { (Get-Item $exe).VersionInfo.FileVersion } catch { 'Unknown' }
+    $productName = try { (Get-Item $exe).VersionInfo.ProductName } catch { 'Unknown' }
+    "Installed: Yes"
+    "Executable: $exe"
+    "Version: $version"
+    "Product: $productName"
+} else {
+    "Installed: No"
+}
+$newOutlook = Get-AppxPackage -Name 'Microsoft.OutlookForWindows' -ErrorAction SilentlyContinue
+if ($newOutlook) {
+    "NewOutlook: Installed | Version: $($newOutlook.Version)"
+} else {
+    "NewOutlook: Not installed"
+}
+"#;
+    match run_powershell(ps_install) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Outlook install paths\n"),
+    }
+
+    out.push_str("\n=== Runtime state ===\n");
+    let ps_runtime = r#"
+$proc = Get-Process OUTLOOK -ErrorAction SilentlyContinue
+if ($proc) {
+    $count = @($proc).Count
+    $wsMb = [Math]::Round((($proc | Measure-Object WorkingSet64 -Sum).Sum / 1MB), 1)
+    $cpuPct = try { [Math]::Round(($proc | Measure-Object CPU -Sum).Sum, 1) } catch { 0 }
+    "Running: Yes | ProcessCount: $count | WorkingSetMB: $wsMb | CPUSeconds: $cpuPct"
+} else {
+    "Running: No"
+}
+"#;
+    match run_powershell(ps_runtime) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Outlook runtime state\n"),
+    }
+
+    out.push_str("\n=== Mail profiles ===\n");
+    let ps_profiles = r#"
+$profileKey = 'HKCU:\Software\Microsoft\Office\16.0\Outlook\Profiles'
+if (-not (Test-Path $profileKey)) {
+    $profileKey = 'HKCU:\Software\Microsoft\Office\15.0\Outlook\Profiles'
+}
+if (Test-Path $profileKey) {
+    $profiles = Get-ChildItem $profileKey -ErrorAction SilentlyContinue
+    $count = @($profiles).Count
+    "ProfileCount: $count"
+    foreach ($p in $profiles | Select-Object -First 10) {
+        "Profile: $($p.PSChildName)"
+    }
+} else {
+    "ProfileCount: 0"
+    "No Outlook profiles found in registry"
+}
+"#;
+    match run_powershell(ps_profiles) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 2) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Outlook mail profiles\n"),
+    }
+
+    out.push_str("\n=== OST and PST data files ===\n");
+    let ps_datafiles = r#"
+$searchRoots = @(
+    (Join-Path $env:LOCALAPPDATA 'Microsoft\Outlook'),
+    (Join-Path $env:USERPROFILE 'Documents'),
+    (Join-Path $env:USERPROFILE 'OneDrive\Documents')
+) | Where-Object { $_ -and (Test-Path $_) }
+$files = foreach ($root in $searchRoots) {
+    Get-ChildItem $root -Include '*.ost','*.pst' -Recurse -ErrorAction SilentlyContinue -Force |
+        Select-Object FullName,
+            @{N='SizeMB';E={[Math]::Round($_.Length/1MB,1)}},
+            @{N='Type';E={$_.Extension.TrimStart('.').ToUpper()}},
+            LastWriteTime
+}
+if ($files) {
+    foreach ($f in ($files | Sort-Object SizeMB -Descending | Select-Object -First 12)) {
+        "$($f.Type) | $($f.FullName) | SizeMB: $($f.SizeMB) | LastWrite: $($f.LastWriteTime.ToString('yyyy-MM-dd'))"
+    }
+} else {
+    "No OST or PST files found in standard locations"
+}
+"#;
+    match run_powershell(ps_datafiles) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect OST/PST data files\n"),
+    }
+
+    out.push_str("\n=== Add-in pressure ===\n");
+    let ps_addins = r#"
+$addinPaths = @(
+    'HKLM:\SOFTWARE\Microsoft\Office\Outlook\Addins',
+    'HKCU:\SOFTWARE\Microsoft\Office\Outlook\Addins',
+    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\Outlook\Addins'
+)
+$addins = foreach ($path in $addinPaths) {
+    if (Test-Path $path) {
+        Get-ChildItem $path -ErrorAction SilentlyContinue | ForEach-Object {
+            $item = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+            $loadBehavior = $item.LoadBehavior
+            $desc = if ($item.Description) { $item.Description } else { $_.PSChildName }
+            [PSCustomObject]@{ Name=$desc; LoadBehavior=$loadBehavior; Key=$_.PSChildName }
+        }
+    }
+}
+$enabledCount = ($addins | Where-Object { $_.LoadBehavior -band 1 }).Count
+$disabledCount = ($addins | Where-Object { $_.LoadBehavior -eq 0 }).Count
+"TotalAddins: $(@($addins).Count) | Active: $enabledCount | Disabled: $disabledCount"
+foreach ($a in ($addins | Sort-Object LoadBehavior -Descending | Select-Object -First 15)) {
+    $state = switch ($a.LoadBehavior) {
+        0 { 'Disabled' }
+        2 { 'LoadOnStart(inactive)' }
+        3 { 'ActiveOnStart' }
+        8 { 'DemandLoad' }
+        9 { 'ActiveDemand' }
+        16 { 'ConnectedFirst' }
+        default { "LoadBehavior=$($a.LoadBehavior)" }
+    }
+    "$($a.Name) | $state"
+}
+$crashedKey = 'HKCU:\Software\Microsoft\Office\16.0\Outlook\Resiliency\DoNotDisableAddinList'
+$disabledByResiliency = 'HKCU:\Software\Microsoft\Office\16.0\Outlook\Resiliency\DisabledItems'
+if (Test-Path $disabledByResiliency) {
+    $dis = Get-ItemProperty $disabledByResiliency -ErrorAction SilentlyContinue
+    $count = ($dis.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' }).Count
+    if ($count -gt 0) { "ResiliencyDisabledItems: $count (add-ins crashed and were auto-disabled)" }
+}
+"#;
+    match run_powershell(ps_addins) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 8) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Outlook add-ins\n"),
+    }
+
+    out.push_str("\n=== Authentication and cache friction ===\n");
+    let ps_auth = r#"
+$tokenCache = Join-Path $env:LOCALAPPDATA 'Microsoft\TokenBroker\Cache'
+$tokenCount = if (Test-Path $tokenCache) {
+    @(Get-ChildItem $tokenCache -File -ErrorAction SilentlyContinue).Count
+} else { 0 }
+"TokenBrokerCacheFiles: $tokenCount"
+$credentialManager = cmdkey /list 2>&1 | Select-String 'MicrosoftOffice|ADALCache|microsoftoffice|MsoOpenIdConnect'
+$credsCount = @($credentialManager).Count
+"OfficeCredentialsInVault: $credsCount"
+$samlKey = 'HKCU:\Software\Microsoft\Office\16.0\Common\Identity'
+if (Test-Path $samlKey) {
+    $id = Get-ItemProperty $samlKey -ErrorAction SilentlyContinue
+    $connected = if ($id.ConnectedAccountWamOverride) { $id.ConnectedAccountWamOverride } else { 'Unknown' }
+    $signedIn = if ($id.SignedInUserId) { $id.SignedInUserId } else { 'None' }
+    "WAMOverride: $connected"
+    "SignedInUserId: $signedIn"
+}
+$outlookReg = 'HKCU:\Software\Microsoft\Office\16.0\Outlook'
+if (Test-Path $outlookReg) {
+    $olk = Get-ItemProperty $outlookReg -ErrorAction SilentlyContinue
+    if ($olk.DisableMAPI) { "DisableMAPI: $($olk.DisableMAPI)" }
+}
+"#;
+    match run_powershell(ps_auth) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Outlook auth state\n"),
+    }
+
+    out.push_str("\n=== Recent crash and event evidence (7d) ===\n");
+    let ps_events = r#"
+$cutoff = (Get-Date).AddDays(-7)
+$events = Get-WinEvent -FilterHashtable @{ LogName='Application'; StartTime=$cutoff } -MaxEvents 500 -ErrorAction SilentlyContinue |
+    Where-Object {
+        $msg = [string]$_.Message
+        ($_.ProviderName -eq 'Application Error' -or $_.ProviderName -eq 'Windows Error Reporting' -or $_.ProviderName -eq 'Outlook') -and
+        ($msg.ToLower().Contains('outlook') -or $msg.ToLower().Contains('mso.dll') -or $msg.ToLower().Contains('outllib.dll') -or $msg.ToLower().Contains('olmapi32.dll'))
+    } |
+    Select-Object -First 8
+if ($events) {
+    foreach ($event in $events) {
+        $msg = ($event.Message -replace '\s+', ' ')
+        if ($msg.Length -gt 140) { $msg = $msg.Substring(0, 140) }
+        "$($event.TimeCreated.ToString('MM-dd HH:mm')) | $($event.ProviderName) | EventId: $($event.Id) | $msg"
+    }
+} else {
+    "No recent Outlook crash or error events detected in Application log"
+}
+"#;
+    match run_powershell(ps_events) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Outlook event log evidence\n"),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+
+    if out.contains("- Installed: No") && out.contains("- NewOutlook: Not installed") {
+        findings.push(
+            "Outlook is not installed — neither classic Office nor the new Outlook for Windows was found."
+                .into(),
+        );
+    }
+
+    if let Some(line) = out.lines().find(|l| l.contains("WorkingSetMB:")) {
+        let ws_mb = line
+            .split("WorkingSetMB: ")
+            .nth(1)
+            .and_then(|r| r.split(" |").next())
+            .and_then(|v| v.trim().parse::<f64>().ok())
+            .unwrap_or(0.0);
+        if ws_mb >= 1500.0 {
+            findings.push(format!(
+                "Outlook is consuming {ws_mb:.0} MB of RAM — add-in pressure, large OST files, or a corrupt profile may be driving memory growth."
+            ));
+        }
+    }
+
+    let large_ost: Vec<String> = out
+        .lines()
+        .filter(|l| l.contains("SizeMB:") && l.contains("OST"))
+        .filter_map(|l| {
+            let mb = l
+                .split("SizeMB: ")
+                .nth(1)
+                .and_then(|r| r.split(" |").next())
+                .and_then(|v| v.trim().parse::<f64>().ok())
+                .unwrap_or(0.0);
+            if mb >= 10_000.0 {
+                Some(format!("{mb:.0} MB OST file detected"))
+            } else {
+                None
+            }
+        })
+        .collect();
+    for msg in large_ost {
+        findings.push(format!(
+            "{msg} — large OST files can cause Outlook slowness, send/receive delays, and search index rebuild time."
+        ));
+    }
+
+    if let Some(line) = out.lines().find(|l| l.contains("TotalAddins:")) {
+        let active_count = line
+            .split("Active: ")
+            .nth(1)
+            .and_then(|r| r.split(" |").next())
+            .and_then(|v| v.trim().parse::<usize>().ok())
+            .unwrap_or(0);
+        if active_count >= 8 {
+            findings.push(format!(
+                "{active_count} active Outlook add-ins detected — add-in overload is a common cause of slow Outlook startup, freezes, and crashes."
+            ));
+        }
+    }
+
+    if out.contains("ResiliencyDisabledItems:") {
+        findings.push(
+            "Outlook's crash resiliency has auto-disabled one or more add-ins — look at the ResiliencyDisabledItems count and remove the offending add-in."
+                .into(),
+        );
+    }
+
+    if out.contains("- ProfileCount: 0") || out.contains("- No Outlook profiles found") {
+        findings.push(
+            "No Outlook mail profiles were found in the registry — Outlook may not have been set up, or the profile may be corrupt."
+                .into(),
+        );
+    }
+
+    if out.contains("Application Error |") || out.contains("Windows Error Reporting |") {
+        findings.push(
+            "Recent Outlook crash evidence found in the Application event log — check the event lines below for the faulting module (mso.dll, outllib.dll, or an add-in DLL)."
+                .into(),
+        );
+    }
+
+    let mut result = String::from("Host inspection: outlook\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- No obvious Outlook health blocker detected.\n");
+    } else {
+        for finding in &findings {
+            result.push_str(&format!("- Finding: {finding}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_outlook(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: outlook\n\n=== Findings ===\n- Outlook health inspection is Windows-only.\n".into())
 }
 
 #[cfg(windows)]

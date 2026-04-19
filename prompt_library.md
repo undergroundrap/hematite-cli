@@ -59,6 +59,15 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Browser policy or proxy interference**
 > "Check whether browser policy or proxy settings are interfering with web apps."
 
+**Outlook health**
+> "Check Outlook health on this machine."
+
+**Outlook slowness or crash triage**
+> "Why is Outlook so slow or broken?"
+
+**Outlook profiles, OST/PST, and add-in audit**
+> "Audit Outlook profiles, OST/PST files, and add-in pressure."
+
 **Firewall rules**
 > "List all active inbound firewall rules that allow traffic. Flag anything that looks non-default."
 

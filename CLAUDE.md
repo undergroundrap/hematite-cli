@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **110+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **111+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -197,6 +197,7 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Installer Health**: Use `topic: "installer_health"` for Windows Installer (`msiserver`), AppX/Store install services, `winget`/Desktop App Installer presence, Microsoft Store package health, reboot or in-progress installer blockers, and recent MSI/AppX failure evidence.
 - **OneDrive**: Use `topic: "onedrive"` for client install/running state, configured accounts, sync-root existence, policy blockers, and Known Folder Backup/Desktop/Documents/Pictures redirection state.
 - **Browser Health**: Use `topic: "browser_health"` for Edge/Chrome/Firefox inventory, default browser and protocol associations, WebView2 runtime health, browser proxy/policy overrides, profile/cache pressure, and recent browser crash evidence.
+- **Outlook**: Use `topic: "outlook"` for classic Outlook and new Outlook for Windows install inventory, running process state and RAM usage, mail profile count, OST and PST file discovery with sizes, add-in inventory with load behavior and resiliency-disabled items, authentication and token broker cache state, and recent Outlook crash evidence from the Application event log.
 - **Search Index**: Use `topic: "search_index"` for Windows Search (WSearch) service state, indexer registry configuration, indexed locations, recent indexer errors, and plain-English diagnosis for "search not finding files / indexer stopped".
 - **Display Config**: Use `topic: "display_config"` for active monitor resolution, refresh rate, DPI/scaling, video adapter driver version, and connected monitor names — answers "what refresh rate / how many monitors / is my DPI correct".
 - **NTP / Time Sync**: Use `topic: "ntp"` for Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers, and plain-English diagnosis for clock drift or sync failure.
@@ -813,10 +814,10 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 - **Credential Manager diagnostics** — ✓ Done. Shipped as `inspect_host(topic: “credentials”)`. Covers vault summary, credential target inventory, type counts, and hygiene warnings without exposing secret values.
 - **TPM / Secure Boot diagnostics** — ✓ Done. Shipped as `inspect_host(topic: “tpm”)`. Covers TPM presence/readiness/spec version, Secure Boot state, firmware mode, and plain-English diagnosis for Windows 11 or BitLocker security posture.
 - **Browser health diagnostics** — ✓ Done. Shipped as `inspect_host(topic: “browser_health”)`. Covers Edge/Chrome/Firefox inventory, default browser and protocol associations, WebView2 runtime health, browser proxy/policy overrides, profile/cache pressure, and recent browser crash evidence.
+- **Outlook diagnostics** — ✓ Done. Shipped as `inspect_host(topic: “outlook”)`. Covers classic Outlook and new Outlook for Windows install inventory, running process state and RAM usage, mail profile count, OST and PST file discovery with sizes, add-in inventory with load behavior and resiliency-disabled items, authentication and token broker cache state, and recent Outlook crash evidence from the Application event log.
 
 ### Next Up — highest-value missing support lanes
 
-- **Outlook diagnostics** — add `inspect_host(topic: “outlook”)` for profile health, OST/PST footprint, auth cache friction, add-in drag, and desktop client startup/send-receive blockers.
 - **Teams diagnostics** — add `inspect_host(topic: “teams”)` for cache/reset hints, WebView2 dependency truth, device binding, and sign-in/render failures.
 - **Windows backup diagnostics** — add `inspect_host(topic: “windows_backup”)` for File History, System Restore, recovery posture, and backup-path visibility.
 

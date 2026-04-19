@@ -2470,6 +2470,7 @@ impl ConversationManager {
                  - MSI / Windows Installer / winget / Microsoft Store install failures -> `installer_health`\n\
                  - OneDrive sync / Files On-Demand / Known Folder Backup / SharePoint sync roots -> `onedrive`\n\
                  - Browser slow / Chrome / Edge / Firefox / WebView2 / default browser / links opening wrong -> `browser_health`\n\
+                 - Outlook health / slowness / crash triage / OST and PST files / mail profiles / add-in pressure -> `outlook`\n\
                  - Credential Manager / stored Windows credentials / saved passwords / cmdkey vault hygiene -> `credentials`\n\
                  - TPM / Secure Boot / firmware mode / Windows 11 readiness -> `tpm`\n\
                  - DNS A/AAAA/MX/SRV/TXT record lookups must stay on `dns_lookup`; do NOT use `ping`, `Invoke-WebRequest`, public DNS-over-HTTPS endpoints, or browser searches as substitutes.\n\

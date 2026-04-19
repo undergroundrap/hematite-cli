@@ -51,3 +51,28 @@ fn test_troubleshooting_priority_reordered() {
     // env_doctor is now reordered higher.
     assert_eq!(preferred_host_inspection_topic(input), Some("env_doctor"));
 }
+
+#[test]
+fn test_routing_detects_outlook_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("Check Outlook health on this machine."),
+        Some("outlook")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Why is Outlook so slow or broken?"),
+        Some("outlook")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Audit Outlook profiles, OST/PST files, and add-in pressure."),
+        Some("outlook")
+    );
+}
+
+#[test]
+fn test_routing_outlook_in_multi_topic() {
+    let topics = all_host_inspection_topics(
+        "Why is Outlook crashing? Also check if the machine has any pending reboots.",
+    );
+    assert!(topics.contains(&"outlook"), "should detect outlook");
+    assert!(topics.contains(&"pending_reboot"), "should detect pending_reboot");
+}
