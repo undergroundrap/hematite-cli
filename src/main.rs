@@ -42,7 +42,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cockpit = CliCockpit::parse();
 
     if cockpit.mcp_server {
-        hematite::agent::mcp_server::run_mcp_server(cockpit.edge_redact).await?;
+        let edge = cockpit.edge_redact || cockpit.semantic_redact;
+        let semantic = cockpit.semantic_redact;
+        hematite::agent::mcp_server::run_mcp_server(edge, semantic, &cockpit.url).await?;
         return Ok(());
     }
 

@@ -323,7 +323,7 @@ This starts a JSON-RPC 2.0 newline-delimited stdio server. No TUI launches. Prot
 
 **Implementation:** `src/agent/mcp_server.rs` — stdio reader loop, JSON-RPC dispatch, delegates to `crate::tools::host_inspect::inspect_host()`.
 
-### Edge Redaction
+### Edge Redaction (Tier 1 — Regex)
 
 Add `--edge-redact` to strip sensitive identifiers before any response leaves the machine:
 
@@ -347,6 +347,49 @@ Every response includes a receipt header the cloud model can read:
 **Use case:** enterprises and security-conscious operators who want frontier model reasoning (Claude Desktop, OpenClaw) without raw machine identifiers crossing the wire. The local machine provides grounded observations; the cloud model reasons about them — but never sees the raw identity data.
 
 **Implementation:** `src/agent/edge_redact.rs` — `lazy_static!` compiled regex patterns, `redact()` returns count by category, `apply()` prepends the receipt header.
+
+### Semantic Redaction (Tier 2 — Local Model Summarizer)
+
+Add `--semantic-redact` to route inspect_host output through the local LM Studio model before any data leaves the machine:
+
+```powershell
+hematite --mcp-server --semantic-redact
+```
+
+The local model receives raw diagnostic output and produces an anonymous summary — stripping usernames, hostnames, MACs, local IPs, serial numbers, org names, and credentials while preserving diagnostic value (versions, error codes, metrics, findings, time deltas). Tier 1 regex runs after the semantic pass as a final safety net.
+
+**Fail-safe:** if the local model is unreachable, the tool call returns an error — raw data is never sent to the cloud model.
+
+**Jailbreak resistance:** the summarizer prompt is injected by Hematite and wraps system data in `<diagnostic_data>` tags explicitly marked as untrusted. Unknown MCP arguments are stripped before tool dispatch. Model refusals are detected and treated as errors.
+
+**Audit trail:** every tool call is logged to `~/.hematite/redact_audit.jsonl` with metadata only (topic, mode, substitution counts, input/output size, shrink ratio). Raw output and original values never appear in the audit log.
+
+**Implementation:** `src/agent/semantic_redact.rs` — HTTP to LM Studio `/v1/chat/completions`, temperature=0, max_tokens capped at 1.5× input length. `src/agent/redact_audit.rs` — JSONL appender, no external deps.
+
+### Redaction Policy File
+
+Create `.hematite/redact_policy.json` (workspace) or `~/.hematite/redact_policy.json` (global) to control per-topic behavior:
+
+```json
+{
+  "blocked_topics": ["user_accounts", "credentials", "audit_policy"],
+  "allowed_topics": [],
+  "topic_redaction_level": {
+    "network": "semantic",
+    "hardware": "regex"
+  },
+  "default_redaction_level": "regex"
+}
+```
+
+- `blocked_topics` — MCP returns an error for these topics; the inspection never runs
+- `allowed_topics` — if non-empty, only these topics are served (whitelist mode)
+- `topic_redaction_level` — override redaction level per topic: `"none"`, `"regex"`, or `"semantic"`
+- `default_redaction_level` — fallback when no per-topic override exists
+
+See `.hematite/redact_policy.example.json` for a full template. Workspace config overrides global.
+
+**Implementation:** `src/agent/redact_policy.rs` — loaded once at MCP server startup.
 
 ## MCP Configuration
 

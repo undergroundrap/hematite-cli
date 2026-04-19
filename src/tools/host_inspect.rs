@@ -11553,7 +11553,11 @@ $ram = (Get-CimInstance Win32_PhysicalMemory -ErrorAction SilentlyContinue | Mea
             out.push_str(&format!("- Host: {host_name}\n"));
             out.push_str(&format!(
                 "- Hyper-V feature: {}\n",
-                if hyperv_installed { "Enabled" } else { "Not installed" }
+                if hyperv_installed {
+                    "Enabled"
+                } else {
+                    "Not installed"
+                }
             ));
             out.push_str(&format!("- VMMS service: {vmms_status}\n"));
             if host_ram_bytes > 0 {
@@ -11590,10 +11594,7 @@ Get-VM -ErrorAction SilentlyContinue | ForEach-Object {
 }
 "#;
             let vms_out = ps_exec(ps_vms);
-            let vm_lines: Vec<&str> = vms_out
-                .lines()
-                .filter(|l| l.starts_with("VM:"))
-                .collect();
+            let vm_lines: Vec<&str> = vms_out.lines().filter(|l| l.starts_with("VM:")).collect();
 
             if vm_lines.is_empty() {
                 out.push_str("- No virtual machines found on this host\n");
@@ -11685,9 +11686,7 @@ Get-VMSwitch -ErrorAction SilentlyContinue | ForEach-Object {
                     let name = kv.get("Switch").copied().unwrap_or("Unknown");
                     let sw_type = kv.get("Type").copied().unwrap_or("Unknown");
                     let adapter = kv.get("Adapter").copied().unwrap_or("N/A");
-                    out.push_str(&format!(
-                        "- {name} | Type: {sw_type} | NIC: {adapter}\n"
-                    ));
+                    out.push_str(&format!("- {name} | Type: {sw_type} | NIC: {adapter}\n"));
                 }
             }
         } else {
@@ -11749,8 +11748,7 @@ if ($all) {
             out.push_str("- VMMS not running — cannot enumerate checkpoints\n");
         }
 
-        let mut result =
-            String::from("Host inspection: hyperv\n\n=== Findings ===\n");
+        let mut result = String::from("Host inspection: hyperv\n\n=== Findings ===\n");
         if findings.is_empty() {
             result.push_str("- No Hyper-V health issues detected.\n");
         } else {
@@ -11764,7 +11762,10 @@ if ($all) {
     }
 
     #[cfg(not(target_os = "windows"))]
-    Ok("Host inspection: hyperv\n\n=== Findings ===\n- Hyper-V inspection is Windows-only.\n".into())
+    Ok(
+        "Host inspection: hyperv\n\n=== Findings ===\n- Hyper-V inspection is Windows-only.\n"
+            .into(),
+    )
 }
 
 // ── ip_config ────────────────────────────────────────────────────────────────
@@ -11830,9 +11831,7 @@ fn inspect_event_query(
         };
 
         // Build filter hashtable entries
-        let mut filter_parts = vec![
-            format!("StartTime = (Get-Date).AddHours(-{hours})"),
-        ];
+        let mut filter_parts = vec![format!("StartTime = (Get-Date).AddHours(-{hours})")];
         if log != "*" {
             filter_parts.push(format!("LogName = '{log}'"));
         }
@@ -11848,7 +11847,8 @@ fn inspect_event_query(
 
         let filter_ht = filter_parts.join("; ");
 
-        let ps = format!(r#"
+        let ps = format!(
+            r#"
 $filter = @{{ {filter_ht} }}
 try {{
     $events = Get-WinEvent -FilterHashtable $filter -MaxEvents {cap} -ErrorAction Stop |
@@ -11867,7 +11867,8 @@ try {{
 }} catch {{
     "ERROR:$($_.Exception.Message)"
 }}
-"#);
+"#
+        );
 
         let raw = ps_exec(&ps);
         let lines: Vec<&str> = raw.lines().collect();
@@ -11889,7 +11890,10 @@ try {{
 
         let mut out = format!("=== Event query: {query_desc} ===\n");
 
-        if lines.iter().any(|l| l.trim() == "NONE" || l.trim().is_empty()) {
+        if lines
+            .iter()
+            .any(|l| l.trim() == "NONE" || l.trim().is_empty())
+        {
             out.push_str("- No matching events found.\n");
         } else if let Some(err_line) = lines.iter().find(|l| l.starts_with("ERROR:")) {
             let msg = err_line.trim_start_matches("ERROR:").trim();
@@ -11900,7 +11904,11 @@ try {{
                 findings.push(format!("Event query failed: {msg}"));
             }
         } else {
-            let event_lines: Vec<&str> = lines.iter().filter(|l| l.starts_with("TIME:")).copied().collect();
+            let event_lines: Vec<&str> = lines
+                .iter()
+                .filter(|l| l.starts_with("TIME:"))
+                .copied()
+                .collect();
             if event_lines.is_empty() {
                 out.push_str("- No matching events found.\n");
             } else {
@@ -11929,7 +11937,9 @@ try {{
                         msg.to_string()
                     };
 
-                    out.push_str(&format!("- [{time}] ID {id} | {lvl} | {src}\n  {msg_display}\n"));
+                    out.push_str(&format!(
+                        "- [{time}] ID {id} | {lvl} | {src}\n  {msg_display}\n"
+                    ));
 
                     if lvl.eq_ignore_ascii_case("error") || lvl.eq_ignore_ascii_case("critical") {
                         error_count += 1;
@@ -11938,7 +11948,10 @@ try {{
                     }
                 }
 
-                out.push_str(&format!("\n- Total shown: {} event(s)\n", event_lines.len()));
+                out.push_str(&format!(
+                    "\n- Total shown: {} event(s)\n",
+                    event_lines.len()
+                ));
 
                 if error_count > 0 {
                     findings.push(format!(
@@ -12105,9 +12118,7 @@ $count
                         } else {
                             String::new()
                         };
-                        sections.push_str(&format!(
-                            "    faulting module: {module}{exc_note}\n"
-                        ));
+                        sections.push_str(&format!("    faulting module: {module}{exc_note}\n"));
                     } else if !exc.is_empty() {
                         sections.push_str(&format!("    exception: {exc}\n"));
                     }
@@ -13330,9 +13341,7 @@ if ($events) {
                 .into(),
         );
     }
-    if out.contains("UserProxyEnabled: 1")
-        || out.contains("WinHTTPMode: Proxy")
-    {
+    if out.contains("UserProxyEnabled: 1") || out.contains("WinHTTPMode: Proxy") {
         findings.push(
             "Proxy settings are active for this user or machine - browser sign-in and web-app failures may be proxy or PAC related."
                 .into(),
@@ -14053,9 +14062,7 @@ if ($events) {
     let classic_installed = out.contains("- ClassicTeams: Installed");
     let new_installed = out.contains("- NewTeams: Installed");
     if !classic_installed && !new_installed {
-        findings.push(
-            "Neither classic Teams nor new Teams is installed on this machine.".into(),
-        );
+        findings.push("Neither classic Teams nor new Teams is installed on this machine.".into());
     }
 
     for name in ["Teams", "ms-teams"] {
@@ -14133,7 +14140,10 @@ if ($events) {
 
 #[cfg(not(windows))]
 fn inspect_teams(_max_entries: usize) -> Result<String, String> {
-    Ok("Host inspection: teams\n\n=== Findings ===\n- Teams health inspection is Windows-only.\n".into())
+    Ok(
+        "Host inspection: teams\n\n=== Findings ===\n- Teams health inspection is Windows-only.\n"
+            .into(),
+    )
 }
 
 #[cfg(windows)]
@@ -14380,9 +14390,8 @@ try {
                 }
             }
         }
-        _ => out.push_str(
-            "- AuthEventStatus: Could not inspect auth-related events in this session\n",
-        ),
+        _ => out
+            .push_str("- AuthEventStatus: Could not inspect auth-related events in this session\n"),
     }
 
     let parse_count = |prefix: &str| -> Option<u64> {
@@ -14650,7 +14659,8 @@ if ($events) {
     let mut findings: Vec<String> = Vec::new();
 
     let fh_enabled = out.contains("- Enabled: Enabled");
-    let fh_never = out.contains("- LastBackup: Never") || out.contains("- LastBackup: Not configured");
+    let fh_never =
+        out.contains("- LastBackup: Never") || out.contains("- LastBackup: Not configured");
     let no_wbadmin = out.contains("No backup versions found");
     let no_restore_point = out.contains("MostRecentRestorePoint: None found");
 
@@ -14670,13 +14680,18 @@ if ($events) {
         );
     }
 
-    if out.contains("- FileHistoryService: Stopped") || out.contains("- FileHistoryService: Not found") {
+    if out.contains("- FileHistoryService: Stopped")
+        || out.contains("- FileHistoryService: Not found")
+    {
         findings.push(
             "File History service (fhsvc) is stopped or missing — File History backups cannot run until the service is started.".into(),
         );
     }
 
-    if out.contains("Application Error |") || out.contains("Microsoft-Windows-Backup |") || out.contains("wbengine |") {
+    if out.contains("Application Error |")
+        || out.contains("Microsoft-Windows-Backup |")
+        || out.contains("wbengine |")
+    {
         findings.push(
             "Recent backup failure events found in the Application log — check the event lines below for the specific error.".into(),
         );

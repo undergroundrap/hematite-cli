@@ -1,0 +1,26 @@
+{
+  "_comment": "Copy to .hematite/redact_policy.json or ~/.hematite/redact_policy.json to activate.",
+
+  "blocked_topics": [
+    "user_accounts",
+    "credentials",
+    "audit_policy",
+    "sessions",
+    "login_history",
+    "registry_audit",
+    "ad_user"
+  ],
+
+  "allowed_topics": [],
+
+  "topic_redaction_level": {
+    "network": "semantic",
+    "hardware": "regex",
+    "storage": "regex",
+    "processes": "regex",
+    "services": "regex",
+    "health_report": "regex"
+  },
+
+  "default_redaction_level": "regex"
+}

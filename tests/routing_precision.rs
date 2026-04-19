@@ -63,7 +63,9 @@ fn test_routing_detects_outlook_topic() {
         Some("outlook")
     );
     assert_eq!(
-        preferred_host_inspection_topic("Audit Outlook profiles, OST/PST files, and add-in pressure."),
+        preferred_host_inspection_topic(
+            "Audit Outlook profiles, OST/PST files, and add-in pressure."
+        ),
         Some("outlook")
     );
 }
@@ -74,7 +76,10 @@ fn test_routing_outlook_in_multi_topic() {
         "Why is Outlook crashing? Also check if the machine has any pending reboots.",
     );
     assert!(topics.contains(&"outlook"), "should detect outlook");
-    assert!(topics.contains(&"pending_reboot"), "should detect pending_reboot");
+    assert!(
+        topics.contains(&"pending_reboot"),
+        "should detect pending_reboot"
+    );
 }
 
 #[test]
@@ -107,7 +112,10 @@ fn test_routing_teams_in_multi_topic() {
         "Why is Teams crashing? Also check if the machine has any pending reboots.",
     );
     assert!(topics.contains(&"teams"), "should detect teams");
-    assert!(topics.contains(&"pending_reboot"), "should detect pending_reboot");
+    assert!(
+        topics.contains(&"pending_reboot"),
+        "should detect pending_reboot"
+    );
 }
 
 #[test]
@@ -131,7 +139,10 @@ fn test_routing_windows_backup_in_multi_topic() {
     let topics = all_host_inspection_topics(
         "Check Windows backup health and also show me whether the disk is healthy.",
     );
-    assert!(topics.contains(&"windows_backup"), "should detect windows_backup");
+    assert!(
+        topics.contains(&"windows_backup"),
+        "should detect windows_backup"
+    );
     assert!(topics.contains(&"disk_health"), "should detect disk_health");
 }
 
@@ -157,7 +168,10 @@ fn test_routing_hyperv_in_multi_topic() {
         "Show me all running VMs and also check the system resource load.",
     );
     assert!(topics.contains(&"hyperv"), "should detect hyperv");
-    assert!(topics.contains(&"resource_load"), "should detect resource_load");
+    assert!(
+        topics.contains(&"resource_load"),
+        "should detect resource_load"
+    );
 }
 
 #[test]
@@ -171,7 +185,9 @@ fn test_routing_detects_app_crashes_topic() {
         Some("app_crashes")
     );
     assert_eq!(
-        preferred_host_inspection_topic("What is the faulting application name from the last crash?"),
+        preferred_host_inspection_topic(
+            "What is the faulting application name from the last crash?"
+        ),
         Some("app_crashes")
     );
     assert_eq!(
@@ -186,9 +202,11 @@ fn test_routing_detects_app_crashes_topic() {
 
 #[test]
 fn test_routing_app_crashes_in_multi_topic() {
-    let topics = all_host_inspection_topics(
-        "Show application crashes and check system resource load.",
-    );
+    let topics =
+        all_host_inspection_topics("Show application crashes and check system resource load.");
     assert!(topics.contains(&"app_crashes"), "should detect app_crashes");
-    assert!(topics.contains(&"resource_load"), "should detect resource_load");
+    assert!(
+        topics.contains(&"resource_load"),
+        "should detect resource_load"
+    );
 }

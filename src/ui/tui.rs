@@ -3955,13 +3955,17 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             if is_diff_preview {
                 Line::from(Span::styled(
                     "  [↑↓/jk/PgUp/PgDn] Scroll   [Y] Apply   [N] Skip ",
-                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
                 ))
             } else {
                 Line::from(vec![
                     Span::styled(
                         "  [Y] Approve  ",
-                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
                     ),
                     Span::styled(
                         "  [N] Decline ",

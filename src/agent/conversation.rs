@@ -1487,10 +1487,10 @@ impl ConversationManager {
                 // Surgical Argument Extraction for redirected shell payloads.
                 if topic == "dns_lookup" {
                     if let Some(identity) = extract_dns_lookup_target_from_shell(command) {
-                        redirect_args.as_object_mut().unwrap().insert(
-                            "name".to_string(),
-                            serde_json::Value::String(identity),
-                        );
+                        redirect_args
+                            .as_object_mut()
+                            .unwrap()
+                            .insert("name".to_string(), serde_json::Value::String(identity));
                     }
                     if let Some(record_type) = extract_dns_record_type_from_shell(command) {
                         redirect_args.as_object_mut().unwrap().insert(
@@ -2204,9 +2204,9 @@ impl ConversationManager {
                     let response = if topics.len() >= 2 {
                         let mut combined = Vec::new();
                         for topic in topics {
-                            let args = host_inspection_args_from_prompt(topic, &effective_user_input);
-                            let output =
-                                crate::tools::host_inspect::inspect_host(&args)
+                            let args =
+                                host_inspection_args_from_prompt(topic, &effective_user_input);
+                            let output = crate::tools::host_inspect::inspect_host(&args)
                                 .await
                                 .unwrap_or_else(|e| format!("Error (topic {topic}): {e}"));
                             combined.push(format!("# Topic: {topic}\n{output}"));
@@ -2217,8 +2217,8 @@ impl ConversationManager {
                             .unwrap_or("summary");
                         let args = host_inspection_args_from_prompt(topic, &effective_user_input);
                         crate::tools::host_inspect::inspect_host(&args)
-                        .await
-                        .unwrap_or_else(|e| format!("Error: {e}"))
+                            .await
+                            .unwrap_or_else(|e| format!("Error: {e}"))
                     };
 
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
@@ -2711,7 +2711,8 @@ impl ConversationManager {
 
                 for topic in &topics {
                     let call_id = format!("prerun_{topic}");
-                    let mut args_val = host_inspection_args_from_prompt(topic, &effective_user_input);
+                    let mut args_val =
+                        host_inspection_args_from_prompt(topic, &effective_user_input);
                     args_val
                         .as_object_mut()
                         .unwrap()
@@ -4431,7 +4432,11 @@ fn fill_missing_fix_plan_issue(tool_name: &str, args: &mut Value, fallback_issue
     );
 }
 
-fn fill_missing_dns_lookup_name(tool_name: &str, args: &mut Value, latest_user_prompt: Option<&str>) {
+fn fill_missing_dns_lookup_name(
+    tool_name: &str,
+    args: &mut Value,
+    latest_user_prompt: Option<&str>,
+) {
     if tool_name != "inspect_host" {
         return;
     }
@@ -4465,7 +4470,11 @@ fn fill_missing_dns_lookup_name(tool_name: &str, args: &mut Value, latest_user_p
     map.insert("name".to_string(), Value::String(name));
 }
 
-fn fill_missing_dns_lookup_type(tool_name: &str, args: &mut Value, latest_user_prompt: Option<&str>) {
+fn fill_missing_dns_lookup_type(
+    tool_name: &str,
+    args: &mut Value,
+    latest_user_prompt: Option<&str>,
+) {
     if tool_name != "inspect_host" {
         return;
     }
@@ -4552,10 +4561,7 @@ fn fill_missing_event_query_args(
         }
     }
 
-    let hours_missing = map
-        .get("hours")
-        .and_then(|v| v.as_u64())
-        .is_none();
+    let hours_missing = map.get("hours").and_then(|v| v.as_u64()).is_none();
     if hours_missing {
         if let Some(hours) = extract_event_query_hours_from_text(prompt) {
             map.insert(
@@ -4616,8 +4622,7 @@ fn looks_like_dns_target(token: &str) -> bool {
     let lower = cleaned.to_ascii_lowercase();
     if matches!(
         lower.as_str(),
-        "a"
-            | "aaaa"
+        "a" | "aaaa"
             | "mx"
             | "srv"
             | "txt"
@@ -4646,9 +4651,9 @@ fn looks_like_dns_target(token: &str) -> bool {
     }
 
     cleaned.contains('.')
-        && cleaned.chars().all(|c| {
-            c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | ':' | '%' | '*')
-        })
+        && cleaned
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | ':' | '%' | '*'))
 }
 
 fn extract_dns_lookup_target_from_shell(command: &str) -> Option<String> {
@@ -4751,7 +4756,10 @@ fn extract_event_query_level_from_text(text: &str) -> Option<&'static str> {
         Some("Error")
     } else if lower.contains("warning") || lower.contains("warnings") || lower.contains("warn") {
         Some("Warning")
-    } else if lower.contains("information") || lower.contains("informational") || lower.contains("info") {
+    } else if lower.contains("information")
+        || lower.contains("informational")
+        || lower.contains("info")
+    {
         Some("Information")
     } else {
         None
@@ -4804,16 +4812,14 @@ fn host_inspection_args_from_prompt(topic: &str, prompt: &str) -> Value {
     let mut args = serde_json::json!({ "topic": topic });
     if topic == "dns_lookup" {
         if let Some(name) = extract_dns_lookup_target_from_text(prompt) {
-            args.as_object_mut().unwrap().insert(
-                "name".to_string(),
-                Value::String(name),
-            );
+            args.as_object_mut()
+                .unwrap()
+                .insert("name".to_string(), Value::String(name));
         }
         let record_type = extract_dns_record_type_from_text(prompt).unwrap_or("A");
-        args.as_object_mut().unwrap().insert(
-            "type".to_string(),
-            Value::String(record_type.to_string()),
-        );
+        args.as_object_mut()
+            .unwrap()
+            .insert("type".to_string(), Value::String(record_type.to_string()));
     } else if topic == "event_query" {
         if let Some(event_id) = extract_event_query_event_id_from_text(prompt) {
             args.as_object_mut().unwrap().insert(
@@ -4822,16 +4828,14 @@ fn host_inspection_args_from_prompt(topic: &str, prompt: &str) -> Value {
             );
         }
         if let Some(log_name) = extract_event_query_log_from_text(prompt) {
-            args.as_object_mut().unwrap().insert(
-                "log".to_string(),
-                Value::String(log_name.to_string()),
-            );
+            args.as_object_mut()
+                .unwrap()
+                .insert("log".to_string(), Value::String(log_name.to_string()));
         }
         if let Some(level) = extract_event_query_level_from_text(prompt) {
-            args.as_object_mut().unwrap().insert(
-                "level".to_string(),
-                Value::String(level.to_string()),
-            );
+            args.as_object_mut()
+                .unwrap()
+                .insert("level".to_string(), Value::String(level.to_string()));
         }
         if let Some(hours) = extract_event_query_hours_from_text(prompt) {
             args.as_object_mut().unwrap().insert(
@@ -6801,7 +6805,9 @@ mod tests {
         assert!(shell_looks_like_structured_host_inspection(
             "Confirm-SecureBootUEFI"
         ));
-        assert!(shell_looks_like_structured_host_inspection("dsregcmd /status"));
+        assert!(shell_looks_like_structured_host_inspection(
+            "dsregcmd /status"
+        ));
         assert!(shell_looks_like_structured_host_inspection(
             "Get-Service TokenBroker,wlidsvc,OneAuth"
         ));
@@ -6892,26 +6898,18 @@ mod tests {
             args.get("name").and_then(|value| value.as_str()),
             Some("github.com")
         );
-        assert_eq!(
-            args.get("type").and_then(|value| value.as_str()),
-            Some("A")
-        );
+        assert_eq!(args.get("type").and_then(|value| value.as_str()), Some("A"));
     }
 
     #[test]
     fn host_inspection_args_from_prompt_populates_dns_lookup_fields() {
-        let args = host_inspection_args_from_prompt(
-            "dns_lookup",
-            "What is the IP address of google.com",
-        );
+        let args =
+            host_inspection_args_from_prompt("dns_lookup", "What is the IP address of google.com");
         assert_eq!(
             args.get("name").and_then(|value| value.as_str()),
             Some("google.com")
         );
-        assert_eq!(
-            args.get("type").and_then(|value| value.as_str()),
-            Some("A")
-        );
+        assert_eq!(args.get("type").and_then(|value| value.as_str()), Some("A"));
     }
 
     #[test]

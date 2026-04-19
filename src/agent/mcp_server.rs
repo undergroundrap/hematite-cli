@@ -7,6 +7,11 @@
 //   inspect_host — 116+ read-only diagnostic topics (SysAdmin, Network Admin,
 //                  hardware, security, developer tooling)
 //
+// Privacy modes:
+//   --edge-redact        Tier 1 regex: strips usernames, MACs, serials, hostnames, credentials
+//   --semantic-redact    Tier 2: local model summarizes output before it leaves; Tier 1 applied after
+//   --edge-redact + policy file: per-topic allow/block lists and per-topic redaction level overrides
+//
 // Claude Desktop config (~/.claude/claude_desktop_config.json):
 //   {
 //     "mcpServers": {
@@ -14,17 +19,34 @@
 //     }
 //   }
 
+use crate::agent::redact_audit::{AuditEntry, RedactMode};
+use crate::agent::redact_policy::{load_policy, RedactPolicy, RedactionLevel};
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
+type Tier1Hits = BTreeMap<&'static str, usize>;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 const PROTOCOL_VERSION: &str = "2024-11-05";
 const SERVER_NAME: &str = "hematite";
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub async fn run_mcp_server(edge_redact: bool) -> anyhow::Result<()> {
+pub async fn run_mcp_server(
+    edge_redact: bool,
+    semantic_redact: bool,
+    api_url: &str,
+) -> anyhow::Result<()> {
+    let mode_label = if semantic_redact {
+        "semantic+regex"
+    } else if edge_redact {
+        "regex"
+    } else {
+        "none"
+    };
     eprintln!(
-        "[hematite mcp] server v{SERVER_VERSION} started (protocol {PROTOCOL_VERSION}, edge-redact: {edge_redact})"
+        "[hematite mcp] server v{SERVER_VERSION} started (protocol {PROTOCOL_VERSION}, redact: {mode_label})"
     );
+
+    let policy = load_policy();
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
@@ -77,7 +99,6 @@ pub async fn run_mcp_server(edge_redact: bool) -> anyhow::Result<()> {
             }
 
             "initialized" => {
-                // Notification — no response expected
                 eprintln!("[hematite mcp] client initialized");
             }
 
@@ -102,23 +123,18 @@ pub async fn run_mcp_server(edge_redact: bool) -> anyhow::Result<()> {
             "tools/call" => {
                 if let Some(id) = id {
                     let params = msg.get("params").cloned().unwrap_or(Value::Null);
-                    let result = dispatch_tool_call(&params).await;
+                    let result =
+                        dispatch_tool_call(&params, edge_redact, semantic_redact, api_url, &policy)
+                            .await;
                     let resp = match result {
-                        Ok(text) => {
-                            let output = if edge_redact {
-                                crate::agent::edge_redact::apply(&text)
-                            } else {
-                                text
-                            };
-                            json!({
-                                "jsonrpc": "2.0",
-                                "id": id,
-                                "result": {
-                                    "content": [{ "type": "text", "text": output }],
-                                    "isError": false
-                                }
-                            })
-                        }
+                        Ok(text) => json!({
+                            "jsonrpc": "2.0",
+                            "id": id,
+                            "result": {
+                                "content": [{ "type": "text", "text": text }],
+                                "isError": false
+                            }
+                        }),
                         Err(e) => json!({
                             "jsonrpc": "2.0",
                             "id": id,
@@ -150,20 +166,149 @@ pub async fn run_mcp_server(edge_redact: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn dispatch_tool_call(params: &Value) -> Result<String, String> {
+async fn dispatch_tool_call(
+    params: &Value,
+    edge_redact: bool,
+    semantic_redact: bool,
+    api_url: &str,
+    policy: &RedactPolicy,
+) -> Result<String, String> {
     let name = params
         .get("name")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing tool name in tools/call params".to_string())?;
 
-    let args = params
-        .get("arguments")
-        .cloned()
-        .unwrap_or_else(|| Value::Object(Default::default()));
+    // Strip args to declared schema fields only (jailbreak resistance: Phase 5)
+    let args = sanitize_args(
+        params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| Value::Object(Default::default())),
+    );
 
     match name {
-        "inspect_host" => crate::tools::host_inspect::inspect_host(&args).await,
+        "inspect_host" => {
+            let topic = args
+                .get("topic")
+                .and_then(|v| v.as_str())
+                .unwrap_or("summary");
+
+            // Policy: blocked topics return a hard error — never run the inspection
+            if policy.is_blocked(topic) {
+                return Err(format!(
+                    "Topic '{topic}' is blocked by the local redaction policy. \
+                     Check .hematite/redact_policy.json."
+                ));
+            }
+
+            // Run the inspection
+            let raw = crate::tools::host_inspect::inspect_host(&args).await?;
+            let raw_len = raw.len();
+
+            // Determine effective redaction level
+            let level = if semantic_redact {
+                // --semantic-redact sets the floor at Semantic
+                let per_topic = policy.redaction_level(topic, true);
+                if per_topic == RedactionLevel::None {
+                    RedactionLevel::Regex
+                } else {
+                    per_topic
+                }
+            } else {
+                policy.redaction_level(topic, edge_redact)
+            };
+
+            let (output, audit_mode, semantic_applied, tier1_hits) = match level {
+                RedactionLevel::None => (raw, RedactMode::None, false, Tier1Hits::new()),
+
+                RedactionLevel::Regex => {
+                    let r = crate::agent::edge_redact::redact(&raw);
+                    (
+                        format!("{}\n\n{}", r.summary_header, r.text),
+                        RedactMode::Regex,
+                        false,
+                        r.tier1_hits,
+                    )
+                }
+
+                RedactionLevel::Semantic => {
+                    match crate::agent::semantic_redact::summarize(&raw, topic, api_url).await {
+                        Ok(summary) => {
+                            // Tier 1 as safety net after semantic pass
+                            let r = crate::agent::edge_redact::redact(&summary);
+                            let header = format!(
+                                "[edge-redact: semantic+regex — local model summary applied{}]\n\n",
+                                if r.redaction_count > 0 {
+                                    format!("; {} tier1 residual hit(s)", r.redaction_count)
+                                } else {
+                                    String::new()
+                                }
+                            );
+                            (
+                                format!("{header}{}", r.text),
+                                RedactMode::Semantic,
+                                true,
+                                r.tier1_hits,
+                            )
+                        }
+                        Err(e) => {
+                            // Fail-safe: return the error, never the raw data
+                            return Err(e);
+                        }
+                    }
+                }
+            };
+
+            // Phase 4: write audit entry (non-blocking — errors go to stderr only)
+            let tier1_hits_owned: BTreeMap<String, usize> = tier1_hits
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect();
+            crate::agent::redact_audit::record(&AuditEntry {
+                topic: topic.to_string(),
+                mode: audit_mode,
+                tier1_hits: tier1_hits_owned,
+                semantic_applied,
+                input_chars: raw_len,
+                output_chars: output.len(),
+                caller_pid: std::process::id(),
+            });
+
+            Ok(output)
+        }
+
         other => Err(format!("Unknown tool: '{other}'")),
+    }
+}
+
+/// Strip MCP call arguments to the declared schema fields.
+/// Unknown keys are silently dropped — they cannot influence tool behavior.
+fn sanitize_args(args: Value) -> Value {
+    const ALLOWED: &[&str] = &[
+        "topic",
+        "host",
+        "port",
+        "name",
+        "type",
+        "path",
+        "process",
+        "event_id",
+        "log",
+        "source",
+        "hours",
+        "level",
+        "issue",
+        "max_entries",
+    ];
+    match args {
+        Value::Object(map) => {
+            let cleaned: serde_json::Map<String, Value> = map
+                .into_iter()
+                .filter(|(k, _)| ALLOWED.contains(&k.as_str()))
+                .collect();
+            Value::Object(cleaned)
+        }
+        other => other,
     }
 }
 

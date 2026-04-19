@@ -166,6 +166,12 @@ pub struct CliCockpit {
     )]
     pub edge_redact: bool,
 
+    #[arg(
+        long,
+        help = "Enable semantic edge redaction — routes inspect_host output through the local model for privacy-safe summarization before any data leaves the machine. Requires LM Studio running. Implies --edge-redact."
+    )]
+    pub semantic_redact: bool,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

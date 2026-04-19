@@ -3596,7 +3596,9 @@ fn test_inspect_host_event_query_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "event_query", "event_id": 7036, "hours": 2 });
-        let output = inspect_host(&args).await.expect("event_query must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("event_query must return Ok");
         assert!(
             output.contains("Host inspection: event_query"),
             "event_query output must contain header; got:\n{output}"
@@ -3610,9 +3612,10 @@ fn test_inspect_host_event_query_reports_findings_and_sections() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "event_query", "hours": 1 });
-        let output = inspect_host(&args).await.expect("event_query must return Ok");
-        let has_result = output.contains("=== Findings ===")
-            && output.contains("=== Event query:");
+        let output = inspect_host(&args)
+            .await
+            .expect("event_query must return Ok");
+        let has_result = output.contains("=== Findings ===") && output.contains("=== Event query:");
         assert!(
             has_result,
             "event_query must report findings and event query section; got:\n{output}"
@@ -3626,7 +3629,9 @@ fn test_inspect_host_app_crashes_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "app_crashes" });
-        let output = inspect_host(&args).await.expect("app_crashes must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("app_crashes must return Ok");
         assert!(
             output.contains("Host inspection: app_crashes"),
             "app_crashes output must contain header; got:\n{output}"
@@ -3640,7 +3645,9 @@ fn test_inspect_host_app_crashes_reports_findings_and_sections() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "app_crashes" });
-        let output = inspect_host(&args).await.expect("app_crashes must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("app_crashes must return Ok");
         let has_structure = output.contains("=== Findings ===")
             && (output.contains("=== Application crashes")
                 || output.contains("No application crashes"));
@@ -3657,7 +3664,9 @@ fn test_inspect_host_app_crashes_process_filter_accepted() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "app_crashes", "process": "chrome.exe" });
-        let output = inspect_host(&args).await.expect("app_crashes with process filter must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("app_crashes with process filter must return Ok");
         assert!(
             output.contains("Host inspection: app_crashes"),
             "app_crashes with process filter must return valid output; got:\n{output}"
@@ -3672,8 +3681,8 @@ fn test_inspect_host_hyperv_reports_findings_and_sections() {
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "hyperv" });
         let output = inspect_host(&args).await.expect("hyperv must return Ok");
-        let has_result = output.contains("=== Findings ===")
-            && output.contains("=== Hyper-V role state ===");
+        let has_result =
+            output.contains("=== Findings ===") && output.contains("=== Hyper-V role state ===");
         assert!(
             has_result,
             "hyperv must report findings and role state section; got:\n{output}"
@@ -3687,7 +3696,9 @@ fn test_inspect_host_windows_backup_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "windows_backup" });
-        let output = inspect_host(&args).await.expect("windows_backup must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("windows_backup must return Ok");
         assert!(
             output.contains("Host inspection: windows_backup"),
             "windows_backup output must contain header; got:\n{output}"
@@ -3701,7 +3712,9 @@ fn test_inspect_host_windows_backup_reports_findings_and_sections() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "windows_backup" });
-        let output = inspect_host(&args).await.expect("windows_backup must return Ok");
+        let output = inspect_host(&args)
+            .await
+            .expect("windows_backup must return Ok");
         let has_result = output.contains("=== Findings ===")
             && output.contains("=== File History ===")
             && output.contains("=== System Restore ===");
@@ -6123,7 +6136,10 @@ fn test_routing_detects_identity_auth_topic() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let prompt =
         "Audit token broker, Web Account Manager, and device registration for Microsoft 365 sign-in health.";
-    assert_eq!(preferred_host_inspection_topic(prompt), Some("identity_auth"));
+    assert_eq!(
+        preferred_host_inspection_topic(prompt),
+        Some("identity_auth")
+    );
     let topics = all_host_inspection_topics(prompt);
     assert!(
         topics.contains(&"identity_auth"),
@@ -6149,8 +6165,12 @@ fn test_all_host_topics_prefers_identity_auth_over_app_health_for_signin_prompts
 #[test]
 fn test_routing_detects_browser_health_topic() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
-    let prompt = "Check browser health and tell me if WebView2 or proxy policy is breaking web apps.";
-    assert_eq!(preferred_host_inspection_topic(prompt), Some("browser_health"));
+    let prompt =
+        "Check browser health and tell me if WebView2 or proxy policy is breaking web apps.";
+    assert_eq!(
+        preferred_host_inspection_topic(prompt),
+        Some("browser_health")
+    );
     let topics = all_host_inspection_topics(prompt);
     assert!(
         topics.contains(&"browser_health"),
@@ -6176,8 +6196,9 @@ fn test_routing_detects_installer_health_topic() {
 #[test]
 fn test_all_host_topics_prefers_browser_health_over_proxy_for_browser_proxy_prompts() {
     use hematite::agent::routing::all_host_inspection_topics;
-    let topics =
-        all_host_inspection_topics("Check whether browser policy or proxy settings are interfering with web apps.");
+    let topics = all_host_inspection_topics(
+        "Check whether browser policy or proxy settings are interfering with web apps.",
+    );
     assert!(
         topics.contains(&"browser_health"),
         "should detect browser_health; got: {topics:?}"
