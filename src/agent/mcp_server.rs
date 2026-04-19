@@ -205,14 +205,14 @@ async fn dispatch_tool_call(
             let raw = crate::tools::host_inspect::inspect_host(&args).await?;
             let raw_len = raw.len();
 
-            // Determine effective redaction level
+            // Determine effective redaction level.
+            // When --semantic-redact is active, the default is Semantic unless the
+            // policy file explicitly overrides the topic to "none" or "regex".
             let level = if semantic_redact {
-                // --semantic-redact sets the floor at Semantic
-                let per_topic = policy.redaction_level(topic, true);
-                if per_topic == RedactionLevel::None {
-                    RedactionLevel::Regex
-                } else {
-                    per_topic
+                let per_topic = policy.redaction_level(topic, false); // false = no edge-redact default
+                match per_topic {
+                    RedactionLevel::None => RedactionLevel::Semantic,
+                    other => other,
                 }
             } else {
                 policy.redaction_level(topic, edge_redact)
