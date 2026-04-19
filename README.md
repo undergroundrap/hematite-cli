@@ -23,8 +23,14 @@ Claude Desktop, OpenClaw, Cursor, Windsurf — any MCP-capable agent — connect
 **3. Cloud intelligence, private machine — enterprise mode**
 ```
 hematite --mcp-server --edge-redact
+hematite --mcp-server --semantic-redact
 ```
-Same as above, but Hematite applies **edge redaction** before anything leaves the device. Usernames, MAC addresses, hardware serial numbers, hostnames, and credential-shaped values are stripped and replaced with safe tokens (`[USER]`, `[MAC]`, `[SERIAL]`, `[HOSTNAME]`, `[REDACTED]`). The cloud model gets grounded, useful diagnostic insights — crash patterns, service states, network health — without ever seeing the raw identity data. Built for enterprises and security-conscious operators who need frontier reasoning without a cloud window into their infrastructure.
+Same as above, but Hematite applies **edge redaction** before anything leaves the device. Two tiers:
+
+- **`--edge-redact`** (Tier 1) — fast regex pass: usernames, MAC addresses, hardware serial numbers, hostnames, and credential-shaped values are stripped and replaced with safe tokens (`[USER]`, `[MAC]`, `[SERIAL]`, `[HOSTNAME]`, `[REDACTED]`).
+- **`--semantic-redact`** (Tier 2) — routes inspect_host output through the local LM Studio model first with a hardened privacy prompt, producing an anonymous diagnostic summary that strips identity while preserving diagnostic value (versions, error codes, metrics, findings). Tier 1 runs after as a final safety net. Fail-safe: if the local model is unreachable, the tool call returns an error — raw data is never sent to the cloud.
+
+The cloud model gets grounded, useful diagnostic insights — crash patterns, service states, network health — without ever seeing raw identity data. A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool call for compliance review. A policy file (`.hematite/redact_policy.json`) lets operators hard-block sensitive topics or set per-topic redaction levels. Built for enterprises and security-conscious operators who need frontier reasoning without a cloud window into their infrastructure.
 
 ---
 

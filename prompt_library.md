@@ -296,6 +296,53 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 
 ---
 
+## MCP Server and Privacy Gateway
+
+*These prompts are for operators running `hematite --mcp-server` from a cloud agent like Claude Desktop.*
+
+**Quick start — Claude Desktop config**
+> Add to `~/.claude/claude_desktop_config.json`:
+> ```json
+> { "mcpServers": { "hematite": { "command": "hematite", "args": ["--mcp-server"] } } }
+> ```
+> Then ask Claude: "Use hematite to show me a full workstation health report."
+
+**Enterprise mode — Tier 1 regex redaction**
+> Start with: `hematite --mcp-server --edge-redact`
+> Then ask Claude: "Run a network audit — adapters, connectivity, DNS, and any active VPN."
+> *(Usernames, MACs, serials, and hostnames are stripped before Claude sees the output.)*
+
+**Enterprise mode — Tier 2 semantic redaction**
+> Start with: `hematite --mcp-server --semantic-redact`
+> Then ask Claude: "Check the health of this machine and give me a plain-English verdict."
+> *(The local model produces an anonymous diagnostic summary first; Tier 1 runs after as a safety net.)*
+
+**Block sensitive topics via policy file**
+> Create `.hematite/redact_policy.json`:
+> ```json
+> { "blocked_topics": ["user_accounts", "credentials", "audit_policy"] }
+> ```
+> Any blocked topic returns a policy error to the cloud model — the inspection never runs.
+
+**Per-topic redaction level**
+> Create `.hematite/redact_policy.json`:
+> ```json
+> { "topic_redaction_level": { "network": "semantic", "hardware": "regex", "storage": "regex" } }
+> ```
+> Network output goes through the local model summarizer; others use fast regex only.
+
+**Whitelist mode — only allow safe topics**
+> ```json
+> { "allowed_topics": ["processes", "services", "ports", "connectivity", "disk_health"] }
+> ```
+> Only these five topics are served; all others return a policy block error.
+
+**Read the audit trail**
+> After running in `--edge-redact` or `--semantic-redact` mode:
+> "Read `~/.hematite/redact_audit.jsonl` and tell me which topics produced the most substitutions and whether the semantic shrink ratios look healthy."
+
+---
+
 ## Windows Admin Deep-Dives
 
 **Storage overview**

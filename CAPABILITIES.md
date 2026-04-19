@@ -19,6 +19,8 @@ That is the lens for the capabilities below.
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
 - **Full OS stack coverage**: 116+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **MCP server mode**: `hematite --mcp-server` exposes all 116+ inspect_host topics to any MCP-capable agent (Claude Desktop, OpenClaw, Cursor, Windsurf) over stdio JSON-RPC 2.0. No TUI, no local model needed on the client side.
+- **Privacy gateway**: `--edge-redact` (Tier 1 regex) and `--semantic-redact` (Tier 2 local model summarizer) strip identity data before any output leaves the machine. Fail-safe, jailbreak-resistant, with a metadata-only audit trail and per-topic policy file.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
