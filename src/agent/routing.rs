@@ -575,6 +575,45 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             && (lower.contains("onedrive")
                 || lower.contains("sharepoint")
                 || lower.contains("cloud")));
+    let asks_browser_health = lower.contains("browser health")
+        || lower.contains("webview2")
+        || lower.contains("default browser")
+        || ((lower.contains("browser")
+            || lower.contains("chrome")
+            || lower.contains("edge")
+            || lower.contains("firefox"))
+            && (lower.contains("slow")
+                || lower.contains("sluggish")
+                || lower.contains("lag")
+                || lower.contains("crash")
+                || lower.contains("crashing")
+                || lower.contains("hang")
+                || lower.contains("frozen")
+                || lower.contains("freeze")
+                || lower.contains("broken")
+                || lower.contains("not opening")
+                || lower.contains("won't open")
+                || lower.contains("cannot open")
+                || lower.contains("extension")
+                || lower.contains("extensions")
+                || lower.contains("proxy")
+                || lower.contains("policy")))
+        || ((lower.contains("links") || lower.contains("link"))
+            && (lower.contains("open wrong")
+                || lower.contains("opens wrong")
+                || lower.contains("wrong browser")
+                || lower.contains("wrong app")
+                || lower.contains("default browser")))
+        || ((lower.contains("website") || lower.contains("websites") || lower.contains("web app"))
+            && (lower.contains("browser")
+                || lower.contains("chrome")
+                || lower.contains("edge")
+                || lower.contains("firefox"))
+            && (lower.contains("load")
+                || lower.contains("broken")
+                || lower.contains("slow")
+                || lower.contains("proxy")
+                || lower.contains("policy")));
     let asks_search_index = (lower.contains("search")
         && (lower.contains("broken")
             || lower.contains("not working")
@@ -1586,6 +1625,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("installer_health")
     } else if asks_onedrive {
         Some("onedrive")
+    } else if asks_browser_health {
+        Some("browser_health")
     } else if asks_search_index {
         Some("search_index")
     } else if asks_display_config {
@@ -2004,6 +2045,33 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || ((l.contains("desktop") || l.contains("documents") || l.contains("pictures"))
                     && l.contains("sync")
                     && (l.contains("onedrive") || l.contains("sharepoint") || l.contains("cloud")))
+        }),
+        ("browser_health", |l| {
+            l.contains("browser health")
+                || l.contains("webview2")
+                || l.contains("default browser")
+                || ((l.contains("browser")
+                    || l.contains("chrome")
+                    || l.contains("edge")
+                    || l.contains("firefox"))
+                    && (l.contains("slow")
+                        || l.contains("sluggish")
+                        || l.contains("lag")
+                        || l.contains("crash")
+                        || l.contains("crashing")
+                        || l.contains("hang")
+                        || l.contains("freeze")
+                        || l.contains("frozen")
+                        || l.contains("broken")
+                        || l.contains("extension")
+                        || l.contains("extensions")
+                        || l.contains("proxy")
+                        || l.contains("policy")))
+                || ((l.contains("links") || l.contains("link"))
+                    && (l.contains("open wrong")
+                        || l.contains("opens wrong")
+                        || l.contains("wrong browser")
+                        || l.contains("wrong app")))
         }),
         ("search_index", |l| {
             l.contains("search index")
@@ -2640,6 +2708,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     }
     if topics.contains(&"dns_lookup") {
         topics.retain(|topic| *topic != "network");
+    }
+    if topics.contains(&"browser_health") {
+        topics.retain(|topic| *topic != "proxy");
     }
     if topics.contains(&"audio") {
         topics.retain(|topic| *topic != "peripherals");

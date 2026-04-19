@@ -3405,6 +3405,22 @@ fn test_inspect_host_onedrive_returns_header() {
 }
 
 #[test]
+fn test_inspect_host_browser_health_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "browser_health" });
+        let output = inspect_host(&args)
+            .await
+            .expect("browser_health must return Ok");
+        assert!(
+            output.contains("Host inspection: browser_health"),
+            "browser_health output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
 fn test_inspect_host_installer_health_returns_header() {
     use hematite::tools::host_inspect::inspect_host;
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -3435,6 +3451,25 @@ fn test_inspect_host_installer_health_reports_findings_and_sections() {
         assert!(
             has_result,
             "installer_health must report findings and installer sections; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_browser_health_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "browser_health" });
+        let output = inspect_host(&args)
+            .await
+            .expect("browser_health must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== Browser inventory ===")
+            && output.contains("=== WebView2 runtime ===");
+        assert!(
+            has_result,
+            "browser_health must report findings and browser sections; got:\n{output}"
         );
     });
 }
@@ -5836,6 +5871,18 @@ fn test_routing_detects_onedrive_topic() {
 }
 
 #[test]
+fn test_routing_detects_browser_health_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt = "Check browser health and tell me if WebView2 or proxy policy is breaking web apps.";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("browser_health"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"browser_health"),
+        "should detect browser_health; got: {topics:?}"
+    );
+}
+
+#[test]
 fn test_routing_detects_installer_health_topic() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let prompt = "Why are MSI and winget installs failing on this Windows machine?";
@@ -5847,6 +5894,21 @@ fn test_routing_detects_installer_health_topic() {
     assert!(
         topics.contains(&"installer_health"),
         "should detect installer_health; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_all_host_topics_prefers_browser_health_over_proxy_for_browser_proxy_prompts() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics =
+        all_host_inspection_topics("Check whether browser policy or proxy settings are interfering with web apps.");
+    assert!(
+        topics.contains(&"browser_health"),
+        "should detect browser_health; got: {topics:?}"
+    );
+    assert!(
+        !topics.contains(&"proxy"),
+        "should suppress generic proxy when browser_health is present; got: {topics:?}"
     );
 }
 

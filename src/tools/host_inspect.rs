@@ -53,6 +53,9 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "onedrive" | "sync_client" | "cloud_sync" | "known_folder_backup" => {
             inspect_onedrive(max_entries)
         }
+        "browser_health" | "browser" | "webview2" | "default_browser" => {
+            inspect_browser_health(max_entries)
+        }
         "search_index" | "windows_search" | "indexing" | "search" => {
             inspect_search_index(max_entries)
         }
@@ -213,7 +216,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_network_adapter()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -12444,6 +12447,365 @@ if (Test-Path $shell) {
 #[cfg(not(windows))]
 fn inspect_onedrive(_max_entries: usize) -> Result<String, String> {
     Ok("Host inspection: onedrive\n\n=== Findings ===\n- OneDrive inspection is currently Windows-first. macOS/Linux support can be added later.\n".into())
+}
+
+#[cfg(windows)]
+fn inspect_browser_health(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("=== Browser inventory ===\n");
+
+    let ps_inventory = r#"
+$browsers = @(
+    @{ Name='Edge'; Paths=@(
+        (Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'),
+        (Join-Path $env:ProgramFiles 'Microsoft\Edge\Application\msedge.exe')
+    ); Profile=(Join-Path $env:LOCALAPPDATA 'Microsoft\Edge\User Data') },
+    @{ Name='Chrome'; Paths=@(
+        (Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Google\Chrome\Application\chrome.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Google\Chrome\Application\chrome.exe')
+    ); Profile=(Join-Path $env:LOCALAPPDATA 'Google\Chrome\User Data') },
+    @{ Name='Firefox'; Paths=@(
+        (Join-Path $env:ProgramFiles 'Mozilla Firefox\firefox.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Mozilla Firefox\firefox.exe')
+    ); Profile=(Join-Path $env:APPDATA 'Mozilla\Firefox\Profiles') }
+)
+foreach ($browser in $browsers) {
+    $exe = $browser.Paths | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+    if ($exe) {
+        $version = try { (Get-Item $exe).VersionInfo.FileVersion } catch { 'Unknown' }
+        $profileExists = if (Test-Path $browser.Profile) { 'Yes' } else { 'No' }
+        "$($browser.Name) | Installed: Yes | Version: $version | Executable: $exe | ProfileRoot: $($browser.Profile) | ProfileExists: $profileExists"
+    } else {
+        "$($browser.Name) | Installed: No"
+    }
+}
+$httpProgId = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice' -Name ProgId -ErrorAction SilentlyContinue).ProgId
+$httpsProgId = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -Name ProgId -ErrorAction SilentlyContinue).ProgId
+$startMenuInternet = (Get-ItemProperty 'HKLM:\SOFTWARE\Clients\StartMenuInternet' -Name '(default)' -ErrorAction SilentlyContinue).'(default)'
+"DefaultHTTP: $(if ($httpProgId) { $httpProgId } else { 'Unknown' })"
+"DefaultHTTPS: $(if ($httpsProgId) { $httpsProgId } else { 'Unknown' })"
+"StartMenuInternet: $(if ($startMenuInternet) { $startMenuInternet } else { 'Unknown' })"
+"#;
+    match run_powershell(ps_inventory) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 6) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect installed browser inventory\n"),
+    }
+
+    out.push_str("\n=== Runtime state ===\n");
+    let ps_runtime = r#"
+$targets = 'msedge','chrome','firefox','msedgewebview2'
+foreach ($name in $targets) {
+    $procs = Get-Process -Name $name -ErrorAction SilentlyContinue
+    if ($procs) {
+        $count = @($procs).Count
+        $wsMb = [Math]::Round((($procs | Measure-Object WorkingSet64 -Sum).Sum / 1MB), 1)
+        "$name | Processes: $count | WorkingSetMB: $wsMb"
+    } else {
+        "$name | Processes: 0 | WorkingSetMB: 0"
+    }
+}
+"#;
+    match run_powershell(ps_runtime) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect browser runtime state\n"),
+    }
+
+    out.push_str("\n=== WebView2 runtime ===\n");
+    let ps_webview = r#"
+$paths = @(
+    (Join-Path ${env:ProgramFiles(x86)} 'Microsoft\EdgeWebView\Application'),
+    (Join-Path $env:ProgramFiles 'Microsoft\EdgeWebView\Application')
+) | Where-Object { $_ -and (Test-Path $_) }
+$runtimeDir = $paths | ForEach-Object {
+    Get-ChildItem $_ -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^\d+\.' } |
+        Sort-Object Name -Descending |
+        Select-Object -First 1
+} | Select-Object -First 1
+if ($runtimeDir) {
+    $exe = Join-Path $runtimeDir.FullName 'msedgewebview2.exe'
+    $version = if (Test-Path $exe) { try { (Get-Item $exe).VersionInfo.FileVersion } catch { $runtimeDir.Name } } else { $runtimeDir.Name }
+    "Installed: Yes"
+    "Version: $version"
+    "Executable: $exe"
+} else {
+    "Installed: No"
+}
+$proc = Get-Process msedgewebview2 -ErrorAction SilentlyContinue
+"ProcessCount: $(if ($proc) { @($proc).Count } else { 0 })"
+"#;
+    match run_powershell(ps_webview) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect WebView2 runtime\n"),
+    }
+
+    out.push_str("\n=== Policy and proxy surface ===\n");
+    let ps_policy = r#"
+$proxy = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction SilentlyContinue
+$proxyEnabled = if ($null -ne $proxy.ProxyEnable) { $proxy.ProxyEnable } else { 'Unknown' }
+$proxyServer = if ($proxy.ProxyServer) { $proxy.ProxyServer } else { 'Direct' }
+$autoConfig = if ($proxy.AutoConfigURL) { $proxy.AutoConfigURL } else { 'None' }
+$autoDetect = if ($null -ne $proxy.AutoDetect) { $proxy.AutoDetect } else { 'Unknown' }
+"UserProxyEnabled: $proxyEnabled"
+"UserProxyServer: $proxyServer"
+"UserAutoConfigURL: $autoConfig"
+"UserAutoDetect: $autoDetect"
+$winhttp = (netsh winhttp show proxy 2>$null) -join ' '
+if ($winhttp) {
+    $normalized = ($winhttp -replace '\s+', ' ').Trim()
+    $isDirect = $normalized -match 'Direct access \(no proxy server\)\.?$'
+    "WinHTTPMode: $(if ($isDirect) { 'Direct' } else { 'Proxy' })"
+    "WinHTTP: $normalized"
+}
+$policyTargets = @(
+    @{ Name='Edge'; Path='HKLM:\SOFTWARE\Policies\Microsoft\Edge'; Keys=@('ProxyMode','ProxyServer','ProxyPacUrl','ExtensionInstallForcelist') },
+    @{ Name='Chrome'; Path='HKLM:\SOFTWARE\Policies\Google\Chrome'; Keys=@('ProxyMode','ProxyServer','ProxyPacUrl','ExtensionInstallForcelist') }
+)
+foreach ($policy in $policyTargets) {
+    if (Test-Path $policy.Path) {
+        $item = Get-ItemProperty $policy.Path -ErrorAction SilentlyContinue
+        foreach ($key in $policy.Keys) {
+            $value = $item.$key
+            if ($null -ne $value -and [string]$value -ne '') {
+                if ($value -is [array]) {
+                    "$($policy.Name)Policy | $key=$([string]::Join('; ', $value))"
+                } else {
+                    "$($policy.Name)Policy | $key=$value"
+                }
+            }
+        }
+    }
+}
+"#;
+    match run_powershell(ps_policy) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 8) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect browser policy or proxy state\n"),
+    }
+
+    out.push_str("\n=== Profile and cache pressure ===\n");
+    let ps_profiles = r#"
+$profiles = @(
+    @{ Name='Edge'; Root=(Join-Path $env:LOCALAPPDATA 'Microsoft\Edge\User Data'); ExtensionRoot=(Join-Path $env:LOCALAPPDATA 'Microsoft\Edge\User Data\Default\Extensions') },
+    @{ Name='Chrome'; Root=(Join-Path $env:LOCALAPPDATA 'Google\Chrome\User Data'); ExtensionRoot=(Join-Path $env:LOCALAPPDATA 'Google\Chrome\User Data\Default\Extensions') },
+    @{ Name='Firefox'; Root=(Join-Path $env:APPDATA 'Mozilla\Firefox\Profiles'); ExtensionRoot=$null }
+)
+foreach ($profile in $profiles) {
+    if (Test-Path $profile.Root) {
+        if ($profile.Name -eq 'Firefox') {
+            $dirs = Get-ChildItem $profile.Root -Directory -ErrorAction SilentlyContinue
+        } else {
+            $dirs = Get-ChildItem $profile.Root -Directory -ErrorAction SilentlyContinue |
+                Where-Object {
+                    $_.Name -eq 'Default' -or
+                    $_.Name -eq 'Guest Profile' -or
+                    $_.Name -eq 'System Profile' -or
+                    $_.Name -like 'Profile *'
+                }
+        }
+        $profileCount = @($dirs).Count
+        $sizeBytes = (Get-ChildItem $profile.Root -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
+        if (-not $sizeBytes) { $sizeBytes = 0 }
+        $sizeGb = [Math]::Round(($sizeBytes / 1GB), 2)
+        $extCount = 'Unknown'
+        if ($profile.ExtensionRoot -and (Test-Path $profile.ExtensionRoot)) {
+            $extCount = @((Get-ChildItem $profile.ExtensionRoot -Directory -ErrorAction SilentlyContinue)).Count
+        }
+        "$($profile.Name) | ProfileRoot: $($profile.Root) | Profiles: $profileCount | SizeGB: $sizeGb | Extensions: $extCount"
+    } else {
+        "$($profile.Name) | ProfileRoot: Missing"
+    }
+}
+"#;
+    match run_powershell(ps_profiles) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect browser profile pressure\n"),
+    }
+
+    out.push_str("\n=== Recent browser failures (7d) ===\n");
+    let ps_failures = r#"
+$cutoff = (Get-Date).AddDays(-7)
+$targets = 'chrome.exe','msedge.exe','firefox.exe','msedgewebview2.exe'
+$events = Get-WinEvent -FilterHashtable @{ LogName='Application'; StartTime=$cutoff } -MaxEvents 250 -ErrorAction SilentlyContinue |
+    Where-Object {
+        $msg = [string]$_.Message
+        ($_.ProviderName -eq 'Application Error' -or $_.ProviderName -eq 'Windows Error Reporting') -and
+        ($targets | Where-Object { $msg.ToLower().Contains($_.ToLower()) })
+    } |
+    Select-Object -First 6
+if ($events) {
+    foreach ($event in $events) {
+        $msg = ($event.Message -replace '\s+', ' ')
+        if ($msg.Length -gt 140) { $msg = $msg.Substring(0, 140) }
+        "$($event.TimeCreated.ToString('MM-dd HH:mm')) | $($event.ProviderName) | EventId: $($event.Id) | $msg"
+    }
+} else {
+    "No recent browser crash or WER events detected"
+}
+"#;
+    match run_powershell(ps_failures) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 2) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect recent browser failure events\n"),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("Edge | Installed: No")
+        && out.contains("Chrome | Installed: No")
+        && out.contains("Firefox | Installed: No")
+    {
+        findings.push(
+            "No supported browser install was detected from the standard Edge/Chrome/Firefox paths."
+                .into(),
+        );
+    }
+    if out.contains("DefaultHTTP: Unknown") || out.contains("DefaultHTTPS: Unknown") {
+        findings.push(
+            "Default browser or protocol associations could not be read cleanly - links may open inconsistently."
+                .into(),
+        );
+    }
+    if out.contains("UserProxyEnabled: 1")
+        || out.contains("WinHTTPMode: Proxy")
+    {
+        findings.push(
+            "Proxy settings are active for this user or machine - browser sign-in and web-app failures may be proxy or PAC related."
+                .into(),
+        );
+    }
+    if out.contains("EdgePolicy | Proxy")
+        || out.contains("ChromePolicy | Proxy")
+        || out.contains("ExtensionInstallForcelist=")
+    {
+        findings.push(
+            "Browser policy overrides are present - forced proxy or extension policy may be influencing web-app behavior."
+                .into(),
+        );
+    }
+    for browser in ["msedge", "chrome", "firefox"] {
+        let process_marker = format!("{browser} | Processes: ");
+        if let Some(line) = out.lines().find(|line| line.contains(&process_marker)) {
+            let count = line
+                .split("| Processes: ")
+                .nth(1)
+                .and_then(|rest| rest.split(" |").next())
+                .and_then(|value| value.trim().parse::<usize>().ok())
+                .unwrap_or(0);
+            let ws_mb = line
+                .split("| WorkingSetMB: ")
+                .nth(1)
+                .and_then(|value| value.trim().parse::<f64>().ok())
+                .unwrap_or(0.0);
+            if count >= 25 {
+                findings.push(format!(
+                    "{browser} is running {count} processes - extension or tab pressure may be dragging browser responsiveness."
+                ));
+            } else if ws_mb >= 2500.0 {
+                findings.push(format!(
+                    "{browser} is consuming {ws_mb:.1} MB of working set - browser memory pressure may be driving slowness or tab crashes."
+                ));
+            }
+        }
+    }
+    if out.contains("=== WebView2 runtime ===\n- Installed: No")
+        || (out.contains("=== WebView2 runtime ===")
+            && out.contains("- Installed: No")
+            && out.contains("- ProcessCount: 0"))
+    {
+        findings.push(
+            "WebView2 runtime is missing - modern Windows apps that embed Edge web content may fail or render badly."
+                .into(),
+        );
+    }
+    for browser in ["Edge", "Chrome", "Firefox"] {
+        let prefix = format!("{browser} | ProfileRoot:");
+        if let Some(line) = out.lines().find(|line| line.contains(&prefix)) {
+            let size_gb = line
+                .split("| SizeGB: ")
+                .nth(1)
+                .and_then(|rest| rest.split(" |").next())
+                .and_then(|value| value.trim().parse::<f64>().ok())
+                .unwrap_or(0.0);
+            let ext_count = line
+                .split("| Extensions: ")
+                .nth(1)
+                .and_then(|value| value.trim().parse::<usize>().ok())
+                .unwrap_or(0);
+            if size_gb >= 2.5 {
+                findings.push(format!(
+                    "{browser} profile data is {size_gb:.2} GB - cache or profile bloat may be hurting startup and web-app responsiveness."
+                ));
+            }
+            if ext_count >= 20 {
+                findings.push(format!(
+                    "{browser} has {ext_count} extensions in the default profile - extension overload can slow page loads and trigger conflicts."
+                ));
+            }
+        }
+    }
+    if out.contains("Application Error |") || out.contains("Windows Error Reporting |") {
+        findings.push(
+            "Recent browser crash evidence was found in the Application log - review the failure lines below for the browser or helper process that is faulting."
+                .into(),
+        );
+    }
+
+    let mut result = String::from("Host inspection: browser_health\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- No obvious browser, proxy, or WebView2 health blocker detected.\n");
+    } else {
+        for finding in &findings {
+            result.push_str(&format!("- Finding: {finding}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_browser_health(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: browser_health\n\n=== Findings ===\n- Browser health is currently Windows-first. Linux/macOS browser triage can be added later.\n".into())
 }
 
 #[cfg(windows)]

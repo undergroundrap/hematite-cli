@@ -53,6 +53,12 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **A record lookup**
 > "Show me the A record for github.com"
 
+**Browser health**
+> "Check browser health on this machine. Tell me if Chrome, Edge, Firefox, or WebView2 look broken, bloated, or policy-constrained."
+
+**Browser policy or proxy interference**
+> "Check whether browser policy or proxy settings are interfering with web apps."
+
 **Firewall rules**
 > "List all active inbound firewall rules that allow traffic. Flag anything that looks non-default."
 

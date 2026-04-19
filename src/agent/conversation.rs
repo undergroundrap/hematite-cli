@@ -1552,7 +1552,7 @@ impl ConversationManager {
                         "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: Shell is blocked for host inspection. The diagnostic data above fulfills your request. Use inspect_host directly for further diagnostics.]"
                     )),
                     Err(e) => Err(format!(
-                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, docker_filesystems, wsl, wsl_filesystems, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
+                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, docker_filesystems, wsl, wsl_filesystems, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
                     )),
                 };
             }
@@ -2469,6 +2469,7 @@ impl ConversationManager {
                  - Bluetooth radios / pairing / reconnect issues / headset roles -> `bluetooth`\n\
                  - MSI / Windows Installer / winget / Microsoft Store install failures -> `installer_health`\n\
                  - OneDrive sync / Files On-Demand / Known Folder Backup / SharePoint sync roots -> `onedrive`\n\
+                 - Browser slow / Chrome / Edge / Firefox / WebView2 / default browser / links opening wrong -> `browser_health`\n\
                  - Credential Manager / stored Windows credentials / saved passwords / cmdkey vault hygiene -> `credentials`\n\
                  - TPM / Secure Boot / firmware mode / Windows 11 readiness -> `tpm`\n\
                  - DNS A/AAAA/MX/SRV/TXT record lookups must stay on `dns_lookup`; do NOT use `ping`, `Invoke-WebRequest`, public DNS-over-HTTPS endpoints, or browser searches as substitutes.\n\
@@ -2548,7 +2549,7 @@ impl ConversationManager {
                      3. End with a verification step the user can run to confirm success.\n\
                      4. Do NOT execute write operations yourself. You are the teacher; the user performs the steps.\n\
                      5. Treat the user as capable — give precise instructions, not hedged warnings.\n\
-                     Relevant inspect_host topics for common tasks: hardware (driver installs), overclocker (GPU/silicon vitals), security (firewall), ssh (SSH keys), wsl (WSL setup), wsl_filesystems (WSL disk and path-bridge issues), docker_filesystems (bind mounts and named volumes), lan_discovery (printer/NAS/neighborhood discovery issues), audio (speaker/microphone/service issues), bluetooth (pairing/radio/headset issues), camera (webcam/camera devices/privacy), sign_in (Windows Hello/biometric/logon failures), installer_health (MSI/winget/Store install failures), onedrive (OneDrive sync/Files On-Demand/Known Folder Backup issues), search_index (Windows Search indexer/WSearch), display_config (monitor/resolution/refresh rate/DPI), ntp (clock sync/NTP/w32tm), cpu_power (turbo boost/CPU frequency/power plan), credentials (Credential Manager/saved passwords/cmdkey), tpm (TPM chip/Secure Boot/firmware type), latency (ping RTT/packet loss/network slow), network_adapter (NIC settings/offload/link speed/adapter errors), dhcp (DHCP lease details/server/expiry), mtu (per-adapter MTU/path MTU discovery/fragmentation), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
+                     Relevant inspect_host topics for common tasks: hardware (driver installs), overclocker (GPU/silicon vitals), security (firewall), ssh (SSH keys), wsl (WSL setup), wsl_filesystems (WSL disk and path-bridge issues), docker_filesystems (bind mounts and named volumes), lan_discovery (printer/NAS/neighborhood discovery issues), audio (speaker/microphone/service issues), bluetooth (pairing/radio/headset issues), camera (webcam/camera devices/privacy), sign_in (Windows Hello/biometric/logon failures), installer_health (MSI/winget/Store install failures), onedrive (OneDrive sync/Files On-Demand/Known Folder Backup issues), browser_health (Chrome/Edge/Firefox/WebView2/default-browser issues), search_index (Windows Search indexer/WSearch), display_config (monitor/resolution/refresh rate/DPI), ntp (clock sync/NTP/w32tm), cpu_power (turbo boost/CPU frequency/power plan), credentials (Credential Manager/saved passwords/cmdkey), tpm (TPM chip/Secure Boot/firmware type), latency (ping RTT/packet loss/network slow), network_adapter (NIC settings/offload/link speed/adapter errors), dhcp (DHCP lease details/server/expiry), mtu (per-adapter MTU/path MTU discovery/fragmentation), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
                 ),
                 WorkflowMode::Chat => {} // replaced by build_chat_system_prompt below
             }
@@ -5826,6 +5827,20 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "disablefilesyncngsc",
         "kfmsilentoptin",
         "kfmblockoptin",
+        "get-process chrome",
+        "get-process msedge",
+        "get-process firefox",
+        "get-process msedgewebview2",
+        "google chrome",
+        "microsoft edge",
+        "mozilla firefox",
+        "webview2",
+        "msedgewebview2",
+        "startmenuinternet",
+        "urlassociations\\http\\userchoice",
+        "urlassociations\\https\\userchoice",
+        "software\\policies\\microsoft\\edge",
+        "software\\policies\\google\\chrome",
         "cmdkey",
         "credential manager",
         "get-tpm",
