@@ -34,11 +34,24 @@ Same as above, but Hematite applies **edge redaction** before anything leaves th
 
 The cloud model gets grounded diagnostic insight — crash patterns, service states, network health — without ever seeing raw identity data. The local machine provides the observations. The cloud (or another local model) provides the reasoning. Your hostname, username, MAC addresses, and serial numbers never leave. A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool call for compliance review. A policy file (`.hematite/redact_policy.json`) lets operators hard-block sensitive topics or set per-topic redaction levels.
 
-**Tier 2 can be fully local too.** Use `--semantic-url` to point the privacy summarizer at a dedicated compact model while your main model runs on a separate port:
+**Tier 2 can be fully local too.** Load a dedicated compact model alongside your main model in LM Studio and point the privacy summarizer at it with `--semantic-model`:
+
 ```
-hematite --mcp-server --semantic-redact --semantic-url http://localhost:1235/v1
+hematite --mcp-server --semantic-redact --semantic-model bonsai-8b
 ```
-Ultra-compact 1-bit models like [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) (1.15 GB) are well-suited for this — summarization and identity stripping don't need the reasoning power of a full coding model. On a single RTX 4070, Qwen3.5 9B (main), nomic-embed (search), and Bonsai (privacy summarizer) all fit simultaneously with VRAM headroom. No cloud at any layer. As quantization improves, this stack only gets lighter.
+
+**Verified three-model stack on a single RTX 4070 (12 GB VRAM):**
+
+| Model | Role | VRAM |
+|---|---|---|
+| Qwen3.5 9B Q4_K_M | Main coding/reasoning model | 6.55 GB |
+| nomic-embed-text-v2 | Semantic search and retrieval | 0.51 GB |
+| [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) | Privacy summarizer | 1.16 GB |
+| **Total** | | **8.22 GB** |
+
+Load all three in LM Studio, then run Hematite normally (`hematite`) — it auto-detects Qwen as the main model and Bonsai stays dormant until `--semantic-redact` is active. When an MCP client calls `inspect_host`, Bonsai receives the raw output, summarizes it with identity stripped, and Tier 1 regex catches any residuals. Tested: 805-token prompt processed in ~82 seconds, username and hostname clean in final output. No cloud at any layer.
+
+Normal Hematite TUI operation is unaffected — it sends the Qwen model ID in every request so Bonsai is never accidentally invoked.
 
 **The local agent web.** Nothing prevents you from running multiple specialized local models as a coordinated agent layer — a fast small model for routing and summarization, a larger model for reasoning and code, an embedding model for retrieval — with Hematite's inspection suite as the shared grounded data layer underneath. Cloud can sit at the top of that stack if you want frontier reasoning on hard problems, or the whole thing runs air-gapped. Hematite is the part that knows what is actually happening on the machine.
 
