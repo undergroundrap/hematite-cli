@@ -358,6 +358,8 @@ hematite --mcp-server --semantic-redact
 
 The local model receives raw diagnostic output and produces an anonymous summary — stripping usernames, hostnames, MACs, local IPs, serial numbers, org names, and credentials while preserving diagnostic value (versions, error codes, metrics, findings, time deltas). Tier 1 regex runs after the semantic pass as a final safety net.
 
+The summarizer uses the `--url` endpoint, so it is not tied to LM Studio — any OpenAI-compatible local server works. Ultra-compact 1-bit models like [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) (1.15 GB) are well-suited for this role: the task is summarization and identity stripping, not code reasoning, and Bonsai fits alongside Qwen3.5 9B and nomic-embed on a single RTX 4070 with VRAM headroom. Run the PrismML llama.cpp fork as a server on port 8080 and point Hematite at it: `hematite --mcp-server --semantic-redact --url http://localhost:8080/v1`. No cloud required at any layer.
+
 **Fail-safe:** if the local model is unreachable, the tool call returns an error — raw data is never sent to the cloud model.
 
 **Jailbreak resistance:** the summarizer prompt is injected by Hematite and wraps system data in `<diagnostic_data>` tags explicitly marked as untrusted. Unknown MCP arguments are stripped before tool dispatch. Model refusals are detected and treated as errors.
@@ -939,7 +941,7 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 - **Workflow engine** — encode multi-step coding workflows (read → edit → verify → commit) as explicit typed state machines that the harness drives, not the model re-plans each turn.
 - **Tool dependency graph** — before executing a plan, check whether its tool sequence is valid (no write before read, no verify before edit). Block impossible plans before they waste a turn.
 - **Context budget ledger** — track token cost per tool call and per turn; surface a real budget breakdown so the operator can see why a session hit the ceiling, not just that it did.
-- **Multi-model routing** — for tasks that need a faster or smaller model (search, classification, label generation), route specific tool calls to a lightweight model while keeping the main session on the primary coding model.
+- **Multi-model routing** — for tasks that need a faster or smaller model (search, classification, label generation), route specific tool calls to a lightweight model while keeping the main session on the primary coding model. The groundwork for this already exists: `--semantic-redact` accepts any `--url` endpoint, so a dedicated compact model (e.g. [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) at 1.15 GB) can run as the privacy summarizer alongside Qwen3.5 9B + nomic-embed on a single RTX 4070 with VRAM to spare. The next step is exposing a `swarm_url` config key so swarm workers can be dispatched to a separate lightweight endpoint — enabling a local agent web with no cloud required at any layer.
 
 ### Tier 3 — Revisit when local 9B models catch frontier capability
 

@@ -8,29 +8,35 @@ Think of it as a **Senior SysAdmin, Network Admin, and Software Engineer living 
 
 ### Three ways to run it
 
+Cloud is optional at every layer. Hematite runs fully local, runs as a privacy gateway for cloud agents, or runs both at once. As local models get more capable and more compact, the local-only path keeps getting stronger — the cloud tier exists for those who want it, not because you need it.
+
 **1. Fully local — no cloud, total privacy**
 ```
 hematite
 ```
 Runs in your terminal with a local model on LM Studio (Qwen 3.5, Gemma 4, or any OpenAI-compatible model). Everything stays on your machine. No API key, no cloud, no per-token billing. This is the default mode.
 
-**2. Claude or any agent uses Hematite directly**
+**2. Cloud agent uses Hematite as its eyes and hands**
 ```
 hematite --mcp-server
 ```
-Claude Desktop, OpenClaw, Cursor, Windsurf — any MCP-capable agent — connects to Hematite over the Model Context Protocol and calls its 116+ host inspection tools directly. The cloud model handles the reasoning. Hematite handles the grounded local observation. No local model needed. The cloud agent sees real machine data and can answer questions about it with full frontier intelligence.
+Claude Desktop, OpenClaw, Cursor, Windsurf — any MCP-capable agent — connects to Hematite over the Model Context Protocol and calls its 116+ host inspection tools directly. The cloud model handles the reasoning. Hematite handles the grounded local observation. No local model required on your end. The cloud agent gets real machine data — actual processes, live network state, hardware telemetry — and can reason about it with full frontier intelligence.
 
-**3. Cloud intelligence, private machine — enterprise mode**
+**3. Privacy gateway — grounded data in, identity never out**
 ```
 hematite --mcp-server --edge-redact
 hematite --mcp-server --semantic-redact
 ```
 Same as above, but Hematite applies **edge redaction** before anything leaves the device. Two tiers:
 
-- **`--edge-redact`** (Tier 1) — fast regex pass: usernames, MAC addresses, hardware serial numbers, hostnames, and credential-shaped values are stripped and replaced with safe tokens (`[USER]`, `[MAC]`, `[SERIAL]`, `[HOSTNAME]`, `[REDACTED]`).
-- **`--semantic-redact`** (Tier 2) — routes inspect_host output through the local LM Studio model first with a hardened privacy prompt, producing an anonymous diagnostic summary that strips identity while preserving diagnostic value (versions, error codes, metrics, findings). Tier 1 runs after as a final safety net. Fail-safe: if the local model is unreachable, the tool call returns an error — raw data is never sent to the cloud.
+- **`--edge-redact`** (Tier 1) — fast regex pass: usernames, MAC addresses, hardware serial numbers, hostnames, and credential-shaped values are stripped and replaced with safe tokens (`[USER]`, `[MAC]`, `[SERIAL]`, `[HOSTNAME]`, `[REDACTED]`). No local model needed.
+- **`--semantic-redact`** (Tier 2) — routes inspect_host output through a local model first with a hardened privacy prompt, producing an anonymous diagnostic summary that strips identity while preserving diagnostic value (versions, error codes, metrics, findings). Tier 1 runs after as a final safety net. Fail-safe: if the local model is unreachable, the tool call returns an error — raw data is never sent to the cloud.
 
-The cloud model gets grounded, useful diagnostic insights — crash patterns, service states, network health — without ever seeing raw identity data. A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool call for compliance review. A policy file (`.hematite/redact_policy.json`) lets operators hard-block sensitive topics or set per-topic redaction levels. Built for enterprises and security-conscious operators who need frontier reasoning without a cloud window into their infrastructure.
+The cloud model gets grounded diagnostic insight — crash patterns, service states, network health — without ever seeing raw identity data. The local machine provides the observations. The cloud (or another local model) provides the reasoning. Your hostname, username, MAC addresses, and serial numbers never leave. A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool call for compliance review. A policy file (`.hematite/redact_policy.json`) lets operators hard-block sensitive topics or set per-topic redaction levels.
+
+**Tier 2 can be fully local too.** The semantic summarizer just needs an OpenAI-compatible endpoint — point it at any local server, not just LM Studio. Ultra-compact 1-bit models (under 2 GB) are now competitive with full-precision 8B models on standard benchmarks, which means you can run your main coding model, an embedding model for semantic search, and a dedicated privacy summarizer all on a single RTX 4070-class GPU simultaneously. No cloud at any layer. As quantization improves, this stack only gets lighter.
+
+**The local agent web.** Nothing prevents you from running multiple specialized local models as a coordinated agent layer — a fast small model for routing and summarization, a larger model for reasoning and code, an embedding model for retrieval — with Hematite's inspection suite as the shared grounded data layer underneath. Cloud can sit at the top of that stack if you want frontier reasoning on hard problems, or the whole thing runs air-gapped. Hematite is the part that knows what is actually happening on the machine.
 
 ---
 
