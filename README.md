@@ -34,7 +34,11 @@ Same as above, but Hematite applies **edge redaction** before anything leaves th
 
 The cloud model gets grounded diagnostic insight — crash patterns, service states, network health — without ever seeing raw identity data. The local machine provides the observations. The cloud (or another local model) provides the reasoning. Your hostname, username, MAC addresses, and serial numbers never leave. A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool call for compliance review. A policy file (`.hematite/redact_policy.json`) lets operators hard-block sensitive topics or set per-topic redaction levels.
 
-**Tier 2 can be fully local too.** The semantic summarizer just needs an OpenAI-compatible endpoint — point it at any local server, not just LM Studio. Ultra-compact 1-bit models (under 2 GB) are now competitive with full-precision 8B models on standard benchmarks, which means you can run your main coding model, an embedding model for semantic search, and a dedicated privacy summarizer all on a single RTX 4070-class GPU simultaneously. No cloud at any layer. As quantization improves, this stack only gets lighter.
+**Tier 2 can be fully local too.** Use `--semantic-url` to point the privacy summarizer at a dedicated compact model while your main model runs on a separate port:
+```
+hematite --mcp-server --semantic-redact --semantic-url http://localhost:1235/v1
+```
+Ultra-compact 1-bit models like [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) (1.15 GB) are well-suited for this — summarization and identity stripping don't need the reasoning power of a full coding model. On a single RTX 4070, Qwen3.5 9B (main), nomic-embed (search), and Bonsai (privacy summarizer) all fit simultaneously with VRAM headroom. No cloud at any layer. As quantization improves, this stack only gets lighter.
 
 **The local agent web.** Nothing prevents you from running multiple specialized local models as a coordinated agent layer — a fast small model for routing and summarization, a larger model for reasoning and code, an embedding model for retrieval — with Hematite's inspection suite as the shared grounded data layer underneath. Cloud can sit at the top of that stack if you want frontier reasoning on hard problems, or the whole thing runs air-gapped. Hematite is the part that knows what is actually happening on the machine.
 

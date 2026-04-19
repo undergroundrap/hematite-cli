@@ -44,7 +44,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if cockpit.mcp_server {
         let edge = cockpit.edge_redact || cockpit.semantic_redact;
         let semantic = cockpit.semantic_redact;
-        hematite::agent::mcp_server::run_mcp_server(edge, semantic, &cockpit.url).await?;
+        let semantic_url = cockpit.semantic_url.as_deref().unwrap_or(&cockpit.url);
+        hematite::agent::mcp_server::run_mcp_server(edge, semantic, &cockpit.url, semantic_url).await?;
         return Ok(());
     }
 

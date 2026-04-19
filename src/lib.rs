@@ -172,6 +172,12 @@ pub struct CliCockpit {
     )]
     pub semantic_redact: bool,
 
+    #[arg(
+        long,
+        help = "Endpoint for --semantic-redact (default: same as --url). Point at a dedicated compact model, e.g. Bonsai 8B on port 1235, while your main model stays on 1234."
+    )]
+    pub semantic_url: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
