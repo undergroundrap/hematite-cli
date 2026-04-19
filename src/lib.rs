@@ -178,6 +178,12 @@ pub struct CliCockpit {
     )]
     pub semantic_url: Option<String>,
 
+    #[arg(
+        long,
+        help = "Model ID for --semantic-redact (e.g. bonsai-8b). Required when multiple models are loaded in LM Studio. Omit for single-model setups."
+    )]
+    pub semantic_model: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

@@ -35,6 +35,7 @@ pub async fn run_mcp_server(
     semantic_redact: bool,
     api_url: &str,
     semantic_url: &str,
+    semantic_model: &str,
 ) -> anyhow::Result<()> {
     let mode_label = if semantic_redact {
         "semantic+regex"
@@ -131,7 +132,7 @@ pub async fn run_mcp_server(
                 if let Some(id) = id {
                     let params = msg.get("params").cloned().unwrap_or(Value::Null);
                     let result =
-                        dispatch_tool_call(&params, edge_redact, semantic_redact, api_url, semantic_url, &policy)
+                        dispatch_tool_call(&params, edge_redact, semantic_redact, api_url, semantic_url, semantic_model, &policy)
                             .await;
                     let resp = match result {
                         Ok(text) => json!({
@@ -179,6 +180,7 @@ async fn dispatch_tool_call(
     semantic_redact: bool,
     api_url: &str,
     semantic_url: &str,
+    semantic_model: &str,
     policy: &RedactPolicy,
 ) -> Result<String, String> {
     let name = params
@@ -245,7 +247,7 @@ async fn dispatch_tool_call(
                 }
 
                 RedactionLevel::Semantic => {
-                    match crate::agent::semantic_redact::summarize(&raw, topic, semantic_url).await {
+                    match crate::agent::semantic_redact::summarize(&raw, topic, semantic_url, Some(semantic_model)).await {
                         Ok(summary) => {
                             // Tier 1 as safety net after semantic pass
                             let r = crate::agent::edge_redact::redact(&summary);

@@ -63,12 +63,16 @@ OUTPUT FORMAT:
 /// Returns the semantically redacted summary, or `Err` if the local model
 /// is unavailable. Callers MUST treat Err as a hard block — do not fall
 /// back to raw output.
-pub async fn summarize(raw: &str, topic: &str, api_url: &str) -> Result<String, String> {
+pub async fn summarize(
+    raw: &str,
+    topic: &str,
+    api_url: &str,
+    model: Option<&str>,
+) -> Result<String, String> {
     let user_message =
         format!("Inspection topic: {topic}\n\n<diagnostic_data>\n{raw}\n</diagnostic_data>");
 
-    let body = json!({
-        "model": "local-model",
+    let mut body = json!({
         "messages": [
             { "role": "system", "content": PRIVACY_SYSTEM_PROMPT },
             { "role": "user",   "content": user_message }
@@ -77,11 +81,14 @@ pub async fn summarize(raw: &str, topic: &str, api_url: &str) -> Result<String, 
         "max_tokens": calculate_max_tokens(raw),
         "stream": false
     });
+    if let Some(m) = model.filter(|m| !m.is_empty()) {
+        body["model"] = json!(m);
+    }
 
     let url = format!("{}/chat/completions", api_url.trim_end_matches('/'));
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
+        .timeout(std::time::Duration::from_secs(180))
         .build()
         .map_err(|e| format!("HTTP client build error: {e}"))?;
 
