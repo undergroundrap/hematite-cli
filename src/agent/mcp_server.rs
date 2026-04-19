@@ -91,7 +91,13 @@ pub async fn run_mcp_server(
                         "capabilities": { "tools": {} },
                         "serverInfo": {
                             "name": SERVER_NAME,
-                            "version": SERVER_VERSION
+                            "version": SERVER_VERSION,
+                            "redactMode": mode_label,
+                            "privacyNote": match mode_label {
+                                "semantic+regex" => "Tier 2: local model summarizes output before sending; Tier 1 regex applied after. Raw data never forwarded if model is unreachable.",
+                                "regex"          => "Tier 1: usernames, MACs, serials, hostnames, and credentials stripped before forwarding.",
+                                _                => "No redaction active. Raw diagnostic output is forwarded as-is.",
+                            }
                         }
                     }
                 });
@@ -219,7 +225,12 @@ async fn dispatch_tool_call(
             };
 
             let (output, audit_mode, semantic_applied, tier1_hits) = match level {
-                RedactionLevel::None => (raw, RedactMode::None, false, Tier1Hits::new()),
+                RedactionLevel::None => {
+                    let labeled = format!(
+                        "[hematite: no redaction active — raw diagnostic output]\n\n{raw}"
+                    );
+                    (labeled, RedactMode::None, false, Tier1Hits::new())
+                }
 
                 RedactionLevel::Regex => {
                     let r = crate::agent::edge_redact::redact(&raw);

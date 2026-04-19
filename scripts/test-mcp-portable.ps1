@@ -60,6 +60,8 @@ Write-Host "2. MCP initialize handshake"
 $raw = Invoke-Mcp -Msgs $I1
 if ($raw -match '"protocolVersion"\s*:\s*"2024-11-05"') { Pass "protocolVersion correct" } else { Fail "protocolVersion wrong" $raw.Substring(0,[Math]::Min(120,$raw.Length)) }
 if ($raw -match '"name"\s*:\s*"hematite"')              { Pass "serverInfo.name = hematite" } else { Fail "serverInfo.name wrong" "" }
+if ($raw -match '"redactMode"')   { Pass "serverInfo contains redactMode" }  else { Fail "redactMode missing from serverInfo" "" }
+if ($raw -match '"privacyNote"')  { Pass "serverInfo contains privacyNote" } else { Fail "privacyNote missing from serverInfo" "" }
 
 # ── 3. tools/list ─────────────────────────────────────────────────────────────
 Write-Host ""
@@ -82,6 +84,8 @@ if ($line) {
     if ($line -match '"isError"\s*:\s*false') { Pass "isError:false" } else { Fail "isError:true on summary" "" }
     if ($line -match 'OS|Uptime|CPU|RAM|Hostname|windows') { Pass "content looks like host data" }
     else { Fail "content does not look like host data" $line.Substring(0,[Math]::Min(200,$line.Length)) }
+    if ($line -match 'no redaction active') { Pass "transparency notice present on plain output" }
+    else { Fail "transparency notice missing from plain output" "" }
 } else { Fail "tools/call: no id:2 response line" "" }
 
 # ── 5. edge-redact header ─────────────────────────────────────────────────────
