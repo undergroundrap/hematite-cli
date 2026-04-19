@@ -23,22 +23,36 @@ hematite --mcp-server
 Claude Desktop, OpenClaw, Cursor, Windsurf — any MCP-capable agent — connects to Hematite over the Model Context Protocol and calls its 116+ host inspection tools directly. The cloud model handles the reasoning. Hematite handles the grounded local observation. No local model required on your end. The cloud agent gets real machine data — actual processes, live network state, hardware telemetry — and can reason about it with full frontier intelligence.
 
 **3. Privacy gateway — grounded data in, identity never out**
+
+For cloud agents that value privacy. Hematite intercepts raw machine data before it leaves and strips identifying information so the cloud model gets diagnostic insight without seeing who you are or what your machine is called.
+
+Two tiers — use one or both:
+
+**Tier 1 — `--edge-redact` (regex, no local model needed)**
 ```
 hematite --mcp-server --edge-redact
-hematite --mcp-server --semantic-redact
 ```
-Same as above, but Hematite applies **edge redaction** before anything leaves the device. Two tiers:
+Fast compiled regex pass runs on every response before it leaves the machine. Replaces usernames, MAC addresses, hardware serial numbers, hostnames, and credential-shaped values with safe tokens (`[USER]`, `[MAC]`, `[SERIAL]`, `[HOSTNAME]`, `[REDACTED]`). Zero latency overhead. Works with no GPU and no local model loaded.
 
-- **`--edge-redact`** (Tier 1) — fast regex pass: usernames, MAC addresses, hardware serial numbers, hostnames, and credential-shaped values are stripped and replaced with safe tokens (`[USER]`, `[MAC]`, `[SERIAL]`, `[HOSTNAME]`, `[REDACTED]`). No local model needed.
-- **`--semantic-redact`** (Tier 2) — routes inspect_host output through a local model first with a hardened privacy prompt, producing an anonymous diagnostic summary that strips identity while preserving diagnostic value (versions, error codes, metrics, findings). Tier 1 runs after as a final safety net. Fail-safe: if the local model is unreachable, the tool call returns an error — raw data is never sent to the cloud.
-
-The cloud model gets grounded diagnostic insight — crash patterns, service states, network health — without ever seeing raw identity data. The local machine provides the observations. The cloud (or another local model) provides the reasoning. Your hostname, username, MAC addresses, and serial numbers never leave. A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool call for compliance review. A policy file (`.hematite/redact_policy.json`) lets operators hard-block sensitive topics or set per-topic redaction levels.
-
-**Tier 2 can be fully local too.** Load a dedicated compact model alongside your main model in LM Studio and point the privacy summarizer at it with `--semantic-model`:
-
+**Tier 2 — `--semantic-redact` (local model summarizer + Tier 1 backstop)**
 ```
-hematite --mcp-server --semantic-redact --semantic-model bonsai-8b
+hematite --mcp-server --semantic-redact --semantic-model <model-id>
 ```
+Routes raw inspect_host output through a local model with a hardened privacy prompt before anything leaves the machine. The local model produces an anonymous diagnostic summary — stripping usernames, hostnames, MACs, local IPs, serial numbers, and org names while preserving diagnostic value (versions, error codes, metrics, service states, findings). Tier 1 regex runs after as a final safety net to catch anything the model missed. Fail-safe: if the local model is unreachable, the tool returns an error — raw data is never forwarded.
+
+**`--semantic-model` — choose your summarizer based on your hardware**
+
+The `--semantic-model` flag tells Hematite which model in LM Studio to use for privacy summarization. This is separate from your main reasoning model — it runs independently and only activates when `--semantic-redact` is used. Your main model (Qwen, Gemma, etc.) handles all normal TUI work and is never involved in MCP privacy filtering.
+
+Choose a summarizer based on what your hardware can fit:
+
+| Hardware | Recommended summarizer | VRAM | Notes |
+|---|---|---|---|
+| RTX 4070 (12 GB) | [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) | 1.16 GB | Verified. Fits alongside Qwen3.5 9B + nomic-embed with headroom. |
+| RTX 4080/4090 (16–24 GB) | Qwen3 8B Q4_K_M or similar | 5–6 GB | Higher quality summarization, more VRAM available. |
+| Workstation / multi-GPU | Any 70B-class model | 40+ GB | Near-perfect identity stripping; Tier 1 backstop still runs. |
+
+Any model that follows instructions and can summarize text works. Bonsai is recommended for constrained setups because it fits in 1.16 GB — leaving room for your main model and embedding model on the same GPU — and its 70.5 benchmark average is sufficient for the summarization task. It is not used for code or reasoning.
 
 **Verified three-model stack on a single RTX 4070 (12 GB VRAM):**
 
@@ -47,13 +61,18 @@ hematite --mcp-server --semantic-redact --semantic-model bonsai-8b
 | Qwen3.5 9B Q4_K_M | Main coding/reasoning model | 6.55 GB |
 | nomic-embed-text-v2 | Semantic search and retrieval | 0.51 GB |
 | [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) | Privacy summarizer | 1.16 GB |
-| **Total** | | **8.22 GB** |
+| **Total** | | **8.22 GB / 12 GB** |
 
-Load all three in LM Studio, then run Hematite normally (`hematite`) — it auto-detects Qwen as the main model and Bonsai stays dormant until `--semantic-redact` is active. When an MCP client calls `inspect_host`, Bonsai receives the raw output, summarizes it with identity stripped, and Tier 1 regex catches any residuals. Tested: 805-token prompt processed in ~82 seconds, username and hostname clean in final output. No cloud at any layer.
+Load all three in LM Studio. Run Hematite normally (`hematite`) for your daily work — it auto-detects Qwen as the main model and Bonsai sits dormant. When a cloud agent calls `inspect_host`, Bonsai wakes up, summarizes the output, and goes back to sleep. Qwen is never touched during MCP calls. Tested end-to-end: 805-token prompt, ~82 seconds, username and hostname clean in final output. No cloud at any layer.
 
-Normal Hematite TUI operation is unaffected — it sends the Qwen model ID in every request so Bonsai is never accidentally invoked.
+```
+# Full command for the verified stack
+hematite --mcp-server --semantic-redact --semantic-model bonsai-8b
+```
 
-**The local agent web.** Nothing prevents you from running multiple specialized local models as a coordinated agent layer — a fast small model for routing and summarization, a larger model for reasoning and code, an embedding model for retrieval — with Hematite's inspection suite as the shared grounded data layer underneath. Cloud can sit at the top of that stack if you want frontier reasoning on hard problems, or the whole thing runs air-gapped. Hematite is the part that knows what is actually happening on the machine.
+A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool call for compliance review. A policy file (`.hematite/redact_policy.json`) lets operators hard-block sensitive topics or set per-topic redaction levels.
+
+**The local agent web.** As local models get smaller and smarter, this stack keeps improving. Today a 1-bit 8B model fits in 1.16 GB and handles the privacy filtering job well enough. Tomorrow that threshold drops further. The architecture stays the same: Hematite is the grounded data layer, a dedicated compact model handles privacy filtering, a larger model handles reasoning — and cloud sits at the top only if you want it. The whole thing runs air-gapped if you don't.
 
 ---
 

@@ -350,15 +350,24 @@ Every response includes a receipt header the cloud model can read:
 
 ### Semantic Redaction (Tier 2 — Local Model Summarizer)
 
-Add `--semantic-redact` to route inspect_host output through the local LM Studio model before any data leaves the machine:
+Add `--semantic-redact` and `--semantic-model` to route inspect_host output through a dedicated local model before any data leaves the machine:
 
 ```powershell
-hematite --mcp-server --semantic-redact
+hematite --mcp-server --semantic-redact --semantic-model bonsai-8b
 ```
 
-The local model receives raw diagnostic output and produces an anonymous summary — stripping usernames, hostnames, MACs, local IPs, serial numbers, org names, and credentials while preserving diagnostic value (versions, error codes, metrics, findings, time deltas). Tier 1 regex runs after the semantic pass as a final safety net.
+The summarizer model receives raw diagnostic output and produces an anonymous diagnostic summary — stripping usernames, hostnames, MACs, local IPs, serial numbers, org names, and credentials while preserving diagnostic value (versions, error codes, metrics, findings, time deltas). Tier 1 regex runs after the semantic pass as a final safety net to catch anything the model missed.
 
-The summarizer uses the `--url` endpoint, so it is not tied to LM Studio — any OpenAI-compatible local server works. Ultra-compact 1-bit models like [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) (1.15 GB) are well-suited for this role: the task is summarization and identity stripping, not code reasoning, and Bonsai fits alongside Qwen3.5 9B and nomic-embed on a single RTX 4070 with VRAM headroom. Use `--semantic-url` to point the summarizer at a dedicated model endpoint while your main model stays on the default port: `hematite --mcp-server --semantic-redact --semantic-url http://localhost:1235/v1`. If `--semantic-url` is omitted, the summarizer uses the same endpoint as `--url`. No cloud required at any layer.
+**`--semantic-model`** specifies which model in LM Studio handles privacy summarization. This is separate from the main reasoning model — it only activates during MCP calls with `--semantic-redact`. The main TUI model (Qwen etc.) is never involved in privacy filtering. When multiple models are loaded in LM Studio, this flag is required.
+
+**`--semantic-url`** (optional) points the summarizer at a different server endpoint entirely — useful if running the privacy model on a separate llama.cpp instance or a second LM Studio installation. If omitted, the summarizer uses the same port as `--url` (default: `http://localhost:1234/v1`). All three models (main + embed + summarizer) can share port 1234 in LM Studio's multi-model mode.
+
+**Choosing a summarizer model:** any instruction-following model works. Smaller is better for constrained setups since the summarizer runs alongside your main model:
+- **RTX 4070 (12 GB):** [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) at 1.16 GB — verified. Fits with Qwen3.5 9B + nomic-embed, 8.22 GB total.
+- **RTX 4080/4090 (16–24 GB):** any 8B Q4_K_M model at 5–6 GB — better summarization quality.
+- **Workstation / multi-GPU:** 70B-class models — near-perfect identity stripping.
+
+The summarizer does not need to be good at code or reasoning. Benchmark scores for instruction-following and summarization matter; coding benchmarks do not.
 
 **Fail-safe:** if the local model is unreachable, the tool call returns an error — raw data is never sent to the cloud model.
 
