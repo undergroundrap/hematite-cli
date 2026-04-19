@@ -6412,9 +6412,27 @@ fn test_routing_detects_dns_lookup_topic() {
         "DNS lookup for github.com",
         "Do an nslookup on cloudflare.com",
         "Resolve the A record for example.com",
+        "What is the IP address of google.com",
+        "Resolve-DnsName github.com -Type A",
+        "host github.com",
+        "powershell -Command \"$ip = [System.Net.Dns]::GetHostAddresses('github.com'); $ip | ForEach-Object { $_.Address }\"",
     ];
     for q in &queries {
         let topic = preferred_host_inspection_topic(q);
         assert_eq!(topic, Some("dns_lookup"), "Expected dns_lookup for: {q}");
     }
+}
+
+#[test]
+fn test_all_host_topics_prefers_dns_lookup_over_network_for_domain_ip_questions() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics = all_host_inspection_topics("What is the IP address of google.com");
+    assert!(
+        topics.contains(&"dns_lookup"),
+        "expected dns_lookup; got: {topics:?}"
+    );
+    assert!(
+        !topics.contains(&"network"),
+        "did not expect generic network fallback; got: {topics:?}"
+    );
 }

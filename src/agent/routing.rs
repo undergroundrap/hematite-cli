@@ -819,6 +819,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_dns_lookup = lower.contains("dns lookup")
         || lower.contains("dns record")
         || lower.contains("nslookup")
+        || lower.contains("resolve-dnsname")
+        || lower.contains("gethostaddresses")
+        || lower.contains("gethostentry")
+        || lower.contains("[system.net.dns]")
+        || lower.contains("net.dns]")
         || lower.contains("look up ")
         || lower.contains("look up the")
         || lower.contains("resolve ")
@@ -829,7 +834,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("aaaa record")
         || lower.contains("cname record")
         || lower.contains(" dig ")
+        || lower.starts_with("host ")
         || (lower.contains("what") && lower.contains("ip") && lower.contains("for"))
+        || (lower.contains("ip address") && lower.contains(" of "))
         || (lower.contains("resolve")
             && (lower.contains("hostname") || lower.contains("domain") || lower.contains("name")))
         || (lower.contains("lookup")
@@ -1822,7 +1829,13 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("dns record")
                 || l.contains("dns query")
                 || l.contains("nslookup")
+                || l.contains("resolve-dnsname")
+                || l.contains("gethostaddresses")
+                || l.contains("gethostentry")
+                || l.contains("[system.net.dns]")
                 || l.contains(" dig ")
+                || l.starts_with("host ")
+                || (l.contains("ip address") && l.contains(" of "))
                 || l.contains("srv record")
                 || l.contains("mx record")
         }),
@@ -2155,10 +2168,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("dns lookup")
                 || l.contains("dns record")
                 || l.contains("nslookup")
+                || l.contains("resolve-dnsname")
+                || l.contains("gethostaddresses")
+                || l.contains("gethostentry")
                 || l.contains("mx record")
                 || l.contains("srv record")
                 || l.contains("look up ")
                 || l.contains(" dig ")
+                || l.starts_with("host ")
+                || (l.contains("ip address") && l.contains(" of "))
                 || (l.contains("resolve") && (l.contains("hostname") || l.contains("domain")))
         }),
         ("pending_reboot", |l| {
@@ -2189,7 +2207,12 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("user") && l.contains("sid"))
         }),
         ("dns_lookup", |l| {
-            l.contains("dns") && (l.contains("lookup") || l.contains("srv") || l.contains("mx"))
+            (l.contains("dns") && (l.contains("lookup") || l.contains("srv") || l.contains("mx")))
+                || l.contains("resolve-dnsname")
+                || l.contains("gethostaddresses")
+                || l.contains("gethostentry")
+                || l.starts_with("host ")
+                || (l.contains("ip address") && l.contains(" of "))
         }),
         ("hyperv", |l| {
             l.contains("hyper-v")
@@ -2613,6 +2636,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         topics.retain(|topic| *topic != "storage");
     }
     if topics.contains(&"lan_discovery") {
+        topics.retain(|topic| *topic != "network");
+    }
+    if topics.contains(&"dns_lookup") {
         topics.retain(|topic| *topic != "network");
     }
     if topics.contains(&"audio") {

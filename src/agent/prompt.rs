@@ -335,6 +335,7 @@ impl SystemPromptBuilder {
             "For Windows network location profile (Public/Private/Domain), per-interface network category, or firewall profile assignment, prefer `inspect_host(topic='network_profile')`. ",
             "For active DNS resolution of a specific hostname, MX/SRV/TXT/A/AAAA record lookups, or nslookup-style queries, prefer `inspect_host(topic='dns_lookup', name='hostname.example.com', type='A')`. ",
             "For active DNS resolution of a specific hostname (like a dig/nslookup), prefer `inspect_host(topic='dns_lookup', name='hostname.example.com')`. ",
+            "For DNS record questions, stay on `dns_lookup`; do not fall back to `ping`, `Invoke-WebRequest`, public DoH endpoints, or browser searches. ",
             "For full IP adapter detail including DHCP status and DNS per adapter (ipconfig /all equivalent), prefer `inspect_host(topic='ip_config')`. ",
             "Do not tell users to run Hematite as Administrator by default. Suggest elevation only when the topic is known to return partial results without admin and the observed output explicitly shows access denied, privilege limits, or indeterminate provider access. ",
             "(1) FIRST call inspect_host with the most relevant topic(s) to observe the actual machine state — e.g. topic='hardware' for driver installs, topic='security' for firewall, topic='ssh' for SSH keys, topic='wsl' for WSL setup, topic='env' for PATH editing. ",

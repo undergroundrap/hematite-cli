@@ -1484,8 +1484,21 @@ impl ConversationManager {
                     serde_json::json!({ "topic": topic })
                 };
 
-                // Surgical Argument Extraction for redirected shell payloads (Robust "Wide Net" version)
-                if topic == "ad_user" || topic == "dns_lookup" {
+                // Surgical Argument Extraction for redirected shell payloads.
+                if topic == "dns_lookup" {
+                    if let Some(identity) = extract_dns_lookup_target_from_shell(command) {
+                        redirect_args.as_object_mut().unwrap().insert(
+                            "name".to_string(),
+                            serde_json::Value::String(identity),
+                        );
+                    }
+                    if let Some(record_type) = extract_dns_record_type_from_shell(command) {
+                        redirect_args.as_object_mut().unwrap().insert(
+                            "type".to_string(),
+                            serde_json::Value::String(record_type.to_string()),
+                        );
+                    }
+                } else if topic == "ad_user" {
                     let cmd_lower = command.to_lowercase();
                     let mut identity = String::new();
 
@@ -2191,10 +2204,9 @@ impl ConversationManager {
                     let response = if topics.len() >= 2 {
                         let mut combined = Vec::new();
                         for topic in topics {
+                            let args = host_inspection_args_from_prompt(topic, &effective_user_input);
                             let output =
-                                crate::tools::host_inspect::inspect_host(&serde_json::json!({
-                                    "topic": topic,
-                                }))
+                                crate::tools::host_inspect::inspect_host(&args)
                                 .await
                                 .unwrap_or_else(|e| format!("Error (topic {topic}): {e}"));
                             combined.push(format!("# Topic: {topic}\n{output}"));
@@ -2203,9 +2215,8 @@ impl ConversationManager {
                     } else {
                         let topic = preferred_host_inspection_topic(&effective_user_input)
                             .unwrap_or("summary");
-                        crate::tools::host_inspect::inspect_host(&serde_json::json!({
-                            "topic": topic,
-                        }))
+                        let args = host_inspection_args_from_prompt(topic, &effective_user_input);
+                        crate::tools::host_inspect::inspect_host(&args)
                         .await
                         .unwrap_or_else(|e| format!("Error: {e}"))
                     };
@@ -2460,6 +2471,7 @@ impl ConversationManager {
                  - OneDrive sync / Files On-Demand / Known Folder Backup / SharePoint sync roots -> `onedrive`\n\
                  - Credential Manager / stored Windows credentials / saved passwords / cmdkey vault hygiene -> `credentials`\n\
                  - TPM / Secure Boot / firmware mode / Windows 11 readiness -> `tpm`\n\
+                 - DNS A/AAAA/MX/SRV/TXT record lookups must stay on `dns_lookup`; do NOT use `ping`, `Invoke-WebRequest`, public DNS-over-HTTPS endpoints, or browser searches as substitutes.\n\
                  Only use `shell` if the question truly cannot be answered by any topic above.\n\
                  NEVER tell the user to run PowerShell, cmd, or shell commands themselves. If the data is incomplete, say so and tell them to ask a more specific question instead.\n\
                  NEVER expose internal tool names or API syntax (like `inspect_host(topic=...)`) in your response. Refer to capabilities in plain English: say 'ask me for a fix plan' not 'run inspect_host(topic=fix_plan)'.\n"
@@ -2691,7 +2703,11 @@ impl ConversationManager {
 
                 for topic in &topics {
                     let call_id = format!("prerun_{topic}");
-                    let args_val = serde_json::json!({ "topic": *topic, "max_entries": 20 });
+                    let mut args_val = host_inspection_args_from_prompt(topic, &effective_user_input);
+                    args_val
+                        .as_object_mut()
+                        .unwrap()
+                        .insert("max_entries".to_string(), Value::from(20));
                     let args_str = serde_json::to_string(&args_val).unwrap_or_default();
 
                     tool_calls.push(crate::agent::inference::ToolCallResponse {
@@ -4407,6 +4423,71 @@ fn fill_missing_fix_plan_issue(tool_name: &str, args: &mut Value, fallback_issue
     );
 }
 
+fn fill_missing_dns_lookup_name(tool_name: &str, args: &mut Value, latest_user_prompt: Option<&str>) {
+    if tool_name != "inspect_host" {
+        return;
+    }
+
+    let Some(topic) = args.get("topic").and_then(|v| v.as_str()) else {
+        return;
+    };
+    if topic != "dns_lookup" {
+        return;
+    }
+
+    let name_missing = args
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .is_none_or(|value| value.is_empty());
+    if !name_missing {
+        return;
+    }
+
+    let Some(prompt) = latest_user_prompt else {
+        return;
+    };
+    let Some(name) = extract_dns_lookup_target_from_text(prompt) else {
+        return;
+    };
+
+    let Value::Object(map) = args else {
+        return;
+    };
+    map.insert("name".to_string(), Value::String(name));
+}
+
+fn fill_missing_dns_lookup_type(tool_name: &str, args: &mut Value, latest_user_prompt: Option<&str>) {
+    if tool_name != "inspect_host" {
+        return;
+    }
+
+    let Some(topic) = args.get("topic").and_then(|v| v.as_str()) else {
+        return;
+    };
+    if topic != "dns_lookup" {
+        return;
+    }
+
+    let type_missing = args
+        .get("type")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .is_none_or(|value| value.is_empty());
+    if !type_missing {
+        return;
+    }
+
+    let record_type = latest_user_prompt
+        .and_then(extract_dns_record_type_from_text)
+        .unwrap_or("A");
+
+    let Value::Object(map) = args else {
+        return;
+    };
+    map.insert("type".to_string(), Value::String(record_type.to_string()));
+}
+
 fn should_rewrite_shell_to_fix_plan(
     tool_name: &str,
     args: &Value,
@@ -4433,6 +4514,174 @@ fn extract_release_arg(command: &str, flag: &str) -> Option<String> {
     let regex = regex::Regex::new(&pattern).ok()?;
     let captures = regex.captures(command)?;
     captures.get(1).map(|m| m.as_str().to_string())
+}
+
+fn clean_shell_dns_token(token: &str) -> String {
+    token
+        .trim_matches(|c: char| {
+            c.is_whitespace()
+                || matches!(
+                    c,
+                    '\'' | '"' | '(' | ')' | '[' | ']' | '{' | '}' | ';' | ',' | '`'
+                )
+        })
+        .trim_end_matches(|c: char| matches!(c, ':' | '.'))
+        .to_string()
+}
+
+fn looks_like_dns_target(token: &str) -> bool {
+    let cleaned = clean_shell_dns_token(token);
+    if cleaned.is_empty() {
+        return false;
+    }
+
+    let lower = cleaned.to_ascii_lowercase();
+    if matches!(
+        lower.as_str(),
+        "a"
+            | "aaaa"
+            | "mx"
+            | "srv"
+            | "txt"
+            | "cname"
+            | "ptr"
+            | "soa"
+            | "any"
+            | "resolve-dnsname"
+            | "nslookup"
+            | "host"
+            | "dig"
+            | "powershell"
+            | "-command"
+            | "foreach-object"
+            | "select-object"
+            | "address"
+            | "ipaddress"
+            | "name"
+            | "type"
+    ) {
+        return false;
+    }
+
+    if lower == "localhost" || cleaned.parse::<std::net::IpAddr>().is_ok() {
+        return true;
+    }
+
+    cleaned.contains('.')
+        && cleaned.chars().all(|c| {
+            c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | ':' | '%' | '*')
+        })
+}
+
+fn extract_dns_lookup_target_from_shell(command: &str) -> Option<String> {
+    for pattern in [
+        r#"(?i)-name\s+['"]?([^'"\s;()]+)['"]?"#,
+        r#"(?i)(?:gethostaddresses|gethostentry)\s*\(\s*['"]([^'"]+)['"]\s*\)"#,
+        r#"(?i)\b(?:resolve-dnsname|nslookup|host|dig)\s+['"]?([^'"\s;()]+)['"]?"#,
+    ] {
+        let regex = regex::Regex::new(pattern).ok()?;
+        if let Some(value) = regex
+            .captures(command)
+            .and_then(|captures| captures.get(1).map(|m| clean_shell_dns_token(m.as_str())))
+            .filter(|value| looks_like_dns_target(value))
+        {
+            return Some(value);
+        }
+    }
+
+    let quoted = regex::Regex::new(r#"['"]([^'"]+)['"]"#).ok()?;
+    for captures in quoted.captures_iter(command) {
+        let candidate = clean_shell_dns_token(captures.get(1)?.as_str());
+        if looks_like_dns_target(&candidate) {
+            return Some(candidate);
+        }
+    }
+
+    command
+        .split_whitespace()
+        .map(clean_shell_dns_token)
+        .find(|token| looks_like_dns_target(token))
+}
+
+fn extract_dns_lookup_target_from_text(text: &str) -> Option<String> {
+    let quoted = regex::Regex::new(r#"['"]([^'"]+)['"]"#).ok()?;
+    for captures in quoted.captures_iter(text) {
+        let candidate = clean_shell_dns_token(captures.get(1)?.as_str());
+        if looks_like_dns_target(&candidate) {
+            return Some(candidate);
+        }
+    }
+
+    text.split_whitespace()
+        .map(clean_shell_dns_token)
+        .find(|token| looks_like_dns_target(token))
+}
+
+fn extract_dns_record_type_from_text(text: &str) -> Option<&'static str> {
+    let lower = text.to_ascii_lowercase();
+    if lower.contains("aaaa record") || lower.contains("ipv6 address") {
+        Some("AAAA")
+    } else if lower.contains("mx record") {
+        Some("MX")
+    } else if lower.contains("srv record") {
+        Some("SRV")
+    } else if lower.contains("txt record") {
+        Some("TXT")
+    } else if lower.contains("cname record") {
+        Some("CNAME")
+    } else if lower.contains("soa record") {
+        Some("SOA")
+    } else if lower.contains("ptr record") {
+        Some("PTR")
+    } else if lower.contains("a record")
+        || (lower.contains("ip address") && lower.contains(" of "))
+        || (lower.contains("what") && lower.contains("ip") && lower.contains("for"))
+    {
+        Some("A")
+    } else {
+        None
+    }
+}
+
+fn extract_dns_record_type_from_shell(command: &str) -> Option<&'static str> {
+    let lower = command.to_ascii_lowercase();
+    if lower.contains("-type aaaa") || lower.contains("-type=aaaa") {
+        Some("AAAA")
+    } else if lower.contains("-type mx") || lower.contains("-type=mx") {
+        Some("MX")
+    } else if lower.contains("-type srv") || lower.contains("-type=srv") {
+        Some("SRV")
+    } else if lower.contains("-type txt") || lower.contains("-type=txt") {
+        Some("TXT")
+    } else if lower.contains("-type cname") || lower.contains("-type=cname") {
+        Some("CNAME")
+    } else if lower.contains("-type soa") || lower.contains("-type=soa") {
+        Some("SOA")
+    } else if lower.contains("-type ptr") || lower.contains("-type=ptr") {
+        Some("PTR")
+    } else if lower.contains("-type a") || lower.contains("-type=a") {
+        Some("A")
+    } else {
+        extract_dns_record_type_from_text(command)
+    }
+}
+
+fn host_inspection_args_from_prompt(topic: &str, prompt: &str) -> Value {
+    let mut args = serde_json::json!({ "topic": topic });
+    if topic == "dns_lookup" {
+        if let Some(name) = extract_dns_lookup_target_from_text(prompt) {
+            args.as_object_mut().unwrap().insert(
+                "name".to_string(),
+                Value::String(name),
+            );
+        }
+        let record_type = extract_dns_record_type_from_text(prompt).unwrap_or("A");
+        args.as_object_mut().unwrap().insert(
+            "type".to_string(),
+            Value::String(record_type.to_string()),
+        );
+    }
+    args
 }
 
 fn infer_maintainer_workflow_args_from_prompt(prompt: &str) -> Option<Value> {
@@ -4765,6 +5014,8 @@ fn rewrite_host_tool_call(
         });
     }
     fill_missing_fix_plan_issue(tool_name, args, latest_user_prompt);
+    fill_missing_dns_lookup_name(tool_name, args, latest_user_prompt);
+    fill_missing_dns_lookup_type(tool_name, args, latest_user_prompt);
 }
 
 fn canonical_tool_call_key(tool_name: &str, args: &Value) -> String {
@@ -5599,6 +5850,13 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "netsh wlan show",
         "test-netconnection",
         "resolve-dnsname",
+        "nslookup",
+        "dig ",
+        "gethostentry",
+        "gethostaddresses",
+        "getipaddresses",
+        "[system.net.dns]",
+        "net.dns]",
         "get-netfirewallrule",
         // docker / wsl / ssh — always use inspect_host
         "docker ps",
@@ -5673,6 +5931,7 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
     ]
     .iter()
     .any(|needle| lower.contains(needle))
+        || lower.starts_with("host ")
 }
 
 // Moved strip_think_blocks to inference.rs
@@ -6353,6 +6612,110 @@ mod tests {
         assert!(shell_looks_like_structured_host_inspection(
             "Confirm-SecureBootUEFI"
         ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "host github.com"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "powershell -Command \"$ip = [System.Net.Dns]::GetHostAddresses('github.com'); $ip | ForEach-Object { $_.Address }\""
+        ));
+    }
+
+    #[test]
+    fn dns_shell_target_extraction_handles_common_lookup_forms() {
+        assert_eq!(
+            extract_dns_lookup_target_from_shell("host github.com").as_deref(),
+            Some("github.com")
+        );
+        assert_eq!(
+            extract_dns_lookup_target_from_shell(
+                "powershell -Command \"Resolve-DnsName -Name github.com -Type A\""
+            )
+            .as_deref(),
+            Some("github.com")
+        );
+        assert_eq!(
+            extract_dns_lookup_target_from_shell(
+                "powershell -Command \"$ip = [System.Net.Dns]::GetHostAddresses('github.com'); $ip | ForEach-Object { $_.Address }\""
+            )
+            .as_deref(),
+            Some("github.com")
+        );
+    }
+
+    #[test]
+    fn dns_prompt_target_extraction_handles_plain_english_questions() {
+        assert_eq!(
+            extract_dns_lookup_target_from_text("Show me the A record for github.com").as_deref(),
+            Some("github.com")
+        );
+        assert_eq!(
+            extract_dns_lookup_target_from_text("What is the IP address of google.com").as_deref(),
+            Some("google.com")
+        );
+    }
+
+    #[test]
+    fn dns_record_type_extraction_handles_prompt_and_shell_forms() {
+        assert_eq!(
+            extract_dns_record_type_from_text("Show me the A record for github.com"),
+            Some("A")
+        );
+        assert_eq!(
+            extract_dns_record_type_from_text("What is the IP address of google.com"),
+            Some("A")
+        );
+        assert_eq!(
+            extract_dns_record_type_from_text("Resolve the MX record for example.com"),
+            Some("MX")
+        );
+        assert_eq!(
+            extract_dns_record_type_from_shell(
+                "powershell -Command \"Resolve-DnsName -Name github.com -Type A\""
+            ),
+            Some("A")
+        );
+        assert_eq!(
+            extract_dns_record_type_from_shell("nslookup -type=mx example.com"),
+            Some("MX")
+        );
+    }
+
+    #[test]
+    fn fill_missing_dns_lookup_name_backfills_from_latest_user_prompt() {
+        let mut tool_name = "inspect_host".to_string();
+        let mut args = serde_json::json!({
+            "topic": "dns_lookup"
+        });
+        rewrite_host_tool_call(
+            &mut tool_name,
+            &mut args,
+            Some("Show me the A record for github.com"),
+        );
+        assert_eq!(tool_name, "inspect_host");
+        assert_eq!(
+            args.get("name").and_then(|value| value.as_str()),
+            Some("github.com")
+        );
+        assert_eq!(
+            args.get("type").and_then(|value| value.as_str()),
+            Some("A")
+        );
+    }
+
+    #[test]
+    fn host_inspection_args_from_prompt_populates_dns_lookup_fields() {
+        let args = host_inspection_args_from_prompt(
+            "dns_lookup",
+            "What is the IP address of google.com",
+        );
+        assert_eq!(
+            args.get("name").and_then(|value| value.as_str()),
+            Some("google.com")
+        );
+        assert_eq!(
+            args.get("type").and_then(|value| value.as_str()),
+            Some("A")
+        );
     }
 
     #[test]

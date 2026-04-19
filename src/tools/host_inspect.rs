@@ -170,7 +170,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         }
         "dns_lookup" | "dig" | "nslookup" => {
             let name = parse_name_filter(args).unwrap_or_default();
-            let record_type = args.get("type").and_then(|v| v.as_str()).unwrap_or("SRV");
+            let record_type = args.get("type").and_then(|v| v.as_str()).unwrap_or("A");
             inspect_dns_lookup(&name, record_type)
         }
         "hyperv" | "hyper-v" | "vms" => inspect_hyperv(),
