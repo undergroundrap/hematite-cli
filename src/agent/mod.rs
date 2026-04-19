@@ -11,6 +11,7 @@ pub mod hooks;
 pub mod inference;
 pub mod instructions;
 pub mod lsp;
+pub mod edge_redact;
 pub mod mcp;
 pub mod mcp_manager;
 pub mod mcp_server;

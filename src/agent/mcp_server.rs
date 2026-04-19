@@ -21,9 +21,9 @@ const PROTOCOL_VERSION: &str = "2024-11-05";
 const SERVER_NAME: &str = "hematite";
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub async fn run_mcp_server() -> anyhow::Result<()> {
+pub async fn run_mcp_server(edge_redact: bool) -> anyhow::Result<()> {
     eprintln!(
-        "[hematite mcp] server v{SERVER_VERSION} started (protocol {PROTOCOL_VERSION})"
+        "[hematite mcp] server v{SERVER_VERSION} started (protocol {PROTOCOL_VERSION}, edge-redact: {edge_redact})"
     );
 
     let stdin = tokio::io::stdin();
@@ -104,14 +104,21 @@ pub async fn run_mcp_server() -> anyhow::Result<()> {
                     let params = msg.get("params").cloned().unwrap_or(Value::Null);
                     let result = dispatch_tool_call(&params).await;
                     let resp = match result {
-                        Ok(text) => json!({
-                            "jsonrpc": "2.0",
-                            "id": id,
-                            "result": {
-                                "content": [{ "type": "text", "text": text }],
-                                "isError": false
-                            }
-                        }),
+                        Ok(text) => {
+                            let output = if edge_redact {
+                                crate::agent::edge_redact::apply(&text)
+                            } else {
+                                text
+                            };
+                            json!({
+                                "jsonrpc": "2.0",
+                                "id": id,
+                                "result": {
+                                    "content": [{ "type": "text", "text": output }],
+                                    "isError": false
+                                }
+                            })
+                        }
                         Err(e) => json!({
                             "jsonrpc": "2.0",
                             "id": id,

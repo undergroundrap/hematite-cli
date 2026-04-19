@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cockpit = CliCockpit::parse();
 
     if cockpit.mcp_server {
-        hematite::agent::mcp_server::run_mcp_server().await?;
+        hematite::agent::mcp_server::run_mcp_server(cockpit.edge_redact).await?;
         return Ok(());
     }
 

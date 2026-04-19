@@ -160,6 +160,12 @@ pub struct CliCockpit {
     )]
     pub mcp_server: bool,
 
+    #[arg(
+        long,
+        help = "Enable edge redaction in MCP server mode — strips usernames, MACs, serial numbers, hostnames, and credentials before responses leave the machine"
+    )]
+    pub edge_redact: bool,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

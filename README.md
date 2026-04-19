@@ -1,6 +1,6 @@
 # hematite
 
-> **Hematite is a Local Intelligence Backend** — Beyond the terminal session: run `hematite --mcp-server` and Hematite becomes an **MCP server**, exposing its 116+ host inspection tools to any MCP-capable agent — Claude Desktop, OpenClaw, Cursor, Windsurf, and any client that speaks the Model Context Protocol. Your local machine becomes queryable from your entire AI stack. One binary. No cloud. Grounded answers from real machine state. Every agent that connects gets the same high-fidelity diagnostic layer Hematite delivers in the terminal.
+> **Hematite is a Local Intelligence Backend** — Beyond the terminal session: run `hematite --mcp-server` and Hematite becomes an **MCP server**, exposing its 116+ host inspection tools to any MCP-capable agent — Claude Desktop, OpenClaw, Cursor, Windsurf, and any client that speaks the Model Context Protocol. Add `--edge-redact` and Hematite acts as a **privacy gateway**: usernames, MAC addresses, serial numbers, hostnames, and credential-shaped values are stripped locally before the response crosses the wire — so enterprises and security-conscious operators get frontier model reasoning without raw machine identity data leaving the device. One binary. No cloud dependency. Grounded answers from real machine state.
 
 **Your RTX 4070 is a serious machine. Hematite is its local AI layer — coding harness, SysAdmin, Network Admin, and host intelligence backend, all in one terminal binary.**
 

@@ -323,6 +323,31 @@ This starts a JSON-RPC 2.0 newline-delimited stdio server. No TUI launches. Prot
 
 **Implementation:** `src/agent/mcp_server.rs` — stdio reader loop, JSON-RPC dispatch, delegates to `crate::tools::host_inspect::inspect_host()`.
 
+### Edge Redaction
+
+Add `--edge-redact` to strip sensitive identifiers before any response leaves the machine:
+
+```powershell
+hematite --mcp-server --edge-redact
+```
+
+Patterns sanitized before the cloud agent sees the output:
+- Usernames in file paths (`C:\Users\<name>\` → `C:\Users\[USER]\`)
+- MAC addresses → `[MAC]`
+- Hardware / disk serial numbers → `[SERIAL]`
+- Hostnames and computer names → `[HOSTNAME]`
+- AWS access key IDs → `[AWS-KEY]`
+- Credential-shaped env values (API keys, tokens, passwords) → `[REDACTED]`
+
+Every response includes a receipt header the cloud model can read:
+```
+[edge-redact: 4 substitution(s) — username-path ×4 — values replaced before leaving this machine]
+```
+
+**Use case:** enterprises and security-conscious operators who want frontier model reasoning (Claude Desktop, OpenClaw) without raw machine identifiers crossing the wire. The local machine provides grounded observations; the cloud model reasons about them — but never sees the raw identity data.
+
+**Implementation:** `src/agent/edge_redact.rs` — `lazy_static!` compiled regex patterns, `redact()` returns count by category, `apply()` prepends the receipt header.
+
 ## MCP Configuration
 
 Hematite loads stdio MCP servers from:
