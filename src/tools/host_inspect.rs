@@ -233,8 +233,12 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             let level = args.get("level").and_then(|v| v.as_str()).map(|s| s.to_string());
             inspect_event_query(event_id, log_name.as_deref(), source.as_deref(), hours, level.as_deref(), max_entries)
         }
+        "app_crashes" | "application_crashes" | "app_errors" | "application_errors" | "faulting_application" => {
+            let process_filter = args.get("process").and_then(|v| v.as_str()).map(|s| s.to_string());
+            inspect_app_crashes(process_filter.as_deref(), max_entries)
+        }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query.",
             other
         )),
 
@@ -11967,6 +11971,177 @@ try {{
         let _ = (event_id, log_name, source, hours, level, max_entries);
         Ok("Host inspection: event_query\n\n=== Findings ===\n- Event log query is Windows-only.\n".into())
     }
+}
+
+// ── app_crashes ───────────────────────────────────────────────────────────────
+
+fn inspect_app_crashes(process_filter: Option<&str>, max_entries: usize) -> Result<String, String> {
+    let n = max_entries.clamp(5, 50);
+    let mut findings: Vec<String> = Vec::new();
+    let mut sections = String::new();
+
+    #[cfg(target_os = "windows")]
+    {
+        let proc_filter_ps = match process_filter {
+            Some(proc) => format!(
+                "| Where-Object {{ $_.Message -match [regex]::Escape('{}') }}",
+                proc.replace('\'', "''")
+            ),
+            None => String::new(),
+        };
+
+        let ps = format!(
+            r#"
+$results = @()
+try {{
+    $events = Get-WinEvent -FilterHashtable @{{LogName='Application'; Id=1000,1002}} -MaxEvents {n} -ErrorAction SilentlyContinue {proc_filter_ps}
+    if ($events) {{
+        foreach ($e in $events) {{
+            $msg  = $e.Message
+            $app  = if ($msg -match 'Faulting application name: ([^\r\n,]+)') {{ $Matches[1].Trim() }} else {{ 'Unknown' }}
+            $ver  = if ($msg -match 'Faulting application version: ([^\r\n,]+)') {{ $Matches[1].Trim() }} else {{ '' }}
+            $mod  = if ($msg -match 'Faulting module name: ([^\r\n,]+)') {{ $Matches[1].Trim() }} else {{ '' }}
+            $exc  = if ($msg -match 'Exception code: (0x[0-9a-fA-F]+)') {{ $Matches[1].Trim() }} else {{ '' }}
+            $type = if ($e.Id -eq 1002) {{ 'HANG' }} else {{ 'CRASH' }}
+            $results += "$($e.TimeCreated.ToString('yyyy-MM-dd HH:mm'))|$type|$app|$ver|$mod|$exc"
+        }}
+        $results
+    }} else {{ 'NONE' }}
+}} catch {{ 'ERROR:' + $_.Exception.Message }}
+"#
+        );
+
+        let raw = ps_exec(&ps);
+        let text = raw.trim();
+
+        // WER archive count (non-blocking best-effort)
+        let wer_ps = r#"
+$wer = "$env:LOCALAPPDATA\Microsoft\Windows\WER"
+$count = 0
+if (Test-Path $wer) {
+    $count = (Get-ChildItem -Path $wer -Recurse -Filter '*.wer' -ErrorAction SilentlyContinue).Count
+}
+$count
+"#;
+        let wer_count: usize = ps_exec(wer_ps).trim().parse().unwrap_or(0);
+
+        if text == "NONE" {
+            sections.push_str("=== Application crashes ===\n- No application crashes or hangs in recent event log.\n");
+        } else if text.starts_with("ERROR:") {
+            let msg = text.trim_start_matches("ERROR:").trim();
+            sections.push_str(&format!(
+                "=== Application crashes ===\n- Unable to query Application event log: {msg}\n"
+            ));
+        } else {
+            let events: Vec<&str> = text.lines().filter(|l| l.contains('|')).collect();
+            let crash_count = events
+                .iter()
+                .filter(|l| l.splitn(3, '|').nth(1) == Some("CRASH"))
+                .count();
+            let hang_count = events
+                .iter()
+                .filter(|l| l.splitn(3, '|').nth(1) == Some("HANG"))
+                .count();
+
+            // Tally crashes per app
+            let mut app_counts: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
+            for line in &events {
+                let parts: Vec<&str> = line.splitn(6, '|').collect();
+                if parts.len() >= 3 {
+                    *app_counts.entry(parts[2].to_string()).or_insert(0) += 1;
+                }
+            }
+
+            if crash_count > 0 {
+                findings.push(format!(
+                    "{crash_count} application crash event(s) — review below for faulting app and exception code."
+                ));
+            }
+            if hang_count > 0 {
+                findings.push(format!(
+                    "{hang_count} application hang event(s) — process stopped responding."
+                ));
+            }
+            if let Some((top_app, &count)) = app_counts.iter().max_by_key(|(_, c)| *c) {
+                if count > 1 {
+                    findings.push(format!(
+                        "Most-crashed application: {top_app} ({count} events) — may indicate corrupted install or incompatible module."
+                    ));
+                }
+            }
+            if wer_count > 10 {
+                findings.push(format!(
+                    "{wer_count} WER reports archived — elevated crash history on this machine."
+                ));
+            }
+
+            let filter_note = match process_filter {
+                Some(p) => format!(" (filtered: {p})"),
+                None => String::new(),
+            };
+            sections.push_str(&format!(
+                "=== Application crashes and hangs{filter_note} ===\n"
+            ));
+
+            for line in &events {
+                let parts: Vec<&str> = line.splitn(6, '|').collect();
+                if parts.len() >= 6 {
+                    let time = parts[0];
+                    let kind = parts[1];
+                    let app = parts[2];
+                    let ver = parts[3];
+                    let module = parts[4];
+                    let exc = parts[5];
+                    let ver_note = if !ver.is_empty() {
+                        format!(" v{ver}")
+                    } else {
+                        String::new()
+                    };
+                    sections.push_str(&format!("  [{time}] {kind}: {app}{ver_note}\n"));
+                    if !module.is_empty() && module != "?" {
+                        let exc_note = if !exc.is_empty() {
+                            format!(" (exc {exc})")
+                        } else {
+                            String::new()
+                        };
+                        sections.push_str(&format!(
+                            "    faulting module: {module}{exc_note}\n"
+                        ));
+                    } else if !exc.is_empty() {
+                        sections.push_str(&format!("    exception: {exc}\n"));
+                    }
+                }
+            }
+            sections.push_str(&format!(
+                "\n  Total: {crash_count} crash(es), {hang_count} hang(s)\n"
+            ));
+
+            if wer_count > 0 {
+                sections.push_str(&format!(
+                    "\n=== Windows Error Reporting ===\n  WER archive: {wer_count} report(s) in %LOCALAPPDATA%\\Microsoft\\Windows\\WER\n"
+                ));
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (process_filter, n);
+        sections.push_str("=== Application crashes ===\n- Windows-only (uses Application Event Log, Event IDs 1000/1002).\n");
+    }
+
+    let mut result = String::from("Host inspection: app_crashes\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- No actionable findings.\n");
+    } else {
+        for f in &findings {
+            result.push_str(&format!("- Finding: {f}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&sections);
+    Ok(result.trim_end().to_string())
 }
 
 #[cfg(target_os = "windows")]

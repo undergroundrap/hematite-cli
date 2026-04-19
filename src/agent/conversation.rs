@@ -2476,6 +2476,7 @@ impl ConversationManager {
                  - Windows backup posture / File History / wbadmin last backup / System Restore points / OneDrive KFM -> `windows_backup`\n\
                  - Hyper-V role state / list VMs / VM RAM and CPU / VM network switches / VM checkpoints / VMMS service -> `hyperv`\n\
                  - Search Windows Event Log by Event ID / source / level / time window (e.g. Event ID 4625 failed logon, 7034 service crash, 41 unexpected shutdown) -> `event_query` with args event_id, log, source, level, hours\n\
+                 - Application crashes / hangs / faulting module / exception code / WER archive / which app crashed -> `app_crashes`; optional process arg to filter by name\n\
                  - Credential Manager / stored Windows credentials / saved passwords / cmdkey vault hygiene -> `credentials`\n\
                  - TPM / Secure Boot / firmware mode / Windows 11 readiness -> `tpm`\n\
                  - DNS A/AAAA/MX/SRV/TXT record lookups must stay on `dns_lookup`; do NOT use `ping`, `Invoke-WebRequest`, public DNS-over-HTTPS endpoints, or browser searches as substitutes.\n\

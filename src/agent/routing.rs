@@ -1303,6 +1303,41 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("charge level")
         || lower.contains("how long until")
         || (lower.contains("dying") && lower.contains("batter"));
+    let asks_app_crashes = lower.contains("application crash")
+        || lower.contains("application error")
+        || lower.contains("application hang")
+        || lower.contains("app hang")
+        || lower.contains("faulting application")
+        || lower.contains("faulting module")
+        || lower.contains("exception code")
+        || lower.contains("windows error reporting")
+        || lower.contains("wer report")
+        || lower.contains("which app crashed")
+        || lower.contains("what app crashed")
+        || lower.contains("what crashed")
+        || lower.contains("app crash history")
+        || lower.contains("application crash log")
+        || lower.contains("apps crashing")
+        || lower.contains("apps have been crashing")
+        || lower.contains("applications crashing")
+        || lower.contains("applications have been crashing")
+        || lower.contains("what applications crashed")
+        || lower.contains("which applications crashed")
+        || lower.contains("what applications have been crashing")
+        || lower.contains("which applications have been crashing")
+        || (lower.contains("applications") && lower.contains("crashing"))
+        || (lower.contains("apps") && lower.contains("crashing"))
+        || (lower.contains("crash") && lower.contains("program"))
+        || (lower.contains("crash")
+            && (lower.contains("chrome")
+                || lower.contains("edge")
+                || lower.contains("firefox")
+                || lower.contains("discord")
+                || lower.contains("steam")
+                || lower.contains("office")
+                || lower.contains("word")
+                || lower.contains("excel")
+                || lower.contains("photoshop")));
     let asks_recent_crashes = lower.contains("crash")
         || lower.contains("bsod")
         || lower.contains("blue screen")
@@ -1310,7 +1345,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("unexpected restart")
         || lower.contains("sudden restart")
         || lower.contains("kernel panic")
-        || lower.contains("app crash")
         || (lower.contains("restart") && lower.contains("itself"))
         || (lower.contains("restart") && lower.contains("by itself"));
     let asks_log_check = lower.contains("event log")
@@ -1883,6 +1917,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("disk_health")
     } else if asks_battery {
         Some("battery")
+    } else if asks_app_crashes {
+        Some("app_crashes")
     } else if asks_recent_crashes {
         Some("recent_crashes")
     } else if asks_log_check {
@@ -2480,6 +2516,20 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                     && (l.contains("drive") || l.contains("disk") || l.contains("ssd")))
         }),
         ("battery", |l| l.contains("battery")),
+        ("app_crashes", |l| {
+            l.contains("application crash")
+                || l.contains("application error")
+                || l.contains("app hang")
+                || l.contains("faulting application")
+                || l.contains("wer report")
+                || (l.contains("crash") && l.contains("program"))
+                || (l.contains("crash")
+                    && (l.contains("chrome")
+                        || l.contains("edge")
+                        || l.contains("firefox")
+                        || l.contains("discord")
+                        || l.contains("office")))
+        }),
         ("recent_crashes", |l| {
             l.contains("crash") || l.contains("bsod") || l.contains("blue screen")
         }),

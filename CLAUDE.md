@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **115+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **116+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -147,6 +147,7 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Drive SMART Health**: Use `topic: "disk_health"` for physical drive health via Get-PhysicalDisk and SMART failure prediction.
 - **Battery**: Use `topic: "battery"` for charge level, status, estimated runtime, and wear level — reports no battery gracefully on desktops.
 - **Crash History**: Use `topic: "recent_crashes"` for BSOD/unexpected shutdown events and application crash/hang events from the Windows event log.
+- **Application Crashes**: Use `topic: "app_crashes"` for detailed application crash and hang triage — faulting application name, version, faulting module, exception code, crash frequency, WER archive count. Accepts optional `process` arg to filter by app name (e.g. `process: "chrome.exe"`). Use `recent_crashes` for BSOD/kernel panics instead.
 - **Device Health**: Use `topic: "device_health"` for precision detection of malfunctioning hardware (PnP "Yellow Bangs") via ConfigManager error codes.
 - **Drivers**: Use `topic: "drivers"` for a comprehensive audit of active system drivers and their operational states.
 - **Peripherals**: Use `topic: "peripherals"` for a deep-dive into USB controllers, HID devices (Keyboard/Mouse), and connected monitors.

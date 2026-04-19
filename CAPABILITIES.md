@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 115+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Full OS stack coverage**: 116+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
@@ -98,6 +98,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Disk health** (`disk_health`) — physical drive health via Get-PhysicalDisk and SMART failure prediction
 - **Battery** (`battery`) — charge level, status, estimated runtime, wear level; reports gracefully on desktops
 - **Crash history** (`recent_crashes`) — BSOD/unexpected shutdown events and application crash/hang events from the Windows event log
+- **Application crashes** (`app_crashes`) — detailed application crash/hang triage: faulting app name, version, faulting module, exception code, crash frequency, WER archive count; optional `process` arg to filter by app name
 - **Scheduled tasks** (`scheduled_tasks`) — all non-disabled scheduled tasks with name, path, last run time, and executable
 - **Dev conflicts** (`dev_conflicts`) — cross-tool environment conflict detection: Node version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, duplicate PATH entries
 - **Path and toolchains** (`path`) — full PATH inspection with version detection for installed developer tools

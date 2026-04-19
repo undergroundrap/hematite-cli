@@ -3621,6 +3621,51 @@ fn test_inspect_host_event_query_reports_findings_and_sections() {
 }
 
 #[test]
+fn test_inspect_host_app_crashes_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "app_crashes" });
+        let output = inspect_host(&args).await.expect("app_crashes must return Ok");
+        assert!(
+            output.contains("Host inspection: app_crashes"),
+            "app_crashes output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_app_crashes_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "app_crashes" });
+        let output = inspect_host(&args).await.expect("app_crashes must return Ok");
+        let has_structure = output.contains("=== Findings ===")
+            && (output.contains("=== Application crashes")
+                || output.contains("No application crashes"));
+        assert!(
+            has_structure,
+            "app_crashes must have findings block and application crashes section; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_app_crashes_process_filter_accepted() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "app_crashes", "process": "chrome.exe" });
+        let output = inspect_host(&args).await.expect("app_crashes with process filter must return Ok");
+        assert!(
+            output.contains("Host inspection: app_crashes"),
+            "app_crashes with process filter must return valid output; got:\n{output}"
+        );
+    });
+}
+
+#[test]
 fn test_inspect_host_hyperv_reports_findings_and_sections() {
     use hematite::tools::host_inspect::inspect_host;
     let rt = tokio::runtime::Runtime::new().unwrap();

@@ -159,3 +159,36 @@ fn test_routing_hyperv_in_multi_topic() {
     assert!(topics.contains(&"hyperv"), "should detect hyperv");
     assert!(topics.contains(&"resource_load"), "should detect resource_load");
 }
+
+#[test]
+fn test_routing_detects_app_crashes_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("What applications have been crashing on this machine?"),
+        Some("app_crashes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Show me application crash history."),
+        Some("app_crashes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("What is the faulting application name from the last crash?"),
+        Some("app_crashes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("What programs crashed recently on this machine?"),
+        Some("app_crashes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Which apps keep crashing on this machine?"),
+        Some("app_crashes")
+    );
+}
+
+#[test]
+fn test_routing_app_crashes_in_multi_topic() {
+    let topics = all_host_inspection_topics(
+        "Show application crashes and check system resource load.",
+    );
+    assert!(topics.contains(&"app_crashes"), "should detect app_crashes");
+    assert!(topics.contains(&"resource_load"), "should detect resource_load");
+}

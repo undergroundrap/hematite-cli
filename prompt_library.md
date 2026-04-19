@@ -31,6 +31,16 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Crash and reboot history**
 > "Show me any BSOD or unexpected shutdown events from the last week, and tell me if a reboot is currently pending and why."
 
+**Application crash triage**
+> "What applications have been crashing on this machine? Show me the faulting module and exception code for each."
+
+**Per-app crash history**
+> "Has Chrome been crashing recently? Show me the faulting module and exception code."
+> *(Hematite calls: `inspect_host(topic='app_crashes', process='chrome.exe')`)*
+
+**WER archive and crash frequency**
+> "How many Windows Error Reporting archives do I have, and which application crashes the most?"
+
 ---
 
 ## Network Admin
