@@ -56,6 +56,11 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "browser_health" | "browser" | "webview2" | "default_browser" => {
             inspect_browser_health(max_entries)
         }
+        "identity_auth"
+        | "office_auth"
+        | "m365_auth"
+        | "microsoft_365_auth"
+        | "auth_broker" => inspect_identity_auth(max_entries),
         "outlook" | "outlook_health" | "ms_outlook" => inspect_outlook(max_entries),
         "teams" | "ms_teams" | "teams_health" => inspect_teams(max_entries),
         "windows_backup" | "backup" | "file_history" | "wbadmin" | "system_restore" => {
@@ -229,7 +234,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_event_query(event_id, log_name.as_deref(), source.as_deref(), hours, level.as_deref(), max_entries)
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query.",
             other
         )),
 
@@ -13954,6 +13959,338 @@ if ($events) {
 #[cfg(not(windows))]
 fn inspect_teams(_max_entries: usize) -> Result<String, String> {
     Ok("Host inspection: teams\n\n=== Findings ===\n- Teams health inspection is Windows-only.\n".into())
+}
+
+#[cfg(windows)]
+fn inspect_identity_auth(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("=== Identity broker services ===\n");
+
+    let ps_services = r#"
+$serviceNames = 'TokenBroker','wlidsvc','OneAuth'
+foreach ($name in $serviceNames) {
+    $svc = Get-CimInstance Win32_Service -Filter "Name='$name'" -ErrorAction SilentlyContinue
+    if ($svc) {
+        "$($svc.Name) | Status: $($svc.State) | StartMode: $($svc.StartMode)"
+    } else {
+        "$name | Not found"
+    }
+}
+"#;
+    match run_powershell(ps_services) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect identity broker services\n"),
+    }
+
+    out.push_str("\n=== Device registration ===\n");
+    let ps_device = r#"
+$dsreg = Get-Command dsregcmd.exe -ErrorAction SilentlyContinue
+if ($dsreg) {
+    try {
+        $raw = & $dsreg.Source /status 2>$null
+        $text = ($raw -join "`n")
+        $keys = 'AzureAdJoined','WorkplaceJoined','DomainJoined','DeviceAuthStatus','TenantName','AzureAdPrt','WamDefaultSet'
+        $seen = $false
+        foreach ($key in $keys) {
+            $match = [regex]::Match($text, '(?im)^\s*' + [regex]::Escape($key) + '\s*:\s*(.+)$')
+            if ($match.Success) {
+                "${key}: $($match.Groups[1].Value.Trim())"
+                $seen = $true
+            }
+        }
+        if (-not $seen) {
+            "DeviceRegistration: dsregcmd returned no recognizable registration fields (common on personal or unmanaged devices)"
+        }
+    } catch {
+        "DeviceRegistration: dsregcmd failed - $($_.Exception.Message)"
+    }
+} else {
+    "DeviceRegistration: dsregcmd unavailable"
+}
+"#;
+    match run_powershell(ps_device) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str(
+            "- DeviceRegistration: Could not inspect device registration state in this session\n",
+        ),
+    }
+
+    out.push_str("\n=== Broker packages and caches ===\n");
+    let ps_broker = r#"
+$pkg = Get-AppxPackage -Name 'Microsoft.AAD.BrokerPlugin' -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($pkg) {
+    "AADBrokerPlugin: Installed | Version: $($pkg.Version)"
+} else {
+    "AADBrokerPlugin: Not installed"
+}
+$tokenCache = Join-Path $env:LOCALAPPDATA 'Microsoft\TokenBroker\Cache'
+$tokenCount = if (Test-Path $tokenCache) { @(Get-ChildItem $tokenCache -File -Recurse -ErrorAction SilentlyContinue).Count } else { 0 }
+"TokenBrokerCacheFiles: $tokenCount"
+$identityCache = Join-Path $env:LOCALAPPDATA 'Microsoft\IdentityCache'
+$identityCount = if (Test-Path $identityCache) { @(Get-ChildItem $identityCache -File -Recurse -ErrorAction SilentlyContinue).Count } else { 0 }
+"IdentityCacheFiles: $identityCount"
+$oneAuth = Join-Path $env:LOCALAPPDATA 'Microsoft\OneAuth'
+$oneAuthCount = if (Test-Path $oneAuth) { @(Get-ChildItem $oneAuth -File -Recurse -ErrorAction SilentlyContinue).Count } else { 0 }
+"OneAuthFiles: $oneAuthCount"
+"#;
+    match run_powershell(ps_broker) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect identity broker packages or caches\n"),
+    }
+
+    out.push_str("\n=== Microsoft app account signals ===\n");
+    let ps_accounts = r#"
+function MaskEmail([string]$Email) {
+    if ([string]::IsNullOrWhiteSpace($Email) -or $Email -notmatch '@') { return 'Unknown' }
+    $parts = $Email.Split('@', 2)
+    $local = $parts[0]
+    $domain = $parts[1]
+    if ($local.Length -le 1) { return "*@$domain" }
+    return ($local.Substring(0,1) + "***@" + $domain)
+}
+$allAccounts = @()
+$officeId = 'HKCU:\Software\Microsoft\Office\16.0\Common\Identity'
+if (Test-Path $officeId) {
+    $id = Get-ItemProperty $officeId -ErrorAction SilentlyContinue
+    if ($id.SignedInUserId) {
+        $allAccounts += [string]$id.SignedInUserId
+        "OfficeSignedInUserId: $(MaskEmail ([string]$id.SignedInUserId))"
+    } else {
+        "OfficeSignedInUserId: None"
+    }
+} else {
+    "OfficeSignedInUserId: Not configured"
+}
+$teamsAcct = 'HKCU:\Software\Microsoft\Office\Teams'
+if (Test-Path $teamsAcct) {
+    $item = Get-ItemProperty $teamsAcct -ErrorAction SilentlyContinue
+    $email = if ($item.HomeUserUpn) { [string]$item.HomeUserUpn } elseif ($item.LoggedInEmail) { [string]$item.LoggedInEmail } else { '' }
+    if (-not [string]::IsNullOrWhiteSpace($email)) {
+        $allAccounts += $email
+        "TeamsAccount: $(MaskEmail $email)"
+    } else {
+        "TeamsAccount: Unknown"
+    }
+} else {
+    "TeamsAccount: Not configured"
+}
+$oneDriveBase = 'HKCU:\Software\Microsoft\OneDrive\Accounts'
+$oneDriveEmails = @()
+if (Test-Path $oneDriveBase) {
+    $oneDriveEmails = Get-ChildItem $oneDriveBase -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+            if ($p.UserEmail) { [string]$p.UserEmail }
+        } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Sort-Object -Unique
+}
+$allAccounts += $oneDriveEmails
+"OneDriveAccountCount: $(@($oneDriveEmails).Count)"
+if (@($oneDriveEmails).Count -gt 0) {
+    "OneDriveAccounts: $((@($oneDriveEmails) | ForEach-Object { MaskEmail $_ }) -join ', ')"
+}
+$distinct = @($allAccounts | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+"DistinctIdentityCount: $($distinct.Count)"
+if ($distinct.Count -gt 0) {
+    "IdentitySet: $((@($distinct) | ForEach-Object { MaskEmail $_ }) -join ', ')"
+}
+"#;
+    match run_powershell(ps_accounts) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 6) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Microsoft app identity state\n"),
+    }
+
+    out.push_str("\n=== WebView2 auth dependency ===\n");
+    let ps_webview = r#"
+$paths = @(
+    (Join-Path ${env:ProgramFiles(x86)} 'Microsoft\EdgeWebView\Application'),
+    (Join-Path $env:ProgramFiles 'Microsoft\EdgeWebView\Application')
+) | Where-Object { $_ -and (Test-Path $_) }
+$runtimeDir = $paths | ForEach-Object {
+    Get-ChildItem $_ -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^\d+\.' } |
+        Sort-Object Name -Descending |
+        Select-Object -First 1
+} | Select-Object -First 1
+if ($runtimeDir) {
+    $exe = Join-Path $runtimeDir.FullName 'msedgewebview2.exe'
+    $version = if (Test-Path $exe) { try { (Get-Item $exe).VersionInfo.FileVersion } catch { $runtimeDir.Name } } else { $runtimeDir.Name }
+    "WebView2: Installed | Version: $version"
+} else {
+    "WebView2: Not installed"
+}
+"#;
+    match run_powershell(ps_webview) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect WebView2 runtime\n"),
+    }
+
+    out.push_str("\n=== Recent auth-related events (24h) ===\n");
+    let ps_events = r#"
+try {
+    $cutoff = (Get-Date).AddHours(-24)
+    $events = @()
+    if (Get-WinEvent -ListLog 'Microsoft-Windows-AAD/Operational' -ErrorAction SilentlyContinue) {
+        $events += Get-WinEvent -FilterHashtable @{ LogName='Microsoft-Windows-AAD/Operational'; StartTime=$cutoff } -MaxEvents 30 -ErrorAction SilentlyContinue |
+            Where-Object { $_.LevelDisplayName -in @('Error','Warning') } |
+            Select-Object -First 4
+    }
+    $events += Get-WinEvent -FilterHashtable @{ LogName='Application'; StartTime=$cutoff } -MaxEvents 80 -ErrorAction SilentlyContinue |
+        Where-Object {
+            ($_.LevelDisplayName -in @('Error','Warning')) -and (
+                $_.ProviderName -match 'Outlook|Teams|OneDrive|Office|AAD|TokenBroker|Broker'
+                -or $_.Message -match 'Outlook|Teams|OneDrive|sign-?in|authentication|TokenBroker|BrokerPlugin|AAD'
+            )
+        } |
+        Select-Object -First 6
+    $events = $events | Sort-Object TimeCreated -Descending | Select-Object -First 8
+    "AuthEventCount: $(@($events).Count)"
+    if ($events) {
+        foreach ($e in $events) {
+            $msg = if ([string]::IsNullOrWhiteSpace([string]$e.Message)) {
+                'No message'
+            } else {
+                ($e.Message -replace '\r','' -split '\n')[0] -replace '\|','/'
+            }
+            "$($e.TimeCreated.ToString('MM-dd HH:mm')) | Provider: $($e.ProviderName) | Level: $($e.LevelDisplayName) | Id: $($e.Id) | $msg"
+        }
+    } else {
+        "No auth-related warning/error events detected"
+    }
+} catch {
+    "AuthEventStatus: Could not inspect auth-related events - $($_.Exception.Message)"
+}
+"#;
+    match run_powershell(ps_events) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 8) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str(
+            "- AuthEventStatus: Could not inspect auth-related events in this session\n",
+        ),
+    }
+
+    let parse_count = |prefix: &str| -> Option<u64> {
+        out.lines().find_map(|line| {
+            line.trim()
+                .strip_prefix(prefix)
+                .and_then(|value| value.trim().parse::<u64>().ok())
+        })
+    };
+
+    let distinct_identity_count = parse_count("- DistinctIdentityCount: ").unwrap_or(0);
+    let auth_event_count = parse_count("- AuthEventCount: ").unwrap_or(0);
+
+    let mut findings: Vec<String> = Vec::new();
+    if out.contains("TokenBroker | Status: Stopped")
+        || out.contains("wlidsvc | Status: Stopped")
+        || out.contains("OneAuth | Status: Stopped")
+    {
+        findings.push(
+            "One or more Microsoft identity broker services are stopped - Outlook, Teams, OneDrive, or Microsoft 365 sign-in can loop or fail until WAM services are running."
+                .into(),
+        );
+    }
+    if out.contains("AADBrokerPlugin: Not installed") {
+        findings.push(
+            "Microsoft AAD Broker Plugin is missing - work/school account sign-in and token refresh can fail without the broker package."
+                .into(),
+        );
+    }
+    if out.contains("WebView2: Not installed") {
+        findings.push(
+            "WebView2 runtime is missing - modern Microsoft 365 sign-in surfaces may fail or render badly without it."
+                .into(),
+        );
+    }
+    if distinct_identity_count > 1 {
+        findings.push(format!(
+            "{distinct_identity_count} distinct Microsoft identity signals were detected across Office, Teams, and OneDrive - account mismatch can cause repeated sign-in prompts or the wrong tenant opening."
+        ));
+    }
+    if (out.contains("AzureAdJoined: NO") || out.contains("WorkplaceJoined: NO"))
+        && distinct_identity_count > 0
+    {
+        findings.push(
+            "This machine shows Microsoft app identities but weak device-registration signals - organizational SSO, Conditional Access, or silent token refresh may be limited."
+                .into(),
+        );
+    }
+    if out.contains("DeviceRegistration: dsregcmd")
+        || out.contains("DeviceRegistration: Could not inspect device registration state")
+    {
+        findings.push(
+            "Device-registration visibility is partial in this session - personal devices are often fine here, but managed Microsoft 365 SSO posture may need dsregcmd details to confirm."
+                .into(),
+        );
+    }
+    if auth_event_count > 0 {
+        findings.push(format!(
+            "{auth_event_count} recent auth-related warning/error event(s) were found - the event section may explain repeated prompts, broker failures, or account-sync issues."
+        ));
+    } else if out.contains("AuthEventStatus: Could not inspect auth-related events") {
+        findings.push(
+            "Auth-related event visibility is partial in this session - the machine may still be healthy, but Hematite could not confirm recent broker or sign-in events."
+                .into(),
+        );
+    }
+
+    let mut result = String::from("Host inspection: identity_auth\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- No obvious Microsoft 365 identity broker, token cache, or device-registration blocker detected.\n");
+    } else {
+        for finding in &findings {
+            result.push_str(&format!("- Finding: {finding}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_identity_auth(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: identity_auth\n\n=== Findings ===\n- Microsoft 365 identity-broker inspection is currently Windows-first. macOS/Linux support can be added later.\n".into())
 }
 
 #[cfg(windows)]

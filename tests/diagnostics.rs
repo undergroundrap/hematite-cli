@@ -2992,6 +2992,7 @@ fn test_inspect_host_unknown_topic_includes_all_new_topics_in_error() {
             "hosts_file",
             "installed_software",
             "git_config",
+            "identity_auth",
         ];
         for topic in new_topics {
             assert!(
@@ -3549,6 +3550,42 @@ fn test_inspect_host_teams_reports_findings_and_sections() {
         assert!(
             has_result,
             "teams must report findings and core sections; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_identity_auth_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "identity_auth" });
+        let output = inspect_host(&args)
+            .await
+            .expect("identity_auth must return Ok");
+        assert!(
+            output.contains("Host inspection: identity_auth"),
+            "identity_auth output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_identity_auth_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "identity_auth" });
+        let output = inspect_host(&args)
+            .await
+            .expect("identity_auth must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== Identity broker services ===")
+            && output.contains("=== Device registration ===")
+            && output.contains("=== Microsoft app account signals ===");
+        assert!(
+            has_result,
+            "identity_auth must report findings and core sections; got:\n{output}"
         );
     });
 }
@@ -6033,6 +6070,34 @@ fn test_routing_detects_onedrive_topic() {
     assert!(
         topics.contains(&"onedrive"),
         "should detect onedrive; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_routing_detects_identity_auth_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt =
+        "Audit token broker, Web Account Manager, and device registration for Microsoft 365 sign-in health.";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("identity_auth"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"identity_auth"),
+        "should detect identity_auth; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_all_host_topics_prefers_identity_auth_over_app_health_for_signin_prompts() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let prompt = "Why won't Outlook sign in and why does Teams keep asking me to authenticate?";
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"identity_auth"),
+        "should include identity_auth; got: {topics:?}"
+    );
+    assert!(
+        !topics.contains(&"outlook") && !topics.contains(&"teams") && !topics.contains(&"sign_in"),
+        "should suppress overlapping app-health topics for auth-specific prompts; got: {topics:?}"
     );
 }
 

@@ -387,6 +387,11 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 > "Show me Event ID 4625 failures from the Security log in the last 24 hours."
 > "Search the System log for Event ID 7034 service crashes in the last 6 hours."
 
+**Microsoft 365 Identity Audit**
+> "Check Microsoft 365 sign-in health on this machine."
+> "Audit token broker, Web Account Manager, and device registration."
+> "Why won't Outlook sign in and why does Teams keep asking me to authenticate?"
+
 **Diagnostic Analysis and Performance**
 > "Why is my laptop slow? Check if it is overheating, throttling, under heavy I/O pressure, or if my silicon clocks are fluctuating."
 > *(Harness automatically runs: thermal, resource_load, storage, overclocker)*

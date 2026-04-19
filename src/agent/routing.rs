@@ -575,6 +575,43 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("biometric service")
         || (lower.contains("profile") && lower.contains("corrupt"))
         || lower.contains("wbiosrvc");
+    let asks_identity_auth = lower.contains("web account manager")
+        || lower.contains("token broker")
+        || lower.contains("tokenbroker")
+        || lower.contains("aad broker")
+        || lower.contains("broker plugin")
+        || lower.contains("identity broker")
+        || lower.contains("microsoft 365 sign-in")
+        || lower.contains("microsoft 365 signin")
+        || lower.contains("office sign-in")
+        || lower.contains("office signin")
+        || lower.contains("workplace join")
+        || lower.contains("device registration")
+        || lower.contains("device registered")
+        || lower.contains("entra")
+        || lower.contains("azure ad")
+        || lower.contains("azuread")
+        || lower.contains("azure ad prt")
+        || lower.contains("azureadprt")
+        || lower.contains("wamdefaultset")
+        || lower.contains("single sign-on")
+        || ((lower.contains("outlook")
+            || lower.contains("teams")
+            || lower.contains("onedrive")
+            || lower.contains("office")
+            || lower.contains("microsoft 365"))
+            && (lower.contains("sign in")
+                || lower.contains("signin")
+                || lower.contains("signed in")
+                || lower.contains("signed out")
+                || lower.contains("keeps asking")
+                || lower.contains("keep asking")
+                || lower.contains("authentication")
+                || lower.contains("auth")
+                || lower.contains("token")
+                || lower.contains("work account")
+                || lower.contains("school account")
+                || lower.contains("account mismatch")));
     let asks_installer_health = lower.contains("installer health")
         || lower.contains("installer broken")
         || lower.contains("msiexec")
@@ -1694,6 +1731,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("audio")
     } else if asks_camera {
         Some("camera")
+    } else if asks_identity_auth {
+        Some("identity_auth")
     } else if asks_sign_in {
         Some("sign_in")
     } else if asks_installer_health {
@@ -2124,6 +2163,45 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("credential provider")
                 || l.contains("biometric service")
                 || l.contains("wbiosrvc")
+        }),
+        ("identity_auth", |l| {
+            l.contains("web account manager")
+                || l.contains("token broker")
+                || l.contains("tokenbroker")
+                || l.contains("aad broker")
+                || l.contains("broker plugin")
+                || l.contains("identity broker")
+                || l.contains("microsoft 365 sign-in")
+                || l.contains("microsoft 365 signin")
+                || l.contains("office sign-in")
+                || l.contains("office signin")
+                || l.contains("workplace join")
+                || l.contains("device registration")
+                || l.contains("device registered")
+                || l.contains("entra")
+                || l.contains("azure ad")
+                || l.contains("azuread")
+                || l.contains("azure ad prt")
+                || l.contains("azureadprt")
+                || l.contains("wamdefaultset")
+                || l.contains("single sign-on")
+                || ((l.contains("outlook")
+                    || l.contains("teams")
+                    || l.contains("onedrive")
+                    || l.contains("office")
+                    || l.contains("microsoft 365"))
+                    && (l.contains("sign in")
+                        || l.contains("signin")
+                        || l.contains("signed in")
+                        || l.contains("signed out")
+                        || l.contains("keeps asking")
+                        || l.contains("keep asking")
+                        || l.contains("authentication")
+                        || l.contains("auth")
+                        || l.contains("token")
+                        || l.contains("work account")
+                        || l.contains("school account")
+                        || l.contains("account mismatch")))
         }),
         ("installer_health", |l| {
             l.contains("installer health")
@@ -2851,6 +2929,13 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     }
     if topics.contains(&"dns_lookup") {
         topics.retain(|topic| *topic != "network");
+    }
+    if topics.contains(&"identity_auth") {
+        topics.retain(|topic| *topic != "sign_in");
+        topics.retain(|topic| *topic != "onedrive");
+        topics.retain(|topic| *topic != "outlook");
+        topics.retain(|topic| *topic != "teams");
+        topics.retain(|topic| *topic != "browser_health");
     }
     if topics.contains(&"event_query") {
         topics.retain(|topic| *topic != "log_check");

@@ -1552,7 +1552,7 @@ impl ConversationManager {
                         "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: Shell is blocked for host inspection. The diagnostic data above fulfills your request. Use inspect_host directly for further diagnostics.]"
                     )),
                     Err(e) => Err(format!(
-                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, hyperv, event_query, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, docker_filesystems, wsl, wsl_filesystems, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
+                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, hyperv, event_query, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, docker_filesystems, wsl, wsl_filesystems, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
                     )),
                 };
             }
@@ -2470,6 +2470,7 @@ impl ConversationManager {
                  - MSI / Windows Installer / winget / Microsoft Store install failures -> `installer_health`\n\
                  - OneDrive sync / Files On-Demand / Known Folder Backup / SharePoint sync roots -> `onedrive`\n\
                  - Browser slow / Chrome / Edge / Firefox / WebView2 / default browser / links opening wrong -> `browser_health`\n\
+                 - Microsoft 365 sign-in loops / Token Broker / Web Account Manager / AAD Broker Plugin / device registration / workplace join -> `identity_auth`\n\
                  - Outlook health / slowness / crash triage / OST and PST files / mail profiles / add-in pressure -> `outlook`\n\
                  - Teams health / slowness / crash triage / cache bloat / WebView2 / device binding / sign-in failures -> `teams`\n\
                  - Windows backup posture / File History / wbadmin last backup / System Restore points / OneDrive KFM -> `windows_backup`\n\
@@ -2554,7 +2555,7 @@ impl ConversationManager {
                      3. End with a verification step the user can run to confirm success.\n\
                      4. Do NOT execute write operations yourself. You are the teacher; the user performs the steps.\n\
                      5. Treat the user as capable — give precise instructions, not hedged warnings.\n\
-                     Relevant inspect_host topics for common tasks: hardware (driver installs), overclocker (GPU/silicon vitals), security (firewall), ssh (SSH keys), wsl (WSL setup), wsl_filesystems (WSL disk and path-bridge issues), docker_filesystems (bind mounts and named volumes), lan_discovery (printer/NAS/neighborhood discovery issues), audio (speaker/microphone/service issues), bluetooth (pairing/radio/headset issues), camera (webcam/camera devices/privacy), sign_in (Windows Hello/biometric/logon failures), installer_health (MSI/winget/Store install failures), onedrive (OneDrive sync/Files On-Demand/Known Folder Backup issues), browser_health (Chrome/Edge/Firefox/WebView2/default-browser issues), search_index (Windows Search indexer/WSearch), display_config (monitor/resolution/refresh rate/DPI), ntp (clock sync/NTP/w32tm), cpu_power (turbo boost/CPU frequency/power plan), credentials (Credential Manager/saved passwords/cmdkey), tpm (TPM chip/Secure Boot/firmware type), latency (ping RTT/packet loss/network slow), network_adapter (NIC settings/offload/link speed/adapter errors), dhcp (DHCP lease details/server/expiry), mtu (per-adapter MTU/path MTU discovery/fragmentation), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
+                     Relevant inspect_host topics for common tasks: hardware (driver installs), overclocker (GPU/silicon vitals), security (firewall), ssh (SSH keys), wsl (WSL setup), wsl_filesystems (WSL disk and path-bridge issues), docker_filesystems (bind mounts and named volumes), lan_discovery (printer/NAS/neighborhood discovery issues), audio (speaker/microphone/service issues), bluetooth (pairing/radio/headset issues), camera (webcam/camera devices/privacy), sign_in (Windows Hello/biometric/logon failures), installer_health (MSI/winget/Store install failures), onedrive (OneDrive sync/Files On-Demand/Known Folder Backup issues), browser_health (Chrome/Edge/Firefox/WebView2/default-browser issues), identity_auth (Microsoft 365 sign-in loops/token broker/WAM/device registration), search_index (Windows Search indexer/WSearch), display_config (monitor/resolution/refresh rate/DPI), ntp (clock sync/NTP/w32tm), cpu_power (turbo boost/CPU frequency/power plan), credentials (Credential Manager/saved passwords/cmdkey), tpm (TPM chip/Secure Boot/firmware type), latency (ping RTT/packet loss/network slow), network_adapter (NIC settings/offload/link speed/adapter errors), dhcp (DHCP lease details/server/expiry), mtu (per-adapter MTU/path MTU discovery/fragmentation), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
                 ),
                 WorkflowMode::Chat => {} // replaced by build_chat_system_prompt below
             }
@@ -6008,6 +6009,16 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "get-tpm",
         "confirm-securebootuefi",
         "win32_tpm",
+        "dsregcmd",
+        "webauthmanager",
+        "web account manager",
+        "tokenbroker",
+        "token broker",
+        "aad broker",
+        "brokerplugin",
+        "microsoft.aad.brokerplugin",
+        "workplace join",
+        "device registration",
         "secure boot",
         // active directory - always use inspect_host
         "get-aduser",
@@ -6788,6 +6799,13 @@ mod tests {
         assert!(shell_looks_like_structured_host_inspection("Get-Tpm"));
         assert!(shell_looks_like_structured_host_inspection(
             "Confirm-SecureBootUEFI"
+        ));
+        assert!(shell_looks_like_structured_host_inspection("dsregcmd /status"));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-Service TokenBroker,wlidsvc,OneAuth"
+        ));
+        assert!(shell_looks_like_structured_host_inspection(
+            "Get-AppxPackage Microsoft.AAD.BrokerPlugin"
         ));
         assert!(shell_looks_like_structured_host_inspection(
             "host github.com"
