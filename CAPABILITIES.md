@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 113+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Full OS stack coverage**: 114+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
@@ -82,7 +82,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (75+):**
+**SysAdmin topics (76+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
@@ -102,6 +102,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Dev conflicts** (`dev_conflicts`) — cross-tool environment conflict detection: Node version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, duplicate PATH entries
 - **Path and toolchains** (`path`) — full PATH inspection with version detection for installed developer tools
 - **Log check** (`log_check`) — recent system error events from the Windows event log
+- **Event query** (`event_query`) — targeted Windows Event Log filtering by Event ID, provider/source, log name, severity level, and time window; answers plain-English Event Viewer questions without forcing the user into PowerShell
 - **Startup items** (`startup_items`) — boot-time programs and their startup types
 - **OS config** (`os_config`) — firewall profiles, power plan, and uptime
 - **User accounts** (`user_accounts`) — local user accounts (name, enabled, last logon, password required), Administrators group members, active logon sessions, and elevated process state; redirected from `Get-LocalUser` and `net user`

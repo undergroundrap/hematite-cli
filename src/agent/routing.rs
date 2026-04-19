@@ -456,6 +456,39 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("vm") && (lower.contains("running") || lower.contains("status") || lower.contains("health") || lower.contains("checkpoint") || lower.contains("snapshot") || lower.contains("switch") || lower.contains("memory") || lower.contains("ram")))
         || lower.contains("vmms")
         || lower.contains("vmmem");
+    let asks_event_query = lower.contains("event id")
+        || lower.contains("event log query")
+        || lower.contains("event_id")
+        || lower.contains("eventid")
+        || lower.contains("search event")
+        || lower.contains("query event")
+        || lower.contains("find event")
+        || lower.contains("filter event")
+        || (lower.contains("event") && lower.contains("4625"))
+        || (lower.contains("event") && lower.contains("7034"))
+        || (lower.contains("event") && lower.contains("7031"))
+        || (lower.contains("event") && lower.contains("4648"))
+        || (lower.contains("event") && lower.contains("41"))
+        || (lower.contains("event") && (lower.contains("last hour") || lower.contains("last 24") || lower.contains("past hour") || lower.contains("today")))
+        || ((lower.contains("event log")
+            || lower.contains("system log")
+            || lower.contains("application log")
+            || lower.contains("security log"))
+            && (lower.contains("last ")
+                || lower.contains("past ")
+                || lower.contains("today")
+                || lower.contains("hour")
+                || lower.contains("hours"))
+            && (lower.contains("error")
+                || lower.contains("errors")
+                || lower.contains("warning")
+                || lower.contains("warnings")
+                || lower.contains("critical")))
+        || lower.contains("failed logon event")
+        || lower.contains("failed login event")
+        || lower.contains("application error event")
+        || lower.contains("crash event")
+        || lower.contains("service crash event");
     let asks_ip_config =
         lower.contains("ipconfig") && (lower.contains("all") || lower.contains("detailed"));
     let asks_domain = lower.contains("domain")
@@ -1621,6 +1654,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("user_accounts")
     } else if asks_dns_lookup {
         Some("dns_lookup")
+    } else if asks_event_query {
+        Some("event_query")
     } else if asks_hyperv {
         Some("hyperv")
     } else if asks_ip_config {
@@ -1943,6 +1978,32 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("ip config")
                 || l.contains("adapter detail")
                 || l.contains("dhcp lease")
+        }),
+        ("event_query", |l| {
+            l.contains("event id")
+                || l.contains("event_id")
+                || l.contains("eventid")
+                || l.contains("event log query")
+                || l.contains("search event")
+                || l.contains("query event")
+                || l.contains("failed logon event")
+                || l.contains("failed login event")
+                || l.contains("application error event")
+                || ((l.contains("event log")
+                    || l.contains("system log")
+                    || l.contains("application log")
+                    || l.contains("security log"))
+                    && (l.contains("last ")
+                        || l.contains("past ")
+                        || l.contains("today")
+                        || l.contains("hour")
+                        || l.contains("hours"))
+                    && (l.contains("error")
+                        || l.contains("errors")
+                        || l.contains("warning")
+                        || l.contains("warnings")
+                        || l.contains("critical")))
+                || (l.contains("event") && (l.contains("4625") || l.contains("7034") || l.contains("7031") || l.contains("4648")))
         }),
         ("fix_plan", |l| {
             l.contains("fix")
@@ -2790,6 +2851,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     }
     if topics.contains(&"dns_lookup") {
         topics.retain(|topic| *topic != "network");
+    }
+    if topics.contains(&"event_query") {
+        topics.retain(|topic| *topic != "log_check");
     }
     if topics.contains(&"browser_health") {
         topics.retain(|topic| *topic != "proxy");

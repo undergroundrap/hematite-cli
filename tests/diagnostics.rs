@@ -3554,6 +3554,36 @@ fn test_inspect_host_teams_reports_findings_and_sections() {
 }
 
 #[test]
+fn test_inspect_host_event_query_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "event_query", "event_id": 7036, "hours": 2 });
+        let output = inspect_host(&args).await.expect("event_query must return Ok");
+        assert!(
+            output.contains("Host inspection: event_query"),
+            "event_query output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_event_query_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "event_query", "hours": 1 });
+        let output = inspect_host(&args).await.expect("event_query must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== Event query:");
+        assert!(
+            has_result,
+            "event_query must report findings and event query section; got:\n{output}"
+        );
+    });
+}
+
+#[test]
 fn test_inspect_host_hyperv_reports_findings_and_sections() {
     use hematite::tools::host_inspect::inspect_host;
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -5896,6 +5926,33 @@ fn test_routing_detects_credentials_topic() {
     assert!(
         topics.contains(&"credentials"),
         "should detect credentials; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_routing_detects_event_query_topic() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let prompt = "Show me all System errors from the Event Log that occurred in the last 4 hours.";
+    assert_eq!(preferred_host_inspection_topic(prompt), Some("event_query"));
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"event_query"),
+        "should detect event_query; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_all_host_topics_prefers_event_query_over_log_check_for_targeted_event_prompts() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let prompt = "Show me all System errors from the Event Log that occurred in the last 4 hours.";
+    let topics = all_host_inspection_topics(prompt);
+    assert!(
+        topics.contains(&"event_query"),
+        "should include event_query; got: {topics:?}"
+    );
+    assert!(
+        !topics.contains(&"log_check"),
+        "should suppress log_check when event_query is present; got: {topics:?}"
     );
 }
 

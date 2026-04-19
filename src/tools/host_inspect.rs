@@ -220,8 +220,16 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "network_adapter" | "nic" | "nic_settings" | "adapter_settings" | "nic_offload" | "nic_advanced" => {
             inspect_network_adapter()
         }
+        "event_query" | "event_log" | "events" | "event_search" | "eventlog" => {
+            let event_id = args.get("event_id").and_then(|v| v.as_u64()).map(|n| n as u32);
+            let log_name = args.get("log").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let source = args.get("source").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let hours = args.get("hours").and_then(|v| v.as_u64()).unwrap_or(24) as u32;
+            let level = args.get("level").and_then(|v| v.as_str()).map(|s| s.to_string());
+            inspect_event_query(event_id, log_name.as_deref(), source.as_deref(), hours, level.as_deref(), max_entries)
+        }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query.",
             other
         )),
 
@@ -296,6 +304,23 @@ mod privilege_hint_tests {
     }
 }
 
+#[cfg(test)]
+mod event_query_tests {
+    use super::is_event_query_no_results_message;
+
+    #[test]
+    fn treats_windows_no_results_message_as_empty_query() {
+        assert!(is_event_query_no_results_message(
+            "No events were found that match the specified selection criteria."
+        ));
+    }
+
+    #[test]
+    fn does_not_treat_real_errors_as_empty_query() {
+        assert!(!is_event_query_no_results_message("Access is denied."));
+    }
+}
+
 fn parse_max_entries(args: &Value) -> usize {
     args.get("max_entries")
         .and_then(|v| v.as_u64())
@@ -330,6 +355,12 @@ fn parse_issue_text(args: &Value) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(|value| value.to_string())
+}
+
+fn is_event_query_no_results_message(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("no events were found")
+        || lower.contains("no events match the specified selection criteria")
 }
 
 fn resolve_optional_path(args: &Value) -> Result<PathBuf, String> {
@@ -11761,6 +11792,176 @@ fn inspect_ip_config() -> Result<String, String> {
     }
 
     Ok(out.trim_end().to_string())
+}
+
+// ── event_query ──────────────────────────────────────────────────────────────
+
+fn inspect_event_query(
+    event_id: Option<u32>,
+    log_name: Option<&str>,
+    source: Option<&str>,
+    hours: u32,
+    level: Option<&str>,
+    max_entries: usize,
+) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let mut findings: Vec<String> = Vec::new();
+
+        // Build the PowerShell filter hash
+        let log = log_name.unwrap_or("*");
+        let cap = max_entries.min(50);
+
+        // Level mapping: Error=2, Warning=3, Information=4
+        let level_filter = match level.map(|l| l.to_lowercase()).as_deref() {
+            Some("error") | Some("errors") => Some(2u8),
+            Some("warning") | Some("warnings") | Some("warn") => Some(3u8),
+            Some("information") | Some("info") => Some(4u8),
+            _ => None,
+        };
+
+        // Build filter hashtable entries
+        let mut filter_parts = vec![
+            format!("StartTime = (Get-Date).AddHours(-{hours})"),
+        ];
+        if log != "*" {
+            filter_parts.push(format!("LogName = '{log}'"));
+        }
+        if let Some(id) = event_id {
+            filter_parts.push(format!("Id = {id}"));
+        }
+        if let Some(src) = source {
+            filter_parts.push(format!("ProviderName = '{src}'"));
+        }
+        if let Some(lvl) = level_filter {
+            filter_parts.push(format!("Level = {lvl}"));
+        }
+
+        let filter_ht = filter_parts.join("; ");
+
+        let ps = format!(r#"
+$filter = @{{ {filter_ht} }}
+try {{
+    $events = Get-WinEvent -FilterHashtable $filter -MaxEvents {cap} -ErrorAction Stop |
+        Select-Object TimeCreated, Id, LevelDisplayName, ProviderName,
+            @{{N='Msg';E={{ ($_.Message -split "`n")[0] }}}}
+    if ($events) {{
+        $events | ForEach-Object {{
+            "TIME:{{0}}|ID:{{1}}|LEVEL:{{2}}|SOURCE:{{3}}|MSG:{{4}}" -f `
+                $_.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss"),
+                $_.Id, $_.LevelDisplayName, $_.ProviderName,
+                ($_.Msg -replace '\|','/')
+        }}
+    }} else {{
+        "NONE"
+    }}
+}} catch {{
+    "ERROR:$($_.Exception.Message)"
+}}
+"#);
+
+        let raw = ps_exec(&ps);
+        let lines: Vec<&str> = raw.lines().collect();
+
+        // Build query description for header
+        let mut query_desc = format!("last {hours}h");
+        if let Some(id) = event_id {
+            query_desc.push_str(&format!(", Event ID {id}"));
+        }
+        if let Some(src) = source {
+            query_desc.push_str(&format!(", source '{src}'"));
+        }
+        if log != "*" {
+            query_desc.push_str(&format!(", log '{log}'"));
+        }
+        if let Some(l) = level {
+            query_desc.push_str(&format!(", level '{l}'"));
+        }
+
+        let mut out = format!("=== Event query: {query_desc} ===\n");
+
+        if lines.iter().any(|l| l.trim() == "NONE" || l.trim().is_empty()) {
+            out.push_str("- No matching events found.\n");
+        } else if let Some(err_line) = lines.iter().find(|l| l.starts_with("ERROR:")) {
+            let msg = err_line.trim_start_matches("ERROR:").trim();
+            if is_event_query_no_results_message(msg) {
+                out.push_str("- No matching events found.\n");
+            } else {
+                out.push_str(&format!("- Query error: {msg}\n"));
+                findings.push(format!("Event query failed: {msg}"));
+            }
+        } else {
+            let event_lines: Vec<&str> = lines.iter().filter(|l| l.starts_with("TIME:")).copied().collect();
+            if event_lines.is_empty() {
+                out.push_str("- No matching events found.\n");
+            } else {
+                // Tally by level for findings
+                let mut error_count = 0usize;
+                let mut warning_count = 0usize;
+
+                for line in &event_lines {
+                    let kv: std::collections::HashMap<&str, &str> = line
+                        .split('|')
+                        .filter_map(|p| {
+                            let mut it = p.splitn(2, ':');
+                            Some((it.next()?, it.next()?))
+                        })
+                        .collect();
+                    let time = kv.get("TIME").copied().unwrap_or("?");
+                    let id = kv.get("ID").copied().unwrap_or("?");
+                    let lvl = kv.get("LEVEL").copied().unwrap_or("?");
+                    let src = kv.get("SOURCE").copied().unwrap_or("?");
+                    let msg = kv.get("MSG").copied().unwrap_or("").trim();
+
+                    // Truncate long messages
+                    let msg_display = if msg.len() > 120 {
+                        format!("{}…", &msg[..120])
+                    } else {
+                        msg.to_string()
+                    };
+
+                    out.push_str(&format!("- [{time}] ID {id} | {lvl} | {src}\n  {msg_display}\n"));
+
+                    if lvl.eq_ignore_ascii_case("error") || lvl.eq_ignore_ascii_case("critical") {
+                        error_count += 1;
+                    } else if lvl.eq_ignore_ascii_case("warning") {
+                        warning_count += 1;
+                    }
+                }
+
+                out.push_str(&format!("\n- Total shown: {} event(s)\n", event_lines.len()));
+
+                if error_count > 0 {
+                    findings.push(format!(
+                        "{error_count} Error/Critical event(s) found in the {query_desc} window — review the entries above for root cause."
+                    ));
+                }
+                if warning_count > 5 {
+                    findings.push(format!(
+                        "{warning_count} Warning events found — elevated warning volume may indicate a recurring issue."
+                    ));
+                }
+            }
+        }
+
+        let mut result = String::from("Host inspection: event_query\n\n=== Findings ===\n");
+        if findings.is_empty() {
+            result.push_str("- No actionable findings from this event query.\n");
+        } else {
+            for f in &findings {
+                result.push_str(&format!("- Finding: {f}\n"));
+            }
+        }
+        result.push('\n');
+        result.push_str(&out);
+        return Ok(result.trim_end().to_string());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (event_id, log_name, source, hours, level, max_entries);
+        Ok("Host inspection: event_query\n\n=== Findings ===\n- Event log query is Windows-only.\n".into())
+    }
 }
 
 #[cfg(target_os = "windows")]

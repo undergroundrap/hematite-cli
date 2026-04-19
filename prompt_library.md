@@ -384,6 +384,8 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 
 **Time-Windowed Log Analysis**
 > "Show me all System errors from the Event Log that occurred in the last 4 hours."
+> "Show me Event ID 4625 failures from the Security log in the last 24 hours."
+> "Search the System log for Event ID 7034 service crashes in the last 6 hours."
 
 **Diagnostic Analysis and Performance**
 > "Why is my laptop slow? Check if it is overheating, throttling, under heavy I/O pressure, or if my silicon clocks are fluctuating."

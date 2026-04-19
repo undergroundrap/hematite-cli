@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **113+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **114+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -200,6 +200,7 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Outlook**: Use `topic: "outlook"` for classic Outlook and new Outlook for Windows install inventory, running process state and RAM usage, mail profile count, OST and PST file discovery with sizes, add-in inventory with load behavior and resiliency-disabled items, authentication and token broker cache state, and recent Outlook crash evidence from the Application event log.
 - **Teams**: Use `topic: "teams"` for classic Teams and new Teams (MSTeams MSIX) install inventory, running process state and RAM usage, cache directory sizing (the #1 Teams fix), WebView2 runtime dependency check, account and sign-in state from registry, audio/video device binding from config files, and recent Teams crash evidence from the Application event log.
 - **Windows Backup**: Use `topic: "windows_backup"` for File History service state and last backup date/target drive, Windows Backup (wbadmin) last successful backup and scheduled tasks, System Restore enabled state and most recent restore point, OneDrive Known Folder Move per-account protection state, and recent backup failure events from the Application event log.
+- **Event Query**: Use `topic: "event_query"` for targeted Windows Event Log filtering by Event ID, source/provider, log name, severity level, and time window. Supports prompts like "System errors in the last 4 hours", Event ID 4625 failed-logon review, 7034 service crash search, and 41 unexpected-shutdown triage.
 - **Search Index**: Use `topic: "search_index"` for Windows Search (WSearch) service state, indexer registry configuration, indexed locations, recent indexer errors, and plain-English diagnosis for "search not finding files / indexer stopped".
 - **Display Config**: Use `topic: "display_config"` for active monitor resolution, refresh rate, DPI/scaling, video adapter driver version, and connected monitor names — answers "what refresh rate / how many monitors / is my DPI correct".
 - **NTP / Time Sync**: Use `topic: "ntp"` for Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers, and plain-English diagnosis for clock drift or sync failure.

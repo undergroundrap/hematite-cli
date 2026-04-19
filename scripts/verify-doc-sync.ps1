@@ -50,7 +50,7 @@ foreach ($Doc in $Docs) {
         # Check for SysAdmin category count if it's CAPABILITIES
         if ($DocContent -match "SysAdmin topics \((\d+)\+\)") {
             $SysAdminDocCount = [int]$Matches[1]
-            $ExpectedSysAdmin = 75
+            $ExpectedSysAdmin = 76
             if ($SysAdminDocCount -eq $ExpectedSysAdmin) {
                  Write-Host "[DOC] ${Doc}: SysAdmin Category Match ($SysAdminDocCount+)" -ForegroundColor Green
             } else {

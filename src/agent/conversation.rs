@@ -1552,7 +1552,7 @@ impl ConversationManager {
                         "[auto-redirected shell→inspect_host(topic=\"{topic}\")]\n\n{output}\n\n[Note: Shell is blocked for host inspection. The diagnostic data above fulfills your request. Use inspect_host directly for further diagnostics.]"
                     )),
                     Err(e) => Err(format!(
-                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, docker_filesystems, wsl, wsl_filesystems, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
+                        "Redirection to native tool `{topic}` failed: {e}\n\nAction blocked: use `inspect_host(topic: \"{topic}\")` instead of raw `shell` for host-inspection questions. Available topics: updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, health_report, storage, hardware, resource_load, overclocker, processes, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, hyperv, event_query, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, ports, env_doctor, fix_plan, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, docker, docker_filesystems, wsl, wsl_filesystems, ssh, env, hosts_file, installed_software, git_config, databases, disk_benchmark, directory, permissions, login_history, registry_audit, share_access.",
                     )),
                 };
             }
@@ -2474,6 +2474,7 @@ impl ConversationManager {
                  - Teams health / slowness / crash triage / cache bloat / WebView2 / device binding / sign-in failures -> `teams`\n\
                  - Windows backup posture / File History / wbadmin last backup / System Restore points / OneDrive KFM -> `windows_backup`\n\
                  - Hyper-V role state / list VMs / VM RAM and CPU / VM network switches / VM checkpoints / VMMS service -> `hyperv`\n\
+                 - Search Windows Event Log by Event ID / source / level / time window (e.g. Event ID 4625 failed logon, 7034 service crash, 41 unexpected shutdown) -> `event_query` with args event_id, log, source, level, hours\n\
                  - Credential Manager / stored Windows credentials / saved passwords / cmdkey vault hygiene -> `credentials`\n\
                  - TPM / Secure Boot / firmware mode / Windows 11 readiness -> `tpm`\n\
                  - DNS A/AAAA/MX/SRV/TXT record lookups must stay on `dns_lookup`; do NOT use `ping`, `Invoke-WebRequest`, public DNS-over-HTTPS endpoints, or browser searches as substitutes.\n\
@@ -4493,6 +4494,76 @@ fn fill_missing_dns_lookup_type(tool_name: &str, args: &mut Value, latest_user_p
     map.insert("type".to_string(), Value::String(record_type.to_string()));
 }
 
+fn fill_missing_event_query_args(
+    tool_name: &str,
+    args: &mut Value,
+    latest_user_prompt: Option<&str>,
+) {
+    if tool_name != "inspect_host" {
+        return;
+    }
+
+    let Some(topic) = args.get("topic").and_then(|v| v.as_str()) else {
+        return;
+    };
+    if topic != "event_query" {
+        return;
+    }
+
+    let Some(prompt) = latest_user_prompt else {
+        return;
+    };
+
+    let Value::Object(map) = args else {
+        return;
+    };
+
+    let event_id_missing = map.get("event_id").and_then(|v| v.as_u64()).is_none();
+    if event_id_missing {
+        if let Some(event_id) = extract_event_query_event_id_from_text(prompt) {
+            map.insert(
+                "event_id".to_string(),
+                Value::Number(serde_json::Number::from(event_id)),
+            );
+        }
+    }
+
+    let log_missing = map
+        .get("log")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .is_none_or(|value| value.is_empty());
+    if log_missing {
+        if let Some(log_name) = extract_event_query_log_from_text(prompt) {
+            map.insert("log".to_string(), Value::String(log_name.to_string()));
+        }
+    }
+
+    let level_missing = map
+        .get("level")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .is_none_or(|value| value.is_empty());
+    if level_missing {
+        if let Some(level) = extract_event_query_level_from_text(prompt) {
+            map.insert("level".to_string(), Value::String(level.to_string()));
+        }
+    }
+
+    let hours_missing = map
+        .get("hours")
+        .and_then(|v| v.as_u64())
+        .is_none();
+    if hours_missing {
+        if let Some(hours) = extract_event_query_hours_from_text(prompt) {
+            map.insert(
+                "hours".to_string(),
+                Value::Number(serde_json::Number::from(hours)),
+            );
+        }
+    }
+}
+
 fn should_rewrite_shell_to_fix_plan(
     tool_name: &str,
     args: &Value,
@@ -4648,6 +4719,62 @@ fn extract_dns_record_type_from_text(text: &str) -> Option<&'static str> {
     }
 }
 
+fn extract_event_query_event_id_from_text(text: &str) -> Option<u32> {
+    let re = regex::Regex::new(r"(?i)\bevent(?:\s*_?\s*id)?\s*[:#]?\s*(\d{2,5})\b").ok()?;
+    re.captures(text)
+        .and_then(|captures| captures.get(1))
+        .and_then(|m| m.as_str().parse::<u32>().ok())
+}
+
+fn extract_event_query_log_from_text(text: &str) -> Option<&'static str> {
+    let lower = text.to_ascii_lowercase();
+    if lower.contains("security log") {
+        Some("Security")
+    } else if lower.contains("application log") {
+        Some("Application")
+    } else if lower.contains("system log") || lower.contains("system errors") {
+        Some("System")
+    } else if lower.contains("setup log") {
+        Some("Setup")
+    } else {
+        None
+    }
+}
+
+fn extract_event_query_level_from_text(text: &str) -> Option<&'static str> {
+    let lower = text.to_ascii_lowercase();
+    if lower.contains("critical") {
+        Some("Critical")
+    } else if lower.contains("error") || lower.contains("errors") {
+        Some("Error")
+    } else if lower.contains("warning") || lower.contains("warnings") || lower.contains("warn") {
+        Some("Warning")
+    } else if lower.contains("information") || lower.contains("informational") || lower.contains("info") {
+        Some("Information")
+    } else {
+        None
+    }
+}
+
+fn extract_event_query_hours_from_text(text: &str) -> Option<u32> {
+    let lower = text.to_ascii_lowercase();
+    let re = regex::Regex::new(r"(?i)\b(?:last|past)\s+(\d{1,3})\s*(hour|hours|hr|hrs)\b").ok()?;
+    if let Some(hours) = re
+        .captures(&lower)
+        .and_then(|captures| captures.get(1))
+        .and_then(|m| m.as_str().parse::<u32>().ok())
+    {
+        return Some(hours);
+    }
+    if lower.contains("last hour") || lower.contains("past hour") {
+        Some(1)
+    } else if lower.contains("today") {
+        Some(24)
+    } else {
+        None
+    }
+}
+
 fn extract_dns_record_type_from_shell(command: &str) -> Option<&'static str> {
     let lower = command.to_ascii_lowercase();
     if lower.contains("-type aaaa") || lower.contains("-type=aaaa") {
@@ -4685,6 +4812,31 @@ fn host_inspection_args_from_prompt(topic: &str, prompt: &str) -> Value {
             "type".to_string(),
             Value::String(record_type.to_string()),
         );
+    } else if topic == "event_query" {
+        if let Some(event_id) = extract_event_query_event_id_from_text(prompt) {
+            args.as_object_mut().unwrap().insert(
+                "event_id".to_string(),
+                Value::Number(serde_json::Number::from(event_id)),
+            );
+        }
+        if let Some(log_name) = extract_event_query_log_from_text(prompt) {
+            args.as_object_mut().unwrap().insert(
+                "log".to_string(),
+                Value::String(log_name.to_string()),
+            );
+        }
+        if let Some(level) = extract_event_query_level_from_text(prompt) {
+            args.as_object_mut().unwrap().insert(
+                "level".to_string(),
+                Value::String(level.to_string()),
+            );
+        }
+        if let Some(hours) = extract_event_query_hours_from_text(prompt) {
+            args.as_object_mut().unwrap().insert(
+                "hours".to_string(),
+                Value::Number(serde_json::Number::from(hours)),
+            );
+        }
     }
     args
 }
@@ -5021,6 +5173,7 @@ fn rewrite_host_tool_call(
     fill_missing_fix_plan_issue(tool_name, args, latest_user_prompt);
     fill_missing_dns_lookup_name(tool_name, args, latest_user_prompt);
     fill_missing_dns_lookup_type(tool_name, args, latest_user_prompt);
+    fill_missing_event_query_args(tool_name, args, latest_user_prompt);
 }
 
 fn canonical_tool_call_key(tool_name: &str, args: &Value) -> String {
@@ -5845,6 +5998,11 @@ pub(crate) fn shell_looks_like_structured_host_inspection(command: &str) -> bool
         "urlassociations\\https\\userchoice",
         "software\\policies\\microsoft\\edge",
         "software\\policies\\google\\chrome",
+        "get-winevent",
+        "event id",
+        "eventlog",
+        "event viewer",
+        "wevtutil",
         "cmdkey",
         "credential manager",
         "get-tpm",
@@ -6735,6 +6893,46 @@ mod tests {
             args.get("type").and_then(|value| value.as_str()),
             Some("A")
         );
+    }
+
+    #[test]
+    fn host_inspection_args_from_prompt_populates_event_query_fields() {
+        let args = host_inspection_args_from_prompt(
+            "event_query",
+            "Show me all System errors from the Event Log that occurred in the last 4 hours.",
+        );
+        assert_eq!(
+            args.get("log").and_then(|value| value.as_str()),
+            Some("System")
+        );
+        assert_eq!(
+            args.get("level").and_then(|value| value.as_str()),
+            Some("Error")
+        );
+        assert_eq!(args.get("hours").and_then(|value| value.as_u64()), Some(4));
+    }
+
+    #[test]
+    fn fill_missing_event_query_args_backfills_from_latest_user_prompt() {
+        let mut tool_name = "inspect_host".to_string();
+        let mut args = serde_json::json!({
+            "topic": "event_query"
+        });
+        rewrite_host_tool_call(
+            &mut tool_name,
+            &mut args,
+            Some("Show me all System errors from the Event Log that occurred in the last 4 hours."),
+        );
+        assert_eq!(tool_name, "inspect_host");
+        assert_eq!(
+            args.get("log").and_then(|value| value.as_str()),
+            Some("System")
+        );
+        assert_eq!(
+            args.get("level").and_then(|value| value.as_str()),
+            Some("Error")
+        );
+        assert_eq!(args.get("hours").and_then(|value| value.as_u64()), Some(4));
     }
 
     #[test]
