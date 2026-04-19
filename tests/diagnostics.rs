@@ -6155,3 +6155,266 @@ fn test_routing_detects_ipsec_topic() {
         assert_eq!(topic, Some("ipsec"), "Expected ipsec for: {q}");
     }
 }
+
+// ── netbios ──────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_netbios_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "netbios" });
+        let out = inspect_host(&args).await.expect("netbios must return Ok");
+        assert!(
+            out.contains("NetBIOS") || out.contains("WINS") || out.contains("nbtstat"),
+            "netbios output must contain NetBIOS header; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_netbios_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "netbios" });
+        let out = inspect_host(&args).await.expect("netbios must return Ok");
+        assert!(
+            out.contains("Findings") || out.contains("NetBIOS") || out.contains("Adapter"),
+            "netbios output must contain Findings or adapter section; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_netbios_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Show NetBIOS name table",
+        "What WINS server is configured?",
+        "Are there active nbtstat sessions?",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("netbios"), "Expected netbios for: {q}");
+    }
+}
+
+// ── nic_teaming ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_nic_teaming_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "nic_teaming" });
+        let out = inspect_host(&args)
+            .await
+            .expect("nic_teaming must return Ok");
+        assert!(
+            out.contains("NIC Teaming")
+                || out.contains("LBFO")
+                || out.contains("Team")
+                || out.contains("teaming"),
+            "nic_teaming output must contain NIC Teaming header; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_nic_teaming_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "nic_teaming" });
+        let out = inspect_host(&args)
+            .await
+            .expect("nic_teaming must return Ok");
+        assert!(
+            out.contains("Findings") || out.contains("Team") || out.contains("No NIC teams"),
+            "nic_teaming output must contain Findings or team section; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_nic_teaming_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Show LACP link aggregation status",
+        "Is link aggregation enabled?",
+        "Check LBFO team status",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("nic_teaming"), "Expected nic_teaming for: {q}");
+    }
+}
+
+// ── snmp ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_snmp_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "snmp" });
+        let out = inspect_host(&args).await.expect("snmp must return Ok");
+        assert!(
+            out.contains("SNMP") || out.contains("snmp"),
+            "snmp output must contain SNMP header; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_snmp_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "snmp" });
+        let out = inspect_host(&args).await.expect("snmp must return Ok");
+        assert!(
+            out.contains("Findings")
+                || out.contains("Service")
+                || out.contains("Community")
+                || out.contains("SNMP"),
+            "snmp output must contain Findings or service section; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_snmp_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Is SNMP agent running?",
+        "Show SNMP community strings",
+        "Check SNMP trap service",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("snmp"), "Expected snmp for: {q}");
+    }
+}
+
+// ── port_test ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_port_test_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "port_test", "host": "8.8.8.8", "port": 53 });
+        let out = inspect_host(&args).await.expect("port_test must return Ok");
+        assert!(
+            out.contains("Port Test")
+                || out.contains("port")
+                || out.contains("TCP")
+                || out.contains("reachab"),
+            "port_test output must contain Port Test header; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_port_test_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "port_test", "host": "8.8.8.8", "port": 53 });
+        let out = inspect_host(&args).await.expect("port_test must return Ok");
+        assert!(
+            out.contains("Findings")
+                || out.contains("OPEN")
+                || out.contains("CLOSED")
+                || out.contains("TCP"),
+            "port_test output must contain Findings or result; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_port_test_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Is port 443 open on 1.1.1.1?",
+        "Port check on 192.168.1.1:22",
+        "Check if port 80 is reachable",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("port_test"), "Expected port_test for: {q}");
+    }
+}
+
+// ── network_profile ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_host_network_profile_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "network_profile" });
+        let out = inspect_host(&args)
+            .await
+            .expect("network_profile must return Ok");
+        assert!(
+            out.contains("network_profile") || out.contains("Network") || out.contains("location"),
+            "network_profile output must contain header; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_network_profile_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "network_profile" });
+        let out = inspect_host(&args)
+            .await
+            .expect("network_profile must return Ok");
+        assert!(
+            out.contains("Findings")
+                || out.contains("Private")
+                || out.contains("Public")
+                || out.contains("Domain"),
+            "network_profile output must contain Findings or category; got:\n{out}"
+        );
+    });
+}
+
+#[test]
+fn test_routing_detects_network_profile_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "What is the network location profile?",
+        "Is this a public or private network?",
+        "Show network category for each adapter",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(
+            topic,
+            Some("network_profile"),
+            "Expected network_profile for: {q}"
+        );
+    }
+}
+
+// ── dns_lookup ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_dns_lookup_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "DNS lookup for github.com",
+        "Do an nslookup on cloudflare.com",
+        "Resolve the A record for example.com",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("dns_lookup"), "Expected dns_lookup for: {q}");
+    }
+}

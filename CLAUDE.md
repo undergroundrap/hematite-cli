@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **104+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **109+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -219,6 +219,11 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **TCP Parameters**: Use `topic: "tcp_params"` for TCP autotuning level, congestion provider (CUBIC/NewReno), initial congestion window, scaling heuristics, dynamic port range, chimney offload state, and ECN capability; findings for disabled autotuning or non-standard congestion provider.
 - **WLAN Profiles**: Use `topic: "wlan_profiles"` for saved wireless profiles with authentication type (WPA2/WPA3/WEP/Open), cipher, connection mode, and auto-connect state; currently connected SSID, BSSID, signal, and radio type; findings for profiles using weak/open authentication.
 - **IPSec**: Use `topic: "ipsec"` for enabled IPSec connection security rules, active main-mode and quick-mode SAs with local/remote address pairs, IKE Policy Agent service state; findings for active tunnels.
+- **NetBIOS**: Use `topic: "netbios"` for NetBIOS over TCP/IP state per adapter (enabled/disabled/DHCP), WINS server configuration, nbtstat registered names and active NetBIOS sessions; findings for enabled NetBIOS and configured WINS servers.
+- **NIC Teaming**: Use `topic: "nic_teaming"` for LBFO team inventory (mode, load-balancing algorithm, status), team member operational state; findings for degraded teams or inactive members.
+- **SNMP**: Use `topic: "snmp"` for Windows SNMP agent service state, community string presence audit (values redacted), permitted manager list, SNMP Trap service state; findings flag running agents and the 'public' community string as a risk.
+- **Port Test**: Use `topic: "port_test"` with `host` and `port` args to test TCP port reachability — returns OPEN/CLOSED/FILTERED with ICMP result, source address, and interface. Example: `inspect_host(topic: "port_test", host: "192.168.1.1", port: 443)`.
+- **Network Profile**: Use `topic: "network_profile"` for Windows network location profile per interface (Public/Private/DomainAuthenticated), IPv4/IPv6 connectivity state; findings flag Public-category interfaces.
 - **DNS Lookup**: Use `topic: "dns_lookup"` with a required `name` arg for active DNS resolution of a specific hostname — returns A, MX, TXT, SRV, or any record type; use `type` arg to specify (default: SRV). Example: `inspect_host(topic: "dns_lookup", name: "example.com", type: "A")`.
 - **IP Config**: Use `topic: "ip_config"` for full adapter IP detail equivalent to `ipconfig /all` — DHCP enabled state, IP addresses, gateway, DNS servers per adapter; useful when you need a complete adapter inventory without DHCP lease timing.
 - **Summary**: Use `topic: "summary"` (the default when no topic is given) for a general host overview — OS, hostname, uptime, CPU/RAM snapshot, disk health flag, and active network adapters.
@@ -322,6 +327,26 @@ so no local `.hematite/` folder is created there. The file is auto-generated and
 local. It contains detected stack/package-manager hints, important folders, ignored noise folders,
 and build/test suggestions. The prompt can use it as lightweight grounding before the model starts
 guessing about repo shape. Use `/workspace-profile` to inspect the current generated profile in the TUI.
+
+## Model Compatibility Notes
+
+**Jinja template fix — `| safe` filter error:** Some bartowski quantizations (e.g. `qwen_qwen3.6-35b-a3b` IQ2_XXS) ship with a broken Jinja chat template that LM Studio cannot render. Symptom: `Unknown StringValue filter: safe` channel errors after the first tool call.
+
+Fix: In LM Studio, open the model → **Prompt Template → Template (Jinja)** tab. Find this line:
+
+```jinja
+{%- set args_value = args_value | string if args_value is string else args_value | tojson | safe %}
+```
+
+Change it to:
+
+```jinja
+{%- set args_value = args_value | string if args_value is string else args_value | tojson %}
+```
+
+Save. The model will work correctly after this one-character fix.
+
+**Primary target model:** `Qwen/Qwen3.5-9B Q4_K_M` on LM Studio. Larger models at extreme quantizations (IQ2_XXS) often have worse effective instruction-following than the 9B at Q4_K_M and are not recommended for Hematite's tool-routing patterns.
 
 ## API Configuration
 

@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 104+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Full OS stack coverage**: 109+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
@@ -147,7 +147,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Authoritative Directory Audit** (`directory`, `desktop`, `downloads`, `music`, `videos`, `pictures`) — High-precision directory listing using OS-level tokens; instantly routes to surgical tools via the deterministic intent engine.
 - **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths.
 
-**Network Admin topics (23+):**
+**Network Admin topics (28+):**
 
 - **Latency** (`latency`) — ping RTT (min/avg/max) and packet loss to the default gateway, Cloudflare DNS (1.1.1.1), and Google DNS (8.8.8.8); findings for unreachable targets, high packet loss, and elevated latency
 - **Network Adapter** (`network_adapter`) — NIC inventory (link speed, MAC, driver version), offload settings (LSO/RSS/TCP checksum offload/jumbo frames) per adapter, error and discard counters, and wake-on-LAN / power management state
@@ -172,6 +172,11 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **UDP ports** (`udp_ports`) — active UDP listeners with owning process name and annotations for well-known ports (DNS, NTP, NetBIOS, mDNS, SSDP, IKE, SNMP)
 - **DNS Lookup** (`dns_lookup`) — specific high-precision DNS query for SRV, MX, TXT, or A records; critical for Active Directory and service discovery
 - **IP Configuration** (`ip_config`) — full adapter detail (ipconfig /all equivalent); surfaces DHCP server, lease times, and multi-IP interfaces
+- **NetBIOS** (`netbios`) — NetBIOS over TCP/IP state per adapter (enabled/disabled/DHCP), WINS server configuration, nbtstat registered names, and active NetBIOS sessions; flags enabled NetBIOS as a potential attack surface
+- **NIC Teaming** (`nic_teaming`) — LBFO team inventory (mode, load-balancing algorithm, status, link speed), team member detail and operational state; flags degraded teams or inactive members
+- **SNMP** (`snmp`) — Windows SNMP agent service state, community string presence audit (values redacted), permitted manager list, SNMP Trap service; flags running agents and the well-known 'public' community string as a risk
+- **Port Test** (`port_test`) — TCP port reachability test to any remote host and port via `Test-NetConnection`; returns OPEN/CLOSED/FILTERED with ICMP ping result, source address, and interface used. Use args `host` and `port`.
+- **Network Profile** (`network_profile`) — Windows network location profile per interface (Public/Private/DomainAuthenticated), IPv4/IPv6 connectivity state; flags Public-category interfaces and domain-authenticated connections
 
 **Intent-based diagnostic orchestration:**
 

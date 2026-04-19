@@ -181,6 +181,15 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "tcp_params" | "tcp_settings" | "tcp_autotuning" | "tcp_config" | "tcp_tuning" | "tcp_window" => inspect_tcp_params(),
         "wlan_profiles" | "wifi_profiles" | "wireless_profiles" | "saved_wifi" | "saved_networks" => inspect_wlan_profiles(),
         "ipsec" | "ipsec_sa" | "ipsec_policy" | "ipsec_rules" | "ipsec_tunnel" | "ike" => inspect_ipsec(),
+        "netbios" | "netbios_status" | "wins" | "nbtstat" | "netbios_config" => inspect_netbios(),
+        "nic_teaming" | "nic_team" | "teaming" | "lacp" | "bonding" | "link_aggregation" => inspect_nic_teaming(),
+        "snmp" | "snmp_agent" | "snmp_service" | "snmp_config" => inspect_snmp(),
+        "port_test" | "port_check" | "test_port" | "check_port" | "tcp_test" | "reachable" => {
+            let pt_host = args.get("host").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let pt_port = args.get("port").and_then(|v| v.as_u64()).map(|p| p as u16);
+            inspect_port_test(pt_host.as_deref(), pt_port)
+        }
+        "network_profile" | "network_location" | "net_profile" | "network_category" => inspect_network_profile(),
         "overclocker" | "thermal_deep" | "clocks" | "voltage" => inspect_overclocker().await,
         "display_config" | "display" | "monitor" | "monitors" | "resolution" | "refresh_rate" | "screen" => {
             inspect_display_config(max_entries)
@@ -204,7 +213,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_network_adapter()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -14246,6 +14255,483 @@ fn inspect_ipsec() -> Result<String, String> {
         } else {
             out.push_str(&body);
         }
+    }
+    Ok(out)
+}
+
+// ── NetBIOS ──────────────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_netbios() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+# NetBIOS node type and WINS per adapter
+$result.AppendLine("=== NetBIOS configuration per adapter ===") | Out-Null
+try {
+    $adapters = Get-WmiObject Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPEnabled -eq $true }
+    foreach ($a in $adapters) {
+        $nodeType = switch ($a.TcpipNetbiosOptions) {
+            0 { "EnableNetBIOSViaDHCP" }
+            1 { "Enabled" }
+            2 { "Disabled" }
+            default { "Unknown ($($a.TcpipNetbiosOptions))" }
+        }
+        $result.AppendLine("  [$($a.Description)]") | Out-Null
+        $result.AppendLine("    NetBIOS over TCP/IP: $nodeType") | Out-Null
+        if ($a.WINSPrimaryServer) {
+            $result.AppendLine("    WINS Primary:        $($a.WINSPrimaryServer)") | Out-Null
+        }
+        if ($a.WINSSecondaryServer) {
+            $result.AppendLine("    WINS Secondary:      $($a.WINSSecondaryServer)") | Out-Null
+        }
+    }
+} catch {
+    $result.AppendLine("  Could not query NetBIOS adapter config.") | Out-Null
+}
+
+# nbtstat -n — registered local NetBIOS names
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Registered NetBIOS names (nbtstat -n) ===") | Out-Null
+try {
+    $nbt = nbtstat -n 2>$null
+    foreach ($line in $nbt) {
+        $l = $line.Trim()
+        if ($l -and $l -notmatch '^Node|^Host|^Registered|^-{3}') {
+            $result.AppendLine("  $l") | Out-Null
+        }
+    }
+} catch {
+    $result.AppendLine("  nbtstat not available.") | Out-Null
+}
+
+# NetBIOS session table
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Active NetBIOS sessions (nbtstat -s) ===") | Out-Null
+try {
+    $sessions = nbtstat -s 2>$null | Where-Object { $_.Trim() -ne '' }
+    if ($sessions) {
+        foreach ($s in $sessions) { $result.AppendLine("  $($s.Trim())") | Out-Null }
+    } else {
+        $result.AppendLine("  No active NetBIOS sessions.") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Could not query NetBIOS sessions.") | Out-Null
+}
+
+# Findings
+$findings = [System.Collections.Generic.List[string]]::new()
+try {
+    $enabled = Get-WmiObject Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPEnabled -and $_.TcpipNetbiosOptions -ne 2 }
+    if ($enabled) {
+        $findings.Add("NetBIOS over TCP/IP is enabled on $($enabled.Count) adapter(s) — potential attack surface if not required.")
+    }
+    $wins = Get-WmiObject Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue |
+        Where-Object { $_.WINSPrimaryServer }
+    if ($wins) {
+        $findings.Add("WINS server configured: $($wins[0].WINSPrimaryServer) — verify this is intentional.")
+    }
+} catch {}
+
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Findings ===") | Out-Null
+if ($findings.Count -eq 0) {
+    $result.AppendLine("- NetBIOS configuration looks standard.") | Out-Null
+} else {
+    foreach ($f in $findings) { $result.AppendLine("- $f") | Out-Null }
+}
+
+Write-Output $result.ToString()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: netbios\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_netbios() -> Result<String, String> {
+    let mut out = String::from("Host inspection: netbios\n\n=== NetBIOS (nmblookup) ===\n");
+    if let Ok(o) = std::process::Command::new("nmblookup")
+        .arg("-A")
+        .arg("localhost")
+        .output()
+    {
+        out.push_str(&String::from_utf8_lossy(&o.stdout));
+    } else {
+        out.push_str("  nmblookup not available (Samba not installed).\n");
+    }
+    Ok(out)
+}
+
+// ── NIC Teaming ──────────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_nic_teaming() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+# Team inventory
+$result.AppendLine("=== NIC teams ===") | Out-Null
+try {
+    $teams = Get-NetLbfoTeam -ErrorAction SilentlyContinue
+    if ($teams) {
+        foreach ($t in $teams) {
+            $result.AppendLine("  Team: $($t.Name)") | Out-Null
+            $result.AppendLine("    Mode:            $($t.TeamingMode)") | Out-Null
+            $result.AppendLine("    LB Algorithm:    $($t.LoadBalancingAlgorithm)") | Out-Null
+            $result.AppendLine("    Status:          $($t.Status)") | Out-Null
+            $result.AppendLine("    Members:         $($t.Members -join ', ')") | Out-Null
+            $result.AppendLine("    VLANs:           $($t.TransmitLinkSpeed / 1000000) Mbps TX / $($t.ReceiveLinkSpeed / 1000000) Mbps RX") | Out-Null
+        }
+    } else {
+        $result.AppendLine("  No NIC teams configured on this machine.") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Get-NetLbfoTeam unavailable (feature may not be installed).") | Out-Null
+}
+
+# Team members detail
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Team member detail ===") | Out-Null
+try {
+    $members = Get-NetLbfoTeamMember -ErrorAction SilentlyContinue
+    if ($members) {
+        foreach ($m in $members) {
+            $result.AppendLine("  [$($m.Team)] $($m.Name)  Role=$($m.AdministrativeMode)  Status=$($m.OperationalStatus)") | Out-Null
+        }
+    } else {
+        $result.AppendLine("  No team members found.") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Could not query team members.") | Out-Null
+}
+
+# Findings
+$findings = [System.Collections.Generic.List[string]]::new()
+try {
+    $degraded = Get-NetLbfoTeam -ErrorAction SilentlyContinue | Where-Object { $_.Status -ne 'Up' }
+    if ($degraded) {
+        foreach ($d in $degraded) { $findings.Add("Team '$($d.Name)' is in degraded state: $($d.Status)") }
+    }
+    $downMembers = Get-NetLbfoTeamMember -ErrorAction SilentlyContinue | Where-Object { $_.OperationalStatus -ne 'Active' }
+    if ($downMembers) {
+        foreach ($m in $downMembers) { $findings.Add("Team member '$($m.Name)' in team '$($m.Team)' is not Active: $($m.OperationalStatus)") }
+    }
+} catch {}
+
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Findings ===") | Out-Null
+if ($findings.Count -eq 0) {
+    $result.AppendLine("- NIC teaming state looks healthy (or no teams configured).") | Out-Null
+} else {
+    foreach ($f in $findings) { $result.AppendLine("- $f") | Out-Null }
+}
+
+Write-Output $result.ToString()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: nic_teaming\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_nic_teaming() -> Result<String, String> {
+    let mut out = String::from("Host inspection: nic_teaming\n\n=== Bond interfaces ===\n");
+    if let Ok(o) = std::process::Command::new("cat")
+        .arg("/proc/net/bonding/bond0")
+        .output()
+    {
+        if o.status.success() {
+            out.push_str(&String::from_utf8_lossy(&o.stdout));
+        } else {
+            out.push_str("  No bond0 interface found.\n");
+        }
+    }
+    if let Ok(o) = std::process::Command::new("ip")
+        .args(["link", "show", "type", "bond"])
+        .output()
+    {
+        let body = String::from_utf8_lossy(&o.stdout);
+        if !body.trim().is_empty() {
+            out.push_str("\n=== Bond links (ip link) ===\n");
+            out.push_str(&body);
+        }
+    }
+    Ok(out)
+}
+
+// ── SNMP ─────────────────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_snmp() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+# SNMP service state
+$result.AppendLine("=== SNMP service state ===") | Out-Null
+$svc = Get-Service -Name 'SNMP' -ErrorAction SilentlyContinue
+if ($svc) {
+    $result.AppendLine("  SNMP Agent service: $($svc.Status) (Startup: $($svc.StartType))") | Out-Null
+} else {
+    $result.AppendLine("  SNMP Agent service not installed.") | Out-Null
+}
+
+$svcTrap = Get-Service -Name 'SNMPTRAP' -ErrorAction SilentlyContinue
+if ($svcTrap) {
+    $result.AppendLine("  SNMP Trap service:  $($svcTrap.Status) (Startup: $($svcTrap.StartType))") | Out-Null
+}
+
+# Community strings (presence only — values redacted)
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== SNMP community strings (presence only) ===") | Out-Null
+try {
+    $communities = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\SNMP\Parameters\ValidCommunities' -ErrorAction SilentlyContinue
+    if ($communities) {
+        $names = $communities.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' } | Select-Object -ExpandProperty Name
+        if ($names) {
+            foreach ($n in $names) {
+                $result.AppendLine("  Community: '$n'  (value redacted)") | Out-Null
+            }
+        } else {
+            $result.AppendLine("  No community strings configured.") | Out-Null
+        }
+    } else {
+        $result.AppendLine("  Registry key not found (SNMP may not be configured).") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Could not read community strings (SNMP not configured or access denied).") | Out-Null
+}
+
+# Permitted managers
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Permitted SNMP managers ===") | Out-Null
+try {
+    $managers = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\SNMP\Parameters\PermittedManagers' -ErrorAction SilentlyContinue
+    if ($managers) {
+        $mgrs = $managers.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' } | Select-Object -ExpandProperty Value
+        if ($mgrs) {
+            foreach ($m in $mgrs) { $result.AppendLine("  $m") | Out-Null }
+        } else {
+            $result.AppendLine("  No permitted managers configured (accepts from any host).") | Out-Null
+        }
+    } else {
+        $result.AppendLine("  No manager restrictions configured.") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Could not read permitted managers.") | Out-Null
+}
+
+# Findings
+$findings = [System.Collections.Generic.List[string]]::new()
+$snmpSvc = Get-Service -Name 'SNMP' -ErrorAction SilentlyContinue
+if ($snmpSvc -and $snmpSvc.Status -eq 'Running') {
+    $findings.Add("SNMP Agent is running — verify community strings and permitted managers are locked down.")
+    try {
+        $comms = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\SNMP\Parameters\ValidCommunities' -ErrorAction SilentlyContinue
+        $publicExists = $comms.PSObject.Properties | Where-Object { $_.Name -eq 'public' }
+        if ($publicExists) { $findings.Add("Community string 'public' is configured — this is a well-known default and a security risk.") }
+    } catch {}
+}
+
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Findings ===") | Out-Null
+if ($findings.Count -eq 0) {
+    $result.AppendLine("- SNMP agent is not running (or not installed). No exposure.") | Out-Null
+} else {
+    foreach ($f in $findings) { $result.AppendLine("- $f") | Out-Null }
+}
+
+Write-Output $result.ToString()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: snmp\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_snmp() -> Result<String, String> {
+    let mut out = String::from("Host inspection: snmp\n\n=== SNMP daemon state ===\n");
+    for svc in &["snmpd", "snmp"] {
+        if let Ok(o) = std::process::Command::new("systemctl")
+            .args(["is-active", svc])
+            .output()
+        {
+            let status = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            out.push_str(&format!("  {svc}: {status}\n"));
+        }
+    }
+    out.push_str("\n=== snmpd.conf community strings (presence check) ===\n");
+    if let Ok(o) = std::process::Command::new("grep")
+        .args(["-i", "community", "/etc/snmp/snmpd.conf"])
+        .output()
+    {
+        if o.status.success() {
+            for line in String::from_utf8_lossy(&o.stdout).lines() {
+                out.push_str(&format!("  {line}\n"));
+            }
+        } else {
+            out.push_str("  /etc/snmp/snmpd.conf not found or no community lines.\n");
+        }
+    }
+    Ok(out)
+}
+
+// ── Port Test ─────────────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_port_test(host: Option<&str>, port: Option<u16>) -> Result<String, String> {
+    let target_host = host.unwrap_or("8.8.8.8");
+    let target_port = port.unwrap_or(443);
+
+    let script = format!(
+        r#"
+$result = [System.Text.StringBuilder]::new()
+$result.AppendLine("=== Port reachability test ===") | Out-Null
+$result.AppendLine("  Target: {target_host}:{target_port}") | Out-Null
+$result.AppendLine("") | Out-Null
+
+try {{
+    $test = Test-NetConnection -ComputerName '{target_host}' -Port {target_port} -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+    if ($test) {{
+        $status = if ($test.TcpTestSucceeded) {{ "OPEN (reachable)" }} else {{ "CLOSED or FILTERED" }}
+        $result.AppendLine("  Result:          $status") | Out-Null
+        $result.AppendLine("  Remote address:  $($test.RemoteAddress)") | Out-Null
+        $result.AppendLine("  Remote port:     $($test.RemotePort)") | Out-Null
+        if ($test.PingSucceeded) {{
+            $result.AppendLine("  ICMP ping:       Succeeded ($($test.PingReplyDetails.RoundtripTime) ms)") | Out-Null
+        }} else {{
+            $result.AppendLine("  ICMP ping:       Failed (host may block ICMP)") | Out-Null
+        }}
+        $result.AppendLine("  Interface used:  $($test.InterfaceAlias)") | Out-Null
+        $result.AppendLine("  Source address:  $($test.SourceAddress.IPAddress)") | Out-Null
+
+        $result.AppendLine("") | Out-Null
+        $result.AppendLine("=== Findings ===") | Out-Null
+        if ($test.TcpTestSucceeded) {{
+            $result.AppendLine("- Port {target_port} on {target_host} is OPEN — TCP handshake succeeded.") | Out-Null
+        }} else {{
+            $result.AppendLine("- Port {target_port} on {target_host} is CLOSED or FILTERED — TCP handshake failed.") | Out-Null
+            $result.AppendLine("  Check: firewall rules, route to host, or service not listening on that port.") | Out-Null
+        }}
+    }}
+}} catch {{
+    $result.AppendLine("  Test-NetConnection failed: $($_.Exception.Message)") | Out-Null
+}}
+
+Write-Output $result.ToString()
+"#
+    );
+    let out = run_powershell(&script)?;
+    Ok(format!("Host inspection: port_test\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_port_test(host: Option<&str>, port: Option<u16>) -> Result<String, String> {
+    let target_host = host.unwrap_or("8.8.8.8");
+    let target_port = port.unwrap_or(443);
+    let mut out = format!("Host inspection: port_test\n\n=== Port reachability test ===\n  Target: {target_host}:{target_port}\n\n");
+    // nc -zv with timeout
+    let nc = std::process::Command::new("nc")
+        .args(["-zv", "-w", "3", target_host, &target_port.to_string()])
+        .output();
+    match nc {
+        Ok(o) => {
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let body = if !stdout.trim().is_empty() {
+                stdout.as_ref()
+            } else {
+                stderr.as_ref()
+            };
+            out.push_str(&format!("  {}\n", body.trim()));
+            out.push_str("\n=== Findings ===\n");
+            if o.status.success() {
+                out.push_str(&format!("- Port {target_port} on {target_host} is OPEN.\n"));
+            } else {
+                out.push_str(&format!(
+                    "- Port {target_port} on {target_host} is CLOSED or FILTERED.\n"
+                ));
+            }
+        }
+        Err(e) => out.push_str(&format!("  nc not available: {e}\n")),
+    }
+    Ok(out)
+}
+
+// ── Network Profile ───────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_network_profile() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+$result.AppendLine("=== Network location profiles ===") | Out-Null
+try {
+    $profiles = Get-NetConnectionProfile -ErrorAction SilentlyContinue
+    if ($profiles) {
+        foreach ($p in $profiles) {
+            $result.AppendLine("  Interface: $($p.InterfaceAlias)") | Out-Null
+            $result.AppendLine("    Network name:    $($p.Name)") | Out-Null
+            $result.AppendLine("    Category:        $($p.NetworkCategory)") | Out-Null
+            $result.AppendLine("    IPv4 conn:       $($p.IPv4Connectivity)") | Out-Null
+            $result.AppendLine("    IPv6 conn:       $($p.IPv6Connectivity)") | Out-Null
+            $result.AppendLine("") | Out-Null
+        }
+    } else {
+        $result.AppendLine("  No network connection profiles found.") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Could not query network profiles.") | Out-Null
+}
+
+# Findings
+$findings = [System.Collections.Generic.List[string]]::new()
+try {
+    $pub = Get-NetConnectionProfile -ErrorAction SilentlyContinue | Where-Object { $_.NetworkCategory -eq 'Public' }
+    if ($pub) {
+        foreach ($p in $pub) {
+            $findings.Add("Interface '$($p.InterfaceAlias)' is set to Public — firewall restrictions are maximum. Change to Private if this is a trusted network.")
+        }
+    }
+    $domain = Get-NetConnectionProfile -ErrorAction SilentlyContinue | Where-Object { $_.NetworkCategory -eq 'DomainAuthenticated' }
+    if ($domain) {
+        foreach ($d in $domain) {
+            $findings.Add("Interface '$($d.InterfaceAlias)' is domain-authenticated — domain GPO firewall rules apply.")
+        }
+    }
+} catch {}
+
+$result.AppendLine("=== Findings ===") | Out-Null
+if ($findings.Count -eq 0) {
+    $result.AppendLine("- Network profiles look normal.") | Out-Null
+} else {
+    foreach ($f in $findings) { $result.AppendLine("- $f") | Out-Null }
+}
+
+Write-Output $result.ToString()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: network_profile\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_network_profile() -> Result<String, String> {
+    let mut out = String::from(
+        "Host inspection: network_profile\n\n=== Network manager connection profiles ===\n",
+    );
+    if let Ok(o) = std::process::Command::new("nmcli")
+        .args([
+            "-t",
+            "-f",
+            "NAME,TYPE,STATE,DEVICE",
+            "connection",
+            "show",
+            "--active",
+        ])
+        .output()
+    {
+        out.push_str(&String::from_utf8_lossy(&o.stdout));
+    } else {
+        out.push_str("  nmcli not available.\n");
     }
     Ok(out)
 }

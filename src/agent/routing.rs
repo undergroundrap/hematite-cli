@@ -445,11 +445,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_ad_user = lower.contains("ad user")
         || lower.contains("domain user")
         || (lower.contains("user") && (lower.contains("sid") || lower.contains("membership")));
-    let asks_dns_lookup = (lower.contains("dns") || lower.contains("record"))
-        && (lower.contains("lookup")
-            || lower.contains("srv")
-            || lower.contains("mx")
-            || lower.contains("txt"));
     let asks_hyperv =
         lower.contains("hyper-v") || lower.contains("hyperv") || lower.contains("list vm");
     let asks_ip_config =
@@ -673,7 +668,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("packet") && lower.contains("size") && lower.contains("max"))
         || (lower.contains("vpn") && lower.contains("mtu"))
         || (lower.contains("mtu") && lower.contains("check"));
-    let asks_latency = lower.contains("ping")
+    let asks_latency = (lower
+        .split_whitespace()
+        .any(|w| w.trim_matches(|c: char| !c.is_alphanumeric()) == "ping"))
         || lower.contains("latency")
         || lower.contains("packet loss")
         || lower.contains("rtt")
@@ -769,6 +766,74 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("xfrm")
         || (lower.contains("ipsec")
             && (lower.contains("check") || lower.contains("active") || lower.contains("status")));
+    let asks_netbios = lower.contains("netbios")
+        || lower.contains("nbtstat")
+        || lower.contains("wins server")
+        || lower.contains("wins address")
+        || lower.contains("netbios name")
+        || lower.contains("netbios over tcp")
+        || lower.contains("nbns")
+        || (lower.contains("wins")
+            && (lower.contains("server") || lower.contains("config") || lower.contains("check")));
+    let asks_nic_teaming = lower.contains("nic team")
+        || lower.contains("nic teaming")
+        || lower.contains("network team")
+        || lower.contains("lacp")
+        || lower.contains("link aggregation")
+        || lower.contains("bonding")
+        || lower.contains("bond interface")
+        || lower.contains("lbfo")
+        || (lower.contains("team")
+            && (lower.contains("nic") || lower.contains("adapter") || lower.contains("network")));
+    let asks_snmp = lower.contains("snmp")
+        || lower.contains("snmp agent")
+        || lower.contains("snmp trap")
+        || lower.contains("community string")
+        || lower.contains("snmp service")
+        || lower.contains("snmpd");
+    let asks_port_test = lower.contains("port test")
+        || lower.contains("test port")
+        || lower.contains("port check")
+        || lower.contains("check port")
+        || lower.contains("port reachab")
+        || lower.contains("can i reach")
+        || lower.contains("is port")
+        || lower.contains("tcp test")
+        || lower.contains("test-netconnection")
+        || lower.contains("test connection")
+        || (lower.contains("port")
+            && (lower.contains("open")
+                || lower.contains("closed")
+                || lower.contains("blocked")
+                || lower.contains("reachable")))
+        || (lower.contains("reach") && lower.contains("port"));
+    let asks_network_profile = lower.contains("network profile")
+        || lower.contains("network location")
+        || lower.contains("network category")
+        || lower.contains("public network")
+        || lower.contains("private network")
+        || lower.contains("domain network")
+        || lower.contains("net profile")
+        || (lower.contains("network") && lower.contains("location"))
+        || (lower.contains("firewall") && lower.contains("profile") && lower.contains("network"));
+    let asks_dns_lookup = lower.contains("dns lookup")
+        || lower.contains("dns record")
+        || lower.contains("nslookup")
+        || lower.contains("look up ")
+        || lower.contains("look up the")
+        || lower.contains("resolve ")
+        || lower.contains("mx record")
+        || lower.contains("srv record")
+        || lower.contains("txt record")
+        || lower.contains("a record")
+        || lower.contains("aaaa record")
+        || lower.contains("cname record")
+        || lower.contains(" dig ")
+        || (lower.contains("what") && lower.contains("ip") && lower.contains("for"))
+        || (lower.contains("resolve")
+            && (lower.contains("hostname") || lower.contains("domain") || lower.contains("name")))
+        || (lower.contains("lookup")
+            && (lower.contains("domain") || lower.contains("host") || lower.contains("name")));
     let asks_peripherals = lower.contains("peripheral")
         || lower.contains("usb")
         || lower.contains("keyboard")
@@ -976,8 +1041,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("listening port")
         || lower.contains("open port")
         || lower.contains("port 3000")
-        || lower.contains("port ")
         || lower.contains("listening on ")
+        || lower.contains("what ports are")
+        || lower.contains("what port is")
         || lower.contains("exposed")
         || lower.contains("what is listening")
         || (lower.contains("listening") && lower.contains("port"));
@@ -1481,12 +1547,16 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("env_doctor")
     } else if asks_overclocker {
         Some("overclocker")
+    } else if asks_traceroute {
+        Some("traceroute")
     } else if asks_dhcp {
         Some("dhcp")
     } else if asks_mtu {
         Some("mtu")
     } else if asks_latency {
         Some("latency")
+    } else if asks_nic_teaming {
+        Some("nic_teaming")
     } else if asks_network_stats {
         Some("network_stats")
     } else if asks_share_access {
@@ -1531,6 +1601,16 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("wlan_profiles")
     } else if asks_ipsec {
         Some("ipsec")
+    } else if asks_udp_ports {
+        Some("udp_ports")
+    } else if asks_port_test {
+        Some("port_test")
+    } else if asks_netbios {
+        Some("netbios")
+    } else if asks_snmp {
+        Some("snmp")
+    } else if asks_network_profile {
+        Some("network_profile")
     } else if asks_permissions {
         Some("permissions")
     } else if asks_login_history {
@@ -1605,8 +1685,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("proxy")
     } else if asks_firewall_rules {
         Some("firewall_rules")
-    } else if asks_traceroute {
-        Some("traceroute")
     } else if asks_dns_cache {
         Some("dns_cache")
     } else if asks_arp {
@@ -1615,8 +1693,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("route_table")
     } else if asks_network_stats {
         Some("network_stats")
-    } else if asks_udp_ports {
-        Some("udp_ports")
     } else if asks_shares {
         Some("shares")
     } else if asks_network {
@@ -2041,6 +2117,49 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("ipsec tunnel")
                 || l.contains("policy agent")
                 || l.contains("xfrm")
+        }),
+        ("netbios", |l| {
+            l.contains("netbios")
+                || l.contains("nbtstat")
+                || l.contains("wins server")
+                || l.contains("nbns")
+        }),
+        ("nic_teaming", |l| {
+            l.contains("nic team")
+                || l.contains("lacp")
+                || l.contains("link aggregation")
+                || l.contains("lbfo")
+                || l.contains("bonding")
+        }),
+        ("snmp", |l| {
+            l.contains("snmp") || l.contains("community string") || l.contains("snmpd")
+        }),
+        ("port_test", |l| {
+            l.contains("port test")
+                || l.contains("test port")
+                || l.contains("port check")
+                || l.contains("can i reach")
+                || l.contains("is port")
+                || l.contains("port reachab")
+                || (l.contains("port")
+                    && (l.contains("open") || l.contains("blocked") || l.contains("reachable")))
+        }),
+        ("network_profile", |l| {
+            l.contains("network profile")
+                || l.contains("network location")
+                || l.contains("network category")
+                || l.contains("public network")
+                || l.contains("private network")
+        }),
+        ("dns_lookup", |l| {
+            l.contains("dns lookup")
+                || l.contains("dns record")
+                || l.contains("nslookup")
+                || l.contains("mx record")
+                || l.contains("srv record")
+                || l.contains("look up ")
+                || l.contains(" dig ")
+                || (l.contains("resolve") && (l.contains("hostname") || l.contains("domain")))
         }),
         ("pending_reboot", |l| {
             l.contains("pending reboot")
