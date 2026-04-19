@@ -1,10 +1,32 @@
 # hematite
 
-> **Hematite is a Local Intelligence Backend** — Beyond the terminal session: run `hematite --mcp-server` and Hematite becomes an **MCP server**, exposing its 116+ host inspection tools to any MCP-capable agent — Claude Desktop, OpenClaw, Cursor, Windsurf, and any client that speaks the Model Context Protocol. Add `--edge-redact` and Hematite acts as a **privacy gateway**: usernames, MAC addresses, serial numbers, hostnames, and credential-shaped values are stripped locally before the response crosses the wire — so enterprises and security-conscious operators get frontier model reasoning without raw machine identity data leaving the device. One binary. No cloud dependency. Grounded answers from real machine state.
-
 **Your RTX 4070 is a serious machine. Hematite is its local AI layer — coding harness, SysAdmin, Network Admin, and host intelligence backend, all in one terminal binary.**
 
 Think of it as a **Senior SysAdmin, Network Admin, and Software Engineer living in your terminal** — running 100% on your own silicon for total privacy and speed.
+
+---
+
+### Three ways to run it
+
+**1. Fully local — no cloud, total privacy**
+```
+hematite
+```
+Runs in your terminal with a local model on LM Studio (Qwen 3.5, Gemma 4, or any OpenAI-compatible model). Everything stays on your machine. No API key, no cloud, no per-token billing. This is the default mode.
+
+**2. Claude or any agent uses Hematite directly**
+```
+hematite --mcp-server
+```
+Claude Desktop, OpenClaw, Cursor, Windsurf — any MCP-capable agent — connects to Hematite over the Model Context Protocol and calls its 116+ host inspection tools directly. The cloud model handles the reasoning. Hematite handles the grounded local observation. No local model needed. The cloud agent sees real machine data and can answer questions about it with full frontier intelligence.
+
+**3. Cloud intelligence, private machine — enterprise mode**
+```
+hematite --mcp-server --edge-redact
+```
+Same as above, but Hematite applies **edge redaction** before anything leaves the device. Usernames, MAC addresses, hardware serial numbers, hostnames, and credential-shaped values are stripped and replaced with safe tokens (`[USER]`, `[MAC]`, `[SERIAL]`, `[HOSTNAME]`, `[REDACTED]`). The cloud model gets grounded, useful diagnostic insights — crash patterns, service states, network health — without ever seeing the raw identity data. Built for enterprises and security-conscious operators who need frontier reasoning without a cloud window into their infrastructure.
+
+---
 
 **Local AI agent harness for LM Studio** — coding assistant, voice, RAG retrieval, and grounded diagnostic analysis. A precision SysAdmin and Network Admin assistant that runs entirely on your silicon. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, and inspects the machine it is running on — including full network state, hardware health, and workstation telemetry. All from a single binary that boots in seconds.
 
