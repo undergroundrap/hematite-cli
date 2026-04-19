@@ -170,7 +170,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **LAN discovery** (`lan_discovery`) — neighborhood, NetBIOS/SMB visibility, mDNS/SSDP/UPnP listener surface, gateway hints, and plain-English diagnosis for “can’t see that NAS/printer/PC”
 - **Network stats** (`network_stats`) — per-adapter RX/TX throughput (MB), error counts, drop counts, link speed, and duplex; flags adapters with errors or drops
 - **UDP ports** (`udp_ports`) — active UDP listeners with owning process name and annotations for well-known ports (DNS, NTP, NetBIOS, mDNS, SSDP, IKE, SNMP)
-- **DNS Lookup** (`dns_lookup`) — specific high-precision DNS query for SRV, MX, TXT, or A records; critical for Active Directory and service discovery
+- **DNS Lookup** (`dns_lookup`) — specific high-precision DNS query for A/AAAA, MX, TXT, SRV, and other record types; now handles plain-English domain-to-IP questions and defaults to `A` when the user asks for a hostname/IP answer without naming a record type
 - **IP Configuration** (`ip_config`) — full adapter detail (ipconfig /all equivalent); surfaces DHCP server, lease times, and multi-IP interfaces
 - **NetBIOS** (`netbios`) — NetBIOS over TCP/IP state per adapter (enabled/disabled/DHCP), WINS server configuration, nbtstat registered names, and active NetBIOS sessions; flags enabled NetBIOS as a potential attack surface
 - **NIC Teaming** (`nic_teaming`) — LBFO team inventory (mode, load-balancing algorithm, status, link speed), team member detail and operational state; flags degraded teams or inactive members

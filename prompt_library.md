@@ -47,6 +47,12 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **DNS and proxy audit**
 > "Show me my configured DNS nameservers per adapter and any system proxy settings — WinHTTP, Internet Options, and environment variables."
 
+**Plain-English DNS lookup**
+> "What is the IP address of google.com"
+
+**A record lookup**
+> "Show me the A record for github.com"
+
 **Firewall rules**
 > "List all active inbound firewall rules that allow traffic. Flag anything that looks non-default."
 
