@@ -86,6 +86,15 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Full backup posture audit**
 > "Show me my File History configuration, last wbadmin backup, available System Restore points, and whether OneDrive Known Folder Move is protecting my Desktop and Documents."
 
+**Hyper-V VM inventory**
+> "List all virtual machines on this machine with their state, RAM, and CPU usage."
+
+**Hyper-V health check**
+> "Check Hyper-V health — VM states, network switches, and any checkpoints I should clean up."
+
+**Hyper-V RAM pressure**
+> "How much RAM are my VMs using compared to my host machine's physical memory?"
+
 **Firewall rules**
 > "List all active inbound firewall rules that allow traffic. Flag anything that looks non-default."
 

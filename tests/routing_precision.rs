@@ -134,3 +134,28 @@ fn test_routing_windows_backup_in_multi_topic() {
     assert!(topics.contains(&"windows_backup"), "should detect windows_backup");
     assert!(topics.contains(&"disk_health"), "should detect disk_health");
 }
+
+#[test]
+fn test_routing_detects_hyperv_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("List all virtual machines on this machine."),
+        Some("hyperv")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Check Hyper-V health and VM states."),
+        Some("hyperv")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("How much RAM are my running VMs using?"),
+        Some("hyperv")
+    );
+}
+
+#[test]
+fn test_routing_hyperv_in_multi_topic() {
+    let topics = all_host_inspection_topics(
+        "Show me all running VMs and also check the system resource load.",
+    );
+    assert!(topics.contains(&"hyperv"), "should detect hyperv");
+    assert!(topics.contains(&"resource_load"), "should detect resource_load");
+}

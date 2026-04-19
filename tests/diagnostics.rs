@@ -3554,6 +3554,22 @@ fn test_inspect_host_teams_reports_findings_and_sections() {
 }
 
 #[test]
+fn test_inspect_host_hyperv_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "hyperv" });
+        let output = inspect_host(&args).await.expect("hyperv must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== Hyper-V role state ===");
+        assert!(
+            has_result,
+            "hyperv must report findings and role state section; got:\n{output}"
+        );
+    });
+}
+
+#[test]
 fn test_inspect_host_windows_backup_returns_header() {
     use hematite::tools::host_inspect::inspect_host;
     let rt = tokio::runtime::Runtime::new().unwrap();

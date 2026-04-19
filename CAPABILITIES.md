@@ -107,7 +107,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **User accounts** (`user_accounts`) — local user accounts (name, enabled, last logon, password required), Administrators group members, active logon sessions, and elevated process state; redirected from `Get-LocalUser` and `net user`
 - **Active Directory User** (`ad_user`) — precise user/group lookup via Get-ADUser or net user/domain; shows SID, enabled status, password expiry, and group memberships; includes **Self-Aware discovery** for 'Who am I?' queries
 - **Audit policy** (`audit_policy`) — Windows audit policy via auditpol; shows which event categories log Success/Failure; flags if no categories are enabled
-- **Hyper-V** (`hyperv`) — live inventory of Virtual Machines with name, state, uptime, and CPU/Memory load stats
+- **Hyper-V** (`hyperv`) — Hyper-V role and VMMS service state, VM inventory with name, state, CPU%, RAM assignment, and uptime, VM network switch inventory (External/Internal/Private) with bound NIC, VM checkpoint listing with creation timestamps (flags excessive checkpoints), and RAM overcommit detection vs host physical memory
 - **Shares** (`shares`) — SMB shares exposed by this machine (flags custom non-admin shares), SMB security settings (SMB1/SMB2 state, signing, encryption), and mapped network drives
 - **BitLocker** (`bitlocker`) — drive encryption state per volume (PROTECTED/UNPROTECTED), protection method, and SMB1 warning; LUKS on Linux
 - **RDP** (`rdp`) — Remote Desktop enabled state (registry fDenyTSConnections), port number, NLA/UserAuthentication, firewall group status, and active sessions

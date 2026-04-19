@@ -445,8 +445,17 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_ad_user = lower.contains("ad user")
         || lower.contains("domain user")
         || (lower.contains("user") && (lower.contains("sid") || lower.contains("membership")));
-    let asks_hyperv =
-        lower.contains("hyper-v") || lower.contains("hyperv") || lower.contains("list vm");
+    let asks_hyperv = lower.contains("hyper-v")
+        || lower.contains("hyperv")
+        || lower.contains("hyper v")
+        || lower.contains("list vm")
+        || lower.contains("list vms")
+        || lower.contains("running vms")
+        || lower.contains("virtual machines")
+        || lower.contains("virtual machine")
+        || (lower.contains("vm") && (lower.contains("running") || lower.contains("status") || lower.contains("health") || lower.contains("checkpoint") || lower.contains("snapshot") || lower.contains("switch") || lower.contains("memory") || lower.contains("ram")))
+        || lower.contains("vmms")
+        || lower.contains("vmmem");
     let asks_ip_config =
         lower.contains("ipconfig") && (lower.contains("all") || lower.contains("detailed"));
     let asks_domain = lower.contains("domain")
@@ -1920,8 +1929,14 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("hyperv", |l| {
             l.contains("hyper-v")
                 || l.contains("hyperv")
-                || (l.contains("virtual machine") && l.contains("load"))
+                || l.contains("hyper v")
+                || l.contains("virtual machine")
+                || l.contains("running vms")
+                || l.contains("list vms")
+                || l.contains("list vm")
                 || l.contains("vmmem")
+                || l.contains("vmms")
+                || (l.contains("vm") && (l.contains("checkpoint") || l.contains("snapshot") || l.contains("switch") || l.contains("running")))
         }),
         ("ip_config", |l| {
             l.contains("ipconfig")
@@ -2348,6 +2363,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("hyperv", |l| {
             l.contains("hyper-v")
                 || l.contains("hyperv")
+                || l.contains("hyper v")
+                || l.contains("virtual machine")
+                || l.contains("running vms")
+                || (l.contains("vm") && (l.contains("running") || l.contains("checkpoint") || l.contains("snapshot") || l.contains("switch") || l.contains("ram") || l.contains("memory")))
                 || (l.contains("list") && l.contains("vm"))
         }),
         ("ip_config", |l| {

@@ -2473,6 +2473,7 @@ impl ConversationManager {
                  - Outlook health / slowness / crash triage / OST and PST files / mail profiles / add-in pressure -> `outlook`\n\
                  - Teams health / slowness / crash triage / cache bloat / WebView2 / device binding / sign-in failures -> `teams`\n\
                  - Windows backup posture / File History / wbadmin last backup / System Restore points / OneDrive KFM -> `windows_backup`\n\
+                 - Hyper-V role state / list VMs / VM RAM and CPU / VM network switches / VM checkpoints / VMMS service -> `hyperv`\n\
                  - Credential Manager / stored Windows credentials / saved passwords / cmdkey vault hygiene -> `credentials`\n\
                  - TPM / Secure Boot / firmware mode / Windows 11 readiness -> `tpm`\n\
                  - DNS A/AAAA/MX/SRV/TXT record lookups must stay on `dns_lookup`; do NOT use `ping`, `Invoke-WebRequest`, public DNS-over-HTTPS endpoints, or browser searches as substitutes.\n\

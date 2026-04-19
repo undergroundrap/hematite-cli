@@ -11458,34 +11458,273 @@ fn inspect_dns_lookup(name: &str, record_type: &str) -> Result<String, String> {
 
 // ── hyperv ───────────────────────────────────────────────────────────────────
 
-fn inspect_hyperv() -> Result<String, String> {
-    let mut out = String::from("Host inspection: hyperv\n\n");
+#[cfg(target_os = "windows")]
+fn ps_exec(script: &str) -> String {
+    Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default()
+}
 
+fn inspect_hyperv() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        let script = "Get-VM -ErrorAction SilentlyContinue | Select-Object Name, State, Uptime, Status, CPUUsage, MemoryAssigned | Format-Table -AutoSize";
-        let output = Command::new("powershell")
-            .args(["-NoProfile", "-Command", script])
-            .output()
-            .ok();
-        if let Some(o) = output {
-            let stdout = String::from_utf8_lossy(&o.stdout);
-            if stdout.trim().is_empty() {
-                out.push_str(
-                    "No Hyper-V Virtual Machines found or Hyper-V module not installed.\n",
+        let mut findings: Vec<String> = Vec::new();
+        let mut out = String::new();
+
+        // --- Hyper-V role / VMMS service state ---
+        let ps_role = r#"
+$vmms = Get-Service -Name vmms -ErrorAction SilentlyContinue
+$feature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -ErrorAction SilentlyContinue
+$hostInfo = Get-VMHost -ErrorAction SilentlyContinue
+$ram = (Get-CimInstance Win32_PhysicalMemory -ErrorAction SilentlyContinue | Measure-Object -Property Capacity -Sum).Sum
+"VMMS:{0}|FeatureState:{1}|HostName:{2}|HostRAMBytes:{3}" -f `
+    $(if ($vmms) { "$($vmms.Status)|$($vmms.StartType)" } else { "NotFound|Unknown" }),
+    $(if ($feature) { $feature.State } else { "Unknown" }),
+    $(if ($hostInfo) { $hostInfo.ComputerName } else { $env:COMPUTERNAME }),
+    $(if ($ram) { $ram } else { "0" })
+"#;
+        let role_out = ps_exec(ps_role);
+        out.push_str("=== Hyper-V role state ===\n");
+
+        let mut vmms_running = false;
+        let mut host_ram_bytes: u64 = 0;
+
+        if let Some(line) = role_out.lines().find(|l| l.contains("VMMS:")) {
+            let kv: std::collections::HashMap<&str, &str> = line
+                .split('|')
+                .filter_map(|p| {
+                    let mut it = p.splitn(2, ':');
+                    Some((it.next()?, it.next()?))
+                })
+                .collect();
+            let vmms_status = kv.get("VMMS").copied().unwrap_or("Unknown");
+            let feature_state = kv.get("FeatureState").copied().unwrap_or("Unknown");
+            let host_name = kv.get("HostName").copied().unwrap_or("Unknown");
+            host_ram_bytes = kv
+                .get("HostRAMBytes")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
+
+            let hyperv_installed = feature_state.eq_ignore_ascii_case("enabled");
+            vmms_running = vmms_status.starts_with("Running");
+
+            out.push_str(&format!("- Host: {host_name}\n"));
+            out.push_str(&format!(
+                "- Hyper-V feature: {}\n",
+                if hyperv_installed { "Enabled" } else { "Not installed" }
+            ));
+            out.push_str(&format!("- VMMS service: {vmms_status}\n"));
+            if host_ram_bytes > 0 {
+                out.push_str(&format!(
+                    "- Host physical RAM: {} GB\n",
+                    host_ram_bytes / 1_073_741_824
+                ));
+            }
+
+            if !hyperv_installed {
+                findings.push(
+                    "Hyper-V is not installed on this machine. Enable the Microsoft-Hyper-V-All feature to use virtualization.".into(),
                 );
+            } else if !vmms_running {
+                findings.push(
+                    "Hyper-V is installed but the Virtual Machine Management Service (vmms) is not running — VMs cannot start until the service is active.".into(),
+                );
+            }
+        } else {
+            out.push_str("- Could not determine Hyper-V role state\n");
+            findings.push("Hyper-V does not appear to be installed on this machine.".into());
+        }
+
+        // --- Virtual machines ---
+        out.push_str("\n=== Virtual machines ===\n");
+        if vmms_running {
+            let ps_vms = r#"
+Get-VM -ErrorAction SilentlyContinue | ForEach-Object {
+    $ram_gb = [math]::Round($_.MemoryAssigned / 1GB, 2)
+    "VM:{0}|State:{1}|CPU:{2}%|RAM:{3}GB|Uptime:{4}|Status:{5}|Generation:{6}" -f `
+        $_.Name, $_.State, $_.CPUUsage, $ram_gb,
+        $(if ($_.Uptime.TotalSeconds -gt 0) { "$($_.Uptime.Hours)h$($_.Uptime.Minutes)m" } else { "Off" }),
+        $_.Status, $_.Generation
+}
+"#;
+            let vms_out = ps_exec(ps_vms);
+            let vm_lines: Vec<&str> = vms_out
+                .lines()
+                .filter(|l| l.starts_with("VM:"))
+                .collect();
+
+            if vm_lines.is_empty() {
+                out.push_str("- No virtual machines found on this host\n");
             } else {
-                out.push_str(&stdout);
+                let mut total_ram_bytes: u64 = 0;
+                let mut saved_vms: Vec<String> = Vec::new();
+                for line in &vm_lines {
+                    let kv: std::collections::HashMap<&str, &str> = line
+                        .split('|')
+                        .filter_map(|p| {
+                            let mut it = p.splitn(2, ':');
+                            Some((it.next()?, it.next()?))
+                        })
+                        .collect();
+                    let name = kv.get("VM").copied().unwrap_or("Unknown");
+                    let state = kv.get("State").copied().unwrap_or("Unknown");
+                    let cpu = kv.get("CPU").copied().unwrap_or("0").trim_end_matches('%');
+                    let ram = kv.get("RAM").copied().unwrap_or("0").trim_end_matches("GB");
+                    let uptime = kv.get("Uptime").copied().unwrap_or("Off");
+                    let status = kv.get("Status").copied().unwrap_or("");
+                    let gen = kv.get("Generation").copied().unwrap_or("?");
+
+                    if let Ok(r) = ram.parse::<f64>() {
+                        total_ram_bytes += (r * 1_073_741_824.0) as u64;
+                    }
+                    if state.eq_ignore_ascii_case("Saved") {
+                        saved_vms.push(name.to_string());
+                    }
+
+                    out.push_str(&format!(
+                        "- {name} | State: {state} | CPU: {cpu}% | RAM: {ram} GB | Uptime: {uptime} | Gen{gen}\n"
+                    ));
+                    if !status.is_empty() && !status.eq_ignore_ascii_case("Operating normally") {
+                        out.push_str(&format!("  Status: {status}\n"));
+                    }
+                }
+
+                out.push_str(&format!("\n- Total VMs: {}\n", vm_lines.len()));
+                if total_ram_bytes > 0 && host_ram_bytes > 0 {
+                    let pct = (total_ram_bytes * 100) / host_ram_bytes;
+                    out.push_str(&format!(
+                        "- Total VM RAM assigned: {} GB ({pct}% of host RAM)\n",
+                        total_ram_bytes / 1_073_741_824
+                    ));
+                    if pct > 90 {
+                        findings.push(format!(
+                            "VM RAM assignment is at {pct}% of host physical RAM — the host may be under severe memory pressure if all VMs run simultaneously."
+                        ));
+                    }
+                }
+                if !saved_vms.is_empty() {
+                    findings.push(format!(
+                        "VMs in Saved state (consuming disk space for checkpoint): {} — resume or delete to free space.",
+                        saved_vms.join(", ")
+                    ));
+                }
+            }
+        } else {
+            out.push_str("- VMMS not running — cannot enumerate VMs\n");
+        }
+
+        // --- VM network switches ---
+        out.push_str("\n=== VM network switches ===\n");
+        if vmms_running {
+            let ps_switches = r#"
+Get-VMSwitch -ErrorAction SilentlyContinue | ForEach-Object {
+    "Switch:{0}|Type:{1}|Adapter:{2}" -f `
+        $_.Name, $_.SwitchType,
+        $(if ($_.NetAdapterInterfaceDescription) { $_.NetAdapterInterfaceDescription } else { "N/A" })
+}
+"#;
+            let sw_out = ps_exec(ps_switches);
+            let switch_lines: Vec<&str> = sw_out
+                .lines()
+                .filter(|l| l.starts_with("Switch:"))
+                .collect();
+
+            if switch_lines.is_empty() {
+                out.push_str("- No VM switches configured\n");
+            } else {
+                for line in &switch_lines {
+                    let kv: std::collections::HashMap<&str, &str> = line
+                        .split('|')
+                        .filter_map(|p| {
+                            let mut it = p.splitn(2, ':');
+                            Some((it.next()?, it.next()?))
+                        })
+                        .collect();
+                    let name = kv.get("Switch").copied().unwrap_or("Unknown");
+                    let sw_type = kv.get("Type").copied().unwrap_or("Unknown");
+                    let adapter = kv.get("Adapter").copied().unwrap_or("N/A");
+                    out.push_str(&format!(
+                        "- {name} | Type: {sw_type} | NIC: {adapter}\n"
+                    ));
+                }
+            }
+        } else {
+            out.push_str("- VMMS not running — cannot enumerate switches\n");
+        }
+
+        // --- VM checkpoints ---
+        out.push_str("\n=== VM checkpoints ===\n");
+        if vmms_running {
+            let ps_checkpoints = r#"
+$all = Get-VMCheckpoint -VMName * -ErrorAction SilentlyContinue
+if ($all) {
+    $all | ForEach-Object {
+        "Checkpoint:{0}|VM:{1}|Created:{2}|Type:{3}" -f `
+            $_.Name, $_.VMName,
+            $_.CreationTime.ToString("yyyy-MM-dd HH:mm"),
+            $_.SnapshotType
+    }
+} else {
+    "NONE"
+}
+"#;
+            let cp_out = ps_exec(ps_checkpoints);
+            if cp_out.trim() == "NONE" || cp_out.trim().is_empty() {
+                out.push_str("- No checkpoints found\n");
+            } else {
+                let cp_lines: Vec<&str> = cp_out
+                    .lines()
+                    .filter(|l| l.starts_with("Checkpoint:"))
+                    .collect();
+                let mut per_vm: std::collections::HashMap<&str, usize> =
+                    std::collections::HashMap::new();
+                for line in &cp_lines {
+                    let kv: std::collections::HashMap<&str, &str> = line
+                        .split('|')
+                        .filter_map(|p| {
+                            let mut it = p.splitn(2, ':');
+                            Some((it.next()?, it.next()?))
+                        })
+                        .collect();
+                    let cp_name = kv.get("Checkpoint").copied().unwrap_or("Unknown");
+                    let vm_name = kv.get("VM").copied().unwrap_or("Unknown");
+                    let created = kv.get("Created").copied().unwrap_or("");
+                    let cp_type = kv.get("Type").copied().unwrap_or("");
+                    out.push_str(&format!(
+                        "- [{vm_name}] {cp_name} | Created: {created} | Type: {cp_type}\n"
+                    ));
+                    *per_vm.entry(vm_name).or_insert(0) += 1;
+                }
+                for (vm, count) in &per_vm {
+                    if *count >= 3 {
+                        findings.push(format!(
+                            "VM '{vm}' has {count} checkpoints — excessive checkpoints grow the VHDX chain and degrade disk performance. Delete unneeded checkpoints."
+                        ));
+                    }
+                }
+            }
+        } else {
+            out.push_str("- VMMS not running — cannot enumerate checkpoints\n");
+        }
+
+        let mut result =
+            String::from("Host inspection: hyperv\n\n=== Findings ===\n");
+        if findings.is_empty() {
+            result.push_str("- No Hyper-V health issues detected.\n");
+        } else {
+            for f in &findings {
+                result.push_str(&format!("- Finding: {f}\n"));
             }
         }
+        result.push('\n');
+        result.push_str(&out);
+        return Ok(result.trim_end().to_string());
     }
 
     #[cfg(not(target_os = "windows"))]
-    {
-        out.push_str("(Hyper-V lookup only available on Windows hosts)\n");
-    }
-
-    Ok(out.trim_end().to_string())
+    Ok("Host inspection: hyperv\n\n=== Findings ===\n- Hyper-V inspection is Windows-only.\n".into())
 }
 
 // ── ip_config ────────────────────────────────────────────────────────────────

@@ -364,7 +364,7 @@ Sandboxed code execution (`run_code` tool).
 
 ### `src/tools/host_inspect.rs`
 
-SysAdmin and Network Admin inspection (`inspect_host` tool). 113+ read-only topics covering the full OS stack. Recent additions include `windows_backup` (File History, wbadmin, System Restore, OneDrive KFM), `teams` (Teams health, cache, WebView2, device binding), `outlook` (Outlook health, OST/PST, add-ins, auth), `browser_health` (Edge/Chrome/Firefox/WebView2 health), `latency` (ping RTT/packet loss), `network_adapter` (NIC offload/link-speed/errors), `credentials`, `tpm`, and `installer_health` on top of the earlier `camera`, `sign_in`, `display_config`, `ntp`, `cpu_power`, `docker_filesystems`, `wsl_filesystems`, `lan_discovery`, `audio`, and `bluetooth` work. See CLAUDE.md for the complete topic reference.
+SysAdmin and Network Admin inspection (`inspect_host` tool). 113+ read-only topics covering the full OS stack. Recent additions include `hyperv` (Hyper-V role, VM inventory, switches, checkpoints, RAM overcommit), `windows_backup` (File History, wbadmin, System Restore, OneDrive KFM), `teams` (Teams health, cache, WebView2, device binding), `outlook` (Outlook health, OST/PST, add-ins, auth), `browser_health` (Edge/Chrome/Firefox/WebView2 health), `latency` (ping RTT/packet loss), `network_adapter` (NIC offload/link-speed/errors), `credentials`, `tpm`, and `installer_health` on top of the earlier `camera`, `sign_in`, `display_config`, `ntp`, `cpu_power`, `docker_filesystems`, `wsl_filesystems`, `lan_discovery`, `audio`, and `bluetooth` work. See CLAUDE.md for the complete topic reference.
 
 ### `src/tools/guard.rs`
 
