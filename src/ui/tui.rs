@@ -3952,16 +3952,23 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                     .fg(title_color)
                     .add_modifier(Modifier::BOLD),
             )),
-            Line::from(Span::styled(
-                if is_diff_preview {
-                    "  [↑↓/jk/PgUp/PgDn] Scroll   [Y] Apply   [N] Skip "
-                } else {
-                    "  [Y] Approve     [N] Decline "
-                },
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            )),
+            if is_diff_preview {
+                Line::from(Span::styled(
+                    "  [↑↓/jk/PgUp/PgDn] Scroll   [Y] Apply   [N] Skip ",
+                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                ))
+            } else {
+                Line::from(vec![
+                    Span::styled(
+                        "  [Y] Approve  ",
+                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        "  [N] Decline ",
+                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    ),
+                ])
+            },
         ];
         f.render_widget(
             Paragraph::new(header_text)
