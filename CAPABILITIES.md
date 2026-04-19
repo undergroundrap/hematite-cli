@@ -18,7 +18,7 @@ That is the lens for the capabilities below.
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
-- **Full OS stack coverage**: 111+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Full OS stack coverage**: 112+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
@@ -82,7 +82,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (73+):**
+**SysAdmin topics (74+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
@@ -127,6 +127,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **OneDrive** (`onedrive`) — client install/running state, configured accounts, sync-root existence, OneDrive policy blockers, and Known Folder Backup/Desktop/Documents/Pictures redirection state
 - **Browser Health** (`browser_health`) — browser inventory and versions for Edge/Chrome/Firefox, default browser/protocol associations, runtime process and working-set pressure, WebView2 runtime health, browser proxy/policy overrides, profile/cache pressure, and recent browser crash evidence
 - **Outlook** (`outlook`) — classic Outlook and new Outlook for Windows install inventory, running process state and RAM usage, mail profile count, OST and PST file discovery with sizes, add-in inventory with load behavior and resiliency-disabled items, authentication and token broker cache state, and recent Outlook crash evidence from the Application event log
+- **Teams** (`teams`) — classic Teams and new Teams (MSTeams MSIX) install inventory, running process state and RAM usage, cache directory sizing for both classic and new Teams, WebView2 runtime dependency check, account and sign-in state, audio/video device binding, and recent Teams crash evidence from the Application event log
 - **Search Index** (`search_index`) — Windows Search (WSearch) service state, indexer registry configuration, indexed locations (shell namespaces + registry fallback), recent indexer errors, and plain-English diagnosis for “search not finding files / indexer stopped”
 - **Display Config** (`display_config`) — active monitor resolution, refresh rate, bits-per-pixel, video adapter driver version, connected monitor names/PnP IDs, and DPI/scaling percentage via Win32 GDI
 - **NTP / Time Sync** (`ntp`) — Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers/registry, and plain-English diagnosis for clock drift or sync failure

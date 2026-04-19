@@ -76,3 +76,36 @@ fn test_routing_outlook_in_multi_topic() {
     assert!(topics.contains(&"outlook"), "should detect outlook");
     assert!(topics.contains(&"pending_reboot"), "should detect pending_reboot");
 }
+
+#[test]
+fn test_routing_detects_teams_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("Check Teams health on this machine."),
+        Some("teams")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Why is Microsoft Teams so slow or broken?"),
+        Some("teams")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Audit Teams cache size and WebView2 dependency."),
+        Some("teams")
+    );
+}
+
+#[test]
+fn test_routing_teams_does_not_match_nic_teaming() {
+    assert_ne!(
+        preferred_host_inspection_topic("Show NIC teaming configuration and LACP status."),
+        Some("teams")
+    );
+}
+
+#[test]
+fn test_routing_teams_in_multi_topic() {
+    let topics = all_host_inspection_topics(
+        "Why is Teams crashing? Also check if the machine has any pending reboots.",
+    );
+    assert!(topics.contains(&"teams"), "should detect teams");
+    assert!(topics.contains(&"pending_reboot"), "should detect pending_reboot");
+}

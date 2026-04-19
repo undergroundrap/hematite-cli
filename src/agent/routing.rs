@@ -623,6 +623,16 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("addin") && lower.contains("outlook"))
         || (lower.contains("email client") && (lower.contains("slow") || lower.contains("crash") || lower.contains("broken") || lower.contains("hanging")))
         || (lower.contains("mail profile") && lower.contains("corrupt"));
+    let not_nic_teaming = !lower.contains("nic teaming")
+        && !lower.contains("nic-teaming")
+        && !lower.contains("link aggregation")
+        && !lower.contains("lbfo");
+    let asks_teams = (lower.contains("teams") && not_nic_teaming)
+        || lower.contains("ms teams")
+        || lower.contains("microsoft teams")
+        || (lower.contains("teams cache") && lower.contains("clear"))
+        || (lower.contains("teams") && not_nic_teaming && lower.contains("sign-in") && lower.contains("broken"))
+        || (lower.contains("teams") && not_nic_teaming && lower.contains("device") && (lower.contains("audio") || lower.contains("video") || lower.contains("camera") || lower.contains("microphone")));
     let asks_search_index = (lower.contains("search")
         && (lower.contains("broken")
             || lower.contains("not working")
@@ -1632,6 +1642,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("sign_in")
     } else if asks_installer_health {
         Some("installer_health")
+    } else if asks_teams {
+        Some("teams")
     } else if asks_onedrive {
         Some("onedrive")
     } else if asks_browser_health {
@@ -2091,6 +2103,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("ost") && l.contains("mail"))
                 || (l.contains("pst") && l.contains("mail"))
                 || (l.contains("add-in") && l.contains("mail"))
+        }),
+        ("teams", |l| {
+            (l.contains("teams")
+                && !l.contains("nic team")
+                && !l.contains("nic teaming")
+                && !l.contains("link aggregation")
+                && !l.contains("lbfo"))
+                || l.contains("ms teams")
+                || l.contains("microsoft teams")
         }),
         ("search_index", |l| {
             l.contains("search index")

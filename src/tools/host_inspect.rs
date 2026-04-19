@@ -57,6 +57,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_browser_health(max_entries)
         }
         "outlook" | "outlook_health" | "ms_outlook" => inspect_outlook(max_entries),
+        "teams" | "ms_teams" | "teams_health" => inspect_teams(max_entries),
         "search_index" | "windows_search" | "indexing" | "search" => {
             inspect_search_index(max_entries)
         }
@@ -217,7 +218,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_network_adapter()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, outlook, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, outlook, teams, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -13157,6 +13158,359 @@ if ($events) {
 #[cfg(not(windows))]
 fn inspect_outlook(_max_entries: usize) -> Result<String, String> {
     Ok("Host inspection: outlook\n\n=== Findings ===\n- Outlook health inspection is Windows-only.\n".into())
+}
+
+#[cfg(windows)]
+fn inspect_teams(max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("=== Teams install inventory ===\n");
+
+    let ps_install = r#"
+# Classic Teams (Teams 1.0)
+$classicExe = @(
+    (Join-Path $env:LOCALAPPDATA 'Microsoft\Teams\current\Teams.exe'),
+    (Join-Path $env:ProgramFiles 'Microsoft\Teams\current\Teams.exe')
+) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+
+if ($classicExe) {
+    $ver = try { (Get-Item $classicExe).VersionInfo.FileVersion } catch { 'Unknown' }
+    "ClassicTeams: Installed | Version: $ver | Path: $classicExe"
+} else {
+    "ClassicTeams: Not installed"
+}
+
+# New Teams (Teams 2.0 / ms-teams.exe)
+$newTeamsExe = @(
+    (Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\ms-teams.exe'),
+    (Join-Path $env:ProgramFiles 'WindowsApps\MSTeams_*\ms-teams.exe')
+) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+
+$newTeamsPkg = Get-AppxPackage -Name 'MSTeams' -ErrorAction SilentlyContinue
+if ($newTeamsPkg) {
+    "NewTeams: Installed | Version: $($newTeamsPkg.Version) | PackageName: $($newTeamsPkg.PackageFullName)"
+} elseif ($newTeamsExe) {
+    $ver = try { (Get-Item $newTeamsExe).VersionInfo.FileVersion } catch { 'Unknown' }
+    "NewTeams: Installed | Version: $ver | Path: $newTeamsExe"
+} else {
+    "NewTeams: Not installed"
+}
+
+# Teams Machine-Wide Installer (MSI/per-machine)
+$mwi = Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+    Where-Object { $_.DisplayName -like 'Teams Machine-Wide Installer*' } |
+    Select-Object -First 1
+if ($mwi) {
+    "MachineWideInstaller: Installed | Version: $($mwi.DisplayVersion)"
+} else {
+    "MachineWideInstaller: Not found"
+}
+"#;
+    match run_powershell(ps_install) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Teams install paths\n"),
+    }
+
+    out.push_str("\n=== Runtime state ===\n");
+    let ps_runtime = r#"
+$targets = @('Teams','ms-teams')
+foreach ($name in $targets) {
+    $procs = Get-Process -Name $name -ErrorAction SilentlyContinue
+    if ($procs) {
+        $count = @($procs).Count
+        $wsMb = [Math]::Round((($procs | Measure-Object WorkingSet64 -Sum).Sum / 1MB), 1)
+        "$name | Running: Yes | Processes: $count | WorkingSetMB: $wsMb"
+    } else {
+        "$name | Running: No"
+    }
+}
+"#;
+    match run_powershell(ps_runtime) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(6) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Teams runtime state\n"),
+    }
+
+    out.push_str("\n=== Cache directory sizing ===\n");
+    let ps_cache = r#"
+$cachePaths = @(
+    @{ Name='ClassicTeamsCache'; Path=(Join-Path $env:APPDATA 'Microsoft\Teams') },
+    @{ Name='ClassicTeamsSquirrel'; Path=(Join-Path $env:LOCALAPPDATA 'Microsoft\Teams') },
+    @{ Name='NewTeamsCache'; Path=(Join-Path $env:LOCALAPPDATA 'Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams') },
+    @{ Name='NewTeamsAppData'; Path=(Join-Path $env:LOCALAPPDATA 'Packages\MSTeams_8wekyb3d8bbwe') }
+)
+foreach ($entry in $cachePaths) {
+    if (Test-Path $entry.Path) {
+        $sizeBytes = (Get-ChildItem $entry.Path -Recurse -File -ErrorAction SilentlyContinue -Force | Measure-Object Length -Sum).Sum
+        if (-not $sizeBytes) { $sizeBytes = 0 }
+        $sizeMb = [Math]::Round($sizeBytes / 1MB, 1)
+        "$($entry.Name) | Path: $($entry.Path) | SizeMB: $sizeMb"
+    } else {
+        "$($entry.Name) | Path: $($entry.Path) | Not found"
+    }
+}
+"#;
+    match run_powershell(ps_cache) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Teams cache directories\n"),
+    }
+
+    out.push_str("\n=== WebView2 runtime ===\n");
+    let ps_webview = r#"
+$paths = @(
+    (Join-Path ${env:ProgramFiles(x86)} 'Microsoft\EdgeWebView\Application'),
+    (Join-Path $env:ProgramFiles 'Microsoft\EdgeWebView\Application')
+) | Where-Object { $_ -and (Test-Path $_) }
+$runtimeDir = $paths | ForEach-Object {
+    Get-ChildItem $_ -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^\d+\.' } |
+        Sort-Object Name -Descending |
+        Select-Object -First 1
+} | Select-Object -First 1
+if ($runtimeDir) {
+    $exe = Join-Path $runtimeDir.FullName 'msedgewebview2.exe'
+    $version = if (Test-Path $exe) { try { (Get-Item $exe).VersionInfo.FileVersion } catch { $runtimeDir.Name } } else { $runtimeDir.Name }
+    "Installed: Yes | Version: $version"
+} else {
+    "Installed: No -- New Teams and some Office features require WebView2"
+}
+"#;
+    match run_powershell(ps_webview) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect WebView2 runtime\n"),
+    }
+
+    out.push_str("\n=== Account and sign-in state ===\n");
+    let ps_auth = r#"
+# Classic Teams account registry
+$classicAcct = 'HKCU:\Software\Microsoft\Office\Teams'
+if (Test-Path $classicAcct) {
+    $item = Get-ItemProperty $classicAcct -ErrorAction SilentlyContinue
+    $email = if ($item.HomeUserUpn) { $item.HomeUserUpn } elseif ($item.LoggedInEmail) { $item.LoggedInEmail } else { 'Unknown' }
+    "ClassicTeamsAccount: $email"
+} else {
+    "ClassicTeamsAccount: Not configured"
+}
+# WAM / token broker state for Teams
+$tokenCache = Join-Path $env:LOCALAPPDATA 'Microsoft\TokenBroker\Cache'
+$tokenCount = if (Test-Path $tokenCache) {
+    @(Get-ChildItem $tokenCache -File -ErrorAction SilentlyContinue).Count
+} else { 0 }
+"TokenBrokerCacheFiles: $tokenCount"
+# Office identity
+$officeId = 'HKCU:\Software\Microsoft\Office\16.0\Common\Identity'
+if (Test-Path $officeId) {
+    $id = Get-ItemProperty $officeId -ErrorAction SilentlyContinue
+    $signedIn = if ($id.SignedInUserId) { $id.SignedInUserId } else { 'None' }
+    "OfficeSignedInUserId: $signedIn"
+}
+# Check if Teams is in startup
+$startupKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$teamsRun = (Get-ItemProperty $startupKey -ErrorAction SilentlyContinue) | Select-Object -ExpandProperty 'com.squirrel.Teams.Teams' -ErrorAction SilentlyContinue
+"TeamsInStartup: $(if ($teamsRun) { 'Yes (Classic)' } else { 'Not in user run key' })"
+"#;
+    match run_powershell(ps_auth) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Teams account state\n"),
+    }
+
+    out.push_str("\n=== Audio and video device binding ===\n");
+    let ps_devices = r#"
+# Teams stores device prefs in the settings file
+$settingsPaths = @(
+    (Join-Path $env:APPDATA 'Microsoft\Teams\desktop-config.json'),
+    (Join-Path $env:LOCALAPPDATA 'Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\app_settings.json')
+)
+$found = $false
+foreach ($sp in $settingsPaths) {
+    if (Test-Path $sp) {
+        $found = $true
+        $raw = try { Get-Content $sp -Raw -ErrorAction SilentlyContinue } catch { $null }
+        if ($raw) {
+            $json = try { $raw | ConvertFrom-Json -ErrorAction SilentlyContinue } catch { $null }
+            if ($json) {
+                $mic = if ($json.currentAudioDevice) { $json.currentAudioDevice } elseif ($json.audioDevice) { $json.audioDevice } else { 'Default' }
+                $spk = if ($json.currentSpeakerDevice) { $json.currentSpeakerDevice } elseif ($json.speakerDevice) { $json.speakerDevice } else { 'Default' }
+                $cam = if ($json.currentVideoDevice) { $json.currentVideoDevice } elseif ($json.videoDevice) { $json.videoDevice } else { 'Default' }
+                "ConfigFile: $sp"
+                "Microphone: $mic"
+                "Speaker: $spk"
+                "Camera: $cam"
+            } else {
+                "ConfigFile: $sp (not parseable as JSON)"
+            }
+        } else {
+            "ConfigFile: $sp (empty)"
+        }
+        break
+    }
+}
+if (-not $found) {
+    "NoTeamsConfigFile: Teams device prefs not found -- Teams may not have been launched yet or uses system defaults"
+}
+"#;
+    match run_powershell(ps_devices) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Teams device binding\n"),
+    }
+
+    out.push_str("\n=== Recent crash and event evidence (7d) ===\n");
+    let ps_events = r#"
+$cutoff = (Get-Date).AddDays(-7)
+$events = Get-WinEvent -FilterHashtable @{ LogName='Application'; StartTime=$cutoff } -MaxEvents 500 -ErrorAction SilentlyContinue |
+    Where-Object {
+        $msg = [string]$_.Message
+        ($_.ProviderName -eq 'Application Error' -or $_.ProviderName -eq 'Windows Error Reporting') -and
+        ($msg.ToLower().Contains('teams') -or $msg.ToLower().Contains('ms-teams') -or $msg.ToLower().Contains('msteams'))
+    } |
+    Select-Object -First 8
+if ($events) {
+    foreach ($event in $events) {
+        $msg = ($event.Message -replace '\s+', ' ')
+        if ($msg.Length -gt 140) { $msg = $msg.Substring(0, 140) }
+        "$($event.TimeCreated.ToString('MM-dd HH:mm')) | $($event.ProviderName) | EventId: $($event.Id) | $msg"
+    }
+} else {
+    "No recent Teams crash or error events detected in Application log"
+}
+"#;
+    match run_powershell(ps_events) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(max_entries + 4) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Teams event log evidence\n"),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+
+    let classic_installed = out.contains("- ClassicTeams: Installed");
+    let new_installed = out.contains("- NewTeams: Installed");
+    if !classic_installed && !new_installed {
+        findings.push(
+            "Neither classic Teams nor new Teams is installed on this machine.".into(),
+        );
+    }
+
+    for name in ["Teams", "ms-teams"] {
+        let marker = format!("{name} | Running: Yes | Processes:");
+        if let Some(line) = out.lines().find(|l| l.contains(&marker)) {
+            let ws_mb = line
+                .split("WorkingSetMB: ")
+                .nth(1)
+                .and_then(|v| v.trim().parse::<f64>().ok())
+                .unwrap_or(0.0);
+            if ws_mb >= 1000.0 {
+                findings.push(format!(
+                    "{name} is consuming {ws_mb:.0} MB of RAM — cache bloat or a large number of channels/meetings loaded may be driving memory growth."
+                ));
+            }
+        }
+    }
+
+    for (label, threshold_mb) in [
+        ("ClassicTeamsCache", 500.0_f64),
+        ("ClassicTeamsSquirrel", 2000.0),
+        ("NewTeamsCache", 500.0),
+        ("NewTeamsAppData", 3000.0),
+    ] {
+        let marker = format!("{label} |");
+        if let Some(line) = out.lines().find(|l| l.contains(&marker)) {
+            let mb = line
+                .split("SizeMB: ")
+                .nth(1)
+                .and_then(|v| v.trim().parse::<f64>().ok())
+                .unwrap_or(0.0);
+            if mb >= threshold_mb {
+                findings.push(format!(
+                    "{label} is {mb:.0} MB — cache bloat at this size can cause Teams slowness, failed sign-in, and rendering glitches. Fix: quit Teams and delete the cache folder."
+                ));
+            }
+        }
+    }
+
+    if out.contains("- Installed: No -- New Teams") {
+        findings.push(
+            "WebView2 runtime is missing — new Teams requires WebView2 for rendering. Install it from Microsoft's WebView2 page or via winget install Microsoft.EdgeWebView2Runtime."
+                .into(),
+        );
+    }
+
+    if out.contains("- ClassicTeamsAccount: Not configured")
+        && out.contains("- OfficeSignedInUserId: None")
+    {
+        findings.push(
+            "No Teams account is configured and Office sign-in is absent — Teams will fail to load meetings or channels until the user signs in."
+                .into(),
+        );
+    }
+
+    if out.contains("Application Error |") || out.contains("Windows Error Reporting |") {
+        findings.push(
+            "Recent Teams crash evidence found in the Application event log — check the event lines below for the faulting module."
+                .into(),
+        );
+    }
+
+    let mut result = String::from("Host inspection: teams\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- No obvious Teams health blocker detected.\n");
+    } else {
+        for finding in &findings {
+            result.push_str(&format!("- Finding: {finding}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_teams(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: teams\n\n=== Findings ===\n- Teams health inspection is Windows-only.\n".into())
 }
 
 #[cfg(windows)]
