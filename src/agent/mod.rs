@@ -13,6 +13,7 @@ pub mod instructions;
 pub mod lsp;
 pub mod mcp;
 pub mod mcp_manager;
+pub mod mcp_server;
 pub mod parser;
 pub mod permission_enforcer;
 pub mod policy;

@@ -40,6 +40,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let cockpit = CliCockpit::parse();
+
+    if cockpit.mcp_server {
+        hematite::agent::mcp_server::run_mcp_server().await?;
+        return Ok(());
+    }
+
     if let Some(path) = cockpit.pdf_extract_helper.as_deref() {
         let code = hematite::memory::vein::run_pdf_extract_helper(std::path::Path::new(path));
         std::process::exit(code);

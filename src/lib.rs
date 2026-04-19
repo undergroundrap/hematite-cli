@@ -154,6 +154,12 @@ pub struct CliCockpit {
     )]
     pub url: String,
 
+    #[arg(
+        long,
+        help = "Run as an MCP stdio server — exposes inspect_host to Claude Desktop, OpenClaw, Cursor, and any MCP-capable agent"
+    )]
+    pub mcp_server: bool,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

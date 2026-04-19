@@ -297,6 +297,32 @@ When a local model gets uncertain, the answer is usually not "give it more freed
 
 **Large-file edit discipline:** Before editing files over ~500 lines (`inference.rs`, `conversation.rs`, `tui.rs`, and similar large modules), recommend `/architect` or a read-only inspection pass first unless the user has already provided a clear plan or target line range. Direct `/code` on large files without orientation leads to missed context and off-target edits on 9B models. This applies to any large codebase the user runs Hematite against, not just Hematite's own source.
 
+## MCP Server Mode
+
+Hematite can run as an MCP server, exposing its 116+ host inspection tools to any MCP-capable agent over the stdio transport.
+
+```powershell
+hematite --mcp-server
+```
+
+This starts a JSON-RPC 2.0 newline-delimited stdio server. No TUI launches. Protocol stays on stdout; all logging goes to stderr.
+
+**Claude Desktop configuration** (`~/.claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "hematite": {
+      "command": "hematite",
+      "args": ["--mcp-server"]
+    }
+  }
+}
+```
+
+**Tool exposed:** `inspect_host` — all 116+ topics, same as the TUI. Any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) can call it directly and get grounded machine state with no cloud, no API key, and no prompt guessing.
+
+**Implementation:** `src/agent/mcp_server.rs` — stdio reader loop, JSON-RPC dispatch, delegates to `crate::tools::host_inspect::inspect_host()`.
+
 ## MCP Configuration
 
 Hematite loads stdio MCP servers from:
