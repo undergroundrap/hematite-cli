@@ -109,3 +109,28 @@ fn test_routing_teams_in_multi_topic() {
     assert!(topics.contains(&"teams"), "should detect teams");
     assert!(topics.contains(&"pending_reboot"), "should detect pending_reboot");
 }
+
+#[test]
+fn test_routing_detects_windows_backup_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("Is this machine being backed up?"),
+        Some("windows_backup")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Check Windows backup health and File History status."),
+        Some("windows_backup")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Show me my System Restore points."),
+        Some("windows_backup")
+    );
+}
+
+#[test]
+fn test_routing_windows_backup_in_multi_topic() {
+    let topics = all_host_inspection_topics(
+        "Check Windows backup health and also show me whether the disk is healthy.",
+    );
+    assert!(topics.contains(&"windows_backup"), "should detect windows_backup");
+    assert!(topics.contains(&"disk_health"), "should detect disk_health");
+}

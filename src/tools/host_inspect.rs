@@ -58,6 +58,9 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         }
         "outlook" | "outlook_health" | "ms_outlook" => inspect_outlook(max_entries),
         "teams" | "ms_teams" | "teams_health" => inspect_teams(max_entries),
+        "windows_backup" | "backup" | "file_history" | "wbadmin" | "system_restore" => {
+            inspect_windows_backup(max_entries)
+        }
         "search_index" | "windows_search" | "indexing" | "search" => {
             inspect_search_index(max_entries)
         }
@@ -218,7 +221,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_network_adapter()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, outlook, teams, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker.",
             other
         )),
 
@@ -13511,6 +13514,238 @@ if ($events) {
 #[cfg(not(windows))]
 fn inspect_teams(_max_entries: usize) -> Result<String, String> {
     Ok("Host inspection: teams\n\n=== Findings ===\n- Teams health inspection is Windows-only.\n".into())
+}
+
+#[cfg(windows)]
+fn inspect_windows_backup(_max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("=== File History ===\n");
+
+    let ps_fh = r#"
+$svc = Get-Service fhsvc -ErrorAction SilentlyContinue
+if ($svc) {
+    "FileHistoryService: $($svc.Status) | StartType: $($svc.StartType)"
+} else {
+    "FileHistoryService: Not found"
+}
+# File History config in registry
+$fhKey = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SPP\UserPolicy\S-1-5-21*\d5c93fba*'
+$fhUser = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\FileHistory'
+if (Test-Path $fhUser) {
+    $fh = Get-ItemProperty $fhUser -ErrorAction SilentlyContinue
+    $enabled = if ($fh.Enabled -eq 0) { 'Disabled' } elseif ($fh.Enabled -eq 1) { 'Enabled' } else { 'Unknown' }
+    $target = if ($fh.TargetUrl) { $fh.TargetUrl } else { 'Not configured' }
+    $lastBackup = if ($fh.ProtectedUpToTime) {
+        try { [DateTime]::FromFileTime($fh.ProtectedUpToTime).ToString('yyyy-MM-dd HH:mm') } catch { 'Unknown' }
+    } else { 'Never' }
+    "Enabled: $enabled"
+    "BackupDrive: $target"
+    "LastBackup: $lastBackup"
+} else {
+    "Enabled: Not configured"
+    "BackupDrive: Not configured"
+    "LastBackup: Never"
+}
+"#;
+    match run_powershell(ps_fh) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(6) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect File History state\n"),
+    }
+
+    out.push_str("\n=== Windows Backup (wbadmin) ===\n");
+    let ps_wbadmin = r#"
+$svc = Get-Service wbengine -ErrorAction SilentlyContinue
+"WindowsBackupEngine: $(if ($svc) { "$($svc.Status) | StartType: $($svc.StartType)" } else { 'Not found' })"
+# Last backup from wbadmin
+$raw = try { wbadmin get versions 2>&1 | Select-Object -First 30 } catch { $null }
+if ($raw -and ($raw -join ' ') -notmatch 'no backup') {
+    $lastDate = ($raw | Select-String 'Backup time:' | Select-Object -First 1).Line
+    $lastTarget = ($raw | Select-String 'Backup target:' | Select-Object -First 1).Line
+    if ($lastDate) { $lastDate.Trim() }
+    if ($lastTarget) { $lastTarget.Trim() }
+} else {
+    "LastWbadminBackup: No backup versions found"
+}
+# Task-based backup
+$task = Get-ScheduledTask -TaskPath '\Microsoft\Windows\WindowsBackup\' -ErrorAction SilentlyContinue
+foreach ($t in $task) {
+    "BackupTask: $($t.TaskName) | State: $($t.State)"
+}
+"#;
+    match run_powershell(ps_wbadmin) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(8) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect Windows Backup state\n"),
+    }
+
+    out.push_str("\n=== System Restore ===\n");
+    let ps_sr = r#"
+$drives = Get-WmiObject -Class Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty DeviceID
+foreach ($drive in $drives) {
+    $protection = try {
+        (Get-ComputerRestorePoint -Drive "$drive\" -ErrorAction SilentlyContinue)
+    } catch { $null }
+    $srReg = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore"
+    $rpConf = try {
+        Get-ItemProperty "$srReg" -ErrorAction SilentlyContinue
+    } catch { $null }
+    # Check if SR is disabled for this drive
+    $disabled = $false
+    $vssService = Get-Service VSS -ErrorAction SilentlyContinue
+    "Drive: $drive | VSSService: $(if ($vssService) { $vssService.Status } else { 'Not found' })"
+}
+# Most recent restore point
+$points = try { Get-ComputerRestorePoint -ErrorAction SilentlyContinue } catch { $null }
+if ($points) {
+    $latest = $points | Sort-Object SequenceNumber -Descending | Select-Object -First 1
+    $date = try { [Management.ManagementDateTimeConverter]::ToDateTime($latest.CreationTime).ToString('yyyy-MM-dd HH:mm') } catch { $latest.CreationTime }
+    "MostRecentRestorePoint: $($latest.Description) | Created: $date"
+} else {
+    "MostRecentRestorePoint: None found"
+}
+$srEnabled = try {
+    $regVal = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore' -ErrorAction SilentlyContinue).RPSessionInterval
+    if ($null -eq $regVal) { 'Enabled (default)' } elseif ($regVal -eq 0) { 'Disabled' } else { "Interval: $regVal" }
+} catch { 'Unknown' }
+"SystemRestoreState: $srEnabled"
+"#;
+    match run_powershell(ps_sr) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(8) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect System Restore state\n"),
+    }
+
+    out.push_str("\n=== OneDrive backup (Known Folder Move) ===\n");
+    let ps_kfm = r#"
+$kfmKey = 'HKCU:\SOFTWARE\Microsoft\OneDrive\Accounts'
+if (Test-Path $kfmKey) {
+    $accounts = Get-ChildItem $kfmKey -ErrorAction SilentlyContinue
+    foreach ($acct in $accounts | Select-Object -First 3) {
+        $props = Get-ItemProperty $acct.PSPath -ErrorAction SilentlyContinue
+        $email = $props.UserEmail
+        $kfmDesktop = $props.'KFMSilentOptInDesktop'
+        $kfmDocs = $props.'KFMSilentOptInDocuments'
+        $kfmPics = $props.'KFMSilentOptInPictures'
+        "Account: $email | KFM-Desktop: $(if ($kfmDesktop) { 'Protected' } else { 'Not enrolled' }) | KFM-Docs: $(if ($kfmDocs) { 'Protected' } else { 'Not enrolled' }) | KFM-Pics: $(if ($kfmPics) { 'Protected' } else { 'Not enrolled' })"
+    }
+} else {
+    "OneDriveKFM: No OneDrive accounts found"
+}
+"#;
+    match run_powershell(ps_kfm) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(6) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect OneDrive Known Folder Move state\n"),
+    }
+
+    out.push_str("\n=== Recent backup failure events (7d) ===\n");
+    let ps_events = r#"
+$cutoff = (Get-Date).AddDays(-7)
+$events = Get-WinEvent -FilterHashtable @{ LogName='Application'; StartTime=$cutoff } -MaxEvents 500 -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.ProviderName -match 'backup|FileHistory|wbengine|Microsoft-Windows-Backup' -or
+        ($_.Id -in @(49,50,517,521) -and $_.LogName -eq 'Application')
+    } |
+    Where-Object { $_.Level -le 3 } |
+    Select-Object -First 6
+if ($events) {
+    foreach ($event in $events) {
+        $msg = ($event.Message -replace '\s+', ' ')
+        if ($msg.Length -gt 140) { $msg = $msg.Substring(0, 140) }
+        "$($event.TimeCreated.ToString('MM-dd HH:mm')) | $($event.ProviderName) | EventId: $($event.Id) | $msg"
+    }
+} else {
+    "No recent backup failure events detected"
+}
+"#;
+    match run_powershell(ps_events) {
+        Ok(o) if !o.trim().is_empty() => {
+            for line in o.lines().take(8) {
+                let l = line.trim();
+                if !l.is_empty() {
+                    out.push_str(&format!("- {l}\n"));
+                }
+            }
+        }
+        _ => out.push_str("- Could not inspect backup failure events\n"),
+    }
+
+    let mut findings: Vec<String> = Vec::new();
+
+    let fh_enabled = out.contains("- Enabled: Enabled");
+    let fh_never = out.contains("- LastBackup: Never") || out.contains("- LastBackup: Not configured");
+    let no_wbadmin = out.contains("No backup versions found");
+    let no_restore_point = out.contains("MostRecentRestorePoint: None found");
+
+    if !fh_enabled && no_wbadmin {
+        findings.push(
+            "No backup solution detected — File History is not enabled and no Windows Backup versions were found. This machine has no local recovery path if data is lost or corrupted.".into(),
+        );
+    } else if fh_enabled && fh_never {
+        findings.push(
+            "File History is enabled but has never completed a backup — check that the backup drive is connected and accessible.".into(),
+        );
+    }
+
+    if no_restore_point {
+        findings.push(
+            "No System Restore points exist — if a driver or update goes wrong there is no local rollback point available.".into(),
+        );
+    }
+
+    if out.contains("- FileHistoryService: Stopped") || out.contains("- FileHistoryService: Not found") {
+        findings.push(
+            "File History service (fhsvc) is stopped or missing — File History backups cannot run until the service is started.".into(),
+        );
+    }
+
+    if out.contains("Application Error |") || out.contains("Microsoft-Windows-Backup |") || out.contains("wbengine |") {
+        findings.push(
+            "Recent backup failure events found in the Application log — check the event lines below for the specific error.".into(),
+        );
+    }
+
+    let mut result = String::from("Host inspection: windows_backup\n\n=== Findings ===\n");
+    if findings.is_empty() {
+        result.push_str("- No obvious backup health blocker detected.\n");
+    } else {
+        for finding in &findings {
+            result.push_str(&format!("- Finding: {finding}\n"));
+        }
+    }
+    result.push('\n');
+    result.push_str(&out);
+    Ok(result)
+}
+
+#[cfg(not(windows))]
+fn inspect_windows_backup(_max_entries: usize) -> Result<String, String> {
+    Ok("Host inspection: windows_backup\n\n=== Findings ===\n- Windows Backup inspection is Windows-only.\n".into())
 }
 
 #[cfg(windows)]

@@ -318,6 +318,7 @@ impl SystemPromptBuilder {
             "For browser slowness, crashes, WebView2 health, default-browser issues, or browser proxy/policy interference, prefer `inspect_host(topic='browser_health')`. ",
             "For Outlook health, slowness, crash triage, OST/PST file sizing, mail profile audit, or add-in pressure, prefer `inspect_host(topic='outlook')`. ",
             "For Teams health, slowness, crash triage, cache sizing, WebView2 dependency, device binding, or sign-in issues, prefer `inspect_host(topic='teams')`. ",
+            "For Windows backup posture, File History state, wbadmin last backup, System Restore points, or OneDrive Known Folder Move, prefer `inspect_host(topic='windows_backup')`. ",
             "For monitor resolution, refresh rate, DPI/scaling, or connected display questions, prefer `inspect_host(topic='display_config')`. ",
             "For NTP sync, clock drift, w32tm failures, or time server config, prefer `inspect_host(topic='ntp')`. ",
             "For CPU turbo boost state, clock frequency, slow CPU, or power plan settings, prefer `inspect_host(topic='cpu_power')`. ",

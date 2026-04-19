@@ -77,6 +77,15 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Teams cache and device audit**
 > "Audit Teams cache size, WebView2 dependency, and audio/video device binding."
 
+**Windows backup health**
+> "Is this machine being backed up?"
+
+**Windows backup status and restore points**
+> "Check Windows backup health — File History, wbadmin last backup, and System Restore status."
+
+**Full backup posture audit**
+> "Show me my File History configuration, last wbadmin backup, available System Restore points, and whether OneDrive Known Folder Move is protecting my Desktop and Documents."
+
 **Firewall rules**
 > "List all active inbound firewall rules that allow traffic. Flag anything that looks non-default."
 

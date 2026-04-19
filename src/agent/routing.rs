@@ -633,6 +633,18 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("teams cache") && lower.contains("clear"))
         || (lower.contains("teams") && not_nic_teaming && lower.contains("sign-in") && lower.contains("broken"))
         || (lower.contains("teams") && not_nic_teaming && lower.contains("device") && (lower.contains("audio") || lower.contains("video") || lower.contains("camera") || lower.contains("microphone")));
+    let asks_windows_backup = lower.contains("file history")
+        || lower.contains("windows backup")
+        || lower.contains("wbadmin")
+        || lower.contains("system restore")
+        || lower.contains("restore point")
+        || lower.contains("restore points")
+        || lower.contains("backed up")
+        || lower.contains("being backed")
+        || (lower.contains("backup") && (lower.contains("backup drive") || lower.contains("backup disk") || lower.contains("configured") || lower.contains("schedule") || lower.contains("last backup") || lower.contains("backup health") || lower.contains("backup status") || lower.contains("broken") || lower.contains("failed")))
+        || (lower.contains("recovery") && (lower.contains("backup") || lower.contains("restore") || lower.contains("posture")))
+        || lower.contains("known folder move")
+        || lower.contains("known folder backup");
     let asks_search_index = (lower.contains("search")
         && (lower.contains("broken")
             || lower.contains("not working")
@@ -1644,6 +1656,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("installer_health")
     } else if asks_teams {
         Some("teams")
+    } else if asks_windows_backup {
+        Some("windows_backup")
     } else if asks_onedrive {
         Some("onedrive")
     } else if asks_browser_health {
@@ -2112,6 +2126,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 && !l.contains("lbfo"))
                 || l.contains("ms teams")
                 || l.contains("microsoft teams")
+        }),
+        ("windows_backup", |l| {
+            l.contains("file history")
+                || l.contains("windows backup")
+                || l.contains("wbadmin")
+                || l.contains("system restore")
+                || l.contains("restore point")
+                || l.contains("known folder move")
+                || (l.contains("backup") && (l.contains("drive") || l.contains("running") || l.contains("health") || l.contains("status") || l.contains("failed")))
         }),
         ("search_index", |l| {
             l.contains("search index")

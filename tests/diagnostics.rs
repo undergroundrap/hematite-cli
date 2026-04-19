@@ -3554,6 +3554,37 @@ fn test_inspect_host_teams_reports_findings_and_sections() {
 }
 
 #[test]
+fn test_inspect_host_windows_backup_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "windows_backup" });
+        let output = inspect_host(&args).await.expect("windows_backup must return Ok");
+        assert!(
+            output.contains("Host inspection: windows_backup"),
+            "windows_backup output must contain header; got:\n{output}"
+        );
+    });
+}
+
+#[test]
+fn test_inspect_host_windows_backup_reports_findings_and_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "windows_backup" });
+        let output = inspect_host(&args).await.expect("windows_backup must return Ok");
+        let has_result = output.contains("=== Findings ===")
+            && output.contains("=== File History ===")
+            && output.contains("=== System Restore ===");
+        assert!(
+            has_result,
+            "windows_backup must report findings and core sections; got:\n{output}"
+        );
+    });
+}
+
+#[test]
 fn test_inspect_host_search_index_reports_findings_and_sections() {
     use hematite::tools::host_inspect::inspect_host;
     let rt = tokio::runtime::Runtime::new().unwrap();
