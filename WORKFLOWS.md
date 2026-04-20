@@ -72,6 +72,31 @@ powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1 -AddToPath
 
 Restart the terminal after running. The `hematite` command on PATH now points to the new build. Live-test the behavior before committing or bumping anything.
 
+### MCP Semantic Redact Smoke Test
+
+Requires LM Studio running with three models loaded: Qwen3.5 9B (main), nomic-embed-text-v2 (search), Bonsai 8B Q1_0 (privacy summarizer).
+
+```powershell
+$i1 = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
+$i2 = '{"jsonrpc":"2.0","id":2,"method":"initialized","params":{}}'
+$c  = '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"inspect_host","arguments":{"topic":"summary"}}}'
+"$i1`n$i2`n$c" | hematite --mcp-server --semantic-redact --semantic-model bonsai-8b 2>$null
+```
+
+**What to verify in the output:**
+- Response 1: `"redactMode":"semantic+regex"` and `"privacyNote"` present
+- Response 2: `"isError":false`
+- Response 2: `[edge-redact: semantic+regex — local model summary applied` header present
+- Response 2: no raw `$env:USERNAME` or `$env:COMPUTERNAME` values in the text — replaced with `[USER]` / `[HOST]`
+
+Without Bonsai loaded (single-model or edge-redact-only test):
+
+```powershell
+"$i1`n$i2`n$c" | hematite --mcp-server --edge-redact 2>$null
+```
+
+Verify: `"redactMode":"regex"` and `[edge-redact:` header with substitution count.
+
 ---
 
 ## 4. Routing Fix Workflow
