@@ -5594,15 +5594,18 @@ impl ConversationManager {
                     crate::tools::vision::vision_analyze(&self.engine, &args).await
                 } else if matches!(
                     call.name.as_str(),
-                    "edit_file" | "patch_hunk" | "multi_search_replace"
+                    "edit_file" | "patch_hunk" | "multi_search_replace" | "write_file"
                 ) && !yolo
                 {
                     // ── Diff preview gate ─────────────────────────────────────
                     // Compute what the edit would look like before applying it.
                     // If we can build a diff, require user Y/N in the TUI.
+                    // write_file shows the full new content as additions (new files)
+                    // or a before/after replacement (overwriting existing files).
                     let diff_result = match call.name.as_str() {
                         "edit_file" => crate::tools::file_ops::compute_edit_file_diff(&args),
                         "patch_hunk" => crate::tools::file_ops::compute_patch_hunk_diff(&args),
+                        "write_file" => crate::tools::file_ops::compute_write_file_diff(&args),
                         _ => crate::tools::file_ops::compute_msr_diff(&args),
                     };
                     match diff_result {
@@ -5697,9 +5700,9 @@ impl ConversationManager {
         }
 
         // 4. Critic Check (Specular Tier 2)
-        // Gated: Only run on code files with substantive content to avoid burning tokens
-        // on trivial doc/config edits.
-        if !is_error && (call.name == "edit_file" || call.name == "write_file") {
+        // Gated: skipped in yolo mode (fast path), only runs on code files with
+        // substantive content to avoid burning tokens on trivial doc/config edits.
+        if !is_error && !yolo && (call.name == "edit_file" || call.name == "write_file") {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let content = args.get("content").and_then(|v| v.as_str()).unwrap_or("");
             let ext = std::path::Path::new(path)

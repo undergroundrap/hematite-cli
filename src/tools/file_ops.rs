@@ -1388,6 +1388,32 @@ pub fn compute_msr_diff(args: &Value) -> Result<String, String> {
     Ok(diff)
 }
 
+/// Compute a preview diff for write_file — shows the full new content as additions,
+/// and any existing file content as removals. New files show only `+` lines.
+pub fn compute_write_file_diff(args: &Value) -> Result<String, String> {
+    let path = require_str(args, "path")?;
+    let new_content = require_str(args, "content")?;
+
+    let abs = safe_path(path).unwrap_or_else(|_| std::path::PathBuf::from(path));
+    let old_content = fs::read_to_string(&abs)
+        .map(|s| s.replace("\r\n", "\n"))
+        .unwrap_or_default();
+
+    let mut diff = String::new();
+    if !old_content.is_empty() {
+        for line in old_content.lines() {
+            diff.push_str(&format!("- {}\n", line));
+        }
+    }
+    for line in new_content.lines() {
+        diff.push_str(&format!("+ {}\n", line));
+    }
+    if diff.is_empty() {
+        return Err("empty content — diff preview unavailable".into());
+    }
+    Ok(diff)
+}
+
 /// Resolve the workspace root by looking upward for common markers.
 pub fn workspace_root() -> PathBuf {
     let mut current = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
