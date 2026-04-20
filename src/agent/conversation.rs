@@ -305,6 +305,64 @@ fn inject_at_file_mentions(prompt: &str) -> String {
     format!("{}\n\n---\n\n{}", injected.join("\n\n"), prompt)
 }
 
+/// After a successful edit on `path`, replace large stale read_file / inspect_lines results
+/// for that same path in history with a compact stub. The file just changed so old content
+/// is both wrong and wasteful — keeping it burns context the model needs for the next edit.
+///
+/// We leave the two most recent messages untouched so any read that was part of the current
+/// edit cycle stays visible (the model may still reference it for adjacent edits).
+fn compact_stale_reads(history: &mut Vec<ChatMessage>, path: &str) {
+    const MIN_SIZE_TO_COMPACT: usize = 800;
+    let stub = "[prior read_file content compacted — file was edited; use read_file to reload]";
+    let normalized = normalize_workspace_path(path);
+    let safe_tail = history.len().saturating_sub(2);
+    for msg in history[..safe_tail].iter_mut() {
+        if msg.role != "tool" {
+            continue;
+        }
+        let is_read_tool = matches!(
+            msg.name.as_deref(),
+            Some("read_file") | Some("inspect_lines")
+        );
+        if !is_read_tool {
+            continue;
+        }
+        let content = match &msg.content {
+            crate::agent::inference::MessageContent::Text(s) => s.clone(),
+            _ => continue,
+        };
+        if content.len() < MIN_SIZE_TO_COMPACT {
+            continue;
+        }
+        // Match on normalized path or the raw path appearing anywhere in the content
+        if content.contains(&normalized) || content.contains(path) {
+            msg.content = crate::agent::inference::MessageContent::Text(stub.to_string());
+        }
+    }
+}
+
+/// Read up to `max_lines` lines from a file with line numbers, for edit-fail auto-recovery.
+/// Returns a placeholder string if the file cannot be read.
+fn read_file_preview_for_retry(path: &str, max_lines: usize) -> String {
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c.replace("\r\n", "\n"),
+        Err(e) => return format!("[could not read {path}: {e}]"),
+    };
+    let total = content.lines().count();
+    let lines: String = content
+        .lines()
+        .enumerate()
+        .take(max_lines)
+        .map(|(i, line)| format!("{:>4}  {}", i + 1, line))
+        .collect::<Vec<_>>()
+        .join("\n");
+    if total > max_lines {
+        format!("{lines}\n... [{} more lines — use inspect_lines to see the rest]", total - max_lines)
+    } else {
+        lines
+    }
+}
+
 fn transcript_user_turn_text(user_turn: &UserTurn, prompt: &str) -> String {
     let mut prefixes = Vec::new();
     if let Some(doc) = user_turn.attached_document.as_ref() {
@@ -3559,6 +3617,9 @@ impl ConversationManager {
                             if !path.is_empty() {
                                 self.vein.bump_heat(path);
                                 self.l1_context = self.vein.l1_context();
+                                // Compact stale read_file results for this path — the file
+                                // just changed so old content is wrong and wastes context.
+                                compact_stale_reads(&mut self.history, path);
                             }
                             // Refresh repo map so PageRank accounts for the new edit.
                             self.refresh_repo_map();
@@ -3751,14 +3812,37 @@ impl ConversationManager {
                     {
                         if let Some(target) = action_target_path(&tool_name, &res.args) {
                             let guidance = if final_output.contains("matched") {
+                                // Multiple matches — need a more specific anchor. Show the
+                                // file so the model can pick a unique surrounding context.
+                                let snippet = read_file_preview_for_retry(&target, 120);
                                 format!(
-                                    "STOP. `{}` on `{}` — search string matched multiple times. Use `inspect_lines` on the exact region to get a unique anchor, then retry.",
-                                    tool_name, target
+                                    "EDIT FAILED — search string matched multiple locations in `{target}`. \
+                                     You need a longer, more unique search string that includes surrounding context.\n\
+                                     Current file content (first 120 lines):\n```\n{snippet}\n```\n\
+                                     Retry `{tool_name}` with a search string that is unique in the file."
                                 )
                             } else {
+                                // Text not found — show the full file so the model can copy
+                                // the exact current text and retry with correct whitespace.
+                                let snippet = read_file_preview_for_retry(&target, 200);
+                                // Also register the file as observed so action_grounding
+                                // won't block the retry edit.
+                                let normalized = normalize_workspace_path(&target);
+                                {
+                                    let mut ag = self.action_grounding.lock().await;
+                                    let turn = ag.turn_index;
+                                    ag.observed_paths.insert(normalized.clone(), turn);
+                                    ag.inspected_paths.insert(normalized, turn);
+                                }
                                 format!(
-                                    "STOP. `{}` on `{}` — search string did not match. Use `inspect_lines` on the target region to get the exact current text (check whitespace and indentation), then retry.",
-                                    tool_name, target
+                                    "EDIT FAILED — search string did not match any text in `{target}`.\n\
+                                     The model must have generated text that differs from what is actually in the file \
+                                     (wrong whitespace, indentation, or stale content).\n\
+                                     Current file content (up to 200 lines shown):\n```\n{snippet}\n```\n\
+                                     Find the exact line(s) to change above, copy the text character-for-character \
+                                     (preserving indentation), and immediately retry `{tool_name}` \
+                                     with that exact text as the search string. Do NOT call read_file again — \
+                                     the content is already shown above."
                                 )
                             };
                             loop_intervention = Some(guidance);
