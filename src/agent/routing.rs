@@ -187,17 +187,17 @@ fn capability_question_requires_repo_inspection(lower: &str) -> bool {
     )
 }
 
-/// Returns true for advisory/opinion questions that should not trigger a blanket
-/// inspect_host(summary) call. These are follow-up or conversational turns where
-/// the user wants analysis or advice, not raw data collection.
+/// Returns true for conversational, advisory, or declarative turns that should not
+/// trigger a blanket inspect_host(summary) call. Covers:
+///   - Advisory/opinion questions: "would more ram be nice?", "should I upgrade?"
+///   - Opinion assertions: "i think the gpu is fine"
+///   - Hypotheticals: "what if I had more ram", "if i upgraded the gpu"
+///   - Conversational acknowledgments: "makes sense", "so the cpu is fine", "ok so"
+///   - Positive/negative statements that aren't asking for new data
 ///
-/// Examples that return true:
-///   "would another stick of ram be nice?"
-///   "is that worth it right?"
-///   "could i offload vram to system ram?"
-///   "do you think upgrading would help?"
+/// Does NOT block specific diagnostic routes — those fire before this catch-all guard.
 fn is_conversational_advisory(lower: &str) -> bool {
-    // Advisory phrasing — seeking opinion, not data
+    // ── Advisory openers — seeking opinion or recommendation, not data ──────────
     let starts_advisory = lower.starts_with("would ")
         || lower.starts_with("could ")
         || lower.starts_with("should ")
@@ -209,7 +209,48 @@ fn is_conversational_advisory(lower: &str) -> bool {
         || lower.starts_with("is it worth")
         || lower.starts_with("would it ");
 
-    // Confirmation-seeking tail — "right?", "correct?", "yeah?"
+    // ── Opinion / belief assertions — not requesting fresh data ─────────────────
+    let opinion_opener = (lower.starts_with("i think ")
+        || lower.starts_with("i believe ")
+        || lower.starts_with("i know ")
+        || lower.starts_with("i guess ")
+        || lower.starts_with("i see,")
+        || lower.starts_with("i see ")
+        || lower.starts_with("i feel like"))
+        && !lower.trim_end().ends_with('?');
+
+    // ── Hypotheticals — not asking about current machine state ──────────────────
+    let hypothetical = lower.starts_with("what if ")
+        || lower.starts_with("if i ")
+        || lower.starts_with("if i'd ")
+        || lower.starts_with("say i ")
+        || lower.starts_with("suppose ");
+
+    // ── Conversational acknowledgments / pivots without a follow-up question ────
+    let no_question = !lower.trim_end().ends_with('?');
+    let no_imperative = !lower.contains("what is ")
+        && !lower.contains("what are ")
+        && !lower.contains("how do ")
+        && !lower.contains("how much ")
+        && !lower.contains("how many ")
+        && !lower.contains("show me")
+        && !lower.contains("tell me")
+        && !lower.contains("check ");
+    let acknowledgment = (lower.starts_with("makes sense")
+        || lower.starts_with("that makes sense")
+        || lower.starts_with("ok so ")
+        || lower.starts_with("right so ")
+        || lower.starts_with("so the ")
+        || lower.starts_with("so it ")
+        || lower.starts_with("so my ")
+        || lower.starts_with("ah ")
+        || lower.starts_with("got it")
+        || lower.starts_with("ok, ")
+        || lower.starts_with("everything "))
+        && no_question
+        && no_imperative;
+
+    // ── Confirmation-seeking tail — "right?", "correct?" ────────────────────────
     let ends_confirmation = lower.trim_end_matches(|c: char| c == '?' || c == ' ')
         .ends_with("right")
         || lower.trim_end_matches(|c: char| c == '?' || c == ' ')
@@ -217,7 +258,7 @@ fn is_conversational_advisory(lower: &str) -> bool {
         || lower.ends_with("right?")
         || lower.ends_with("yeah?");
 
-    // "be nice", "be worth it", "be helpful", "be better" etc. — classic advisory tail
+    // ── Advisory tail vocabulary ─────────────────────────────────────────────────
     let advisory_tail = lower.contains(" be nice")
         || lower.contains(" be worth")
         || lower.contains(" be helpful")
@@ -228,7 +269,12 @@ fn is_conversational_advisory(lower: &str) -> bool {
         || lower.contains("offload")
         || lower.contains("upgrade");
 
-    starts_advisory || (ends_confirmation && advisory_tail) || (starts_advisory && advisory_tail)
+    starts_advisory
+        || opinion_opener
+        || hypothetical
+        || acknowledgment
+        || (ends_confirmation && advisory_tail)
+        || (starts_advisory && advisory_tail)
 }
 
 fn mentions_host_inspection_question(lower: &str) -> bool {

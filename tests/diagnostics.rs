@@ -6829,3 +6829,32 @@ fn test_direct_diagnostic_questions_still_route_through_advisory_guard() {
     assert_eq!(preferred_host_inspection_topic("what is using my ram"), Some("processes"));
     assert_eq!(preferred_host_inspection_topic("what processes are using ram"), Some("processes"));
 }
+
+#[test]
+fn test_conversational_declaratives_do_not_trigger_summary_route() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // Declarative statements, opinions, and hypotheticals containing host-inspection
+    // keywords must NOT trigger inspect_host(summary) — no new data needed.
+    let should_not_route_to_summary: &[&str] = &[
+        "i think the gpu is fine",
+        "makes sense the cpu is fine",
+        "what if i had more ram",
+        "if i upgraded the gpu would that help",
+        "so the vram is being used by lm studio",
+        "i see the memory is fine",
+        "everything looks good with my ram",
+        "ok so the cpu is at 8 percent",
+        "i believe the service is running",
+        "i know the network is fine",
+        "so the ram is the issue",
+        "so my gpu is the bottleneck",
+        "ah ok so the cpu is throttled",
+    ];
+    for q in should_not_route_to_summary {
+        let topic = preferred_host_inspection_topic(q);
+        assert!(
+            topic != Some("summary"),
+            "Expected no summary route for declarative/conversational: {q:?} (got: {topic:?})"
+        );
+    }
+}
