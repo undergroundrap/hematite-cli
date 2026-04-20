@@ -151,43 +151,99 @@ fn autodetect_command(
     let command = if cwd.join("Cargo.toml").exists() {
         match action {
             "build" => ("Rust/Cargo", "cargo build --color never".to_string()),
-            "test" => ("Rust/Cargo", "cargo test --color never".to_string()),
-            "lint" => (
-                "Rust/Cargo",
-                "cargo clippy --all-targets --all-features -- -D warnings".to_string(),
-            ),
-            "fix" => ("Rust/Cargo", "cargo fmt".to_string()),
-            _ => return Err(unknown_action(action)),
-        }
-    } else if cwd.join("package.json").exists() {
-        match action {
-            "build" => ("Node/npm", "npm run build --if-present".to_string()),
-            "test" => ("Node/npm", "npm test --if-present".to_string()),
-            "lint" => ("Node/npm", "npm run lint --if-present".to_string()),
-            "fix" => return Err(missing_profile_msg("Node/npm", action)),
-            _ => return Err(unknown_action(action)),
-        }
-    } else if cwd.join("pyproject.toml").exists() || cwd.join("setup.py").exists() {
-        match action {
-            "build" => ("Python", "python -m compileall .".to_string()),
-            "test" => return Err(missing_profile_msg("Python", action)),
-            "lint" => return Err(missing_profile_msg("Python", action)),
-            "fix" => return Err(missing_profile_msg("Python", action)),
+            "test"  => ("Rust/Cargo", "cargo test --color never".to_string()),
+            "lint"  => ("Rust/Cargo", "cargo clippy --all-targets --all-features -- -D warnings".to_string()),
+            "fix"   => ("Rust/Cargo", "cargo fmt".to_string()),
             _ => return Err(unknown_action(action)),
         }
     } else if cwd.join("go.mod").exists() {
         match action {
             "build" => ("Go", "go build ./...".to_string()),
-            "test" => ("Go", "go test ./...".to_string()),
-            "lint" => return Err(missing_profile_msg("Go", action)),
-            "fix" => return Err(missing_profile_msg("Go", action)),
+            "test"  => ("Go", "go test ./...".to_string()),
+            "lint"  => ("Go", "go vet ./...".to_string()),
+            "fix"   => ("Go", "gofmt -w .".to_string()),
+            _ => return Err(unknown_action(action)),
+        }
+    } else if cwd.join("CMakeLists.txt").exists() {
+        // C / C++ (CMake) — create build dir if missing, configure + build
+        let build_dir = if cwd.join("build").exists() { "build" } else { "build" };
+        match action {
+            "build" => (
+                "C++/CMake",
+                format!("cmake -B {build_dir} -DCMAKE_BUILD_TYPE=Release && cmake --build {build_dir} --parallel"),
+            ),
+            "test" => (
+                "C++/CMake",
+                format!("ctest --test-dir {build_dir} --output-on-failure"),
+            ),
+            "lint" => return Err(missing_profile_msg("C++/CMake", action)),
+            "fix"  => return Err(missing_profile_msg("C++/CMake", action)),
+            _ => return Err(unknown_action(action)),
+        }
+    } else if cwd.join("package.json").exists() {
+        // Detect package manager: pnpm > yarn > bun > npm
+        let pm = if cwd.join("pnpm-lock.yaml").exists() || cwd.join(".npmrc").exists() && {
+            let rc = std::fs::read_to_string(cwd.join(".npmrc")).unwrap_or_default();
+            rc.contains("pnpm")
+        } {
+            "pnpm"
+        } else if cwd.join("yarn.lock").exists() {
+            "yarn"
+        } else if cwd.join("bun.lockb").exists() {
+            "bun"
+        } else {
+            "npm"
+        };
+        // Detect TypeScript project for better label
+        let label: &'static str = if cwd.join("tsconfig.json").exists() {
+            match pm {
+                "pnpm" => "TypeScript/pnpm",
+                "yarn" => "TypeScript/yarn",
+                "bun"  => "TypeScript/bun",
+                _      => "TypeScript/npm",
+            }
+        } else {
+            match pm {
+                "pnpm" => "Node/pnpm",
+                "yarn" => "Node/yarn",
+                "bun"  => "Node/bun",
+                _      => "Node/npm",
+            }
+        };
+        match action {
+            "build" => (label, format!("{pm} run build")),
+            "test"  => (label, format!("{pm} test")),
+            "lint"  => (label, format!("{pm} run lint")),
+            "fix"   => (label, format!("{pm} run format")),
+            _ => return Err(unknown_action(action)),
+        }
+    } else if cwd.join("pyproject.toml").exists()
+        || cwd.join("setup.py").exists()
+        || cwd.join("requirements.txt").exists()
+    {
+        // Python — prefer ruff when available, fall back to flake8/black/pytest
+        match action {
+            "build" => ("Python", "python -m compileall -q .".to_string()),
+            "test"  => ("Python", "python -m pytest -q".to_string()),
+            "lint"  => ("Python", "python -m ruff check . || python -m flake8 .".to_string()),
+            "fix"   => ("Python", "python -m ruff format . || python -m black .".to_string()),
+            _ => return Err(unknown_action(action)),
+        }
+    } else if cwd.join("tsconfig.json").exists() {
+        // TypeScript without package.json — bare tsc check
+        match action {
+            "build" => ("TypeScript/tsc", "tsc --noEmit".to_string()),
+            "test"  => return Err(missing_profile_msg("TypeScript/tsc", action)),
+            "lint"  => return Err(missing_profile_msg("TypeScript/tsc", action)),
+            "fix"   => return Err(missing_profile_msg("TypeScript/tsc", action)),
             _ => return Err(unknown_action(action)),
         }
     } else {
         return Err(
             "No recognized project root found.\n\
-             Expected one of: Cargo.toml, package.json, pyproject.toml, go.mod\n\
-             Ensure you are in the project root directory or configure `.hematite/settings.json` verify profiles."
+             Supported markers: Cargo.toml (Rust), go.mod (Go), CMakeLists.txt (C/C++), \
+             package.json (Node/TS), pyproject.toml/setup.py/requirements.txt (Python), tsconfig.json (TypeScript).\n\
+             Ensure you are in the project root directory, or configure verify profiles in `.hematite/settings.json`."
                 .into(),
         );
     };
@@ -422,5 +478,100 @@ mod tests {
             "cargo build --color never",
             sample
         ));
+    }
+
+    #[test]
+    fn autodetect_rust_stack() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("Cargo.toml"), "").unwrap();
+        let (label, cmd, _) = autodetect_command(dir.path(), "build", None).unwrap();
+        assert_eq!(label, "Rust/Cargo");
+        assert!(cmd.contains("cargo build"));
+        let (_, test_cmd, _) = autodetect_command(dir.path(), "test", None).unwrap();
+        assert!(test_cmd.contains("cargo test"));
+        let (_, lint_cmd, _) = autodetect_command(dir.path(), "lint", None).unwrap();
+        assert!(lint_cmd.contains("clippy"));
+    }
+
+    #[test]
+    fn autodetect_go_stack() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("go.mod"), "module example.com/foo\ngo 1.21\n").unwrap();
+        let (label, cmd, _) = autodetect_command(dir.path(), "build", None).unwrap();
+        assert_eq!(label, "Go");
+        assert!(cmd.contains("go build"));
+        let (_, test_cmd, _) = autodetect_command(dir.path(), "test", None).unwrap();
+        assert!(test_cmd.contains("go test"));
+        let (_, lint_cmd, _) = autodetect_command(dir.path(), "lint", None).unwrap();
+        assert!(lint_cmd.contains("go vet"));
+    }
+
+    #[test]
+    fn autodetect_cmake_stack() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("CMakeLists.txt"), "cmake_minimum_required(VERSION 3.20)\n").unwrap();
+        let (label, cmd, _) = autodetect_command(dir.path(), "build", None).unwrap();
+        assert_eq!(label, "C++/CMake");
+        assert!(cmd.contains("cmake"));
+        assert!(cmd.contains("--build"));
+    }
+
+    #[test]
+    fn autodetect_node_npm_stack() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        let (label, cmd, _) = autodetect_command(dir.path(), "build", None).unwrap();
+        assert!(label.contains("Node") || label.contains("TypeScript"));
+        assert!(cmd.contains("npm run build"));
+    }
+
+    #[test]
+    fn autodetect_node_yarn_stack() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        std::fs::write(dir.path().join("yarn.lock"), "").unwrap();
+        let (label, cmd, _) = autodetect_command(dir.path(), "build", None).unwrap();
+        assert!(label.contains("yarn"));
+        assert!(cmd.contains("yarn run build"));
+    }
+
+    #[test]
+    fn autodetect_node_pnpm_stack() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        std::fs::write(dir.path().join("pnpm-lock.yaml"), "").unwrap();
+        let (label, cmd, _) = autodetect_command(dir.path(), "build", None).unwrap();
+        assert!(label.contains("pnpm"));
+        assert!(cmd.contains("pnpm run build"));
+    }
+
+    #[test]
+    fn autodetect_python_stack_pyproject() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("pyproject.toml"), "[build-system]\n").unwrap();
+        let (label, cmd, _) = autodetect_command(dir.path(), "build", None).unwrap();
+        assert_eq!(label, "Python");
+        assert!(cmd.contains("compileall"));
+        let (_, test_cmd, _) = autodetect_command(dir.path(), "test", None).unwrap();
+        assert!(test_cmd.contains("pytest"));
+    }
+
+    #[test]
+    fn autodetect_python_stack_requirements() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("requirements.txt"), "fastapi\n").unwrap();
+        let (label, _, _) = autodetect_command(dir.path(), "build", None).unwrap();
+        assert_eq!(label, "Python");
+    }
+
+    #[test]
+    fn autodetect_no_project_returns_err() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = autodetect_command(dir.path(), "build", None);
+        assert!(result.is_err());
+        let msg = result.unwrap_err();
+        assert!(msg.contains("No recognized project root"));
+        assert!(msg.contains("Cargo.toml"));
+        assert!(msg.contains("CMakeLists.txt"));
     }
 }
