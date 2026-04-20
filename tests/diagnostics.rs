@@ -6863,17 +6863,34 @@ fn test_conversational_declaratives_do_not_trigger_summary_route() {
 fn test_scaffold_request_detection() {
     use hematite::agent::routing::is_scaffold_request;
 
-    // Should detect scaffold intent
+    // Web stacks
     assert!(is_scaffold_request("create a React app for me"));
-    assert!(is_scaffold_request("scaffold a FastAPI project"));
     assert!(is_scaffold_request("build me a Next.js app"));
     assert!(is_scaffold_request("make me a landing page"));
     assert!(is_scaffold_request("set up a Vue app for me"));
-    assert!(is_scaffold_request("bootstrap a Rust CLI project"));
     assert!(is_scaffold_request("generate a todo app in React"));
     assert!(is_scaffold_request("spin up an Express server"));
+    assert!(is_scaffold_request("make me a website"));
+    assert!(is_scaffold_request("create a web app"));
+
+    // Systems / compiled stacks
+    assert!(is_scaffold_request("build me a Rust CLI app"));
+    assert!(is_scaffold_request("create a Rust project"));
+    assert!(is_scaffold_request("make me a Go CLI tool"));
+    assert!(is_scaffold_request("scaffold a Go project"));
+    assert!(is_scaffold_request("create a C++ project"));
+    assert!(is_scaffold_request("make a cmake project"));
+
+    // Python
+    assert!(is_scaffold_request("scaffold a FastAPI project"));
+    assert!(is_scaffold_request("make me a Python CLI tool"));
+    assert!(is_scaffold_request("create a Python package"));
+    assert!(is_scaffold_request("build a Flask app"));
+
+    // Explicit commands
     assert!(is_scaffold_request("npm init my project"));
     assert!(is_scaffold_request("cargo new my-cli"));
+    assert!(is_scaffold_request("go mod init my-app"));
 
     // Should NOT detect scaffold intent
     assert!(!is_scaffold_request("how do I add a component to my React app"));
@@ -6881,4 +6898,5 @@ fn test_scaffold_request_detection() {
     assert!(!is_scaffold_request("explain how FastAPI routing works"));
     assert!(!is_scaffold_request("what is my CPU usage"));
     assert!(!is_scaffold_request("show me running processes"));
+    assert!(!is_scaffold_request("what rust version am I on"));
 }

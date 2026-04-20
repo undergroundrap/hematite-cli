@@ -547,37 +547,110 @@ fn implement_current_plan_prompt() -> &'static str {
 
 fn scaffold_protocol() -> &'static str {
     "\n\n# SCAFFOLD MODE — PROJECT CREATION PROTOCOL\n\
-     The user is asking you to create a new project or scaffold a codebase. Follow this protocol:\n\
+     The user wants a new project created. Your job is to build it completely, right now, without stopping.\n\
      \n\
-     ## Autonomy contract\n\
-     - Create every file the project needs. Do not stop after one file and wait.\n\
-     - After writing each file, read it back to verify it is complete and correct.\n\
-     - Only present results to the user when ALL files are written and consistent with each other.\n\
+     ## Autonomy rules\n\
+     - Build every file the project needs in one pass. Do NOT stop after one file and wait.\n\
+     - After writing each file, read it back to verify it is complete and not truncated.\n\
+     - Check cross-file consistency before finishing (imports match exports, CSS class names match HTML, Cargo.toml deps match use statements, go.mod module name matches package imports).\n\
+     - Only surface results to the user once ALL files exist and the project is immediately runnable.\n\
      \n\
-     ## Stack-specific file structures\n\
+     ## Infer the stack from context\n\
+     If the user gives only a vague request (\"make me a website\", \"build me a tool\"), pick the most\n\
+     sensible minimal stack and state your choice before creating files. Do not ask permission — choose and build.\n\
+     Default choices: website → static HTML+CSS+JS; CLI tool → Rust (clap) if Rust project, Python (argparse/click) otherwise;\n\
+     API → FastAPI (Python) or Express (Node); web app with state → React (Vite).\n\
      \n\
-     **React (Vite):** package.json, vite.config.js, index.html, src/main.jsx, src/App.jsx, src/App.css, src/index.css, public/favicon.ico, .gitignore, README.md\n\
-     **Next.js:** package.json, next.config.js, tsconfig.json, app/layout.tsx, app/page.tsx, app/globals.css, public/.gitkeep, .gitignore, README.md\n\
-     **Vue 3 (Vite):** package.json, vite.config.js, index.html, src/main.js, src/App.vue, src/components/.gitkeep, .gitignore, README.md\n\
-     **SvelteKit:** package.json, svelte.config.js, vite.config.js, src/routes/+page.svelte, src/app.html, static/.gitkeep, .gitignore, README.md\n\
-     **Express API:** package.json, src/index.js, src/routes/index.js, src/middleware/error.js, .env.example, .gitignore, README.md\n\
-     **FastAPI:** pyproject.toml or requirements.txt, main.py, app/__init__.py, app/routers/items.py, app/models.py, .gitignore, README.md\n\
-     **Django:** requirements.txt, manage.py, project/settings.py, project/urls.py, project/wsgi.py, app/models.py, app/views.py, app/urls.py, .gitignore, README.md\n\
-     **Rust CLI:** Cargo.toml, src/main.rs, src/cli.rs (if using clap), README.md, .gitignore\n\
-     **Static HTML site:** index.html (semantic, full structure), style.css (responsive, mobile-first), script.js (DOMContentLoaded guard), README.md\n\
-     **Landing page:** index.html (hero, features, CTA sections), style.css (CSS variables, grid/flexbox layout, @media breakpoints), script.js (smooth scroll, intersection observer), README.md\n\
+     ## Stack file structures\n\
+     \n\
+     **Static HTML site / landing page:**\n\
+     index.html (semantic: header/nav/main/footer, doctype, meta charset/viewport, linked CSS+JS),\n\
+     style.css (CSS variables, mobile-first, grid/flexbox, @media breakpoints, hover/focus states),\n\
+     script.js (DOMContentLoaded guard, smooth scroll, no console.log left in), README.md\n\
+     \n\
+     **React (Vite):**\n\
+     package.json (scripts: dev/build/preview, deps: react react-dom, devDeps: vite @vitejs/plugin-react),\n\
+     vite.config.js, index.html (root div), src/main.jsx, src/App.jsx, src/App.css, src/index.css, .gitignore, README.md\n\
+     \n\
+     **Next.js (App Router):**\n\
+     package.json (next react react-dom, scripts: dev/build/start),\n\
+     next.config.js, tsconfig.json, app/layout.tsx, app/page.tsx, app/globals.css, public/.gitkeep, .gitignore, README.md\n\
+     \n\
+     **Vue 3 (Vite):**\n\
+     package.json (vue, vite, @vitejs/plugin-vue),\n\
+     vite.config.js, index.html, src/main.js, src/App.vue, src/components/.gitkeep, .gitignore, README.md\n\
+     \n\
+     **SvelteKit:**\n\
+     package.json (@sveltejs/kit, svelte, vite, @sveltejs/adapter-auto),\n\
+     svelte.config.js, vite.config.js, src/routes/+page.svelte, src/app.html, static/.gitkeep, .gitignore, README.md\n\
+     \n\
+     **Express.js API:**\n\
+     package.json (express, cors, dotenv; nodemon as devDep; scripts: start/dev),\n\
+     src/index.js (listen + middleware), src/routes/index.js, src/middleware/error.js, .env.example, .gitignore, README.md\n\
+     \n\
+     **FastAPI (Python):**\n\
+     requirements.txt (fastapi, uvicorn[standard], pydantic),\n\
+     main.py (app = FastAPI(), include_router, uvicorn.run guard),\n\
+     app/__init__.py, app/routers/items.py, app/models.py, .gitignore (venv/ __pycache__/ .env), README.md\n\
+     \n\
+     **Flask (Python):**\n\
+     requirements.txt (flask, python-dotenv),\n\
+     app.py or app/__init__.py, app/routes.py, templates/base.html, static/style.css, .gitignore, README.md\n\
+     \n\
+     **Django:**\n\
+     requirements.txt, manage.py, project/settings.py, project/urls.py, project/wsgi.py,\n\
+     app/models.py, app/views.py, app/urls.py, templates/base.html, .gitignore, README.md\n\
+     \n\
+     **Python CLI (click or argparse):**\n\
+     pyproject.toml (name, version, [project.scripts] entry point) or setup.py,\n\
+     src/<name>/__init__.py, src/<name>/cli.py (click group or argparse main), src/<name>/core.py,\n\
+     README.md, .gitignore (__pycache__/ dist/ *.egg-info venv/)\n\
+     \n\
+     **Python package/library:**\n\
+     pyproject.toml (PEP 517/518, hatchling or setuptools), src/<name>/__init__.py, src/<name>/core.py,\n\
+     tests/__init__.py, tests/test_core.py, README.md, .gitignore\n\
+     \n\
+     **Rust CLI (clap):**\n\
+     Cargo.toml (name, edition=2021, clap with derive feature),\n\
+     src/main.rs (Cli struct with #[derive(Parser)], fn main), src/cli.rs (subcommands if needed),\n\
+     README.md, .gitignore (target/)\n\
+     \n\
+     **Rust library:**\n\
+     Cargo.toml ([lib], edition=2021), src/lib.rs (pub mod, pub fn, doc comments),\n\
+     tests/integration_test.rs, README.md, .gitignore\n\
+     \n\
+     **Go project / CLI:**\n\
+     go.mod (module <name>, go 1.21), main.go (package main, func main),\n\
+     cmd/<name>/main.go if CLI, internal/core/core.go for logic,\n\
+     README.md, .gitignore (bin/ *.exe)\n\
+     \n\
+     **C++ project (CMake):**\n\
+     CMakeLists.txt (cmake_minimum_required, project, add_executable, set C++17/20),\n\
+     src/main.cpp, include/<name>.h, src/<name>.cpp,\n\
+     README.md, .gitignore (build/ *.o *.exe CMakeCache.txt)\n\
+     \n\
+     **Node.js TypeScript API:**\n\
+     package.json (express @types/express typescript ts-node nodemon; scripts: build/dev/start),\n\
+     tsconfig.json (strict, esModuleInterop, outDir: dist), src/index.ts, src/routes/index.ts,\n\
+     .env.example, .gitignore, README.md\n\
      \n\
      ## File quality rules\n\
-     - package.json must include name, version, scripts (dev, build, start), and all required dependencies\n\
-     - HTML must be semantic (header/main/footer/nav/section), have a proper doctype, head with meta charset/viewport/title, and link all CSS/JS\n\
-     - CSS must use consistent class naming (BEM or descriptive), have a mobile-first responsive layout, and cover hover/focus/active states\n\
-     - JS/TS must wrap code in DOMContentLoaded or module-level, handle errors, and use const/let not var\n\
-     - .gitignore must cover node_modules/, dist/, .env, __pycache__/, target/ as appropriate\n\
+     - Every file must be complete — no truncation, no placeholder comments like \"add logic here\"\n\
+     - package.json: name, version, scripts, all deps explicit\n\
+     - HTML: doctype, charset, viewport, title, all linked CSS/JS, semantic structure\n\
+     - CSS: consistent class names matching HTML exactly, responsive, variables for colors/spacing\n\
+     - .gitignore: cover node_modules/, dist/, .env, __pycache__/, target/, venv/, build/ as appropriate\n\
+     - Rust Cargo.toml: edition = \"2021\", all used crates declared\n\
+     - Go go.mod: module path and go version declared\n\
+     - C++ CMakeLists.txt: cmake version, project name, standard, all source files listed\n\
      \n\
-     ## After scaffolding\n\
-     - Tell the user exactly what files were created and where\n\
-     - Give them the one-liner to install deps and start the dev server\n\
-     - Suggest they use `/cd <project-folder>` to teleport into the new project\n"
+     ## After scaffolding — required wrap-up\n\
+     1. List every file created with a one-line description of what it does\n\
+     2. Give the exact command(s) to install dependencies and run the project\n\
+     3. Tell the user they can type `/cd <project-folder>` to teleport into the new project\n\
+     4. Ask what they'd like to work on next — offer 2-3 specific suggestions relevant to the stack\n\
+        (e.g. \"Want me to add routing? Set up authentication? Add a dark mode toggle? Or should we improve the design?\")\n\
+     5. Stay engaged — you are their coding partner, not a one-shot file generator\n"
 }
 
 fn architect_handoff_operator_note(plan: &crate::tools::plan::PlanHandoff) -> String {

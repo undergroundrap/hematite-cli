@@ -3828,7 +3828,7 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
 pub fn is_scaffold_request(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
 
-    // Creation/generation verbs (loose — combined with stack keywords for specificity)
+    // Creation/generation verbs (combined with stack keywords for specificity)
     let creation_verbs = contains_any(
         &lower,
         &[
@@ -3841,28 +3841,47 @@ pub fn is_scaffold_request(user_input: &str) -> bool {
             "spin up a", "spin up an",
             "start a", "start an",
             "init a", "init an", "initialize a", "initialize an",
+            "write a", "write me a", "write me an",
         ],
     );
 
-    // Stack/project keywords that confirm scaffolding intent
+    // Stack/project keywords — broad enough to catch short requests like "make me a rust app"
     let stack_keywords = contains_any(
         &lower,
         &[
-            "react app", "react project", "react site",
+            // Web frameworks
+            "react app", "react project", "react site", "react component",
             "next.js", "nextjs", "next app", "next project",
-            "nuxt", "vue app", "vue project", "vue site",
+            "nuxt", "vue app", "vue project", "vue site", "vue component",
             "svelte app", "svelte project", "sveltekit",
-            "express app", "express server", "express api",
-            "fastapi", "flask app", "flask project",
-            "django project", "django app",
-            "rust cli", "rust project", "rust app",
-            "node project", "node app", "node server",
-            "typescript project", "ts project",
             "astro project", "astro site",
-            "remix app", "solid.js app",
+            "remix app", "solid.js",
+            // Backend
+            "express app", "express server", "express api", "express project",
+            "fastapi", "flask app", "flask project", "flask api",
+            "django project", "django app",
+            "node project", "node app", "node server", "node api",
+            "typescript project", "ts project", "ts app",
+            // Rust
+            "rust cli", "rust project", "rust app", "rust tool", "rust binary",
+            "rust library", "rust crate", "rust api",
+            // Go
+            "go project", "go app", "go cli", "go api", "go server", "go tool",
+            "golang project", "golang app",
+            // Python
+            "python project", "python app", "python cli", "python script",
+            "python package", "python tool", "python api", "python service",
+            "python library",
+            // C / C++
+            "c++ project", "c++ app", "cpp project", "cpp app",
+            "c project", "c app", "cmake project",
+            // Generic project types
             "landing page", "portfolio site", "portfolio page", "personal site",
-            "todo app", "rest api", "graphql api",
+            "todo app", "rest api", "graphql api", "crud app",
             "web app", "web project", "web site", "website",
+            "cli app", "cli tool", "command line tool", "command-line tool",
+            "desktop app", "mobile app",
+            "microservice", "api server", "backend api",
             "new project", "new app", "new site",
         ],
     );
@@ -3873,6 +3892,7 @@ pub fn is_scaffold_request(user_input: &str) -> bool {
         &[
             "npm init", "npm create",
             "cargo new", "cargo init",
+            "go mod init",
             "npx create-react-app", "npx create-next-app",
             "npx create-vue", "npx create-svelte", "npx astro",
             "pnpm create", "yarn create",
