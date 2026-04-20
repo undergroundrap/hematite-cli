@@ -249,7 +249,60 @@ fn apply_turn_attachments(user_turn: &UserTurn, prompt: &str) -> String {
             format!("[Attached image: {}]\n\n{}", image.name, out)
         };
     }
+    // Auto-inject @file mentions — parse @<path> tokens and prepend file content
+    // so the model can edit immediately without a read_file round-trip.
+    out = inject_at_file_mentions(&out);
     out
+}
+
+/// Parse `@<path>` tokens from the user prompt, read each file, and prepend its
+/// content as inline context. Tokens that don't resolve to readable files are
+/// left as-is so the model can still call read_file if needed.
+fn inject_at_file_mentions(prompt: &str) -> String {
+    // Quick bail — no @ present
+    if !prompt.contains('@') {
+        return prompt.to_string();
+    }
+    let cwd = match std::env::current_dir() {
+        Ok(d) => d,
+        Err(_) => return prompt.to_string(),
+    };
+
+    let mut injected = Vec::new();
+    // Split on whitespace+punctuation boundaries but keep the original prompt intact
+    for token in prompt.split_whitespace() {
+        let raw = token.trim_start_matches('@');
+        if !token.starts_with('@') || raw.is_empty() {
+            continue;
+        }
+        // Strip trailing punctuation that isn't part of a path
+        let path_str = raw.trim_end_matches(|c: char| matches!(c, ',' | '.' | ':' | ';' | '!' | '?'));
+        if path_str.is_empty() {
+            continue;
+        }
+        let candidate = cwd.join(path_str);
+        if candidate.is_file() {
+            match std::fs::read_to_string(&candidate) {
+                Ok(content) if !content.is_empty() => {
+                    // Cap at 32 KB so a huge file doesn't blow the context
+                    const CAP: usize = 32 * 1024;
+                    let body = if content.len() > CAP {
+                        format!("{}\n... [truncated — file is large, use read_file for the rest]", &content[..CAP])
+                    } else {
+                        content
+                    };
+                    injected.push(format!("[File: {}]\n```\n{}\n```", path_str, body.trim()));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    if injected.is_empty() {
+        return prompt.to_string();
+    }
+    // Prepend injected file blocks before the user message
+    format!("{}\n\n---\n\n{}", injected.join("\n\n"), prompt)
 }
 
 fn transcript_user_turn_text(user_turn: &UserTurn, prompt: &str) -> String {
@@ -1291,6 +1344,36 @@ impl ConversationManager {
         *state = ActionGroundingState::default();
     }
 
+    /// Parse `@<path>` tokens from the raw user message and register any files that
+    /// resolve to real paths as observed+inspected this turn. This lets the model
+    /// call `edit_file` immediately on @-mentioned files without a read_file round-trip.
+    async fn register_at_file_mentions(&self, input: &str) {
+        if !input.contains('@') {
+            return;
+        }
+        let cwd = match std::env::current_dir() {
+            Ok(d) => d,
+            Err(_) => return,
+        };
+        let mut state = self.action_grounding.lock().await;
+        let turn = state.turn_index;
+        for token in input.split_whitespace() {
+            if !token.starts_with('@') {
+                continue;
+            }
+            let raw = token.trim_start_matches('@')
+                .trim_end_matches(|c: char| matches!(c, ',' | '.' | ':' | ';' | '!' | '?'));
+            if raw.is_empty() {
+                continue;
+            }
+            if cwd.join(raw).is_file() {
+                let normalized = normalize_workspace_path(raw);
+                state.observed_paths.insert(normalized.clone(), turn);
+                state.inspected_paths.insert(normalized, turn);
+            }
+        }
+    }
+
     async fn record_read_observation(&self, path: &str) {
         let normalized = normalize_workspace_path(path);
         let mut state = self.action_grounding.lock().await;
@@ -2165,6 +2248,9 @@ impl ConversationManager {
             transcript_user_turn_text(user_turn, &effective_user_input)
         };
         effective_user_input = apply_turn_attachments(user_turn, &effective_user_input);
+        // Register @file mentions in action_grounding so the model can edit them
+        // immediately without a separate read_file round-trip.
+        self.register_at_file_mentions(user_input).await;
         let implement_current_plan = self.workflow_mode == WorkflowMode::Code
             && is_current_plan_execution_request(&effective_user_input)
             && self
