@@ -131,9 +131,16 @@ pub async fn run_mcp_server(
             "tools/call" => {
                 if let Some(id) = id {
                     let params = msg.get("params").cloned().unwrap_or(Value::Null);
-                    let result =
-                        dispatch_tool_call(&params, edge_redact, semantic_redact, api_url, semantic_url, semantic_model, &policy)
-                            .await;
+                    let result = dispatch_tool_call(
+                        &params,
+                        edge_redact,
+                        semantic_redact,
+                        api_url,
+                        semantic_url,
+                        semantic_model,
+                        &policy,
+                    )
+                    .await;
                     let resp = match result {
                         Ok(text) => json!({
                             "jsonrpc": "2.0",
@@ -178,7 +185,7 @@ async fn dispatch_tool_call(
     params: &Value,
     edge_redact: bool,
     semantic_redact: bool,
-    api_url: &str,
+    _api_url: &str,
     semantic_url: &str,
     semantic_model: &str,
     policy: &RedactPolicy,
@@ -230,9 +237,8 @@ async fn dispatch_tool_call(
 
             let (output, audit_mode, semantic_applied, tier1_hits) = match level {
                 RedactionLevel::None => {
-                    let labeled = format!(
-                        "[hematite: no redaction active — raw diagnostic output]\n\n{raw}"
-                    );
+                    let labeled =
+                        format!("[hematite: no redaction active — raw diagnostic output]\n\n{raw}");
                     (labeled, RedactMode::None, false, Tier1Hits::new())
                 }
 
@@ -247,7 +253,14 @@ async fn dispatch_tool_call(
                 }
 
                 RedactionLevel::Semantic => {
-                    match crate::agent::semantic_redact::summarize(&raw, topic, semantic_url, Some(semantic_model)).await {
+                    match crate::agent::semantic_redact::summarize(
+                        &raw,
+                        topic,
+                        semantic_url,
+                        Some(semantic_model),
+                    )
+                    .await
+                    {
                         Ok(summary) => {
                             // Tier 1 as safety net after semantic pass
                             let r = crate::agent::edge_redact::redact(&summary);

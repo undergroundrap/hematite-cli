@@ -46,7 +46,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let semantic = cockpit.semantic_redact;
         let semantic_url = cockpit.semantic_url.as_deref().unwrap_or(&cockpit.url);
         let semantic_model = cockpit.semantic_model.as_deref().unwrap_or("");
-        hematite::agent::mcp_server::run_mcp_server(edge, semantic, &cockpit.url, semantic_url, semantic_model).await?;
+        hematite::agent::mcp_server::run_mcp_server(
+            edge,
+            semantic,
+            &cockpit.url,
+            semantic_url,
+            semantic_model,
+        )
+        .await?;
         return Ok(());
     }
 
