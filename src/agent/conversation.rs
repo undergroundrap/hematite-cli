@@ -2557,7 +2557,13 @@ impl ConversationManager {
                     "ASK means analysis only. Stay read-only, inspect the repo, explain findings, and do not make changes unless the user explicitly switches modes.\n",
                 ),
                 WorkflowMode::Code => system_msg.push_str(
-                    "CODE means implementation is allowed when needed. Keep proof-before-action, verification, and edit precision discipline. If an active plan handoff exists in session memory or `.hematite/PLAN.md`, treat it as the implementation brief unless the user explicitly overrides it. For ordinary workspace inspection during implementation, use built-in read/edit tools first and do not reach for `mcp__filesystem__*` unless the user explicitly requires MCP.\n",
+                    "CODE means implementation is allowed when needed. Keep proof-before-action, verification, and edit precision discipline. If an active plan handoff exists in session memory or `.hematite/PLAN.md`, treat it as the implementation brief unless the user explicitly overrides it. For ordinary workspace inspection during implementation, use built-in read/edit tools first and do not reach for `mcp__filesystem__*` unless the user explicitly requires MCP.\n\
+                    \nWeb project discipline: when creating or editing HTML/CSS/JS/TS files, after writing each file read it back to verify it is complete and production-quality. Check that:\n\
+                    - HTML is semantic and fully structured (doctype, head with meta/title, body, all linked resources)\n\
+                    - CSS is responsive (media queries for mobile), has consistent class names that match the HTML, and covers all visual states\n\
+                    - JS/TS has error handling, no console.log left in, and all referenced DOM elements exist\n\
+                    - All files reference each other correctly (href/src paths, import paths)\n\
+                    Do NOT stop after initial creation. Re-read, identify gaps, and keep improving until the result is genuinely complete. Only present the result to the user once all files are cohesive and working.\n",
                 ),
                 WorkflowMode::Architect => system_msg.push_str(
                     "ARCHITECT means plan first. Inspect, reason, and produce a concrete implementation approach before editing. Do not mutate code unless the user explicitly asks to implement. When you produce an implementation handoff, use these exact ASCII headings so Hematite can persist the plan: `# Goal`, `# Target Files`, `# Ordered Steps`, `# Verification`, `# Risks`, `# Open Questions`.\n",
@@ -4372,13 +4378,33 @@ impl ConversationManager {
 
         let truncated = cap_output(content, 4000);
 
-        let prompt = format!(
-            "You are a Senior Security and Code Quality auditor. Review this file content for '{}' and identify any critical logic errors, security vulnerabilities, or missing error handling. Be extremely concise. If the code looks good, output 'PASS'.\n\n```{}\n{}\n```",
-            path, ext, truncated
-        );
+        const WEB_EXTS_CRITIC: &[&str] = &["html", "htm", "css", "js", "ts", "jsx", "tsx", "vue", "svelte"];
+        let is_web_file = WEB_EXTS_CRITIC.contains(&ext);
+
+        let prompt = if is_web_file {
+            format!(
+                "You are a senior web developer doing a quality review of '{}'. \
+                Identify ONLY real problems — missing, broken, or incomplete things that would \
+                make this file not work or look bad in production. Check:\n\
+                - HTML: missing DOCTYPE/charset/title/viewport meta, broken links, missing aria, unsemantic structure\n\
+                - CSS: hardcoded px instead of responsive units, missing mobile media queries, class names used in HTML but not defined here\n\
+                - JS/TS: missing error handling, undefined variables, console.log left in, DOM elements referenced that may not exist\n\
+                - All: placeholder text/colors/lorem-ipsum left in, TODO comments, empty sections\n\
+                Be extremely concise. List issues as short bullets. If everything is production-ready, output 'PASS'.\n\n\
+                ```{}\n{}\n```",
+                path, ext, truncated
+            )
+        } else {
+            format!(
+                "You are a Senior Security and Code Quality auditor. Review this file content for '{}' \
+                and identify any critical logic errors, security vulnerabilities, or missing error handling. \
+                Be extremely concise. If the code looks good, output 'PASS'.\n\n```{}\n{}\n```",
+                path, ext, truncated
+            )
+        };
 
         let messages = vec![
-            ChatMessage::system("You are a technical critic. Identify ONLY critical issues. Output 'PASS' if none found."),
+            ChatMessage::system("You are a technical critic. Identify ONLY real issues that need fixing. Output 'PASS' if none found."),
             ChatMessage::user(&prompt)
         ];
 
@@ -5693,14 +5719,21 @@ impl ConversationManager {
                 "gitignore",
             ];
             let line_count = content.lines().count();
+            // Web files always get reviewed regardless of length — a 20-line HTML
+            // skeleton can still be missing DOCTYPE, meta charset, or linked CSS.
+            const WEB_EXTS: &[&str] = &["html", "htm", "css", "js", "ts", "jsx", "tsx", "vue", "svelte"];
+            let is_web = WEB_EXTS.contains(&ext);
+            let min_lines = if is_web { 5 } else { 50 };
             if !path.is_empty()
                 && !content.is_empty()
                 && !SKIP_EXTS.contains(&ext)
-                && line_count >= 50
+                && line_count >= min_lines
             {
                 if let Some(critique) = self.run_critic_check(path, content, &tx).await {
                     msg_results.push(ChatMessage::system(&format!(
-                        "[CRITIC REVIEW OF {}]\nIssues found:\n\n{}",
+                        "[CRITIC AUTO-FIX REQUIRED — {}]\n\
+                        Fix ALL issues below before sending your final response. \
+                        Call the appropriate edit tools now.\n\n{}",
                         path, critique
                     )));
                 }
