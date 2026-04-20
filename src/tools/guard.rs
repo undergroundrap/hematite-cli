@@ -284,6 +284,24 @@ pub fn classify_bash_risk(cmd: &str) -> RiskLevel {
         "get-smbshare",
         "get-smbsession",
         "get-netlanmanagerconnection",
+        // Scaffold / project init — non-destructive creation commands
+        "npm init",
+        "npm create",
+        "cargo new",
+        "cargo init",
+        "npx create-react-app",
+        "npx create-next-app",
+        "npx create-vue",
+        "npx create-svelte",
+        "npx astro",
+        "pnpm create",
+        "yarn create",
+        "django-admin startproject",
+        "python -m django startproject",
+        "mkdir ",
+        "mkdir\n",
+        "new-item -itemtype directory",
+        "new-item -type directory",
     ];
     if safe_prefixes
         .iter()

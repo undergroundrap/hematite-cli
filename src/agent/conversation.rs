@@ -26,9 +26,9 @@ use crate::agent::recovery_recipes::{
 };
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
-    looks_like_mutation_request, needs_computation_sandbox, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
@@ -543,6 +543,41 @@ Keep the whole handoff concise and implementation-oriented."
 
 fn implement_current_plan_prompt() -> &'static str {
     "Implement the current plan."
+}
+
+fn scaffold_protocol() -> &'static str {
+    "\n\n# SCAFFOLD MODE — PROJECT CREATION PROTOCOL\n\
+     The user is asking you to create a new project or scaffold a codebase. Follow this protocol:\n\
+     \n\
+     ## Autonomy contract\n\
+     - Create every file the project needs. Do not stop after one file and wait.\n\
+     - After writing each file, read it back to verify it is complete and correct.\n\
+     - Only present results to the user when ALL files are written and consistent with each other.\n\
+     \n\
+     ## Stack-specific file structures\n\
+     \n\
+     **React (Vite):** package.json, vite.config.js, index.html, src/main.jsx, src/App.jsx, src/App.css, src/index.css, public/favicon.ico, .gitignore, README.md\n\
+     **Next.js:** package.json, next.config.js, tsconfig.json, app/layout.tsx, app/page.tsx, app/globals.css, public/.gitkeep, .gitignore, README.md\n\
+     **Vue 3 (Vite):** package.json, vite.config.js, index.html, src/main.js, src/App.vue, src/components/.gitkeep, .gitignore, README.md\n\
+     **SvelteKit:** package.json, svelte.config.js, vite.config.js, src/routes/+page.svelte, src/app.html, static/.gitkeep, .gitignore, README.md\n\
+     **Express API:** package.json, src/index.js, src/routes/index.js, src/middleware/error.js, .env.example, .gitignore, README.md\n\
+     **FastAPI:** pyproject.toml or requirements.txt, main.py, app/__init__.py, app/routers/items.py, app/models.py, .gitignore, README.md\n\
+     **Django:** requirements.txt, manage.py, project/settings.py, project/urls.py, project/wsgi.py, app/models.py, app/views.py, app/urls.py, .gitignore, README.md\n\
+     **Rust CLI:** Cargo.toml, src/main.rs, src/cli.rs (if using clap), README.md, .gitignore\n\
+     **Static HTML site:** index.html (semantic, full structure), style.css (responsive, mobile-first), script.js (DOMContentLoaded guard), README.md\n\
+     **Landing page:** index.html (hero, features, CTA sections), style.css (CSS variables, grid/flexbox layout, @media breakpoints), script.js (smooth scroll, intersection observer), README.md\n\
+     \n\
+     ## File quality rules\n\
+     - package.json must include name, version, scripts (dev, build, start), and all required dependencies\n\
+     - HTML must be semantic (header/main/footer/nav/section), have a proper doctype, head with meta charset/viewport/title, and link all CSS/JS\n\
+     - CSS must use consistent class naming (BEM or descriptive), have a mobile-first responsive layout, and cover hover/focus/active states\n\
+     - JS/TS must wrap code in DOMContentLoaded or module-level, handle errors, and use const/let not var\n\
+     - .gitignore must cover node_modules/, dist/, .env, __pycache__/, target/ as appropriate\n\
+     \n\
+     ## After scaffolding\n\
+     - Tell the user exactly what files were created and where\n\
+     - Give them the one-liner to install deps and start the dev server\n\
+     - Suggest they use `/cd <project-folder>` to teleport into the new project\n"
 }
 
 fn architect_handoff_operator_note(plan: &crate::tools::plan::PlanHandoff) -> String {
@@ -2557,13 +2592,18 @@ impl ConversationManager {
                     "ASK means analysis only. Stay read-only, inspect the repo, explain findings, and do not make changes unless the user explicitly switches modes.\n",
                 ),
                 WorkflowMode::Code => system_msg.push_str(
-                    "CODE means implementation is allowed when needed. Keep proof-before-action, verification, and edit precision discipline. If an active plan handoff exists in session memory or `.hematite/PLAN.md`, treat it as the implementation brief unless the user explicitly overrides it. For ordinary workspace inspection during implementation, use built-in read/edit tools first and do not reach for `mcp__filesystem__*` unless the user explicitly requires MCP.\n\
-                    \nWeb project discipline: when creating or editing HTML/CSS/JS/TS files, after writing each file read it back to verify it is complete and production-quality. Check that:\n\
-                    - HTML is semantic and fully structured (doctype, head with meta/title, body, all linked resources)\n\
-                    - CSS is responsive (media queries for mobile), has consistent class names that match the HTML, and covers all visual states\n\
-                    - JS/TS has error handling, no console.log left in, and all referenced DOM elements exist\n\
-                    - All files reference each other correctly (href/src paths, import paths)\n\
-                    Do NOT stop after initial creation. Re-read, identify gaps, and keep improving until the result is genuinely complete. Only present the result to the user once all files are cohesive and working.\n",
+                    "CODE means implementation mode. Complete the task end-to-end without stopping for confirmation. Read → edit → verify in a single autonomous pass. Do not stop after the first file or first edit — keep working until the full task is done and every file is consistent. If an active plan handoff exists in session memory or `.hematite/PLAN.md`, treat it as the implementation brief. For workspace inspection use built-in read/edit tools first; do not reach for `mcp__filesystem__*` unless the user explicitly requires MCP.\n\
+                    \nAutonomy rules:\n\
+                    - Read the file before editing it. Edit it. Read it back to verify correctness. Move to the next file.\n\
+                    - If you created a new file, immediately read it back and check for missing pieces.\n\
+                    - Do not present a partial result and wait. Keep iterating until all files are complete and cohesive.\n\
+                    - If a file references another file (import, href, src), verify the referenced file exists and is complete.\n\
+                    \nWeb project discipline: when creating or editing HTML/CSS/JS/TS files, verify each file after writing:\n\
+                    - HTML: semantic structure, doctype, head with meta/title, body, all linked resources present\n\
+                    - CSS: responsive (media queries), class names match HTML, all visual states covered\n\
+                    - JS/TS: error handling, no dangling console.log, all referenced DOM elements exist\n\
+                    - All cross-file references (href/src/import paths) are correct\n\
+                    Do NOT stop after initial creation. Re-read, identify gaps, and keep improving until genuinely complete.\n",
                 ),
                 WorkflowMode::Architect => system_msg.push_str(
                     "ARCHITECT means plan first. Inspect, reason, and produce a concrete implementation approach before editing. Do not mutate code unless the user explicitly asks to implement. When you produce an implementation handoff, use these exact ASCII headings so Hematite can persist the plan: `# Goal`, `# Target Files`, `# Ordered Steps`, `# Verification`, `# Risks`, `# Open Questions`.\n",
@@ -2588,6 +2628,9 @@ impl ConversationManager {
             system_msg.push_str("\n\n# ARCHITECT HANDOFF CONTRACT\n");
             system_msg.push_str(architect_handoff_contract());
             system_msg.push('\n');
+        }
+        if !tiny_context_mode && is_scaffold_request(&effective_user_input) {
+            system_msg.push_str(scaffold_protocol());
         }
         if !tiny_context_mode && implement_current_plan {
             system_msg.push_str(

@@ -49,6 +49,7 @@ pub struct QueryIntent {
     pub architecture_overview_mode: bool,
     pub sovereign_mode: bool,
     pub surgical_filesystem_mode: bool,
+    pub scaffold_mode: bool,
 }
 
 fn contains_any(haystack: &str, needles: &[&str]) -> bool {
@@ -3820,7 +3821,66 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
         architecture_overview_mode,
         sovereign_mode,
         surgical_filesystem_mode: is_simple_surgical_filesystem_request(user_input),
+        scaffold_mode: is_scaffold_request(user_input),
     }
+}
+
+pub fn is_scaffold_request(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+
+    // Creation/generation verbs (loose — combined with stack keywords for specificity)
+    let creation_verbs = contains_any(
+        &lower,
+        &[
+            "scaffold", "bootstrap",
+            "create a", "create an", "create me a", "create me an",
+            "make a", "make an", "make me a", "make me an",
+            "build a", "build an", "build me a", "build me an",
+            "generate a", "generate an",
+            "set up a", "set up an", "set me up a", "set me up an",
+            "spin up a", "spin up an",
+            "start a", "start an",
+            "init a", "init an", "initialize a", "initialize an",
+        ],
+    );
+
+    // Stack/project keywords that confirm scaffolding intent
+    let stack_keywords = contains_any(
+        &lower,
+        &[
+            "react app", "react project", "react site",
+            "next.js", "nextjs", "next app", "next project",
+            "nuxt", "vue app", "vue project", "vue site",
+            "svelte app", "svelte project", "sveltekit",
+            "express app", "express server", "express api",
+            "fastapi", "flask app", "flask project",
+            "django project", "django app",
+            "rust cli", "rust project", "rust app",
+            "node project", "node app", "node server",
+            "typescript project", "ts project",
+            "astro project", "astro site",
+            "remix app", "solid.js app",
+            "landing page", "portfolio site", "portfolio page", "personal site",
+            "todo app", "rest api", "graphql api",
+            "web app", "web project", "web site", "website",
+            "new project", "new app", "new site",
+        ],
+    );
+
+    // Explicit scaffold tool invocations (always scaffold regardless of verb)
+    let scaffold_commands = contains_any(
+        &lower,
+        &[
+            "npm init", "npm create",
+            "cargo new", "cargo init",
+            "npx create-react-app", "npx create-next-app",
+            "npx create-vue", "npx create-svelte", "npx astro",
+            "pnpm create", "yarn create",
+            "django-admin startproject", "python -m django startproject",
+        ],
+    );
+
+    (creation_verbs && stack_keywords) || scaffold_commands
 }
 
 fn is_simple_surgical_filesystem_request(user_input: &str) -> bool {

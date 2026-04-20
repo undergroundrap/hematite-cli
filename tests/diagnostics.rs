@@ -6858,3 +6858,27 @@ fn test_conversational_declaratives_do_not_trigger_summary_route() {
         );
     }
 }
+
+#[test]
+fn test_scaffold_request_detection() {
+    use hematite::agent::routing::is_scaffold_request;
+
+    // Should detect scaffold intent
+    assert!(is_scaffold_request("create a React app for me"));
+    assert!(is_scaffold_request("scaffold a FastAPI project"));
+    assert!(is_scaffold_request("build me a Next.js app"));
+    assert!(is_scaffold_request("make me a landing page"));
+    assert!(is_scaffold_request("set up a Vue app for me"));
+    assert!(is_scaffold_request("bootstrap a Rust CLI project"));
+    assert!(is_scaffold_request("generate a todo app in React"));
+    assert!(is_scaffold_request("spin up an Express server"));
+    assert!(is_scaffold_request("npm init my project"));
+    assert!(is_scaffold_request("cargo new my-cli"));
+
+    // Should NOT detect scaffold intent
+    assert!(!is_scaffold_request("how do I add a component to my React app"));
+    assert!(!is_scaffold_request("fix the bug in my Express route"));
+    assert!(!is_scaffold_request("explain how FastAPI routing works"));
+    assert!(!is_scaffold_request("what is my CPU usage"));
+    assert!(!is_scaffold_request("show me running processes"));
+}
