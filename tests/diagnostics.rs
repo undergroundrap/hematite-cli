@@ -6795,3 +6795,37 @@ fn test_all_host_topics_prefers_dns_lookup_over_network_for_domain_ip_questions(
         "did not expect generic network fallback; got: {topics:?}"
     );
 }
+
+#[test]
+fn test_conversational_advisory_does_not_trigger_summary_route() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // Advisory follow-ups that contain host-inspection keywords ("ram", "vram")
+    // must NOT route to inspect_host(summary) — they're opinion questions.
+    let advisory = [
+        "would another stick of ram be nice",
+        "would another stick of ram be nice, i could offload more vram stuff to it right?",
+        "would upgrading my ram help",
+        "could I offload vram to system ram",
+        "is that worth it right?",
+        "would more memory be useful",
+        "should I upgrade my gpu",
+        "do you think more ram would help",
+    ];
+    for q in &advisory {
+        let topic = preferred_host_inspection_topic(q);
+        assert!(
+            topic != Some("summary"),
+            "Expected no summary route for advisory question: {q} (got: {topic:?})"
+        );
+    }
+}
+
+#[test]
+fn test_direct_diagnostic_questions_still_route_through_advisory_guard() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // Real diagnostic questions that happen to contain "ram" or "memory"
+    // should still route correctly.
+    assert_eq!(preferred_host_inspection_topic("how much ram do I have"), Some("hardware"));
+    assert_eq!(preferred_host_inspection_topic("what is using my ram"), Some("processes"));
+    assert_eq!(preferred_host_inspection_topic("what processes are using ram"), Some("processes"));
+}

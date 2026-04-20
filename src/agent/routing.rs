@@ -187,6 +187,50 @@ fn capability_question_requires_repo_inspection(lower: &str) -> bool {
     )
 }
 
+/// Returns true for advisory/opinion questions that should not trigger a blanket
+/// inspect_host(summary) call. These are follow-up or conversational turns where
+/// the user wants analysis or advice, not raw data collection.
+///
+/// Examples that return true:
+///   "would another stick of ram be nice?"
+///   "is that worth it right?"
+///   "could i offload vram to system ram?"
+///   "do you think upgrading would help?"
+fn is_conversational_advisory(lower: &str) -> bool {
+    // Advisory phrasing — seeking opinion, not data
+    let starts_advisory = lower.starts_with("would ")
+        || lower.starts_with("could ")
+        || lower.starts_with("should ")
+        || lower.starts_with("is that ")
+        || lower.starts_with("was that ")
+        || lower.starts_with("do you think")
+        || lower.starts_with("what do you think")
+        || lower.starts_with("does that ")
+        || lower.starts_with("is it worth")
+        || lower.starts_with("would it ");
+
+    // Confirmation-seeking tail — "right?", "correct?", "yeah?"
+    let ends_confirmation = lower.trim_end_matches(|c: char| c == '?' || c == ' ')
+        .ends_with("right")
+        || lower.trim_end_matches(|c: char| c == '?' || c == ' ')
+            .ends_with("correct")
+        || lower.ends_with("right?")
+        || lower.ends_with("yeah?");
+
+    // "be nice", "be worth it", "be helpful", "be better" etc. — classic advisory tail
+    let advisory_tail = lower.contains(" be nice")
+        || lower.contains(" be worth")
+        || lower.contains(" be helpful")
+        || lower.contains(" be useful")
+        || lower.contains(" be better")
+        || lower.contains(" be good")
+        || lower.contains(" help with")
+        || lower.contains("offload")
+        || lower.contains("upgrade");
+
+    starts_advisory || (ends_confirmation && advisory_tail) || (starts_advisory && advisory_tail)
+}
+
 fn mentions_host_inspection_question(lower: &str) -> bool {
     let host_scope = contains_any(
         lower,
@@ -2010,7 +2054,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("resource_load")
     } else if asks_directory {
         Some("directory")
-    } else if mentions_host_inspection_question(&lower) {
+    } else if mentions_host_inspection_question(&lower) && !is_conversational_advisory(&lower) {
         Some("summary")
     } else {
         None

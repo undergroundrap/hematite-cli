@@ -2437,6 +2437,7 @@ impl ConversationManager {
             system_msg.push_str(
                  "\n\n# HOST INSPECTION MODE\n\
                  This turn is about the local machine. Make EXACTLY ONE `inspect_host` call using the best matching topic below, then answer. Do NOT call `summary` first. Do NOT make exploratory shell calls.\n\
+                 **IMPORTANT — follow-up and advisory questions**: If the conversation already contains `inspect_host` results that answer the user's question, do NOT call inspect_host again. Answer directly from the data in context. Advisory and opinion questions (\"would more RAM help?\", \"is that worth upgrading?\", \"could I offload VRAM to system RAM?\") must be answered by reasoning about existing data, not by fetching new data. Never dump raw tool output as your reply — always synthesize it into a direct answer.\n\
                  - Drive space / disk usage / free space / storage across drives → `storage`\n\
                  - CPU model / RAM size / GPU name / hardware specs / BIOS / motherboard → `hardware`\n\
                  - CPU % / RAM % / what is using resources / slow machine → `resource_load`\n\
