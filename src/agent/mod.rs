@@ -8,6 +8,7 @@ pub mod edge_redact;
 pub mod git;
 pub mod git_context;
 pub mod git_monitor;
+pub mod intent_embed;
 pub mod hooks;
 pub mod inference;
 pub mod instructions;

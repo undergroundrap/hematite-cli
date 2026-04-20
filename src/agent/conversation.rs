@@ -2370,7 +2370,23 @@ impl ConversationManager {
             intent.capability_mode || intent.primary_class == QueryIntentClass::Capability;
         let toolchain_mode =
             intent.toolchain_mode || intent.primary_class == QueryIntentClass::Toolchain;
-        let host_inspection_mode = intent.host_inspection_mode;
+        // Embedding-based intent veto: when the keyword router says diagnostic,
+        // ask nomic-embed whether the query is actually conversational/advisory.
+        // Only fires when keyword routing would have triggered HOST INSPECTION MODE.
+        // Falls back to the keyword result if the embed model is unavailable or slow.
+        let host_inspection_mode = if intent.host_inspection_mode {
+            let api_url = self.engine.base_url.clone();
+            let query = effective_user_input.clone();
+            let embed_class = tokio::time::timeout(
+                std::time::Duration::from_millis(600),
+                crate::agent::intent_embed::classify_intent(&query, &api_url),
+            )
+            .await
+            .unwrap_or(crate::agent::intent_embed::IntentClass::Ambiguous);
+            !matches!(embed_class, crate::agent::intent_embed::IntentClass::Advisory)
+        } else {
+            false
+        };
         let maintainer_workflow_mode = intent.maintainer_workflow_mode
             || preferred_maintainer_workflow(&effective_user_input).is_some();
         let workspace_workflow_mode = intent.workspace_workflow_mode
