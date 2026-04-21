@@ -2,6 +2,14 @@
 
 Connect Hematite to a local SearXNG instance for private, unlimited, and high-fidelity web search.
 
+## ✨ Why Local Search?
+
+- **Privacy-First**: Your search queries never leave your network in a way that can be tied to your identity. SearXNG acts as a privacy-preserving proxy that strips identifying metadata before querying upstream engines.
+- **Unlimited Research Volume**: Since you are running your own instance, you are not subject to the rate limits, per-query costs, or commercial tracking of central search proxies (e.g., Tavily, Perplexity API). You can perform thousands of technical lookups every day with zero friction.
+- **No Tracking**: Unlike a central agent service, your research history is not tracked, stored, or used for model training by third parties.
+- **Authoritative Technical Truth**: Get the latest API specs, library versions, and tech news that were released *after* your model's knowledge cutoff. This transforms Hematite into a grounded assistant that knows today's truth, not just yesterday's training data.
+- **Zero Ongoing Cost**: Once established, your research pipeline runs for free on your own hardware. No subscription, no credits, no token tax for search.
+
 ## 🚀 The Fastest Path (Automated)
 
 If you are on Windows, you can use the automated scaffolding script included in the repo:

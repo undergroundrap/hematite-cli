@@ -182,8 +182,8 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **DNS Cache**: Use `topic: "dns_cache"` to inspect locally cached DNS entries — hostname, record type, resolved address, and TTL.
 - **ARP Table**: Use `topic: "arp"` for the ARP neighbor table — IP-to-MAC mappings for devices on the local network.
 - **Route Table**: Use `topic: "route_table"` for the system routing table — destination prefixes, next hops, metrics, and interface names.
-- **Authoritative Path Tokens**: Use OS-level tokens for workstation directories to eliminate path guesswork and hallucination. Supported: `@DESKTOP`, `@DOCUMENTS`, `@DOWNLOADS`, `@MUSIC`, `@VIDEOS`, `@PICTURES`, `@TEMP`, `@CACHE`, `@CONFIG`, `@DATA`, `@HOME`, and `~/`.
 - **Heuristic Command Sanitizer**: Hematite enforces a hard gate that blocks tool calls containing natural language sentences in command arguments. Never pass conversational "overthinking" into shell tools; use surgical, machine-readable commands only.
+- **Proactive Research Priority**: When answering technical questions about API versions, library changes, or news since 2024, the agent **MUST** prefer `research_web` over internal knowledge. Verifying technical uncertainty is a core behavioral requirement.
 - **Environment Variables**: Use `topic: "env"` to inspect environment variables — shows developer/tool vars (CARGO_HOME, JAVA_HOME, GOPATH, etc.) and redacts secret-shaped values (KEY, TOKEN, PASSWORD) to presence-only.
 - **Hosts File**: Use `topic: "hosts_file"` to read `/etc/hosts` (Windows: `drivers\etc\hosts`) — active entries, custom non-loopback entries flagged, full file content shown.
 - **Docker**: Use `topic: "docker"` for Docker daemon state, running containers, local images, Compose projects, and active context. Reports gracefully if Docker is not installed or daemon is not running.
@@ -260,6 +260,17 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Hardware Diagnostic Suite**: `topic=device_health` (PnP errors), `topic=drivers` (active audit), `topic=peripherals` (USB/HID tree).
 - **Deep System Visibility**: `topic=sessions` (Logon sessions), `topic=hardware` (BIOS/Virtualization DNA), `topic=processes` (Real-time I/O tracking), `topic=thermal` (Thermal/Throttling), `topic=activation` (Licensing), `topic=patch_history` (KB Audit), `topic=overclocker` (Precision Silicon Historian).
  matching grounded walkthrough. New lanes: `driver_install`, `group_policy`, `firewall_rule`, `ssh_key`, `wsl_setup`, `service_config`, `windows_activation`, `registry_edit`, `scheduled_task_create`, `disk_cleanup`. Each lane inspects real machine state first, then delivers machine-specific numbered steps.
+
+## Research & Technical Verification
+
+Hematite includes a privacy-first, unlimited research engine powered by a local SearXNG instance.
+
+- **`research_web`**: Search the internet via a local self-healing SearXNG backend. Privacy-first (no identity tracking), unlimited volume (no cloud API rate limits). Use this for technical news, library versions, API updates, and verifying technical claims.
+- **`fetch_docs`**: Fetch and convert a URL into a local markdown-ready document for analysis.
+- **Proactive Verification**: Hematite is instructed to identify its own knowledge gaps. If a technical fact is not absolute (e.g., "what is the latest version of X"), the agent should use `research_web` to verify before answering.
+- **Search Intent Disambiguation**: Queries mentioning "function," "logic," or "repository" are routed to the internal Vein/codebase index. Queries mentioning "latest," "version," "news," or "research" are routed to the web research tool.
+
+## Product Boundary
 
 Hematite is not trying to outscale cloud agents. It is optimized for local GPU task execution.
 

@@ -264,7 +264,21 @@ Useful examples:
 - "Read the last 200 lines of the log and tell me the first real error."
 - "List my PATH entries and point out anything suspicious or duplicated."
 
-This is one of Hematite's strongest local advantages: a terminal-native AI that can work through familiar commands instead of pretending every task should be solved by model memory alone.
+---
+
+## Unlimited Local Research & Authoritative Technical Verification
+
+Hematite includes a **self-managing, privacy-first technical research engine** powered by a local SearXNG instance.
+
+- **Privacy-First**: Research history is never shared with third-party providers. Your search queries never leave your local machine or are tracked against your identity.
+- **Unlimited Research**: No API rate limits, no per-search billing, and no cloud-dependency for technical discovery. Run 1, 100, or 10,000 searches.
+- **Proactive Verification**: Hematite is programmed to identify technical uncertainty. If you ask about the latest library version, an API change since 2024, or a breaking technical news item, Hematite proactively verifies the facts against authoritative web sources.
+- **Authoritative Data**: Fetches real documentation and specs from the live web, grounding implementation in today's truth rather than training-data guesses.
+- **Self-Healing Infrastructure**: Hematite automatically manages the search engine lifecycle. It performs a heartbeat check on boot and auto-starts the local container if it's offline.
+
+[See SEARXNG_SETUP.md for automation and privacy details.](docs/SEARXNG_SETUP.md)
+
+---
 
 ### The Hematite Diagnostic Manual
 

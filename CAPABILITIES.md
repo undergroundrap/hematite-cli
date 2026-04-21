@@ -295,24 +295,15 @@ That result cannot come from training data. SHA-256 is deterministic but not mem
 - **Practical use cases**: check a sorting algorithm on a real dataset, verify a regex against real strings, compute checksums, generate test fixtures, run a quick proof — all without leaving the conversation
 - **Automatic computation routing**: Hematite detects when a query requires precise numeric results (hashes, financial math, statistics, date arithmetic, unit conversions, algorithmic checks) and automatically nudges the model to use `run_code` instead of guessing from training data. If the model tries to use `shell` for execution, the harness blocks it and forces a `run_code` retry. If the model writes Python without specifying `language: "python"` and Deno rejects the syntax, the harness catches the parse error and forces a corrective retry with the correct language — no manual intervention required.
 
-## 9. MCP Interoperability
+## 11. Unlimited Technical Research
+    
+Hematite transforms technical discovery into a privacy-first, grounded competency using a local self-healing search infrastructure.
 
-Hematite can extend itself through external MCP servers without making MCP the core identity of the product.
-
-- **Workspace and global MCP config**: discovers `mcp_servers.json` in both scopes
-- **Windows launcher compatibility**: resolves `npx`, `.cmd`, and `.bat` wrappers correctly
-- **Protocol resilience**: supports newline-delimited stdio and falls back to `Content-Length` framing
-- **TUI-safe process handling**: MCP stderr is captured in memory so child processes do not corrupt the terminal UI
-
-## 10. Local-First Product Boundary
-
-Hematite is the **agent harness**. LM Studio is the **model runtime**.
-
-That boundary gives Hematite three advantages:
-
-- model swapping stays easy
-- the harness stays focused on workflow quality
-- local deployment remains simple for normal users
+- **Privacy-First Research**: Research queries never leave the machine or are tracked by third-party search providers. All searches are routed through a local SearXNG container.
+- **Unlimited Volume**: By hosting the search backend locally, Hematite bypasses the rate limits and per-search costs associated with cloud research APIs.
+- **Proactive Verification Mandate**: The model is explicitly instructed (Rule #16) to verify its own technical uncertainty. Instead of hallucinating versions or API specs, it proactively uses the research tool for grounding.
+- **Self-Healing Lifecycle**: Hematite manages the search engine's health autonomously, performing heartbeat checks during the runtime boot sequence and auto-booting the container if it's offline.
+- **Intent-Aware Routing**: The system's intent classifier intelligently distinguishes between "Research" (external web discovery) and "Analysis" (local codebase exploration), ensuring that "search" queries meant for the repository don't wander to the internet.
 
 ---
 

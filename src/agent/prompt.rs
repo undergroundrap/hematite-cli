@@ -309,6 +309,7 @@ impl SystemPromptBuilder {
         prompt.push_str("13. **Search Priority**: Use regex searches for complex patterns. Never assume a file exists without listing the directory.\n");
         prompt.push_str("14. **Communication**: Keep technical explanations concise. Focus on the 'what' and 'why' of the code change.\n");
         prompt.push_str("15. **Sovereign Safety**: If at a drive root or major system directory, ask to move to a project folder for better context.\n");
+        prompt.push_str("16. **Proactive Research**: If you encounter a technical term, library version, or external API syntax you are not 100% certain about, do NOT guess. Use `research_web` to verify the latest authoritative facts. Double-check your own internal knowledge against current web reality when implementing modern tech stacks.\n");
 
         prompt
     }
