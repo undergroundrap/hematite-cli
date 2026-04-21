@@ -1216,8 +1216,8 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 /runtime-refresh  Re-read the LM Studio model profile and context window now
 /new              Fresh task context; clear chat, pins, and task files
 /forget           Hard forget; purge saved memory and the Vein index too
-/cd <path>        Teleport to another directory; supports bare tokens like downloads, desktop, docs, home, temp, and `~`
-/ls [path|N]      List common locations or subdirectories; `/ls <N>` teleports to the numbered entry
+/cd <path>        Teleport to another directory; supports bare tokens like downloads, desktop, docs, home, temp, and `~`, plus aliases like `@DESKTOP/project`
+/ls [path|N]      List common locations or subdirectories; use `/ls desktop` first, then `/ls <N>` to teleport to the numbered entry
 /vein-inspect     Show indexed Vein memory, hot files, and active room bias
 /workspace-profile Show the auto-generated workspace profile
 /rules            Show which behavioral rule files are active ([v]/[ ] status)

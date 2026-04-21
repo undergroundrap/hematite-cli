@@ -71,7 +71,7 @@ pwsh ./clean.ps1
 - `/clear`: clear visible dialogue and side-panel session state
 - `/forget`: purge saved conversation memory and wipe visible session state
 - `/new`: reset session history while keeping project memory
-- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, `@TOKENS`, `..`, and absolute paths.
+- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, aliases like `@DESKTOP/project`, `..`, and absolute paths. If you want a numbered picker, run `/ls desktop` first and then `/ls <N>`.
 - `/ls`: show a numbered navigation map — common OS locations + subdirectories of the current directory. Type `/ls <N>` to teleport directly to entry N. `/ls <path>` lists subdirectories of any path.
 - `/ask [prompt]`: sticky read-only analysis mode
 - `/code [prompt]`: sticky implementation mode
@@ -111,7 +111,7 @@ pwsh ./clean.ps1
 - `/copy-clean`: copy the transcript with tool calls stripped — prose only
 - `/copy-last`: copy only the last assistant response
 - `/clear`: clear visible dialogue and side-panel session state
-- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, `@TOKENS`, `..`, and absolute paths.
+- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, aliases like `@DESKTOP/project`, `..`, and absolute paths. If you want a numbered picker, run `/ls desktop` first and then `/ls <N>`.
 - `/attach <path>`: attach a PDF, markdown, or text file as context for the next message then clear
 - `/attach-pick`: open a file picker to select a document attachment
 - `/image <path>`: attach an image for the next message via the vision path

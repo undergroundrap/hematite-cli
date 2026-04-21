@@ -812,6 +812,13 @@ impl App {
     }
 }
 
+fn should_accept_autocomplete_on_enter(alias_active: bool, filter: &str) -> bool {
+    if alias_active && filter.trim().is_empty() {
+        return false;
+    }
+    true
+}
+
 fn copy_text_to_clipboard(text: &str) {
     if copy_text_to_clipboard_powershell(text) {
         return;
@@ -829,6 +836,23 @@ fn copy_text_to_clipboard(text: &str) {
         let _ = stdin.write_all(text.as_bytes());
     }
     let _ = child.wait();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_accept_autocomplete_on_enter;
+
+    #[test]
+    fn enter_submits_bare_alias_root_instead_of_selecting_first_child() {
+        assert!(!should_accept_autocomplete_on_enter(true, ""));
+        assert!(!should_accept_autocomplete_on_enter(true, "   "));
+    }
+
+    #[test]
+    fn enter_still_accepts_narrowed_alias_matches() {
+        assert!(should_accept_autocomplete_on_enter(true, "web"));
+        assert!(should_accept_autocomplete_on_enter(false, ""));
+    }
 }
 
 /// Capture the pixel rect of the current console window via a synchronous PowerShell call.
@@ -1494,8 +1518,8 @@ fn show_help_message(app: &mut App) {
          /teach [prompt]   - (Flow) Teacher mode; inspect machine then walk you through any admin task step-by-step\n\
          /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
          /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
-         /cd <path>        - (Nav) Teleport to another directory and close this session; supports bare tokens like downloads, desktop, docs, home, temp, and ~\n\
-         /ls [path|N]      - (Nav) List common locations or subdirectories; /ls <N> teleports to the numbered entry\n\
+         /cd <path>        - (Nav) Teleport to another directory and close this session; supports bare tokens like downloads, desktop, docs, home, temp, and ~, plus aliases like @DESKTOP/project\n\
+         /ls [path|N]      - (Nav) List common locations or subdirectories; use /ls desktop, then /ls <N> to teleport to a numbered entry\n\
          /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
          /workspace-profile - (Profile) Show the auto-generated workspace profile\n\
          /rules            - (Rules) View behavioral guidelines (.hematite/rules.md)\n\
@@ -2270,7 +2294,13 @@ pub async fn run_app<B: Backend>(
                                 }
                             }
                             KeyCode::Enter => {
-                                if app.show_autocomplete && !app.autocomplete_suggestions.is_empty() {
+                                if app.show_autocomplete
+                                    && !app.autocomplete_suggestions.is_empty()
+                                    && should_accept_autocomplete_on_enter(
+                                        app.autocomplete_alias_active,
+                                        &app.autocomplete_filter,
+                                    )
+                                {
                                     let selected = app.autocomplete_suggestions[app.selected_suggestion].clone();
                                     app.apply_autocomplete_selection(&selected);
                                     continue;
@@ -2317,7 +2347,7 @@ pub async fn run_app<B: Backend>(
                                             }
                                             "/cd" => {
                                                 if parts.len() < 2 {
-                                                    app.push_message("System", "Usage: /cd <path>  — teleport to any directory. Supports bare tokens like downloads, desktop, docs, pictures, videos, music, home, temp, bare ~, @TOKENS, .., and absolute paths.");
+                                                    app.push_message("System", "Usage: /cd <path>  — teleport to any directory. Supports bare tokens like downloads, desktop, docs, pictures, videos, music, home, temp, bare ~, aliases like @DESKTOP/project, plus .. and absolute paths. Tip: run /ls desktop first if you want a numbered picker.");
                                                     app.history_idx = None;
                                                     continue;
                                                 }
