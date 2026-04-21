@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::fs;
 use similar::TextDiff;
+use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 /// Authoritative Turn Diff Tracker.
 /// Enables Hematite to proactively capture workspace mutations and
@@ -60,11 +60,12 @@ impl TurnDiffTracker {
 
             let diff = TextDiff::from_lines(&original_text, &current_text);
             let rel_path = path.to_string_lossy();
-            
-            let unified = diff.unified_diff()
+
+            let unified = diff
+                .unified_diff()
                 .header(&format!("a/{}", rel_path), &format!("b/{}", rel_path))
                 .to_string();
-            
+
             aggregated.push_str(&unified);
             aggregated.push('\n');
         }

@@ -91,6 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         voice_manager,
         swarm_coordinator,
         cancel_token,
+        searx_session,
     } = services;
 
     let hematite::runtime::RuntimeChannels {
@@ -102,6 +103,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         user_input_tx,
         user_input_rx,
     } = channels;
+
+    // VRAM Prewarming: trigger an asynchronous ping to the inference engine to force
+    // the local LLM into GPU memory before the user even submits their first prompt.
+    let prewarm_engine = engine.clone();
+    tokio::spawn(async move {
+        let _ = prewarm_engine.prewarm().await;
+    });
 
     let tui_cancel_token = cancel_token.clone();
 
@@ -116,6 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 voice_manager: voice_manager.clone(),
                 swarm_coordinator: swarm_coordinator.clone(),
                 cancel_token,
+                searx_session: searx_session.clone(),
             },
         },
         AgentLoopConfig {
@@ -160,6 +169,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     disable_raw_mode()?;
     std::io::stdout().execute(crossterm::event::DisableMouseCapture)?;
     std::io::stdout().execute(LeaveAlternateScreen)?;
+    if let Some(summary) =
+        hematite::agent::searx_lifecycle::shutdown_searx_if_owned(&searx_session).await
+    {
+        eprintln!("{}", summary);
+    }
     Ok(())
 }
 

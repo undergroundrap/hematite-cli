@@ -66,6 +66,40 @@ fn test_workspace_profile_detects_rust_project_shape() {
 }
 
 #[test]
+fn test_teleport_resume_marker_round_trip_for_workspace_root() {
+    let _guard = CWD_LOCK.lock().expect("cwd lock");
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    fs::create_dir_all(workspace.path().join(".git")).expect("create git dir");
+    fs::create_dir_all(workspace.path().join(".hematite")).expect("create hematite dir");
+
+    let original_cwd = std::env::current_dir().expect("current dir");
+    std::env::set_current_dir(workspace.path()).expect("set cwd to workspace");
+
+    hematite::tools::plan::write_teleport_resume_marker_for_root(workspace.path())
+        .expect("write teleport marker");
+
+    let marker_path = workspace.path().join(".hematite").join("TELEPORT_RESUME");
+    assert!(
+        marker_path.exists(),
+        "marker should be written for workspace"
+    );
+    assert!(
+        hematite::tools::plan::consume_teleport_resume_marker(),
+        "marker should be consumed when cwd points at that workspace"
+    );
+    assert!(
+        !marker_path.exists(),
+        "marker file should be removed after consumption"
+    );
+    assert!(
+        !hematite::tools::plan::consume_teleport_resume_marker(),
+        "second consume should report no marker"
+    );
+
+    std::env::set_current_dir(original_cwd).expect("restore cwd");
+}
+
+#[test]
 fn test_workspace_profile_uses_workspace_verify_profile_and_writes_file() {
     use hematite::agent::workspace_profile::{
         ensure_workspace_profile, profile_prompt_block, profile_report, workspace_profile_path,
@@ -1908,7 +1942,7 @@ fn test_read_file_returns_full_content_before_conversation_cap() {
     let args = serde_json::json!({ "path": tmp.path().to_str().unwrap() });
     let result = tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(hematite::tools::file_ops::read_file(&args));
+        .block_on(hematite::tools::file_ops::read_file(&args, 0));
 
     assert!(result.is_ok(), "read_file should succeed on large file");
     let content = result.unwrap();
@@ -1924,7 +1958,7 @@ fn test_shell_execute_large_output_accessible() {
     let args = serde_json::json!({ "command": "echo hematite-scratch-test" });
     let result = tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(hematite::tools::shell::execute(&args));
+        .block_on(hematite::tools::shell::execute(&args, 0));
 
     // Shell may not be available in all CI environments — skip gracefully
     match result {
@@ -2048,7 +2082,7 @@ fn test_shell_streaming_emits_shell_line_events() {
         let args = serde_json::json!({ "command": "echo streaming-test" });
 
         // Drop tx after the call so recv() terminates naturally.
-        let result = hematite::tools::shell::execute_streaming(&args, tx).await;
+        let result = hematite::tools::shell::execute_streaming(&args, tx, 0).await;
 
         // Drain all events from the channel.
         let mut shell_lines: Vec<String> = Vec::new();
@@ -2091,10 +2125,10 @@ fn test_shell_streaming_buffered_output_matches_blocking() {
     rt.block_on(async {
         let args = serde_json::json!({ "command": "echo consistent-output" });
 
-        let blocking = hematite::tools::shell::execute(&args).await;
+        let blocking = hematite::tools::shell::execute(&args, 0).await;
 
         let (tx, mut rx) = mpsc::channel::<InferenceEvent>(128);
-        let streaming = hematite::tools::shell::execute_streaming(&args, tx).await;
+        let streaming = hematite::tools::shell::execute_streaming(&args, tx, 0).await;
         // Drain buffered events (not the focus of this test).
         while rx.try_recv().is_ok() {}
 
@@ -2183,14 +2217,15 @@ fn test_extract_memory_working_set_spans_all_turns() {
 
     fn tool_call_msg(path: &str) -> ChatMessage {
         let mut m = ChatMessage::assistant_text("");
-        m.tool_calls = vec![hematite::agent::inference::ToolCallResponse {
+        m.tool_calls = Some(vec![hematite::agent::inference::ToolCallResponse {
             id: "x".into(),
             call_type: "function".into(),
+            index: Some(0),
             function: hematite::agent::inference::ToolCallFn {
                 name: "edit_file".into(),
-                arguments: format!(r#"{{"path": "{path}", "search": "a", "replace": "b"}}"#),
+                arguments: serde_json::json!({"path": path, "search": "a", "replace": "b"}),
             },
-        }];
+        }]);
         m
     }
 
@@ -2231,14 +2266,15 @@ fn test_build_summary_captures_verify_build_outcome() {
     for i in 0..30 {
         messages.push(ChatMessage::user(&format!("do task {i}")));
         let mut assistant = ChatMessage::assistant_text("");
-        assistant.tool_calls = vec![hematite::agent::inference::ToolCallResponse {
+        assistant.tool_calls = Some(vec![hematite::agent::inference::ToolCallResponse {
             id: format!("c{i}"),
             call_type: "function".into(),
+            index: Some(0),
             function: hematite::agent::inference::ToolCallFn {
                 name: "verify_build".into(),
-                arguments: "{}".into(),
+                arguments: serde_json::json!({}),
             },
-        }];
+        }]);
         messages.push(assistant);
         let mut tool_result = ChatMessage::user("BUILD OK — cargo build passed");
         tool_result.role = "tool".into();

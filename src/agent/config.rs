@@ -17,7 +17,7 @@ pub enum PermissionMode {
     SystemAdmin,
 }
 
-#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct HematiteConfig {
     /// Active authority mode.
     #[serde(default)]
@@ -66,6 +66,35 @@ pub struct HematiteConfig {
     /// When true, Hematite will attempt to automatically start SearXNG on startup if it's offline.
     #[serde(default = "default_true")]
     pub auto_start_searx: bool,
+    /// When true, Hematite stops a SearXNG stack on exit only if this session started it.
+    #[serde(default)]
+    pub auto_stop_searx: bool,
+}
+
+impl Default for HematiteConfig {
+    fn default() -> Self {
+        Self {
+            mode: PermissionMode::Developer,
+            permissions: None,
+            trust: WorkspaceTrustConfig::default(),
+            model: None,
+            fast_model: None,
+            think_model: None,
+            gemma_native_auto: true,
+            gemma_native_formatting: false,
+            api_url: None,
+            voice: None,
+            voice_speed: None,
+            voice_volume: None,
+            context_hint: None,
+            deno_path: None,
+            verify: VerifyProfilesConfig::default(),
+            hooks: crate::agent::hooks::RuntimeHookConfig::default(),
+            searx_url: None,
+            auto_start_searx: true,
+            auto_stop_searx: false,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -176,6 +205,7 @@ pub fn load_config() -> HematiteConfig {
                 context_hint: ws.context_hint.or(gb.context_hint),
                 searx_url: ws.searx_url.or(gb.searx_url),
                 auto_start_searx: ws.auto_start_searx, // Workspace setting always takes priority.
+                auto_stop_searx: ws.auto_stop_searx,   // Workspace setting always takes priority.
                 gemma_native_auto: ws.gemma_native_auto,
                 gemma_native_formatting: ws.gemma_native_formatting,
                 ..ws
@@ -293,6 +323,8 @@ fn write_default_config(path: &std::path::Path) {
   "gemma_native_auto": true,
   "gemma_native_formatting": false,
   "searx_url": null,
+  "auto_start_searx": true,
+  "auto_stop_searx": false,
 
   "verify": {
     "default_profile": null,

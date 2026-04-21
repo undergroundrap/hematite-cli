@@ -1,6 +1,164 @@
 use crate::agent::config::HematiteConfig;
+use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command;
 use tokio::time::{timeout, Duration};
+
+const SEARX_ROOT_ENV: &str = "HEMATITE_SEARX_ROOT";
+const DEFAULT_SEARX_URL: &str = "http://localhost:8080";
+
+#[derive(Clone, Debug, Default)]
+pub struct SearxRuntimeSession {
+    pub root: PathBuf,
+    pub owned_by_session: bool,
+    pub auto_stop_on_exit: bool,
+    pub startup_summary: Option<String>,
+}
+
+enum DockerState {
+    Ready,
+    MissingCli,
+    DaemonUnavailable(String),
+}
+
+pub fn resolve_searx_root() -> PathBuf {
+    if let Some(explicit) = std::env::var_os(SEARX_ROOT_ENV) {
+        let candidate = PathBuf::from(explicit);
+        if !candidate.as_os_str().is_empty() {
+            return candidate;
+        }
+    }
+
+    let home = std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    home.join(".hematite").join("searxng-local")
+}
+
+fn find_setup_script() -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("scripts").join("setup-searxng.ps1"));
+        candidates.push(cwd.join("setup-searxng.ps1"));
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            candidates.push(exe_dir.join("setup-searxng.ps1"));
+            candidates.push(exe_dir.join("scripts").join("setup-searxng.ps1"));
+        }
+    }
+
+    candidates.into_iter().find(|path| Path::new(path).exists())
+}
+
+fn looks_like_local_searx_url(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    lower.contains("localhost")
+        || lower.contains("127.0.0.1")
+        || lower.contains("[::1]")
+        || !lower.contains("://")
+}
+
+fn docker_state() -> DockerState {
+    match Command::new("docker")
+        .args(["info", "--format", "{{.ServerVersion}}"])
+        .output()
+    {
+        Ok(output) if output.status.success() => DockerState::Ready,
+        Ok(output) => {
+            let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            DockerState::DaemonUnavailable(if detail.is_empty() {
+                "Docker is installed but the daemon is not responding.".to_string()
+            } else {
+                detail
+            })
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => DockerState::MissingCli,
+        Err(err) => DockerState::DaemonUnavailable(err.to_string()),
+    }
+}
+
+fn ensure_scaffolded(root: &Path) -> Result<(), String> {
+    let compose_path = root.join("docker-compose.yaml");
+    let start_script = root.join("start_searx.bat");
+    if compose_path.exists() && start_script.exists() {
+        return Ok(());
+    }
+
+    let Some(script_path) = find_setup_script() else {
+        return Err(
+            "Local search bootstrap is unavailable: setup-searxng.ps1 could not be found."
+                .to_string(),
+        );
+    };
+
+    let output = Command::new("powershell")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-File")
+        .arg(script_path)
+        .arg("-TargetRoot")
+        .arg(root)
+        .output()
+        .map_err(|e| format!("Failed to scaffold local search: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let detail = if !stderr.is_empty() { stderr } else { stdout };
+        Err(format!("Failed to scaffold local search: {}", detail))
+    }
+}
+
+fn docker_compose_up(root: &Path) -> Result<(), String> {
+    let output = Command::new("docker")
+        .args(["compose", "up", "-d"])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("Failed to start local search: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let detail = if !stderr.is_empty() { stderr } else { stdout };
+        Err(format!("Local search start failed: {}", detail))
+    }
+}
+
+fn docker_compose_down(root: &Path) -> Result<(), String> {
+    let output = Command::new("docker")
+        .args(["compose", "down"])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("Failed to stop local search: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let detail = if !stderr.is_empty() { stderr } else { stdout };
+        Err(format!("Local search stop failed: {}", detail))
+    }
+}
+
+async fn wait_for_searx(url: &str) -> bool {
+    for _ in 0..20 {
+        if is_searx_responding(url).await {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    false
+}
 
 /// Checks if SearXNG is responding at the configured URL.
 pub async fn is_searx_responding(url: &str) -> bool {
@@ -16,30 +174,90 @@ pub async fn is_searx_responding(url: &str) -> bool {
 }
 
 /// Automatically boots SearXNG if it's offline and the user has auto-start enabled.
-pub async fn boot_searx_if_needed(config: &HematiteConfig) {
+pub async fn boot_searx_if_needed(config: &HematiteConfig) -> SearxRuntimeSession {
+    let url = config.searx_url.as_deref().unwrap_or(DEFAULT_SEARX_URL);
+    let root = resolve_searx_root();
+    let mut session = SearxRuntimeSession {
+        root: root.clone(),
+        owned_by_session: false,
+        auto_stop_on_exit: config.auto_stop_searx,
+        startup_summary: None,
+    };
+
     if !config.auto_start_searx {
-        return;
+        return session;
     }
 
-    let url = config
-        .searx_url
-        .as_deref()
-        .unwrap_or("http://localhost:8080");
+    if !looks_like_local_searx_url(url) {
+        return session;
+    }
 
     // Check if it's already alive.
     if is_searx_responding(url).await {
-        return;
+        return session;
     }
 
-    // It's offline. Try to boot it via the setup script.
-    // We run it with powershell -ExecutionPolicy Bypass -File scripts/setup-searxng.ps1
-    let script_path = "scripts/setup-searxng.ps1";
-    if std::path::Path::new(script_path).exists() {
-        let _ = Command::new("powershell")
-            .arg("-ExecutionPolicy")
-            .arg("Bypass")
-            .arg("-File")
-            .arg(script_path)
-            .spawn();
+    if let Err(err) = ensure_scaffolded(&root) {
+        session.startup_summary = Some(err);
+        return session;
+    }
+
+    match docker_state() {
+        DockerState::MissingCli => {
+            session.startup_summary = Some(
+                "Local search is unavailable: Docker Desktop is not installed. Install it from https://www.docker.com/products/docker-desktop or set `auto_start_searx` to false in `.hematite/settings.json`.".to_string(),
+            );
+            return session;
+        }
+        DockerState::DaemonUnavailable(detail) => {
+            session.startup_summary = Some(format!(
+                "Local search is unavailable: Docker is installed but not running. Start Docker Desktop, then relaunch Hematite or start SearXNG manually from `{}`. Detail: {}",
+                root.display(),
+                detail
+            ));
+            return session;
+        }
+        DockerState::Ready => {}
+    }
+
+    if let Err(err) = docker_compose_up(&root) {
+        session.startup_summary = Some(err);
+        return session;
+    }
+
+    if wait_for_searx(url).await {
+        session.owned_by_session = true;
+        session.startup_summary = Some(format!(
+            "Local search auto-started: SearXNG is now live at {} (root: {}). Hematite started this stack in the current session{}.",
+            url,
+            root.display(),
+            if config.auto_stop_searx {
+                " and will stop it on exit"
+            } else {
+                ""
+            }
+        ));
+    } else {
+        session.startup_summary = Some(format!(
+            "Local search was started from `{}`, but {} never became reachable. Check `docker compose logs` in that folder.",
+            root.display(),
+            url
+        ));
+    }
+
+    session
+}
+
+pub async fn shutdown_searx_if_owned(session: &SearxRuntimeSession) -> Option<String> {
+    if !session.owned_by_session || !session.auto_stop_on_exit {
+        return None;
+    }
+
+    match docker_compose_down(&session.root) {
+        Ok(()) => Some(format!(
+            "Stopped session-owned local search stack at {}.",
+            session.root.display()
+        )),
+        Err(err) => Some(err),
     }
 }

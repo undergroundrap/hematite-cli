@@ -1,6 +1,6 @@
 use crate::agent::conversation::shell_looks_like_structured_host_inspection;
-use crate::agent::inference::ToolCallResponse;
 use crate::agent::routing::preferred_host_inspection_topic;
+use crate::agent::types::ToolCallResponse;
 use serde_json::Value;
 
 fn prompt_mentions_specific_repo_path(user_input: &str) -> bool {
@@ -70,7 +70,7 @@ pub(crate) fn prune_read_only_context_bloat_batch(
 }
 
 fn trace_topic_priority_for_architecture(call: &ToolCallResponse) -> i32 {
-    let args: Value = serde_json::from_str(&call.function.arguments).unwrap_or(Value::Null);
+    let args = call.function.arguments.clone();
     match args.get("topic").and_then(|v| v.as_str()).unwrap_or("") {
         "runtime_subsystems" => 3,
         "user_turn" => 2,
@@ -105,7 +105,7 @@ pub(crate) fn prune_architecture_trace_batch(
     let mut dropped_topics = Vec::new();
     for call in calls {
         if call.function.name == "trace_runtime_flow" && Some(call.id.clone()) != best_trace {
-            let args: Value = serde_json::from_str(&call.function.arguments).unwrap_or(Value::Null);
+            let args: Value = call.function.arguments.clone();
             let topic = args
                 .get("topic")
                 .and_then(|v| v.as_str())
@@ -173,7 +173,7 @@ pub(crate) fn prune_redirected_shell_batch(
 
     for call in calls {
         if call.function.name == "shell" {
-            let args: Value = serde_json::from_str(&call.function.arguments).unwrap_or(Value::Null);
+            let args: Value = call.function.arguments.clone();
             let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
             if shell_looks_like_structured_host_inspection(command) {
                 let topic = preferred_host_inspection_topic(command).unwrap_or("summary");

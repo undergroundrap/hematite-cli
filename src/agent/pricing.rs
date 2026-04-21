@@ -57,7 +57,7 @@ pub fn get_pricing(model: &str) -> ModelPricing {
 
 /// Calculates the cost in USD for a given token usage block.
 /// Applies a 90% discount for cached input tokens.
-pub fn calculate_cost(usage: &crate::agent::inference::TokenUsage, model: &str) -> f64 {
+pub fn calculate_cost(usage: &crate::agent::types::TokenUsage, model: &str) -> f64 {
     let p = get_pricing(model);
 
     let cache_hits = usage.prompt_cache_hit_tokens + usage.cache_read_input_tokens;

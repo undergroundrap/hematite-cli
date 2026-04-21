@@ -2,84 +2,150 @@
 
 Connect Hematite to a local SearXNG instance for private, unlimited, and high-fidelity web search.
 
-## ✨ Why Local Search?
+## Why Local Search?
 
-- **Privacy-First**: Your search queries never leave your network in a way that can be tied to your identity. SearXNG acts as a privacy-preserving proxy that strips identifying metadata before querying upstream engines.
-- **Unlimited Research Volume**: Since you are running your own instance, you are not subject to the rate limits, per-query costs, or commercial tracking of central search proxies (e.g., Tavily, Perplexity API). You can perform thousands of technical lookups every day with zero friction.
-- **No Tracking**: Unlike a central agent service, your research history is not tracked, stored, or used for model training by third parties.
-- **Authoritative Technical Truth**: Get the latest API specs, library versions, and tech news that were released *after* your model's knowledge cutoff. This transforms Hematite into a grounded assistant that knows today's truth, not just yesterday's training data.
-- **Zero Ongoing Cost**: Once established, your research pipeline runs for free on your own hardware. No subscription, no credits, no token tax for search.
-- **The Hardened Array**: Hematite takes the liberty of providing a pro-grade 12-engine array (Google, Bing, Brave, GitHub, etc.) that we've already stabilized for you. Normally, setting up a meta-search engine with this many specialized technical sources would require hours of manual YAML tuning. We've automated it into a single click.
+- **Privacy-first**: your search queries stay behind your own SearXNG proxy instead of being tied directly to your identity.
+- **Unlimited research volume**: no per-query billing, no API quotas, no central search proxy bottleneck.
+- **No tracking**: your search history is not being logged by a third-party agent platform.
+- **Authoritative technical truth**: Hematite can look up current API versions, package releases, and runtime behavior beyond model cutoff dates.
+- **Zero ongoing cost**: once Docker is installed, the research layer runs locally on your machine.
+- **Hardened defaults**: Hematite ships an opinionated SearXNG scaffold tuned for technical research instead of making you assemble it manually.
+- **Safer upstream posture**: the default scaffold now favors a smaller technical-source pool rather than the older broad 12-engine profile, reducing unnecessary upstream query fan-out and lowering the chance of rate limits or bans.
 
-## 🚀 The Fastest Path (Automated)
+## The Fastest Path
 
-If you are on Windows, you can use the automated scaffolding script included in the repo:
+Hematite v0.6.0+ can now scaffold and boot the local search stack for you.
 
-1. Open PowerShell in the Hematite root.
-2. Run the script:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts/setup-searxng.ps1
+1. Install Docker Desktop and make sure the Docker daemon is running.
+2. Leave `auto_start_searx` enabled in `.hematite/settings.json`, or set it explicitly:
+   ```json
+   {
+     "auto_start_searx": true
+   }
    ```
-3. **Move/Backup**: You can now move the `searxng-scaffold` folder anywhere (e.g., your Projects directory). The Docker container remains managed globally.
+3. Launch Hematite.
+
+If `searx_url` is unset or points at a local address such as `http://localhost:8080`, Hematite will:
+
+1. Scaffold the stack under `~/.hematite/searxng-local` unless `HEMATITE_SEARX_ROOT` overrides it.
+2. Detect whether SearXNG is already reachable.
+3. Run `docker compose up -d` if it is offline.
+4. Wait for the local search endpoint to respond before continuing startup.
+
+If the service is already running, Hematite reuses it and does not blindly restart the stack.
+
+If Docker Desktop is missing or the daemon is offline, Hematite now surfaces a compact startup note telling you exactly what is wrong instead of failing silently.
+
+You can still scaffold the files manually from the repo root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup-searxng.ps1
+```
 
 ## Managing the Engine
 
-Hematite now automates much of the upkeep, but you can manually control the SearXNG backend using these commands:
+Hematite now automates much of the upkeep, but you can manually control the SearXNG backend too.
 
 ### Verify Service Health
-Hematite performs a heartbeat check at startup. You can manually check if it's responding:
+
 ```powershell
 curl http://localhost:8080
 ```
 
-### Stopping the Engine
-If you want to free up resources or stop the search capability:
+Or verify the JSON API directly:
+
 ```powershell
-docker stop searxng
+curl "http://localhost:8080/search?q=hematite&format=json"
+```
+
+### Stopping the Engine
+
+```powershell
+cd $HOME\.hematite\searxng-local
+docker compose down
 ```
 
 ### Restarting / Manual Boot
-If the engine is offline, you can start it again with:
+
 ```powershell
-docker start searxng
-```
-Or simply rerun the setup script:
-```powershell
-./scripts/setup-searxng.ps1
+cd $HOME\.hematite\searxng-local
+docker compose up -d
 ```
 
-### Auto-Boot Feature
-By default, Hematite v0.5.7+ will attempt to **automatically start** the `searxng` container if it detects it is offline during startup. 
+### Default Engine Profile
 
-To disable this behavior, edit your `.hematite/settings.json`:
+The current scaffold defaults to this safer technical pool:
+
+- duckduckgo
+- brave
+- mojeek
+- wikipedia
+- github
+- stackoverflow
+- npm
+- crates.io
+
+That is a better fit for a personal development machine than the older broad 12-engine setup, which created more upstream traffic and more opportunities for rate limits.
+
+If you want to widen it later, edit `searxng/settings.yml` manually.
+
+### Auto-Boot and Auto-Stop
+
+By default, Hematite v0.6.0+ will attempt to automatically start the local SearXNG stack if:
+
+- `auto_start_searx` is `true`
+- `searx_url` is unset or points at a local address
+- Docker Desktop is installed and running
+
+To disable startup automation:
+
 ```json
 {
   "auto_start_searx": false
 }
 ```
 
+If you want Hematite to stop only the SearXNG instance it started in the current session when the app exits:
+
+```json
+{
+  "auto_stop_searx": true
+}
+```
+
+Hematite only auto-stops session-owned stacks. It does not blindly tear down a SearXNG instance that was already running before Hematite started.
+
 ## Troubleshooting
-- **Docker Not Found**: ensure Docker Desktop is running.
-- **Port Conflict**: If port `8080` is taken, edit the `docker-run` command in `scripts/setup-searxng.ps1` to map to a different host port (e.g. `-p 8888:8080`) and update your Hematite `searx_url` setting.
+
+- **Docker not found**: install Docker Desktop or set `auto_start_searx` to `false`.
+- **Docker daemon offline**: start Docker Desktop, then relaunch Hematite.
+- **Port conflict**: edit `docker-compose.yaml` in your SearXNG root to map a different host port, then update `searx_url` in `.hematite/settings.json`.
+- **Custom location**: set `HEMATITE_SEARX_ROOT` if you want the stack outside `~/.hematite/searxng-local`.
+- **Already running elsewhere**: point `searx_url` at that instance and Hematite will use it instead of trying to manage a local stack.
 
 ---
 
-## 🛠️ The Manual Path
-- **Docker Desktop** installed and running on Windows.
-- At least 1GB of free RAM for the SearXNG containers.
+## The Manual Path
 
-## 2. Directory Structure
+- Docker Desktop installed and running on Windows.
+- At least 1 GB of free RAM for the SearXNG containers.
+
+## 1. Directory Structure
+
 Create a dedicated folder for your SearXNG instance:
+
 ```powershell
 mkdir searxng-local
 cd searxng-local
 mkdir searxng
 ```
 
-## 3. Configuration Files
+## 2. Configuration Files
 
 ### `docker-compose.yaml`
+
 Create this in your `searxng-local` root:
+
 ```yaml
 services:
   searxng:
@@ -113,16 +179,15 @@ networks:
 ```
 
 ### `searxng/settings.yml`
-Create this in the `searxng/` subfolder. **IMPORTANT**: The `formats` section must include `json` for Hematite to work.
+
+Create this in the `searxng/` subfolder. The `formats` section must include `json` for Hematite to work.
 
 ```yaml
 use_default_settings: true
 
 server:
-  # Secret key is required for the container to start.
-  # You can regenerate this with: openssl rand -hex 32
   secret_key: "CHANGE_ME_TO_SOMETHING_RANDOM"
-  limiter: false # Disable rate limiter for local dev
+  limiter: false
   image_proxy: true
 
 search:
@@ -130,10 +195,9 @@ search:
   autocomplete: ""
   formats:
     - html
-    - json # REQUIRED for Hematite
+    - json
 
 engines:
-  # Tier 1: Primary general-purpose
   - name: google
     engine: google
     shortcut: g
@@ -144,8 +208,6 @@ engines:
   - name: bing
     engine: bing
     shortcut: b
-
-  # Tier 2: Privacy-first alternatives (rarely rate-limit)
   - name: brave
     engine: brave
     shortcut: br
@@ -158,8 +220,6 @@ engines:
   - name: mojeek
     engine: mojeek
     shortcut: mj
-
-  # Tier 3: Developer-focused
   - name: wikipedia
     engine: wikipedia
     shortcut: wp
@@ -178,27 +238,32 @@ ui:
   query_in_title: true
 ```
 
-## 4. Launch
-From your `searxng-local` folder, simply double-click **`start_searx.bat`**. 
+## 3. Launch
 
-This will automatically:
-1. Run `docker compose up -d`
-2. Configure the 12-engine private search pool.
-3. Confirm once the service is ready.
+From your `searxng-local` folder, either double-click `start_searx.bat` or run:
 
-## 5. Verify Setup
-Run this command in any terminal:
 ```powershell
-curl "http://localhost:8080/search?q=hematite&format=json"
+docker compose up -d
 ```
-If you see a wall of JSON text, you are ready!
 
-## 6. Configure Hematite
-Hematite v0.6.0+ now **auto-detects** SearXNG on port 8080. If you have it running, it will automatically use it!
+## 4. Configure Hematite
+
+Hematite uses `http://localhost:8080` by default for local search. If your SearXNG instance is there and reachable, `research_web` will use it automatically.
 
 If you moved it to a different port, update `.hematite/settings.json`:
+
 ```json
 {
   "searx_url": "http://localhost:8888"
+}
+```
+
+If you want Hematite to manage that custom local instance too:
+
+```json
+{
+  "searx_url": "http://localhost:8888",
+  "auto_start_searx": true,
+  "auto_stop_searx": false
 }
 ```

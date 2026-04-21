@@ -1,5 +1,5 @@
-use serde::Deserialize;
 use reqwest::Client;
+use serde::Deserialize;
 use std::time::Duration;
 
 /// High-Precision Ollama Orchestration Module.
@@ -47,13 +47,15 @@ impl OllamaHarness {
 
     /// Check if the Ollama server meets the minimum architectural requirements.
     pub async fn verify_version(&self) -> Result<String, String> {
-        let resp = self.client
+        let resp = self
+            .client
             .get(&format!("{}/api/version", self.base_url))
             .send()
             .await
             .map_err(|e| format!("Ollama unreachable: {}", e))?;
 
-        let ver: OllamaVersion = resp.json()
+        let ver: OllamaVersion = resp
+            .json()
             .await
             .map_err(|e| format!("Failed to parse Ollama version: {}", e))?;
 
@@ -63,13 +65,15 @@ impl OllamaHarness {
 
     /// Check if a specific model is already pulled and ready to run.
     pub async fn has_model(&self, name: &str) -> Result<bool, String> {
-        let resp = self.client
+        let resp = self
+            .client
             .get(&format!("{}/api/tags", self.base_url))
             .send()
             .await
             .map_err(|e| format!("Ollama unreachable: {}", e))?;
 
-        let tags: OllamaTags = resp.json()
+        let tags: OllamaTags = resp
+            .json()
             .await
             .map_err(|e| format!("Failed to parse Ollama models: {}", e))?;
 
@@ -80,7 +84,10 @@ impl OllamaHarness {
             name.to_string()
         };
 
-        Ok(tags.models.iter().any(|m| m.name == name || m.name == search_name))
+        Ok(tags
+            .models
+            .iter()
+            .any(|m| m.name == name || m.name == search_name))
     }
 }
 

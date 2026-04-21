@@ -44,14 +44,16 @@ impl ApprovalPreset {
             PermissionMode::ReadOnly => Self {
                 id: "read-only",
                 label: "Read Only",
-                description: "Hematite can only read files. All mutations and shell commands are blocked.",
+                description:
+                    "Hematite can only read files. All mutations and shell commands are blocked.",
                 must_ask_all: false,
                 allow_mutations: false,
             },
             PermissionMode::Developer => Self {
                 id: "developer",
                 label: "Developer",
-                description: "Hematite can read/edit files and run commands. Risky actions require approval.",
+                description:
+                    "Hematite can read/edit files and run commands. Risky actions require approval.",
                 must_ask_all: false,
                 allow_mutations: true,
             },

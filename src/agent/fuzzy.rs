@@ -23,7 +23,7 @@ pub fn fuzzy_match(haystack: &str, needle: &str) -> Option<(Vec<usize>, i32)> {
     let mut result_orig_indices: Vec<usize> = Vec::with_capacity(lowered_needle.len());
     let mut last_lower_pos: Option<usize> = None;
     let mut cur = 0usize;
-    
+
     for &nc in lowered_needle.iter() {
         let mut found_at: Option<usize> = None;
         while cur < lowered_chars.len() {
@@ -50,9 +50,10 @@ pub fn fuzzy_match(haystack: &str, needle: &str) -> Option<(Vec<usize>, i32)> {
     };
 
     let last_lower_pos = last_lower_pos.unwrap_or(first_lower_pos);
-    let window = (last_lower_pos as i32 - first_lower_pos as i32 + 1) - (lowered_needle.len() as i32);
+    let window =
+        (last_lower_pos as i32 - first_lower_pos as i32 + 1) - (lowered_needle.len() as i32);
     let mut score = window.max(0);
-    
+
     // Prefix bonus: strongly reward matches at the start of the string.
     if first_lower_pos == 0 {
         score -= 100;

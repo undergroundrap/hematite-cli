@@ -9,12 +9,10 @@ pub fn formatted_truncate(content: &str, max_bytes: usize) -> String {
 
     let total_lines = content.lines().count();
     let truncated = truncate_middle(content, max_bytes);
-    
+
     format!(
         "[TRUNCATED: total lines: {}]\n{}\n[... middle truncated to fit budget ...]\n{}",
-        total_lines,
-        truncated.head,
-        truncated.tail
+        total_lines, truncated.head, truncated.tail
     )
 }
 

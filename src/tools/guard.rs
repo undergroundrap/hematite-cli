@@ -31,6 +31,8 @@ pub const PROTECTED_FILES: &[&str] = &[
     // Hematite Internal
     ".mcp.json",
     "hematite_memory.db",
+    ".hematite/",
+    ".git/",
 ];
 
 /// Enforces the absolute Canonical Traversal lock on the LLM, rendering directory climbing (`../`) obsolete
@@ -127,7 +129,18 @@ pub fn bash_is_safe(cmd: &str) -> Result<(), String> {
     for protected in PROTECTED_FILES {
         let prot_lower = protected.to_lowercase().replace("\\", "/");
         if lower.contains(&prot_lower) {
-            return Err(format!("AccessDenied: Bash command structurally attempts to manipulate blacklisted system area: {}", protected));
+            // EXCEPTION: Allow READ-ONLY commands (ls, cat, type) for internal state
+            // if they aren't system paths. System paths are ALWAYS blocked.
+            let is_system = !protected.starts_with('.')
+                && (protected.contains(':') || protected.starts_with('/'));
+            if is_system {
+                return Err(format!("AccessDenied: Bash command structurally attempts to manipulate blacklisted system area: {}", protected));
+            }
+
+            // For internal files (.hematite, .git), we only block if it looks like a mutation.
+            if is_destructive_bash_payload(&lower) {
+                return Err(format!("AccessDenied: Bash mutation blocked on internal state directory: {}. Use native tools or git_commit instead.", protected));
+            }
         }
     }
 
@@ -171,6 +184,27 @@ pub fn bash_is_safe(cmd: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn is_destructive_bash_payload(lower_cmd: &str) -> bool {
+    let dangerous = [
+        "rm ",
+        "del ",
+        "erase ",
+        "rd ",
+        "rmdir ",
+        "mv ",
+        "move ",
+        "rename ",
+        ">",
+        ">>",
+        "git config",
+        "git init",
+        "git remote",
+        "chmod ",
+        "chown ",
+    ];
+    dangerous.iter().any(|&p| lower_cmd.contains(p))
+}
+
 /// Three-tier risk classifier for shell commands.
 ///
 /// Safe   → auto-approved (read-only, build, test, local git reads)
@@ -208,47 +242,64 @@ pub fn classify_bash_risk(cmd: &str) -> RiskLevel {
 }
 
 fn tokenize_shell_command(cmd: &str) -> Vec<String> {
-    shlex::split(cmd).unwrap_or_else(|| {
-        cmd.split_whitespace().map(|s| s.to_string()).collect()
-    })
+    shlex::split(cmd).unwrap_or_else(|| cmd.split_whitespace().map(|s| s.to_string()).collect())
 }
 
 fn is_dangerous_chain(tokens: &[String]) -> bool {
     const SEPARATORS: &[&str] = &["&&", "||", "|", ";", "&"];
-    
+
     // Split combined tokens like "echo hi&del" if shlex missed them
     let mut refined = Vec::new();
     for tok in tokens {
         let mut start = 0;
         for (i, ch) in tok.char_indices() {
-             if ch == '&' || ch == '|' || ch == ';' {
-                 if i > start { refined.push(tok[start..i].to_string()); }
-                 refined.push(ch.to_string());
-                 start = i + 1;
-             }
+            if ch == '&' || ch == '|' || ch == ';' {
+                if i > start {
+                    refined.push(tok[start..i].to_string());
+                }
+                refined.push(ch.to_string());
+                start = i + 1;
+            }
         }
-        if start < tok.len() { refined.push(tok[start..].to_string()); }
+        if start < tok.len() {
+            refined.push(tok[start..].to_string());
+        }
     }
 
     // Check each segment if separated by operators
-    refined.split(|t| SEPARATORS.contains(&t.as_str())).any(|segment| {
-        if segment.is_empty() { return false; }
-        // If any non-first segment is destructive, the whole chain is high risk
-        is_destructive_mutation(segment) || is_gui_launch_with_url(segment)
-    })
+    refined
+        .split(|t| SEPARATORS.contains(&t.as_str()))
+        .any(|segment| {
+            if segment.is_empty() {
+                return false;
+            }
+            // If any non-first segment is destructive, the whole chain is high risk
+            is_destructive_mutation(segment) || is_gui_launch_with_url(segment)
+        })
 }
 
 fn is_gui_launch_with_url(tokens: &[String]) -> bool {
-    let Some(exe) = tokens.first().map(|s| s.to_lowercase()) else { return false; };
-    let exe_name = Path::new(&exe).file_name().and_then(|s| s.to_str()).unwrap_or(&exe);
+    let Some(exe) = tokens.first().map(|s| s.to_lowercase()) else {
+        return false;
+    };
+    let exe_name = Path::new(&exe)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(&exe);
 
     let gui_exes = [
-        "explorer", "explorer.exe",
-        "msedge", "msedge.exe",
-        "chrome", "chrome.exe",
-        "firefox", "firefox.exe",
-        "mshta", "mshta.exe",
-        "rundll32", "rundll32.exe",
+        "explorer",
+        "explorer.exe",
+        "msedge",
+        "msedge.exe",
+        "chrome",
+        "chrome.exe",
+        "firefox",
+        "firefox.exe",
+        "mshta",
+        "mshta.exe",
+        "rundll32",
+        "rundll32.exe",
         "start", // CMD built-in
     ];
 
@@ -261,24 +312,46 @@ fn is_gui_launch_with_url(tokens: &[String]) -> bool {
 }
 
 fn is_destructive_mutation(tokens: &[String]) -> bool {
-    let Some(exe) = tokens.first().map(|s| s.to_lowercase()) else { return false; };
-    let exe_name = Path::new(&exe).file_name().and_then(|s| s.to_str()).unwrap_or(&exe);
+    let Some(exe) = tokens.first().map(|s| s.to_lowercase()) else {
+        return false;
+    };
+    let exe_name = Path::new(&exe)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(&exe);
 
     // 1. Classic Deletion with Force flags
     if matches!(exe_name, "rm" | "del" | "erase" | "rd" | "rmdir") {
-        let has_force = tokens.iter().any(|a| matches!(a.to_lowercase().as_str(), "-f" | "/f" | "-rf" | "-force"));
-        let has_recursive = tokens.iter().any(|a| matches!(a.to_lowercase().as_str(), "-r" | "/s" | "-recurse"));
-        
-        if exe_name == "rm" && (has_force || has_recursive) { return true; }
-        if (exe_name == "del" || exe_name == "erase") && has_force { return true; }
-        if (exe_name == "rd" || exe_name == "rmdir") && has_recursive { return true; }
+        let has_force = tokens
+            .iter()
+            .any(|a| matches!(a.to_lowercase().as_str(), "-f" | "/f" | "-rf" | "-force"));
+        let has_recursive = tokens
+            .iter()
+            .any(|a| matches!(a.to_lowercase().as_str(), "-r" | "/s" | "-recurse"));
+
+        if exe_name == "rm" && (has_force || has_recursive) {
+            return true;
+        }
+        if (exe_name == "del" || exe_name == "erase") && has_force {
+            return true;
+        }
+        if (exe_name == "rd" || exe_name == "rmdir") && has_recursive {
+            return true;
+        }
     }
 
     // 2. PowerShell Specifics
-    if matches!(exe_name, "powershell" | "powershell.exe" | "pwsh" | "pwsh.exe") {
+    if matches!(
+        exe_name,
+        "powershell" | "powershell.exe" | "pwsh" | "pwsh.exe"
+    ) {
         let cmd_str = tokens.join(" ").to_lowercase();
-        if cmd_str.contains("remove-item") && cmd_str.contains("-force") { return true; }
-        if cmd_str.contains("format-volume") || cmd_str.contains("stop-process") { return true; }
+        if cmd_str.contains("remove-item") && cmd_str.contains("-force") {
+            return true;
+        }
+        if cmd_str.contains("format-volume") || cmd_str.contains("stop-process") {
+            return true;
+        }
     }
 
     // 3. Sensitive Dirs/Files (from blacklist)
@@ -286,46 +359,88 @@ fn is_destructive_mutation(tokens: &[String]) -> bool {
         let lower = tok.to_lowercase().replace("\\", "/");
         for protected in PROTECTED_FILES {
             let prot_lower = protected.to_lowercase().replace("\\", "/");
-            if lower.contains(&prot_lower) { return true; }
+            if lower.contains(&prot_lower) {
+                return true;
+            }
         }
     }
 
     // 4. Privilege / Network
-    if matches!(exe_name, "sudo" | "su" | "runas" | "curl" | "wget" | "shutdown") { return true; }
+    if matches!(
+        exe_name,
+        "sudo" | "su" | "runas" | "curl" | "wget" | "shutdown"
+    ) {
+        return true;
+    }
 
     false
 }
 
 fn is_known_safe_command(tokens: &[String]) -> bool {
-    let Some(exe) = tokens.first().map(|s| s.to_lowercase()) else { return false; };
-    let exe_name = Path::new(&exe).file_name().and_then(|s| s.to_str()).unwrap_or(&exe);
+    let Some(exe) = tokens.first().map(|s| s.to_lowercase()) else {
+        return false;
+    };
+    let exe_name = Path::new(&exe)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(&exe);
 
     // Read-only tools
     let safe_tools = [
-        "ls", "dir", "cat", "type", "grep", "rg", "find", "head", "tail", "wc", "sort", "uniq",
-        "git", "cargo", "rustc", "rustfmt", "npm", "node", "python", "python3", "whoami", "pwd",
-        "mkdir", "echo", "where", "which", "test-path", "get-childitem", "get-content"
+        "ls",
+        "dir",
+        "cat",
+        "type",
+        "grep",
+        "rg",
+        "find",
+        "head",
+        "tail",
+        "wc",
+        "sort",
+        "uniq",
+        "git",
+        "cargo",
+        "rustc",
+        "rustfmt",
+        "npm",
+        "node",
+        "python",
+        "python3",
+        "whoami",
+        "pwd",
+        "mkdir",
+        "echo",
+        "where",
+        "which",
+        "test-path",
+        "get-childitem",
+        "get-content",
     ];
 
-    if !safe_tools.contains(&exe_name) { return false; }
+    if !safe_tools.contains(&exe_name) {
+        return false;
+    }
 
     // Sub-command specifics for complex tools
     match exe_name {
         "git" => {
             let sub = tokens.get(1).map(|s| s.to_lowercase());
             match sub.as_deref() {
-                Some("status") | Some("log") | Some("diff") | Some("branch") | Some("show") | Some("ls-files") | Some("rev-parse") => true,
-                _ => false
+                Some("status") | Some("log") | Some("diff") | Some("branch") | Some("show")
+                | Some("ls-files") | Some("rev-parse") => true,
+                _ => false,
             }
-        },
+        }
         "cargo" => {
             let sub = tokens.get(1).map(|s| s.to_lowercase());
             match sub.as_deref() {
-                Some("check") | Some("build") | Some("test") | Some("run") | Some("fmt") | Some("clippy") | Some("tree") | Some("metadata") => true,
-                _ => false
+                Some("check") | Some("build") | Some("test") | Some("run") | Some("fmt")
+                | Some("clippy") | Some("tree") | Some("metadata") => true,
+                _ => false,
             }
-        },
-        _ => true
+        }
+        _ => true,
     }
 }
 
@@ -334,10 +449,18 @@ fn looks_like_url(token: &str) -> bool {
     lazy_static::lazy_static! {
         static ref RE: regex::Regex = regex::Regex::new(r#"^[ "'\(\s]*([^\s"'\);]+)[\s;\)]*$"#).unwrap();
     }
-    
-    let urlish = token.find("https://").or_else(|| token.find("http://")).map(|idx| &token[idx..]).unwrap_or(token);
-    let candidate = RE.captures(urlish).and_then(|caps| caps.get(1)).map(|m| m.as_str()).unwrap_or(urlish);
-    
+
+    let urlish = token
+        .find("https://")
+        .or_else(|| token.find("http://"))
+        .map(|idx| &token[idx..])
+        .unwrap_or(token);
+    let candidate = RE
+        .captures(urlish)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str())
+        .unwrap_or(urlish);
+
     if let Ok(url) = Url::parse(candidate) {
         matches!(url.scheme(), "http" | "https")
     } else {
@@ -409,16 +532,31 @@ mod tests {
         // 1. False Positive Mitigation (Previously this might have been High Risk)
         // Note: Currently my implementation counts filenames toward the total check if they match protected paths,
         // but it won't flag a sub-string like "-force" unless it's a flag OR if the command is destructive.
-        assert_eq!(classify_bash_risk("cargo test --filter force"), RiskLevel::Safe);
+        assert_eq!(
+            classify_bash_risk("cargo test --filter force"),
+            RiskLevel::Safe
+        );
 
         // 2. Chained Detection (Critical for hardening)
-        assert_eq!(classify_bash_risk("echo done & del /f config.json"), RiskLevel::High);
+        assert_eq!(
+            classify_bash_risk("echo done & del /f config.json"),
+            RiskLevel::High
+        );
 
         // 3. GUI Bypass Protection
-        assert_eq!(classify_bash_risk("start https://google.com"), RiskLevel::High);
-        assert_eq!(classify_bash_risk("msedge.exe https://google.com"), RiskLevel::High);
+        assert_eq!(
+            classify_bash_risk("start https://google.com"),
+            RiskLevel::High
+        );
+        assert_eq!(
+            classify_bash_risk("msedge.exe https://google.com"),
+            RiskLevel::High
+        );
 
         // 4. PowerShell Force Deletion
-        assert_eq!(classify_bash_risk("pwsh -c \"Remove-Item test -Force\""), RiskLevel::High);
+        assert_eq!(
+            classify_bash_risk("pwsh -c \"Remove-Item test -Force\""),
+            RiskLevel::High
+        );
     }
 }

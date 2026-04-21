@@ -87,7 +87,7 @@ A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool c
 - Edits with exact-match precision, CRLF-safe on Windows; if exact match fails, applies three levels of fuzzy recovery (rstrip → full-strip → cross-file workspace scan hint).
 - Runs `verify_build` after every change and feeds errors back to the model automatically.
 - **Integrated host inspection suite**: 116+ read-only diagnostic topics providing 100% workstation visibility across **CPU/RAM load**, active processes, services, listening ports, **block storage**, hardware specifications, **security configuration**, event-log history, scheduled tasks, **Group Policy (GPO)**, certificate lifecycle, system integrity, **domain membership**, and first-class **audio/Bluetooth triage** — plus precision tools for **targeted Windows Event Log queries**, **Microsoft 365 identity-broker and device-registration truth**, **NTFS/ACL permissions**, authentication logs, UNC share accessibility, registry persistence auditing, Docker/WSL filesystem audits, LAN neighborhood discovery truth, installer-platform health, OneDrive sync posture, browser and WebView2 health, Credential Manager hygiene, TPM/Secure Boot posture, and mount/storage truth. Includes the high-fidelity **Silicon Historian** for absolute session history (Temp/Clocks/Power trends) and the **Precision Throttle Truth** engine to distinguish between Power, Thermal, and VRM casualties. [See the Master Diagnostic Manual](#the-hematite-diagnostic-manual).
-- **Hardened Research Infrastructure**: Hematite takes the liberty of providing a pre-optimized, 12-engine local search array (powered by SearXNG) that would normally take hours to configure. It aggregates results from Google, DuckDuckGo, Bing, Brave, GitHub, and 7+ others into a single private, JSON-ready stream. Use it with Hematite, LM Studio, or your browser. [See the Research Setup Guide](docs/SEARXNG_SETUP.md).
+- **Hardened Research Infrastructure**: Hematite can scaffold a private SearXNG stack for `research_web` using a safer technical-source profile by default. It favors developer-focused and lower-pressure engines instead of the older broad 12-engine mix, reducing unnecessary upstream blast radius while still giving Hematite grounded web research. Use it with Hematite, LM Studio, Ollama, or your browser. [See the Research Setup Guide](docs/SEARXNG_SETUP.md).
 - **Diagnostic Orchestration**: when you ask about multiple system topics or use common troubleshooting keywords (e.g., "slow", "lag"), Hematite automatically triggers the relevant `inspect_host` calls before the model turn and injects the telemetry as context—now with session-wide **Anomaly Detection** derived from in-memory history.
 - **Redirection Guards**: automatically intercepts raw shell commands for diagnostic topics and redirects them to structured native tools (e.g., `Get-Acl` -> `permissions`, `slmgr` -> `activation`), ensuring consistent telemetry format.
 - **Ultra-Deterministic Teleportation**: Seamlessly move between workspaces. Hematite automatically spawns a fresh, pre-navigated terminal and performs a context-aware **Teleportation Handshake** upon arrival.
@@ -516,11 +516,13 @@ That same pattern can be translated across the tool surface over time. The goal 
 | Linux | bash | NVIDIA via `nvidia-smi` |
 | macOS | bash / zsh | Degrades gracefully |
 
-- [LM Studio](https://lmstudio.ai) with a model loaded and the local server running on port `1234`
+- A local OpenAI-compatible model server.
+  LM Studio on `http://localhost:1234/v1` is the default path.
+  Ollama on `http://localhost:11434/v1` is also supported when `api_url` points there.
 - NVIDIA GPU with 8 GB+ VRAM recommended; 12 GB VRAM is the sweet spot Hematite is most actively shaped around
 - Rust toolchain if building from source
 
-**Primary hardware target:** a single RTX 4070-class GPU on a normal desktop Windows machine. Hematite is engineered around that constraint: limited local VRAM, one active consumer GPU, LM Studio as the serving layer, and open models that need strong tooling and context discipline instead of cloud-scale brute force.
+**Primary hardware target:** a single RTX 4070-class GPU on a normal desktop Windows machine. Hematite is engineered around that constraint: limited local VRAM, one active consumer GPU, a local OpenAI-compatible serving layer, and open models that need strong tooling and context discipline instead of cloud-scale brute force.
 
 **Enthusiast note:** the 4070 is the design center and tested baseline — not a ceiling. If you're running a 3090, 5090, multi-GPU rig, or server hardware with a 70B or 200B model loaded, Hematite scales with you. Larger models naturally handle more complex plans; longer context windows mean less compaction pressure; swarm workers run truly in parallel across multiple GPUs. The harness stays the same — the hardware just removes constraints that a single consumer card has to work around.
 
@@ -545,17 +547,22 @@ Load both in LM Studio at the same time. The embedding model stays resident but 
 
 ### Fastest Summary
 
-1. Install [LM Studio](https://lmstudio.ai).
-2. Load `Qwen/Qwen3.5-9B` Q4_K_M (or any compatible model) and start the local server on port `1234`.
-3. Optionally load `nomic-embed-text-v2` alongside it for semantic file search.
-4. Launch `hematite` inside your project folder.
+1. Install [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com/).
+2. Point Hematite at a local OpenAI-compatible endpoint.
+   LM Studio uses `http://localhost:1234/v1` by default.
+   Ollama uses `http://localhost:11434/v1` when you set `api_url`.
+3. Load `Qwen/Qwen3.5-9B` Q4_K_M (or any compatible model).
+4. Optionally load `nomic-embed-text-v2` alongside it for semantic file search.
+5. Launch `hematite` inside your project folder.
 
 ### Recommended User Path
 
-1. Install LM Studio.
-2. In LM Studio, download and load your coding model (tested: `Qwen/Qwen3.5-9B` Q4_K_M).
-3. Also load `nomic-embed-text-v2` — this enables The Vein's semantic search and costs only ~512 MB VRAM. On a 12 GB card both models fit together.
-4. Start the LM Studio local server on port `1234`.
+1. Install LM Studio or Ollama.
+2. Choose your endpoint:
+   LM Studio: start the local server on `http://localhost:1234/v1`.
+   Ollama: run the local server on `http://localhost:11434/v1` and set `api_url` in `.hematite/settings.json`.
+3. Load your coding model (tested: `Qwen/Qwen3.5-9B` Q4_K_M).
+4. Also load `nomic-embed-text-v2` if your provider exposes `/v1/embeddings` — this enables The Vein's semantic search and costs only ~512 MB VRAM. On a 12 GB card both models fit together.
 5. Download a Hematite release bundle for your platform.
 6. On Windows, run `Setup.exe` or use the portable zip. On macOS/Linux, extract the archive and run `./install.sh`.
 7. Launch `hematite` from inside your project folder.
@@ -777,7 +784,9 @@ Restart your terminal after running this. From then on, `cd` into any project fo
 
 For project-specific questions or commands, launch Hematite in that project's directory before you ask. Hematite's own maintainer workflows are a separate built-in path for working on Hematite itself; they do not mean "run whatever script exists in the current folder."
 
-**Global settings.** Hematite loads `~/.hematite/settings.json` as a fallback when no workspace-level `.hematite/settings.json` exists. This means your model preference, voice settings, and API URL work from any directory — not just from inside a project. Workspace settings always win when both exist. When you launch Hematite from **Path Alias** folders like Desktop, Downloads, Documents, Pictures, Videos, or Music, Hematite keeps its runtime state in `~/.hematite/` instead of creating a local `.hematite/` folder there.
+**Global settings.** Hematite loads `~/.hematite/settings.json` as a fallback when no workspace-level `.hematite/settings.json` exists. This means your model preference, voice settings, API URL, and local-search settings work from any directory — not just from inside a project. Workspace settings always win when both exist. When you launch Hematite from **Path Alias** folders like Desktop, Downloads, Documents, Pictures, Videos, or Music, Hematite keeps its runtime state in `~/.hematite/` instead of creating a local `.hematite/` folder there.
+
+**Local search stack.** Hematite can use a private SearXNG instance for `research_web`. By default it scaffolds and starts that stack under `~/.hematite/searxng-local` when `auto_start_searx` is enabled and the configured `searx_url` points at localhost. If the service is already reachable, Hematite reuses it instead of restarting it. If Docker Desktop is missing or the daemon is offline, Hematite now surfaces a compact startup note instead of failing silently. Set `HEMATITE_SEARX_ROOT` to relocate the stack, set `auto_start_searx` to `false` to disable auto-start, and set `auto_stop_searx` to `true` if you want Hematite to stop only the SearXNG instance it started when the session exits. The default scaffold now favors a safer technical-source engine pool rather than the older broad 12-engine profile.
 
 **Workspace profile.** On startup, Hematite also writes `workspace_profile.json` into its active runtime-state directory. In normal project workspaces that is `.hematite/workspace_profile.json`; in **Path Alias** folders it lands in `~/.hematite/workspace_profile.json` so Hematite does not litter Desktop/Downloads-style directories with workspace metadata. The file is auto-generated and gitignored when local. It captures the detected stack, package manager, important folders, ignored noise folders, and build/test hints so the harness starts with a grounded project profile instead of guessing from scratch every turn. Use `/workspace-profile` to inspect the current generated profile from inside the TUI.
 

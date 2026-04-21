@@ -435,8 +435,9 @@ pub fn extract_memory(messages: &[ChatMessage]) -> SessionMemory {
     // Cap at 12 files; most-recently-touched files survive longest.
     let mut all_files: Vec<String> = Vec::new();
     for msg in messages {
-        for call in &msg.tool_calls {
-            if let Ok(args) = serde_json::from_str::<serde_json::Value>(&call.function.arguments) {
+        if let Some(calls) = &msg.tool_calls {
+            for call in calls {
+                let args = call.function.arguments.clone();
                 if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
                     // Push in traversal order so later (more recent) entries
                     // win deduplication when we reverse below.
@@ -513,9 +514,10 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
 
     for m in messages {
         // Precise file extraction from tool call arguments.
-        for call in &m.tool_calls {
-            tools.insert(call.function.name.clone());
-            if let Ok(args) = serde_json::from_str::<serde_json::Value>(&call.function.arguments) {
+        if let Some(calls) = &m.tool_calls {
+            for call in calls {
+                tools.insert(call.function.name.clone());
+                let args = call.function.arguments.clone();
                 if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
                     files.insert(path.to_string());
                 }
@@ -598,10 +600,17 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
             let mut s: String = content_str.chars().take(117).collect();
             s.push_str("...");
             s
-        } else if content_str.is_empty() && !m.tool_calls.is_empty() {
+        } else if content_str.is_empty()
+            && m.tool_calls
+                .as_ref()
+                .map(|c| !c.is_empty())
+                .unwrap_or(false)
+        {
             format!(
                 "Executing: {}",
                 m.tool_calls
+                    .as_ref()
+                    .unwrap()
                     .iter()
                     .map(|c| c.function.name.as_str())
                     .collect::<Vec<_>>()

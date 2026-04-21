@@ -1,6 +1,6 @@
+use std::io;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::io;
 
 /// LM Studio CLI Harness for automated lifecycle management.
 /// Ports the "LMS Mastery" patterns from Codex-RS to ensure
@@ -32,7 +32,10 @@ impl LmsHarness {
 
         if let Some(h) = home {
             let bin_name = if cfg!(windows) { "lms.exe" } else { "lms" };
-            let fallback = PathBuf::from(h).join(".lmstudio").join("bin").join(bin_name);
+            let fallback = PathBuf::from(h)
+                .join(".lmstudio")
+                .join("bin")
+                .join(bin_name);
             if fallback.exists() {
                 return Some(fallback);
             }
@@ -70,7 +73,10 @@ impl LmsHarness {
             .status()?;
 
         if !status.success() {
-            return Err(io::Error::new(io::ErrorKind::Other, "Failed to start lms server"));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to start lms server",
+            ));
         }
 
         Ok(())
@@ -82,12 +88,13 @@ impl LmsHarness {
             return Err(io::Error::new(io::ErrorKind::NotFound, "lms CLI not found"));
         };
 
-        let output = Command::new(lms)
-            .args(["ls"])
-            .output()?;
+        let output = Command::new(lms).args(["ls"]).output()?;
 
         if !output.status.success() {
-            return Err(io::Error::new(io::ErrorKind::Other, "Failed to list models via lms"));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to list models via lms",
+            ));
         }
 
         let out_str = String::from_utf8_lossy(&output.stdout);
@@ -114,7 +121,10 @@ impl LmsHarness {
             .status()?;
 
         if !status.success() {
-            return Err(io::Error::new(io::ErrorKind::Other, format!("Failed to load model: {}", model_id)));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to load model: {}", model_id),
+            ));
         }
 
         Ok(())

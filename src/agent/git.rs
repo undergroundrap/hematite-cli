@@ -23,8 +23,13 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
         Ok(t) => {
             let (file, path) = t.into_parts();
             (file, path)
-        },
-        Err(e) => return Err(io::Error::new(io::ErrorKind::Other, format!("Failed to create temp index: {}", e))),
+        }
+        Err(e) => {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to create temp index: {}", e),
+            ))
+        }
     };
     // Close the file handle immediately so Git can own it.
     drop(temp_file);
@@ -54,7 +59,10 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
     if !add_status.success() {
         // Cleanup on failure
         let _ = std::fs::remove_file(&index_path);
-        return Err(io::Error::new(io::ErrorKind::Other, "Git add to temp index failed"));
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Git add to temp index failed",
+        ));
     }
 
     // 4. Create a tree object from the temporary index state.
@@ -164,8 +172,8 @@ pub fn get_active_branch(repo_path: &Path) -> io::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn test_ghost_snapshot_isolation() {
@@ -173,34 +181,87 @@ mod tests {
         let repo_path = dir.path();
 
         // Initialize a fake repo
-        Command::new("git").arg("-C").arg(repo_path).arg("init").status().unwrap();
-        Command::new("git").arg("-C").arg(repo_path).arg("config").arg("user.email").arg("test@example.com").status().unwrap();
-        Command::new("git").arg("-C").arg(repo_path).arg("config").arg("user.name").arg("Test").status().unwrap();
+        Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("init")
+            .status()
+            .unwrap();
+        Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("config")
+            .arg("user.email")
+            .arg("test@example.com")
+            .status()
+            .unwrap();
+        Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("config")
+            .arg("user.name")
+            .arg("Test")
+            .status()
+            .unwrap();
 
         // Create initial commit
         fs::write(repo_path.join("file1.txt"), "hello").unwrap();
-        Command::new("git").arg("-C").arg(repo_path).arg("add").arg(".").status().unwrap();
-        Command::new("git").arg("-C").arg(repo_path).arg("commit").arg("-m").arg("first").status().unwrap();
+        Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("add")
+            .arg(".")
+            .status()
+            .unwrap();
+        Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("commit")
+            .arg("-m")
+            .arg("first")
+            .status()
+            .unwrap();
 
         // Make an unstaged change
         fs::write(repo_path.join("file2.txt"), "untracked").unwrap();
         fs::write(repo_path.join("file1.txt"), "modified").unwrap();
 
         // Pre-condition: git status should show changes
-        let status_before = Command::new("git").arg("-C").arg(repo_path).arg("status").arg("--porcelain").output().unwrap();
+        let status_before = Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("status")
+            .arg("--porcelain")
+            .output()
+            .unwrap();
         let status_before_str = String::from_utf8_lossy(&status_before.stdout).to_string();
 
         // Take ghost snapshot
         create_ghost_snapshot(repo_path).unwrap();
 
         // Post-condition: git status should be IDENTICAL (nothing extra staged in real index)
-        let status_after = Command::new("git").arg("-C").arg(repo_path).arg("status").arg("--porcelain").output().unwrap();
+        let status_after = Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("status")
+            .arg("--porcelain")
+            .output()
+            .unwrap();
         let status_after_str = String::from_utf8_lossy(&status_after.stdout).to_string();
 
-        assert_eq!(status_before_str, status_after_str, "Ghost snapshot should not pollute the user's Git index");
+        assert_eq!(
+            status_before_str, status_after_str,
+            "Ghost snapshot should not pollute the user's Git index"
+        );
 
         // Verify the ghost ref exists
-        let ref_check = Command::new("git").arg("-C").arg(repo_path).arg("rev-parse").arg("refs/hematite/ghost").status().unwrap();
+        let ref_check = Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("rev-parse")
+            .arg("refs/hematite/ghost")
+            .status()
+            .unwrap();
         assert!(ref_check.success());
     }
 }

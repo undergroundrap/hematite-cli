@@ -96,12 +96,14 @@ mod tests {
         // Clear env noise
         let old_term = std::env::var("TERM_PROGRAM").ok();
         std::env::remove_var("TERM_PROGRAM");
-        
+
         std::env::set_var("WT_SESSION", "test-session");
         assert_eq!(detect_terminal(), TerminalName::WindowsTerminal);
-        
+
         std::env::remove_var("WT_SESSION");
-        if let Some(val) = old_term { std::env::set_var("TERM_PROGRAM", val); }
+        if let Some(val) = old_term {
+            std::env::set_var("TERM_PROGRAM", val);
+        }
     }
 
     #[test]

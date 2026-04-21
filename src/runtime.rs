@@ -17,6 +17,7 @@ pub struct RuntimeServices {
     pub voice_manager: Arc<VoiceManager>,
     pub swarm_coordinator: Arc<agent::swarm::SwarmCoordinator>,
     pub cancel_token: Arc<std::sync::atomic::AtomicBool>,
+    pub searx_session: agent::searx_lifecycle::SearxRuntimeSession,
 }
 
 pub struct RuntimeChannels {
@@ -62,7 +63,7 @@ pub async fn build_runtime_bundle(
     let config = crate::agent::config::load_config();
 
     // Auto-boot SearXNG if enabled and offline.
-    crate::agent::searx_lifecycle::boot_searx_if_needed(&config).await;
+    let searx_session = crate::agent::searx_lifecycle::boot_searx_if_needed(&config).await;
 
     // settings.json api_url overrides the --url CLI flag so users don't need to retype it.
     let api_url = config
@@ -92,24 +93,36 @@ pub async fn build_runtime_bundle(
                 .or(cockpit.fast_model.as_deref())
                 .unwrap_or("gemma-4-9b-it");
 
-            println!("Notice: No model loaded in LM Studio. Attempting to auto-load `{}`...", target);
+            println!(
+                "Notice: No model loaded in LM Studio. Attempting to auto-load `{}`...",
+                target
+            );
             if let Err(e) = engine_raw.load_model(target).await {
-                println!("Warning: Auto-load failed: {}. Please load a model manually in LM Studio.", e);
+                println!(
+                    "Warning: Auto-load failed: {}. Please load a model manually in LM Studio.",
+                    e
+                );
             } else {
                 // Re-poll after warming up
                 if let Some(new_name) = engine_raw.get_loaded_model().await {
                     if !new_name.is_empty() {
-                        engine_raw.set_runtime_profile(&new_name, engine_raw.current_context_length());
+                        engine_raw
+                            .set_runtime_profile(&new_name, engine_raw.current_context_length())
+                            .await;
                     }
                 }
             }
         } else {
-            engine_raw.set_runtime_profile(name, engine_raw.current_context_length());
+            engine_raw
+                .set_runtime_profile(name, engine_raw.current_context_length())
+                .await;
         }
     }
     let detected_context = engine_raw.detect_context_length().await;
     let detected_model = engine_raw.current_model();
-    engine_raw.set_runtime_profile(&detected_model, detected_context);
+    engine_raw
+        .set_runtime_profile(&detected_model, detected_context)
+        .await;
 
     let (specular_tx, specular_rx) = mpsc::channel(32);
     let watcher_guard = agent::specular::spawn_watcher(specular_tx)?;
@@ -141,6 +154,7 @@ pub async fn build_runtime_bundle(
             voice_manager,
             swarm_coordinator,
             cancel_token,
+            searx_session,
         },
         channels: RuntimeChannels {
             specular_rx,
@@ -228,6 +242,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         voice_manager,
         swarm_coordinator,
         cancel_token,
+        searx_session,
     } = services;
 
     let mut manager = ConversationManager::new(
@@ -315,6 +330,11 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     let _ = agent_tx
         .send(InferenceEvent::MutedToken(format!("\n{}", greeting)))
         .await;
+    if let Some(summary) = searx_session.startup_summary.as_deref() {
+        let _ = agent_tx
+            .send(InferenceEvent::Thought(summary.to_string()))
+            .await;
+    }
 
     if let Err(e) = manager.initialize_mcp(&agent_tx).await {
         let _ = agent_tx

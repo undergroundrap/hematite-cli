@@ -1,24 +1,21 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::{mpsc, Semaphore};
 
 pub use crate::agent::economics::{SessionEconomics, ToolRecord};
+pub use crate::agent::types::*;
 
 // ── Engine ────────────────────────────────────────────────────────────────────
 
 pub struct InferenceEngine {
-    pub client: reqwest::Client,
-    pub api_url: String,
-    /// Root URL of the LLM provider (e.g. `http://localhost:1234`).
-    /// All non-completions endpoints (models list, health, embeddings) are derived from this.
+    pub provider:
+        std::sync::Arc<tokio::sync::RwLock<Box<dyn crate::agent::provider::ModelProvider>>>,
+    pub cached_model: std::sync::Arc<std::sync::RwLock<String>>,
+    pub cached_context: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     pub base_url: String,
     pub species: String,
     pub snark: u8,
     pub kv_semaphore: Semaphore,
-    /// The model ID currently loaded in LM Studio (auto-detected on boot).
-    pub model: std::sync::RwLock<String>,
-    /// Context window length in tokens (auto-detected from LM Studio, default 32768).
-    pub context_length: std::sync::atomic::AtomicUsize,
     pub economics: std::sync::Arc<std::sync::Mutex<SessionEconomics>>,
     /// Optional model ID for worker-level tasks (Swarms / research).
     pub worker_model: Option<String>,
@@ -26,9 +23,6 @@ pub struct InferenceEngine {
     pub gemma_native_formatting: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Global cancellation token for hard-interrupting the inference stream.
     pub cancel_token: std::sync::Arc<std::sync::atomic::AtomicBool>,
-    /// LM Studio CLI Harness for automated lifecycle management.
-    pub lms: crate::agent::lms::LmsHarness,
-    pub ollama: crate::agent::ollama::OllamaHarness,
 }
 
 pub fn is_hematite_native_model(model: &str) -> bool {
@@ -41,49 +35,6 @@ fn should_use_native_formatting(engine: &InferenceEngine, model: &str) -> bool {
 }
 
 // ── OpenAI Tool Definition ────────────────────────────────────────────────────
-
-#[derive(Serialize, Clone, Debug)]
-pub struct ToolDefinition {
-    #[serde(rename = "type")]
-    pub tool_type: String,
-    pub function: ToolFunction,
-    #[serde(skip_serializing, skip_deserializing)]
-    pub metadata: ToolMetadata,
-}
-
-#[derive(Serialize, Clone, Debug)]
-pub struct ToolFunction {
-    pub name: String,
-    pub description: String,
-    pub parameters: Value,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ToolCategory {
-    RepoRead,
-    RepoWrite,
-    Runtime,
-    Architecture,
-    Toolchain,
-    Verification,
-    Git,
-    Research,
-    Vision,
-    Lsp,
-    Workflow,
-    External,
-    Other,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ToolMetadata {
-    pub category: ToolCategory,
-    pub mutates_workspace: bool,
-    pub external_surface: bool,
-    pub trust_sensitive: bool,
-    pub read_only_friendly: bool,
-    pub plan_scope: bool,
-}
 
 pub fn tool_metadata_for_name(name: &str) -> ToolMetadata {
     if name.starts_with("mcp__") {
@@ -257,220 +208,9 @@ pub fn tool_metadata_for_name(name: &str) -> ToolMetadata {
         },
     }
 }
-
-// ── Message types ─────────────────────────────────────────────────────────────
-
-/// OpenAI-compatible chat message. Content can be a string (legacy) or a
-/// Vec of ContentPart (multimodal).
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ChatMessage {
-    pub role: String,
-    /// Support both simple string content and complex multi-part content (Vision).
-    pub content: MessageContent,
-    /// Assistant messages may have tool calls. Default to empty vec, not null.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub tool_calls: Vec<ToolCallResponse>,
-    /// Tool message references the original call.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_call_id: Option<String>,
-    /// Tool message name.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(untagged)]
-pub enum MessageContent {
-    Text(String),
-    Parts(Vec<ContentPart>),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type")]
-pub enum ContentPart {
-    #[serde(rename = "text")]
-    Text { text: String },
-    #[serde(rename = "image_url")]
-    ImageUrl { image_url: ImageUrlSource },
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ImageUrlSource {
-    pub url: String,
-}
-
-impl Default for MessageContent {
-    fn default() -> Self {
-        MessageContent::Text(String::new())
-    }
-}
-
-impl MessageContent {
-    pub fn as_str(&self) -> &str {
-        match self {
-            MessageContent::Text(s) => s,
-            MessageContent::Parts(parts) => {
-                for part in parts {
-                    if let ContentPart::Text { text } = part {
-                        return text;
-                    }
-                }
-                ""
-            }
-        }
-    }
-}
-
-impl ChatMessage {
-    pub fn system(content: &str) -> Self {
-        Self {
-            role: "system".into(),
-            content: MessageContent::Text(content.into()),
-            tool_calls: Vec::new(),
-            tool_call_id: None,
-            name: None,
-        }
-    }
-    pub fn user(content: &str) -> Self {
-        Self {
-            role: "user".into(),
-            content: MessageContent::Text(content.into()),
-            tool_calls: Vec::new(),
-            tool_call_id: None,
-            name: None,
-        }
-    }
-    pub fn user_with_image(text: &str, image_url: &str) -> Self {
-        let mut text_parts = text.to_string();
-        if !text_parts.contains("<|image|>") {
-            text_parts.push_str(" <|image|>");
-        }
-        Self {
-            role: "user".into(),
-            content: MessageContent::Parts(vec![
-                ContentPart::Text { text: text_parts },
-                ContentPart::ImageUrl {
-                    image_url: ImageUrlSource {
-                        url: image_url.into(),
-                    },
-                },
-            ]),
-            tool_calls: Vec::new(),
-            tool_call_id: None,
-            name: None,
-        }
-    }
-    pub fn assistant_text(content: &str) -> Self {
-        Self {
-            role: "assistant".into(),
-            content: MessageContent::Text(content.into()),
-            tool_calls: Vec::new(),
-            tool_call_id: None,
-            name: None,
-        }
-    }
-    pub fn assistant_tool_calls(content: &str, calls: Vec<ToolCallResponse>) -> Self {
-        Self {
-            role: "assistant".into(),
-            content: MessageContent::Text(content.into()),
-            tool_calls: calls,
-            tool_call_id: None,
-            name: None,
-        }
-    }
-    pub fn tool_result(tool_call_id: &str, fn_name: &str, content: &str) -> Self {
-        Self::tool_result_for_model(tool_call_id, fn_name, content, "")
-    }
-
-    /// Build a tool result message, applying Gemma 4 native markup only when the
-    /// loaded model is actually a Gemma 4 model.
-    pub fn tool_result_for_model(
-        tool_call_id: &str,
-        fn_name: &str,
-        content: &str,
-        model: &str,
-    ) -> Self {
-        let body = if is_hematite_native_model(model) {
-            format!(
-                "<|tool_response>response:{}{}{}<tool_response|>",
-                fn_name, "{", content
-            )
-        } else {
-            content.to_string()
-        };
-        Self {
-            role: "tool".into(),
-            content: MessageContent::Text(body),
-            tool_calls: Vec::new(),
-            tool_call_id: Some(tool_call_id.into()),
-            name: Some(fn_name.into()),
-        }
-    }
-}
-
-// ── Tool call as returned by the model ───────────────────────────────────────
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ToolCallResponse {
-    pub id: String,
-    #[serde(rename = "type")]
-    pub call_type: String,
-    pub function: ToolCallFn,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ToolCallFn {
-    pub name: String,
-    /// JSON-encoded arguments string (as returned by the API).
-    pub arguments: String,
-}
+// ── Message types migrated to types.rs ────────────────────────────────────────
 
 // ── HTTP request / response shapes ───────────────────────────────────────────
-
-#[derive(Serialize)]
-struct ChatRequest {
-    model: String,
-    messages: Vec<ChatMessage>,
-    temperature: f32,
-    stream: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tools: Option<Vec<ToolDefinition>>,
-}
-
-#[derive(Deserialize, Debug)]
-struct ChatResponse {
-    choices: Vec<ResponseChoice>,
-    usage: Option<TokenUsage>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct TokenUsage {
-    pub prompt_tokens: usize,
-    pub completion_tokens: usize,
-    pub total_tokens: usize,
-    #[serde(default)]
-    pub prompt_cache_hit_tokens: usize,
-    #[serde(default)]
-    pub cache_read_input_tokens: usize,
-}
-
-#[derive(Deserialize, Debug)]
-struct ResponseChoice {
-    message: ResponseMessage,
-    #[serde(default)]
-    finish_reason: Option<String>,
-}
-
-#[derive(Deserialize, Debug)]
-struct ResponseMessage {
-    content: Option<String>,
-    tool_calls: Option<Vec<ToolCallResponse>>,
-    /// LM Studio routes Qwen3 thinking-mode output here instead of wrapping
-    /// it in <think> tags inside `content`. When tool calls are generated
-    /// inside a think block, they end up here rather than in `tool_calls`.
-    #[serde(default)]
-    reasoning_content: Option<String>,
-}
 
 const MIN_RESERVED_OUTPUT_TOKENS: usize = 1024;
 const MAX_RESERVED_OUTPUT_TOKENS: usize = 4096;
@@ -542,211 +282,7 @@ fn format_runtime_failure_message(detail: &str) -> String {
     )
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProviderRuntimeState {
-    Booting,
-    Live,
-    Recovering,
-    Degraded,
-    ContextWindow,
-    EmptyResponse,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum McpRuntimeState {
-    Unconfigured,
-    Healthy,
-    Degraded,
-    Failed,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OperatorCheckpointState {
-    Idle,
-    RecoveringProvider,
-    BudgetReduced,
-    HistoryCompacted,
-    BlockedContextWindow,
-    BlockedPolicy,
-    BlockedRecentFileEvidence,
-    BlockedExactLineWindow,
-    BlockedToolLoop,
-    BlockedVerification,
-}
-
-impl OperatorCheckpointState {
-    pub fn label(self) -> &'static str {
-        match self {
-            OperatorCheckpointState::Idle => "idle",
-            OperatorCheckpointState::RecoveringProvider => "recovering_provider",
-            OperatorCheckpointState::BudgetReduced => "budget_reduced",
-            OperatorCheckpointState::HistoryCompacted => "history_compacted",
-            OperatorCheckpointState::BlockedContextWindow => "blocked_context_window",
-            OperatorCheckpointState::BlockedPolicy => "blocked_policy",
-            OperatorCheckpointState::BlockedRecentFileEvidence => "blocked_recent_file_evidence",
-            OperatorCheckpointState::BlockedExactLineWindow => "blocked_exact_line_window",
-            OperatorCheckpointState::BlockedToolLoop => "blocked_tool_loop",
-            OperatorCheckpointState::BlockedVerification => "blocked_verification",
-        }
-    }
-}
-
-fn provider_state_for_failure_tag(tag: &str) -> ProviderRuntimeState {
-    match tag {
-        "context_window" => ProviderRuntimeState::ContextWindow,
-        "empty_model_response" => ProviderRuntimeState::EmptyResponse,
-        _ => ProviderRuntimeState::Degraded,
-    }
-}
-
-fn compact_runtime_failure_summary(tag: &str, detail: &str) -> String {
-    match tag {
-        "context_window" => {
-            "LM Studio context ceiling hit; narrow the turn or refresh the live runtime budget."
-                .to_string()
-        }
-        "empty_model_response" => {
-            "LM Studio returned an empty reply; Hematite will retry once before surfacing a failure."
-                .to_string()
-        }
-        "tool_policy_blocked" => {
-            "A blocked tool path was rejected; stay inside the allowed workflow before retrying."
-                .to_string()
-        }
-        _ => {
-            let mut excerpt = detail
-                .split_whitespace()
-                .take(12)
-                .collect::<Vec<_>>()
-                .join(" ");
-            if excerpt.len() > 110 {
-                excerpt.truncate(110);
-                excerpt.push_str("...");
-            }
-            if excerpt.is_empty() {
-                "LM Studio degraded; Hematite will retry once before surfacing a failure."
-                    .to_string()
-            } else {
-                format!("LM Studio degraded: {}", excerpt)
-            }
-        }
-    }
-}
-
-// ── Events pushed to the TUI ──────────────────────────────────────────────────
-
-#[derive(Debug)]
-pub enum InferenceEvent {
-    /// A text token to append to the current assistant message.
-    Token(String),
-    /// A text token to be displayed on screen but NOT spoken (e.g. startup greeting).
-    MutedToken(String),
-    /// Internal model reasoning (shown in side panel, not dialogue).
-    Thought(String),
-    /// Critical diagnostic feedback from the voice synthesis engine.
-    VoiceStatus(String),
-    /// A tool call is starting – show a status line in the TUI.
-    ToolCallStart {
-        id: String,
-        name: String,
-        args: String,
-    },
-    /// A tool call completed – show result in the TUI.
-    ToolCallResult {
-        id: String,
-        name: String,
-        output: String,
-        is_error: bool,
-    },
-    /// A risky tool requires explicit user approval.
-    /// The TUI must send `true` (approved) or `false` (rejected) via `responder`.
-    /// When `diff` is Some, the modal renders a coloured before/after diff preview.
-    ApprovalRequired {
-        id: String,
-        name: String,
-        display: String,
-        /// Pre-formatted diff: lines starting with "- " are removals, "+ " are additions,
-        /// "---" is a file header.  None means a plain high-risk approval (no diff).
-        diff: Option<String>,
-        /// Intent label for mutation protocol (Cyan box trigger).
-        mutation_label: Option<String>,
-        responder: tokio::sync::oneshot::Sender<bool>,
-    },
-    /// The current agent turn is complete.
-    Done,
-    /// Indicates the agent is automatically orchestrating a transition to /implement-plan.
-    ChainImplementPlan,
-    /// An error occurred during inference.
-    Error(String),
-    /// Compact provider/runtime state for the operator surface.
-    ProviderStatus {
-        state: ProviderRuntimeState,
-        summary: String,
-    },
-    /// Typed operator checkpoint/blocker state for SPECULAR and recovery UIs.
-    OperatorCheckpoint {
-        state: OperatorCheckpointState,
-        summary: String,
-    },
-    /// Typed recovery recipe summary for operator/debug surfaces.
-    RecoveryRecipe { summary: String },
-    /// Compact MCP/runtime server health for the operator surface.
-    McpStatus {
-        state: McpRuntimeState,
-        summary: String,
-    },
-    /// Current compaction pressure against the adaptive threshold.
-    CompactionPressure {
-        estimated_tokens: usize,
-        threshold_tokens: usize,
-        percent: u8,
-    },
-    /// Current total prompt-budget pressure against the live context window.
-    PromptPressure {
-        estimated_input_tokens: usize,
-        reserved_output_tokens: usize,
-        estimated_total_tokens: usize,
-        context_length: usize,
-        percent: u8,
-    },
-    /// A generic task progress update (e.g. for single-agent tool execution).
-    TaskProgress {
-        id: String,
-        label: String,
-        progress: u8,
-    },
-    /// Real-time token usage update from the API.
-    UsageUpdate(TokenUsage),
-    /// The current runtime profile detected from LM Studio.
-    RuntimeProfile {
-        model_id: String,
-        context_length: usize,
-    },
-    /// Vein index status after each incremental re-index.
-    VeinStatus {
-        file_count: usize,
-        embedded_count: usize,
-        docs_only: bool,
-    },
-    /// File paths the Vein surfaced as relevant to the current turn.
-    /// Used to populate ACTIVE CONTEXT with retrieval results.
-    VeinContext { paths: Vec<String> },
-    /// A new companion was hatched mid-session via /reroll.
-    SoulReroll {
-        species: String,
-        rarity: String,
-        shiny: bool,
-        personality: String,
-    },
-    /// A "Dive-In" command (cd <dir> && hematite) to be copied to the clipboard.
-    CopyDiveInCommand(String),
-    /// Embed model loaded/unloaded mid-session.
-    EmbedProfile { model_id: Option<String> },
-    /// A single line of live shell output, streamed while the command runs.
-    /// Displayed in the SPECULAR panel so the operator sees progress without
-    /// waiting for the full command to finish.
-    ShellLine(String),
-}
+// ── Events pushed to the TUI (migrated to types.rs) ──────────────────────────
 
 // ── Engine implementation ─────────────────────────────────────────────────────
 
@@ -760,7 +296,6 @@ impl InferenceEngine {
             .timeout(std::time::Duration::from_secs(180))
             .build()?;
 
-        // Extract http://host:port as the base for all non-completions endpoints.
         let base_url = {
             let trimmed = api_url.trim_end_matches('/');
             if let Some(scheme_end) = trimmed.find("://") {
@@ -779,7 +314,7 @@ impl InferenceEngine {
             }
         };
 
-        let api_url = if api_url.ends_with("/chat/completions") {
+        let api_url_full = if api_url.ends_with("/chat/completions") {
             api_url
         } else if api_url.ends_with("/") {
             format!("{}chat/completions", api_url)
@@ -787,23 +322,39 @@ impl InferenceEngine {
             format!("{}/chat/completions", api_url)
         };
 
-        let ollama = crate::agent::ollama::OllamaHarness::new(&base_url);
+        let lms = crate::agent::lms::LmsHarness::new();
+        let ollama_harness = crate::agent::ollama::OllamaHarness::new(&base_url);
+
+        let provider = if base_url.contains("11434") {
+            Box::new(crate::agent::provider::OllamaProvider {
+                client: client.clone(),
+                base_url: base_url.clone(),
+                model: String::new(),
+                ollama: ollama_harness,
+            }) as Box<dyn crate::agent::provider::ModelProvider>
+        } else {
+            Box::new(crate::agent::provider::LmsProvider {
+                client: client.clone(),
+                api_url: api_url_full,
+                base_url: base_url.clone(),
+                model: String::new(),
+                context_length: 32_768,
+                lms,
+            }) as Box<dyn crate::agent::provider::ModelProvider>
+        };
 
         Ok(Self {
-            client,
-            api_url,
-            base_url,
-            species,
+            provider: std::sync::Arc::new(tokio::sync::RwLock::new(provider)),
+            cached_model: std::sync::Arc::new(std::sync::RwLock::new(String::new())),
+            cached_context: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(32_768)),
+            base_url: base_url.clone(),
+            species: species.clone(),
             snark,
             kv_semaphore: Semaphore::new(3),
-            model: std::sync::RwLock::new(String::new()),
-            context_length: std::sync::atomic::AtomicUsize::new(32_768), // Gemma-4 Sweet Spot (32K)
             economics: std::sync::Arc::new(std::sync::Mutex::new(SessionEconomics::new())),
             worker_model: None,
             gemma_native_formatting: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             cancel_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            lms: crate::agent::lms::LmsHarness::new(),
-            ollama,
         })
     }
 
@@ -812,265 +363,49 @@ impl InferenceEngine {
             .store(enabled, std::sync::atomic::Ordering::SeqCst);
     }
 
-    pub fn gemma_native_formatting_enabled(&self) -> bool {
-        self.gemma_native_formatting
-            .load(std::sync::atomic::Ordering::SeqCst)
+    pub async fn health_check(&self) -> bool {
+        let p = self.provider.read().await;
+        p.health_check().await
     }
 
-    pub fn current_model(&self) -> String {
-        self.model.read().map(|g| g.clone()).unwrap_or_default()
+    pub async fn get_loaded_model(&self) -> Option<String> {
+        let p = self.provider.read().await;
+        match p.detect_model().await {
+            Ok(m) if m.is_empty() => Some("".to_string()),
+            Ok(m) => Some(m),
+            Err(_) => None,
+        }
     }
 
-    pub fn current_context_length(&self) -> usize {
-        self.context_length
-            .load(std::sync::atomic::Ordering::SeqCst)
+    pub async fn get_embedding_model(&self) -> Option<String> {
+        let p = self.provider.read().await;
+        p.get_embedding_model().await
     }
 
-    pub fn set_runtime_profile(&self, model: &str, context_length: usize) {
-        if let Ok(mut guard) = self.model.write() {
+    pub async fn load_model(&self, model_id: &str) -> Result<(), String> {
+        let p = self.provider.read().await;
+        p.load_model(model_id).await
+    }
+
+    pub async fn prewarm(&self) -> Result<(), String> {
+        let p = self.provider.read().await;
+        p.prewarm().await
+    }
+
+    pub async fn detect_context_length(&self) -> usize {
+        let p = self.provider.read().await;
+        p.detect_context_length().await
+    }
+
+    pub async fn set_runtime_profile(&self, model: &str, context_length: usize) {
+        if let Ok(mut guard) = self.cached_model.write() {
             *guard = model.to_string();
         }
-        self.context_length
+        self.cached_context
             .store(context_length, std::sync::atomic::Ordering::SeqCst);
-    }
 
-    /// Returns true if LM Studio is reachable (via HTTP or CLI retry).
-    pub async fn health_check(&self) -> bool {
-        if self.lms.is_server_responding(&self.base_url).await {
-            return true;
-        }
-
-        // Proactive Recovery: If the port is closed, try starting the server via lms CLI.
-        if self.lms.binary_path.is_some() {
-            let _ = self.lms.ensure_server_running();
-            // Give it a moment to boot
-            tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
-            return self.lms.is_server_responding(&self.base_url).await;
-        }
-
-        if self.base_url.contains("11434") {
-            return self.ollama.is_reachable().await;
-        }
-
-        false
-    }
-
-    /// Query /api/v0/models and return the first loaded chat model id.
-    /// Uses /api/v0/models (not /v1/models) because the OpenAI-compat endpoint
-    /// omits the `type` field, making it impossible to distinguish embedding
-    /// models from chat models. Falls back to /v1/models with a name heuristic
-    /// if /api/v0/models is unavailable.
-    /// Returns Some("") when LM Studio is reachable but no chat model is loaded
-    /// so callers can distinguish "offline" (None) from "no chat model" (Some("")).
-    pub async fn get_loaded_model(&self) -> Option<String> {
-        #[derive(Deserialize)]
-        struct ModelList {
-            data: Vec<ModelEntry>,
-        }
-        #[derive(Deserialize)]
-        struct ModelEntry {
-            id: String,
-            #[serde(rename = "type", default)]
-            model_type: String,
-            #[serde(default)]
-            state: String,
-        }
-
-        // Try /api/v0/models first — it has type and state fields.
-        if let Ok(resp) = self
-            .client
-            .get(format!("{}/api/v0/models", self.base_url))
-            .send()
-            .await
-        {
-            if let Ok(list) = resp.json::<ModelList>().await {
-                let chat_model = list
-                    .data
-                    .into_iter()
-                    .find(|m| m.model_type != "embeddings" && m.state == "loaded")
-                    .map(|m| m.id)
-                    .unwrap_or_default();
-                return Some(chat_model);
-            }
-        }
-
-        // Fallback: /v1/models lacks type info — use name heuristic to skip embed models.
-        let resp = self
-            .client
-            .get(format!("{}/v1/models", self.base_url))
-            .send()
-            .await
-            .ok()?;
-        let list: ModelList = resp.json().await.ok()?;
-        Some(
-            list.data
-                .into_iter()
-                .find(|m| !m.id.to_lowercase().contains("embed"))
-                .map(|m| m.id)
-                .unwrap_or_default(),
-        )
-    }
-
-    /// Returns the ID of the first loaded embedding model, if any.
-    /// Uses /api/v0/models which includes `type` and `state` fields.
-    /// The OpenAI-compat /v1/models endpoint omits `type` so cannot be used here.
-    /// Accepts any non-empty state (not just "loaded") to handle LM Studio variants
-    /// where the embed model may report a different state string at startup.
-    pub async fn get_embedding_model(&self) -> Option<String> {
-        #[derive(Deserialize)]
-        struct ModelList {
-            data: Vec<ModelEntry>,
-        }
-        #[derive(Deserialize)]
-        struct ModelEntry {
-            id: String,
-            #[serde(rename = "type", default)]
-            model_type: String,
-            #[serde(default)]
-            state: String,
-        }
-        let resp = self
-            .client
-            .get(format!("{}/api/v0/models", self.base_url))
-            .send()
-            .await
-            .ok()?;
-        let list: ModelList = resp.json().await.ok()?;
-        list.data
-            .into_iter()
-            .find(|m| m.model_type == "embeddings" && m.state == "loaded")
-            .map(|m| m.id)
-    }
-
-    /// Attempt to load a model in LM Studio.
-    /// Prefers the 'lms load' CLI for deep loading, falls back to HTTP warmup.
-    pub async fn load_model(&self, model_id: &str) -> Result<(), String> {
-        // Option 1: Native binary load (most robust)
-        // Grounding: Proactive Model Discovery
-        if self.base_url.contains("11434") {
-             if let Ok(true) = self.ollama.has_model(model_id).await {
-                 return Ok(());
-             }
-        }
-
-        if self.lms.binary_path.is_some() {
-            match self.lms.load_model(model_id) {
-                Ok(_) => return Ok(()),
-                Err(_) => {
-                    // Log and fall back to HTTP warmup
-                    let _ = self.lms.ensure_server_running();
-                }
-            }
-        }
-
-        // Option 2: OpenAI-compat HTTP warmup (fallback)
-        let payload = serde_json::json!({
-            "model": model_id,
-            "messages": [{"role": "user", "content": ""}],
-            "max_tokens": 1,
-            "stream": false
-        });
-
-        match self
-            .client
-            .post(&self.api_url)
-            .json(&payload)
-            .send()
-            .await
-        {
-            Ok(resp) if resp.status().is_success() => Ok(()),
-            Ok(resp) => Err(format!("Model load failed with status: {}", resp.status())),
-            Err(e) => Err(format!("Model load request failed: {}", e)),
-        }
-    }
-
-    /// Detect the loaded model's context window size.
-    /// Tries LM Studio's `/api/v0/models` endpoint first and prefers the loaded
-    /// model's live `loaded_context_length`, then falls back to older
-    /// `context_length` / `max_context_length` style fields.
-    /// Falls back to a heuristic from the model name, then 32K.
-    pub async fn detect_context_length(&self) -> usize {
-        #[derive(Deserialize)]
-        struct LmStudioModel {
-            id: Option<String>,
-            #[serde(rename = "type", default)]
-            model_type: String,
-            state: Option<String>,
-            loaded_context_length: Option<u64>,
-            context_length: Option<u64>,
-            max_context_length: Option<u64>,
-        }
-        #[derive(Deserialize)]
-        struct LmStudioList {
-            data: Vec<LmStudioModel>,
-        }
-
-        // Check api/v0/models (LM Studio specific)
-        if let Ok(resp) = self
-            .client
-            .get(format!("{}/api/v0/models", self.base_url))
-            .send()
-            .await
-        {
-            if let Ok(list) = resp.json::<LmStudioList>().await {
-                let target_model = self.current_model().to_ascii_lowercase();
-                // Never select embedding models for context-length detection.
-                let non_embed = |m: &&LmStudioModel| m.model_type != "embeddings";
-                let loaded = list
-                    .data
-                    .iter()
-                    .find(|m| {
-                        non_embed(m)
-                            && m.state.as_deref() == Some("loaded")
-                            && m.id
-                                .as_deref()
-                                .map(|id| id.eq_ignore_ascii_case(&target_model))
-                                .unwrap_or(false)
-                    })
-                    .or_else(|| {
-                        list.data
-                            .iter()
-                            .find(|m| non_embed(m) && m.state.as_deref() == Some("loaded"))
-                    })
-                    .or_else(|| {
-                        list.data.iter().find(|m| {
-                            non_embed(m)
-                                && m.id
-                                    .as_deref()
-                                    .map(|id| id.eq_ignore_ascii_case(&target_model))
-                                    .unwrap_or(false)
-                        })
-                    })
-                    .or_else(|| list.data.iter().find(|m| non_embed(m)));
-
-                if let Some(model) = loaded {
-                    if let Some(ctx) = model.loaded_context_length {
-                        if ctx > 0 {
-                            return ctx as usize;
-                        }
-                    }
-                    if let Some(ctx) = model.context_length {
-                        if ctx > 0 {
-                            return ctx as usize;
-                        }
-                    }
-                    if let Some(ctx) = model.max_context_length {
-                        if ctx > 0 && ctx <= 32_768 {
-                            return ctx as usize;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Heuristic fallback:
-        // If "gemma-4" is detected, we target 32,768 as the baseline standard,
-        // acknowledging that 131,072 is available for High-Capacity tasks.
-        if self.current_model().to_lowercase().contains("gemma-4") {
-            return 32_768;
-        }
-
-        32_768
+        let mut p = self.provider.write().await;
+        p.set_runtime_profile(model, context_length);
     }
 
     pub async fn refresh_runtime_profile(&self) -> Option<(String, usize, bool)> {
@@ -1078,16 +413,10 @@ impl InferenceEngine {
         let previous_context = self.current_context_length();
 
         let detected_model = match self.get_loaded_model().await {
-            Some(m) if !m.is_empty() => m,            // coding model found
-            Some(_) => "no model loaded".to_string(), // reachable but no coding model
-            None => previous_model.clone(),           // LM Studio offline
+            Some(m) if !m.is_empty() => m,
+            Some(_) => "no model loaded".to_string(),
+            None => previous_model.clone(),
         };
-
-        if !detected_model.is_empty() && detected_model != previous_model {
-            if let Ok(mut guard) = self.model.write() {
-                *guard = detected_model.clone();
-            }
-        }
 
         let detected_context = self.detect_context_length().await;
         let effective_model = if detected_model.is_empty() {
@@ -1097,7 +426,10 @@ impl InferenceEngine {
         };
 
         let changed = effective_model != previous_model || detected_context != previous_context;
-        self.set_runtime_profile(&effective_model, detected_context);
+        if changed {
+            self.set_runtime_profile(&effective_model, detected_context)
+                .await;
+        }
 
         Some((effective_model, detected_context, changed))
     }
@@ -1420,19 +752,32 @@ impl InferenceEngine {
         if brief {
             sys.push_str("BRIEF MODE: answer in one concise sentence unless code is required.\n");
         }
-        if is_hematite_native_model(&current_model) {
-            sys.push_str(
-                "Sovereign native note: use exact tool JSON with no extra prose when calling tools.\n",
-            );
-        }
         sys.push_str("<turn|>\n");
         sys
     }
 
-    // ── Non-streaming call (used for agentic turns with tool support) ─────────
+    pub fn current_model(&self) -> String {
+        self.cached_model
+            .read()
+            .map(|g| g.clone())
+            .unwrap_or_default()
+    }
 
-    /// Send messages to the model. Returns (text_content, tool_calls).
-    /// Exactly one of the two will be Some on a successful response.
+    pub fn current_context_length(&self) -> usize {
+        self.cached_context
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn is_compact_context_window(&self) -> bool {
+        let len = self.current_context_length();
+        len <= 16384
+    }
+
+    pub fn gemma_native_formatting_enabled(&self) -> bool {
+        self.gemma_native_formatting
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     pub async fn call_with_tools(
         &self,
         messages: &[ChatMessage],
@@ -1454,179 +799,79 @@ impl InferenceEngine {
             .await
             .map_err(|e| e.to_string())?;
 
-        let current_model = self.current_model();
-        let model = model_override.unwrap_or(current_model.as_str()).to_string();
-        let filtered_tools = if cfg!(target_os = "windows") {
-            tools
-                .iter()
-                .filter(|t| t.function.name != "bash" && t.function.name != "sh")
-                .cloned()
-                .collect::<Vec<_>>()
-        } else {
-            tools.to_vec()
-        };
-
-        let request_messages = if should_use_native_formatting(self, &model) {
-            prepare_gemma_native_messages(messages)
-        } else {
-            messages.to_vec()
-        };
-
-        // In compact context windows, restrict tools to the core coding set.
-        // Full schemas for 36+ tools add 10k+ tokens via the model's chat template (e.g. Gemma 4).
-        // Sending a small core set keeps schemas available for structured tool-call dispatch
-        // while staying within the 16k budget.
-        const COMPACT_CORE_TOOLS: &[&str] = &[
-            "read_file",
-            "inspect_lines",
-            "edit_file",
-            "write_file",
-            "grep_files",
-            "list_files",
-            "verify_build",
-            "shell",
-        ];
-        let effective_tools = if is_compact_context_window(self.current_context_length()) {
-            let core: Vec<_> = filtered_tools
-                .iter()
-                .filter(|t| COMPACT_CORE_TOOLS.contains(&t.function.name.as_str()))
-                .cloned()
-                .collect();
-            if core.is_empty() {
-                None
+        let (res, model_name, prepared_messages) = {
+            let p = self.provider.read().await;
+            let model_name = model_override.unwrap_or(&p.current_model()).to_string();
+            let prepared_messages = if should_use_native_formatting(self, &model_name) {
+                prepare_gemma_native_messages(messages)
             } else {
-                Some(core)
+                messages.to_vec()
+            };
+            if let Err(detail) = preflight_chat_request(
+                &model_name,
+                &prepared_messages,
+                tools,
+                self.current_context_length(),
+            ) {
+                return Err(format_runtime_failure_message(&detail));
             }
-        } else if filtered_tools.is_empty() {
-            None
-        } else {
-            Some(filtered_tools)
+            let res = p
+                .call_with_tools(&prepared_messages, tools, model_override)
+                .await
+                .map_err(|e| format_runtime_failure_message(&e))?;
+            (res, model_name, prepared_messages)
         };
 
-        let request = ChatRequest {
-            model: model.clone(),
-            messages: request_messages,
-            temperature: 0.2,
-            stream: false,
-            tools: effective_tools,
-        };
-
-        // Exponential backoff: retry up to 3× on 5xx / timeout / connect errors.
-        preflight_chat_request(
-            &model,
-            &request.messages,
-            request.tools.as_deref().unwrap_or(&[]),
-            self.current_context_length(),
-        )?;
-
-        let mut last_err = String::new();
-        let mut response_opt: Option<reqwest::Response> = None;
-        for attempt in 0..3u32 {
-            match self.client.post(&self.api_url).json(&request).send().await {
-                Ok(res) if res.status().is_success() => {
-                    response_opt = Some(res);
-                    break;
-                }
-                Ok(res) if res.status().as_u16() >= 500 => {
-                    last_err = format!("LM Studio error {}", res.status());
-                }
-                Ok(res) => {
-                    // 4xx — don't retry
-                    let status = res.status();
-                    let body = res.text().await.unwrap_or_default();
-                    let preview = &body[..body.len().min(300)];
-                    return Err(format!("LM Studio error {}: {}", status, preview));
-                }
-                Err(e) if e.is_timeout() || e.is_connect() => {
-                    last_err = format!("Request failed: {}", e);
-                }
-                Err(e) => return Err(format!("Request failed: {}", e)),
-            }
-            if attempt < 2 {
-                let delay = std::time::Duration::from_millis(500 * (1u64 << attempt));
-                tokio::time::sleep(delay.min(std::time::Duration::from_secs(4))).await;
-            }
-        }
-        let res = response_opt
-            .ok_or_else(|| format!("LM Studio unreachable after 3 attempts: {}", last_err))?;
-
-        let body: ChatResponse = res
-            .json()
-            .await
-            .map_err(|e| format!("Response parse error: {}", e))?;
-
-        if let Some(usage) = &body.usage {
-            let mut econ = self.economics.lock().unwrap();
-            econ.input_tokens += usage.prompt_tokens;
-            econ.output_tokens += usage.completion_tokens;
+        if let Ok(mut econ) = self.economics.lock() {
+            econ.input_tokens += res.usage.prompt_tokens;
+            econ.output_tokens += res.usage.completion_tokens;
         }
 
-        let choice = body
-            .choices
-            .into_iter()
-            .next()
-            .ok_or_else(|| "Empty response from model".to_string())?;
+        let mut content = res.content;
+        let mut tool_calls = res.tool_calls;
 
-        let finish_reason = choice.finish_reason;
-        let mut tool_calls = choice.message.tool_calls;
-        let mut content = choice.message.content;
+        // Post-processing: Gemma 4 / thinking block extraction
+        if let Some(text) = &content {
+            if should_use_native_formatting(self, &model_name) {
+                let native_calls = extract_native_tool_calls(text);
+                if !native_calls.is_empty() {
+                    let mut existing = tool_calls.unwrap_or_default();
+                    existing.extend(native_calls);
+                    tool_calls = Some(existing);
 
-        // Gemma-4 Fallback: If the model outputs native <|tool_call|> tags in the text content,
-        // extract them and treat them as valid tool calls.
-        if let Some(raw_content) = &content {
-            let native_calls = extract_native_tool_calls(raw_content);
-            if !native_calls.is_empty() {
-                let mut existing = tool_calls.unwrap_or_default();
-                existing.extend(native_calls);
-                tool_calls = Some(existing);
-                let stripped = strip_native_tool_call_text(raw_content);
-                content = if stripped.trim().is_empty() {
-                    None
-                } else {
-                    Some(stripped)
-                };
+                    let stripped = strip_native_tool_call_text(text);
+                    content = if stripped.trim().is_empty() {
+                        None
+                    } else {
+                        Some(stripped)
+                    };
+                }
             }
         }
 
-        if is_hematite_native_model(&model) {
+        // Normalization: Tool arguments
+        if should_use_native_formatting(self, &model_name) {
             if let Some(calls) = tool_calls.as_mut() {
                 for call in calls.iter_mut() {
-                    call.function.arguments = normalize_tool_argument_string(
+                    normalize_tool_argument_value(
                         &call.function.name,
-                        &call.function.arguments,
+                        &mut call.function.arguments,
                     );
                 }
             }
         }
 
-        // Qwen3 Fallback: When the model generates tool calls inside a <think> block,
-        // LM Studio routes the entire thinking output (including <tool_call> XML) to
-        // `reasoning_content` instead of `tool_calls`. If content is empty and we have
-        // no tool calls yet, check reasoning_content for embedded tool call markup.
-        let reasoning_text = choice.message.reasoning_content.unwrap_or_default();
-        if tool_calls.as_ref().map(|v| v.is_empty()).unwrap_or(true)
-            && content
-                .as_ref()
-                .map(|s| s.trim().is_empty())
-                .unwrap_or(true)
-            && !reasoning_text.is_empty()
+        if should_use_native_formatting(self, &model_name)
+            && content.is_none()
+            && tool_calls.is_none()
+            && !prepared_messages.is_empty()
         {
-            let recovered = extract_native_tool_calls(&reasoning_text);
-            if !recovered.is_empty() {
-                tool_calls = Some(recovered);
-                // Clear content so downstream code doesn't see an empty string.
-                content = None;
-            } else if finish_reason.as_deref() == Some("stop") {
-                // Qwen3.5 thinking-mode answer leak: the model wrote its final answer
-                // inside reasoning_content and left content empty. finish_reason=stop
-                // with no tool calls means the model intended this as its response.
-                // Surface reasoning_content as the visible response rather than
-                // firing the empty-response nudge loop.
-                content = Some(reasoning_text);
-            }
+            return Err(format_runtime_failure_message(
+                "model returned an empty response after native-format message preparation",
+            ));
         }
 
-        Ok((content, tool_calls, body.usage, finish_reason))
+        Ok((content, tool_calls, Some(res.usage), res.finish_reason))
     }
 
     // ── Streaming call (used for plain-text responses) ────────────────────────
@@ -1637,339 +882,8 @@ impl InferenceEngine {
         messages: &[ChatMessage],
         tx: mpsc::Sender<InferenceEvent>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let current_model = self.current_model();
-        let request_messages = if should_use_native_formatting(self, &current_model) {
-            prepare_gemma_native_messages(messages)
-        } else {
-            messages
-                .iter()
-                .map(|m| {
-                    let mut clone = m.clone();
-                    let current_text = m.content.as_str();
-                    if !current_text.starts_with("<|turn>") {
-                        clone.content = MessageContent::Text(format!(
-                            "<|turn>{}\n{}\n<turn|>",
-                            m.role, current_text
-                        ));
-                    }
-                    clone
-                })
-                .collect()
-        };
-
-        let request = ChatRequest {
-            model: current_model.clone(),
-            messages: request_messages,
-            temperature: 0.7,
-            stream: true,
-            tools: None,
-        };
-
-        if let Err(e) = preflight_chat_request(
-            &current_model,
-            &request.messages,
-            &[],
-            self.current_context_length(),
-        ) {
-            let tag = classify_runtime_failure_tag(&e);
-            let _ = tx
-                .send(InferenceEvent::ProviderStatus {
-                    state: provider_state_for_failure_tag(tag),
-                    summary: compact_runtime_failure_summary(tag, &e),
-                })
-                .await;
-            let _ = tx
-                .send(InferenceEvent::Error(format_runtime_failure_message(&e)))
-                .await;
-            let _ = tx.send(InferenceEvent::Done).await;
-            return Ok(());
-        }
-
-        let mut last_err = String::new();
-        let mut response_opt: Option<reqwest::Response> = None;
-        for attempt in 0..2u32 {
-            match self.client.post(&self.api_url).json(&request).send().await {
-                Ok(res) if res.status().is_success() => {
-                    response_opt = Some(res);
-                    break;
-                }
-                Ok(res) if res.status().as_u16() >= 500 => {
-                    last_err = format!("LM Studio error {}", res.status());
-                }
-                Ok(res) => {
-                    let status = res.status();
-                    let body = res.text().await.unwrap_or_default();
-                    let preview = &body[..body.len().min(300)];
-                    let detail = format!("LM Studio error {}: {}", status, preview);
-                    let tag = classify_runtime_failure_tag(&detail);
-                    let _ = tx
-                        .send(InferenceEvent::ProviderStatus {
-                            state: provider_state_for_failure_tag(tag),
-                            summary: compact_runtime_failure_summary(tag, &detail),
-                        })
-                        .await;
-                    let _ = tx
-                        .send(InferenceEvent::Error(format_runtime_failure_message(
-                            &detail,
-                        )))
-                        .await;
-                    let _ = tx.send(InferenceEvent::Done).await;
-                    return Ok(());
-                }
-                Err(e) if e.is_timeout() || e.is_connect() => {
-                    last_err = format!("Request failed: {}", e);
-                }
-                Err(e) => {
-                    let detail = format!("Request failed: {}", e);
-                    let tag = classify_runtime_failure_tag(&detail);
-                    let _ = tx
-                        .send(InferenceEvent::ProviderStatus {
-                            state: provider_state_for_failure_tag(tag),
-                            summary: compact_runtime_failure_summary(tag, &detail),
-                        })
-                        .await;
-                    let _ = tx
-                        .send(InferenceEvent::Error(format_runtime_failure_message(
-                            &detail,
-                        )))
-                        .await;
-                    let _ = tx.send(InferenceEvent::Done).await;
-                    return Ok(());
-                }
-            }
-            if attempt < 1 {
-                let _ = tx
-                    .send(InferenceEvent::ProviderStatus {
-                        state: ProviderRuntimeState::Recovering,
-                        summary: "LM Studio degraded during stream startup; retrying once.".into(),
-                    })
-                    .await;
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-            }
-        }
-        let Some(res) = response_opt else {
-            let detail = format!("LM Studio unreachable after 2 attempts: {}", last_err);
-            let tag = classify_runtime_failure_tag(&detail);
-            let _ = tx
-                .send(InferenceEvent::ProviderStatus {
-                    state: provider_state_for_failure_tag(tag),
-                    summary: compact_runtime_failure_summary(tag, &detail),
-                })
-                .await;
-            let _ = tx
-                .send(InferenceEvent::Error(format_runtime_failure_message(
-                    &detail,
-                )))
-                .await;
-            let _ = tx.send(InferenceEvent::Done).await;
-            return Ok(());
-        };
-
-        use futures::StreamExt;
-        let mut byte_stream = res.bytes_stream();
-
-        // [Collaborative Strategy] TokenBuffer refactor suggested by Hematite local agent.
-        // Aggregates tokens to ensure coherent linguistic chunks for UI/Voice.
-        let mut line_buffer = String::new();
-        let mut content_buffer = String::new();
-        let mut past_think = false;
-        let mut emitted_any_content = false;
-        let mut emitted_live_status = false;
-
-        // Immediate cancel gate: break *before* awaiting the stream
-        // so Escape works even when LM Studio is silent between chunks.
-        loop {
-            let next = tokio::select! {
-                // Race: next SSE chunk vs cancel poll
-                chunk = byte_stream.next() => chunk,
-                _ = tokio::time::sleep(std::time::Duration::from_millis(50)) => {
-                    if self.cancel_token.load(std::sync::atomic::Ordering::SeqCst) {
-                        break;
-                    }
-                    continue;
-                }
-            };
-
-            let Some(item) = next else { break };
-
-            let chunk = match item {
-                Ok(chunk) => chunk,
-                Err(e) => {
-                    let detail = format!("Request failed: {}", e);
-                    let tag = classify_runtime_failure_tag(&detail);
-                    let _ = tx
-                        .send(InferenceEvent::ProviderStatus {
-                            state: provider_state_for_failure_tag(tag),
-                            summary: compact_runtime_failure_summary(tag, &detail),
-                        })
-                        .await;
-                    let _ = tx
-                        .send(InferenceEvent::Error(format_runtime_failure_message(
-                            &detail,
-                        )))
-                        .await;
-                    let _ = tx.send(InferenceEvent::Done).await;
-                    return Ok(());
-                }
-            };
-            line_buffer.push_str(&String::from_utf8_lossy(&chunk));
-
-            while let Some(pos) = line_buffer.find("\n\n") {
-                let event_str = line_buffer.drain(..pos + 2).collect::<String>();
-                let data_pos = match event_str.find("data: ") {
-                    Some(p) => p,
-                    None => continue,
-                };
-
-                let data = event_str[data_pos + 6..].trim();
-                if data == "[DONE]" {
-                    break;
-                }
-
-                if let Ok(json) = serde_json::from_str::<Value>(data) {
-                    let delta = &json["choices"][0]["delta"];
-
-                    // Process reasoning/thought deltas (Qwen/O1 style)
-                    if let Some(reasoning) = delta["reasoning_content"]
-                        .as_str()
-                        .or_else(|| delta["thought"].as_str())
-                    {
-                        if !reasoning.is_empty() {
-                            past_think = false; // We are in reasoning mode
-                            content_buffer.push_str(reasoning);
-                            if content_buffer.len() > 30
-                                && (reasoning.contains('\n') || reasoning.contains('.'))
-                            {
-                                let _ = tx
-                                    .send(InferenceEvent::Thought(content_buffer.clone()))
-                                    .await;
-                                emitted_any_content = true;
-                                content_buffer.clear();
-                            }
-                        }
-                    }
-
-                    // Process standard content deltas
-                    if let Some(content) = delta["content"].as_str() {
-                        if content.is_empty() {
-                            continue;
-                        }
-
-                        // Auto-transition: if we have content but were in 'thinking' mode,
-                        // and haven't seen an explicit tag, assume reasoning is over once content is non-empty.
-                        if !past_think && !content_buffer.is_empty() && !content.trim().is_empty() {
-                            // Only transition if the content isn't logically part of the thinking
-                            // block (some models mix them). Standard heuristic: first non-whitespace content.
-                            let _ = tx
-                                .send(InferenceEvent::Thought(content_buffer.clone()))
-                                .await;
-                            content_buffer.clear();
-                            past_think = true;
-                        }
-
-                        if !past_think {
-                            let lc = content.to_lowercase();
-                            let close = lc
-                                .find("<channel|>")
-                                .map(|i| (i, "<channel|>".len()))
-                                .or_else(|| lc.find("</think>").map(|i| (i, "</think>".len())));
-
-                            if let Some((tag_start, tag_len)) = close {
-                                // Flush any existing thought buffer
-                                let before = &content[..tag_start];
-                                content_buffer.push_str(before);
-                                if !content_buffer.trim().is_empty() {
-                                    let _ = tx
-                                        .send(InferenceEvent::Thought(content_buffer.clone()))
-                                        .await;
-                                    emitted_any_content = true;
-                                }
-                                content_buffer.clear();
-
-                                past_think = true;
-                                let after = content[tag_start + tag_len..].trim_start_matches('\n');
-                                content_buffer.push_str(after);
-                            } else {
-                                // Still in reasoning block
-                                content_buffer.push_str(content);
-                                if content_buffer.len() > 30
-                                    && (content.contains('\n') || content.contains('.'))
-                                {
-                                    let _ = tx
-                                        .send(InferenceEvent::Thought(content_buffer.clone()))
-                                        .await;
-                                    emitted_any_content = true;
-                                    content_buffer.clear();
-                                }
-                            }
-                        } else {
-                            // PAST THINK: final answer tokens.
-                            content_buffer.push_str(content);
-                            let is_boundary = content.contains(' ')
-                                || content.contains('.')
-                                || content.contains('!')
-                                || content.contains('?');
-
-                            if content_buffer.len() > 10 && is_boundary {
-                                if !emitted_live_status {
-                                    let _ = tx
-                                        .send(InferenceEvent::ProviderStatus {
-                                            state: ProviderRuntimeState::Live,
-                                            summary: String::new(),
-                                        })
-                                        .await;
-                                    emitted_live_status = true;
-                                }
-                                let _ =
-                                    tx.send(InferenceEvent::Token(content_buffer.clone())).await;
-                                emitted_any_content = true;
-                                content_buffer.clear();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Final Flush
-        if !content_buffer.is_empty() {
-            if past_think {
-                if !emitted_live_status {
-                    let _ = tx
-                        .send(InferenceEvent::ProviderStatus {
-                            state: ProviderRuntimeState::Live,
-                            summary: String::new(),
-                        })
-                        .await;
-                }
-                let _ = tx.send(InferenceEvent::Token(content_buffer)).await;
-            } else {
-                let _ = tx.send(InferenceEvent::Thought(content_buffer)).await;
-            }
-            emitted_any_content = true;
-        }
-
-        if !emitted_any_content {
-            let _ = tx
-                .send(InferenceEvent::ProviderStatus {
-                    state: ProviderRuntimeState::EmptyResponse,
-                    summary: compact_runtime_failure_summary(
-                        "empty_model_response",
-                        "Empty response from model",
-                    ),
-                })
-                .await;
-            let _ = tx
-                .send(InferenceEvent::Error(format_runtime_failure_message(
-                    "Empty response from model",
-                )))
-                .await;
-            let _ = tx.send(InferenceEvent::Done).await;
-            return Ok(());
-        }
-
-        let _ = tx.send(InferenceEvent::Done).await;
-        Ok(())
+        let provider = self.provider.read().await;
+        provider.stream(messages, tx).await
     }
 
     /// Single-turn streaming (legacy helper used by startup sequence).
@@ -1982,7 +896,8 @@ impl InferenceEngine {
         professional: bool,
         tx: mpsc::Sender<InferenceEvent>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let system = self.build_system_prompt(snark, chaos, brief, professional, &[], None, &[]);
+        let system =
+            self.build_system_prompt(snark, chaos, brief, professional, &[], None, None, &[]);
         let messages = vec![ChatMessage::system(&system), ChatMessage::user(prompt)];
         self.stream_messages(&messages, tx).await
     }
@@ -2023,7 +938,7 @@ impl InferenceEngine {
     pub async fn generate_task_with_model(
         &self,
         prompt: &str,
-        temp: f32,
+        _temp: f32,
         professional: bool,
         model: &str,
     ) -> Result<String, String> {
@@ -2033,41 +948,22 @@ impl InferenceEngine {
             .await
             .map_err(|e| e.to_string())?;
 
-        let system = self.build_system_prompt(self.snark, 50, false, professional, &[], None, &[]);
-        let request_messages = if should_use_native_formatting(self, model) {
-            prepare_gemma_native_messages(&[
-                ChatMessage::system(&system),
-                ChatMessage::user(prompt),
-            ])
-        } else {
-            vec![ChatMessage::system(&system), ChatMessage::user(prompt)]
-        };
-        let request = ChatRequest {
-            model: model.to_string(),
-            messages: request_messages,
-            temperature: temp,
-            stream: false,
-            tools: None,
-        };
+        let system =
+            self.build_system_prompt(self.snark, 50, false, professional, &[], None, None, &[]);
+        let messages = vec![ChatMessage::system(&system), ChatMessage::user(prompt)];
+        if let Err(detail) =
+            preflight_chat_request(model, &messages, &[], self.current_context_length())
+        {
+            return Err(format_runtime_failure_message(&detail));
+        }
 
-        preflight_chat_request(model, &request.messages, &[], self.current_context_length())?;
-
-        let res = self
-            .client
-            .post(&self.api_url)
-            .json(&request)
-            .send()
+        let p = self.provider.read().await;
+        let res = p
+            .call_with_tools(&messages, &[], Some(model))
             .await
-            .map_err(|e| format!("LM Studio request failed: {}", e))?;
+            .map_err(|e| format_runtime_failure_message(&e))?;
 
-        let body: ChatResponse = res
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-        body.choices
-            .first()
-            .and_then(|c| c.message.content.clone())
+        res.content
             .ok_or_else(|| "Empty response from model".to_string())
     }
 
@@ -2124,7 +1020,8 @@ fn estimate_message_tokens(message: &ChatMessage) -> usize {
     let tool_tokens: usize = message
         .tool_calls
         .iter()
-        .map(|call| (call.function.name.len() + call.function.arguments.len()) / 4 + 4)
+        .flatten()
+        .map(|call| (call.function.name.len() + call.function.arguments.to_string().len()) / 4 + 4)
         .sum();
     content_tokens + tool_tokens + 6
 }
@@ -2452,8 +1349,9 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
             call_type: "function".to_string(),
             function: ToolCallFn {
                 name,
-                arguments: Value::Object(arguments).to_string(),
+                arguments: Value::Object(arguments),
             },
+            index: None,
         });
     }
 
@@ -2491,8 +1389,9 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
             call_type: "function".to_string(),
             function: ToolCallFn {
                 name,
-                arguments: Value::Object(arguments).to_string(),
+                arguments: Value::Object(arguments),
             },
+            index: None,
         });
     }
 
@@ -2511,7 +1410,7 @@ pub fn normalize_tool_argument_string(tool_name: &str, raw: &str) -> String {
     value.to_string()
 }
 
-fn normalize_tool_argument_value(tool_name: &str, value: &mut Value) {
+pub fn normalize_tool_argument_value(tool_name: &str, value: &mut Value) {
     match value {
         Value::String(s) => *s = normalize_string_arg(s),
         Value::Array(items) => {
@@ -2668,7 +1567,7 @@ mod tests {
         )
         .expect("engine");
 
-        let system = engine.build_system_prompt(0, 50, false, true, &[], None, &[]);
+        let system = engine.build_system_prompt(0, 50, false, true, &[], None, None, &[]);
         assert!(system.contains(crate::HEMATITE_VERSION));
     }
 
@@ -2682,7 +1581,7 @@ Reading the next chunk.<channel|>The startup banner wording is likely defined wi
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].function.name, "read_file");
 
-        let args: Value = serde_json::from_str(&calls[0].function.arguments).unwrap();
+        let args: Value = calls[0].function.arguments.clone();
         assert_eq!(args.get("limit").and_then(|v| v.as_i64()), Some(100));
         assert_eq!(args.get("offset").and_then(|v| v.as_i64()), Some(100));
         assert_eq!(
@@ -2734,7 +1633,7 @@ Check if the binary exists
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].function.name, "shell");
 
-        let args: Value = serde_json::from_str(&calls[0].function.arguments).unwrap();
+        let args: Value = calls[0].function.arguments.clone();
         assert_eq!(
             args.get("command").and_then(|v| v.as_str()),
             Some("ls -la hematite.exe")

@@ -1,5 +1,6 @@
 use crate::agent::config::HematiteConfig;
-use crate::agent::inference::{tool_metadata_for_name, ToolDefinition, ToolFunction};
+use crate::agent::inference::tool_metadata_for_name;
+use crate::agent::types::{ToolDefinition, ToolFunction};
 use serde_json::Value;
 
 fn make_tool(name: &str, description: &str, parameters: Value) -> ToolDefinition {
@@ -897,9 +898,10 @@ pub async fn dispatch_builtin_tool(
     name: &str,
     args: &Value,
     config: &HematiteConfig,
+    budget_tokens: usize,
 ) -> Result<String, String> {
     match name {
-        "shell" => crate::tools::shell::execute(args).await,
+        "shell" => crate::tools::shell::execute(args, budget_tokens).await,
         "run_code" => crate::tools::code_sandbox::execute(args).await,
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
@@ -909,7 +911,7 @@ pub async fn dispatch_builtin_tool(
             crate::tools::repo_script::run_hematite_maintainer_workflow(args).await
         }
         "run_workspace_workflow" => crate::tools::workspace_workflow::run_workspace_workflow(args).await,
-        "read_file" => crate::tools::file_ops::read_file(args).await,
+        "read_file" => crate::tools::file_ops::read_file(args, budget_tokens).await,
         "inspect_lines" => crate::tools::file_ops::inspect_lines(args).await,
         "tail_file" => crate::tools::file_ops::tail_file(args).await,
         "write_file" => crate::tools::file_ops::write_file(args).await,
@@ -917,8 +919,8 @@ pub async fn dispatch_builtin_tool(
         "edit_file" => crate::tools::file_ops::edit_file(args).await,
         "patch_hunk" => crate::tools::file_ops::patch_hunk(args).await,
         "multi_search_replace" => crate::tools::file_ops::multi_search_replace(args).await,
-        "list_files" => crate::tools::file_ops::list_files(args).await,
-        "grep_files" => crate::tools::file_ops::grep_files(args).await,
+        "list_files" => crate::tools::file_ops::list_files(args, budget_tokens).await,
+        "grep_files" => crate::tools::file_ops::grep_files(args, budget_tokens).await,
         "git_commit" => crate::tools::git::execute(args).await,
         "git_push" => crate::tools::git::execute_push(args).await,
         "git_remote" => crate::tools::git::execute_remote(args).await,

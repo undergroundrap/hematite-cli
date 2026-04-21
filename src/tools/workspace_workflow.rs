@@ -31,6 +31,7 @@ pub async fn run_workspace_workflow(args: &Value) -> Result<String, String> {
                 &root,
                 invocation.timeout_ms,
                 false,
+                1000000,
             )
             .await?;
 

@@ -317,7 +317,7 @@ mod privilege_hint_tests {
 mod event_query_tests {
     use super::is_event_query_no_results_message;
 
-#[cfg(target_os = "windows")]
+    #[cfg(target_os = "windows")]
     #[test]
     fn treats_windows_no_results_message_as_empty_query() {
         assert!(is_event_query_no_results_message(

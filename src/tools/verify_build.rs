@@ -326,11 +326,14 @@ async fn run_profile_command(
     command: &str,
     timeout_secs: u64,
 ) -> Result<String, String> {
-    let output = crate::tools::shell::execute(&serde_json::json!({
-        "command": command,
-        "timeout_secs": timeout_secs,
-        "reason": format!("verify_build:{}:{}", profile_name, action),
-    }))
+    let output = crate::tools::shell::execute(
+        &serde_json::json!({
+            "command": command,
+            "timeout_secs": timeout_secs,
+            "reason": format!("verify_build:{}:{}", profile_name, action),
+        }),
+        16384,
+    )
     .await?;
 
     if output.contains("[exit code: 0]") || !output.contains("[exit code:") {
@@ -369,6 +372,7 @@ async fn run_profile_command_streaming(
             "reason": format!("verify_build:{}:{}", profile_name, action),
         }),
         tx.clone(),
+        16384,
     )
     .await?;
 
@@ -417,6 +421,7 @@ async fn run_windows_self_hosted_check_fallback_streaming(
             "reason": format!("verify_build:{}:{}:self_hosted_windows_fallback", profile_name, action),
         }),
         tx,
+        16384,
     )
     .await?;
 
@@ -482,7 +487,7 @@ async fn run_windows_self_hosted_check_fallback(
         "command": fallback_command,
         "timeout_secs": timeout_secs,
         "reason": format!("verify_build:{}:{}:self_hosted_windows_fallback", profile_name, action),
-    }))
+    }), 16384)
     .await?;
 
     if fallback_output.contains("[exit code: 0]") || !fallback_output.contains("[exit code:") {

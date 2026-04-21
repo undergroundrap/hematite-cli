@@ -12,10 +12,7 @@ use crate::agent::direct_answers::{
     build_tool_registry_ownership_answer, build_unsafe_workflow_pressure_answer,
     build_verify_profiles_answer, build_workflow_modes_answer,
 };
-use crate::agent::inference::{
-    ChatMessage, InferenceEngine, InferenceEvent, MessageContent, OperatorCheckpointState,
-    ProviderRuntimeState, ToolCallFn, ToolDefinition, ToolFunction,
-};
+use crate::agent::inference::InferenceEngine;
 use crate::agent::policy::{
     action_target_path, docs_edit_without_explicit_request, is_destructive_tool,
     is_mcp_mutating_tool, is_mcp_workspace_read_tool, is_sovereign_path_request,
@@ -32,6 +29,10 @@ use crate::agent::routing::{
     DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
+use crate::agent::types::{
+    ChatMessage, InferenceEvent, MessageContent, OperatorCheckpointState, ProviderRuntimeState,
+    ToolCallFn, ToolDefinition, ToolFunction,
+};
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
 use crate::agent::compaction::{self, CompactionConfig};
 use crate::ui::gpu_monitor::GpuState;
@@ -81,6 +82,17 @@ struct SavedSession {
     /// Number of real inference turns completed in the previous session.
     #[serde(default)]
     turn_count: u32,
+}
+
+impl Default for SavedSession {
+    fn default() -> Self {
+        Self {
+            running_summary: None,
+            session_memory: crate::agent::compaction::SessionMemory::default(),
+            last_goal: None,
+            turn_count: 0,
+        }
+    }
 }
 
 /// Snapshot of the previous session, surfaced on startup when a workspace is
@@ -203,31 +215,24 @@ fn session_path() -> std::path::PathBuf {
     crate::tools::file_ops::hematite_dir().join("session.json")
 }
 
-fn load_session_data() -> (Option<String>, crate::agent::compaction::SessionMemory) {
+fn load_session_data() -> SavedSession {
     let path = session_path();
     if !path.exists() {
-        let mut memory = crate::agent::compaction::SessionMemory::default();
+        let mut saved = SavedSession::default();
         if let Some(plan) = crate::tools::plan::load_plan_handoff() {
-            memory.current_plan = Some(plan);
+            saved.session_memory.current_plan = Some(plan);
         }
-        return (None, memory);
+        return saved;
     }
-    let Ok(data) = std::fs::read_to_string(&path) else {
-        let mut memory = crate::agent::compaction::SessionMemory::default();
-        if let Some(plan) = crate::tools::plan::load_plan_handoff() {
-            memory.current_plan = Some(plan);
-        }
-        return (None, memory);
-    };
-    let Ok(saved) = serde_json::from_str::<SavedSession>(&data) else {
-        let mut memory = crate::agent::compaction::SessionMemory::default();
-        if let Some(plan) = crate::tools::plan::load_plan_handoff() {
-            memory.current_plan = Some(plan);
-        }
-        return (None, memory);
-    };
-    let mut memory = saved.session_memory;
-    if memory
+    let data = std::fs::read_to_string(&path);
+    let saved = data
+        .ok()
+        .and_then(|d| serde_json::from_str::<SavedSession>(&d).ok())
+        .unwrap_or_default();
+
+    let mut saved = saved;
+    if saved
+        .session_memory
         .current_plan
         .as_ref()
         .map(|plan| plan.has_signal())
@@ -235,10 +240,10 @@ fn load_session_data() -> (Option<String>, crate::agent::compaction::SessionMemo
         == false
     {
         if let Some(plan) = crate::tools::plan::load_plan_handoff() {
-            memory.current_plan = Some(plan);
+            saved.session_memory.current_plan = Some(plan);
         }
     }
-    (saved.running_summary, memory)
+    saved
 }
 
 #[derive(Clone)]
@@ -1564,7 +1569,7 @@ impl ConversationManager {
         swarm_coordinator: Arc<crate::agent::swarm::SwarmCoordinator>,
         voice_manager: Arc<crate::ui::voice::VoiceManager>,
     ) -> Self {
-        let (saved_summary, saved_memory) = load_session_data();
+        let saved = load_session_data();
 
         // Build the initial mcp_manager
         let mcp_manager = Arc::new(tokio::sync::Mutex::new(
@@ -1594,7 +1599,7 @@ impl ConversationManager {
             fast_model,
             think_model,
             correction_hints: Vec::new(),
-            running_summary: saved_summary,
+            running_summary: saved.running_summary,
             gpu_state,
             vein,
             transcript: crate::agent::transcript::TranscriptLogger::new(),
@@ -1602,7 +1607,7 @@ impl ConversationManager {
             git_state,
             think_mode: None,
             workflow_mode: WorkflowMode::Auto,
-            session_memory: saved_memory,
+            session_memory: saved.session_memory,
             swarm_coordinator,
             voice_manager,
             soul_personality,
@@ -1617,11 +1622,14 @@ impl ConversationManager {
             recovery_context: RecoveryContext::default(),
             l1_context: None,
             repo_map: None,
-            turn_count: 0,
-            last_goal: None,
+            turn_count: saved.turn_count,
+            last_goal: saved.last_goal,
             latest_target_dir: None,
             pending_teleport_handoff: None,
-            diff_tracker: Arc::new(Mutex::new(crate::agent::diff_tracker::TurnDiffTracker::new())),
+            last_heartbeat: None,
+            diff_tracker: Arc::new(Mutex::new(
+                crate::agent::diff_tracker::TurnDiffTracker::new(),
+            )),
         }
     }
 
@@ -1710,9 +1718,9 @@ impl ConversationManager {
              This is CHAT mode — a clean conversational surface. Behave like a sharp friend who happens to know everything about code, not like an agent following a workflow.\n\n"
         );
 
-        if let Some(summary) = self.last_heartbeat.as_deref() {
+        if let Some(summary) = self.last_heartbeat.as_ref() {
             sys.push_str("## HOST ENVIRONMENT\n");
-            sys.push_str(summary);
+            sys.push_str(&summary.to_summary());
             sys.push_str("\n\n");
         }
 
@@ -1906,7 +1914,9 @@ impl ConversationManager {
 
     async fn validate_action_preconditions(&self, name: &str, args: &Value) -> Result<(), String> {
         // Redundancy Check (Steering Tier 1 - Blocking)
-        if let Some(steer_hint) = crate::agent::policy::is_redundant_action(name, args, &self.history) {
+        if let Some(steer_hint) =
+            crate::agent::policy::is_redundant_action(name, args, &self.history)
+        {
             return Err(steer_hint);
         }
 
@@ -3137,7 +3147,7 @@ impl ConversationManager {
             self.professional,
             &self.tools,
             self.reasoning_history.as_deref(),
-            self.last_heartbeat.as_deref(),
+            None,
             &mcp_tools,
         );
         if !tiny_context_mode {
@@ -3408,7 +3418,7 @@ impl ConversationManager {
                 .send(InferenceEvent::VeinStatus {
                     file_count: self.vein.file_count(),
                     embedded_count: self.vein.embedded_chunk_count(),
-                 docs_only: vein_docs_only,
+                    docs_only: vein_docs_only,
                 })
                 .await;
             match self.build_vein_context(&effective_user_input) {
@@ -3478,15 +3488,16 @@ impl ConversationManager {
                         .as_object_mut()
                         .unwrap()
                         .insert("max_entries".to_string(), Value::from(20));
-                    let args_str = serde_json::to_string(&args_val).unwrap_or_default();
+                    let _args_str = serde_json::to_string(&args_val).unwrap_or_default();
 
-                    tool_calls.push(crate::agent::inference::ToolCallResponse {
+                    tool_calls.push(crate::agent::types::ToolCallResponse {
                         id: call_id.clone(),
                         call_type: "function".to_string(),
-                        function: crate::agent::inference::ToolCallFn {
+                        function: crate::agent::types::ToolCallFn {
                             name: "inspect_host".to_string(),
-                            arguments: args_str,
+                            arguments: args_val.clone(),
                         },
+                        index: None,
                     });
 
                     let label = format!("### inspect_host(topic=\"{topic}\")\n");
@@ -3504,7 +3515,7 @@ impl ConversationManager {
                                 .send(InferenceEvent::ToolCallResult {
                                     id: call_id.clone(),
                                     name: "inspect_host".to_string(),
-                                    output: out.chars().take(300).collect::<String>() + "...",
+                                    result: out.chars().take(300).collect::<String>() + "...",
                                     is_error: false,
                                 })
                                 .await;
@@ -3586,7 +3597,7 @@ impl ConversationManager {
                         .send(InferenceEvent::ToolCallResult {
                             id: call_id.clone(),
                             name: "research_web".to_string(),
-                            output: results.chars().take(300).collect::<String>() + "...",
+                            result: results.chars().take(300).collect::<String>() + "...",
                             is_error: false,
                         })
                         .await;
@@ -3594,13 +3605,14 @@ impl ConversationManager {
                     // Inject tool call + result into history so the model sees it.
                     self.history.push(ChatMessage::assistant_tool_calls(
                         "",
-                        vec![crate::agent::inference::ToolCallResponse {
+                        vec![crate::agent::types::ToolCallResponse {
                             id: call_id.clone(),
                             call_type: "function".to_string(),
-                            function: crate::agent::inference::ToolCallFn {
+                            function: crate::agent::types::ToolCallFn {
                                 name: "research_web".to_string(),
-                                arguments: serde_json::to_string(&args).unwrap_or_default(),
+                                arguments: args.clone(),
                             },
+                            index: None,
                         }],
                     ));
                     self.history.push(ChatMessage::tool_result_for_model(
@@ -3624,7 +3636,7 @@ impl ConversationManager {
                         .send(InferenceEvent::ToolCallResult {
                             id: call_id.clone(),
                             name: "research_web".to_string(),
-                            output: "No results found — model will attempt its own search.".into(),
+                            result: "No results found — model will attempt its own search.".into(),
                             is_error: true,
                         })
                         .await;
@@ -3731,6 +3743,7 @@ impl ConversationManager {
         let mut turn_anchor = self.history.len().saturating_sub(1);
 
         for _iter in 0..max_iters {
+            let context_prep_start = tokio::time::Instant::now();
             let mut mutation_occurred = false;
             // Priority Check: External Cancellation (via Esc key in TUI)
             if self.cancel_token.load(std::sync::atomic::Ordering::SeqCst) {
@@ -3858,6 +3871,9 @@ impl ConversationManager {
                 self.tools.clone()
             };
 
+            let context_prep_ms = context_prep_start.elapsed().as_millis();
+            let inference_start = tokio::time::Instant::now();
+
             let (mut text, mut tool_calls, usage, finish_reason) = match self
                 .engine
                 .call_with_tools(&prompt_msgs, &turn_tools, routed_model.as_deref())
@@ -3902,6 +3918,8 @@ impl ConversationManager {
                     break;
                 }
             };
+            let inference_ms = inference_start.elapsed().as_millis();
+            let execution_start = tokio::time::Instant::now();
             self.emit_provider_live(&tx).await;
 
             // ── LOOP GUARD: Reasoning Collapse Detection ──────────────────────────
@@ -4099,7 +4117,10 @@ impl ConversationManager {
 
                     // Authoritative Diff Tracking: Capture baseline before mutation.
                     if crate::agent::policy::is_destructive_tool(&normalized_name) {
-                        if let Some(path) = crate::agent::policy::tool_path_argument(&normalized_name, &normalized_args) {
+                        if let Some(path) = crate::agent::policy::tool_path_argument(
+                            &normalized_name,
+                            &normalized_args,
+                        ) {
                             let tracker = self.diff_tracker.clone();
                             tokio::spawn(async move {
                                 let mut guard = tracker.lock().await;
@@ -4214,6 +4235,18 @@ impl ConversationManager {
                     }
                 }
 
+                // Phase 5: Calculate predictive token budget for this turn's tool responses.
+                // We reserve 3000 tokens for the final summary and the bootstrap context of the next turn.
+                let total_used = usage.as_ref().map(|u| u.total_tokens).unwrap_or(0);
+                let ctx_len = self.engine.current_context_length();
+                let remaining = ctx_len.saturating_sub(total_used);
+                let tool_budget = remaining.saturating_sub(3000);
+                let budget_per_call = if deduped_calls.is_empty() {
+                    0
+                } else {
+                    tool_budget / deduped_calls.len().max(1)
+                };
+
                 // Partition tool calls: Parallel Read vs Serial Mutating
                 let (parallel_calls, serial_calls): (Vec<_>, Vec<_>) = deduped_calls
                     .into_iter()
@@ -4233,6 +4266,7 @@ impl ConversationManager {
                             yolo,
                             tx_clone,
                             call_with_id.id,
+                            budget_per_call,
                         ));
                     }
                     // Wait for all read-only tasks to complete simultaneously.
@@ -4244,7 +4278,14 @@ impl ConversationManager {
 
                 for call in serial_calls {
                     let outcome = self
-                        .process_tool_call(call.function, config.clone(), yolo, tx.clone(), call.id)
+                        .process_tool_call(
+                            call.function,
+                            config.clone(),
+                            yolo,
+                            tx.clone(),
+                            call.id,
+                            budget_per_call,
+                        )
                         .await;
 
                     if !outcome.is_error {
@@ -4313,6 +4354,15 @@ impl ConversationManager {
                         break;
                     }
                 }
+
+                let execution_ms = execution_start.elapsed().as_millis();
+                let _ = tx
+                    .send(InferenceEvent::TurnTiming {
+                        context_prep_ms: context_prep_ms as u128,
+                        inference_ms: inference_ms as u128,
+                        execution_ms: execution_ms as u128,
+                    })
+                    .await;
 
                 // 3. Collate Messages into History & UI
                 let mut authoritative_tool_output: Option<String> = None;
@@ -4503,7 +4553,7 @@ impl ConversationManager {
                         .send(InferenceEvent::ToolCallResult {
                             id: call_id.clone(),
                             name: tool_name.clone(),
-                            output: final_output.clone(),
+                            result: final_output.clone(),
                             is_error,
                         })
                         .await;
@@ -5000,6 +5050,15 @@ impl ConversationManager {
                     self.reasoning_history = Some(thought);
                 }
 
+                let execution_ms = execution_start.elapsed().as_millis();
+                let _ = tx
+                    .send(InferenceEvent::TurnTiming {
+                        context_prep_ms: context_prep_ms as u128,
+                        inference_ms: inference_ms as u128,
+                        execution_ms: execution_ms as u128,
+                    })
+                    .await;
+
                 // 2. Process and stream the final answer to the chat interface.
                 let cleaned = crate::agent::inference::strip_think_blocks(&response_text);
 
@@ -5216,13 +5275,16 @@ impl ConversationManager {
             let tracker = self.diff_tracker.lock().await;
             if let Ok(diff) = tracker.generate_diff() {
                 if !diff.is_empty() {
-                    let _ = tx.send(InferenceEvent::Thought(format!(
-                        "AUTHORITATIVE TURN SUMMARY:\n\n```diff\n{}\n```",
-                        diff
-                    ))).await;
-                    
+                    let _ = tx
+                        .send(InferenceEvent::Thought(format!(
+                            "AUTHORITATIVE TURN SUMMARY:\n\n```diff\n{}\n```",
+                            diff
+                        )))
+                        .await;
+
                     // Also log to transcript for persistence.
-                    self.transcript.log_system(&format!("Turn Diff Summary:\n{}", diff));
+                    self.transcript
+                        .log_system(&format!("Turn Diff Summary:\n{}", diff));
                 }
             }
         }
@@ -5645,6 +5707,7 @@ impl ConversationManager {
     }
 
     /// P1: Attempt to fix malformed JSON tool arguments by asking the model to re-output them.
+    #[allow(dead_code)]
     async fn repair_tool_args(
         &self,
         tool_name: &str,
@@ -5766,8 +5829,9 @@ pub async fn dispatch_tool(
     name: &str,
     args: &Value,
     config: &crate::agent::config::HematiteConfig,
+    budget_tokens: usize,
 ) -> Result<String, String> {
-    dispatch_builtin_tool(name, args, config).await
+    dispatch_builtin_tool(name, args, config, budget_tokens).await
 }
 
 fn normalize_fix_plan_issue_text(text: &str) -> Option<String> {
@@ -6586,18 +6650,19 @@ fn canonical_tool_call_key(tool_name: &str, args: &Value) -> String {
 
 fn normalized_tool_call_for_execution(
     tool_name: &str,
-    raw_arguments: &str,
+    raw_arguments: &Value,
     gemma4_model: bool,
     latest_user_prompt: Option<&str>,
 ) -> (String, Value) {
-    let normalized_arguments = if gemma4_model {
-        crate::agent::inference::normalize_tool_argument_string(tool_name, raw_arguments)
-    } else {
-        raw_arguments.to_string()
-    };
     let mut normalized_name = tool_name.to_string();
-    let mut args = serde_json::from_str::<Value>(&normalized_arguments)
-        .unwrap_or(Value::Object(Default::default()));
+    let mut args = if gemma4_model {
+        let raw_str = raw_arguments.to_string();
+        let normalized_str =
+            crate::agent::inference::normalize_tool_argument_string(tool_name, &raw_str);
+        serde_json::from_str::<Value>(&normalized_str).unwrap_or_else(|_| raw_arguments.clone())
+    } else {
+        raw_arguments.clone()
+    };
     rewrite_host_tool_call(&mut normalized_name, &mut args, latest_user_prompt);
     (normalized_name, args)
 }
@@ -6609,12 +6674,9 @@ fn normalized_tool_call_key_for_dedupe(
     gemma4_model: bool,
     latest_user_prompt: Option<&str>,
 ) -> String {
-    let (normalized_name, args) = normalized_tool_call_for_execution(
-        tool_name,
-        raw_arguments,
-        gemma4_model,
-        latest_user_prompt,
-    );
+    let val = serde_json::from_str(raw_arguments).unwrap_or(Value::Null);
+    let (normalized_name, args) =
+        normalized_tool_call_for_execution(tool_name, &val, gemma4_model, latest_user_prompt);
     canonical_tool_call_key(&normalized_name, &args)
 }
 
@@ -6638,6 +6700,7 @@ impl ConversationManager {
         yolo: bool,
         tx: mpsc::Sender<InferenceEvent>,
         real_id: String,
+        budget_tokens: usize,
     ) -> ToolExecutionOutcome {
         let mut msg_results = Vec::new();
         let mut latest_target_dir = None;
@@ -6645,33 +6708,15 @@ impl ConversationManager {
         let mut parsed_plan_handoff = None;
         let gemma4_model =
             crate::agent::inference::is_hematite_native_model(&self.engine.current_model());
-        let normalized_arguments = if gemma4_model {
-            crate::agent::inference::normalize_tool_argument_string(&call.name, &call.arguments)
-        } else {
-            call.arguments.clone()
-        };
-
-        // 1. Argument Parsing & Repair
-        let mut args: Value = match serde_json::from_str(&normalized_arguments) {
-            Ok(v) => v,
-            Err(_) => {
-                match self
-                    .repair_tool_args(&call.name, &normalized_arguments, &tx)
-                    .await
-                {
-                    Ok(v) => v,
-                    Err(e) => {
-                        let _ = tx
-                            .send(InferenceEvent::Thought(format!(
-                                "JSON Repair failed: {}",
-                                e
-                            )))
-                            .await;
-                        Value::Object(Default::default())
-                    }
-                }
-            }
-        };
+        let (normalized_name, mut args) = normalized_tool_call_for_execution(
+            &call.name,
+            &call.arguments,
+            gemma4_model,
+            self.history
+                .last()
+                .and_then(|m| m.content.as_str().split('\n').last()),
+        );
+        call.name = normalized_name;
         let last_user_prompt = self
             .history
             .iter()
@@ -6979,13 +7024,15 @@ impl ConversationManager {
                                 })
                                 .await;
                             match appr_rx.await {
-                                Ok(true) => dispatch_tool(&call.name, &args, &config).await,
+                                Ok(true) => {
+                                    dispatch_tool(&call.name, &args, &config, budget_tokens).await
+                                }
                                 _ => Err("Edit declined by user.".into()),
                             }
                         }
                         // Diff computation failed (e.g. search string not found yet) —
                         // fall through and let the tool return its own error.
-                        Err(_) => dispatch_tool(&call.name, &args, &config).await,
+                        Err(_) => dispatch_tool(&call.name, &args, &config, budget_tokens).await,
                     }
                 } else if call.name == "verify_build" {
                     // Stream build output line-by-line to the SPECULAR panel so
@@ -6994,9 +7041,9 @@ impl ConversationManager {
                 } else if call.name == "shell" {
                     // Stream shell output line-by-line to the SPECULAR panel so
                     // the operator sees live progress during long commands.
-                    crate::tools::shell::execute_streaming(&args, tx.clone()).await
+                    crate::tools::shell::execute_streaming(&args, tx.clone(), budget_tokens).await
                 } else {
-                    dispatch_tool(&call.name, &args, &config).await
+                    dispatch_tool(&call.name, &args, &config, budget_tokens).await
                 };
 
                 match result {
@@ -7762,8 +7809,27 @@ fn enforce_prompt_budget(
         }
     }
 
-    // 4. Drop the oldest non-system context until we fit, preserving the latest user request.
+    // 4. Middle-Out Condensation: Drop oldest tool and assistant messages first, preserving ALL user instructions.
     let preserve_last_user_idx = prompt_msgs.iter().rposition(|m| m.role == "user");
+    let mut idx = 1usize;
+    while estimate_prompt_tokens(prompt_msgs) > target_tokens && prompt_msgs.len() > 2 {
+        if idx >= prompt_msgs.len() {
+            break;
+        }
+
+        let role = prompt_msgs[idx].role.as_str();
+        if role == "user" || Some(idx) == preserve_last_user_idx {
+            // NEVER drop user requests if possible, let them stand as immutable context.
+            idx += 1;
+            continue;
+        }
+
+        // It's a tool or assistant message from the middle. Drop it.
+        prompt_msgs.remove(idx);
+        stats.dropped_messages += 1;
+    }
+
+    // 5. If STILL over budget (e.g. user pasted a giant file in the prompt), drop oldest user messages except the latest.
     let mut idx = 1usize;
     while estimate_prompt_tokens(prompt_msgs) > target_tokens && prompt_msgs.len() > 2 {
         if Some(idx) == preserve_last_user_idx {
@@ -7858,9 +7924,8 @@ fn repeated_read_target(call: &crate::agent::inference::ToolCallFn) -> Option<St
     if call.name != "read_file" {
         return None;
     }
-    let normalized_arguments =
-        crate::agent::inference::normalize_tool_argument_string(&call.name, &call.arguments);
-    let args: Value = serde_json::from_str(&normalized_arguments).ok()?;
+    let mut args = call.arguments.clone();
+    crate::agent::inference::normalize_tool_argument_value(&call.name, &mut args);
     let path = args.get("path").and_then(|v| v.as_str())?;
     Some(normalize_workspace_path(path))
 }
@@ -8549,7 +8614,7 @@ mod tests {
     fn shell_cleanup_script_rewrites_to_maintainer_workflow() {
         let (tool_name, args) = normalized_tool_call_for_execution(
             "shell",
-            r#"{"command":"pwsh ./clean.ps1 -Deep -PruneDist"}"#,
+            &serde_json::json!({"command":"pwsh ./clean.ps1 -Deep -PruneDist"}),
             false,
             Some("Run my cleanup scripts."),
         );
@@ -8573,7 +8638,7 @@ mod tests {
     fn shell_release_script_rewrites_to_maintainer_workflow() {
         let (tool_name, args) = normalized_tool_call_for_execution(
             "shell",
-            r#"{"command":"pwsh ./release.ps1 -Version 0.4.5 -Push -AddToPath"}"#,
+            &serde_json::json!({"command":"pwsh ./release.ps1 -Version 0.4.5 -Push -AddToPath"}),
             false,
             Some("Run the release flow."),
         );
@@ -8597,7 +8662,7 @@ mod tests {
     fn explicit_cleanup_prompt_rewrites_shell_to_maintainer_workflow() {
         let (tool_name, args) = normalized_tool_call_for_execution(
             "shell",
-            r#"{"command":"powershell -Command \"Get-ChildItem .\""}"#,
+            &serde_json::json!({"command":"powershell -Command \"Get-ChildItem .\""}),
             false,
             Some("Run the deep cleanup and prune old dist artifacts."),
         );
@@ -8621,7 +8686,7 @@ mod tests {
     fn shell_cargo_test_rewrites_to_workspace_workflow() {
         let (tool_name, args) = normalized_tool_call_for_execution(
             "shell",
-            r#"{"command":"cargo test"}"#,
+            &serde_json::json!({"command":"cargo test"}),
             false,
             Some("Run cargo test in this project."),
         );
@@ -8796,7 +8861,7 @@ Plain paragraph
     fn natural_language_test_prompt_rewrites_to_workspace_workflow() {
         let (tool_name, args) = normalized_tool_call_for_execution(
             "shell",
-            r#"{"command":"powershell -Command \"Get-ChildItem .\""}"#,
+            &serde_json::json!({"command":"powershell -Command \"Get-ChildItem .\""}),
             false,
             Some("Run the tests in this project."),
         );
@@ -8812,7 +8877,7 @@ Plain paragraph
     fn scaffold_prompt_does_not_rewrite_to_workspace_workflow() {
         let (tool_name, _args) = normalized_tool_call_for_execution(
             "shell",
-            r#"{"command":"powershell -Command \"Get-ChildItem .\""}"#,
+            &serde_json::json!({"command":"powershell -Command \"Get-ChildItem .\""}),
             false,
             Some("Make me a folder on my desktop named webtest2, and in that folder build a single-page website that explains the best uses of Hematite."),
         );

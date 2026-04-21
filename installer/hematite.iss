@@ -35,6 +35,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "addtopath"; Description: "Add Hematite to PATH"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
+Name: "viewreadme"; Description: "Open README after installation"; Flags: checkedonce
 
 [Files]
 Source: "{#BundleDir}\hematite.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -42,6 +43,8 @@ Source: "{#BundleDir}\DirectML.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BundleDir}\setup-searxng.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BundleDir}\start_searx.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BundleDir}\README.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BundleDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BundleDir}\THIRD_PARTY_NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\Hematite"; Filename: "{app}\hematite.exe"; IconFilename: "{app}\hematite.exe"
@@ -49,6 +52,9 @@ Name: "{autodesktop}\Hematite"; Filename: "{app}\hematite.exe"; IconFilename: "{
 
 [Registry]
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant('{app}'))
+
+[Run]
+Filename: "notepad.exe"; Parameters: """{app}\README.txt"""; Description: "Open README"; Flags: postinstall skipifsilent unchecked; Tasks: viewreadme
 
 [Code]
 function NeedsAddPath(Param: string): Boolean;

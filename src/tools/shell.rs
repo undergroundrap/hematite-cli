@@ -12,7 +12,13 @@ const MAX_OUTPUT_BYTES: usize = 65_536; // 64 KB cap (higher for professional mo
 /// Unified Shell Adapter:
 /// - Windows: Tries `pwsh` first, then `powershell.exe`, then `cmd /C`.
 /// - Unix: Tries `sh -c`.
-pub async fn execute(args: &Value) -> Result<String, String> {
+pub async fn execute(args: &Value, budget_tokens: usize) -> Result<String, String> {
+    let budget_chars = budget_tokens.saturating_mul(4);
+    let effective_limit = if budget_tokens == 0 {
+        MAX_OUTPUT_BYTES
+    } else {
+        budget_chars.min(MAX_OUTPUT_BYTES).max(1000)
+    };
     let mut command = args
         .get("command")
         .and_then(|v| v.as_str())
@@ -44,7 +50,14 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     let cwd =
         std::env::current_dir().map_err(|e| format!("Failed to get working directory: {e}"))?;
 
-    execute_command_in_dir(&command, &cwd, timeout_ms, run_in_background).await
+    execute_command_in_dir(
+        &command,
+        &cwd,
+        timeout_ms,
+        run_in_background,
+        effective_limit,
+    )
+    .await
 }
 
 /// Like `execute`, but streams each stdout/stderr line to the TUI as a
@@ -55,14 +68,22 @@ pub async fn execute(args: &Value) -> Result<String, String> {
 pub async fn execute_streaming(
     args: &Value,
     tx: mpsc::Sender<crate::agent::inference::InferenceEvent>,
+    budget_tokens: usize,
 ) -> Result<String, String> {
+    let budget_chars = budget_tokens.saturating_mul(4);
+    let effective_limit = if budget_tokens == 0 {
+        MAX_OUTPUT_BYTES
+    } else {
+        budget_chars.min(MAX_OUTPUT_BYTES).max(1000)
+    };
+
     // Background tasks don't benefit from streaming — delegate to execute().
     if args
         .get("run_in_background")
         .and_then(|v| v.as_bool())
         .unwrap_or(false)
     {
-        return execute(args).await;
+        return execute(args, budget_tokens).await;
     }
 
     let mut command = args
@@ -192,7 +213,10 @@ pub async fn execute_streaming(
     result.push_str(&exit_info);
 
     let clean = crate::agent::utils::strip_ansi(&result);
-    Ok(crate::agent::truncation::formatted_truncate(&clean, MAX_OUTPUT_BYTES))
+    Ok(crate::agent::truncation::formatted_truncate(
+        &clean,
+        effective_limit,
+    ))
 }
 
 pub async fn execute_command_in_dir(
@@ -200,6 +224,7 @@ pub async fn execute_command_in_dir(
     cwd: &Path,
     timeout_ms: u64,
     run_in_background: bool,
+    limit_bytes: usize,
 ) -> Result<String, String> {
     crate::tools::guard::bash_is_safe(command)?;
 
@@ -264,7 +289,10 @@ pub async fn execute_command_in_dir(
 
     let clean = crate::agent::utils::strip_ansi(&result);
     // Use Grounded Middle-Truncation to preserve both headers and results/exit codes.
-    Ok(crate::agent::truncation::formatted_truncate(&clean, MAX_OUTPUT_BYTES))
+    Ok(crate::agent::truncation::formatted_truncate(
+        &clean,
+        limit_bytes,
+    ))
 }
 
 /// Build the platform-appropriate shell invocation.
@@ -310,4 +338,3 @@ async fn which(name: &str) -> bool {
         .map(|s| s.success())
         .unwrap_or(false)
 }
-

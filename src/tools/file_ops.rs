@@ -168,7 +168,7 @@ pub fn pop_ghost_ledger() -> Result<String, String> {
 
 // ── read_file ─────────────────────────────────────────────────────────────────
 
-pub async fn read_file(args: &Value) -> Result<String, String> {
+pub async fn read_file(args: &Value, budget_tokens: usize) -> Result<String, String> {
     let path = require_str(args, "path")?;
     let offset = get_usize_arg(args, "offset");
     let limit = get_usize_arg(args, "limit");
@@ -182,7 +182,25 @@ pub async fn read_file(args: &Value) -> Result<String, String> {
     let end = limit.map(|n| (start + n).min(total)).unwrap_or(total);
 
     let mut content = lines[start..end].join("\n");
-    if end < total {
+
+    // Phase 5: Calculate predictive character budget based on remaining context.
+    let budget_chars = budget_tokens.saturating_mul(4);
+    let char_limit = if budget_tokens == 0 {
+        100_000
+    } else {
+        budget_chars.min(100_000).max(2000)
+    };
+
+    if content.len() > char_limit {
+        content.truncate(char_limit);
+        content.push_str("\n\n--- [PREDICTIVE TRUNCATION: CONTEXT BUDGET REACHED] ---\n");
+        content.push_str(&format!(
+            "Output truncated at {} chars to prevent context window flooding. ",
+            char_limit
+        ));
+        content
+            .push_str("To see more, use `read_file` with a higher `offset` and a smaller `limit`.");
+    } else if end < total {
         content.push_str("\n\n--- [TRUNCATION WARNING] ---\n");
         content.push_str(&format!("This file has {} more lines below. ", total - end));
         content.push_str("To read more, use `read_file` with a higher `offset` OR use `inspect_lines` to find relevant blocks. \
@@ -590,7 +608,8 @@ pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
 
 // ── list_files ────────────────────────────────────────────────────────────────
 
-pub async fn list_files(args: &Value) -> Result<String, String> {
+pub async fn list_files(args: &Value, budget: usize) -> Result<String, String> {
+    let char_budget = budget * 4; // Approx tokens to chars
     let started = Instant::now();
     let base_str = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
     let ext_filter = args.get("extension").and_then(|v| v.as_str());
@@ -631,22 +650,37 @@ pub async fn list_files(args: &Value) -> Result<String, String> {
             .map(std::cmp::Reverse)
     });
 
-    let total = files.len();
-    const LIMIT: usize = 200;
-    let truncated = total > LIMIT;
-    let shown: Vec<String> = files
-        .into_iter()
-        .take(LIMIT)
-        .map(|p| p.display().to_string())
-        .collect();
+    let mut current_chars = 0;
+    let mut shown = Vec::new();
+    let mut truncated_by_budget = false;
+
+    let total_scanned = files.len();
+    for f in files {
+        let f_str = f.display().to_string();
+        if current_chars + f_str.len() + 1 > char_budget {
+            truncated_by_budget = true;
+            break;
+        }
+        current_chars += f_str.len() + 1;
+        shown.push(f_str);
+        if shown.len() >= 200 {
+            break;
+        }
+    }
+
+    let truncated = total_scanned > shown.len();
 
     let ms = started.elapsed().as_millis();
     let mut out = format!(
         "{} file(s) in {}  ({ms}ms){}",
-        total.min(LIMIT),
+        shown.len(),
         base_str,
         if truncated {
-            "  [truncated at 200]"
+            if truncated_by_budget {
+                "  [truncated by token budget]"
+            } else {
+                "  [truncated at 200]"
+            }
         } else {
             ""
         }
@@ -676,7 +710,8 @@ pub async fn create_directory(args: &Value) -> Result<String, String> {
 
 // ── grep_files ────────────────────────────────────────────────────────────────
 
-pub async fn grep_files(args: &Value) -> Result<String, String> {
+pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
+    let char_budget = budget * 4;
     let pattern = require_str(args, "pattern")?;
     let base_str = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
     let ext_filter = args.get("extension").and_then(|v| v.as_str());
@@ -742,6 +777,7 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
             .take(head_limit)
             .collect();
         let showing = page.len();
+
         let mut out = format!("{total} file(s) match '{pattern}'");
         if offset > 0 || showing < total {
             out.push_str(&format!(
@@ -751,7 +787,18 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
             ));
         }
         out.push('\n');
-        out.push_str(&page.join("\n"));
+
+        let mut current_chars = out.len();
+        let mut shown_pages = Vec::new();
+        for p in page {
+            if current_chars + p.len() + 1 > char_budget {
+                out.push_str("\n[TRUNCATED BY TOKEN BUDGET]");
+                break;
+            }
+            current_chars += p.len() + 1;
+            shown_pages.push(p);
+        }
+        out.push_str(&shown_pages.join("\n"));
         return Ok(out);
     }
 
@@ -865,17 +912,32 @@ pub async fn grep_files(args: &Value) -> Result<String, String> {
     }
     out.push('\n');
 
+    let mut current_chars = out.len();
+    let mut truncated_by_budget = false;
+
     for (i, hunk) in page_hunks.iter().enumerate() {
+        let mut hunk_out = String::new();
         if i > 0 {
-            out.push_str("\n--\n");
+            hunk_out.push_str("\n--\n");
         }
         for (lineno, text, is_match) in &hunk.lines {
             if *is_match {
-                out.push_str(&format!("{}:{}:{}\n", hunk.path, lineno, text));
+                hunk_out.push_str(&format!("{}:{}:{}\n", hunk.path, lineno, text));
             } else {
-                out.push_str(&format!("{}: {}-{}\n", hunk.path, lineno, text));
+                hunk_out.push_str(&format!("{}: {}-{}\n", hunk.path, lineno, text));
             }
         }
+
+        if current_chars + hunk_out.len() > char_budget {
+            truncated_by_budget = true;
+            break;
+        }
+        current_chars += hunk_out.len();
+        out.push_str(&hunk_out);
+    }
+
+    if truncated_by_budget {
+        out.push_str("\n[TRUNCATED BY TOKEN BUDGET]");
     }
 
     Ok(out.trim_end().to_string())

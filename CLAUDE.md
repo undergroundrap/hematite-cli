@@ -9,6 +9,7 @@ Hematite supports two model protocol paths:
 
 - **Gemma 4 native** — Gemma 4 family models; native tool markup auto-enabled by model name (`gemma_native_auto: true` by default)
 - **Standard OpenAI-compatible** — all other models; plain tool format; tested primary target is Qwen/Qwen3.5-9B Q4_K_M
+- **Ollama** — supported as a local runtime when `api_url` points at an Ollama-compatible endpoint such as `http://localhost:11434/v1`
 
 ## Build and Run
 
@@ -30,6 +31,7 @@ pwsh ./clean.ps1
 - **Self-Destruct**: The original terminal session performs a clean exit after the handoff to ensure workstation hygiene. A background watcher detects when Hematite exits and kills the originating `cmd.exe`. Windows Terminal tabs are explicitly excluded (killing `WindowsTerminal.exe` would close all tabs).
 - **Teleportation Handshake**: New sessions arriving via teleportation (flagged by `--teleported-from`) display a specialized greeting confirming the origin and intent.
 - **OS Shortcut Directory Guard**: Teleporting to or launching from Desktop, Downloads, Documents, Pictures, Videos, or Music does not create a local `.hematite/` folder there. All runtime state (settings, vein, session, logs, scratch) routes to `~/.hematite/` instead, keeping OS directories clean. Real project directories are unaffected.
+- **Local Search Stack**: When `auto_start_searx` is enabled, Hematite scaffolds and boots a private SearXNG stack under `~/.hematite/searxng-local` when the configured `searx_url` is local and Docker Desktop is available. If SearXNG is already reachable, Hematite reuses it instead of restarting it. If Docker is missing or the daemon is stopped, Hematite surfaces a compact startup note with the fix instead of silently failing. Set `HEMATITE_SEARX_ROOT` to relocate the stack; `auto_stop_searx` only stops the instance Hematite started in the current session. The default scaffold now favors a safer technical-source engine pool instead of the older broad 12-engine mix.
 
 > **Important:** `cargo build` / `cargo run` only update `target/debug/hematite.exe`. If you run
 > Hematite from the portable dist (`dist\windows\Hematite-X.Y.Z-portable\hematite.exe`) — which is

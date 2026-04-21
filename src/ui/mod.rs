@@ -1,6 +1,6 @@
 pub mod gpu_monitor;
 pub mod hatch;
 pub mod modal_review;
+pub mod terminal;
 pub mod tui;
 pub mod voice;
-pub mod terminal;

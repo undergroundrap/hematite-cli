@@ -24,6 +24,8 @@ $distRoot  = Join-Path $repoRoot "dist\windows"
 $bundleDir = Join-Path $distRoot "Hematite-$version-portable"
 $releaseDir = Join-Path $repoRoot "target\release"
 $readmeOut = Join-Path $bundleDir "README.txt"
+$licenseOut = Join-Path $bundleDir "LICENSE.txt"
+$noticesOut = Join-Path $bundleDir "THIRD_PARTY_NOTICES.txt"
 $zipPath   = Join-Path $distRoot "Hematite-$version-portable.zip"
 $issPath   = Join-Path $repoRoot "installer\hematite.iss"
 
@@ -70,7 +72,9 @@ $requiredFiles = @(
     (Join-Path $releaseDir "hematite.exe"),
     (Join-Path $releaseDir "DirectML.dll"),
     (Join-Path $repoRoot "scripts\setup-searxng.ps1"),
-    (Join-Path $repoRoot "start_searx.bat")
+    (Join-Path $repoRoot "start_searx.bat"),
+    (Join-Path $repoRoot "LICENSE"),
+    (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md")
 )
 
 foreach ($file in $requiredFiles) {
@@ -85,24 +89,33 @@ Hematite $version
 =================
 
 What this is:
-- Hematite is a local AI coding harness and terminal CLI for LM Studio.
+- Hematite is a local AI coding harness and terminal CLI for LM Studio, Ollama, and other local OpenAI-compatible runtimes.
 - Built for single-GPU consumer hardware (tested on RTX 4070, 12 GB VRAM).
 - No cloud. No API key. No per-token billing.
 
 Before running:
-1. Install LM Studio (https://lmstudio.ai).
-2. Download and load a coding model. Recommended: Qwen/Qwen3.5-9B Q4_K_M (~6 GB VRAM).
-3. Optionally load nomic-embed-text-v2 Q8_0 alongside it (~512 MB VRAM).
+1. Install LM Studio (https://lmstudio.ai) or Ollama (https://ollama.com).
+2. Point Hematite at one local OpenAI-compatible endpoint.
+   LM Studio defaults to http://localhost:1234/v1.
+   Ollama uses http://localhost:11434/v1 when you set api_url.
+3. Download and load a coding model. Recommended: Qwen/Qwen3.5-9B Q4_K_M (~6 GB VRAM).
+4. Optionally load nomic-embed-text-v2 Q8_0 alongside it (~512 MB VRAM) if your provider exposes /v1/embeddings.
    This enables The Vein's semantic search. Both models fit on a 12 GB card.
-4. Start LM Studio's local server on port 1234.
+
+Optional local search:
+- Hematite can auto-start a private SearXNG stack under %USERPROFILE%\.hematite\searxng-local.
+- If that local search service is already running, Hematite reuses it instead of restarting it.
+- Requires Docker Desktop if you want local web research.
+- Set HEMATITE_SEARX_ROOT to move that stack elsewhere.
+- The default scaffold now uses a safer technical-source engine pool instead of the older broad 12-engine mix.
 
 How to use:
 - Open a terminal inside your project folder.
 - Run: hematite
 
 Status bar guide:
-- LM:LIVE (green)  = LM Studio connected, coding model loaded and live
-- LM:NONE (red)    = LM Studio running but no coding model loaded
+- LM:LIVE (green)  = provider connected, coding model loaded and live
+- LM:NONE (red)    = provider reachable but no coding model loaded
 - LM:BOOT (grey)   = Hematite starting up, detecting model
 - LM:STALE (yellow)= Model detected but connection went quiet
 - VN:SEM (green)   = Vein semantic search active (nomic loaded alongside coding model)
@@ -114,6 +127,8 @@ Status bar guide:
 More info: https://github.com/undergroundrap/hematite-cli
 "@
 Set-Content -LiteralPath $readmeOut -Value $readme -Encoding ASCII
+Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $licenseOut -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") -Destination $noticesOut -Force
 
 # ── Zip ───────────────────────────────────────────────────────────────────────
 

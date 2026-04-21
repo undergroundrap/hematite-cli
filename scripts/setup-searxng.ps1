@@ -1,20 +1,34 @@
 # Hematite SearXNG Scaffolder
 # Automates the creation of a local SearXNG environment for Windows + Docker.
 
+[CmdletBinding()]
+param(
+    [string]$TargetRoot
+)
+
 $ErrorActionPreference = "Stop"
 
-# 1. Target Directory (Desktop by default)
-$desktop = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
-$targetRoot = Join-Path $desktop "searxng-local"
+# 1. Target Directory
+if ([string]::IsNullOrWhiteSpace($TargetRoot)) {
+    if ($env:HEMATITE_SEARX_ROOT) {
+        $targetRoot = $env:HEMATITE_SEARX_ROOT
+    } else {
+        $targetRoot = Join-Path $HOME ".hematite\searxng-local"
+    }
+} else {
+    $targetRoot = $TargetRoot
+}
+
+$targetRoot = [System.IO.Path]::GetFullPath($targetRoot)
 $searxConfigDir = Join-Path $targetRoot "searxng"
 
 Write-Host "Scaffolding SearXNG at: $targetRoot" -ForegroundColor Cyan
 
 if (-not (Test-Path $targetRoot)) {
-    New-Item -ItemType Directory -Path $targetRoot | Out-Null
+    New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
 }
 if (-not (Test-Path $searxConfigDir)) {
-    New-Item -ItemType Directory -Path $searxConfigDir | Out-Null
+    New-Item -ItemType Directory -Path $searxConfigDir -Force | Out-Null
 }
 
 # 2. Generate Random Secret Key (64-char hex)
@@ -76,33 +90,20 @@ search:
     - json
 
 engines:
-  # Tier 1: Primary general-purpose
-  - name: google
-    engine: google
-    shortcut: g
-    use_official_api: false
+  # Safer default pool: fewer upstreams, more technical signal, lower ban risk.
   - name: duckduckgo
     engine: duckduckgo
     shortcut: ddg
-  - name: bing
-    engine: bing
-    shortcut: b
 
-  # Tier 2: Privacy-first alternatives
+  # Privacy-first general search
   - name: brave
     engine: brave
     shortcut: br
-  - name: qwant
-    engine: qwant
-    shortcut: qw
-  - name: startpage
-    engine: startpage
-    shortcut: sp
   - name: mojeek
     engine: mojeek
     shortcut: mj
 
-  # Tier 3: Developer-focused
+  # Developer-focused sources
   - name: wikipedia
     engine: wikipedia
     shortcut: wp
@@ -135,7 +136,7 @@ Set-Content -Path (Join-Path $searxConfigDir "settings.yml") -Value $settingsCon
 # 5. Create start_searx.bat
 $batContent = @"
 @echo off
-echo Starting SearXNG with 12-engine configuration...
+echo Starting SearXNG with safer technical search profile...
 docker compose up -d
 echo.
 echo SearXNG is now running on port 8080!
@@ -161,4 +162,5 @@ Write-Host "`nNext Steps:" -ForegroundColor White
 Write-Host "1. Open a terminal in that folder: cd \"$targetRoot\""
 Write-Host "2. Start the service: .\start_searx.bat"
 Write-Host "3. Hematite will now auto-detect SearXNG on port 8080!"
-Write-Host "`nNote: You can move this folder anywhere on your machine." -ForegroundColor Gray
+Write-Host "`nNote: The default profile favors technical sources with lower upstream pressure than the older broad 12-engine mix." -ForegroundColor Gray
+Write-Host "Note: Set HEMATITE_SEARX_ROOT if you want Hematite to use a different SearXNG root." -ForegroundColor Gray

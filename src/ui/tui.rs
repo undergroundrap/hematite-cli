@@ -3180,7 +3180,7 @@ pub async fn run_app<B: Backend>(
                         trim_vec_context(&mut app.active_context, 8);
                         app.manual_scroll_offset = None;
                     }
-                    InferenceEvent::ToolCallResult { id: _, name, output, is_error } => {
+                    InferenceEvent::ToolCallResult { id: _, name, result, is_error } => {
                         if app.stop_requested {
                             continue;
                         }
@@ -3190,7 +3190,7 @@ pub async fn run_app<B: Backend>(
                         }
                         // In chat mode, suppress tool results from main chat.
                         // Errors still show so the user knows something went wrong.
-                        let preview = first_n_chars(&output, 100);
+                        let preview = first_n_chars(&result, 100);
                         if app.workflow_mode != "CHAT" {
                             app.push_message("Tool", &format!("{}  {} → {}", icon, name, preview));
                         } else if is_error {
@@ -3238,6 +3238,13 @@ pub async fn run_app<B: Backend>(
                             app.push_message("System", "[!]  Approval required — [Y] Approve  [N] Decline  [A] Accept All");
                             app.push_message("System", &format!("Command: {}", display));
                         }
+                    }
+                    InferenceEvent::TurnTiming { context_prep_ms, inference_ms, execution_ms } => {
+                        app.specular_logs.push(format!(
+                            "PROFILE: Prep {}ms | Eval {}ms | Exec {}ms",
+                            context_prep_ms, inference_ms, execution_ms
+                        ));
+                        trim_vec(&mut app.specular_logs, 20);
                     }
                     InferenceEvent::UsageUpdate(usage) => {
                         app.total_tokens = usage.total_tokens;

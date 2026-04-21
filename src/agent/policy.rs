@@ -1,3 +1,4 @@
+use crate::agent::types::ChatMessage;
 use serde_json::Value;
 
 pub(crate) fn is_destructive_tool(name: &str) -> bool {
@@ -181,7 +182,7 @@ pub(crate) fn find_binary_in_path(name: &str) -> bool {
 pub(crate) fn is_redundant_action(
     name: &str,
     args: &Value,
-    history: &[crate::agent::conversation::ChatMessage],
+    history: &[ChatMessage],
 ) -> Option<String> {
     // 1. Double-Read Guard: Block reading a file immediately after writing it if no context was used.
     if name == "read_file" {
@@ -216,14 +217,20 @@ pub(crate) fn is_redundant_action(
             for m in history.iter().rev() {
                 if m.role == "tool" && m.content.as_str().contains("0 matches found") {
                     // Check if this result belongs to a previous identical grep call
-                    if let Some(prev_assistant) = history.iter().rev().find(|prev| {
-                        prev.role == "assistant" && prev.tool_calls.as_ref().map_or(false, |calls| {
-                            calls.iter().any(|c| {
-                                c.id == m.tool_call_id.clone().unwrap_or_default()
-                                    && (c.function.name == "grep_files" || c.function.name == "grep_search")
-                                    && c.function.arguments.get("query").and_then(|v| v.as_str()) == Some(query)
+                    if let Some(_prev_assistant) = history.iter().rev().find(|prev| {
+                        prev.role == "assistant"
+                            && prev.tool_calls.as_ref().map_or(false, |calls| {
+                                calls.iter().any(|c| {
+                                    c.id == m.tool_call_id.clone().unwrap_or_default()
+                                        && (c.function.name == "grep_files"
+                                            || c.function.name == "grep_search")
+                                        && c.function
+                                            .arguments
+                                            .get("query")
+                                            .and_then(|v| v.as_str())
+                                            == Some(query)
+                                })
                             })
-                        })
                     }) {
                         return Some(format!(
                             "STOP. You already searched for `{}` and got 0 matches. \
@@ -274,15 +281,26 @@ impl ToolchainHeartbeat {
 
     pub fn to_summary(&self) -> String {
         let mut lines = Vec::new();
-        if let Some(v) = &self.node { lines.push(format!("Node: {}", v)); }
-        if let Some(v) = &self.npm { lines.push(format!("NPM: {}", v)); }
-        if let Some(v) = &self.cargo { lines.push(format!("Cargo: {}", v)); }
-        if let Some(v) = &self.rustc { lines.push(format!("Rustc: {}", v)); }
-        
+        if let Some(v) = &self.node {
+            lines.push(format!("Node: {}", v));
+        }
+        if let Some(v) = &self.npm {
+            lines.push(format!("NPM: {}", v));
+        }
+        if let Some(v) = &self.cargo {
+            lines.push(format!("Cargo: {}", v));
+        }
+        if let Some(v) = &self.rustc {
+            lines.push(format!("Rustc: {}", v));
+        }
+
         if lines.is_empty() {
             "No standard toolchains detected in PATH.".to_string()
         } else {
-            format!("[Authoritative Environment Heartbeat]\n{}", lines.join("\n"))
+            format!(
+                "[Authoritative Environment Heartbeat]\n{}",
+                lines.join("\n")
+            )
         }
     }
 }
