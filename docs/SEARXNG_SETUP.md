@@ -9,6 +9,7 @@ Connect Hematite to a local SearXNG instance for private, unlimited, and high-fi
 - **No Tracking**: Unlike a central agent service, your research history is not tracked, stored, or used for model training by third parties.
 - **Authoritative Technical Truth**: Get the latest API specs, library versions, and tech news that were released *after* your model's knowledge cutoff. This transforms Hematite into a grounded assistant that knows today's truth, not just yesterday's training data.
 - **Zero Ongoing Cost**: Once established, your research pipeline runs for free on your own hardware. No subscription, no credits, no token tax for search.
+- **The Hardened Array**: Hematite takes the liberty of providing a pro-grade 12-engine array (Google, Bing, Brave, GitHub, etc.) that we've already stabilized for you. Normally, setting up a meta-search engine with this many specialized technical sources would require hours of manual YAML tuning. We've automated it into a single click.
 
 ## 🚀 The Fastest Path (Automated)
 
