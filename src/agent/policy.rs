@@ -173,6 +173,120 @@ pub(crate) fn requires_approval(
     false
 }
 
+pub(crate) fn find_binary_in_path(name: &str) -> bool {
+    let binary = name.split_whitespace().next().unwrap_or(name);
+    which::which(binary).is_ok()
+}
+
+pub(crate) fn is_redundant_action(
+    name: &str,
+    args: &Value,
+    history: &[crate::agent::conversation::ChatMessage],
+) -> Option<String> {
+    // 1. Double-Read Guard: Block reading a file immediately after writing it if no context was used.
+    if name == "read_file" {
+        if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
+            let normalized = normalize_workspace_path(path);
+            if let Some(last_assistant) = history.iter().rev().find(|m| m.role == "assistant") {
+                if let Some(calls) = &last_assistant.tool_calls {
+                    if calls.iter().any(|c| {
+                        (c.function.name == "write_file" || c.function.name == "edit_file")
+                            && c.function
+                                .arguments
+                                .get("path")
+                                .and_then(|v| v.as_str())
+                                .map(normalize_workspace_path)
+                                == Some(normalized.clone())
+                    }) {
+                        return Some(format!(
+                            "STRICT: You just wrote to `{}` in your previous step. \
+                             Do not read it again immediately. Assume your changes are present. \
+                             Proceed with verification or the next file.",
+                            path
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Grep Persistence: If a search failed once this turn, don't repeat it with identical args.
+    if name == "grep_files" || name == "grep_search" {
+        if let Some(query) = args.get("query").and_then(|v| v.as_str()) {
+            for m in history.iter().rev() {
+                if m.role == "tool" && m.content.as_str().contains("0 matches found") {
+                    // Check if this result belongs to a previous identical grep call
+                    if let Some(prev_assistant) = history.iter().rev().find(|prev| {
+                        prev.role == "assistant" && prev.tool_calls.as_ref().map_or(false, |calls| {
+                            calls.iter().any(|c| {
+                                c.id == m.tool_call_id.clone().unwrap_or_default()
+                                    && (c.function.name == "grep_files" || c.function.name == "grep_search")
+                                    && c.function.arguments.get("query").and_then(|v| v.as_str()) == Some(query)
+                            })
+                        })
+                    }) {
+                        return Some(format!(
+                            "STOP. You already searched for `{}` and got 0 matches. \
+                             Do not repeat the same search. Try a broader term, \
+                             check your spelling, or explore the directory structure instead.",
+                            query
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct ToolchainHeartbeat {
+    pub node: Option<String>,
+    pub npm: Option<String>,
+    pub cargo: Option<String>,
+    pub rustc: Option<String>,
+}
+
+impl ToolchainHeartbeat {
+    pub fn capture() -> Self {
+        fn get_version(cmd: &str, args: &[&str]) -> Option<String> {
+            std::process::Command::new(cmd)
+                .args(args)
+                .output()
+                .ok()
+                .and_then(|output| {
+                    if output.status.success() {
+                        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                    } else {
+                        None
+                    }
+                })
+        }
+
+        Self {
+            node: get_version("node", &["--version"]),
+            npm: get_version("npm", &["--version"]),
+            cargo: get_version("cargo", &["--version"]),
+            rustc: get_version("rustc", &["--version"]),
+        }
+    }
+
+    pub fn to_summary(&self) -> String {
+        let mut lines = Vec::new();
+        if let Some(v) = &self.node { lines.push(format!("Node: {}", v)); }
+        if let Some(v) = &self.npm { lines.push(format!("NPM: {}", v)); }
+        if let Some(v) = &self.cargo { lines.push(format!("Cargo: {}", v)); }
+        if let Some(v) = &self.rustc { lines.push(format!("Rustc: {}", v)); }
+        
+        if lines.is_empty() {
+            "No standard toolchains detected in PATH.".to_string()
+        } else {
+            format!("[Authoritative Environment Heartbeat]\n{}", lines.join("\n"))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1317,6 +1317,10 @@ pub struct ConversationManager {
     pub latest_target_dir: Option<String>,
     /// One-shot plan handoff written into a newly created sovereign root before teleport.
     pending_teleport_handoff: Option<SovereignTeleportHandoff>,
+    /// Authoritative Turn Diff Tracker for proactive mutation summaries.
+    pub diff_tracker: Arc<Mutex<crate::agent::diff_tracker::TurnDiffTracker>>,
+    /// Authoritative Toolchain Heartbeat for environment awareness.
+    pub last_heartbeat: Option<crate::agent::policy::ToolchainHeartbeat>,
 }
 
 impl ConversationManager {
@@ -1569,7 +1573,7 @@ impl ConversationManager {
 
         // Build the initial system prompt using the canonical InferenceEngine path.
         let dynamic_instructions =
-            engine.build_system_prompt(snark, chaos, brief, professional, &[], None, &[]);
+            engine.build_system_prompt(snark, chaos, brief, professional, &[], None, None, &[]);
 
         let history = vec![ChatMessage::system(&dynamic_instructions)];
 
@@ -1617,6 +1621,7 @@ impl ConversationManager {
             last_goal: None,
             latest_target_dir: None,
             pending_teleport_handoff: None,
+            diff_tracker: Arc::new(Mutex::new(crate::agent::diff_tracker::TurnDiffTracker::new())),
         }
     }
 
@@ -1699,11 +1704,20 @@ impl ConversationManager {
     fn build_chat_system_prompt(&self) -> String {
         let species = &self.engine.species;
         let personality = &self.soul_personality;
-        format!(
+        let mut sys = format!(
             "You are {species}, a local AI companion running entirely on the user's GPU — no cloud, no subscriptions, no phoning home.\n\
              {personality}\n\n\
-             This is CHAT mode — a clean conversational surface. Behave like a sharp friend who happens to know everything about code, not like an agent following a workflow.\n\n\
-             Rules:\n\
+             This is CHAT mode — a clean conversational surface. Behave like a sharp friend who happens to know everything about code, not like an agent following a workflow.\n\n"
+        );
+
+        if let Some(summary) = self.last_heartbeat.as_deref() {
+            sys.push_str("## HOST ENVIRONMENT\n");
+            sys.push_str(summary);
+            sys.push_str("\n\n");
+        }
+
+        sys.push_str(
+            "Rules:\n\
              - Talk like a person. Skip the bullet-point breakdowns unless the topic genuinely needs structure.\n\
              - Answer directly. One paragraph is usually right.\n\
              - Don't call tools unless the user explicitly asks you to look at a file or run something.\n\
@@ -1711,7 +1725,8 @@ impl ConversationManager {
              - You can discuss code, debug ideas, explain concepts, help plan, or just talk.\n\
              - If the user clearly wants you to edit or build something, do it — but lead with conversation, not scaffolding.\n\
              - If the user wants the full coding harness, they can type `/agent`.\n",
-        )
+        );
+        sys
     }
 
     fn append_session_handoff(&self, system_msg: &mut String) {
@@ -1890,6 +1905,24 @@ impl ConversationManager {
     }
 
     async fn validate_action_preconditions(&self, name: &str, args: &Value) -> Result<(), String> {
+        // Redundancy Check (Steering Tier 1 - Blocking)
+        if let Some(steer_hint) = crate::agent::policy::is_redundant_action(name, args, &self.history) {
+            return Err(steer_hint);
+        }
+
+        if name == "shell" {
+            if let Some(cmd) = args.get("command").and_then(|v| v.as_str()) {
+                if !crate::agent::policy::find_binary_in_path(cmd) {
+                    return Err(format!(
+                        "PREDICTIVE FAILURE: The binary for the command `{}` was not found in the host PATH. \
+                         Do not attempt to run this command. Either troubleshoot the toolchain \
+                         using `inspect_host(topic='fix_plan')` or ask the user to verify its installation.",
+                        cmd
+                    ));
+                }
+            }
+        }
+
         if self
             .plan_execution_active
             .load(std::sync::atomic::Ordering::SeqCst)
@@ -3104,6 +3137,7 @@ impl ConversationManager {
             self.professional,
             &self.tools,
             self.reasoning_history.as_deref(),
+            self.last_heartbeat.as_deref(),
             &mcp_tools,
         );
         if !tiny_context_mode {
@@ -3374,7 +3408,7 @@ impl ConversationManager {
                 .send(InferenceEvent::VeinStatus {
                     file_count: self.vein.file_count(),
                     embedded_count: self.vein.embedded_chunk_count(),
-                    docs_only: vein_docs_only,
+                 docs_only: vein_docs_only,
                 })
                 .await;
             match self.build_vein_context(&effective_user_input) {
@@ -3384,6 +3418,16 @@ impl ConversationManager {
         } else {
             (None, Vec::new())
         };
+        // Reset Turn Diff Tracker for a fresh turn.
+        {
+            let mut tracker = self.diff_tracker.lock().await;
+            tracker.reset();
+        }
+
+        // Environment Heartbeat: Capture current toolchain state.
+        let heartbeat = crate::agent::policy::ToolchainHeartbeat::capture();
+        self.last_heartbeat = Some(heartbeat.clone());
+
         if !vein_paths.is_empty() {
             let _ = tx
                 .send(InferenceEvent::VeinContext { paths: vein_paths })
@@ -3744,7 +3788,7 @@ impl ConversationManager {
             // Vein results are merged in the same way as loop_intervention so standard
             // models (Qwen etc.) only ever see one system message.
             if inject_vein {
-                if let Some(ref ctx) = vein_context.as_ref() {
+                if let Some(ctx) = vein_context.as_deref() {
                     if crate::agent::inference::is_hematite_native_model(
                         &self.engine.current_model(),
                     ) {
@@ -4052,6 +4096,17 @@ impl ConversationManager {
                         gemma4_model,
                         latest_user_prompt,
                     );
+
+                    // Authoritative Diff Tracking: Capture baseline before mutation.
+                    if crate::agent::policy::is_destructive_tool(&normalized_name) {
+                        if let Some(path) = crate::agent::policy::tool_path_argument(&normalized_name, &normalized_args) {
+                            let tracker = self.diff_tracker.clone();
+                            tokio::spawn(async move {
+                                let mut guard = tracker.lock().await;
+                                let _ = guard.on_file_access(std::path::Path::new(&path));
+                            });
+                        }
+                    }
 
                     // --- HALLUCINATION SANITIZER ---
                     if normalized_name == "shell" || normalized_name == "run_workspace_workflow" {
@@ -5154,8 +5209,24 @@ impl ConversationManager {
         // Record the goal and increment the turn counter before persisting.
         self.last_goal = Some(user_input.chars().take(300).collect());
         self.turn_count = self.turn_count.saturating_add(1);
-        self.save_session();
         self.emit_compaction_pressure(&tx).await;
+
+        // AUTHORITATIVE TURN SUMMARY: Generate and display unified diffs.
+        if !implement_current_plan {
+            let tracker = self.diff_tracker.lock().await;
+            if let Ok(diff) = tracker.generate_diff() {
+                if !diff.is_empty() {
+                    let _ = tx.send(InferenceEvent::Thought(format!(
+                        "AUTHORITATIVE TURN SUMMARY:\n\n```diff\n{}\n```",
+                        diff
+                    ))).await;
+                    
+                    // Also log to transcript for persistence.
+                    self.transcript.log_system(&format!("Turn Diff Summary:\n{}", diff));
+                }
+            }
+        }
+
         Ok(())
     }
 

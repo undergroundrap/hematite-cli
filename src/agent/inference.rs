@@ -1110,6 +1110,7 @@ impl InferenceEngine {
         professional: bool,
         tools: &[ToolDefinition],
         reasoning_history: Option<&str>,
+        environment_summary: Option<&str>,
         mcp_tools: &[crate::agent::mcp::McpTool],
     ) -> String {
         let mut sys = self.build_system_prompt_legacy(
@@ -1119,6 +1120,7 @@ impl InferenceEngine {
             professional,
             tools,
             reasoning_history,
+            environment_summary,
         );
 
         if !mcp_tools.is_empty() && !is_tiny_context_window(self.current_context_length()) {
@@ -1144,6 +1146,7 @@ impl InferenceEngine {
         professional: bool,
         tools: &[ToolDefinition],
         reasoning_history: Option<&str>,
+        environment_summary: Option<&str>,
     ) -> String {
         let current_context_length = self.current_context_length();
         if is_tiny_context_window(current_context_length) {
@@ -1190,6 +1193,12 @@ impl InferenceEngine {
 
         // IDENTITY & ENVIRONMENT
         let os = std::env::consts::OS;
+        if let Some(summary) = environment_summary {
+            sys.push_str("## HOST ENVIRONMENT\n");
+            sys.push_str(summary);
+            sys.push_str("\n\n");
+        }
+
         if professional {
             sys.push_str(&format!(
                 "You are Hematite, a local coding system running on {}. \
