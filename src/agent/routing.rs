@@ -60,6 +60,46 @@ fn contains_all(haystack: &str, needles: &[&str]) -> bool {
     needles.iter().all(|needle| haystack.contains(needle))
 }
 
+const CODE_KEYWORDS: &[&str] = &[
+    ".rs",
+    ".js",
+    ".ts",
+    ".py",
+    ".go",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".css",
+    ".html",
+    ".json",
+    ".toml",
+    ".yaml",
+    ".yml",
+    ".md",
+    ".sh",
+    ".ps1",
+    ".sql",
+    "rust",
+    "python",
+    "javascript",
+    "typescript",
+    "golang",
+    "react",
+    "svelte",
+    "vue",
+    "nextjs",
+    "node",
+    "npm",
+    "cargo",
+    "pip",
+    "logic",
+    "refactor",
+    "implementation",
+    "styles",
+    "script",
+];
+
 fn mentions_reset_commands(lower: &str) -> bool {
     contains_all(lower, &["/clear", "/new", "/forget"])
 }
@@ -252,9 +292,11 @@ fn is_conversational_advisory(lower: &str) -> bool {
         && no_imperative;
 
     // ── Confirmation-seeking tail — "right?", "correct?" ────────────────────────
-    let ends_confirmation = lower.trim_end_matches(|c: char| c == '?' || c == ' ')
+    let ends_confirmation = lower
+        .trim_end_matches(|c: char| c == '?' || c == ' ')
         .ends_with("right")
-        || lower.trim_end_matches(|c: char| c == '?' || c == ' ')
+        || lower
+            .trim_end_matches(|c: char| c == '?' || c == ' ')
             .ends_with("correct")
         || lower.ends_with("right?")
         || lower.ends_with("yeah?");
@@ -279,201 +321,30 @@ fn is_conversational_advisory(lower: &str) -> bool {
 }
 
 fn mentions_host_inspection_question(lower: &str) -> bool {
-    let host_scope = contains_any(
+    let host_scope = lower.split_whitespace().any(|w| {
+        let w = w.trim_matches(|c: char| !c.is_alphanumeric());
+        matches!(
+            w,
+            "path" | "pip" | "winget" | "choco" | "scoop" | "network" | "adapter" | "dns" | "gateway" | "wifi" | "ethernet" | "service" | "services" | "daemon" | "process" | "processes" | "ram" | "cpu" | "gpu" | "vram" | "nvidia" | "memory" | "machine" | "computer" | "firewall" | "vpn" | "proxy" | "internet" | "online" | "connectivity" | "uptime" | "reboot" | "silicon" | "throttle" | "throttled" | "clocks" | "mhz" | "health" | "report" | "bitlocker" | "rdp" | "vss" | "pagefile" | "swap" | "printer" | "audio" | "sound" | "speaker" | "speakers" | "microphone" | "mic" | "bluetooth" | "pairing" | "headset" | "headphones" | "camera" | "webcam" | "msi" | "msiexec" | "onedrive" | "indexer" | "ntp" | "w32tm" | "winrm" | "psremoting" | "slat" | "error" | "warning" | "event" | "log" | "throughput" | "registry" | "share" | "mbps" | "ad" | "sid" | "vm" | "hyper-v" | "hyperv" | "dhcp" | "lease"
+        )
+    }) || contains_any(
         lower,
         &[
-            "path",
-            "package manager",
-            "package managers",
-            "env doctor",
-            "environment doctor",
-            "pip",
-            "winget",
-            "choco",
-            "scoop",
-            "network",
-            "adapter",
-            "dns",
-            "gateway",
-            "ip address",
-            "ipconfig",
-            "wifi",
-            "ethernet",
-            "service",
-            "services",
-            "daemon",
-            "startup type",
-            "process",
-            "processes",
-            "task manager",
-            "ram",
-            "cpu",
-            "gpu",
-            "vram",
-            "nvidia",
-            "memory",
-            "developer tools",
-            "toolchains",
-            "installed",
-            "desktop",
-            "downloads",
-            "folder",
-            "directory",
-            "local development",
-            "machine",
-            "computer",
-            "firewall",
-            "vpn",
-            "proxy",
-            "internet",
-            "online",
-            "connectivity",
-            "ssid",
-            "wireless",
-            "tcp connection",
-            "active connection",
-            "traceroute",
-            "tracert",
-            "dns cache",
-            "arp table",
-            "arp cache",
-            "route table",
-            "routing table",
-            "default gateway",
-            "next hop",
-            "power plan",
-            "power settings",
-            "uptime",
-            "reboot",
-            "silicon",
-            "throttle",
-            "throttled",
-            "clocks",
-            "mhz",
-            "health",
-            "report",
-            "bitlocker",
-            "rdp",
-            "remote desktop",
-            "vss",
-            "shadow copy",
-            "shadow copies",
-            "pagefile",
-            "virtual memory",
-            "swap",
-            "windows feature",
-            "optional feature",
-            "printer",
-            "print queue",
-            "audio",
-            "sound",
-            "speaker",
-            "speakers",
-            "microphone",
-            "mic",
-            "bluetooth",
-            "pairing",
-            "headset",
-            "headphones",
-            "camera",
-            "webcam",
-            "installer",
-            "installer broken",
-            "msi",
-            "msiexec",
-            "winget broken",
-            "microsoft store",
-            "app installer",
-            "onedrive",
-            "one drive",
-            "files on-demand",
-            "known folder backup",
-            "sharepoint sync",
-            "windows hello",
-            "hello not working",
-            "sign in issue",
-            "search index",
-            "windows search",
-            "indexer",
-            "monitor resolution",
-            "display config",
-            "refresh rate",
-            "screen dpi",
-            "ntp",
-            "time sync",
-            "clock drift",
-            "w32tm",
-            "turbo boost",
-            "cpu frequency",
-            "cpu clock",
-            "power plan",
-            "winrm",
-            "psremoting",
-            "network stats",
-            "adapter stats",
-            "udp listening",
-            "udp port",
-            "session",
-            "logon",
-            "login",
-            "slat",
-            "error",
-            "warning",
-            "event",
-            "log",
-            "throughput",
-            "permission",
-            "access control",
-            "login",
-            "logon",
-            "registry",
-            "share",
-            "mbps",
-            "ad",
-            "sid",
-            "vm",
-            "hyper-v",
-            "hyperv",
-            "dhcp",
-            "lease",
-        ],
+            "package manager", "environment doctor", "ip address", "ipconfig", "task manager", "developer tools", "toolchains", "local development", "tcp connection", "active connection", "traceroute", "tracert", "dns cache", "arp table", "route table", "routing table", "default gateway", "power plan", "windows feature", "optional feature", "microsoft store", "app installer", "search index", "windows search", "monitor resolution", "display config", "refresh rate"
+        ]
     );
-    let host_action = contains_any(
+
+    let host_action = lower.split_whitespace().any(|w| {
+        let w = w.trim_matches(|c: char| !c.is_alphanumeric());
+        matches!(
+            w,
+            "inspect" | "count" | "summarize" | "analyze" | "missing" | "ready" | "resolve" | "troubleshoot" | "show" | "find" | "list" | "audit" | "test" | "check" | "currently" | "status" | "stats" | "vitals" | "telemetry" | "looking"
+        )
+    }) || contains_any(
         lower,
         &[
-            "inspect",
-            "count",
-            "tell me",
-            "summarize",
-            "how big",
-            "biggest",
-            "versions",
-            "duplicate",
-            "analyze",
-            "missing",
-            "ready",
-            "resolve",
-            "troubleshoot",
-            "show me",
-            "show",
-            "find",
-            "list",
-            "audit",
-            "test",
-            "check",
-            "is",
-            "are",
-            "am",
-            "why",
-            "what",
-            "currently",
-            "status",
-            "stats",
-            "vitals",
-            "telemetry",
-            "how",
-            "looking",
-        ],
+            "tell me", "how big", "show me"
+        ]
     );
 
     host_scope && host_action
@@ -1344,6 +1215,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("folder")
         || lower.contains("how big")
         || lower.contains("biggest");
+
     let asks_mutation_intent = (lower.contains("make")
         || lower.contains("create")
         || lower.contains("mkdir")
@@ -1351,14 +1223,26 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("edit")
         || lower.contains("write")
         || lower.contains("save")
-        || lower.contains("update"))
+        || lower.contains("update")
+        || lower.contains("change")
+        || lower.contains("fix")
+        || lower.contains("implement")
+        || lower.contains("refactor"))
         && (lower.contains("folder")
             || lower.contains("directory")
             || lower
                 .split_whitespace()
-                .any(|w| w == "file" || w == "files")
+                .any(|w| {
+                    let w = w.trim_matches(|c: char| !c.is_alphanumeric());
+                    w == "file" || w == "files" || w == "code" || w == "script" || w == "css" || w == "js" || w == "html" || w == "ts" || w == "rust" || w == "json" || w == "logic"
+                })
             || lower.contains("code")
-            || lower.contains("desktop"));
+            || lower.contains("desktop")
+            || lower.contains("logic")
+            || lower.contains("css")
+            || lower.contains("styles")
+            || lower.contains("script")
+            || contains_any(&lower, CODE_KEYWORDS));
     let asks_broad_readiness = lower.contains("local development")
         || lower.contains("ready for local development")
         || (lower.contains("machine") && lower.contains("ready"))
@@ -3322,6 +3206,7 @@ pub fn preferred_workspace_workflow(user_input: &str) -> Option<&'static str> {
             || lower.contains("make a directory")
             || lower.contains("make a file")
             || lower.contains("make a hello.txt")
+            || lower.contains("make it")
             || lower.contains("make x");
 
         let has_script_keyword = contains_any(
@@ -3478,7 +3363,27 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
     let capability_mode = mentions_capability_question(&lower);
     let capability_needs_repo =
         capability_mode && capability_question_requires_repo_inspection(&lower);
-    let host_inspection_mode = preferred_host_inspection_topic(&lower).is_some();
+    let is_coding_workflow =
+        workflow_mode == WorkflowMode::Auto || workflow_mode == WorkflowMode::Code;
+
+    let has_authoritative_hardware_noun = lower.split_whitespace().any(|w| {
+        let w = w.trim_matches(|c: char| !c.is_alphanumeric());
+        matches!(
+            w,
+            "gpu" | "ram" | "cpu" | "vram" | "nvidia" | "silicon" | "vitals" | "throttle"
+                | "overclocker" | "thermal"
+        )
+    });
+
+    let host_inspection_allowed = if is_coding_workflow && contains_any(&lower, CODE_KEYWORDS) {
+        // High-barrier: if we are clearly in a code task, only allow diagnostic
+        // if they use an authoritative hardware noun.
+        has_authoritative_hardware_noun
+    } else {
+        true
+    };
+
+    let host_inspection_mode = host_inspection_allowed && preferred_host_inspection_topic(&lower).is_some();
     let maintainer_workflow_mode = preferred_maintainer_workflow(&lower).is_some();
     let workspace_workflow_mode =
         preferred_workspace_workflow(&lower).is_some() && !maintainer_workflow_mode;
@@ -3832,16 +3737,41 @@ pub fn is_scaffold_request(user_input: &str) -> bool {
     let creation_verbs = contains_any(
         &lower,
         &[
-            "scaffold", "bootstrap",
-            "create a", "create an", "create me a", "create me an",
-            "make a", "make an", "make me a", "make me an",
-            "build a", "build an", "build me a", "build me an",
-            "generate a", "generate an",
-            "set up a", "set up an", "set me up a", "set me up an",
-            "spin up a", "spin up an",
-            "start a", "start an",
-            "init a", "init an", "initialize a", "initialize an",
-            "write a", "write me a", "write me an",
+            "scaffold",
+            "bootstrap",
+            "create a",
+            "create an",
+            "create me a",
+            "create me an",
+            "make a",
+            "make an",
+            "make me a",
+            "make me an",
+            "build a",
+            "build an",
+            "build me a",
+            "build me an",
+            "generate a",
+            "generate an",
+            "set up a",
+            "set up an",
+            "set me up a",
+            "set me up an",
+            "spin up a",
+            "spin up an",
+            "start a",
+            "start an",
+            "init a",
+            "init an",
+            "initialize a",
+            "initialize an",
+            "write a",
+            "write me a",
+            "write me an",
+            "build website",
+            "make website",
+            "create website",
+            "scaffold website",
         ],
     );
 
@@ -3850,39 +3780,105 @@ pub fn is_scaffold_request(user_input: &str) -> bool {
         &lower,
         &[
             // Web frameworks
-            "react app", "react project", "react site", "react component",
-            "next.js", "nextjs", "next app", "next project",
-            "nuxt", "vue app", "vue project", "vue site", "vue component",
-            "svelte app", "svelte project", "sveltekit",
-            "astro project", "astro site",
-            "remix app", "solid.js",
+            "react app",
+            "react project",
+            "react site",
+            "react component",
+            "next.js",
+            "nextjs",
+            "next app",
+            "next project",
+            "nuxt",
+            "vue app",
+            "vue project",
+            "vue site",
+            "vue component",
+            "svelte app",
+            "svelte project",
+            "sveltekit",
+            "astro project",
+            "astro site",
+            "remix app",
+            "solid.js",
             // Backend
-            "express app", "express server", "express api", "express project",
-            "fastapi", "flask app", "flask project", "flask api",
-            "django project", "django app",
-            "node project", "node app", "node server", "node api",
-            "typescript project", "ts project", "ts app",
+            "express app",
+            "express server",
+            "express api",
+            "express project",
+            "fastapi",
+            "flask app",
+            "flask project",
+            "flask api",
+            "django project",
+            "django app",
+            "node project",
+            "node app",
+            "node server",
+            "node api",
+            "typescript project",
+            "ts project",
+            "ts app",
             // Rust
-            "rust cli", "rust project", "rust app", "rust tool", "rust binary",
-            "rust library", "rust crate", "rust api",
+            "rust cli",
+            "rust project",
+            "rust app",
+            "rust tool",
+            "rust binary",
+            "rust library",
+            "rust crate",
+            "rust api",
             // Go
-            "go project", "go app", "go cli", "go api", "go server", "go tool",
-            "golang project", "golang app",
+            "go project",
+            "go app",
+            "go cli",
+            "go api",
+            "go server",
+            "go tool",
+            "golang project",
+            "golang app",
             // Python
-            "python project", "python app", "python cli", "python script",
-            "python package", "python tool", "python api", "python service",
+            "python project",
+            "python app",
+            "python cli",
+            "python script",
+            "python package",
+            "python tool",
+            "python api",
+            "python service",
             "python library",
             // C / C++
-            "c++ project", "c++ app", "cpp project", "cpp app",
-            "c project", "c app", "cmake project",
+            "c++ project",
+            "c++ app",
+            "cpp project",
+            "cpp app",
+            "c project",
+            "c app",
+            "cmake project",
             // Generic project types
-            "landing page", "portfolio site", "portfolio page", "personal site",
-            "todo app", "rest api", "graphql api", "crud app",
-            "web app", "web project", "web site", "website",
-            "cli app", "cli tool", "command line tool", "command-line tool",
-            "desktop app", "mobile app",
-            "microservice", "api server", "backend api",
-            "new project", "new app", "new site",
+            "landing page",
+            "portfolio site",
+            "portfolio page",
+            "personal site",
+            "todo app",
+            "rest api",
+            "graphql api",
+            "crud app",
+            "web app",
+            "web project",
+            "web site",
+            "website",
+            "cli app",
+            "cli tool",
+            "command line tool",
+            "command-line tool",
+            "desktop app",
+            "mobile app",
+            "microservice",
+            "api server",
+            "backend api",
+            "new project",
+            "new app",
+            "new site",
         ],
     );
 
@@ -3890,13 +3886,20 @@ pub fn is_scaffold_request(user_input: &str) -> bool {
     let scaffold_commands = contains_any(
         &lower,
         &[
-            "npm init", "npm create",
-            "cargo new", "cargo init",
+            "npm init",
+            "npm create",
+            "cargo new",
+            "cargo init",
             "go mod init",
-            "npx create-react-app", "npx create-next-app",
-            "npx create-vue", "npx create-svelte", "npx astro",
-            "pnpm create", "yarn create",
-            "django-admin startproject", "python -m django startproject",
+            "npx create-react-app",
+            "npx create-next-app",
+            "npx create-vue",
+            "npx create-svelte",
+            "npx astro",
+            "pnpm create",
+            "yarn create",
+            "django-admin startproject",
+            "python -m django startproject",
         ],
     );
 
@@ -4117,9 +4120,43 @@ mod tests {
         assert!(!mentions_host_inspection_question(
             "Explain the repository structure."
         ));
-        assert!(!mentions_host_inspection_question("how do I build this?"));
         assert!(!mentions_host_inspection_question(
             "is this code efficient?"
         ));
+    }
+
+    #[test]
+    fn test_web_mutation_routing() {
+        // This is the prompt that previously failed by routing to HostInspection
+        let input = "I want to change the primary brand color from whatever it is now to a vibrant 'Neon Hematite' (HSL 180, 100%, 50%). Update all CSS variables, update the JS theme toggle logic to support this as the new default highlight, and ensure the HTML icons match. Run verify_build when you are done.";
+        
+        // Test in Auto mode (where it should stay in code)
+        let intent = classify_query_intent(WorkflowMode::Auto, input);
+        assert_eq!(intent.primary_class, QueryIntentClass::Implementation);
+        assert_eq!(intent.direct_answer, None);
+
+        // Test in Code mode (where it should stay in code)
+        let intent = classify_query_intent(WorkflowMode::Code, input);
+        assert_eq!(intent.primary_class, QueryIntentClass::Implementation);
+        assert_eq!(intent.direct_answer, None);
+    }
+
+    #[test]
+    fn test_explicit_diagnostic_during_code() {
+        // Even if we are in Code mode, an authoritative hardware noun should trigger the diagnostic
+        let input = "Check my GPU stats and tell me if it's throttled.";
+        let intent = classify_query_intent(WorkflowMode::Code, input);
+        
+        assert_eq!(intent.direct_answer, Some(DirectAnswerKind::HostInspection));
+    }
+
+    #[test]
+    fn test_coding_shield_logic_collision() {
+        // "logic" should not collide with "log" when in code mode
+        let input = "Fix the login logic in my typescript code.";
+        let intent = classify_query_intent(WorkflowMode::Auto, input);
+        
+        assert_eq!(intent.primary_class, QueryIntentClass::Implementation);
+        assert_ne!(intent.direct_answer, Some(DirectAnswerKind::HostInspection));
     }
 }

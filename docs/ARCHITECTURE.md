@@ -16,13 +16,10 @@ Hematite resolves a runtime-state directory instead of assuming every artifact l
 the launch directory.
 
 - normal project workspaces use `workspace_root()/.hematite/`
-- sovereign OS directories such as Desktop, Downloads, Documents, Pictures, Videos, and Music use
-  the global `~/.hematite/` directory instead
-- this keeps broad user folders clean while preserving docs-only memory, settings, reports, scratch
-  output, and teleport/session state across launches
+- OS shortcut directories such as Desktop, Downloads, Documents, Pictures, Videos, and Music use the global `~/.hematite/` directory instead
+- this keeps broad user folders clean while preserving docs-only memory, settings, reports, scratch output, and teleport/session state across launches
 
-If you are changing where session files, Vein artifacts, reports, logs, or workspace metadata live,
-start from `src/tools/file_ops.rs` and its `hematite_dir()` / `is_sovereign_directory()` helpers.
+If you are changing where session files, Vein artifacts, reports, logs, or workspace metadata live, start from `src/tools/file_ops.rs` and its `hematite_dir()` / `is_os_shortcut_directory()` helpers.
 
 ## Top-Level Entry Points
 
@@ -176,7 +173,7 @@ Owns typed runtime recovery planning.
 Owns tool-policy helper logic.
 
 - destructive-tool classification
-- path normalization
+- path normalization (resolving Path Alias shortcuts like @DESKTOP)
 - MCP mutation/read helper checks
 - target-path extraction
 
@@ -280,6 +277,8 @@ Owns session transcript persistence.
 Owns the auto-generated workspace profile.
 
 - detects stack, package managers, important folders, noise folders, and build/test suggestions
+- uses robust project-marker detection (e.g., `index.html`, `style.css`, `.hematite` management files) to distinguish Managed Projects from Docs-only folders
+- emits typed runtime contracts for stacks that need more rigid control loops, such as websites with local URL hints, route hints, and preferred `website_*` workflows
 - written to `workspace_profile.json` under the resolved runtime-state directory on startup
 - injected into the prompt as lightweight repo grounding
 - inspectable via `/workspace-profile`
@@ -416,7 +415,7 @@ LSP startup and language-aware tooling. Surfaces diagnostics from language serve
 
 ### `src/tools/plan.rs`
 
-`PlanHandoff` — persists architect session plans to `.hematite/PLAN.md` for `/architect` → `/implement-plan` handoff.
+`PlanHandoff` — persists architect session plans to `.hematite/PLAN.md` for `/architect` → `/implement-plan` handoff and mirrors durable project plans into `docs/exec-plans/active/` with archive/carry-forward support.
 
 ### `src/tools/tasks.rs`
 
@@ -433,6 +432,10 @@ Workspace script runner — executes project-local build/test/lint/clean scripts
 ### `src/tools/workspace_workflow.rs`
 
 Structured workspace workflow invocations — rooted to the locked workspace root. Separate from Hematite's own maintainer scripts.
+
+- generic lane: build/test/lint/fix/package scripts/task/just/make/script path/exact command
+- website lane: `website_start`, `website_probe`, `website_validate`, `website_status`, `website_stop`
+- website validation consumes the workspace runtime contract when present so local URL hints and route hints can come from the repo instead of the prompt
 
 ### `src/tools/scoping_tools.rs`
 
@@ -464,7 +467,8 @@ Owns the operator interface.
 - runtime badges: provider health, compaction pressure, context ceiling
 - approval prompts and diff preview modal (`Y`/`N`)
 - voice toggle state
-- `@` file autocomplete in the input field
+- **Directory-Aware Autocomplete**: `@` file autocomplete in the input field, prioritized by type and optimized with **Smart Splicing** for Path Aliases
+- **Mouse Interaction**: Autocomplete suggestions and status badges are clickable
 - all slash-command UI flows
 - **Self-Destruct Protocol**: coordinates clean workspace transitions by spawning a new terminal instance and breaking the original event loop.
 

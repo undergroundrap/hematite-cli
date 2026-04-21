@@ -114,6 +114,110 @@ fn test_workspace_profile_uses_workspace_verify_profile_and_writes_file() {
     assert!(report.contains("Path:"));
 }
 
+#[test]
+fn test_workspace_profile_detects_website_runtime_contract() {
+    use hematite::agent::workspace_profile::{
+        detect_workspace_profile, profile_prompt_block, profile_strategy_prompt_block,
+    };
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    fs::create_dir_all(workspace.path().join("src").join("pages")).expect("create pages");
+    fs::create_dir_all(workspace.path().join("public")).expect("create public");
+    fs::write(
+        workspace.path().join("package.json"),
+        r#"{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}"#,
+    )
+    .expect("write package json");
+    fs::write(
+        workspace.path().join("src").join("pages").join("about.tsx"),
+        "export default function About(){ return null; }",
+    )
+    .expect("write page");
+    fs::write(
+        workspace.path().join("public").join("pricing.html"),
+        "<html><body>pricing</body></html>",
+    )
+    .expect("write public html");
+
+    let profile = detect_workspace_profile(workspace.path());
+    let contract = profile
+        .runtime_contract
+        .expect("website runtime contract should exist");
+    assert_eq!(contract.loop_family, "website");
+    assert_eq!(contract.app_kind, "website");
+    assert_eq!(contract.framework_hint.as_deref(), Some("vite"));
+    assert_eq!(
+        contract.local_url_hint.as_deref(),
+        Some("http://127.0.0.1:5173/")
+    );
+    assert!(contract
+        .preferred_workflows
+        .iter()
+        .any(|workflow| workflow == "website_validate"));
+    assert!(contract
+        .verification_workflows
+        .iter()
+        .any(|workflow| workflow == "build"));
+    assert!(contract
+        .delivery_phases
+        .iter()
+        .any(|phase| phase.contains("validate")));
+    assert!(contract
+        .quality_gates
+        .iter()
+        .any(|gate| gate.contains("critical routes")));
+    assert!(contract.route_hints.iter().any(|route| route == "/"));
+    assert!(contract.route_hints.iter().any(|route| route == "/about"));
+    assert!(contract
+        .route_hints
+        .iter()
+        .any(|route| route == "/pricing.html"));
+
+    let prompt = profile_prompt_block(workspace.path()).expect("profile prompt block");
+    assert!(prompt.contains("Loop family: website"));
+    assert!(prompt.contains("Preferred workflows:"));
+
+    let strategy = profile_strategy_prompt_block(workspace.path()).expect("strategy prompt block");
+    assert!(strategy.contains("Stack Delivery Contract"));
+    assert!(strategy.contains("Work in this order:")); // Delivery phases
+    assert!(strategy.contains("Automatic proof should come from:")); // Verification workflows
+    assert!(strategy.contains("Do not consider the task complete until these gates hold:")); // Quality gates
+}
+
+#[test]
+fn test_workspace_profile_does_not_misclassify_node_service_as_website() {
+    use hematite::agent::workspace_profile::detect_workspace_profile;
+
+    let workspace = tempfile::tempdir().expect("temp workspace");
+    fs::write(
+        workspace.path().join("package.json"),
+        r#"{
+  "scripts": {
+    "dev": "tsx server.ts",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.0.0"
+  }
+}"#,
+    )
+    .expect("write package json");
+
+    let profile = detect_workspace_profile(workspace.path());
+    let contract = profile.runtime_contract.expect("service contract");
+    assert_eq!(contract.loop_family, "service");
+    assert_eq!(contract.app_kind, "node-service");
+}
+
 // ── Task file parsing ─────────────────────────────────────────────────────────
 
 #[tokio::test]
@@ -6825,9 +6929,18 @@ fn test_direct_diagnostic_questions_still_route_through_advisory_guard() {
     use hematite::agent::routing::preferred_host_inspection_topic;
     // Real diagnostic questions that happen to contain "ram" or "memory"
     // should still route correctly.
-    assert_eq!(preferred_host_inspection_topic("how much ram do I have"), Some("hardware"));
-    assert_eq!(preferred_host_inspection_topic("what is using my ram"), Some("processes"));
-    assert_eq!(preferred_host_inspection_topic("what processes are using ram"), Some("processes"));
+    assert_eq!(
+        preferred_host_inspection_topic("how much ram do I have"),
+        Some("hardware")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is using my ram"),
+        Some("processes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what processes are using ram"),
+        Some("processes")
+    );
 }
 
 #[test]
@@ -6893,7 +7006,9 @@ fn test_scaffold_request_detection() {
     assert!(is_scaffold_request("go mod init my-app"));
 
     // Should NOT detect scaffold intent
-    assert!(!is_scaffold_request("how do I add a component to my React app"));
+    assert!(!is_scaffold_request(
+        "how do I add a component to my React app"
+    ));
     assert!(!is_scaffold_request("fix the bug in my Express route"));
     assert!(!is_scaffold_request("explain how FastAPI routing works"));
     assert!(!is_scaffold_request("what is my CPU usage"));

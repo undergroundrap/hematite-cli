@@ -28,13 +28,13 @@ pub struct InferenceEngine {
     pub cancel_token: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
-pub fn is_gemma4_model_name(model: &str) -> bool {
+pub fn is_hematite_native_model(model: &str) -> bool {
     let lower = model.to_ascii_lowercase();
     lower.contains("gemma-4") || lower.contains("gemma4")
 }
 
-fn should_use_gemma_native_formatting(engine: &InferenceEngine, model: &str) -> bool {
-    is_gemma4_model_name(model) && engine.gemma_native_formatting_enabled()
+fn should_use_native_formatting(engine: &InferenceEngine, model: &str) -> bool {
+    is_hematite_native_model(model) && engine.gemma_native_formatting_enabled()
 }
 
 // ── OpenAI Tool Definition ────────────────────────────────────────────────────
@@ -187,7 +187,7 @@ pub fn tool_metadata_for_name(name: &str) -> ToolMetadata {
             external_surface: false,
             trust_sensitive: false,
             read_only_friendly: true,
-            plan_scope: false,
+            plan_scope: true,
         },
         "git_commit" | "git_push" | "git_remote" | "git_onboarding" | "git_worktree" => {
             ToolMetadata {
@@ -387,7 +387,7 @@ impl ChatMessage {
         content: &str,
         model: &str,
     ) -> Self {
-        let body = if is_gemma4_model_name(model) {
+        let body = if is_hematite_native_model(model) {
             format!(
                 "<|tool_response>response:{}{}{}<tool_response|>",
                 fn_name, "{", content
@@ -671,6 +671,8 @@ pub enum InferenceEvent {
     },
     /// The current agent turn is complete.
     Done,
+    /// Indicates the agent is automatically orchestrating a transition to /implement-plan.
+    ChainImplementPlan,
     /// An error occurred during inference.
     Error(String),
     /// Compact provider/runtime state for the operator surface.
@@ -1153,9 +1155,9 @@ impl InferenceEngine {
                  Calibrate response length and tool-call depth to fit within this budget.\n\n",
                 current_model, current_context_length
             ));
-            if is_gemma4_model_name(&current_model) {
+            if is_hematite_native_model(&current_model) {
                 sys.push_str(
-                    "Gemma 4 native note: prefer exact tool JSON with no extra prose when calling tools. \
+                    "Sovereign native note: prefer exact tool JSON with no extra prose when calling tools. \
                      Do not wrap `path`, `extension`, or other string arguments in extra quote layers. \
                      For `grep_files`, provide the raw regex pattern without surrounding slash delimiters.\n\n",
                 );
@@ -1189,27 +1191,12 @@ impl InferenceEngine {
         sys.push_str("ANTI-LOOPING: If a tool returns (no output) or 'not recognized' in a shell, pivot to a different internal tool. \n\
                       SELF-AUDIT: If you see your own command echoed back as the result, the shell failed; pivot to an internal tool immediately.\n\n");
 
+        // Consolidated: All directives are now handled by the authoritative prompt.rs builder.
+        sys.push_str("## TURN ADVISORY\n");
         if brief {
-            sys.push_str(
-                "BRIEF MODE: Respond in exactly ONE concise sentence unless providing code.\n\n",
-            );
+            sys.push_str("- BRIEF MODE: Respond with ONE concise sentence/block unless more code is required.\n");
         }
-
-        sys.push_str("## CORE DIRECTIVES\n\
-                       1. REASONING: Your internal reasoning goes in <think>...</think> blocks. Do NOT output reasoning as plain text.\n\
-                       2. CONCISENESS: After <think>, output ONE concise technical sentence or code block. Nothing else.\n\
-                       3. GROUNDEDNESS: Never invent tools, channels, or files. If a detail is not verified from tool output, say `uncertain`. Answer from stable Hematite capabilities unless repo implementation is requested.\n\n\
-                       ## ARCHITECTURAL DISCIPLINE\n\
-                       - HOST INSPECTION PRIORITY: MANDATORY. For all diagnostic questions (load, CPU/RAM, processes, toolchains, network, ports, OS config, log-checks), prefer `inspect_host` over raw `shell`. If `env_doctor` answers, do not follow with `path` unless requested.\n\
-                       - WORKFLOW PRIORITY: Prefer `run_workspace_workflow` for project builds/tests and `run_hematite_maintainer_workflow` for app-level scripts over raw `shell`.\n\
-                       - PROOF BEFORE ACTION: `read_file` or `inspect_lines` before editing. For files >200 lines, `grep_files` for a pattern BEFORE reading.\n\
-                       - PROOF BEFORE COMMIT: Do not `git_commit` until a successful `verify_build` exists for the latest changes.\n\
-                       - BUILT-IN FIRST: Prefer internal file tools over `mcp__filesystem__*` unless MCP is explicitly required.\n\n\
-                       ## TECHNIQUE & SAFETY\n\
-                       - SHELL DISCIPLINE: Risky `shell` calls REQUIRE a `reason` argument. Always use `powershell` on Windows; never `bash` or `/dev/null`.\n\
-                       - EDIT & TOOL PRECISION: Use unique lines/anchors for `edit_file`. Do not call tools like 'think' or 'reasoning'. Paths and symbols are NOT tool names.\n\
-                       - CONTEXT AWARENESS: Answer at the harness level (file ops, shell, build). Prefer real language examples (Python, C#, TS, Go). Never mention `mcp__*` tools unless active and relevant.\n\
-                       - TOOLING DISCIPLINE: Prefer `describe_toolchain` over improvising tool surface from memory; preserve its identifiers exactly.");
+        sys.push_str("- INTERNAL REASONING: Plan your move in the thought channel first.\n");
 
         // Scaffolding protocol — enforces build validation after project creation.
         sys.push_str("\n## SCAFFOLDING PROTOCOL\n\
@@ -1279,9 +1266,9 @@ impl InferenceEngine {
             "Model: {} | Context: {} tokens. Keep turns focused.\n",
             current_model, current_context_length
         ));
-        if is_gemma4_model_name(&current_model) {
+        if is_hematite_native_model(&current_model) {
             sys.push_str(
-                "Gemma 4: use exact tool JSON. No extra prose in tool calls. \
+                "Sovereign native: use exact tool JSON. No extra prose in tool calls. \
                  Raw regex patterns in grep_files, no slash delimiters.\n",
             );
         }
@@ -1363,9 +1350,9 @@ impl InferenceEngine {
         if brief {
             sys.push_str("BRIEF MODE: answer in one concise sentence unless code is required.\n");
         }
-        if is_gemma4_model_name(&current_model) {
+        if is_hematite_native_model(&current_model) {
             sys.push_str(
-                "Gemma 4 note: use exact tool JSON with no extra prose when calling tools.\n",
+                "Sovereign native note: use exact tool JSON with no extra prose when calling tools.\n",
             );
         }
         sys.push_str("<turn|>\n");
@@ -1409,7 +1396,7 @@ impl InferenceEngine {
             tools.to_vec()
         };
 
-        let request_messages = if should_use_gemma_native_formatting(self, &model) {
+        let request_messages = if should_use_native_formatting(self, &model) {
             prepare_gemma_native_messages(messages)
         } else {
             messages.to_vec()
@@ -1531,7 +1518,7 @@ impl InferenceEngine {
             }
         }
 
-        if is_gemma4_model_name(&model) {
+        if is_hematite_native_model(&model) {
             if let Some(calls) = tool_calls.as_mut() {
                 for call in calls.iter_mut() {
                     call.function.arguments = normalize_tool_argument_string(
@@ -1581,7 +1568,7 @@ impl InferenceEngine {
         tx: mpsc::Sender<InferenceEvent>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let current_model = self.current_model();
-        let request_messages = if should_use_gemma_native_formatting(self, &current_model) {
+        let request_messages = if should_use_native_formatting(self, &current_model) {
             prepare_gemma_native_messages(messages)
         } else {
             messages
@@ -1977,7 +1964,7 @@ impl InferenceEngine {
             .map_err(|e| e.to_string())?;
 
         let system = self.build_system_prompt(self.snark, 50, false, professional, &[], None, &[]);
-        let request_messages = if should_use_gemma_native_formatting(self, model) {
+        let request_messages = if should_use_native_formatting(self, model) {
             prepare_gemma_native_messages(&[
                 ChatMessage::system(&system),
                 ChatMessage::user(prompt),
@@ -2429,16 +2416,14 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
             arguments.insert(key, val);
         }
 
-        if !arguments.is_empty() || name == "clear_context" {
-            results.push(ToolCallResponse {
-                id: format!("call_{}", rand::random::<u32>()),
-                call_type: "function".to_string(),
-                function: ToolCallFn {
-                    name,
-                    arguments: Value::Object(arguments).to_string(),
-                },
-            });
-        }
+        results.push(ToolCallResponse {
+            id: format!("call_{}", rand::random::<u32>()),
+            call_type: "function".to_string(),
+            function: ToolCallFn {
+                name,
+                arguments: Value::Object(arguments).to_string(),
+            },
+        });
     }
 
     results

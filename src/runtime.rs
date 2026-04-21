@@ -358,12 +358,12 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         ),
     );
     let startup_model = manager.engine.current_model();
-    if crate::agent::inference::is_gemma4_model_name(&startup_model) {
+    if crate::agent::inference::is_hematite_native_model(&startup_model) {
         let mode = crate::agent::config::gemma_native_mode_label(&startup_config, &startup_model);
         let status = match mode {
-            "on" => "Gemma 4 detected | Gemma Native Formatting: ON (forced)",
-            "auto" => "Gemma 4 detected | Gemma Native Formatting: ON (auto)",
-            _ => "Gemma 4 detected | Gemma Native Formatting: OFF (use /gemma-native auto|on)",
+            "on" => "Sovereign Engine detected | Native Turn-Formatting: ON (forced)",
+            "auto" => "Sovereign Engine detected | Native Turn-Formatting: ON (auto)",
+            _ => "Sovereign Engine detected | Native Turn-Formatting: OFF (use /gemma-native auto|on)",
         };
         let _ = agent_tx
             .send(InferenceEvent::MutedToken(status.to_string()))

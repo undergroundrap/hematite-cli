@@ -89,9 +89,14 @@ pub fn path_is_safe(workspace_root: &Path, target: &Path) -> Result<PathBuf, Str
     let resolved_workspace = std::fs::canonicalize(workspace_root).unwrap_or_default();
 
     // 3) Assess Physical Traversal Limits strictly against the Root Environment Prefix
-    if !resolved_path.starts_with(&resolved_workspace) {
+    // Normalize UNC prefixes for Windows compatibility in starts_with checks.
+    let norm_path = resolved_path.to_string_lossy().trim_start_matches(r"\\?\").to_lowercase().replace("\\", "/");
+    let norm_workspace = resolved_workspace.to_string_lossy().trim_start_matches(r"\\?\").to_lowercase().replace("\\", "/");
+
+    if !norm_path.starts_with(&norm_workspace) {
         // RELAXED SANDBOX: Allow absolute paths IF they passed the blacklist checks above.
-        if target.is_absolute() {
+        // Also allow sovereign tokens (@DESKTOP, ~) even if they aren't technically 'absolute' in a Path sense.
+        if target.is_absolute() || target.to_string_lossy().starts_with('@') || target.to_string_lossy().starts_with('~') {
             return Ok(resolved_path);
         }
         return Err(format!("AccessDenied: ⛔ SANDBOX BREACHED ⛔ Attempted directory traversal outside project bounds: {:?}", resolved_path));

@@ -209,15 +209,23 @@ pub async fn inspect_lines(args: &Value) -> Result<String, String> {
     let raw = fs::read_to_string(&abs).map_err(|e| format!("inspect_lines: {e} ({path})"))?;
 
     let lines: Vec<&str> = raw.lines().collect();
-    let total = lines.len();
+    let total_lines = lines.len();
 
-    let start = start_line.saturating_sub(1).min(total);
-    let end = end_line.unwrap_or(total).min(total);
+    // Out-of-bounds check with descriptive feedback.
+    if start_line > total_lines && total_lines > 0 {
+        return Err(format!(
+            "Invalid line range: You requested line {}, but the file only has {} lines. Try `read_file` on a smaller range or the whole file.",
+            start_line, total_lines
+        ));
+    }
 
-    if start >= end && total > 0 {
+    let start = start_line.saturating_sub(1).min(total_lines);
+    let end = end_line.unwrap_or(total_lines).min(total_lines);
+
+    if start >= end && total_lines > 0 {
         return Err(format!(
             "inspect_lines: start_line ({start_line}) must be <= end_line ({})",
-            end_line.unwrap_or(total)
+            end_line.unwrap_or(total_lines)
         ));
     }
 
@@ -225,7 +233,7 @@ pub async fn inspect_lines(args: &Value) -> Result<String, String> {
         "[inspect_lines: {path} lines {}-{} of {}]\n",
         start + 1,
         end,
-        total
+        total_lines
     );
     for i in start..end {
         output.push_str(&format!("[{:>4}] | {}\n", i + 1, lines[i]));
@@ -917,7 +925,59 @@ fn value_as_usize(value: &Value) -> Option<usize> {
 /// Resolve a path that must already exist, and check it's inside the workspace.
 fn safe_path(path: &str) -> Result<PathBuf, String> {
     let candidate = resolve_candidate(path);
-    canonicalize_safe(&candidate, path)
+    match canonicalize_safe(&candidate, path) {
+        Ok(abs) => Ok(abs),
+        Err(e) => {
+            if e.contains("The system cannot find the file specified") || e.contains("os error 2") {
+                if let Some(suggestion) = suggest_better_path(path) {
+                    return Err(format!("{e}. Did you mean '{suggestion}'?"));
+                }
+            }
+            Err(e)
+        }
+    }
+}
+
+fn suggest_better_path(original: &str) -> Option<String> {
+    let path = Path::new(original);
+    let filename = path.file_name()?.to_str()?.to_lowercase();
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    
+    // Use resolve_candidate to handle sovereign tokens like @DESKTOP/
+    let abs_parent = resolve_candidate(&parent.to_string_lossy()).canonicalize().ok()?;
+    
+    let mut best_match = None;
+    let mut best_score = 0;
+
+    if let Ok(entries) = fs::read_dir(abs_parent) {
+        for entry in entries.flatten() {
+            if let Some(candidate_name) = entry.file_name().to_str() {
+                let lower_candidate = candidate_name.to_lowercase();
+                if lower_candidate == filename { continue; }
+                
+                let mut score = 0;
+                if lower_candidate.starts_with(&filename) || filename.starts_with(&lower_candidate) {
+                    score += 10;
+                }
+                // Catch style.css vs styles.css
+                if (filename.ends_with('s') && filename[..filename.len()-1] == lower_candidate) ||
+                   (lower_candidate.ends_with('s') && lower_candidate[..lower_candidate.len()-1] == filename) {
+                    score += 20;
+                }
+
+                if score > best_score {
+                    best_score = score;
+                    best_match = Some(candidate_name.to_string());
+                }
+            }
+        }
+    }
+    
+    if best_score >= 10 {
+        best_match
+    } else {
+        None
+    }
 }
 
 /// Resolve a path that may not exist yet (for write_file).
@@ -1431,10 +1491,10 @@ pub fn workspace_root() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
-/// Returns true if `path` is a known sovereign OS directory (Desktop, Downloads,
+/// Returns true if `path` is a known OS shortcut directory (Desktop, Downloads,
 /// Documents, Pictures, Videos, Music). These directories should not accumulate
 /// `.hematite/` workspace state — they use the global `~/.hematite/` instead.
-pub fn is_sovereign_directory(path: &Path) -> bool {
+pub fn is_os_shortcut_directory(path: &Path) -> bool {
     let candidates = [
         dirs::desktop_dir(),
         dirs::download_dir(),
@@ -1456,7 +1516,7 @@ pub fn is_sovereign_directory(path: &Path) -> bool {
 /// - Everywhere else: returns `workspace_root()/.hematite/` as normal.
 pub fn hematite_dir() -> PathBuf {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    if is_sovereign_directory(&cwd) {
+    if is_os_shortcut_directory(&cwd) {
         if let Some(home) = dirs::home_dir() {
             return home.join(".hematite");
         }
@@ -1476,7 +1536,10 @@ pub fn is_project_workspace() -> bool {
         || root.join("setup.py").exists()
         || root.join("pom.xml").exists()
         || root.join("build.gradle").exists()
-        || root.join("CMakeLists.txt").exists();
+        || root.join("CMakeLists.txt").exists()
+        || root.join("index.html").exists()
+        || root.join("style.css").exists()
+        || root.join("script.js").exists();
     has_explicit_marker || (root.join(".git").exists() && root.join("src").exists())
 }
 

@@ -231,12 +231,12 @@ pub fn effective_voice_volume(config: &HematiteConfig) -> f32 {
 }
 
 pub fn effective_gemma_native_formatting(config: &HematiteConfig, model_name: &str) -> bool {
-    crate::agent::inference::is_gemma4_model_name(model_name)
+    crate::agent::inference::is_hematite_native_model(model_name)
         && (config.gemma_native_formatting || config.gemma_native_auto)
 }
 
 pub fn gemma_native_mode_label(config: &HematiteConfig, model_name: &str) -> &'static str {
-    if !crate::agent::inference::is_gemma4_model_name(model_name) {
+    if !crate::agent::inference::is_hematite_native_model(model_name) {
         "inactive"
     } else if config.gemma_native_formatting {
         "on"

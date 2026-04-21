@@ -173,9 +173,9 @@ Shell and context management\n\
   Bad for: arbitrary shell commands, custom one-off scripts, or generic current-workspace script execution.\n\
   Choose it over another tool when: the user explicitly asks to run Hematite's own `clean.ps1`, `scripts/package-windows.ps1`, `release.ps1`, or the natural-language equivalent of those workflows.\n\
 - `run_workspace_workflow`\n\
-  Good for: approval-gated execution of the active project's own build, test, lint, fix, package scripts, just/task/make targets, local scripts, or an exact workspace command.\n\
+  Good for: approval-gated execution of the active project's own build, test, lint, fix, package scripts, just/task/make targets, local scripts, exact workspace commands, or typed website server control (`website_start`, `website_probe`, `website_validate`, `website_status`, `website_stop`).\n\
   Bad for: Hematite's own maintainer workflows, host-only inspection, or commands that are not tied to the locked workspace root.\n\
-  Choose it over another tool when: the user wants something run in the current project and the command should be rooted to the locked workspace instead of the terminal launch directory.\n\
+  Choose it over another tool when: the user wants something run in the current project and the command should be rooted to the locked workspace instead of the terminal launch directory, especially for local website bring-up and repeated readiness checks.\n\
 - `shell`\n\
   Good for: builds, tests, environment checks, and OS-level read-only inspection.\n\
   Bad for: precise code understanding when built-in file and LSP tools are available.\n\

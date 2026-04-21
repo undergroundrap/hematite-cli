@@ -152,6 +152,7 @@ pub struct App {
     pub history_idx: Option<usize>,
     pub thinking: bool,
     pub agent_running: bool,
+    pub stop_requested: bool,
     pub current_thought: String,
     pub professional: bool,
     pub last_reasoning: String,
@@ -214,6 +215,8 @@ pub struct App {
     pub voice_manager: Arc<crate::ui::voice::VoiceManager>,
     pub voice_loading: bool,
     pub voice_loading_progress: f64,
+    /// [Autocomplete Hatch] True if the current scan is rooted in a sovereign folder.
+    pub autocomplete_alias_active: bool,
     /// If false, the VRAM watchdog is silenced.
     pub hardware_guard_enabled: bool,
     /// Wall-clock time when this session started (for report timestamp).
@@ -227,6 +230,9 @@ pub struct App {
     pub teleported_from: Option<String>,
     /// Numbered directory list from the last /ls call — used by /ls <N> to teleport.
     pub nav_list: Vec<std::path::PathBuf>,
+    /// When true, all ApprovalRequired events are auto-approved for the rest of the session.
+    /// Activated by pressing [A] ("Accept All") on any approval dialog.
+    pub auto_approve_session: bool,
 }
 
 impl App {
@@ -263,13 +269,13 @@ impl App {
 
         self.messages_raw.push((speaker.to_string(), filtered));
         // Cap raw history to prevent UI lag.
-        if self.messages_raw.len() > 100 {
+        if self.messages_raw.len() > 500 {
             self.messages_raw.remove(0);
         }
         self.rebuild_formatted_messages();
         // Cap visual history.
-        if self.messages.len() > 250 {
-            let to_drain = self.messages.len() - 250;
+        if self.messages.len() > 8192 {
+            let to_drain = self.messages.len() - 8192;
             self.messages.drain(0..to_drain);
         }
     }
@@ -278,15 +284,9 @@ impl App {
         if let Some(last_raw) = self.messages_raw.last_mut() {
             if last_raw.0 == "Hematite" {
                 last_raw.1.push_str(token);
-                // Optimization: Only rebuild formatting on whitespace/newline or if specifically requested.
-                // This prevents "shattering" the TUI during high-speed token streams.
-                if token.contains(' ')
-                    || token.contains('\n')
-                    || token.contains('.')
-                    || token.len() > 5
-                {
-                    self.rebuild_formatted_messages();
-                }
+                // Explicitly treat the last assistant message as "dirty" and repaint
+                // so the TUI can reliably snap to the newest Hematite message.
+                self.rebuild_formatted_messages();
             }
         }
     }
@@ -435,57 +435,122 @@ impl App {
     /// [Intelli-Hematite] Live scan of the workspace to populate autocomplete.
     /// Excludes common noisy directories like target, node_modules, .git.
     pub fn update_autocomplete(&mut self) {
-        let root = crate::tools::file_ops::workspace_root();
-        // Extract the fragment after the last '@'
-        let query = if let Some(pos) = self.input.rfind('@') {
-            &self.input[pos + 1..]
+        self.autocomplete_alias_active = false;
+        let (scan_root, query) = if let Some(pos) = self.input.rfind('@') {
+            let fragment = &self.input[pos + 1..];
+            let upper = fragment.to_uppercase();
+            
+            // ── Path Alias Scan ──────────────────────────────────────────────
+            // If the fragment starts with a known shortcut, jump the scan root.
+            let mut resolved_root = crate::tools::file_ops::workspace_root();
+            let mut final_query = fragment;
+            
+            let tokens = ["DESKTOP", "DOWNLOADS", "DOCUMENTS", "PICTURES", "VIDEOS", "MUSIC", "HOME"];
+            for token in tokens {
+                if upper.starts_with(token) {
+                    let candidate = crate::tools::file_ops::resolve_candidate(&format!("@{}", token));
+                    if candidate.exists() {
+                        resolved_root = candidate;
+                        self.autocomplete_alias_active = true;
+                        // Strip the token from the query so we match files inside the target
+                        if let Some(slash_pos) = fragment.find('/') {
+                            final_query = &fragment[slash_pos + 1..];
+                        } else {
+                            final_query = ""; // Just browsing the token root
+                        }
+                        break;
+                    }
+                }
+            }
+            (resolved_root, final_query.to_lowercase())
         } else {
-            ""
-        }
-        .to_lowercase();
+            (crate::tools::file_ops::workspace_root(), "".to_string())
+        };
 
         self.autocomplete_filter = query.clone();
-
         let mut matches = Vec::new();
         let mut total_found = 0;
 
-        for entry in WalkDir::new(&root)
+        // ── Noise Suppression List ───────────────────────────────────────────
+        let noise = [
+            "node_modules", "target", ".git", ".next", ".venv", "venv", "env",
+            "bin", "obj", "dist", "vendor", "__pycache__", "AppData", "Local", 
+            "Roaming", "Application Data"
+        ];
+
+        for entry in WalkDir::new(&scan_root)
+            .max_depth(4) // Prevent deep system dives
             .into_iter()
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
-                !name.starts_with('.') && name != "target" && name != "node_modules"
+                !name.starts_with('.') && !noise.iter().any(|&n| name.eq_ignore_ascii_case(n))
             })
             .flatten()
         {
-            if entry.file_type().is_file() {
-                let path = entry.path().strip_prefix(&root).unwrap_or(entry.path());
-                let path_str = path.to_string_lossy().to_string();
-                if path_str.to_lowercase().contains(&query) {
+            let is_file = entry.file_type().is_file();
+            let is_dir = entry.file_type().is_dir();
+            
+            if (is_file || is_dir) && entry.path() != scan_root {
+                let path = entry.path().strip_prefix(&scan_root).unwrap_or(entry.path());
+                let mut path_str = path.to_string_lossy().to_string();
+                
+                if is_dir {
+                    path_str.push('/');
+                }
+
+                if path_str.to_lowercase().contains(&query) || query.is_empty() {
                     total_found += 1;
                     if matches.len() < 15 {
-                        // Show up to 15 at once
                         matches.push(path_str);
                     }
                 }
             }
-            if total_found > 100 {
-                break;
-            } // Safety cap for massive repos
+            if total_found > 60 { break; } // Tighter safety cap
         }
 
-        // Prioritize: Move .rs and .md files to the top if they match
+        // Prioritize: Directories and source files (.rs, .md) at the top
         matches.sort_by(|a, b| {
+            let a_is_dir = a.ends_with('/');
+            let b_is_dir = b.ends_with('/');
+            
             let a_ext = a.split('.').last().unwrap_or("");
             let b_ext = b.split('.').last().unwrap_or("");
             let a_is_src = a_ext == "rs" || a_ext == "md";
             let b_is_src = b_ext == "rs" || b_ext == "md";
-            b_is_src.cmp(&a_is_src)
+            
+            let a_score = if a_is_dir { 2 } else if a_is_src { 1 } else { 0 };
+            let b_score = if b_is_dir { 2 } else if b_is_src { 1 } else { 0 };
+            
+            b_score.cmp(&a_score)
         });
 
         self.autocomplete_suggestions = matches;
         self.selected_suggestion = self
             .selected_suggestion
             .min(self.autocomplete_suggestions.len().saturating_sub(1));
+    }
+
+    /// [Intelli-Hematite] Applies an autocomplete selection back to the input bar.
+    /// Implements Smart Splicing to handle path aliases (@DESKTOP/) vs global scans.
+    pub fn apply_autocomplete_selection(&mut self, selection: &str) {
+        if let Some(pos) = self.input.rfind('@') {
+            if self.autocomplete_alias_active {
+                // Splicing for @ALIAS/path
+                // Truncate to the last slash AFTER the @ if it exists
+                let after_at = &self.input[pos + 1..];
+                if let Some(slash_pos) = after_at.rfind('/') {
+                    self.input.truncate(pos + 1 + slash_pos + 1);
+                } else {
+                    // No slash yet, truncate to @ + 1
+                    self.input.truncate(pos + 1);
+                }
+            } else {
+                // Splicing for global scan: replace the @ entirely
+                self.input.truncate(pos);
+            }
+            self.input.push_str(selection);
+            self.show_autocomplete = false;
+        }
     }
 
     /// [Intelli-Hematite] Update the context strategy deck with real file data.
@@ -630,12 +695,38 @@ impl App {
         }
     }
 
-    pub fn copy_transcript_to_clipboard(&self) {
-        let mut history = self
+    fn transcript_snapshot_for_copy(&self) -> (Vec<(String, String)>, bool) {
+        if !self.agent_running {
+            return (self.messages_raw.clone(), false);
+        }
+
+        if let Some(last_user_idx) = self
             .messages_raw
             .iter()
+            .rposition(|(speaker, _)| speaker == "You")
+        {
+            (
+                self.messages_raw[..=last_user_idx].to_vec(),
+                last_user_idx + 1 < self.messages_raw.len(),
+            )
+        } else {
+            (Vec::new(), !self.messages_raw.is_empty())
+        }
+    }
+
+    pub fn copy_transcript_to_clipboard(&self) {
+        let (snapshot, omitted_inflight) = self.transcript_snapshot_for_copy();
+        let mut history = snapshot
+            .iter()
+            .filter(|(speaker, content)| !should_skip_transcript_copy_entry(speaker, content))
             .map(|m| format!("[{}] {}\n", m.0, m.1))
             .collect::<String>();
+
+        if omitted_inflight {
+            history.push_str(
+                "[System] Current turn is still in progress; in-flight Hematite output was omitted from this clipboard snapshot.\n",
+            );
+        }
 
         history.push_str("\nSession Stats\n");
         history.push_str(&format!("Tokens: {}\n", self.total_tokens));
@@ -645,12 +736,18 @@ impl App {
     }
 
     pub fn copy_clean_transcript_to_clipboard(&self) {
-        let mut history = self
-            .messages_raw
+        let (snapshot, omitted_inflight) = self.transcript_snapshot_for_copy();
+        let mut history = snapshot
             .iter()
             .filter(|(speaker, content)| !should_skip_transcript_copy_entry(speaker, content))
             .map(|m| format!("[{}] {}\n", m.0, m.1))
             .collect::<String>();
+
+        if omitted_inflight {
+            history.push_str(
+                "[System] Current turn is still in progress; in-flight Hematite output was omitted from this clipboard snapshot.\n",
+            );
+        }
 
         history.push_str("\nSession Stats\n");
         history.push_str(&format!("Tokens: {}\n", self.total_tokens));
@@ -868,6 +965,13 @@ fn copy_text_to_clipboard_powershell(text: &str) -> bool {
     matches!(status, Ok(code) if code.success())
 }
 
+fn is_immediate_local_command(input: &str) -> bool {
+    matches!(
+        input.trim().to_ascii_lowercase().as_str(),
+        "/copy" | "/copy-last" | "/copy-clean" | "/copy2"
+    )
+}
+
 fn should_skip_transcript_copy_entry(speaker: &str, content: &str) -> bool {
     if speaker != "System" {
         return false;
@@ -876,6 +980,9 @@ fn should_skip_transcript_copy_entry(speaker: &str, content: &str) -> bool {
     content.starts_with("Hematite Commands:\n")
         || content.starts_with("Document note: `/attach`")
         || content == "Chat transcript copied to clipboard."
+        || content == "Exact session transcript copied to clipboard (includes help/system output)."
+        || content == "Clean chat transcript copied to clipboard (skips help/debug boilerplate)."
+        || content == "Latest Hematite reply copied to clipboard."
         || content == "SPECULAR log copied to clipboard (reasoning + events)."
         || content == "Cancellation requested. Logs copied to clipboard."
 }
@@ -1315,6 +1422,10 @@ fn reset_visible_session_state(app: &mut App) {
 
 fn request_stop(app: &mut App) {
     app.voice_manager.stop();
+    if app.stop_requested {
+        return;
+    }
+    app.stop_requested = true;
     app.cancel_token
         .store(true, std::sync::atomic::Ordering::SeqCst);
     if app.thinking || app.agent_running {
@@ -1637,6 +1748,7 @@ pub async fn run_app<B: Backend>(
         history_idx: None,
         thinking: false,
         agent_running: false,
+        stop_requested: false,
         current_thought: String::new(),
         professional,
         last_reasoning: String::new(),
@@ -1681,7 +1793,8 @@ pub async fn run_app<B: Backend>(
         current_objective: "Awaiting objective...".into(),
         voice_manager,
         voice_loading: false,
-        voice_loading_progress: 0.0,
+        voice_loading_progress: 1.0, // Pre-baked weights ready
+        autocomplete_alias_active: false,
         hardware_guard_enabled: true,
         session_start: std::time::SystemTime::now(),
         soul_name: soul.species.clone(),
@@ -1690,6 +1803,7 @@ pub async fn run_app<B: Backend>(
         hovered_input_action: None,
         teleported_from: cockpit.teleported_from.clone(),
         nav_list: Vec::new(),
+        auto_approve_session: false,
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
@@ -1718,6 +1832,23 @@ pub async fn run_app<B: Backend>(
                 }
             }
         }
+    }
+
+    if app.teleported_from.is_some()
+        && crate::tools::plan::consume_teleport_resume_marker()
+        && crate::tools::plan::load_plan_handoff().is_some()
+    {
+        app.workflow_mode = "CODE".into();
+        app.thinking = true;
+        app.agent_running = true;
+        app.push_message(
+            "System",
+            "Teleport handoff detected in this project. Resuming from `.hematite/PLAN.md` automatically.",
+        );
+        app.push_message("You", "/implement-plan");
+        let _ = app
+            .user_input_tx
+            .try_send(UserTurn::text("/implement-plan"));
     }
 
     let mut event_stream = EventStream::new();
@@ -1799,6 +1930,30 @@ pub async fn run_app<B: Backend>(
                                     }
                                 } else {
                                     app.hovered_input_action = None;
+
+                                    // Check Autocomplete Click
+                                    if app.show_autocomplete && !app.autocomplete_suggestions.is_empty() {
+                                        // The popup is rendered at chunks[1].y - (suggestions + 2)
+                                        // Calculation must match ui() rendering logic exactly
+                                        let items_len = app.autocomplete_suggestions.len();
+                                        let popup_h = (items_len as u16 + 2).min(17); // 15 + borders
+                                        let popup_y = input_rect.y.saturating_sub(popup_h);
+                                        let popup_x = input_rect.x + 2;
+                                        let popup_w = input_rect.width.saturating_sub(4);
+
+                                        if mouse.row >= popup_y && mouse.row < popup_y + popup_h
+                                            && mouse.column >= popup_x && mouse.column < popup_x + popup_w
+                                        {
+                                            // Clicked inside popup
+                                            let mouse_relative_y = mouse.row.saturating_sub(popup_y + 1); 
+                                            if mouse_relative_y < items_len as u16 {
+                                                let clicked_idx = mouse_relative_y as usize;
+                                                let selected = &app.autocomplete_suggestions[clicked_idx].clone();
+                                                app.apply_autocomplete_selection(selected);
+                                            }
+                                            continue; // Event handled
+                                        }
+                                    }
                                 }
                             }
                             MouseEventKind::ScrollUp => {
@@ -1890,6 +2045,20 @@ pub async fn run_app<B: Backend>(
                                     } else {
                                         app.push_message("System", &format!("Approved: {}", approval.display));
                                     }
+                                    let _ = approval.responder.send(true);
+                                }
+                                KeyCode::Char('a') | KeyCode::Char('A') => {
+                                    app.auto_approve_session = true;
+                                    if let Some(ref diff) = approval.diff {
+                                        let added = diff.lines().filter(|l| l.starts_with("+ ")).count();
+                                        let removed = diff.lines().filter(|l| l.starts_with("- ")).count();
+                                        app.push_message("System", &format!(
+                                            "Applied: {} +{} -{}", approval.display, added, removed
+                                        ));
+                                    } else {
+                                        app.push_message("System", &format!("Approved: {}", approval.display));
+                                    }
+                                    app.push_message("System", "🔓 FULL AUTONOMY — All mutations auto-approved for this session.");
                                     let _ = approval.responder.send(true);
                                 }
                                 KeyCode::Char('n') | KeyCode::Char('N') => {
@@ -2030,12 +2199,8 @@ pub async fn run_app<B: Backend>(
                             }
                             KeyCode::Tab => {
                                 if app.show_autocomplete && !app.autocomplete_suggestions.is_empty() {
-                                    let selected = &app.autocomplete_suggestions[app.selected_suggestion];
-                                    if let Some(pos) = app.input.rfind('@') {
-                                        app.input.truncate(pos + 1);
-                                        app.input.push_str(selected);
-                                        app.show_autocomplete = false;
-                                    }
+                                    let selected = app.autocomplete_suggestions[app.selected_suggestion].clone();
+                                    app.apply_autocomplete_selection(&selected);
                                 }
                             }
                             KeyCode::Char(c) => {
@@ -2067,16 +2232,15 @@ pub async fn run_app<B: Backend>(
                             }
                             KeyCode::Enter => {
                                 if app.show_autocomplete && !app.autocomplete_suggestions.is_empty() {
-                                    let selected = &app.autocomplete_suggestions[app.selected_suggestion];
-                                    if let Some(pos) = app.input.rfind('@') {
-                                        app.input.truncate(pos + 1);
-                                        app.input.push_str(selected);
-                                        app.show_autocomplete = false;
-                                        continue;
-                                    }
+                                    let selected = app.autocomplete_suggestions[app.selected_suggestion].clone();
+                                    app.apply_autocomplete_selection(&selected);
+                                    continue;
                                 }
 
-                                if !app.input.is_empty() && !app.agent_running {
+                                if !app.input.is_empty()
+                                    && (!app.agent_running
+                                        || is_immediate_local_command(&app.input))
+                                {
                                     // PASTE GUARD: If a newline arrives within 50ms of a character,
                                     // it's almost certainly part of a paste stream. Convert to space.
                                     if Instant::now().duration_since(app.last_input_time) < std::time::Duration::from_millis(50) {
@@ -2366,7 +2530,7 @@ pub async fn run_app<B: Backend>(
                                             }
                                             "/gemma-native" => {
                                                 let sub = parts.get(1).copied().unwrap_or("status").to_ascii_lowercase();
-                                                let gemma_detected = crate::agent::inference::is_gemma4_model_name(&app.model_id);
+                                                let gemma_detected = crate::agent::inference::is_hematite_native_model(&app.model_id);
                                                 match sub.as_str() {
                                                     "auto" => {
                                                         match crate::agent::config::set_gemma_native_mode("auto") {
@@ -2849,6 +3013,7 @@ pub async fn run_app<B: Backend>(
                                     app.history_idx = None;
                                     app.push_message("You", &input_text);
                                     app.agent_running = true;
+                                    app.stop_requested = false;
                                     app.cancel_token.store(false, std::sync::atomic::Ordering::SeqCst);
                                     app.last_reasoning.clear();
                                     app.manual_scroll_offset = None;
@@ -2929,13 +3094,22 @@ pub async fn run_app<B: Backend>(
                 use crate::agent::inference::InferenceEvent;
                 match event {
                     InferenceEvent::Thought(content) => {
+                        if app.stop_requested {
+                            continue;
+                        }
                         app.thinking = true;
                         app.current_thought.push_str(&content);
                     }
                     InferenceEvent::VoiceStatus(msg) => {
+                        if app.stop_requested {
+                            continue;
+                        }
                         app.push_message("System", &msg);
                     }
                     InferenceEvent::Token(ref token) | InferenceEvent::MutedToken(ref token) => {
+                        if app.stop_requested {
+                            continue;
+                        }
                         let is_muted = matches!(event, InferenceEvent::MutedToken(_));
                         app.thinking = false;
                         if app.messages_raw.last().map(|(s, _)| s.as_str()) != Some("Hematite") {
@@ -2950,6 +3124,9 @@ pub async fn run_app<B: Backend>(
                         }
                     }
                     InferenceEvent::ToolCallStart { name, args, .. } => {
+                        if app.stop_requested {
+                            continue;
+                        }
                         // In chat mode, suppress tool noise from the main chat surface.
                         if app.workflow_mode != "CHAT" {
                             let display = format!("( )  {} {}", name, args);
@@ -2965,6 +3142,9 @@ pub async fn run_app<B: Backend>(
                         app.manual_scroll_offset = None;
                     }
                     InferenceEvent::ToolCallResult { id: _, name, output, is_error } => {
+                        if app.stop_requested {
+                            continue;
+                        }
                         let icon = if is_error { "[x]" } else { "[v]" };
                         if is_error {
                             app.record_error();
@@ -2986,6 +3166,24 @@ pub async fn run_app<B: Backend>(
                         app.manual_scroll_offset = None;
                     }
                     InferenceEvent::ApprovalRequired { id: _, name, display, diff, mutation_label, responder } => {
+                        if app.stop_requested {
+                            let _ = responder.send(false);
+                            continue;
+                        }
+                        // Session-level auto-approve: skip dialog entirely.
+                        if app.auto_approve_session {
+                            if let Some(ref diff) = diff {
+                                let added = diff.lines().filter(|l| l.starts_with("+ ")).count();
+                                let removed = diff.lines().filter(|l| l.starts_with("- ")).count();
+                                app.push_message("System", &format!(
+                                    "Auto-approved: {} +{} -{}", display, added, removed
+                                ));
+                            } else {
+                                app.push_message("System", &format!("Auto-approved: {}", display));
+                            }
+                            let _ = responder.send(true);
+                            continue;
+                        }
                         let is_diff = diff.is_some();
                         app.awaiting_approval = Some(PendingApproval {
                             display: display.clone(),
@@ -2996,9 +3194,9 @@ pub async fn run_app<B: Backend>(
                             responder,
                         });
                         if is_diff {
-                            app.push_message("System", "[~]  Diff preview — [Y] Apply  [N] Skip");
+                            app.push_message("System", "[~]  Diff preview — [Y] Apply  [N] Skip  [A] Accept All");
                         } else {
-                            app.push_message("System", "[!]  Approval required (Press [Y] Approve or [N] Decline)");
+                            app.push_message("System", "[!]  Approval required — [Y] Approve  [N] Decline  [A] Accept All");
                             app.push_message("System", &format!("Command: {}", display));
                         }
                     }
@@ -3011,6 +3209,7 @@ pub async fn run_app<B: Backend>(
                     InferenceEvent::Done => {
                         app.thinking = false;
                         app.agent_running = false;
+                        app.stop_requested = false;
                         if app.voice_manager.is_enabled() {
                             app.voice_manager.flush();
                         }
@@ -3018,6 +3217,11 @@ pub async fn run_app<B: Backend>(
                             app.last_reasoning = app.current_thought.clone();
                         }
                         app.current_thought.clear();
+                        // Force one last repaint of the visible chat buffer in case the
+                        // final streamed token chunk did not trigger the lightweight
+                        // reformat heuristic in update_last_message().
+                        app.rebuild_formatted_messages();
+                        app.manual_scroll_offset = None;
                         app.specular_auto_scroll = true;
                         // Clear single-agent task bars on completion
                         app.active_workers.remove("AGENT");
@@ -3034,6 +3238,10 @@ pub async fn run_app<B: Backend>(
                         app.write_session_report();
                         app.copy_transcript_to_clipboard();
                         break;
+                    }
+                    InferenceEvent::ChainImplementPlan => {
+                        app.push_message("You", "/implement-plan (Autonomous Handoff)");
+                        app.manual_scroll_offset = None;
                     }
                     InferenceEvent::Error(e) => {
                         app.record_error();
@@ -3954,7 +4162,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             )),
             if is_diff_preview {
                 Line::from(Span::styled(
-                    "  [↑↓/jk/PgUp/PgDn] Scroll   [Y] Apply   [N] Skip ",
+                    "  [↑↓/jk/PgUp/PgDn] Scroll   [Y] Apply   [N] Skip   [A] Accept All ",
                     Style::default()
                         .fg(Color::Green)
                         .add_modifier(Modifier::BOLD),
@@ -3968,8 +4176,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                             .add_modifier(Modifier::BOLD),
                     ),
                     Span::styled(
-                        "  [N] Decline ",
+                        "  [N] Decline  ",
                         Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        "  [A] Accept All ",
+                        Style::default()
+                            .fg(Color::Magenta)
+                            .add_modifier(Modifier::BOLD),
                     ),
                 ])
             },

@@ -71,7 +71,11 @@ async fn compute_centroids(api_url: &str) -> Option<(Vec<f32>, Vec<f32>)> {
     let adv_centroid = mean_centroid(&adv_vecs)?;
     let diag_centroid = mean_centroid(&diag_vecs)?;
 
-    eprintln!("[intent_embed] centroids ready ({} advisory, {} diagnostic examples)", adv_vecs.len(), diag_vecs.len());
+    eprintln!(
+        "[intent_embed] centroids ready ({} advisory, {} diagnostic examples)",
+        adv_vecs.len(),
+        diag_vecs.len()
+    );
     Some((adv_centroid, diag_centroid))
 }
 
@@ -182,9 +186,11 @@ async fn embed_batch(texts: &[&str], api_url: &str) -> Option<Vec<Vec<f32>>> {
     let vecs: Vec<Vec<f32>> = data
         .iter()
         .filter_map(|item| {
-            item["embedding"]
-                .as_array()
-                .map(|arr| arr.iter().filter_map(|v| v.as_f64().map(|f| f as f32)).collect())
+            item["embedding"].as_array().map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_f64().map(|f| f as f32))
+                    .collect()
+            })
         })
         .collect();
 
@@ -274,9 +280,9 @@ fn classify_from_scores(advisory: f32, diagnostic: f32) -> IntentClass {
     // Require meaningful separation — if they're close, stay ambiguous.
     // Tuned conservatively: suppressing a real diagnostic query is worse than
     // failing to suppress a conversational one (keyword guard handles most of those).
-    const ADVISORY_MIN: f32 = 0.72;    // minimum score to declare advisory
-    const DIAGNOSTIC_MIN: f32 = 0.68;  // minimum score to declare diagnostic
-    const MIN_GAP: f32 = 0.08;         // required margin over the other class
+    const ADVISORY_MIN: f32 = 0.72; // minimum score to declare advisory
+    const DIAGNOSTIC_MIN: f32 = 0.68; // minimum score to declare diagnostic
+    const MIN_GAP: f32 = 0.08; // required margin over the other class
 
     if advisory >= ADVISORY_MIN && advisory > diagnostic + MIN_GAP {
         IntentClass::Advisory

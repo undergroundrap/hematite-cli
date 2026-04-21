@@ -18,7 +18,8 @@ use crate::agent::inference::{
 };
 use crate::agent::policy::{
     action_target_path, docs_edit_without_explicit_request, is_destructive_tool,
-    is_mcp_mutating_tool, is_mcp_workspace_read_tool, normalize_workspace_path,
+    is_mcp_mutating_tool, is_mcp_workspace_read_tool, is_sovereign_path_request,
+    normalize_workspace_path,
 };
 use crate::agent::recovery_recipes::{
     attempt_recovery, plan_recovery, preview_recovery_decision, RecoveryContext, RecoveryDecision,
@@ -140,6 +141,16 @@ impl Drop for PlanExecutionGuard {
     }
 }
 
+struct PlanExecutionPassGuard {
+    depth: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl Drop for PlanExecutionPassGuard {
+    fn drop(&mut self) {
+        self.depth.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WorkflowMode {
     #[default]
@@ -195,15 +206,45 @@ fn session_path() -> std::path::PathBuf {
 fn load_session_data() -> (Option<String>, crate::agent::compaction::SessionMemory) {
     let path = session_path();
     if !path.exists() {
-        return (None, crate::agent::compaction::SessionMemory::default());
+        let mut memory = crate::agent::compaction::SessionMemory::default();
+        if let Some(plan) = crate::tools::plan::load_plan_handoff() {
+            memory.current_plan = Some(plan);
+        }
+        return (None, memory);
     }
     let Ok(data) = std::fs::read_to_string(&path) else {
-        return (None, crate::agent::compaction::SessionMemory::default());
+        let mut memory = crate::agent::compaction::SessionMemory::default();
+        if let Some(plan) = crate::tools::plan::load_plan_handoff() {
+            memory.current_plan = Some(plan);
+        }
+        return (None, memory);
     };
     let Ok(saved) = serde_json::from_str::<SavedSession>(&data) else {
-        return (None, crate::agent::compaction::SessionMemory::default());
+        let mut memory = crate::agent::compaction::SessionMemory::default();
+        if let Some(plan) = crate::tools::plan::load_plan_handoff() {
+            memory.current_plan = Some(plan);
+        }
+        return (None, memory);
     };
-    (saved.running_summary, saved.session_memory)
+    let mut memory = saved.session_memory;
+    if memory
+        .current_plan
+        .as_ref()
+        .map(|plan| plan.has_signal())
+        .unwrap_or(false)
+        == false
+    {
+        if let Some(plan) = crate::tools::plan::load_plan_handoff() {
+            memory.current_plan = Some(plan);
+        }
+    }
+    (saved.running_summary, memory)
+}
+
+#[derive(Clone)]
+struct SovereignTeleportHandoff {
+    root: String,
+    plan: crate::tools::plan::PlanHandoff,
 }
 
 fn reset_task_files() {
@@ -215,6 +256,180 @@ fn reset_task_files() {
     let _ = std::fs::remove_file(root.join(".github").join("WALKTHROUGH.md"));
     let _ = std::fs::write(hdir.join("TASK.md"), "");
     let _ = std::fs::write(hdir.join("PLAN.md"), "");
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TaskChecklistProgress {
+    total: usize,
+    completed: usize,
+    remaining: usize,
+}
+
+impl TaskChecklistProgress {
+    fn has_open_items(self) -> bool {
+        self.remaining > 0
+    }
+}
+
+fn task_status_path() -> std::path::PathBuf {
+    crate::tools::file_ops::hematite_dir().join("TASK.md")
+}
+
+fn parse_task_checklist_progress(input: &str) -> TaskChecklistProgress {
+    let mut progress = TaskChecklistProgress::default();
+
+    for line in input.lines() {
+        let trimmed = line.trim_start();
+        let candidate = trimmed
+            .strip_prefix("- ")
+            .or_else(|| trimmed.strip_prefix("* "))
+            .or_else(|| trimmed.strip_prefix("+ "))
+            .unwrap_or(trimmed);
+
+        let state = if candidate.starts_with("[x]") || candidate.starts_with("[X]") {
+            Some(true)
+        } else if candidate.starts_with("[ ]") {
+            Some(false)
+        } else {
+            None
+        };
+
+        if let Some(completed) = state {
+            progress.total += 1;
+            if completed {
+                progress.completed += 1;
+            }
+        }
+    }
+
+    progress.remaining = progress.total.saturating_sub(progress.completed);
+    progress
+}
+
+fn read_task_checklist_progress() -> Option<TaskChecklistProgress> {
+    let content = std::fs::read_to_string(task_status_path()).ok()?;
+    Some(parse_task_checklist_progress(&content))
+}
+
+fn plan_execution_sidecar_paths() -> Vec<String> {
+    let hdir = crate::tools::file_ops::hematite_dir();
+    ["TASK.md", "PLAN.md", "WALKTHROUGH.md"]
+        .iter()
+        .map(|name| normalize_workspace_path(hdir.join(name).to_string_lossy().as_ref()))
+        .collect()
+}
+
+fn merge_plan_allowed_paths(target_files: &[String]) -> Vec<String> {
+    let mut allowed = std::collections::BTreeSet::new();
+    for path in target_files {
+        allowed.insert(normalize_workspace_path(path));
+    }
+    for path in plan_execution_sidecar_paths() {
+        allowed.insert(path);
+    }
+    allowed.into_iter().collect()
+}
+
+fn should_continue_plan_execution(
+    current_pass: usize,
+    before: Option<TaskChecklistProgress>,
+    after: Option<TaskChecklistProgress>,
+    mutated_paths: &std::collections::BTreeSet<String>,
+) -> bool {
+    const MAX_AUTONOMOUS_PLAN_PASSES: usize = 6;
+
+    if current_pass >= MAX_AUTONOMOUS_PLAN_PASSES {
+        return false;
+    }
+
+    let Some(after) = after else {
+        return false;
+    };
+    if !after.has_open_items() {
+        return false;
+    }
+
+    match before {
+        Some(before) if before.total > 0 => {
+            after.completed > before.completed || after.remaining < before.remaining
+        }
+        Some(before) => after.total > before.total || !mutated_paths.is_empty(),
+        None => !mutated_paths.is_empty(),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AutoVerificationOutcome {
+    ok: bool,
+    summary: String,
+}
+
+fn should_run_website_validation(
+    contract: Option<&crate::agent::workspace_profile::RuntimeContract>,
+    mutated_paths: &std::collections::BTreeSet<String>,
+) -> bool {
+    let Some(contract) = contract else {
+        return false;
+    };
+    if contract.loop_family != "website" {
+        return false;
+    }
+    if mutated_paths.is_empty() {
+        return true;
+    }
+    mutated_paths.iter().any(|path| {
+        let normalized = path.replace('\\', "/").to_ascii_lowercase();
+        normalized.ends_with(".html")
+            || normalized.ends_with(".css")
+            || normalized.ends_with(".js")
+            || normalized.ends_with(".jsx")
+            || normalized.ends_with(".ts")
+            || normalized.ends_with(".tsx")
+            || normalized.ends_with(".mdx")
+            || normalized.ends_with(".vue")
+            || normalized.ends_with(".svelte")
+            || normalized.ends_with("package.json")
+            || normalized.starts_with("public/")
+            || normalized.starts_with("static/")
+            || normalized.starts_with("pages/")
+            || normalized.starts_with("app/")
+            || normalized.starts_with("src/pages/")
+            || normalized.starts_with("src/app/")
+    })
+}
+
+fn is_repeat_guard_exempt_tool_call(tool_name: &str, args: &Value) -> bool {
+    if matches!(tool_name, "verify_build" | "git_commit" | "git_push") {
+        return true;
+    }
+    tool_name == "run_workspace_workflow"
+        && matches!(
+            args.get("workflow").and_then(|value| value.as_str()),
+            Some("website_probe" | "website_validate" | "website_status")
+        )
+}
+
+fn should_run_contract_verification_workflow(
+    contract: Option<&crate::agent::workspace_profile::RuntimeContract>,
+    workflow: &str,
+    mutated_paths: &std::collections::BTreeSet<String>,
+) -> bool {
+    // Standard workflows always run if listed (they are already 'cheap').
+    if matches!(workflow, "build" | "test" | "lint") {
+        return true;
+    }
+
+    match workflow {
+        "website_validate" => should_run_website_validation(contract, mutated_paths),
+        _ => true,
+    }
+}
+
+fn build_continue_plan_execution_prompt(progress: TaskChecklistProgress) -> String {
+    format!(
+        "Continue implementing the current plan. Read `.hematite/TASK.md` first, focus on the next unchecked items, and keep working until the checklist is complete or you hit one concrete blocker. There are currently {} unchecked checklist item(s) remaining.",
+        progress.remaining
+    )
 }
 
 fn purge_persistent_memory() {
@@ -276,7 +491,8 @@ fn inject_at_file_mentions(prompt: &str) -> String {
             continue;
         }
         // Strip trailing punctuation that isn't part of a path
-        let path_str = raw.trim_end_matches(|c: char| matches!(c, ',' | '.' | ':' | ';' | '!' | '?'));
+        let path_str =
+            raw.trim_end_matches(|c: char| matches!(c, ',' | '.' | ':' | ';' | '!' | '?'));
         if path_str.is_empty() {
             continue;
         }
@@ -287,7 +503,10 @@ fn inject_at_file_mentions(prompt: &str) -> String {
                     // Cap at 32 KB so a huge file doesn't blow the context
                     const CAP: usize = 32 * 1024;
                     let body = if content.len() > CAP {
-                        format!("{}\n... [truncated — file is large, use read_file for the rest]", &content[..CAP])
+                        format!(
+                            "{}\n... [truncated — file is large, use read_file for the rest]",
+                            &content[..CAP]
+                        )
                     } else {
                         content
                     };
@@ -357,7 +576,10 @@ fn read_file_preview_for_retry(path: &str, max_lines: usize) -> String {
         .collect::<Vec<_>>()
         .join("\n");
     if total > max_lines {
-        format!("{lines}\n... [{} more lines — use inspect_lines to see the rest]", total - max_lines)
+        format!(
+            "{lines}\n... [{} more lines — use inspect_lines to see the rest]",
+            total - max_lines
+        )
     } else {
         lines
     }
@@ -663,12 +885,18 @@ fn scaffold_protocol() -> &'static str {
      ## Autonomy rules\n\
      - Build every file the project needs in one pass. Do NOT stop after one file and wait.\n\
      - After writing each file, read it back to verify it is complete and not truncated.\n\
-     - Check cross-file consistency before finishing (imports match exports, CSS class names match HTML, Cargo.toml deps match use statements, go.mod module name matches package imports).\n\
+     - Check cross-file consistency before finishing.\n\
+     - Once the project is coherent, runnable, and verified, STOP.\n\
+     - Mandatory Checklist Protocol: Whenever drafting a plan for a project scaffold, you MUST initialize a `.hematite/TASK.md` file with a granular `[ ]` checklist. Update it after every file mutation.\n\
+     - If only optional polish remains, present it as optional next steps instead of mutating more files.\n\
+     - Ask the user only when blocked by a real product decision, missing requirement, or risky/destructive choice.\n\
      - Only surface results to the user once ALL files exist and the project is immediately runnable.\n\
+     - Final delivery must sound like a human engineer closeout: stack chosen, what was built, what was verified, and what remains optional.\n\
      \n\
      ## Infer the stack from context\n\
      If the user gives only a vague request (\"make me a website\", \"build me a tool\"), pick the most\n\
      sensible minimal stack and state your choice before creating files. Do not ask permission — choose and build.\n\
+     For scaffold/project-creation turns, do NOT use `run_workspace_workflow` unless the user explicitly asks you to run an existing build, test, lint, package script, or repo command.\n\
      Default choices: website → static HTML+CSS+JS; CLI tool → Rust (clap) if Rust project, Python (argparse/click) otherwise;\n\
      API → FastAPI (Python) or Express (Node); web app with state → React (Vite).\n\
      \n\
@@ -762,6 +990,166 @@ fn scaffold_protocol() -> &'static str {
      4. Ask what they'd like to work on next — offer 2-3 specific suggestions relevant to the stack\n\
         (e.g. \"Want me to add routing? Set up authentication? Add a dark mode toggle? Or should we improve the design?\")\n\
      5. Stay engaged — you are their coding partner, not a one-shot file generator\n"
+}
+
+fn looks_like_static_site_request(input: &str) -> bool {
+    let lower = input.to_ascii_lowercase();
+    (lower.contains("website") || lower.contains("landing page") || lower.contains("web page"))
+        && (lower.contains("html")
+            || lower.contains("css")
+            || lower.contains("javascript")
+            || lower.contains("js")
+            || !lower.contains("react"))
+}
+
+fn sanitize_project_folder_name(raw: &str) -> String {
+    let trimmed = raw
+        .trim()
+        .trim_matches(|c: char| matches!(c, '"' | '\'' | '`' | '.' | ',' | ':' | ';'));
+    let mut out = String::new();
+    for ch in trimmed.chars() {
+        if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ' ') {
+            out.push(ch);
+        } else {
+            out.push('_');
+        }
+    }
+    let cleaned = out.trim().replace(' ', "_");
+    if cleaned.is_empty() {
+        "hematite_project".to_string()
+    } else {
+        cleaned
+    }
+}
+
+fn extract_named_folder(lower: &str) -> Option<String> {
+    for marker in [" named ", " called "] {
+        if let Some(idx) = lower.find(marker) {
+            let rest = &lower[idx + marker.len()..];
+            let name = rest
+                .split(|c: char| {
+                    c.is_whitespace() || matches!(c, ',' | '.' | ':' | ';' | '!' | '?')
+                })
+                .next()
+                .unwrap_or("")
+                .trim();
+            if !name.is_empty() {
+                return Some(sanitize_project_folder_name(name));
+            }
+        }
+    }
+    None
+}
+
+fn extract_sovereign_scaffold_root(user_input: &str) -> Option<std::path::PathBuf> {
+    let lower = user_input.to_ascii_lowercase();
+    let folder_name = extract_named_folder(&lower)?;
+
+    let base = if lower.contains("desktop") {
+        dirs::desktop_dir()
+    } else if lower.contains("download") {
+        dirs::download_dir()
+    } else if lower.contains("document") || lower.contains("docs") {
+        dirs::document_dir()
+    } else {
+        None
+    }?;
+
+    Some(base.join(folder_name))
+}
+
+fn default_sovereign_scaffold_targets(user_input: &str) -> std::collections::BTreeSet<String> {
+    let mut targets = std::collections::BTreeSet::new();
+    if looks_like_static_site_request(user_input) {
+        targets.insert("index.html".to_string());
+        targets.insert("style.css".to_string());
+        targets.insert("script.js".to_string());
+    }
+    targets
+}
+
+fn seed_sovereign_scaffold_files(
+    root: &std::path::Path,
+    targets: &std::collections::BTreeSet<String>,
+) -> Result<(), String> {
+    for relative in targets {
+        let path = root.join(relative);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create scaffold parent directory: {e}"))?;
+        }
+        if !path.exists() {
+            std::fs::write(&path, "")
+                .map_err(|e| format!("Failed to seed scaffold file {}: {e}", path.display()))?;
+        }
+    }
+    Ok(())
+}
+
+fn write_sovereign_handoff_markdown(
+    root: &std::path::Path,
+    user_input: &str,
+    plan: &crate::tools::plan::PlanHandoff,
+) -> Result<(), String> {
+    let handoff_path = root.join("HEMATITE_HANDOFF.md");
+    let content = format!(
+        "# Hematite Handoff\n\n\
+         Original request:\n\
+         - {}\n\n\
+         This project root was pre-created by Hematite before teleport.\n\
+         The next session should resume from the local `.hematite/PLAN.md` handoff and continue implementation here.\n\n\
+         ## Planned Target Files\n{}\n\
+         ## Verification\n- {}\n",
+        user_input.trim(),
+        if plan.target_files.is_empty() {
+            "- project files to be created in the resumed session\n".to_string()
+        } else {
+            plan.target_files
+                .iter()
+                .map(|path| format!("- {path}\n"))
+                .collect::<String>()
+        },
+        plan.verification.trim()
+    );
+    std::fs::write(&handoff_path, content)
+        .map_err(|e| format!("Failed to write handoff markdown: {e}"))
+}
+
+fn build_sovereign_scaffold_handoff(
+    user_input: &str,
+    target_files: &std::collections::BTreeSet<String>,
+) -> crate::tools::plan::PlanHandoff {
+    let mut steps = vec![
+        "Read the scaffolded files in this root before changing them so the resumed session stays grounded in the actual generated content.".to_string(),
+        "Finish the implementation inside this sovereign project root only; do not reason from the old workspace or unrelated ./src context.".to_string(),
+        "Keep the file set coherent instead of thrashing cosmetics; once the project is runnable or internally consistent, stop and summarize like a human engineer.".to_string(),
+    ];
+    let verification = if looks_like_static_site_request(user_input) {
+        steps.insert(
+            1,
+            "Make sure index.html, style.css, and script.js stay linked correctly and that the layout remains responsive on desktop and mobile.".to_string(),
+        );
+        "Open and inspect the generated front-end files in this root, confirm cross-file links are valid, and verify the page is coherent and responsive without using repo-root workflows.".to_string()
+    } else {
+        "Use only project-appropriate verification scoped to this root. Avoid unrelated repo workflows; verify the generated files are internally consistent before stopping.".to_string()
+    };
+
+    crate::tools::plan::PlanHandoff {
+        goal: format!(
+            "Continue the sovereign scaffold task in this new project root: {}",
+            user_input.trim()
+        ),
+        target_files: target_files.iter().cloned().collect(),
+        ordered_steps: steps,
+        verification,
+        risks: vec![
+            "Do not drift back into the originating workspace or unrelated ./src context."
+                .to_string(),
+            "Avoid endless UI polish loops once the generated project is already coherent."
+                .to_string(),
+        ],
+        open_questions: Vec::new(),
+    }
 }
 
 fn architect_handoff_operator_note(plan: &crate::tools::plan::PlanHandoff) -> String {
@@ -912,6 +1300,8 @@ pub struct ConversationManager {
     action_grounding: Arc<Mutex<ActionGroundingState>>,
     /// True only during `/code Implement the current plan.` style execution turns.
     plan_execution_active: Arc<std::sync::atomic::AtomicBool>,
+    /// Nested depth of the current autonomous `/implement-plan` recursion chain.
+    plan_execution_pass_depth: Arc<std::sync::atomic::AtomicUsize>,
     /// Typed per-turn recovery attempt tracking.
     recovery_context: RecoveryContext,
     /// L1 context block — hot files summary injected into the system prompt.
@@ -925,6 +1315,8 @@ pub struct ConversationManager {
     pub last_goal: Option<String>,
     /// Most recent project directory created this session (Automatic Dive-In).
     pub latest_target_dir: Option<String>,
+    /// One-shot plan handoff written into a newly created sovereign root before teleport.
+    pending_teleport_handoff: Option<SovereignTeleportHandoff>,
 }
 
 impl ConversationManager {
@@ -1031,6 +1423,7 @@ impl ConversationManager {
             }
         }
         if let Some(path) = self.latest_target_dir.take() {
+            self.persist_pending_teleport_handoff();
             let _ = tx.send(InferenceEvent::CopyDiveInCommand(path)).await;
         }
         let _ = tx.send(InferenceEvent::Done).await;
@@ -1216,17 +1609,20 @@ impl ConversationManager {
             pinned_files: Arc::new(Mutex::new(std::collections::HashMap::new())),
             action_grounding: Arc::new(Mutex::new(ActionGroundingState::default())),
             plan_execution_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            plan_execution_pass_depth: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             recovery_context: RecoveryContext::default(),
             l1_context: None,
             repo_map: None,
             turn_count: 0,
             last_goal: None,
             latest_target_dir: None,
+            pending_teleport_handoff: None,
         }
     }
 
     async fn emit_done_events(&mut self, tx: &tokio::sync::mpsc::Sender<InferenceEvent>) {
         if let Some(path) = self.latest_target_dir.take() {
+            self.persist_pending_teleport_handoff();
             let _ = tx.send(InferenceEvent::CopyDiveInCommand(path)).await;
         }
         let _ = tx.send(InferenceEvent::Done).await;
@@ -1367,13 +1763,20 @@ impl ConversationManager {
         self.session_memory
             .current_plan
             .as_ref()
-            .map(|plan| {
-                plan.target_files
-                    .iter()
-                    .map(|path| normalize_workspace_path(path))
-                    .collect()
-            })
+            .map(|plan| merge_plan_allowed_paths(&plan.target_files))
             .unwrap_or_default()
+    }
+
+    fn current_plan_root_paths(&self) -> Vec<String> {
+        use std::collections::BTreeSet;
+
+        let mut roots = BTreeSet::new();
+        for path in self.current_plan_allowed_paths() {
+            if let Some(parent) = std::path::Path::new(&path).parent() {
+                roots.insert(parent.to_string_lossy().replace('\\', "/").to_lowercase());
+            }
+        }
+        roots.into_iter().collect()
     }
 
     fn persist_architect_handoff(
@@ -1389,6 +1792,15 @@ impl ConversationManager {
         let _ = crate::tools::plan::save_plan_handoff(&plan);
         self.session_memory.current_plan = Some(plan.clone());
         Some(plan)
+    }
+
+    fn persist_pending_teleport_handoff(&mut self) {
+        let Some(handoff) = self.pending_teleport_handoff.take() else {
+            return;
+        };
+        let root = std::path::PathBuf::from(&handoff.root);
+        let _ = crate::tools::plan::save_plan_handoff_for_root(&root, &handoff.plan);
+        let _ = crate::tools::plan::write_teleport_resume_marker_for_root(&root);
     }
 
     async fn begin_grounded_turn(&self) -> u64 {
@@ -1419,7 +1831,8 @@ impl ConversationManager {
             if !token.starts_with('@') {
                 continue;
             }
-            let raw = token.trim_start_matches('@')
+            let raw = token
+                .trim_start_matches('@')
                 .trim_end_matches(|c: char| matches!(c, ',' | '.' | ':' | ';' | '!' | '?'));
             if raw.is_empty() {
                 continue;
@@ -1482,15 +1895,22 @@ impl ConversationManager {
             .load(std::sync::atomic::Ordering::SeqCst)
         {
             if is_current_plan_irrelevant_tool(name) {
-                return Err(format!(
-                    "Action blocked: `{}` is not part of current-plan execution. Stay on the saved target files, use built-in workspace file tools only, and either make a concrete edit or surface one specific blocker.",
-                    name
-                ));
+                let prompt = self.latest_user_prompt().unwrap_or("");
+                let explicit_override = is_sovereign_path_request(prompt)
+                    || prompt.contains(name)
+                    || prompt.contains("/dev/null");
+                if !explicit_override {
+                    return Err(format!(
+                        "Action blocked: `{}` is not part of current-plan execution. Stay on the saved target files, use built-in workspace file tools only, and either make a concrete edit or surface one specific blocker.",
+                        name
+                    ));
+                }
             }
 
             if is_plan_scoped_tool(name) {
                 let allowed_paths = self.current_plan_allowed_paths();
                 if !allowed_paths.is_empty() {
+                    let allowed_roots = self.current_plan_root_paths();
                     let in_allowed = match name {
                         "auto_pin_context" => args
                             .get("paths")
@@ -1505,15 +1925,43 @@ impl ConversationManager {
                                     })
                             })
                             .unwrap_or(false),
-                        "grep_files" | "list_files" => args
-                            .get("path")
-                            .and_then(|v| v.as_str())
-                            .map(normalize_workspace_path)
-                            .map(|p| allowed_paths.contains(&p))
-                            .unwrap_or(false),
-                        _ => action_target_path(name, args)
-                            .map(|p| allowed_paths.contains(&p))
-                            .unwrap_or(false),
+                        "grep_files" | "list_files" => {
+                            let raw_val = args.get("path").and_then(|v| v.as_str());
+                            let path_to_check = if let Some(p) = raw_val {
+                                let trimmed = p.trim();
+                                if trimmed.is_empty() || trimmed == "." || trimmed == "./" {
+                                    ""
+                                } else {
+                                    trimmed
+                                }
+                            } else {
+                                ""
+                            };
+                            // Always allow listing the workspace root — the model needs
+                            // directory recon to locate plan targets.
+                            if path_to_check.is_empty() {
+                                true
+                            } else {
+                                let p = normalize_workspace_path(path_to_check);
+                                // Allow if the path IS an allowed file, OR is a parent dir
+                                // of any allowed file (the model needs to ls the parent).
+                                allowed_paths.contains(&p)
+                                    || allowed_roots.iter().any(|root| root == &p)
+                                    || allowed_paths.iter().any(|ap| {
+                                        ap.starts_with(&format!("{}/", p))
+                                            || ap.starts_with(&format!("{}\\", p))
+                                    })
+                            }
+                        }
+                        _ => {
+                            let target = action_target_path(name, args);
+                            let in_allowed = target
+                                .as_ref()
+                                .map(|p| allowed_paths.contains(p))
+                                .unwrap_or(false);
+                            let raw_path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                            in_allowed || is_sovereign_path_request(raw_path)
+                        }
                     };
 
                     if !in_allowed {
@@ -1617,7 +2065,22 @@ impl ConversationManager {
                     .map(|turn| state.turn_index.saturating_sub(*turn) <= 3)
                     .unwrap_or(false);
 
-                if needs_exact_window {
+                if matches!(
+                    name,
+                    "read_file" | "inspect_lines" | "list_files" | "grep_files"
+                ) {
+                    // These are the grounding tools themselves; they should be allowed to
+                    // establish evidence on an already-allowed target path.
+                } else if name == "write_file" && matches!(self.workflow_mode, WorkflowMode::Code) {
+                    let size = std::fs::metadata(target).map(|m| m.len()).unwrap_or(0);
+                    if size > 2000 {
+                        // SURGICAL MANDATE: In CODE mode, for files larger than 2KB, we block full-file rewrites.
+                        return Err(format!(
+                            "SURGICAL MANDATE: '{}' already exists and is significant ({} bytes). In implementation mode, you must use `edit_file` or `patch_hunk` for targeted changes instead of rewriting the entire file with `write_file`. This maintains project integrity and prevents context burn. HINT: Use `read_file` to capture the current state, then use `edit_file` with the exact text you want to replace in `target_content`.",
+                            target, size
+                        ));
+                    }
+                } else if needs_exact_window {
                     if !recently_inspected && !same_turn_read && !pinned_match {
                         return Err(format!(
                             "Action blocked: `{}` on '{}' requires a line-level inspection first. \
@@ -1669,7 +2132,7 @@ impl ConversationManager {
                         .collect::<Vec<_>>()
                         .join(", ");
                     return Err(format!(
-                        "Action blocked: the build is broken. Fix the errors in {} before editing other files. Run `verify_build` to confirm the fix, then continue.",
+                        "Action blocked: the build is broken. Fix the errors in {} before editing other files. Re-run workspace verification to confirm the fix, then continue.",
                         files
                     ));
                 }
@@ -1680,7 +2143,7 @@ impl ConversationManager {
             let state = self.action_grounding.lock().await;
             if state.code_changed_since_verify && !state.last_verify_build_ok {
                 return Err(format!(
-                    "Action blocked: `{}` requires a successful `verify_build` after the latest code edits. Run verification first so Hematite has proof that the tree is build-clean.",
+                    "Action blocked: `{}` requires a successful verification pass after the latest code edits. Run verification first so Hematite has proof that the workspace is clean.",
                     name
                 ));
             }
@@ -2322,6 +2785,21 @@ impl ConversationManager {
         let _plan_execution_guard = PlanExecutionGuard {
             flag: self.plan_execution_active.clone(),
         };
+        let task_progress_before = if implement_current_plan {
+            read_task_checklist_progress()
+        } else {
+            None
+        };
+        let current_plan_pass = if implement_current_plan {
+            self.plan_execution_pass_depth
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                + 1
+        } else {
+            0
+        };
+        let _plan_execution_pass_guard = implement_current_plan.then(|| PlanExecutionPassGuard {
+            depth: self.plan_execution_pass_depth.clone(),
+        });
         let intent = classify_query_intent(self.workflow_mode, &effective_user_input);
 
         // ── /think / /no_think: reasoning budget toggle ──────────────────────
@@ -2584,6 +3062,28 @@ impl ConversationManager {
         // ── Normal processing ───────────────────────────────────────────────
 
         // Ensure MCP is initialized and tools are discovered for this turn.
+        if intent.sovereign_mode && is_scaffold_request(&effective_user_input) {
+            if let Some(root) = extract_sovereign_scaffold_root(&effective_user_input) {
+                if std::fs::create_dir_all(&root).is_ok() {
+                    let targets = default_sovereign_scaffold_targets(&effective_user_input);
+                    let _ = seed_sovereign_scaffold_files(&root, &targets);
+                    let plan = build_sovereign_scaffold_handoff(&effective_user_input, &targets);
+                    let _ = crate::tools::plan::save_plan_handoff_for_root(&root, &plan);
+                    let _ = crate::tools::plan::write_teleport_resume_marker_for_root(&root);
+                    let _ = write_sovereign_handoff_markdown(&root, &effective_user_input, &plan);
+                    self.pending_teleport_handoff = None;
+                    self.latest_target_dir = Some(root.to_string_lossy().to_string());
+                    let response = format!(
+                        "Created the sovereign project root at `{}` and wrote a local handoff. Teleporting now so the next session can continue implementation inside that project.",
+                        root.display()
+                    );
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+            }
+        }
+
         let tiny_context_mode = self.engine.current_context_length() <= 8_192;
         let mut base_prompt = self.engine.build_system_prompt(
             self.snark,
@@ -2607,6 +3107,13 @@ impl ConversationManager {
                 &crate::tools::file_ops::workspace_root(),
             ) {
                 base_prompt.push_str(&format!("\n\n{}", profile_block));
+            }
+            if let Some(strategy_block) =
+                crate::agent::workspace_profile::profile_strategy_prompt_block(
+                    &crate::tools::file_ops::workspace_root(),
+                )
+            {
+                base_prompt.push_str(&format!("\n\n{}", strategy_block));
             }
             // L1: inject hot-files block if available (persists across sessions via vein.db).
             if let Some(ref l1) = self.l1_context {
@@ -2635,14 +3142,15 @@ impl ConversationManager {
             )
             .await
             .unwrap_or(crate::agent::intent_embed::IntentClass::Ambiguous);
-            !matches!(embed_class, crate::agent::intent_embed::IntentClass::Advisory)
+            !matches!(
+                embed_class,
+                crate::agent::intent_embed::IntentClass::Advisory
+            )
         } else {
             false
         };
         let maintainer_workflow_mode = intent.maintainer_workflow_mode
             || preferred_maintainer_workflow(&effective_user_input).is_some();
-        let workspace_workflow_mode = intent.workspace_workflow_mode
-            || preferred_workspace_workflow(&effective_user_input).is_some();
         let fix_plan_mode =
             preferred_host_inspection_topic(&effective_user_input) == Some("fix_plan");
         let architecture_overview_mode = intent.architecture_overview_mode;
@@ -2675,84 +3183,13 @@ impl ConversationManager {
             );
         }
         if !tiny_context_mode && capability_mode {
-            system_msg.push_str(
-                "\n\n# CAPABILITY QUESTION MODE\n\
-                 This is a product or capability question unless the user explicitly asks about repository implementation.\n\
-                 Answer from stable Hematite capabilities and current runtime state.\n\
-                 It is correct to mention that Hematite itself is built in Rust when relevant, but do not imply that its project support is limited to Rust.\n\
-                 Do NOT call repo-inspection tools like `read_file` or LSP lookup tools unless the user explicitly asks about implementation or file ownership.\n\
-                 Do NOT infer language or project support from unrelated dependencies, crates, or config files.\n\
-                 Describe language and project support in terms of real mechanisms: reading files, editing code, searching the workspace, running shell commands, build verification, language-aware tooling when available, web research, vision analysis, and optional MCP tools if configured.\n\
-                 If the user asks about languages, answer at the harness level: Hematite can help across many project languages even though Hematite itself is written in Rust.\n\
-                 Prefer real programming language examples like Python, JavaScript, TypeScript, Go, C#, or similar over file extensions like `.json` or `.md`.\n\
-                 For project-building questions, describe cross-project workflows like scaffolding files, shaping structure, implementing features, and running the appropriate local build or test commands for the target stack. Do not overclaim certainty.\n\
-                 Never mention raw `mcp__*` tool names unless those tools are active this turn and directly relevant.\n\
-                 Keep the answer short, plain, and ASCII-first.\n"
-            );
+            // Consolidated: Capability instructions handled by prompt.rs
         }
         if !tiny_context_mode && toolchain_mode {
-            system_msg.push_str(
-                "\n\n# TOOLCHAIN DISCIPLINE MODE\n\
-                 This turn is about Hematite's real built-in tools and how to choose them.\n\
-                 Prefer `describe_toolchain` before you try to summarize tool capabilities or propose a read-only investigation plan from memory.\n\
-                 Use only real built-in tool names.\n\
-                 Do not invent helper tools, MCP tool names, synthetic symbols, or example function names.\n\
-                 If `describe_toolchain` fully answers the question, preserve its output exactly instead of restyling it.\n\
-                 Be explicit about which tools are optional or conditional.\n"
-            );
+            // Consolidated: Toolchain instructions handled by prompt.rs
         }
         if !tiny_context_mode && host_inspection_mode {
-            system_msg.push_str(
-                 "\n\n# HOST INSPECTION MODE\n\
-                 This turn is about the local machine. Make EXACTLY ONE `inspect_host` call using the best matching topic below, then answer. Do NOT call `summary` first. Do NOT make exploratory shell calls.\n\
-                 **IMPORTANT — follow-up and advisory questions**: If the conversation already contains `inspect_host` results that answer the user's question, do NOT call inspect_host again. Answer directly from the data in context. Advisory and opinion questions (\"would more RAM help?\", \"is that worth upgrading?\", \"could I offload VRAM to system RAM?\") must be answered by reasoning about existing data, not by fetching new data. Never dump raw tool output as your reply — always synthesize it into a direct answer.\n\
-                 - Drive space / disk usage / free space / storage across drives → `storage`\n\
-                 - CPU model / RAM size / GPU name / hardware specs / BIOS / motherboard → `hardware`\n\
-                 - CPU % / RAM % / what is using resources / slow machine → `resource_load`\n\
-                 - Running processes / task manager / what is using RAM → `processes`\n\
-                 - Windows services / daemons / service state → `services`\n\
-                 - Listening ports / open ports / what process owns port N / which processes are listening / what is bound to a port → `ports` (waiting for inbound connections — includes PIDs and process names — do NOT also call `processes`)\n\
-                 - Active connections / established connections / what is connected right now / outbound sessions / show me connections / network connections → `connections` (live two-way sessions, NOT listening ports)\n\
-                 - Network adapters / IP / gateway / DNS overview → `network`\n\
-                 - Internet / online / can I reach the internet → `connectivity`\n\
-                 - Wi-Fi / wireless / signal strength / SSID → `wifi`\n\
-                 - VPN tunnel / VPN adapter → `vpn`\n\
-                 - Security / Defender / antivirus / firewall / UAC → `security`\n\
-                 - Windows Update / pending updates → `updates`\n\
-                 - Health report / system status overall → `health_report`\n\
-                 - PATH entries / raw PATH → `path`\n\
-                 - Installed developer tools / versions / toolchain → `toolchains`\n\
-                 - Environment/package-manager conflicts → `env_doctor`\n\
-                 - Fix a workstation problem (cargo not found, port in use, LM Studio) → `fix_plan`\n\
-                 - Recent Windows errors / warnings / event log / event viewer / show me errors / what failed recently → `log_check` (do NOT call health_report first)\n\
-                 - Repo / git / workspace health → `repo_doctor`\n\
-                 - List a specific directory → `directory` (pass `path` arg)\n\
-                 - Desktop or Downloads folder → `desktop` or `downloads`\n\
-                 NEVER use `disk` or `directory` for storage/space questions — use `storage`.\n\
-                 - Docker daemon / running containers / images / compose state -> `docker`\n\
-                 - Docker mounts / bind sources / named volumes / Docker Desktop disk usage -> `docker_filesystems`\n\
-                 - WSL distros / WSL version / distro state -> `wsl`\n\
-                 - WSL storage / VHDX growth / /mnt/c bridge health -> `wsl_filesystems`\n\
-                 - Local network discovery / NAS or printer visibility / neighborhood / mDNS / SSDP / UPnP / NetBIOS -> `lan_discovery`\n\
-                 - Speakers / microphones / playback devices / Windows Audio service -> `audio`\n\
-                 - Bluetooth radios / pairing / reconnect issues / headset roles -> `bluetooth`\n\
-                 - MSI / Windows Installer / winget / Microsoft Store install failures -> `installer_health`\n\
-                 - OneDrive sync / Files On-Demand / Known Folder Backup / SharePoint sync roots -> `onedrive`\n\
-                 - Browser slow / Chrome / Edge / Firefox / WebView2 / default browser / links opening wrong -> `browser_health`\n\
-                 - Microsoft 365 sign-in loops / Token Broker / Web Account Manager / AAD Broker Plugin / device registration / workplace join -> `identity_auth`\n\
-                 - Outlook health / slowness / crash triage / OST and PST files / mail profiles / add-in pressure -> `outlook`\n\
-                 - Teams health / slowness / crash triage / cache bloat / WebView2 / device binding / sign-in failures -> `teams`\n\
-                 - Windows backup posture / File History / wbadmin last backup / System Restore points / OneDrive KFM -> `windows_backup`\n\
-                 - Hyper-V role state / list VMs / VM RAM and CPU / VM network switches / VM checkpoints / VMMS service -> `hyperv`\n\
-                 - Search Windows Event Log by Event ID / source / level / time window (e.g. Event ID 4625 failed logon, 7034 service crash, 41 unexpected shutdown) -> `event_query` with args event_id, log, source, level, hours\n\
-                 - Application crashes / hangs / faulting module / exception code / WER archive / which app crashed -> `app_crashes`; optional process arg to filter by name\n\
-                 - Credential Manager / stored Windows credentials / saved passwords / cmdkey vault hygiene -> `credentials`\n\
-                 - TPM / Secure Boot / firmware mode / Windows 11 readiness -> `tpm`\n\
-                 - DNS A/AAAA/MX/SRV/TXT record lookups must stay on `dns_lookup`; do NOT use `ping`, `Invoke-WebRequest`, public DNS-over-HTTPS endpoints, or browser searches as substitutes.\n\
-                 Only use `shell` if the question truly cannot be answered by any topic above.\n\
-                 NEVER tell the user to run PowerShell, cmd, or shell commands themselves. If the data is incomplete, say so and tell them to ask a more specific question instead.\n\
-                 NEVER expose internal tool names or API syntax (like `inspect_host(topic=...)`) in your response. Refer to capabilities in plain English: say 'ask me for a fix plan' not 'run inspect_host(topic=fix_plan)'.\n"
-              );
+            // Consolidated: Host Inspection rules handled by prompt.rs
         }
         if !tiny_context_mode && fix_plan_mode {
             system_msg.push_str(
@@ -2772,16 +3209,7 @@ impl ConversationManager {
                  Do not treat this as a generic current-workspace script runner. Only fall back to raw `shell` if the user asks for a script or command outside those Hematite maintainer workflows.\n"
             );
         }
-        if !tiny_context_mode && workspace_workflow_mode {
-            system_msg.push_str(
-                "\n\n# WORKSPACE WORKFLOW MODE\n\
-                 This turn asks Hematite to run something in the active project workspace, not in Hematite's own source tree.\n\
-                 Prefer `run_workspace_workflow` for the current project's build, test, lint, fix, package scripts, just/task/make targets, local repo scripts, or an exact workspace command.\n\
-                 This tool always runs from the locked workspace root.\n\
-                 If no real project workspace is locked, say so and tell the user to relaunch Hematite in the target project directory.\n\
-                 Do not use `run_hematite_maintainer_workflow` unless the request is specifically about Hematite's own cleanup, packaging, or release scripts.\n"
-            );
-        }
+        // Consolidated: Workspace Workflow rules handled by prompt.rs
 
         if !tiny_context_mode && architecture_overview_mode {
             system_msg.push_str(
@@ -2801,45 +3229,6 @@ impl ConversationManager {
             system_msg
                 .push_str("Use the narrowest safe behavior for this mode. Keep the turn short.\n");
         } else {
-            match self.workflow_mode {
-                WorkflowMode::Auto => system_msg.push_str(
-                    "AUTO means choose the narrowest effective path for the request. Answer directly when stable product logic exists. Inspect before editing. Mutate only when the user is clearly asking for implementation.\n",
-                ),
-                WorkflowMode::Ask => system_msg.push_str(
-                    "ASK means analysis only. Stay read-only, inspect the repo, explain findings, and do not make changes unless the user explicitly switches modes.\n",
-                ),
-                WorkflowMode::Code => system_msg.push_str(
-                    "CODE means implementation mode. Complete the task end-to-end without stopping for confirmation. Read → edit → verify in a single autonomous pass. Do not stop after the first file or first edit — keep working until the full task is done and every file is consistent. If an active plan handoff exists in session memory or `.hematite/PLAN.md`, treat it as the implementation brief. For workspace inspection use built-in read/edit tools first; do not reach for `mcp__filesystem__*` unless the user explicitly requires MCP.\n\
-                    \nAutonomy rules:\n\
-                    - Read the file before editing it. Edit it. Read it back to verify correctness. Move to the next file.\n\
-                    - If you created a new file, immediately read it back and check for missing pieces.\n\
-                    - Do not present a partial result and wait. Keep iterating until all files are complete and cohesive.\n\
-                    - If a file references another file (import, href, src), verify the referenced file exists and is complete.\n\
-                    \nWeb project discipline: when creating or editing HTML/CSS/JS/TS files, verify each file after writing:\n\
-                    - HTML: semantic structure, doctype, head with meta/title, body, all linked resources present\n\
-                    - CSS: responsive (media queries), class names match HTML, all visual states covered\n\
-                    - JS/TS: error handling, no dangling console.log, all referenced DOM elements exist\n\
-                    - All cross-file references (href/src/import paths) are correct\n\
-                    Do NOT stop after initial creation. Re-read, identify gaps, and keep improving until genuinely complete.\n",
-                ),
-                WorkflowMode::Architect => system_msg.push_str(
-                    "ARCHITECT means plan first. Inspect, reason, and produce a concrete implementation approach before editing. Do not mutate code unless the user explicitly asks to implement. When you produce an implementation handoff, use these exact ASCII headings so Hematite can persist the plan: `# Goal`, `# Target Files`, `# Ordered Steps`, `# Verification`, `# Risks`, `# Open Questions`.\n",
-                ),
-                WorkflowMode::ReadOnly => system_msg.push_str(
-                    "READ-ONLY means analysis only. Do not modify files, run mutating shell commands, or commit changes.\n",
-                ),
-                WorkflowMode::Teach => system_msg.push_str(
-                    "TEACH means you are a senior technician giving the user a grounded, numbered walkthrough. \
-                     MANDATORY PROTOCOL for every admin/config/write task:\n\
-                     1. Call inspect_host with the most relevant topic(s) FIRST to observe the actual machine state.\n\
-                     2. Then deliver a numbered step-by-step tutorial that references what you actually observed — exact commands, exact paths, exact values.\n\
-                     3. End with a verification step the user can run to confirm success.\n\
-                     4. Do NOT execute write operations yourself. You are the teacher; the user performs the steps.\n\
-                     5. Treat the user as capable — give precise instructions, not hedged warnings.\n\
-                     Relevant inspect_host topics for common tasks: hardware (driver installs), overclocker (GPU/silicon vitals), security (firewall), ssh (SSH keys), wsl (WSL setup), wsl_filesystems (WSL disk and path-bridge issues), docker_filesystems (bind mounts and named volumes), lan_discovery (printer/NAS/neighborhood discovery issues), audio (speaker/microphone/service issues), bluetooth (pairing/radio/headset issues), camera (webcam/camera devices/privacy), sign_in (Windows Hello/biometric/logon failures), installer_health (MSI/winget/Store install failures), onedrive (OneDrive sync/Files On-Demand/Known Folder Backup issues), browser_health (Chrome/Edge/Firefox/WebView2/default-browser issues), identity_auth (Microsoft 365 sign-in loops/token broker/WAM/device registration), search_index (Windows Search indexer/WSearch), display_config (monitor/resolution/refresh rate/DPI), ntp (clock sync/NTP/w32tm), cpu_power (turbo boost/CPU frequency/power plan), credentials (Credential Manager/saved passwords/cmdkey), tpm (TPM chip/Secure Boot/firmware type), latency (ping RTT/packet loss/network slow), network_adapter (NIC settings/offload/link speed/adapter errors), dhcp (DHCP lease details/server/expiry), mtu (per-adapter MTU/path MTU discovery/fragmentation), env (PATH/env vars), services (service config), recent_crashes (troubleshooting), disk_health (storage issues).\n",
-                ),
-                WorkflowMode::Chat => {} // replaced by build_chat_system_prompt below
-            }
         }
         if !tiny_context_mode && self.workflow_mode == WorkflowMode::Architect {
             system_msg.push_str("\n\n# ARCHITECT HANDOFF CONTRACT\n");
@@ -2880,13 +3269,35 @@ impl ConversationManager {
         if !tiny_context_mode {
             self.append_session_handoff(&mut system_msg);
         }
-        // In chat mode, replace the full harness prompt with a clean conversational surface.
-        // The harness prompt (built above) is discarded — Rusty personality takes over.
-        let system_msg = if self.workflow_mode.is_chat() {
+        // ── Inject TASK.md Visibility ────────────────────────────────────────
+        let mut final_system_msg = if self.workflow_mode.is_chat() {
             self.build_chat_system_prompt()
         } else {
             system_msg
         };
+
+        if !tiny_context_mode
+            && matches!(self.workflow_mode, WorkflowMode::Code | WorkflowMode::Auto)
+        {
+            let task_path = std::path::Path::new(".hematite/TASK.md");
+            if task_path.exists() {
+                if let Ok(content) = std::fs::read_to_string(task_path) {
+                    let snippet = if content.lines().count() > 50 {
+                        content.lines().take(50).collect::<Vec<_>>().join("\n")
+                            + "\n... (truncated)"
+                    } else {
+                        content
+                    };
+                    final_system_msg.push_str("\n\n# CURRENT TASK STATUS (.hematite/TASK.md)\n");
+                    final_system_msg.push_str("Update this file via `edit_file` to check off `[x]` items as you complete them.\n");
+                    final_system_msg.push_str("```markdown\n");
+                    final_system_msg.push_str(&snippet);
+                    final_system_msg.push_str("\n```\n");
+                }
+            }
+        }
+
+        let system_msg = final_system_msg;
         if self.history.is_empty() || self.history[0].role != "system" {
             self.history.insert(0, ChatMessage::system(&system_msg));
         } else {
@@ -2901,7 +3312,7 @@ impl ConversationManager {
         // History from previous turns must not be fed back into the prompt to prevent duplication.
         self.reasoning_history = None;
 
-        let is_gemma = crate::agent::inference::is_gemma4_model_name(&self.engine.current_model());
+        let is_gemma = crate::agent::inference::is_hematite_native_model(&self.engine.current_model());
         let user_content = match self.think_mode {
             Some(true) => format!("/think\n{}", effective_user_input),
             Some(false) => format!("/no_think\n{}", effective_user_input),
@@ -3096,7 +3507,31 @@ impl ConversationManager {
             );
         }
 
+        // ── Auto-Architect: complex scaffold requests in /auto get a plan-first nudge ──
+        // When the user asks for a multi-file build in /auto mode, instruct the model
+        // to draft a PLAN.md blueprint first. The plan_drafted_this_turn gate at the
+        // end of run_turn will then fire the Y/N approval and chain into implementation.
+        if loop_intervention.is_none()
+            && self.workflow_mode == WorkflowMode::Auto
+            && is_scaffold_request(&effective_user_input)
+            && !implement_current_plan
+        {
+            loop_intervention = Some(
+                "AUTO-ARCHITECT: This request involves building multiple files (a scaffold). \
+                 Before implementing, draft a concise blueprint to `.hematite/PLAN.md` using `write_file`. \
+                 The blueprint should list:\n\
+                 1. The target directory path\n\
+                 2. Each file to create (with a one-line description of its purpose)\n\
+                 3. Key design decisions (e.g. color scheme, layout approach)\n\n\
+                 Use `@DESKTOP/`, `@DOCUMENTS/`, or `@DOWNLOADS/` sovereign tokens for path accuracy.\n\
+                 After writing the PLAN.md, respond with a brief summary of what you planned. \
+                 Do NOT start implementing yet — just write the plan."
+                    .to_string(),
+            );
+        }
+
         let mut implementation_started = false;
+        let mut plan_drafted_this_turn = false;
         let mut non_mutating_plan_steps = 0usize;
         let non_mutating_plan_soft_cap = 5usize;
         let non_mutating_plan_hard_cap = 8usize;
@@ -3127,6 +3562,15 @@ impl ConversationManager {
             std::collections::HashSet::new();
         let mut broad_grep_targets: std::collections::HashSet<String> =
             std::collections::HashSet::new();
+        let mut sovereign_task_root: Option<String> = None;
+        let mut sovereign_scaffold_targets: std::collections::BTreeSet<String> =
+            std::collections::BTreeSet::new();
+        let mut turn_mutated_paths: std::collections::BTreeSet<String> =
+            std::collections::BTreeSet::new();
+        let mut mutation_counts_by_path: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
+        let mut frontend_polish_intervention_emitted = false;
+        let mut visible_closeout_emitted = false;
 
         // Track the index of the message that started THIS turn, so compaction doesn't summarize it.
         let mut turn_anchor = self.history.len().saturating_sub(1);
@@ -3172,7 +3616,7 @@ impl ConversationManager {
             let mut prompt_msgs = if let Some(intervention) = loop_intervention.take() {
                 // Gemma 4 handles multiple system messages natively.
                 // Standard models (Qwen, etc.) reject a second system message — merge into history[0].
-                if crate::agent::inference::is_gemma4_model_name(&self.engine.current_model()) {
+                if crate::agent::inference::is_hematite_native_model(&self.engine.current_model()) {
                     let mut msgs = vec![self.history[0].clone()];
                     msgs.push(ChatMessage::system(&intervention));
                     msgs
@@ -3190,12 +3634,32 @@ impl ConversationManager {
             // models (Qwen etc.) only ever see one system message.
             if inject_vein {
                 if let Some(ref ctx) = vein_context.as_ref() {
-                    if crate::agent::inference::is_gemma4_model_name(&self.engine.current_model()) {
+                    if crate::agent::inference::is_hematite_native_model(&self.engine.current_model()) {
                         prompt_msgs.push(ChatMessage::system(ctx));
                     } else {
                         let merged = format!("{}\n\n{}", prompt_msgs[0].content.as_str(), ctx);
                         prompt_msgs[0] = ChatMessage::system(&merged);
                     }
+                }
+            }
+            if let Some(root) = sovereign_task_root.as_ref() {
+                let sovereign_root_instruction = format!(
+                    "EFFECTIVE TASK ROOT: This sovereign scaffold turn is now rooted at:\n\
+                     `{root}`\n\n\
+                     Treat that directory as the active project root for the rest of this turn. \
+                     All reads, writes, verification, and summaries must stay scoped to that root. \
+                     Ignore unrelated repo context such as `./src` unless the user explicitly asks about it. \
+                     Keep building within this sovereign root instead of reasoning from the original workspace."
+                );
+                if crate::agent::inference::is_hematite_native_model(&self.engine.current_model()) {
+                    prompt_msgs.push(ChatMessage::system(&sovereign_root_instruction));
+                } else {
+                    let merged = format!(
+                        "{}\n\n{}",
+                        prompt_msgs[0].content.as_str(),
+                        sovereign_root_instruction
+                    );
+                    prompt_msgs[0] = ChatMessage::system(&merged);
                 }
             }
             prompt_msgs.extend(messages);
@@ -3222,7 +3686,10 @@ impl ConversationManager {
             self.emit_prompt_pressure_for_messages(&tx, &prompt_msgs)
                 .await;
 
-            let turn_tools = if intent.sovereign_mode {
+            let turn_tools = if yolo {
+                // FORCE NLG ONLY: Hide all tools to ensure a plain text summary.
+                Vec::new()
+            } else if intent.sovereign_mode {
                 self.tools
                     .iter()
                     .filter(|t| {
@@ -3377,46 +3844,32 @@ impl ConversationManager {
 
                 if let Some(repeated_path) = calls
                     .iter()
-                    .filter(|c| {
-                        let parsed = serde_json::from_str::<Value>(
-                            &crate::agent::inference::normalize_tool_argument_string(
-                                &c.function.name,
-                                &c.function.arguments,
-                            ),
-                        )
-                        .ok();
-                        let offset = parsed
-                            .as_ref()
-                            .and_then(|args| args.get("offset").and_then(|v| v.as_u64()))
-                            .unwrap_or(0);
-                        // Catch re-reads from the top (original behaviour) AND repeated
-                        // reads at the exact same non-zero offset (new: catches targeted loops).
-                        if offset < 200 {
-                            return true;
-                        }
-                        if let Some(path) = parsed
-                            .as_ref()
-                            .and_then(|args| args.get("path").and_then(|v| v.as_str()))
-                        {
-                            let normalized = normalize_workspace_path(path);
-                            return successful_read_regions.contains(&(normalized, offset));
-                        }
-                        false
-                    })
                     .filter_map(|c| repeated_read_target(&c.function))
                     .find(|path| successful_read_targets.contains(path))
                 {
-                    loop_intervention = Some(format!(
-                        "STOP. Already read `{}` this turn. Use `inspect_lines` on the relevant window or a specific `grep_files`, then continue.",
+                    let repeated_path = repeated_path.to_string();
+
+                    let err_msg = format!(
+                        "Read discipline: You already read `{}` recently. Use `inspect_lines` on a specific window or `grep_files` to find content, then continue with your edit.",
                         repeated_path
-                    ));
-                    let _ = tx
-                        .send(InferenceEvent::Thought(
-                            "Read discipline: preventing repeated full-file reads on the same path."
-                                .into(),
-                        ))
+                    );
+                    let _ = tx.clone().send(InferenceEvent::Token(format!("\n⚠️ {}\n", err_msg))).await;
+                    let _ = tx.clone()
+                        .send(InferenceEvent::Thought(format!("Intervention: {}", err_msg)))
                         .await;
-                    continue;
+
+                    // BREAK THE SILENT LOOP: Push hard errors for these tool calls individually.
+                    // This forces the LLM to see the result and pivot in its next turn.
+                    for call in &calls {
+                        self.history.push(ChatMessage::tool_result_for_model(
+                            &call.id,
+                            &call.function.name,
+                            &err_msg,
+                            &self.engine.current_model(),
+                        ));
+                    }
+                    self.emit_done_events(&tx).await;
+                    return Ok(());
                 }
 
                 if capability_mode
@@ -3431,7 +3884,7 @@ impl ConversationManager {
                          Do not mention raw `mcp__*` names unless they are active and directly relevant."
                             .to_string(),
                     );
-                    let _ = tx
+                    let _ = tx.clone()
                         .send(InferenceEvent::Thought(
                             "Capability mode: skipping unnecessary repo-inspection tools and answering directly."
                                 .into(),
@@ -3445,7 +3898,7 @@ impl ConversationManager {
                 let raw_content = text.as_deref().unwrap_or(" ");
 
                 if let Some(thought) = crate::agent::inference::extract_think_block(raw_content) {
-                    let _ = tx.send(InferenceEvent::Thought(thought.clone())).await;
+                    let _ = tx.clone().send(InferenceEvent::Thought(thought.clone())).await;
                     // Reasoning is silent (hidden in SPECULAR only).
                     self.reasoning_history = Some(thought);
                 }
@@ -3465,7 +3918,7 @@ impl ConversationManager {
                 // ── LAYER 4: Parallel Tool Orchestration (Batching) ────────────────────
                 let mut results = Vec::new();
                 let gemma4_model =
-                    crate::agent::inference::is_gemma4_model_name(&self.engine.current_model());
+                    crate::agent::inference::is_hematite_native_model(&self.engine.current_model());
                 let latest_user_prompt = self.latest_user_prompt();
                 let mut seen_call_keys = std::collections::HashSet::new();
                 let mut deduped_calls = Vec::new();
@@ -3484,6 +3937,28 @@ impl ConversationManager {
                             .or_else(|| normalized_args.get("workflow"));
 
                         if let Some(cmd) = cmd_val.and_then(|v| v.as_str()) {
+                            if cfg!(windows) && (cmd.contains("/dev/") || cmd.contains("/etc/") || cmd.contains("/var/")) {
+                                let err_msg = "STRICT: You are attempting to use Linux system paths (/dev, /etc, /var) on a Windows host. This is a reasoning collapse. Use relative paths within your workspace only.";
+                                let _ = tx.clone().send(InferenceEvent::Token(format!("\n🚨 {}\n", err_msg))).await;
+                                let _ = tx.clone().send(InferenceEvent::Thought(format!("Panic blocked: {}", err_msg))).await;
+                                
+                                // BREAK THE COLLAPSE: Push hard errors for all tool calls in this batch and end turn.
+                                let mut err_results = Vec::new();
+                                for c in &calls {
+                                    err_results.push(ChatMessage::tool_result_for_model(
+                                        &c.id,
+                                        &c.function.name,
+                                        err_msg,
+                                        &self.engine.current_model(),
+                                    ));
+                                }
+                                for res in err_results {
+                                    self.history.push(res);
+                                }
+                                self.emit_done_events(&tx).await;
+                                return Ok(());
+                            }
+
                             if is_natural_language_hallucination(cmd) {
                                 let err_msg = format!(
                                     "HALLUCINATION BLOCKED: You tried to pass natural language ('{}') into a command field. \
@@ -3506,6 +3981,8 @@ impl ConversationManager {
                                     blocked_by_policy: false,
                                     msg_results: Vec::new(),
                                     latest_target_dir: None,
+                                    plan_drafted_this_turn: false,
+                                    parsed_plan_handoff: None,
                                 });
                                 continue;
                             }
@@ -3572,17 +4049,78 @@ impl ConversationManager {
                 }
 
                 // 2. Sequential Execution (SerialMutating)
+                let mut sovereign_bootstrap_complete = false;
+
                 for call in serial_calls {
-                    results.push(
-                        self.process_tool_call(
-                            call.function,
-                            config.clone(),
-                            yolo,
-                            tx.clone(),
-                            call.id,
-                        )
-                        .await,
-                    );
+                    let outcome = self
+                        .process_tool_call(call.function, config.clone(), yolo, tx.clone(), call.id)
+                        .await;
+
+                    if !outcome.is_error {
+                        let tool_name = outcome.tool_name.as_str();
+                        if matches!(
+                            tool_name,
+                            "patch_hunk" | "write_file" | "edit_file" | "multi_search_replace"
+                        ) {
+                            if let Some(target) = action_target_path(tool_name, &outcome.args) {
+                                let normalized_path = normalize_workspace_path(&target);
+                                let rewrite_count = mutation_counts_by_path
+                                    .entry(normalized_path.clone())
+                                    .and_modify(|count| *count += 1)
+                                    .or_insert(1);
+
+                                let is_frontend_asset = [
+                                    ".html", ".htm", ".css", ".js", ".ts", ".jsx", ".tsx", ".vue",
+                                    ".svelte",
+                                ]
+                                .iter()
+                                .any(|ext| normalized_path.ends_with(ext));
+
+                                if is_frontend_asset && *rewrite_count >= 3 {
+                                    frontend_polish_intervention_emitted = true;
+                                    loop_intervention = Some(format!(
+                                        "REWRITE LIMIT REACHED. You have updated `{}` {} times this turn. To prevent reasoning collapse, further rewrites to this file are blocked. \
+                                         Please UPDATE `.hematite/TASK.md` to check off these completed steps, and response with a concise engineering summary of the implementation status.",
+                                        normalized_path, rewrite_count
+                                    ));
+                                    results.push(outcome);
+                                    let _ = tx.send(InferenceEvent::Thought("Frontend rewrite guard: block reached — prompting for task update and summary.".to_string())).await;
+                                    break; // Terminate this turn's tool execution immediately.
+                                } else if !frontend_polish_intervention_emitted
+                                    && is_frontend_asset
+                                    && *rewrite_count >= 2
+                                {
+                                    frontend_polish_intervention_emitted = true;
+                                    loop_intervention = Some(format!(
+                                        "STOP REWRITING. You have already written `{}` {} times. The current version is sufficient as a foundation. \
+                                         Do NOT use `write_file` on this file again. Instead, check off your completed steps in `.hematite/TASK.md` and move on to the next file or provide your final summary.",
+                                        normalized_path, rewrite_count
+                                    ));
+                                    results.push(outcome);
+                                    let _ = tx.send(InferenceEvent::Thought("Frontend polish guard: repeated rewrite detected; prompting for progress log and next steps.".to_string())).await;
+                                    break; // Terminate this turn's tool execution immediately.
+                                }
+                            }
+                        }
+                    }
+
+                    if !outcome.is_error
+                        && intent.sovereign_mode
+                        && is_scaffold_request(&effective_user_input)
+                        && outcome.latest_target_dir.is_some()
+                    {
+                        sovereign_bootstrap_complete = true;
+                    }
+                    results.push(outcome);
+                    if sovereign_bootstrap_complete {
+                        let _ = tx
+                            .send(InferenceEvent::Thought(
+                                "Sovereign scaffold bootstrap complete: stopping this session after root setup so the resumed session can continue inside the new project."
+                                    .to_string(),
+                            ))
+                            .await;
+                        break;
+                    }
                 }
 
                 // 3. Collate Messages into History & UI
@@ -3603,7 +4141,46 @@ impl ConversationManager {
 
                     // Update State for Verification Loop
                     if let Some(path) = res.latest_target_dir {
+                        if intent.sovereign_mode && sovereign_task_root.is_none() {
+                            sovereign_task_root = Some(path.clone());
+                            self.pending_teleport_handoff = Some(SovereignTeleportHandoff {
+                                root: path.clone(),
+                                plan: build_sovereign_scaffold_handoff(
+                                    &effective_user_input,
+                                    &sovereign_scaffold_targets,
+                                ),
+                            });
+                            let _ = tx
+                                .send(InferenceEvent::Thought(format!(
+                                    "Sovereign scaffold root established at `{}`; rebinding project context there for the rest of this turn.",
+                                    path
+                                )))
+                                .await;
+                        }
                         self.latest_target_dir = Some(path);
+                    }
+
+                    if intent.sovereign_mode && is_scaffold_request(&effective_user_input) {
+                        if let Some(root) = sovereign_task_root.as_ref() {
+                            if let Some(path) = res.args.get("path").and_then(|v| v.as_str()) {
+                                let resolved = crate::tools::file_ops::resolve_candidate(path);
+                                let root_path = std::path::Path::new(root);
+                                if let Ok(relative) = resolved.strip_prefix(root_path) {
+                                    if !relative.as_os_str().is_empty() {
+                                        sovereign_scaffold_targets
+                                            .insert(relative.to_string_lossy().replace('\\', "/"));
+                                    }
+                                    self.pending_teleport_handoff =
+                                        Some(SovereignTeleportHandoff {
+                                            root: root.clone(),
+                                            plan: build_sovereign_scaffold_handoff(
+                                                &effective_user_input,
+                                                &sovereign_scaffold_targets,
+                                            ),
+                                        });
+                                }
+                            }
+                        }
                     }
                     if matches!(
                         tool_name.as_str(),
@@ -3611,6 +4188,11 @@ impl ConversationManager {
                     ) {
                         mutation_occurred = true;
                         implementation_started = true;
+                        if !is_error {
+                            if let Some(target) = action_target_path(&tool_name, &res.args) {
+                                turn_mutated_paths.insert(target);
+                            }
+                        }
                         // Heat tracking: bump L1 score for the edited file.
                         if !is_error {
                             let path = res.args.get("path").and_then(|v| v.as_str()).unwrap_or("");
@@ -3624,6 +4206,22 @@ impl ConversationManager {
                             // Refresh repo map so PageRank accounts for the new edit.
                             self.refresh_repo_map();
                         }
+                    }
+
+                    if !is_error
+                        && matches!(
+                            tool_name.as_str(),
+                            "patch_hunk" | "write_file" | "edit_file" | "multi_search_replace"
+                        )
+                    {
+                        // Internal mutation counts now handled early in sequential loop.
+                    }
+
+                    if res.plan_drafted_this_turn {
+                        plan_drafted_this_turn = true;
+                    }
+                    if let Some(plan) = res.parsed_plan_handoff.clone() {
+                        self.session_memory.current_plan = Some(plan);
                     }
 
                     if tool_name == "verify_build" {
@@ -3649,11 +4247,10 @@ impl ConversationManager {
                     let repeat_count = repeat_counts.entry(call_key.clone()).or_insert(0);
                     *repeat_count += 1;
 
-                    // verify_build is legitimately called multiple times in fix-verify loops.
-                    let repeat_guard_exempt = matches!(
-                        tool_name.as_str(),
-                        "verify_build" | "git_commit" | "git_push"
-                    );
+                    // Structured verification and commit tools are legitimately called multiple
+                    // times in fix-verify loops.
+                    let repeat_guard_exempt =
+                        is_repeat_guard_exempt_tool_call(&tool_name, &res.args);
                     if *repeat_count >= 2 && !repeat_guard_exempt {
                         loop_intervention = Some(format!(
                             "STOP. You have called `{}` with identical arguments {} times and keep getting the same result. \
@@ -3674,7 +4271,13 @@ impl ConversationManager {
                         self.emit_runtime_failure(
                             &tx,
                             RuntimeFailureClass::ToolLoop,
-                            &format!("Hard termination: `{}` called {} times with identical arguments. Reasoning collapse detected.", tool_name, *repeat_count),
+                            &format!(
+                                "STRICT: You are stuck in a reasoning loop calling `{}`. \
+                                STOP repeating this call. Switch to grounded filesystem tools \
+                                (like `read_file`, `inspect_lines`, or `edit_file`) instead of \
+                                attempting this workflow again.",
+                                tool_name
+                            ),
                         )
                         .await;
                         return Ok(());
@@ -3979,6 +4582,23 @@ impl ConversationManager {
                     }
                 }
 
+                if sovereign_bootstrap_complete
+                    && intent.sovereign_mode
+                    && is_scaffold_request(&effective_user_input)
+                {
+                    let response = if let Some(root) = sovereign_task_root.as_deref() {
+                        format!(
+                            "Project root created at `{root}`. Teleporting into the new project now so Hematite can continue there with a fresh local handoff."
+                        )
+                    } else {
+                        "Project root created. Teleporting into the new project now so Hematite can continue there with a fresh local handoff."
+                            .to_string()
+                    };
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+
                 if let Some(intervention) = recoverable_policy_intervention {
                     if let Some((state, summary)) = recoverable_policy_checkpoint.take() {
                         self.emit_operator_checkpoint(&tx, state, summary).await;
@@ -4101,23 +4721,24 @@ impl ConversationManager {
                 }
 
                 // 4. Auto-Verification Loop (The Perfect Bake)
-                if mutation_occurred && !yolo {
+                if mutation_occurred && !yolo && !intent.sovereign_mode {
                     let _ = tx
                         .send(InferenceEvent::Thought(
-                            "Self-Verification: Running 'cargo check' to ensure build integrity..."
+                            "Self-Verification: Running contract-aware workspace verification..."
                                 .into(),
                         ))
                         .await;
-                    let verify_res = self.auto_verify_build().await;
-                    let verify_ok = verify_res.contains("BUILD SUCCESS");
+                    let verify_outcome = self.auto_verify_workspace(&turn_mutated_paths).await;
+                    let verify_res = verify_outcome.summary;
+                    let verify_ok = verify_outcome.ok;
                     self.record_verify_build_result(verify_ok, &verify_res)
                         .await;
                     self.record_session_verification(
                         verify_ok,
                         if verify_ok {
-                            "Automatic build verification passed."
+                            "Automatic workspace verification passed."
                         } else {
-                            "Automatic build verification failed."
+                            "Automatic workspace verification failed."
                         },
                     );
                     self.history.push(ChatMessage::system(&format!(
@@ -4237,6 +4858,7 @@ impl ConversationManager {
                 let architect_handoff = self.persist_architect_handoff(&cleaned);
                 self.history.push(ChatMessage::assistant_text(&cleaned));
                 self.transcript.log_agent(&cleaned);
+                visible_closeout_emitted = true;
 
                 // Send in smooth chunks for that professional UI feel.
                 for chunk in chunk_text(&cleaned, 8) {
@@ -4292,6 +4914,102 @@ impl ConversationManager {
 
                 self.emit_runtime_failure(&tx, class, detail).await;
                 break;
+            }
+        }
+
+        let task_progress_after = if implement_current_plan {
+            read_task_checklist_progress()
+        } else {
+            None
+        };
+
+        if implement_current_plan
+            && !visible_closeout_emitted
+            && should_continue_plan_execution(
+                current_plan_pass,
+                task_progress_before,
+                task_progress_after,
+                &turn_mutated_paths,
+            )
+        {
+            if let Some(progress) = task_progress_after {
+                let _ = tx
+                    .send(InferenceEvent::Thought(format!(
+                        "Checklist still has {} unchecked item(s). Continuing autonomous implementation pass {}.",
+                        progress.remaining,
+                        current_plan_pass + 1
+                    )))
+                    .await;
+                let synthetic_turn = UserTurn {
+                    text: build_continue_plan_execution_prompt(progress),
+                    attached_document: None,
+                    attached_image: None,
+                };
+                return Box::pin(self.run_turn(&synthetic_turn, tx.clone(), false)).await;
+            }
+        }
+
+        if implement_current_plan && !visible_closeout_emitted {
+            // FORCE a summary turn if we had no natural closeout (e.g. hit a mandate or finished all tool budget).
+            let _ = tx.send(InferenceEvent::Thought("Implementation passthrough complete. Requesting final engineering summary (NLG-only mode)...".to_string())).await;
+
+            let outstanding_note = task_progress_after
+                .filter(|progress| progress.has_open_items())
+                .map(|progress| {
+                    format!(
+                        " `.hematite/TASK.md` still has {} unchecked item(s); explain the concrete blocker or remaining non-optional work.",
+                        progress.remaining
+                    )
+                })
+                .unwrap_or_default();
+            let synthetic_turn = UserTurn {
+                text: format!(
+                    "Implementation passes complete. YOU ARE NOW IN SUMMARY MODE. STOP calling tools — all tools are hidden. Provide a concise human engineering summary of what you built, what was verified, and whether `.hematite/TASK.md` is fully checked off.{}",
+                    outstanding_note
+                ),
+                attached_document: None,
+                attached_image: None,
+            };
+            // Note: We use recursion to force one last NLG pass.
+            // We set yolo=true to suppress tools.
+            return Box::pin(self.run_turn(&synthetic_turn, tx.clone(), true)).await;
+        }
+
+        if plan_drafted_this_turn
+            && matches!(
+                self.workflow_mode,
+                WorkflowMode::Auto | WorkflowMode::Architect
+            )
+        {
+            let (appr_tx, appr_rx) = tokio::sync::oneshot::channel::<bool>();
+            let _ = tx
+                .send(InferenceEvent::ApprovalRequired {
+                    id: "plan_approval".to_string(),
+                    name: "plan_authorization".to_string(),
+                    display: "A comprehensive scaffolding blueprint has been drafted to .hematite/PLAN.md. Autonomously execute implementation now?".to_string(),
+                    diff: None,
+                    mutation_label: Some("SYSTEM PLAN AUTHORIZATION".to_string()),
+                    responder: appr_tx,
+                })
+                .await;
+
+            if let Ok(true) = appr_rx.await {
+                // Wipe conversation history to prevent hallucination cycles on 9B models.
+                // The recursive run_turn call will rebuild the system prompt from scratch
+                // and inject the PLAN.md blueprint via the implement-plan pathway.
+                self.history.clear();
+                self.running_summary = None;
+                self.set_workflow_mode(WorkflowMode::Code);
+
+                let _ = tx.send(InferenceEvent::ChainImplementPlan).await;
+
+                let next_input = implement_current_plan_prompt().to_string();
+                let synthetic_turn = UserTurn {
+                    text: next_input,
+                    attached_document: None,
+                    attached_image: None,
+                };
+                return Box::pin(self.run_turn(&synthetic_turn, tx.clone(), false)).await;
             }
         }
 
@@ -4370,17 +5088,127 @@ impl ConversationManager {
         let _ = tx.send(InferenceEvent::Done).await;
     }
 
-    /// [Task Analyzer] Run 'cargo check' and return a concise summary for the model.
-    async fn auto_verify_build(&self) -> String {
-        match crate::tools::verify_build::execute(&serde_json::json!({ "action": "build" })).await {
-            Ok(out) => {
-                "BUILD SUCCESS: Your changes are architecturally sound.\n\n".to_string()
-                    + &cap_output(&out, 2000)
+    /// Contract-aware self verification. Build is still the base proof, but stack-specific
+    /// runtime contracts can add stronger checks such as website route and asset validation.
+    async fn auto_verify_workspace(
+        &self,
+        mutated_paths: &std::collections::BTreeSet<String>,
+    ) -> AutoVerificationOutcome {
+        let root = crate::tools::file_ops::workspace_root();
+        let profile = crate::agent::workspace_profile::load_workspace_profile(&root)
+            .unwrap_or_else(|| crate::agent::workspace_profile::detect_workspace_profile(&root));
+
+        let mut sections = Vec::new();
+        let mut overall_ok = true;
+        let contract = profile.runtime_contract.as_ref();
+        let verification_workflows: Vec<String> = match contract {
+            Some(contract) if !contract.verification_workflows.is_empty() => {
+                contract.verification_workflows.clone()
             }
-            Err(e) => format!(
-                "BUILD FAILURE: The build is currently broken. FIX THESE ERRORS IMMEDIATELY:\n\n{}",
-                cap_output(&e, 2000)
-            ),
+            _ if profile.build_hint.is_some() || profile.verify_profile.is_some() => {
+                vec!["build".to_string()]
+            }
+            _ => Vec::new(),
+        };
+
+        for workflow in verification_workflows {
+            if !should_run_contract_verification_workflow(contract, &workflow, mutated_paths) {
+                continue;
+            }
+            let outcome = self.auto_run_verification_workflow(&workflow).await;
+            overall_ok &= outcome.ok;
+            sections.push(outcome.summary);
+        }
+
+        if sections.is_empty() {
+            sections.push(
+                "[verify]\nVERIFICATION SKIPPED: Workspace profile does not define an automatic verification workflow for this stack."
+                    .to_string(),
+            );
+        }
+
+        let header = if overall_ok {
+            "WORKSPACE VERIFICATION SUCCESS: Automatic validation passed."
+        } else {
+            "WORKSPACE VERIFICATION FAILURE: Automatic validation found problems."
+        };
+
+        AutoVerificationOutcome {
+            ok: overall_ok,
+            summary: format!("{}\n\n{}", header, sections.join("\n\n")),
+        }
+    }
+
+    async fn auto_run_verification_workflow(&self, workflow: &str) -> AutoVerificationOutcome {
+        match workflow {
+            "build" | "test" | "lint" | "fix" => {
+                match crate::tools::verify_build::execute(&serde_json::json!({ "action": workflow }))
+                    .await
+                {
+                    Ok(out) => AutoVerificationOutcome {
+                        ok: true,
+                        summary: format!(
+                            "[{}]\n{} SUCCESS: Automatic {} verification passed.\n\n{}",
+                            workflow,
+                            workflow.to_ascii_uppercase(),
+                            workflow,
+                            cap_output(&out, 2000)
+                        ),
+                    },
+                    Err(e) => AutoVerificationOutcome {
+                        ok: false,
+                        summary: format!(
+                            "[{}]\n{} FAILURE: Automatic {} verification failed.\n\n{}",
+                            workflow,
+                            workflow.to_ascii_uppercase(),
+                            workflow,
+                            cap_output(&e, 2000)
+                        ),
+                    },
+                }
+            }
+            other => {
+                // DISPATCH Generic workflows (e.g. website_validate, server_probe, etc.)
+                let args = serde_json::json!({ "workflow": other });
+                match crate::tools::workspace_workflow::run_workspace_workflow(&args).await {
+                    Ok(out) => {
+                        // Specialized workflows rely on "Result: PASS" or "Result: FAIL" markers.
+                        // Standard shell fallbacks return OK if exit code was 0.
+                        let ok = !out.contains("Result: FAIL") && !out.contains("Error:");
+                        AutoVerificationOutcome {
+                            ok,
+                            summary: format!("[{}]\n{}", other, out.trim()),
+                        }
+                    }
+                    Err(e) => {
+                        // If a specialized workflow needs "Auto-Booting" (e.g. website), 
+                        // we can handle a retry here or delegate the intelligence to the tool itself.
+                        // For website_validate, we attempt a boot if it looks like a connection failure.
+                        let needs_boot = e.contains("No tracked website server labeled")
+                            || e.contains("HTTP probe failed")
+                            || e.contains("Connection refused")
+                            || e.contains("error trying to connect");
+
+                        if other == "website_validate" && needs_boot {
+                             let start_args = serde_json::json!({ "workflow": "website_start" });
+                             if let Ok(_) = crate::tools::workspace_workflow::run_workspace_workflow(&start_args).await {
+                                 if let Ok(retry_out) = crate::tools::workspace_workflow::run_workspace_workflow(&args).await {
+                                     let ok = !retry_out.contains("Result: FAIL") && !retry_out.contains("Error:");
+                                     return AutoVerificationOutcome {
+                                         ok,
+                                         summary: format!("[{}]\n(Auto-booted) {}", other, retry_out.trim()),
+                                     };
+                                 }
+                             }
+                        }
+
+                        AutoVerificationOutcome {
+                            ok: false,
+                            summary: format!("[{}]\nVERIFICATION FAILURE: {}", other, e),
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -4664,7 +5492,9 @@ impl ConversationManager {
 
         let truncated = cap_output(content, 4000);
 
-        const WEB_EXTS_CRITIC: &[&str] = &["html", "htm", "css", "js", "ts", "jsx", "tsx", "vue", "svelte"];
+        const WEB_EXTS_CRITIC: &[&str] = &[
+            "html", "htm", "css", "js", "ts", "jsx", "tsx", "vue", "svelte",
+        ];
         let is_web_file = WEB_EXTS_CRITIC.contains(&ext);
 
         let prompt = if is_web_file {
@@ -5238,6 +6068,9 @@ fn infer_maintainer_workflow_args_from_prompt(prompt: &str) -> Option<Value> {
 }
 
 fn infer_workspace_workflow_args_from_prompt(prompt: &str) -> Option<Value> {
+    if is_scaffold_request(prompt) {
+        return None;
+    }
     let workflow = preferred_workspace_workflow(prompt)?;
     let lower = prompt.to_ascii_lowercase();
     let trimmed = prompt.trim();
@@ -5490,7 +6323,11 @@ fn rewrite_host_tool_call(
             return;
         }
     }
-    if !is_surgical_tool && *tool_name != "run_workspace_workflow" {
+    // Only allow auto-rewrite for generic shell/command triggers.
+    // We NEVER rewrite surgical tools (write/edit) or evidence tools (read/inspect)
+    // because that leads to inference-hijack loops.
+    let is_generic_command_trigger = matches!(tool_name.as_str(), "shell" | "run_command" | "workflow" | "run");
+    if is_generic_command_trigger && *tool_name != "run_workspace_workflow" {
         if let Some(prompt_args) =
             latest_user_prompt.and_then(infer_workspace_workflow_args_from_prompt)
         {
@@ -5576,8 +6413,10 @@ impl ConversationManager {
     ) -> ToolExecutionOutcome {
         let mut msg_results = Vec::new();
         let mut latest_target_dir = None;
+        let mut plan_drafted_this_turn = false;
+        let mut parsed_plan_handoff = None;
         let gemma4_model =
-            crate::agent::inference::is_gemma4_model_name(&self.engine.current_model());
+            crate::agent::inference::is_hematite_native_model(&self.engine.current_model());
         let normalized_arguments = if gemma4_model {
             crate::agent::inference::normalize_tool_argument_string(&call.name, &call.arguments)
         } else {
@@ -5969,6 +6808,24 @@ impl ConversationManager {
                 "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace"
             ) || is_mcp_mutating_tool(&call.name)
             {
+                if call.name == "write_file" {
+                    if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
+                        if path.ends_with("PLAN.md") {
+                            plan_drafted_this_turn = true;
+                            if !is_error {
+                                if let Some(content) = args.get("content").and_then(|v| v.as_str())
+                                {
+                                    let resolved = crate::tools::file_ops::resolve_candidate(path);
+                                    let _ = crate::tools::plan::sync_plan_blueprint_for_path(
+                                        &resolved, content,
+                                    );
+                                    parsed_plan_handoff =
+                                        crate::tools::plan::parse_plan_handoff(content);
+                                }
+                            }
+                        }
+                    }
+                }
                 self.record_successful_mutation(action_target_path(&call.name, &args).as_deref())
                     .await;
             }
@@ -6010,7 +6867,9 @@ impl ConversationManager {
             let line_count = content.lines().count();
             // Web files always get reviewed regardless of length — a 20-line HTML
             // skeleton can still be missing DOCTYPE, meta charset, or linked CSS.
-            const WEB_EXTS: &[&str] = &["html", "htm", "css", "js", "ts", "jsx", "tsx", "vue", "svelte"];
+            const WEB_EXTS: &[&str] = &[
+                "html", "htm", "css", "js", "ts", "jsx", "tsx", "vue", "svelte",
+            ];
             let is_web = WEB_EXTS.contains(&ext);
             let min_lines = if is_web { 5 } else { 50 };
             if !path.is_empty()
@@ -6038,6 +6897,8 @@ impl ConversationManager {
             blocked_by_policy,
             msg_results,
             latest_target_dir,
+            plan_drafted_this_turn,
+            parsed_plan_handoff,
         }
     }
 }
@@ -6053,6 +6914,8 @@ struct ToolExecutionOutcome {
     blocked_by_policy: bool,
     msg_results: Vec<ChatMessage>,
     latest_target_dir: Option<String>,
+    plan_drafted_this_turn: bool,
+    parsed_plan_handoff: Option<crate::tools::plan::PlanHandoff>,
 }
 
 #[derive(Clone)]
@@ -6099,12 +6962,33 @@ pub fn format_tool_display(name: &str, args: &Value) -> String {
             .to_string()
     };
     match name {
-        "shell" => format!("$ {}", get("command")),
-
+        "shell" | "bash" | "powershell" => format!("$ {}", get("command")),
+        "run_workspace_workflow" => format!("workflow: {}", get("workflow")),
         "trace_runtime_flow" => format!("trace runtime {}", get("topic")),
         "describe_toolchain" => format!("describe toolchain {}", get("topic")),
         "inspect_host" => format!("inspect host {}", get("topic")),
-        _ => format!("{} {:?}", name, args),
+        "write_file"
+        | "read_file"
+        | "edit_file"
+        | "patch_hunk"
+        | "inspect_lines"
+        | "lsp_get_diagnostics" => format!("{} `{}`", name, get("path")),
+        "grep_files" => format!(
+            "grep_files pattern='{}' path='{}'",
+            get("pattern"),
+            get("path")
+        ),
+        "list_files" => format!("list_files `{}`", get("path")),
+        "multi_search_replace" => format!("multi_search_replace `{}`", get("path")),
+        _ => {
+            // Keep generic debug output strictly bounded so it never desyncs the TUI scroll math
+            let rep = format!("{} {:?}", name, args);
+            if rep.len() > 100 {
+                format!("{}... (truncated)", &rep[..100])
+            } else {
+                rep
+            }
+        }
     }
 }
 
@@ -7550,6 +8434,137 @@ mod tests {
     }
 
     #[test]
+    fn parse_task_checklist_progress_counts_checked_items() {
+        let progress = parse_task_checklist_progress(
+            r#"
+- [x] Build the landing page shell
+- [ ] Wire the responsive nav
+* [X] Add hero section copy
+Plain paragraph
+"#,
+        );
+
+        assert_eq!(progress.total, 3);
+        assert_eq!(progress.completed, 2);
+        assert_eq!(progress.remaining, 1);
+        assert!(progress.has_open_items());
+    }
+
+    #[test]
+    fn merge_plan_allowed_paths_includes_hematite_sidecars() {
+        let allowed = merge_plan_allowed_paths(&["src/main.rs".to_string()]);
+
+        assert!(allowed.contains(&normalize_workspace_path("src/main.rs")));
+        assert!(allowed
+            .iter()
+            .any(|path| path.ends_with("/.hematite/task.md")));
+        assert!(allowed
+            .iter()
+            .any(|path| path.ends_with("/.hematite/plan.md")));
+    }
+
+    #[test]
+    fn continue_plan_execution_requires_progress_and_open_items() {
+        let mut mutated = std::collections::BTreeSet::new();
+        mutated.insert("index.html".to_string());
+
+        assert!(should_continue_plan_execution(
+            1,
+            Some(TaskChecklistProgress {
+                total: 3,
+                completed: 1,
+                remaining: 2,
+            }),
+            Some(TaskChecklistProgress {
+                total: 3,
+                completed: 2,
+                remaining: 1,
+            }),
+            &mutated,
+        ));
+
+        assert!(!should_continue_plan_execution(
+            1,
+            Some(TaskChecklistProgress {
+                total: 3,
+                completed: 2,
+                remaining: 1,
+            }),
+            Some(TaskChecklistProgress {
+                total: 3,
+                completed: 2,
+                remaining: 1,
+            }),
+            &std::collections::BTreeSet::new(),
+        ));
+
+        assert!(!should_continue_plan_execution(
+            6,
+            Some(TaskChecklistProgress {
+                total: 3,
+                completed: 2,
+                remaining: 1,
+            }),
+            Some(TaskChecklistProgress {
+                total: 3,
+                completed: 3,
+                remaining: 0,
+            }),
+            &mutated,
+        ));
+    }
+
+    #[test]
+    fn website_validation_runs_for_website_contract_frontend_paths() {
+        let contract = crate::agent::workspace_profile::RuntimeContract {
+            loop_family: "website".to_string(),
+            app_kind: "website".to_string(),
+            framework_hint: Some("vite".to_string()),
+            preferred_workflows: vec!["website_validate".to_string()],
+            delivery_phases: vec!["design".to_string(), "validate".to_string()],
+            verification_workflows: vec!["build".to_string(), "website_validate".to_string()],
+            quality_gates: vec!["critical routes return HTTP 200".to_string()],
+            local_url_hint: Some("http://127.0.0.1:5173/".to_string()),
+            route_hints: vec!["/".to_string()],
+        };
+        let mutated = std::collections::BTreeSet::from([
+            "src/pages/index.tsx".to_string(),
+            "public/app.css".to_string(),
+        ]);
+        assert!(should_run_website_validation(Some(&contract), &mutated));
+    }
+
+    #[test]
+    fn website_validation_skips_non_website_contracts() {
+        let contract = crate::agent::workspace_profile::RuntimeContract {
+            loop_family: "service".to_string(),
+            app_kind: "node-service".to_string(),
+            framework_hint: Some("express".to_string()),
+            preferred_workflows: vec!["build".to_string()],
+            delivery_phases: vec!["define boundary".to_string()],
+            verification_workflows: vec!["build".to_string()],
+            quality_gates: vec!["build stays green".to_string()],
+            local_url_hint: None,
+            route_hints: Vec::new(),
+        };
+        let mutated = std::collections::BTreeSet::from(["server.ts".to_string()]);
+        assert!(!should_run_website_validation(Some(&contract), &mutated));
+        assert!(!should_run_website_validation(None, &mutated));
+    }
+
+    #[test]
+    fn repeat_guard_exempts_structured_website_validation() {
+        assert!(is_repeat_guard_exempt_tool_call(
+            "run_workspace_workflow",
+            &serde_json::json!({ "workflow": "website_validate" }),
+        ));
+        assert!(!is_repeat_guard_exempt_tool_call(
+            "run_workspace_workflow",
+            &serde_json::json!({ "workflow": "build" }),
+        ));
+    }
+
+    #[test]
     fn natural_language_test_prompt_rewrites_to_workspace_workflow() {
         let (tool_name, args) = normalized_tool_call_for_execution(
             "shell",
@@ -7563,6 +8578,18 @@ mod tests {
             args.get("workflow").and_then(|value| value.as_str()),
             Some("test")
         );
+    }
+
+    #[test]
+    fn scaffold_prompt_does_not_rewrite_to_workspace_workflow() {
+        let (tool_name, _args) = normalized_tool_call_for_execution(
+            "shell",
+            r#"{"command":"powershell -Command \"Get-ChildItem .\""}"#,
+            false,
+            Some("Make me a folder on my desktop named webtest2, and in that folder build a single-page website that explains the best uses of Hematite."),
+        );
+
+        assert_eq!(tool_name, "shell");
     }
 
     #[test]

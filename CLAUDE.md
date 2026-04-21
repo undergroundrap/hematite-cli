@@ -29,7 +29,7 @@ pwsh ./clean.ps1
 - **Workspace Teleportation**: When diving into a new directory, Hematite spawns a fresh terminal session pre-navigated to the target. The new window opens at the same pixel size and position as the originating window, and launches with `--no-splash` for a seamless transition.
 - **Self-Destruct**: The original terminal session performs a clean exit after the handoff to ensure workstation hygiene. A background watcher detects when Hematite exits and kills the originating `cmd.exe`. Windows Terminal tabs are explicitly excluded (killing `WindowsTerminal.exe` would close all tabs).
 - **Teleportation Handshake**: New sessions arriving via teleportation (flagged by `--teleported-from`) display a specialized greeting confirming the origin and intent.
-- **Sovereign Directory Guard**: Teleporting to or launching from Desktop, Downloads, Documents, Pictures, Videos, or Music does not create a local `.hematite/` folder there. All runtime state (settings, vein, session, logs, scratch) routes to `~/.hematite/` instead, keeping OS directories clean. Real project directories are unaffected.
+- **OS Shortcut Directory Guard**: Teleporting to or launching from Desktop, Downloads, Documents, Pictures, Videos, or Music does not create a local `.hematite/` folder there. All runtime state (settings, vein, session, logs, scratch) routes to `~/.hematite/` instead, keeping OS directories clean. Real project directories are unaffected.
 
 > **Important:** `cargo build` / `cargo run` only update `target/debug/hematite.exe`. If you run
 > Hematite from the portable dist (`dist\windows\Hematite-X.Y.Z-portable\hematite.exe`) — which is
@@ -57,7 +57,7 @@ pwsh ./clean.ps1
 - `Ctrl+O`: open file picker to attach a document (PDF/markdown/txt) for the next turn
 - `Ctrl+I`: open file picker to attach an image for the next turn (vision path)
 - `Ctrl+Z`: undo last file edit (ghost backup restore)
-- `@` in input: opens live file autocomplete — scans workspace, filters as you type, Tab/Enter inserts the path
+- `@` in input: opens live file autocomplete — scans workspace, filters as you type, optimized with **Smart Splicing** for Path Aliases (e.g. `@DESKTOP`); Tab/Enter/Mouse-click inserts the path
 - `/read <text>`: speaks text aloud directly through the TTS engine, bypassing the model — ESC stops playback
 - `Y` / `N`: approve or skip a diff preview modal when the model proposes an edit
 - `/voice`: list all available TTS voices with numbers
@@ -434,8 +434,7 @@ in every directory — including non-project launches from the desktop or home f
 config is created automatically on first run in a new directory.
 
 **Workspace profile.** Hematite writes `workspace_profile.json` into the active runtime-state
-directory on startup. In normal project workspaces that is `.hematite/workspace_profile.json`; in
-sovereign OS directories such as Desktop or Downloads it falls back to `~/.hematite/workspace_profile.json`
+directory on startup. In normal project workspaces that is `.hematite/workspace_profile.json`; in OS shortcut directories such as Desktop or Downloads it falls back to `~/.hematite/workspace_profile.json`
 so no local `.hematite/` folder is created there. The file is auto-generated and gitignored when
 local. It contains detected stack/package-manager hints, important folders, ignored noise folders,
 and build/test suggestions. The prompt can use it as lightweight grounding before the model starts
@@ -556,7 +555,7 @@ any changed files and queries for context relevant to the user's message. Result
 the system prompt so the model starts with the right code already in view, reducing tool calls.
 
 **Per-workspace database:** stored in the active runtime-state directory as `vein.db`. In normal
-project workspaces that means `.hematite/vein.db`; in sovereign OS directories it falls back to
+project workspaces that means `.hematite/vein.db`; in OS shortcut directories it falls back to
 `~/.hematite/vein.db`. Each real project folder still gets its own index. The Vein learns from
 files on disk and local session artifacts, not from cloud state.
 

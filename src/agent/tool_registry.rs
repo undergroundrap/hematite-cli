@@ -296,7 +296,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         make_tool(
             "run_workspace_workflow",
             "Run an approval-gated workflow or script in the locked project workspace root. \
-             Use this for the current project's build, test, lint, fix, package.json scripts, just/task/make targets, explicit local script paths, or an exact workspace command. \
+             Use this for the current project's build, test, lint, fix, package.json scripts, just/task/make targets, explicit local script paths, exact workspace commands, or typed website server control. \
+             Website workflows are preferred when working on a local web app because they give Hematite a structured start/probe/validate/status/stop loop with stored runtime metadata instead of improvised shell. \
              FORBIDDEN: The `command` field MUST be a real executable shell command (e.g. `npm install`, `cargo build`). \
              NEVER put natural language, user-requests, or conversational intent into the `command` field. \
              This tool is for the active workspace, not for Hematite's own maintainer scripts.",
@@ -305,7 +306,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "properties": {
                     "workflow": {
                         "type": "string",
-                        "enum": ["build", "test", "lint", "fix", "package_script", "task", "just", "make", "script_path", "command"],
+                        "enum": ["build", "test", "lint", "fix", "package_script", "task", "just", "make", "script_path", "command", "website_start", "website_probe", "website_validate", "website_status", "website_stop"],
                         "description": "Which workspace workflow to run."
                     },
                     "name": {
@@ -320,9 +321,47 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                         "type": "string",
                         "description": "Required for workflow=command. Exact command to execute from the locked workspace root."
                     },
+                    "mode": {
+                        "type": "string",
+                        "enum": ["dev", "preview", "start"],
+                        "description": "Optional for workflow=website_start. Which website server mode to infer. Defaults to dev."
+                    },
+                    "script": {
+                        "type": "string",
+                        "description": "Optional for workflow=website_start. Exact package.json script to run instead of inferring one."
+                    },
+                    "url": {
+                        "type": "string",
+                        "description": "Optional for workflow=website_start, website_probe, or website_validate. Explicit local URL to probe, such as http://127.0.0.1:5173/."
+                    },
+                    "host": {
+                        "type": "string",
+                        "description": "Optional for workflow=website_start. Host used when constructing an inferred probe URL. Defaults to 127.0.0.1."
+                    },
+                    "port": {
+                        "type": "integer",
+                        "description": "Optional for workflow=website_start. Port used when constructing an inferred probe URL."
+                    },
+                    "label": {
+                        "type": "string",
+                        "description": "Optional for website workflows. Logical server name for storing runtime metadata. Defaults to default."
+                    },
+                    "routes": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional for workflow=website_validate. Relative routes or absolute URLs to validate, such as [\"/\", \"/pricing\", \"/about\"]."
+                    },
+                    "asset_limit": {
+                        "type": "integer",
+                        "description": "Optional for workflow=website_validate. Maximum number of linked local assets to probe after route validation."
+                    },
+                    "request_timeout_ms": {
+                        "type": "integer",
+                        "description": "Optional for workflow=website_start. Per-request HTTP timeout used by the readiness probe."
+                    },
                     "timeout_ms": {
                         "type": "integer",
-                        "description": "Optional timeout override in milliseconds."
+                        "description": "Optional timeout override in milliseconds. For website_start this is the boot/readiness timeout. For website_probe and website_status it is the probe timeout."
                     }
                 },
                 "required": ["workflow"]
