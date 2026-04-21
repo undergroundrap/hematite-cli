@@ -170,7 +170,7 @@ engines:
     shortcut: so
   - name: crates.io
     engine: crates
-    shortcut: cr
+    shortcut: crio
 
 ui:
   static_use_hash: true
