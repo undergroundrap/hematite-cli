@@ -1069,6 +1069,7 @@ dependencies = [
  "home",
  "ignore",
  "lazy_static",
+ "libc",
  "lopdf",
  "notify",
  "pdf-extract",
