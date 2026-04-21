@@ -175,10 +175,12 @@ ui:
 ```
 
 ## 4. Launch
-From your `searxng-local` folder, run:
-```powershell
-docker compose up -d
-```
+From your `searxng-local` folder, simply double-click **`start_searx.bat`**. 
+
+This will automatically:
+1. Run `docker compose up -d`
+2. Configure the 12-engine private search pool.
+3. Confirm once the service is ready.
 
 ## 5. Verify Setup
 Run this command in any terminal:

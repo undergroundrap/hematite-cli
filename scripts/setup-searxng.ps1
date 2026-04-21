@@ -125,6 +125,18 @@ ui:
 
 Set-Content -Path (Join-Path $searxConfigDir "settings.yml") -Value $settingsContent -Encoding UTF8
 
+# 5. Create start_searx.bat
+$batContent = @"
+@echo off
+echo Starting SearXNG with 12-engine configuration...
+docker compose up -d
+echo.
+echo SearXNG is now running on port 8080!
+timeout /t 5
+"@
+
+Set-Content -Path (Join-Path $targetRoot "start_searx.bat") -Value $batContent -Encoding Ascii
+
 Write-Host "`nSUCCESS: SearXNG environment scaffolded!" -ForegroundColor Green
 Write-Host "Location: $targetRoot"
 Write-Host "`nNext Steps:" -ForegroundColor White
