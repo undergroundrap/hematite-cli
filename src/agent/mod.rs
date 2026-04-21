@@ -32,6 +32,7 @@ pub mod specular;
 pub mod swarm;
 pub mod tool_registry;
 pub mod transcript;
+pub mod truncation;
 pub mod trust_resolver;
 pub mod utils;
 pub mod workspace_profile;

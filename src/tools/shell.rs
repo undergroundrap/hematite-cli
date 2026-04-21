@@ -166,8 +166,8 @@ pub async fn execute_streaming(
         .map_err(|_| "Process cleanup timed out".to_string())?
         .map_err(|e| format!("Failed to wait for process: {e}"))?;
 
-    let stdout_capped = cap_bytes(out_buf.as_bytes(), MAX_OUTPUT_BYTES / 2);
-    let stderr_capped = cap_bytes(err_buf.as_bytes(), MAX_OUTPUT_BYTES / 2);
+    let stdout_raw = out_buf;
+    let stderr_raw = err_buf;
 
     let exit_info = match status.code() {
         Some(0) => String::new(),
@@ -176,22 +176,23 @@ pub async fn execute_streaming(
     };
 
     let mut result = String::new();
-    if !stdout_capped.is_empty() {
-        result.push_str(&stdout_capped);
+    if !stdout_raw.is_empty() {
+        result.push_str(&stdout_raw);
     }
-    if !stderr_capped.is_empty() {
+    if !stderr_raw.is_empty() {
         if !result.is_empty() {
             result.push('\n');
         }
         result.push_str("[stderr]\n");
-        result.push_str(&stderr_capped);
+        result.push_str(&stderr_raw);
     }
     if result.is_empty() {
         result.push_str("(no output)");
     }
     result.push_str(&exit_info);
 
-    Ok(crate::agent::utils::strip_ansi(&result))
+    let clean = crate::agent::utils::strip_ansi(&result);
+    Ok(crate::agent::truncation::formatted_truncate(&clean, MAX_OUTPUT_BYTES))
 }
 
 pub async fn execute_command_in_dir(
@@ -236,8 +237,8 @@ pub async fn execute_command_in_dir(
         }
     };
 
-    let stdout = cap_bytes(&output.stdout, MAX_OUTPUT_BYTES / 2);
-    let stderr = cap_bytes(&output.stderr, MAX_OUTPUT_BYTES / 2);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
 
     let exit_info = match output.status.code() {
         Some(0) => String::new(),
@@ -261,7 +262,9 @@ pub async fn execute_command_in_dir(
     }
     result.push_str(&exit_info);
 
-    Ok(crate::agent::utils::strip_ansi(&result))
+    let clean = crate::agent::utils::strip_ansi(&result);
+    // Use Grounded Middle-Truncation to preserve both headers and results/exit codes.
+    Ok(crate::agent::truncation::formatted_truncate(&clean, MAX_OUTPUT_BYTES))
 }
 
 /// Build the platform-appropriate shell invocation.
@@ -308,12 +311,3 @@ async fn which(name: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn cap_bytes(bytes: &[u8], max: usize) -> String {
-    if bytes.len() <= max {
-        String::from_utf8_lossy(bytes).into_owned()
-    } else {
-        let mut s = String::from_utf8_lossy(&bytes[..max]).into_owned();
-        s.push_str(&format!("\n... [truncated - {} bytes total]", bytes.len()));
-        s
-    }
-}
