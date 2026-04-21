@@ -923,6 +923,29 @@ impl InferenceEngine {
             .map(|m| m.id)
     }
 
+    /// Attempt to load a model in LM Studio using the 'warmup' strategy.
+    /// Sends a minimal 1-token request to the completions endpoint to trigger VRAM loading.
+    pub async fn load_model(&self, model_id: &str) -> Result<(), String> {
+        let payload = serde_json::json!({
+            "model": model_id,
+            "messages": [{"role": "user", "content": ""}],
+            "max_tokens": 1,
+            "stream": false
+        });
+
+        match self
+            .client
+            .post(&self.api_url)
+            .json(&payload)
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => Ok(()),
+            Ok(resp) => Err(format!("Model load failed with status: {}", resp.status())),
+            Err(e) => Err(format!("Model load request failed: {}", e)),
+        }
+    }
+
     /// Detect the loaded model's context window size.
     /// Tries LM Studio's `/api/v0/models` endpoint first and prefers the loaded
     /// model's live `loaded_context_length`, then falls back to older

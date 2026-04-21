@@ -22,3 +22,4 @@ pub mod toolchain;
 pub mod verify_build;
 pub mod vision;
 pub mod workspace_workflow;
+pub mod hardening;

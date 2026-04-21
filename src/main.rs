@@ -18,6 +18,7 @@ fn wants_version_report(args: &[String]) -> bool {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    hematite::tools::hardening::pre_main_hardening();
     let raw_args: Vec<String> = std::env::args().collect();
     if wants_version_report(&raw_args) {
         println!("{}", hematite::hematite_version_report());

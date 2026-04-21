@@ -83,8 +83,29 @@ pub async fn build_runtime_bundle(
     }
 
     let model_name = engine_raw.get_loaded_model().await;
-    if let Some(name) = model_name {
-        engine_raw.set_runtime_profile(&name, engine_raw.current_context_length());
+    if let Some(ref name) = model_name {
+        if name.is_empty() {
+            // Attempt auto-load if a specific model was requested via CLI or is the default.
+            let target = cockpit
+                .think_model
+                .as_deref()
+                .or(cockpit.fast_model.as_deref())
+                .unwrap_or("gemma-4-9b-it");
+
+            println!("Notice: No model loaded in LM Studio. Attempting to auto-load `{}`...", target);
+            if let Err(e) = engine_raw.load_model(target).await {
+                println!("Warning: Auto-load failed: {}. Please load a model manually in LM Studio.", e);
+            } else {
+                // Re-poll after warming up
+                if let Some(new_name) = engine_raw.get_loaded_model().await {
+                    if !new_name.is_empty() {
+                        engine_raw.set_runtime_profile(&new_name, engine_raw.current_context_length());
+                    }
+                }
+            }
+        } else {
+            engine_raw.set_runtime_profile(name, engine_raw.current_context_length());
+        }
     }
     let detected_context = engine_raw.detect_context_length().await;
     let detected_model = engine_raw.current_model();
