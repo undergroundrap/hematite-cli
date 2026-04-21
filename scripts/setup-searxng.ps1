@@ -109,13 +109,13 @@ engines:
     engine: github
     shortcut: gh
   - name: stackoverflow
-    engine: stackoverflow
+    engine: stackexchange
     shortcut: so
   - name: npm
     engine: npm
     shortcut: npm
   - name: crates.io
-    engine: crates_io
+    engine: crates
     shortcut: cr
 
 ui:

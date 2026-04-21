@@ -166,8 +166,11 @@ engines:
     engine: github
     shortcut: gh
   - name: stackoverflow
-    engine: stackoverflow
+    engine: stackexchange
     shortcut: so
+  - name: crates.io
+    engine: crates
+    shortcut: cr
 
 ui:
   static_use_hash: true
