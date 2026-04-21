@@ -132,16 +132,42 @@ search:
     - json # REQUIRED for Hematite
 
 engines:
-  - name: duckduckgo
-    engine: duckduckgo
-    shortcut: ddg
+  # Tier 1: Primary general-purpose
   - name: google
     engine: google
     shortcut: g
     use_official_api: false
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
   - name: bing
     engine: bing
     shortcut: b
+
+  # Tier 2: Privacy-first alternatives (rarely rate-limit)
+  - name: brave
+    engine: brave
+    shortcut: br
+  - name: qwant
+    engine: qwant
+    shortcut: qw
+  - name: startpage
+    engine: startpage
+    shortcut: sp
+  - name: mojeek
+    engine: mojeek
+    shortcut: mj
+
+  # Tier 3: Developer-focused
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp
+  - name: github
+    engine: github
+    shortcut: gh
+  - name: stackoverflow
+    engine: stackoverflow
+    shortcut: so
 
 ui:
   static_use_hash: true
