@@ -1543,6 +1543,7 @@ impl ConversationManager {
         if let Some((model_id, context_length, changed)) = refreshed.as_ref() {
             let _ = tx
                 .send(InferenceEvent::RuntimeProfile {
+                    provider_name: self.engine.provider_name().await,
                     model_id: model_id.clone(),
                     context_length: *context_length,
                 })

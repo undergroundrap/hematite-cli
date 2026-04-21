@@ -114,10 +114,11 @@ How to use:
 - Run: hematite
 
 Status bar guide:
-- LM:LIVE (green)  = provider connected, coding model loaded and live
-- LM:NONE (red)    = provider reachable but no coding model loaded
-- LM:BOOT (grey)   = Hematite starting up, detecting model
-- LM:STALE (yellow)= Model detected but connection went quiet
+- LM:* = LM Studio runtime state, OL:* = Ollama runtime state
+- LM:LIVE / OL:LIVE (green)  = provider connected, coding model loaded and live
+- LM:NONE / OL:NONE (red)    = provider reachable but no coding model loaded
+- LM:BOOT / OL:BOOT (grey)   = Hematite starting up, detecting model
+- LM:STALE / OL:STALE (yellow)= Model detected but connection went quiet
 - VN:SEM (green)   = Vein semantic search active (nomic loaded alongside coding model)
 - VN:FTS (yellow)  = Vein keyword search only (load nomic-embed-text-v2 to upgrade)
 - VN:DOC (yellow)  = Docs/session memory only outside a real project workspace

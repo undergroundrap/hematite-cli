@@ -23,6 +23,14 @@ use std::time::Instant;
 use tokio::sync::mpsc::Receiver;
 use walkdir::WalkDir;
 
+fn provider_badge_prefix(provider_name: &str) -> &'static str {
+    match provider_name {
+        "LM Studio" => "LM",
+        "Ollama" => "OL",
+        _ => "AI",
+    }
+}
+
 // ── Approval modal state ──────────────────────────────────────────────────────
 
 /// Holds a pending high-risk tool approval request.
@@ -189,6 +197,7 @@ pub struct App {
     vein_file_count: usize,
     vein_embedded_count: usize,
     vein_docs_only: bool,
+    provider_name: String,
     provider_state: ProviderRuntimeState,
     last_provider_summary: String,
     mcp_state: McpRuntimeState,
@@ -840,7 +849,7 @@ fn copy_text_to_clipboard(text: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::should_accept_autocomplete_on_enter;
+    use super::{provider_badge_prefix, should_accept_autocomplete_on_enter};
 
     #[test]
     fn enter_submits_bare_alias_root_instead_of_selecting_first_child() {
@@ -852,6 +861,13 @@ mod tests {
     fn enter_still_accepts_narrowed_alias_matches() {
         assert!(should_accept_autocomplete_on_enter(true, "web"));
         assert!(should_accept_autocomplete_on_enter(false, ""));
+    }
+
+    #[test]
+    fn provider_badge_prefix_tracks_runtime_provider() {
+        assert_eq!(provider_badge_prefix("LM Studio"), "LM");
+        assert_eq!(provider_badge_prefix("Ollama"), "OL");
+        assert_eq!(provider_badge_prefix("Other"), "AI");
     }
 }
 
@@ -1840,6 +1856,7 @@ pub async fn run_app<B: Backend>(
         vein_file_count: 0,
         vein_embedded_count: 0,
         vein_docs_only: false,
+        provider_name: "detecting".to_string(),
         provider_state: ProviderRuntimeState::Booting,
         last_provider_summary: String::new(),
         mcp_state: McpRuntimeState::Unconfigured,
@@ -3413,11 +3430,17 @@ pub async fn run_app<B: Backend>(
                         app.active_workers.insert(nid.clone(), progress);
                         app.worker_labels.insert(nid, label);
                     }
-                    InferenceEvent::RuntimeProfile { model_id, context_length } => {
+                    InferenceEvent::RuntimeProfile {
+                        provider_name,
+                        model_id,
+                        context_length,
+                    } => {
                         let was_no_model = app.model_id == "no model loaded";
                         let now_no_model = model_id == "no model loaded";
                         let changed = app.model_id != "detecting..."
                             && (app.model_id != model_id || app.context_length != context_length);
+                        let provider_changed = app.provider_name != provider_name;
+                        app.provider_name = provider_name.clone();
                         app.model_id = model_id.clone();
                         app.context_length = context_length;
                         app.last_runtime_profile_time = Instant::now();
@@ -3425,16 +3448,26 @@ pub async fn run_app<B: Backend>(
                             app.provider_state = ProviderRuntimeState::Live;
                         }
                         if now_no_model && !was_no_model {
+                            let guidance = if provider_name == "Ollama" {
+                                "No coding model is currently available from Ollama. Pull a chat model in Ollama, then keep `api_url` pointed at `http://localhost:11434/v1`."
+                            } else {
+                                "No coding model loaded. Load a model in LM Studio (e.g. Qwen/Qwen3.5-9B Q4_K_M) and start the server on port 1234. Optionally also load nomic-embed-text-v2 for semantic search."
+                            };
+                            app.push_message("System", guidance);
+                        } else if provider_changed && !now_no_model {
                             app.push_message(
                                 "System",
-                                "No coding model loaded. Load a model in LM Studio (e.g. Qwen/Qwen3.5-9B Q4_K_M) and start the server on port 1234. Optionally also load nomic-embed-text-v2 for semantic search.",
+                                &format!(
+                                    "Provider detected: {} | Model {} | CTX {}",
+                                    provider_name, model_id, context_length
+                                ),
                             );
                         } else if changed && !now_no_model {
                             app.push_message(
                                 "System",
                                 &format!(
-                                    "Runtime profile refreshed: Model {} | CTX {}",
-                                    model_id, context_length
+                                    "Runtime profile refreshed: {} | Model {} | CTX {}",
+                                    provider_name, model_id, context_length
                                 ),
                             );
                         }
@@ -3955,23 +3988,24 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         current_tokens, app.current_session_cost
     );
     let runtime_age = app.last_runtime_profile_time.elapsed();
+    let provider_prefix = provider_badge_prefix(&app.provider_name);
     let (lm_label, lm_color) = if app.model_id == "no model loaded" {
-        ("LM:NONE", Color::Red)
+        (format!("{provider_prefix}:NONE"), Color::Red)
     } else if app.model_id == "detecting..." || app.context_length == 0 {
-        ("LM:BOOT", Color::DarkGray)
+        (format!("{provider_prefix}:BOOT"), Color::DarkGray)
     } else if app.provider_state == ProviderRuntimeState::Recovering {
-        ("LM:RECV", Color::Cyan)
+        (format!("{provider_prefix}:RECV"), Color::Cyan)
     } else if matches!(
         app.provider_state,
         ProviderRuntimeState::Degraded | ProviderRuntimeState::EmptyResponse
     ) {
-        ("LM:WARN", Color::Red)
+        (format!("{provider_prefix}:WARN"), Color::Red)
     } else if app.provider_state == ProviderRuntimeState::ContextWindow {
-        ("LM:CEIL", Color::Yellow)
+        (format!("{provider_prefix}:CEIL"), Color::Yellow)
     } else if runtime_age > std::time::Duration::from_secs(12) {
-        ("LM:STALE", Color::Yellow)
+        (format!("{provider_prefix}:STALE"), Color::Yellow)
     } else {
-        ("LM:LIVE", Color::Green)
+        (format!("{provider_prefix}:LIVE"), Color::Green)
     };
     let compaction_percent = app.compaction_percent.min(100);
     let compaction_label = if app.compaction_threshold_tokens == 0 {

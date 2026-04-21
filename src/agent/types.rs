@@ -345,6 +345,7 @@ pub enum InferenceEvent {
     },
     UsageUpdate(TokenUsage),
     RuntimeProfile {
+        provider_name: String,
         model_id: String,
         context_length: usize,
     },

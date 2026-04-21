@@ -368,6 +368,11 @@ impl InferenceEngine {
         p.health_check().await
     }
 
+    pub async fn provider_name(&self) -> String {
+        let p = self.provider.read().await;
+        p.name().to_string()
+    }
+
     pub async fn get_loaded_model(&self) -> Option<String> {
         let p = self.provider.read().await;
         match p.detect_model().await {

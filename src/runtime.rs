@@ -10,6 +10,25 @@ use notify::RecommendedWatcher;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
+fn provider_help_hint(base_url: &str, provider_name: &str) -> String {
+    if provider_name == "LM Studio" {
+        format!(
+            "Check if LM Studio is running on {}. If you prefer Ollama, set `api_url` to `http://localhost:11434/v1` in `.hematite/settings.json`.",
+            base_url
+        )
+    } else if provider_name == "Ollama" {
+        format!(
+            "Check if Ollama is running on {} and that a chat model is available. If you prefer LM Studio, set `api_url` to `http://localhost:1234/v1`.",
+            base_url
+        )
+    } else {
+        format!(
+            "Check if the configured provider is running on {} and that `.hematite/settings.json` points at the right endpoint.",
+            base_url
+        )
+    }
+}
+
 pub struct RuntimeServices {
     pub engine: Arc<InferenceEngine>,
     pub gpu_state: Arc<GpuState>,
@@ -71,15 +90,27 @@ pub async fn build_runtime_bundle(
         .clone()
         .unwrap_or_else(|| cockpit.url.clone());
     let mut engine_raw = InferenceEngine::new(api_url, species.to_string(), snark)?;
+    let provider_name = engine_raw.provider_name().await;
     let gpu_state = ui::gpu_monitor::spawn_gpu_monitor();
     let git_state = agent::git_monitor::spawn_git_monitor();
 
     if !engine_raw.health_check().await {
         println!(
-            "ERROR: LLM Provider not detected at {}",
-            engine_raw.base_url
+            "ERROR: {} not detected at {}",
+            provider_name, engine_raw.base_url
         );
-        println!("Check if LM Studio (or your local server) is running and port mapped correctly.");
+        println!(
+            "{}",
+            provider_help_hint(&engine_raw.base_url, &provider_name)
+        );
+        if provider_name == "LM Studio" {
+            let ollama = crate::agent::ollama::OllamaHarness::new("http://localhost:11434");
+            if ollama.is_reachable().await {
+                println!(
+                    "Hint: Ollama is reachable on http://localhost:11434. If you want to use it, set `api_url` to `http://localhost:11434/v1`."
+                );
+            }
+        }
         std::process::exit(1);
     }
 
@@ -94,13 +125,13 @@ pub async fn build_runtime_bundle(
                 .unwrap_or("gemma-4-9b-it");
 
             println!(
-                "Notice: No model loaded in LM Studio. Attempting to auto-load `{}`...",
-                target
+                "Notice: No model loaded in {}. Attempting to auto-load `{}`...",
+                provider_name, target
             );
             if let Err(e) = engine_raw.load_model(target).await {
                 println!(
-                    "Warning: Auto-load failed: {}. Please load a model manually in LM Studio.",
-                    e
+                    "Warning: Auto-load failed: {}. Please load a model manually in {}.",
+                    e, provider_name
                 );
             } else {
                 // Re-poll after warming up
@@ -190,6 +221,7 @@ pub fn spawn_runtime_profile_sync(
                 tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
                 continue;
             };
+            let provider_name = engine.provider_name().await;
 
             // When no coding model is loaded, back off to reduce log noise in LM Studio.
             let poll_interval = if model_id == "no model loaded" {
@@ -200,6 +232,7 @@ pub fn spawn_runtime_profile_sync(
 
             if agent_tx
                 .send(InferenceEvent::RuntimeProfile {
+                    provider_name,
                     model_id,
                     context_length,
                 })
@@ -263,6 +296,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
 
     let _ = agent_tx
         .send(InferenceEvent::RuntimeProfile {
+            provider_name: manager.engine.provider_name().await,
             model_id: manager.engine.current_model(),
             context_length: manager.engine.current_context_length(),
         })
@@ -311,6 +345,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
             m
         }
     };
+    let provider_name = manager.engine.provider_name().await;
     let terminal_name = crate::ui::terminal::detect_terminal().label();
     let greeting = format!(
         "Hematite {} Online [{}] | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\nWorkspace: {} ({})\n{}\n{}\n/ask · read-only analysis   /code · implement   /architect · plan-first   /chat · conversation\nRecovery: /undo · /new · /forget · /clear   |   /version · /about{}",
@@ -326,6 +361,11 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         embed_status,
         voice_status,
         project_hint
+    );
+    let greeting = greeting.replacen(
+        " | Model:",
+        &format!(" | Provider: {} | Model:", provider_name),
+        1,
     );
     let _ = agent_tx
         .send(InferenceEvent::MutedToken(format!("\n{}", greeting)))

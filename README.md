@@ -902,11 +902,11 @@ Hematite also refreshes the LM Studio runtime profile before each user turn. If 
 
 Hematite now also runs a quiet background runtime-profile poll. The status bar can track live model and CTX changes even while you are idle, but chat/system messages are only emitted when the profile actually changes so the operator stays informed without constant noise.
 
-The TUI status bar also exposes a compact LM runtime badge so you can tell at a glance whether Hematite sees LM Studio as live, stale, or under context-pressure without opening extra menus or reading chat spam.
+The TUI status bar also exposes a compact provider runtime badge so you can tell at a glance whether Hematite sees the active local runtime as live, stale, or under context-pressure without opening extra menus or reading chat spam. `LM:*` means LM Studio, `OL:*` means Ollama.
 
 Provider retries and hard runtime failures also flow through a compact provider-state path. Hematite can signal recovery, degraded runtime, or context-ceiling conditions through the badge and SPECULAR notes without turning every provider wobble into a long chat interruption.
 
-Runtime-profile refreshes update the live model and CTX display, but they do not erase a real provider failure state by themselves. A badge like `LM:CEIL` or `LM:WARN` should persist until a genuinely successful turn clears it.
+Runtime-profile refreshes update the live model and CTX display, but they do not erase a real provider failure state by themselves. A badge like `LM:CEIL`, `LM:WARN`, `OL:CEIL`, or `OL:WARN` should persist until a genuinely successful turn clears it.
 
 The status bar now also exposes a compact compaction-pressure badge (`CMP:NN%`). It is driven by Hematite's real adaptive compaction threshold, so you can see how close the conversation history is to the point where Hematite will start summary-chaining older turns.
 
@@ -1132,12 +1132,12 @@ If you need industrial-strength PDF ingestion or OCR-heavy document workflows, a
 On launch, Hematite prints a one-line status block:
 
 ```
-Hematite vX.Y.Z [release|dev+abcdef[-dirty]] Online | Model: qwen/qwen3.5-9b | CTX: 32000 | GPU: NVIDIA GeForce RTX 4070 | VRAM: 9.3 GB / 12.0 GB
+Hematite vX.Y.Z [release|dev+abcdef[-dirty]] Online | Provider: LM Studio | Model: qwen/qwen3.5-9b | CTX: 32000 | GPU: NVIDIA GeForce RTX 4070 | VRAM: 9.3 GB / 12.0 GB
 Endpoint: http://localhost:1234/v1
 Embed: nomic active (semantic search ready)
 ```
 
-The endpoint line shows exactly where Hematite is connecting — immediately visible if you're using Ollama, a remote machine, or any non-default server instead of LM Studio.
+The greeting now shows both the provider and the endpoint, so it is immediately obvious whether Hematite is using LM Studio, Ollama, or some other OpenAI-compatible server.
 
 The build label matters during development. A local pre-release build may still carry the current release version from `Cargo.toml`, but the bracketed build state tells you whether the binary was built from an exact release tag or from a local dev snapshot such as `dev+c828436` or `dev+c828436-dirty`.
 
