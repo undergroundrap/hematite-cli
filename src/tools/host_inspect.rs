@@ -317,6 +317,7 @@ mod privilege_hint_tests {
 mod event_query_tests {
     use super::is_event_query_no_results_message;
 
+#[cfg(target_os = "windows")]
     #[test]
     fn treats_windows_no_results_message_as_empty_query() {
         assert!(is_event_query_no_results_message(
@@ -324,6 +325,7 @@ mod event_query_tests {
         ));
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn does_not_treat_real_errors_as_empty_query() {
         assert!(!is_event_query_no_results_message("Access is denied."));
@@ -366,6 +368,7 @@ fn parse_issue_text(args: &Value) -> Option<String> {
         .map(|value| value.to_string())
 }
 
+#[cfg(target_os = "windows")]
 fn is_event_query_no_results_message(message: &str) -> bool {
     let lower = message.to_ascii_lowercase();
     lower.contains("no events were found")
@@ -11990,7 +11993,9 @@ try {{
 
 fn inspect_app_crashes(process_filter: Option<&str>, max_entries: usize) -> Result<String, String> {
     let n = max_entries.clamp(5, 50);
+    #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
     let mut findings: Vec<String> = Vec::new();
+    #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
     let mut sections = String::new();
 
     #[cfg(target_os = "windows")]

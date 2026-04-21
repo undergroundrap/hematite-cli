@@ -1199,6 +1199,7 @@ async fn build_shell_command(command: &str) -> tokio::process::Command {
     }
 }
 
+#[cfg(target_os = "windows")]
 async fn which(name: &str) -> bool {
     #[cfg(target_os = "windows")]
     let check = format!("{}.exe", name);
