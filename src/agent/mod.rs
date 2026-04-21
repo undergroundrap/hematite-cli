@@ -8,6 +8,8 @@ pub mod edge_redact;
 pub mod git;
 pub mod git_context;
 pub mod git_monitor;
+pub mod find_files;
+pub mod fuzzy;
 pub mod hooks;
 pub mod inference;
 pub mod instructions;

@@ -27,6 +27,45 @@ pub enum AuthorizationSource {
     DefaultToolPolicy,
 }
 
+/// A structured security profile pairing an approval policy with a sandbox policy.
+/// Ports the Principled Security patterns from Codex-RS.
+#[derive(Debug, Clone, Copy)]
+pub struct ApprovalPreset {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub description: &'static str,
+    pub must_ask_all: bool,
+    pub allow_mutations: bool,
+}
+
+impl ApprovalPreset {
+    pub fn for_mode(mode: PermissionMode) -> Self {
+        match mode {
+            PermissionMode::ReadOnly => Self {
+                id: "read-only",
+                label: "Read Only",
+                description: "Hematite can only read files. All mutations and shell commands are blocked.",
+                must_ask_all: false,
+                allow_mutations: false,
+            },
+            PermissionMode::Developer => Self {
+                id: "developer",
+                label: "Developer",
+                description: "Hematite can read/edit files and run commands. Risky actions require approval.",
+                must_ask_all: false,
+                allow_mutations: true,
+            },
+            PermissionMode::SystemAdmin => Self {
+                id: "power-user",
+                label: "Power User",
+                description: "Hematite has full access. Auto-approves most developer tools.",
+                must_ask_all: false,
+                allow_mutations: true,
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthorizationDecision {
     Allow {
@@ -58,18 +97,20 @@ pub fn authorize_tool_call(
     config: &HematiteConfig,
     yolo_flag: bool,
 ) -> AuthorizationDecision {
-    if config.mode == PermissionMode::SystemAdmin {
+    let preset = ApprovalPreset::for_mode(config.mode);
+
+    if preset.id == "power-user" {
         return AuthorizationDecision::Allow {
             source: AuthorizationSource::SystemAdminMode,
         };
     }
 
-    if config.mode == PermissionMode::ReadOnly && is_destructive_tool(name) {
+    if !preset.allow_mutations && is_destructive_tool(name) {
         return AuthorizationDecision::Deny {
             source: AuthorizationSource::ReadOnlyMode,
             reason: format!(
-                "Action blocked: tool `{}` is forbidden in permission mode `{:?}`.",
-                name, config.mode
+                "Action blocked: tool `{}` involves workspace mutations forbidden by the `{}` security preset.",
+                name, preset.label
             ),
         };
     }

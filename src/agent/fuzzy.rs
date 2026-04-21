@@ -1,0 +1,90 @@
+/// High-Precision Fuzzy Matching Module.
+/// Ports the subsequence matching algorithm from Codex-RS to improve
+/// architectural grounding during file and symbol discovery.
+
+/// Returns the indices of the matched characters in the original haystack
+/// and a score where smaller is better.
+pub fn fuzzy_match(haystack: &str, needle: &str) -> Option<(Vec<usize>, i32)> {
+    if needle.is_empty() {
+        return Some((Vec::new(), i32::MAX));
+    }
+
+    let mut lowered_chars: Vec<char> = Vec::new();
+    let mut lowered_to_orig_char_idx: Vec<usize> = Vec::new();
+    for (orig_idx, ch) in haystack.chars().enumerate() {
+        for lc in ch.to_lowercase() {
+            lowered_chars.push(lc);
+            lowered_to_orig_char_idx.push(orig_idx);
+        }
+    }
+
+    let lowered_needle: Vec<char> = needle.to_lowercase().chars().collect();
+
+    let mut result_orig_indices: Vec<usize> = Vec::with_capacity(lowered_needle.len());
+    let mut last_lower_pos: Option<usize> = None;
+    let mut cur = 0usize;
+    
+    for &nc in lowered_needle.iter() {
+        let mut found_at: Option<usize> = None;
+        while cur < lowered_chars.len() {
+            if lowered_chars[cur] == nc {
+                found_at = Some(cur);
+                cur += 1;
+                break;
+            }
+            cur += 1;
+        }
+        let pos = found_at?;
+        result_orig_indices.push(lowered_to_orig_char_idx[pos]);
+        last_lower_pos = Some(pos);
+    }
+
+    let first_lower_pos = if result_orig_indices.is_empty() {
+        0usize
+    } else {
+        let target_orig = result_orig_indices[0];
+        lowered_to_orig_char_idx
+            .iter()
+            .position(|&oi| oi == target_orig)
+            .unwrap_or(0)
+    };
+
+    let last_lower_pos = last_lower_pos.unwrap_or(first_lower_pos);
+    let window = (last_lower_pos as i32 - first_lower_pos as i32 + 1) - (lowered_needle.len() as i32);
+    let mut score = window.max(0);
+    
+    // Prefix bonus: strongly reward matches at the start of the string.
+    if first_lower_pos == 0 {
+        score -= 100;
+    }
+
+    result_orig_indices.sort_unstable();
+    result_orig_indices.dedup();
+    Some((result_orig_indices, score))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_fuzzy_match() {
+        let (idx, score) = fuzzy_match("main.rs", "mnrs").unwrap();
+        assert_eq!(idx, vec![0, 3, 5, 6]);
+        assert!(score < 0); // Should have prefix bonus
+    }
+
+    #[test]
+    fn test_case_insensitivity() {
+        let (_, score_a) = fuzzy_match("FooBar", "foobar").unwrap();
+        let (_, score_b) = fuzzy_match("foobar", "foobar").unwrap();
+        assert_eq!(score_a, score_b);
+    }
+
+    #[test]
+    fn test_prefer_prefix() {
+        let (_, score_a) = fuzzy_match("important_file.rs", "import").unwrap();
+        let (_, score_b) = fuzzy_match("another_important_file.rs", "import").unwrap();
+        assert!(score_a < score_b);
+    }
+}

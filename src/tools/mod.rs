@@ -23,3 +23,4 @@ pub mod verify_build;
 pub mod vision;
 pub mod workspace_workflow;
 pub mod hardening;
+pub mod search;
