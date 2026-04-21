@@ -36,6 +36,7 @@ services:
       - "8080:8080"
     volumes:
       - ./searxng:/etc/searxng:rw
+      - ./searxng/wikidata.py:/usr/local/searxng/searx/engines/wikidata.py:ro
     environment:
       - SEARXNG_BASE_URL=http://localhost:8080/
     cap_drop:
@@ -75,7 +76,7 @@ search:
     - json
 
 engines:
-  # Tier 1: Primary general-purpose (high quality, may rate-limit under heavy use)
+  # Tier 1: Primary general-purpose
   - name: google
     engine: google
     shortcut: g
@@ -87,7 +88,7 @@ engines:
     engine: bing
     shortcut: b
 
-  # Tier 2: Privacy-first alternatives (rarely rate-limit, good fallbacks)
+  # Tier 2: Privacy-first alternatives
   - name: brave
     engine: brave
     shortcut: br
@@ -101,7 +102,7 @@ engines:
     engine: mojeek
     shortcut: mj
 
-  # Tier 3: Developer-focused (great for technical queries)
+  # Tier 3: Developer-focused
   - name: wikipedia
     engine: wikipedia
     shortcut: wp
@@ -117,6 +118,12 @@ engines:
   - name: crates.io
     engine: crates
     shortcut: crio
+
+  # Disabled due to upstream bug (KeyError: 'name')
+  # We use a volume-mount stub to definitively stop the crash.
+  - name: wikidata
+    engine: wikidata
+    disabled: true
 
 ui:
   static_use_hash: true
@@ -137,10 +144,21 @@ timeout /t 5
 
 Set-Content -Path (Join-Path $targetRoot "start_searx.bat") -Value $batContent -Encoding Ascii
 
+# 6. Create Wikidata Stub (Definitive fix for upstream crash)
+$stubContent = @"
+# Stub to disable the crashing Wikidata engine
+def init(engine_settings=None):
+    return True
+
+def search(query, params):
+    return []
+"@
+Set-Content -Path (Join-Path $searxConfigDir "wikidata.py") -Value $stubContent -Encoding UTF8
+
 Write-Host "`nSUCCESS: SearXNG environment scaffolded!" -ForegroundColor Green
 Write-Host "Location: $targetRoot"
 Write-Host "`nNext Steps:" -ForegroundColor White
 Write-Host "1. Open a terminal in that folder: cd \"$targetRoot\""
-Write-Host "2. Start the service: docker compose up -d"
+Write-Host "2. Start the service: .\start_searx.bat"
 Write-Host "3. Hematite will now auto-detect SearXNG on port 8080!"
 Write-Host "`nNote: You can move this folder anywhere on your machine." -ForegroundColor Gray
