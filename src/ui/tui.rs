@@ -439,16 +439,25 @@ impl App {
         let (scan_root, query) = if let Some(pos) = self.input.rfind('@') {
             let fragment = &self.input[pos + 1..];
             let upper = fragment.to_uppercase();
-            
+
             // ── Path Alias Scan ──────────────────────────────────────────────
             // If the fragment starts with a known shortcut, jump the scan root.
             let mut resolved_root = crate::tools::file_ops::workspace_root();
             let mut final_query = fragment;
-            
-            let tokens = ["DESKTOP", "DOWNLOADS", "DOCUMENTS", "PICTURES", "VIDEOS", "MUSIC", "HOME"];
+
+            let tokens = [
+                "DESKTOP",
+                "DOWNLOADS",
+                "DOCUMENTS",
+                "PICTURES",
+                "VIDEOS",
+                "MUSIC",
+                "HOME",
+            ];
             for token in tokens {
                 if upper.starts_with(token) {
-                    let candidate = crate::tools::file_ops::resolve_candidate(&format!("@{}", token));
+                    let candidate =
+                        crate::tools::file_ops::resolve_candidate(&format!("@{}", token));
                     if candidate.exists() {
                         resolved_root = candidate;
                         self.autocomplete_alias_active = true;
@@ -473,9 +482,22 @@ impl App {
 
         // ── Noise Suppression List ───────────────────────────────────────────
         let noise = [
-            "node_modules", "target", ".git", ".next", ".venv", "venv", "env",
-            "bin", "obj", "dist", "vendor", "__pycache__", "AppData", "Local", 
-            "Roaming", "Application Data"
+            "node_modules",
+            "target",
+            ".git",
+            ".next",
+            ".venv",
+            "venv",
+            "env",
+            "bin",
+            "obj",
+            "dist",
+            "vendor",
+            "__pycache__",
+            "AppData",
+            "Local",
+            "Roaming",
+            "Application Data",
         ];
 
         for entry in WalkDir::new(&scan_root)
@@ -489,11 +511,14 @@ impl App {
         {
             let is_file = entry.file_type().is_file();
             let is_dir = entry.file_type().is_dir();
-            
+
             if (is_file || is_dir) && entry.path() != scan_root {
-                let path = entry.path().strip_prefix(&scan_root).unwrap_or(entry.path());
+                let path = entry
+                    .path()
+                    .strip_prefix(&scan_root)
+                    .unwrap_or(entry.path());
                 let mut path_str = path.to_string_lossy().to_string();
-                
+
                 if is_dir {
                     path_str.push('/');
                 }
@@ -505,22 +530,36 @@ impl App {
                     }
                 }
             }
-            if total_found > 60 { break; } // Tighter safety cap
+            if total_found > 60 {
+                break;
+            } // Tighter safety cap
         }
 
         // Prioritize: Directories and source files (.rs, .md) at the top
         matches.sort_by(|a, b| {
             let a_is_dir = a.ends_with('/');
             let b_is_dir = b.ends_with('/');
-            
+
             let a_ext = a.split('.').last().unwrap_or("");
             let b_ext = b.split('.').last().unwrap_or("");
             let a_is_src = a_ext == "rs" || a_ext == "md";
             let b_is_src = b_ext == "rs" || b_ext == "md";
-            
-            let a_score = if a_is_dir { 2 } else if a_is_src { 1 } else { 0 };
-            let b_score = if b_is_dir { 2 } else if b_is_src { 1 } else { 0 };
-            
+
+            let a_score = if a_is_dir {
+                2
+            } else if a_is_src {
+                1
+            } else {
+                0
+            };
+            let b_score = if b_is_dir {
+                2
+            } else if b_is_src {
+                1
+            } else {
+                0
+            };
+
             b_score.cmp(&a_score)
         });
 
@@ -1945,7 +1984,7 @@ pub async fn run_app<B: Backend>(
                                             && mouse.column >= popup_x && mouse.column < popup_x + popup_w
                                         {
                                             // Clicked inside popup
-                                            let mouse_relative_y = mouse.row.saturating_sub(popup_y + 1); 
+                                            let mouse_relative_y = mouse.row.saturating_sub(popup_y + 1);
                                             if mouse_relative_y < items_len as u16 {
                                                 let clicked_idx = mouse_relative_y as usize;
                                                 let selected = &app.autocomplete_suggestions[clicked_idx].clone();

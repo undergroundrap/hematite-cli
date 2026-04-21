@@ -942,10 +942,12 @@ fn suggest_better_path(original: &str) -> Option<String> {
     let path = Path::new(original);
     let filename = path.file_name()?.to_str()?.to_lowercase();
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
-    
+
     // Use resolve_candidate to handle sovereign tokens like @DESKTOP/
-    let abs_parent = resolve_candidate(&parent.to_string_lossy()).canonicalize().ok()?;
-    
+    let abs_parent = resolve_candidate(&parent.to_string_lossy())
+        .canonicalize()
+        .ok()?;
+
     let mut best_match = None;
     let mut best_score = 0;
 
@@ -953,15 +955,20 @@ fn suggest_better_path(original: &str) -> Option<String> {
         for entry in entries.flatten() {
             if let Some(candidate_name) = entry.file_name().to_str() {
                 let lower_candidate = candidate_name.to_lowercase();
-                if lower_candidate == filename { continue; }
-                
+                if lower_candidate == filename {
+                    continue;
+                }
+
                 let mut score = 0;
-                if lower_candidate.starts_with(&filename) || filename.starts_with(&lower_candidate) {
+                if lower_candidate.starts_with(&filename) || filename.starts_with(&lower_candidate)
+                {
                     score += 10;
                 }
                 // Catch style.css vs styles.css
-                if (filename.ends_with('s') && filename[..filename.len()-1] == lower_candidate) ||
-                   (lower_candidate.ends_with('s') && lower_candidate[..lower_candidate.len()-1] == filename) {
+                if (filename.ends_with('s') && filename[..filename.len() - 1] == lower_candidate)
+                    || (lower_candidate.ends_with('s')
+                        && lower_candidate[..lower_candidate.len() - 1] == filename)
+                {
                     score += 20;
                 }
 
@@ -972,7 +979,7 @@ fn suggest_better_path(original: &str) -> Option<String> {
             }
         }
     }
-    
+
     if best_score >= 10 {
         best_match
     } else {

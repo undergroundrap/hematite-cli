@@ -68,7 +68,9 @@ New-Item -ItemType Directory -Force -Path $bundleDir | Out-Null
 
 $requiredFiles = @(
     (Join-Path $releaseDir "hematite.exe"),
-    (Join-Path $releaseDir "DirectML.dll")
+    (Join-Path $releaseDir "DirectML.dll"),
+    (Join-Path $repoRoot "scripts\setup-searxng.ps1"),
+    (Join-Path $repoRoot "start_searx.bat")
 )
 
 foreach ($file in $requiredFiles) {

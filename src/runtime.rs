@@ -60,7 +60,7 @@ pub async fn build_runtime_bundle(
 ) -> Result<RuntimeBundle, Box<dyn std::error::Error>> {
     println!("Booting Hematite systems...");
     let config = crate::agent::config::load_config();
-    
+
     // Auto-boot SearXNG if enabled and offline.
     crate::agent::searx_lifecycle::boot_searx_if_needed(&config).await;
 

@@ -127,7 +127,10 @@ async fn perform_search(query: &str, searx_url: Option<&str>) -> Result<String, 
         return Err("Search proxy returned raw HTML (possibly a rate limit or captcha). Falling back to internal reasoning.".into());
     }
 
-    Ok(format!("[Source: Jina Search Proxy]\n\n{}", sanitize_web_content(&markdown)))
+    Ok(format!(
+        "[Source: Jina Search Proxy]\n\n{}",
+        sanitize_web_content(&markdown)
+    ))
 }
 
 async fn perform_searx_search(query: &str, base_url: &str) -> Result<String, String> {
@@ -138,7 +141,11 @@ async fn perform_searx_search(query: &str, base_url: &str) -> Result<String, Str
 
     // Base URL should not have trailing slash for consistency
     let base = base_url.trim_end_matches('/');
-    let search_url = format!("{}/search?q={}&format=json", base, urlencoding::encode(query));
+    let search_url = format!(
+        "{}/search?q={}&format=json",
+        base,
+        urlencoding::encode(query)
+    );
 
     let response = client
         .get(&search_url)
@@ -162,7 +169,10 @@ async fn perform_searx_search(query: &str, base_url: &str) -> Result<String, Str
 
     if let Some(results) = json.get("results").and_then(|r| r.as_array()) {
         for (i, res) in results.iter().take(10).enumerate() {
-            let title = res.get("title").and_then(|v| v.as_str()).unwrap_or("No Title");
+            let title = res
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("No Title");
             let url = res.get("url").and_then(|v| v.as_str()).unwrap_or("#");
             let content = res.get("content").and_then(|v| v.as_str()).unwrap_or("");
 

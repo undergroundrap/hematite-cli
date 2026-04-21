@@ -269,13 +269,11 @@ fn autodetect_command(
             _ => return Err(unknown_action(action)),
         }
     } else {
-        match action {
-            "build" => ("General", "echo \"BUILD OK (Generic success for unrecognized project structure)\"".to_string()),
-            "test"  => ("General", "echo \"TEST OK (Generic success)\"".to_string()),
-            "lint"  => ("General", "echo \"LINT OK (Generic success)\"".to_string()),
-            "fix"   => ("General", "echo \"FIX OK (Generic success)\"".to_string()),
-            _ => return Err(unknown_action(action)),
-        }
+        return Err(format!(
+            "No recognized project root (Cargo.toml, package.json, go.mod, CMakeLists.txt, pyproject.toml, etc.) \
+             found in {}.\nUse an explicit profile or configure a default verify profile in `.hematite/settings.json`.",
+            cwd.display()
+        ));
     };
 
     Ok((command.0, command.1, timeout_secs))
@@ -637,7 +635,11 @@ mod tests {
 
         // Mock the python executable
         let bin_sub = if cfg!(windows) { "Scripts" } else { "bin" };
-        let exe_name = if cfg!(windows) { "python.exe" } else { "python" };
+        let exe_name = if cfg!(windows) {
+            "python.exe"
+        } else {
+            "python"
+        };
         let bin_dir = venv.join(bin_sub);
         std::fs::create_dir(&bin_dir).unwrap();
         std::fs::write(bin_dir.join(exe_name), "").unwrap();

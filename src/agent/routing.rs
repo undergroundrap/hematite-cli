@@ -382,27 +382,147 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
         let w = w.trim_matches(|c: char| !c.is_alphanumeric());
         matches!(
             w,
-            "path" | "pip" | "winget" | "choco" | "scoop" | "network" | "adapter" | "dns" | "gateway" | "wifi" | "ethernet" | "service" | "services" | "daemon" | "process" | "processes" | "ram" | "cpu" | "gpu" | "vram" | "nvidia" | "memory" | "machine" | "computer" | "firewall" | "vpn" | "proxy" | "internet" | "online" | "connectivity" | "uptime" | "reboot" | "silicon" | "throttle" | "throttled" | "clocks" | "mhz" | "health" | "report" | "bitlocker" | "rdp" | "vss" | "pagefile" | "swap" | "printer" | "audio" | "sound" | "speaker" | "speakers" | "microphone" | "mic" | "bluetooth" | "pairing" | "headset" | "headphones" | "camera" | "webcam" | "msi" | "msiexec" | "onedrive" | "indexer" | "ntp" | "w32tm" | "winrm" | "psremoting" | "slat" | "error" | "warning" | "event" | "log" | "throughput" | "registry" | "share" | "mbps" | "ad" | "sid" | "vm" | "hyper-v" | "hyperv" | "dhcp" | "lease"
+            "path"
+                | "pip"
+                | "winget"
+                | "choco"
+                | "scoop"
+                | "network"
+                | "adapter"
+                | "dns"
+                | "gateway"
+                | "wifi"
+                | "ethernet"
+                | "service"
+                | "services"
+                | "daemon"
+                | "process"
+                | "processes"
+                | "ram"
+                | "cpu"
+                | "gpu"
+                | "vram"
+                | "nvidia"
+                | "memory"
+                | "machine"
+                | "computer"
+                | "firewall"
+                | "vpn"
+                | "proxy"
+                | "internet"
+                | "online"
+                | "connectivity"
+                | "uptime"
+                | "reboot"
+                | "silicon"
+                | "throttle"
+                | "throttled"
+                | "clocks"
+                | "mhz"
+                | "health"
+                | "report"
+                | "bitlocker"
+                | "rdp"
+                | "vss"
+                | "pagefile"
+                | "swap"
+                | "printer"
+                | "audio"
+                | "sound"
+                | "speaker"
+                | "speakers"
+                | "microphone"
+                | "mic"
+                | "bluetooth"
+                | "pairing"
+                | "headset"
+                | "headphones"
+                | "camera"
+                | "webcam"
+                | "msi"
+                | "msiexec"
+                | "onedrive"
+                | "indexer"
+                | "ntp"
+                | "w32tm"
+                | "winrm"
+                | "psremoting"
+                | "slat"
+                | "error"
+                | "warning"
+                | "event"
+                | "log"
+                | "throughput"
+                | "registry"
+                | "share"
+                | "mbps"
+                | "ad"
+                | "sid"
+                | "vm"
+                | "hyper-v"
+                | "hyperv"
+                | "dhcp"
+                | "lease"
         )
     }) || contains_any(
         lower,
         &[
-            "package manager", "environment doctor", "ip address", "ipconfig", "task manager", "developer tools", "toolchains", "local development", "tcp connection", "active connection", "traceroute", "tracert", "dns cache", "arp table", "route table", "routing table", "default gateway", "power plan", "windows feature", "optional feature", "microsoft store", "app installer", "search index", "windows search", "monitor resolution", "display config", "refresh rate"
-        ]
+            "package manager",
+            "environment doctor",
+            "ip address",
+            "ipconfig",
+            "task manager",
+            "developer tools",
+            "toolchains",
+            "local development",
+            "tcp connection",
+            "active connection",
+            "traceroute",
+            "tracert",
+            "dns cache",
+            "arp table",
+            "route table",
+            "routing table",
+            "default gateway",
+            "power plan",
+            "windows feature",
+            "optional feature",
+            "microsoft store",
+            "app installer",
+            "search index",
+            "windows search",
+            "monitor resolution",
+            "display config",
+            "refresh rate",
+        ],
     );
 
     let host_action = lower.split_whitespace().any(|w| {
         let w = w.trim_matches(|c: char| !c.is_alphanumeric());
         matches!(
             w,
-            "inspect" | "count" | "summarize" | "analyze" | "missing" | "ready" | "resolve" | "troubleshoot" | "show" | "find" | "list" | "audit" | "test" | "check" | "currently" | "status" | "stats" | "vitals" | "telemetry" | "looking"
+            "inspect"
+                | "count"
+                | "summarize"
+                | "analyze"
+                | "missing"
+                | "ready"
+                | "resolve"
+                | "troubleshoot"
+                | "show"
+                | "find"
+                | "list"
+                | "audit"
+                | "test"
+                | "check"
+                | "currently"
+                | "status"
+                | "stats"
+                | "vitals"
+                | "telemetry"
+                | "looking"
         )
-    }) || contains_any(
-        lower,
-        &[
-            "tell me", "how big", "show me"
-        ]
-    );
+    }) || contains_any(lower, &["tell me", "how big", "show me"]);
 
     host_scope && host_action
 }
@@ -1287,12 +1407,20 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("refactor"))
         && (lower.contains("folder")
             || lower.contains("directory")
-            || lower
-                .split_whitespace()
-                .any(|w| {
-                    let w = w.trim_matches(|c: char| !c.is_alphanumeric());
-                    w == "file" || w == "files" || w == "code" || w == "script" || w == "css" || w == "js" || w == "html" || w == "ts" || w == "rust" || w == "json" || w == "logic"
-                })
+            || lower.split_whitespace().any(|w| {
+                let w = w.trim_matches(|c: char| !c.is_alphanumeric());
+                w == "file"
+                    || w == "files"
+                    || w == "code"
+                    || w == "script"
+                    || w == "css"
+                    || w == "js"
+                    || w == "html"
+                    || w == "ts"
+                    || w == "rust"
+                    || w == "json"
+                    || w == "logic"
+            })
             || lower.contains("code")
             || lower.contains("desktop")
             || lower.contains("logic")
@@ -3427,8 +3555,16 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
         let w = w.trim_matches(|c: char| !c.is_alphanumeric());
         matches!(
             w,
-            "gpu" | "ram" | "cpu" | "vram" | "nvidia" | "silicon" | "vitals" | "throttle"
-                | "overclocker" | "thermal"
+            "gpu"
+                | "ram"
+                | "cpu"
+                | "vram"
+                | "nvidia"
+                | "silicon"
+                | "vitals"
+                | "throttle"
+                | "overclocker"
+                | "thermal"
         )
     });
 
@@ -3440,7 +3576,8 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
         true
     };
 
-    let host_inspection_mode = host_inspection_allowed && preferred_host_inspection_topic(&lower).is_some();
+    let host_inspection_mode =
+        host_inspection_allowed && preferred_host_inspection_topic(&lower).is_some();
     let maintainer_workflow_mode = preferred_maintainer_workflow(&lower).is_some();
     let workspace_workflow_mode =
         preferred_workspace_workflow(&lower).is_some() && !maintainer_workflow_mode;
@@ -3761,7 +3898,8 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
     } else if mentions_research_query(&lower) {
         // Disambiguation: if also mentions codebase keywords, it's likely a local search.
         if mentions_codebase_keywords(&lower) {
-            if lower.contains("logic") || lower.contains("wiring") || lower.contains("architecture") {
+            if lower.contains("logic") || lower.contains("wiring") || lower.contains("architecture")
+            {
                 QueryIntentClass::RepoArchitecture
             } else {
                 QueryIntentClass::RuntimeDiagnosis
@@ -4197,7 +4335,7 @@ mod tests {
     fn test_web_mutation_routing() {
         // This is the prompt that previously failed by routing to HostInspection
         let input = "I want to change the primary brand color from whatever it is now to a vibrant 'Neon Hematite' (HSL 180, 100%, 50%). Update all CSS variables, update the JS theme toggle logic to support this as the new default highlight, and ensure the HTML icons match. Run verify_build when you are done.";
-        
+
         // Test in Auto mode (where it should stay in code)
         let intent = classify_query_intent(WorkflowMode::Auto, input);
         assert_eq!(intent.primary_class, QueryIntentClass::Implementation);
@@ -4214,7 +4352,7 @@ mod tests {
         // Even if we are in Code mode, an authoritative hardware noun should trigger the diagnostic
         let input = "Check my GPU stats and tell me if it's throttled.";
         let intent = classify_query_intent(WorkflowMode::Code, input);
-        
+
         assert_eq!(intent.direct_answer, Some(DirectAnswerKind::HostInspection));
     }
 
@@ -4223,7 +4361,7 @@ mod tests {
         // "logic" should not collide with "log" when in code mode
         let input = "Fix the login logic in my typescript code.";
         let intent = classify_query_intent(WorkflowMode::Auto, input);
-        
+
         assert_eq!(intent.primary_class, QueryIntentClass::Implementation);
         assert_ne!(intent.direct_answer, Some(DirectAnswerKind::HostInspection));
     }

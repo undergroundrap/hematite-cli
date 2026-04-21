@@ -1,6 +1,6 @@
 #define AppName "Hematite"
 #ifndef AppVersion
-  #define AppVersion "0.5.7"
+  #define AppVersion "0.6.0"
 #endif
 #ifndef BundleDir
   #define BundleDir "..\\dist\\windows\\Hematite-" + AppVersion + "-portable"
@@ -39,6 +39,8 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 [Files]
 Source: "{#BundleDir}\hematite.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BundleDir}\DirectML.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BundleDir}\setup-searxng.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BundleDir}\start_searx.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BundleDir}\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]

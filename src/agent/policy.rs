@@ -212,7 +212,11 @@ mod tests {
     fn normalize_handles_sovereign_tokens() {
         let normalized = normalize_workspace_path("@HOME/test");
         let home = dirs::home_dir().unwrap();
-        let expected = home.join("test").to_string_lossy().replace('\\', "/").to_lowercase();
+        let expected = home
+            .join("test")
+            .to_string_lossy()
+            .replace('\\', "/")
+            .to_lowercase();
         assert_eq!(normalized, expected);
     }
 }

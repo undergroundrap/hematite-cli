@@ -1083,14 +1083,20 @@ mod tests {
     fn test_detects_static_site_contract() {
         let dir = tempdir().unwrap();
         fs::write(dir.path().join("index.html"), "<html></html>").unwrap();
-        
+
         let profile = detect_workspace_profile(dir.path());
         assert_eq!(profile.workspace_mode, "project");
         assert_eq!(profile.primary_stack.as_deref(), Some("static-web"));
-        
-        let contract = profile.runtime_contract.as_ref().expect("Contract should exist");
+
+        let contract = profile
+            .runtime_contract
+            .as_ref()
+            .expect("Contract should exist");
         assert_eq!(contract.app_kind, "static-site");
-        assert!(contract.delivery_phases.iter().any(|p| p.contains("vanilla css")));
+        assert!(contract
+            .delivery_phases
+            .iter()
+            .any(|p| p.contains("vanilla css")));
     }
 
     #[test]
@@ -1099,11 +1105,14 @@ mod tests {
         // Mock docs-only mode by creating .hematite/docs
         let hem = dir.path().join(".hematite");
         fs::create_dir_all(hem.join("docs")).unwrap();
-        
+
         let profile = detect_workspace_profile(dir.path());
         assert_eq!(profile.workspace_mode, "docs_only");
-        
-        let contract = profile.runtime_contract.as_ref().expect("Contract should exist");
+
+        let contract = profile
+            .runtime_contract
+            .as_ref()
+            .expect("Contract should exist");
         assert_eq!(contract.app_kind, "technical-documentation");
     }
 
@@ -1112,7 +1121,7 @@ mod tests {
         let dir = tempdir().unwrap();
         // folder has a .hematite folder but no docs yet
         fs::create_dir_all(dir.path().join(".hematite")).unwrap();
-        
+
         let profile = detect_workspace_profile(dir.path());
         assert_eq!(profile.workspace_mode, "general"); // Managed but unknown stack
     }
@@ -1123,7 +1132,7 @@ mod tests {
         let hem = dir.path().join(".hematite");
         fs::create_dir_all(&hem).unwrap();
         fs::write(hem.join("PLAN.md"), "# The Plan").unwrap();
-        
+
         let profile = detect_workspace_profile(dir.path());
         assert_eq!(profile.workspace_mode, "project");
     }

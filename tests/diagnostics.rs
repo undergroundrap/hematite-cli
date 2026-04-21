@@ -190,7 +190,8 @@ fn test_workspace_profile_detects_website_runtime_contract() {
     assert!(strategy.contains("Stack Delivery Contract"));
     assert!(strategy.contains("Work in this order:")); // Delivery phases
     assert!(strategy.contains("Automatic proof should come from:")); // Verification workflows
-    assert!(strategy.contains("Do not consider the task complete until these gates hold:")); // Quality gates
+    assert!(strategy.contains("Do not consider the task complete until these gates hold:"));
+    // Quality gates
 }
 
 #[test]

@@ -2803,9 +2803,15 @@ impl ConversationManager {
         let intent = classify_query_intent(self.workflow_mode, &effective_user_input);
 
         // Seamless Search Handover: Transition to ASK mode if research is detected in AUTO.
-        if self.workflow_mode == WorkflowMode::Auto && intent.primary_class == QueryIntentClass::Research {
+        if self.workflow_mode == WorkflowMode::Auto
+            && intent.primary_class == QueryIntentClass::Research
+        {
             self.set_workflow_mode(WorkflowMode::Ask);
-            let _ = tx.send(InferenceEvent::Thought("Seamless search detected: transitioning to investigation mode...".into())).await;
+            let _ = tx
+                .send(InferenceEvent::Thought(
+                    "Seamless search detected: transitioning to investigation mode...".into(),
+                ))
+                .await;
         }
 
         // ── /think / /no_think: reasoning budget toggle ──────────────────────
@@ -3328,7 +3334,8 @@ impl ConversationManager {
         // History from previous turns must not be fed back into the prompt to prevent duplication.
         self.reasoning_history = None;
 
-        let is_gemma = crate::agent::inference::is_hematite_native_model(&self.engine.current_model());
+        let is_gemma =
+            crate::agent::inference::is_hematite_native_model(&self.engine.current_model());
         let user_content = match self.think_mode {
             Some(true) => format!("/think\n{}", effective_user_input),
             Some(false) => format!("/no_think\n{}", effective_user_input),
@@ -3511,7 +3518,8 @@ impl ConversationManager {
 
             let _ = tx
                 .send(InferenceEvent::Thought(
-                    "Research pre-run: executing search before model turn to ground the answer...".into(),
+                    "Research pre-run: executing search before model turn to ground the answer..."
+                        .into(),
                 ))
                 .await;
 
@@ -3527,7 +3535,9 @@ impl ConversationManager {
                 .await;
 
             match crate::tools::research::execute_search(&args, config.searx_url.clone()).await {
-                Ok(results) if !results.is_empty() && !results.contains("No search results found") => {
+                Ok(results)
+                    if !results.is_empty() && !results.contains("No search results found") =>
+                {
                     let _ = tx
                         .send(InferenceEvent::ToolCallResult {
                             id: call_id.clone(),
@@ -3735,7 +3745,9 @@ impl ConversationManager {
             // models (Qwen etc.) only ever see one system message.
             if inject_vein {
                 if let Some(ref ctx) = vein_context.as_ref() {
-                    if crate::agent::inference::is_hematite_native_model(&self.engine.current_model()) {
+                    if crate::agent::inference::is_hematite_native_model(
+                        &self.engine.current_model(),
+                    ) {
                         prompt_msgs.push(ChatMessage::system(ctx));
                     } else {
                         let merged = format!("{}\n\n{}", prompt_msgs[0].content.as_str(), ctx);
@@ -3954,9 +3966,16 @@ impl ConversationManager {
                         "Read discipline: You already read `{}` recently. Use `inspect_lines` on a specific window or `grep_files` to find content, then continue with your edit.",
                         repeated_path
                     );
-                    let _ = tx.clone().send(InferenceEvent::Token(format!("\n⚠️ {}\n", err_msg))).await;
-                    let _ = tx.clone()
-                        .send(InferenceEvent::Thought(format!("Intervention: {}", err_msg)))
+                    let _ = tx
+                        .clone()
+                        .send(InferenceEvent::Token(format!("\n⚠️ {}\n", err_msg)))
+                        .await;
+                    let _ = tx
+                        .clone()
+                        .send(InferenceEvent::Thought(format!(
+                            "Intervention: {}",
+                            err_msg
+                        )))
                         .await;
 
                     // BREAK THE SILENT LOOP: Push hard errors for these tool calls individually.
@@ -3999,7 +4018,10 @@ impl ConversationManager {
                 let raw_content = text.as_deref().unwrap_or(" ");
 
                 if let Some(thought) = crate::agent::inference::extract_think_block(raw_content) {
-                    let _ = tx.clone().send(InferenceEvent::Thought(thought.clone())).await;
+                    let _ = tx
+                        .clone()
+                        .send(InferenceEvent::Thought(thought.clone()))
+                        .await;
                     // Reasoning is silent (hidden in SPECULAR only).
                     self.reasoning_history = Some(thought);
                 }
@@ -4038,11 +4060,24 @@ impl ConversationManager {
                             .or_else(|| normalized_args.get("workflow"));
 
                         if let Some(cmd) = cmd_val.and_then(|v| v.as_str()) {
-                            if cfg!(windows) && (cmd.contains("/dev/") || cmd.contains("/etc/") || cmd.contains("/var/")) {
+                            if cfg!(windows)
+                                && (cmd.contains("/dev/")
+                                    || cmd.contains("/etc/")
+                                    || cmd.contains("/var/"))
+                            {
                                 let err_msg = "STRICT: You are attempting to use Linux system paths (/dev, /etc, /var) on a Windows host. This is a reasoning collapse. Use relative paths within your workspace only.";
-                                let _ = tx.clone().send(InferenceEvent::Token(format!("\n🚨 {}\n", err_msg))).await;
-                                let _ = tx.clone().send(InferenceEvent::Thought(format!("Panic blocked: {}", err_msg))).await;
-                                
+                                let _ = tx
+                                    .clone()
+                                    .send(InferenceEvent::Token(format!("\n🚨 {}\n", err_msg)))
+                                    .await;
+                                let _ = tx
+                                    .clone()
+                                    .send(InferenceEvent::Thought(format!(
+                                        "Panic blocked: {}",
+                                        err_msg
+                                    )))
+                                    .await;
+
                                 // BREAK THE COLLAPSE: Push hard errors for all tool calls in this batch and end turn.
                                 let mut err_results = Vec::new();
                                 for c in &calls {
@@ -5243,8 +5278,10 @@ impl ConversationManager {
     async fn auto_run_verification_workflow(&self, workflow: &str) -> AutoVerificationOutcome {
         match workflow {
             "build" | "test" | "lint" | "fix" => {
-                match crate::tools::verify_build::execute(&serde_json::json!({ "action": workflow }))
-                    .await
+                match crate::tools::verify_build::execute(
+                    &serde_json::json!({ "action": workflow }),
+                )
+                .await
                 {
                     Ok(out) => AutoVerificationOutcome {
                         ok: true,
@@ -5282,7 +5319,7 @@ impl ConversationManager {
                         }
                     }
                     Err(e) => {
-                        // If a specialized workflow needs "Auto-Booting" (e.g. website), 
+                        // If a specialized workflow needs "Auto-Booting" (e.g. website),
                         // we can handle a retry here or delegate the intelligence to the tool itself.
                         // For website_validate, we attempt a boot if it looks like a connection failure.
                         let needs_boot = e.contains("No tracked website server labeled")
@@ -5291,16 +5328,28 @@ impl ConversationManager {
                             || e.contains("error trying to connect");
 
                         if other == "website_validate" && needs_boot {
-                             let start_args = serde_json::json!({ "workflow": "website_start" });
-                             if let Ok(_) = crate::tools::workspace_workflow::run_workspace_workflow(&start_args).await {
-                                 if let Ok(retry_out) = crate::tools::workspace_workflow::run_workspace_workflow(&args).await {
-                                     let ok = !retry_out.contains("Result: FAIL") && !retry_out.contains("Error:");
-                                     return AutoVerificationOutcome {
-                                         ok,
-                                         summary: format!("[{}]\n(Auto-booted) {}", other, retry_out.trim()),
-                                     };
-                                 }
-                             }
+                            let start_args = serde_json::json!({ "workflow": "website_start" });
+                            if let Ok(_) = crate::tools::workspace_workflow::run_workspace_workflow(
+                                &start_args,
+                            )
+                            .await
+                            {
+                                if let Ok(retry_out) =
+                                    crate::tools::workspace_workflow::run_workspace_workflow(&args)
+                                        .await
+                                {
+                                    let ok = !retry_out.contains("Result: FAIL")
+                                        && !retry_out.contains("Error:");
+                                    return AutoVerificationOutcome {
+                                        ok,
+                                        summary: format!(
+                                            "[{}]\n(Auto-booted) {}",
+                                            other,
+                                            retry_out.trim()
+                                        ),
+                                    };
+                                }
+                            }
                         }
 
                         AutoVerificationOutcome {
@@ -6431,7 +6480,10 @@ fn rewrite_host_tool_call(
     // Only allow auto-rewrite for generic shell/command triggers.
     // We NEVER rewrite surgical tools (write/edit) or evidence tools (read/inspect)
     // because that leads to inference-hijack loops.
-    let is_generic_command_trigger = matches!(tool_name.as_str(), "shell" | "run_command" | "workflow" | "run");
+    let is_generic_command_trigger = matches!(
+        tool_name.as_str(),
+        "shell" | "run_command" | "workflow" | "run"
+    );
     if is_generic_command_trigger && *tool_name != "run_workspace_workflow" {
         if let Some(prompt_args) =
             latest_user_prompt.and_then(infer_workspace_workflow_args_from_prompt)

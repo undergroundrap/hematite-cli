@@ -1,5 +1,5 @@
-use std::process::Command;
 use crate::agent::config::HematiteConfig;
+use std::process::Command;
 use tokio::time::{timeout, Duration};
 
 /// Checks if SearXNG is responding at the configured URL.
@@ -21,8 +21,11 @@ pub async fn boot_searx_if_needed(config: &HematiteConfig) {
         return;
     }
 
-    let url = config.searx_url.as_deref().unwrap_or("http://localhost:8080");
-    
+    let url = config
+        .searx_url
+        .as_deref()
+        .unwrap_or("http://localhost:8080");
+
     // Check if it's already alive.
     if is_searx_responding(url).await {
         return;
