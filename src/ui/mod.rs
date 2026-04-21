@@ -3,3 +3,4 @@ pub mod hatch;
 pub mod modal_review;
 pub mod tui;
 pub mod voice;
+pub mod terminal;

@@ -296,9 +296,11 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
             m
         }
     };
+    let terminal_name = crate::ui::terminal::detect_terminal().label();
     let greeting = format!(
-        "Hematite {} Online | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\nWorkspace: {} ({})\n{}\n{}\n/ask · read-only analysis   /code · implement   /architect · plan-first   /chat · conversation\nRecovery: /undo · /new · /forget · /clear   |   /version · /about{}",
+        "Hematite {} Online [{}] | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\nWorkspace: {} ({})\n{}\n{}\n/ask · read-only analysis   /code · implement   /architect · plan-first   /chat · conversation\nRecovery: /undo · /new · /forget · /clear   |   /version · /about{}",
         crate::hematite_version_display(),
+        terminal_name,
         display_model,
         manager.engine.current_context_length(),
         gpu_name,

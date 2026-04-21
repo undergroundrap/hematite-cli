@@ -55,6 +55,7 @@ tree-sitter-javascript = "0.23"
 tree-sitter-python = "0.23"
 petgraph = "0.7"
 libc = "0.2"
+tempfile = "3"
 
 # Voice & Audio Synthesis
 kokoros = { package = "hematite-kokoros", version = "0.1.2", path = "libs/kokoros" }
@@ -68,7 +69,6 @@ lopdf = { version = "0.34", default-features = false, features = ["nom_parser"] 
 
 # Performance overrides for heavy AI logic in Debug mode
 [dev-dependencies]
-tempfile = "3"
 
 [build-dependencies]
 winres = "0.1"
