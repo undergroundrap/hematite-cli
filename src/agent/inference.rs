@@ -28,6 +28,7 @@ pub struct InferenceEngine {
     pub cancel_token: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// LM Studio CLI Harness for automated lifecycle management.
     pub lms: crate::agent::lms::LmsHarness,
+    pub ollama: crate::agent::ollama::OllamaHarness,
 }
 
 pub fn is_hematite_native_model(model: &str) -> bool {
@@ -786,6 +787,8 @@ impl InferenceEngine {
             format!("{}/chat/completions", api_url)
         };
 
+        let ollama = crate::agent::ollama::OllamaHarness::new(&base_url);
+
         Ok(Self {
             client,
             api_url,
@@ -800,6 +803,7 @@ impl InferenceEngine {
             gemma_native_formatting: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             cancel_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             lms: crate::agent::lms::LmsHarness::new(),
+            ollama,
         })
     }
 
@@ -842,6 +846,10 @@ impl InferenceEngine {
             // Give it a moment to boot
             tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
             return self.lms.is_server_responding(&self.base_url).await;
+        }
+
+        if self.base_url.contains("11434") {
+            return self.ollama.is_reachable().await;
         }
 
         false
@@ -938,6 +946,13 @@ impl InferenceEngine {
     /// Prefers the 'lms load' CLI for deep loading, falls back to HTTP warmup.
     pub async fn load_model(&self, model_id: &str) -> Result<(), String> {
         // Option 1: Native binary load (most robust)
+        // Grounding: Proactive Model Discovery
+        if self.base_url.contains("11434") {
+             if let Ok(true) = self.ollama.has_model(model_id).await {
+                 return Ok(());
+             }
+        }
+
         if self.lms.binary_path.is_some() {
             match self.lms.load_model(model_id) {
                 Ok(_) => return Ok(()),
