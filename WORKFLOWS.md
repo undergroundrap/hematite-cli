@@ -8,7 +8,33 @@ Concise reference for agents and contributors. Command-first. No prose.
 
 ## 1. Release Workflow
 
-The standard path for every version bump. Run from a clean working tree.
+### Prerequisites — check before starting
+```powershell
+git status          # must show: nothing to commit, working tree clean
+git branch          # must be on: main
+git log --oneline -5  # confirm all feature work is committed
+```
+
+If the tree is dirty, commit or stash all changes first. Never start a release from a dirty tree.
+
+### Option A — release.ps1 wrapper (recommended)
+
+Handles bump → lock rebuild → version verify → commit → tag → push in one command.
+
+```powershell
+# Dry run first (no push, no publish)
+pwsh ./release.ps1 -Version X.Y.Z
+
+# Full release: bump, tag, push main + tag, rebuild portable, update PATH
+pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push
+
+# Full release + crates.io publish (only after CI is green)
+pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push -PublishCrates
+```
+
+Use `-Bump patch|minor|major` instead of `-Version` to auto-calculate the next version.
+
+### Option B — manual steps
 
 ```powershell
 # Step 1 — bump version (updates Cargo.toml, README, CLAUDE.md, installer)
@@ -29,10 +55,20 @@ git tag -a vX.Y.Z -m "Release vX.Y.Z"
 git push origin main
 git push origin vX.Y.Z
 
-# Step 6 — wait for CI green on BOTH windows-release AND unix-release workflows
+# Step 6 — wait for CI green on BOTH workflows (see CI section below)
 # Step 7 — only publish to crates.io after CI is green on all platforms
 cargo publish -p hematite-cli
 ```
+
+### CI workflows to monitor after pushing the tag
+
+Both must go green before publishing to crates.io:
+- **`windows-release`** — builds `--release` on Windows, packages portable zip + installer
+- **`unix-release`** — builds `--release` on Linux/macOS, packages portable tarballs
+
+Check status: `gh run list --workflow windows-release.yml` and `gh run list --workflow unix-release.yml`
+
+If either fails: push a patch fix commit to `main`, then re-tag (delete old tag: `git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z`, then re-tag). Never publish crates from a red CI state.
 
 **When to bump:**
 - `PATCH` — bug fixes, doc updates, routing fixes, test additions
@@ -55,9 +91,12 @@ cargo test --test routing_precision
 powershell -ExecutionPolicy Bypass -File scripts/verify-doc-sync.ps1
 ```
 
+If doc-sync fails: the topic count in `README.md`, `CAPABILITIES.md`, or `CLAUDE.md` is out of sync with `src/tools/host_inspect.rs`. Update the failing doc to match the actual count, then re-run.
+
 For a targeted single test:
 ```powershell
 cargo test --test diagnostics test_name_here -- --exact
+cargo test --lib tools::verify_build::tests   # unit tests for verify_build autodetect
 ```
 
 ---

@@ -3493,6 +3493,91 @@ impl ConversationManager {
             }
         }
 
+        // ── Research Pre-Run: force research_web for entity/knowledge queries ────
+        // When the intent is classified as Research, the model often skips the
+        // tool call and hallucinates from training data. To prevent this, we
+        // execute research_web automatically and inject the results so the model
+        // has grounded web data before it even starts generating.
+        if loop_intervention.is_none() && research_mode {
+            // Extract a clean search query from the user input.
+            let search_query = effective_user_input
+                .to_lowercase()
+                .replace("google ", "")
+                .replace("search for ", "")
+                .replace("look up ", "")
+                .replace("lookup ", "")
+                .trim()
+                .to_string();
+
+            let _ = tx
+                .send(InferenceEvent::Thought(
+                    "Research pre-run: executing search before model turn to ground the answer...".into(),
+                ))
+                .await;
+
+            let call_id = "prerun_research".to_string();
+            let args = serde_json::json!({ "query": search_query });
+
+            let _ = tx
+                .send(InferenceEvent::ToolCallStart {
+                    id: call_id.clone(),
+                    name: "research_web".to_string(),
+                    args: format!("research_web: {}", search_query),
+                })
+                .await;
+
+            match crate::tools::research::execute_search(&args, config.searx_url.clone()).await {
+                Ok(results) if !results.is_empty() && !results.contains("No search results found") => {
+                    let _ = tx
+                        .send(InferenceEvent::ToolCallResult {
+                            id: call_id.clone(),
+                            name: "research_web".to_string(),
+                            output: results.chars().take(300).collect::<String>() + "...",
+                            is_error: false,
+                        })
+                        .await;
+
+                    // Inject tool call + result into history so the model sees it.
+                    self.history.push(ChatMessage::assistant_tool_calls(
+                        "",
+                        vec![crate::agent::inference::ToolCallResponse {
+                            id: call_id.clone(),
+                            call_type: "function".to_string(),
+                            function: crate::agent::inference::ToolCallFn {
+                                name: "research_web".to_string(),
+                                arguments: serde_json::to_string(&args).unwrap_or_default(),
+                            },
+                        }],
+                    ));
+                    self.history.push(ChatMessage::tool_result_for_model(
+                        &call_id,
+                        "research_web",
+                        &results,
+                        &self.engine.current_model(),
+                    ));
+
+                    loop_intervention = Some(format!(
+                        "## RESEARCH PRE-RUN RESULTS\n\
+                         The harness already ran `research_web` for your query.\n\
+                         Use the search results above to answer the user's question with grounded, factual information.\n\
+                         Do NOT re-run `research_web` unless you need additional detail.\n\
+                         Do NOT hallucinate or guess — base your answer entirely on the search results.\n"
+                    ));
+                }
+                Ok(_) | Err(_) => {
+                    // Search returned empty or failed — let the model try on its own.
+                    let _ = tx
+                        .send(InferenceEvent::ToolCallResult {
+                            id: call_id.clone(),
+                            name: "research_web".to_string(),
+                            output: "No results found — model will attempt its own search.".into(),
+                            is_error: true,
+                        })
+                        .await;
+                }
+            }
+        }
+
         // ── Computation Integrity: nudge model toward run_code for precise math ──
         // When the query involves exact numeric computation (hashes, financial math,
         // statistics, date arithmetic, unit conversions, algorithmic checks), inject
