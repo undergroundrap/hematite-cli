@@ -60,6 +60,12 @@ pub struct HematiteConfig {
     /// Tool Lifecycle Hooks for automated pre/post scripts.
     #[serde(default)]
     pub hooks: crate::agent::hooks::RuntimeHookConfig,
+    /// Optional local SearXNG URL (e.g. "http://localhost:8080") for private research.
+    /// If set, research_web will prioritize this endpoint over external search proxies.
+    pub searx_url: Option<String>,
+    /// When true, Hematite will attempt to automatically start SearXNG on startup if it's offline.
+    #[serde(default = "default_true")]
+    pub auto_start_searx: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -168,6 +174,8 @@ pub fn load_config() -> HematiteConfig {
                 voice_speed: ws.voice_speed.or(gb.voice_speed),
                 voice_volume: ws.voice_volume.or(gb.voice_volume),
                 context_hint: ws.context_hint.or(gb.context_hint),
+                searx_url: ws.searx_url.or(gb.searx_url),
+                auto_start_searx: ws.auto_start_searx, // Workspace setting always takes priority.
                 gemma_native_auto: ws.gemma_native_auto,
                 gemma_native_formatting: ws.gemma_native_formatting,
                 ..ws
@@ -284,6 +292,7 @@ fn write_default_config(path: &std::path::Path) {
   "think_model": null,
   "gemma_native_auto": true,
   "gemma_native_formatting": false,
+  "searx_url": null,
 
   "verify": {
     "default_profile": null,

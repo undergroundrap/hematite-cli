@@ -2802,6 +2802,12 @@ impl ConversationManager {
         });
         let intent = classify_query_intent(self.workflow_mode, &effective_user_input);
 
+        // Seamless Search Handover: Transition to ASK mode if research is detected in AUTO.
+        if self.workflow_mode == WorkflowMode::Auto && intent.primary_class == QueryIntentClass::Research {
+            self.set_workflow_mode(WorkflowMode::Ask);
+            let _ = tx.send(InferenceEvent::Thought("Seamless search detected: transitioning to investigation mode...".into())).await;
+        }
+
         // ── /think / /no_think: reasoning budget toggle ──────────────────────
         if let Some(answer_kind) = intent.direct_answer {
             match answer_kind {
@@ -3151,6 +3157,7 @@ impl ConversationManager {
         };
         let maintainer_workflow_mode = intent.maintainer_workflow_mode
             || preferred_maintainer_workflow(&effective_user_input).is_some();
+        let research_mode = intent.primary_class == QueryIntentClass::Research;
         let fix_plan_mode =
             preferred_host_inspection_topic(&effective_user_input) == Some("fix_plan");
         let architecture_overview_mode = intent.architecture_overview_mode;
@@ -3162,6 +3169,15 @@ impl ConversationManager {
             &self.git_state,
             &config,
         );
+        if !tiny_context_mode && research_mode {
+            system_msg.push_str(
+                "\n\n# RESEARCH MODE\n\
+                 This turn is an investigation into external technical information.\n\
+                 Prioritize using the `research_web` tool to find the most current and authoritative data.\n\
+                 When providing information, ground your answer in the search results and cite your sources if possible.\n\
+                 If the user's question involves specific versions or recent releases (e.g., Rust compiler), use the web to verify the exact state.\n"
+            );
+        }
         if tiny_context_mode {
             system_msg.push_str(
                 "\n\n# TINY CONTEXT TURN MODE\n\
@@ -5541,8 +5557,12 @@ impl ConversationManager {
 
 // ── Tool dispatcher ───────────────────────────────────────────────────────────
 
-pub async fn dispatch_tool(name: &str, args: &Value) -> Result<String, String> {
-    dispatch_builtin_tool(name, args).await
+pub async fn dispatch_tool(
+    name: &str,
+    args: &Value,
+    config: &crate::agent::config::HematiteConfig,
+) -> Result<String, String> {
+    dispatch_builtin_tool(name, args, config).await
 }
 
 fn normalize_fix_plan_issue_text(text: &str) -> Option<String> {
@@ -6751,13 +6771,13 @@ impl ConversationManager {
                                 })
                                 .await;
                             match appr_rx.await {
-                                Ok(true) => dispatch_tool(&call.name, &args).await,
+                                Ok(true) => dispatch_tool(&call.name, &args, &config).await,
                                 _ => Err("Edit declined by user.".into()),
                             }
                         }
                         // Diff computation failed (e.g. search string not found yet) —
                         // fall through and let the tool return its own error.
-                        Err(_) => dispatch_tool(&call.name, &args).await,
+                        Err(_) => dispatch_tool(&call.name, &args, &config).await,
                     }
                 } else if call.name == "verify_build" {
                     // Stream build output line-by-line to the SPECULAR panel so
@@ -6768,7 +6788,7 @@ impl ConversationManager {
                     // the operator sees live progress during long commands.
                     crate::tools::shell::execute_streaming(&args, tx.clone()).await
                 } else {
-                    dispatch_tool(&call.name, &args).await
+                    dispatch_tool(&call.name, &args, &config).await
                 };
 
                 match result {

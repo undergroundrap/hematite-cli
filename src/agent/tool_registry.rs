@@ -1,3 +1,4 @@
+use crate::agent::config::HematiteConfig;
 use crate::agent::inference::{tool_metadata_for_name, ToolDefinition, ToolFunction};
 use serde_json::Value;
 
@@ -892,7 +893,11 @@ pub fn get_tools() -> Vec<ToolDefinition> {
     tools
 }
 
-pub async fn dispatch_builtin_tool(name: &str, args: &Value) -> Result<String, String> {
+pub async fn dispatch_builtin_tool(
+    name: &str,
+    args: &Value,
+    config: &HematiteConfig,
+) -> Result<String, String> {
     match name {
         "shell" => crate::tools::shell::execute(args).await,
         "run_code" => crate::tools::code_sandbox::execute(args).await,
@@ -921,7 +926,9 @@ pub async fn dispatch_builtin_tool(name: &str, args: &Value) -> Result<String, S
         "verify_build" => crate::tools::verify_build::execute(args).await,
         "git_worktree" => crate::tools::git::execute_worktree(args).await,
         "health" => crate::tools::health::execute(args).await,
-        "research_web" => crate::tools::research::execute_search(args).await,
+        "research_web" => {
+            crate::tools::research::execute_search(args, config.searx_url.clone()).await
+        }
         "fetch_docs" => crate::tools::research::execute_fetch(args).await,
         "manage_tasks" => crate::tools::tasks::manage_tasks(args).await,
         "maintain_plan" => crate::tools::plan::maintain_plan(args).await,

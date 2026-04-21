@@ -33,3 +33,4 @@ pub mod transcript;
 pub mod trust_resolver;
 pub mod utils;
 pub mod workspace_profile;
+pub mod searx_lifecycle;

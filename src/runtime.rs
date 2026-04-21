@@ -59,9 +59,15 @@ pub async fn build_runtime_bundle(
     professional: bool,
 ) -> Result<RuntimeBundle, Box<dyn std::error::Error>> {
     println!("Booting Hematite systems...");
+    let config = crate::agent::config::load_config();
+    
+    // Auto-boot SearXNG if enabled and offline.
+    crate::agent::searx_lifecycle::boot_searx_if_needed(&config).await;
+
     // settings.json api_url overrides the --url CLI flag so users don't need to retype it.
-    let api_url = crate::agent::config::load_config()
+    let api_url = config
         .api_url
+        .clone()
         .unwrap_or_else(|| cockpit.url.clone());
     let mut engine_raw = InferenceEngine::new(api_url, species.to_string(), snark)?;
     let gpu_state = ui::gpu_monitor::spawn_gpu_monitor();

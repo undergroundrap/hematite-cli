@@ -8,6 +8,7 @@ pub enum QueryIntentClass {
     Toolchain,
     Capability,
     Implementation,
+    Research,
     Unknown,
 }
 
@@ -171,6 +172,56 @@ fn mentions_broad_system_walkthrough(lower: &str) -> bool {
         ],
     );
     asks_walkthrough && asks_multiple_runtime_areas
+}
+
+fn mentions_research_query(lower: &str) -> bool {
+    contains_any(
+        lower,
+        &[
+            "search for",
+            "lookup",
+            "look up",
+            "find info",
+            "find information",
+            "what are the latest",
+            "who is ",
+            "who's ",
+            "current version of",
+            "history of",
+            "what happened with",
+            "tell me about the new",
+        ],
+    )
+}
+
+fn mentions_codebase_keywords(lower: &str) -> bool {
+    contains_any(
+        lower,
+        &[
+            "this repo",
+            "the repo",
+            "this project",
+            "the project",
+            "in the code",
+            "in my code",
+            "this codebase",
+            "the codebase",
+            "function",
+            "module",
+            "file",
+            "struct",
+            "enum",
+            "impl",
+            "trait",
+            "crate",
+            "logic",
+            "implementation",
+            "wiring",
+            "handles ",
+            "defined",
+            "located",
+        ],
+    )
 }
 
 fn mentions_capability_question(lower: &str) -> bool {
@@ -3709,6 +3760,17 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
         QueryIntentClass::RuntimeDiagnosis
     } else if looks_like_mutation_request(user_input) {
         QueryIntentClass::Implementation
+    } else if mentions_research_query(&lower) {
+        // Disambiguation: if also mentions codebase keywords, it's likely a local search.
+        if mentions_codebase_keywords(&lower) {
+            if lower.contains("logic") || lower.contains("wiring") || lower.contains("architecture") {
+               QueryIntentClass::RepoArchitecture
+            } else {
+               QueryIntentClass::RuntimeDiagnosis
+            }
+        } else {
+            QueryIntentClass::Research
+        }
     } else {
         QueryIntentClass::Unknown
     };
