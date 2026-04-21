@@ -12,6 +12,7 @@ pub mod hooks;
 pub mod inference;
 pub mod instructions;
 pub mod intent_embed;
+pub mod lms;
 pub mod lsp;
 pub mod mcp;
 pub mod mcp_manager;

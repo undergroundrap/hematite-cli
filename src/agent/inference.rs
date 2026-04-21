@@ -26,6 +26,8 @@ pub struct InferenceEngine {
     pub gemma_native_formatting: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Global cancellation token for hard-interrupting the inference stream.
     pub cancel_token: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// LM Studio CLI Harness for automated lifecycle management.
+    pub lms: crate::agent::lms::LmsHarness,
 }
 
 pub fn is_hematite_native_model(model: &str) -> bool {
@@ -797,6 +799,7 @@ impl InferenceEngine {
             worker_model: None,
             gemma_native_formatting: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             cancel_token: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            lms: crate::agent::lms::LmsHarness::new(),
         })
     }
 
@@ -827,13 +830,21 @@ impl InferenceEngine {
             .store(context_length, std::sync::atomic::Ordering::SeqCst);
     }
 
-    /// Returns true if LM Studio is reachable.
+    /// Returns true if LM Studio is reachable (via HTTP or CLI retry).
     pub async fn health_check(&self) -> bool {
-        let url = format!("{}/v1/models", self.base_url);
-        match self.client.get(&url).send().await {
-            Ok(resp) => resp.status().is_success(),
-            Err(_) => false,
+        if self.lms.is_server_responding(&self.base_url).await {
+            return true;
         }
+
+        // Proactive Recovery: If the port is closed, try starting the server via lms CLI.
+        if self.lms.binary_path.is_some() {
+            let _ = self.lms.ensure_server_running();
+            // Give it a moment to boot
+            tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+            return self.lms.is_server_responding(&self.base_url).await;
+        }
+
+        false
     }
 
     /// Query /api/v0/models and return the first loaded chat model id.
@@ -923,9 +934,21 @@ impl InferenceEngine {
             .map(|m| m.id)
     }
 
-    /// Attempt to load a model in LM Studio using the 'warmup' strategy.
-    /// Sends a minimal 1-token request to the completions endpoint to trigger VRAM loading.
+    /// Attempt to load a model in LM Studio.
+    /// Prefers the 'lms load' CLI for deep loading, falls back to HTTP warmup.
     pub async fn load_model(&self, model_id: &str) -> Result<(), String> {
+        // Option 1: Native binary load (most robust)
+        if self.lms.binary_path.is_some() {
+            match self.lms.load_model(model_id) {
+                Ok(_) => return Ok(()),
+                Err(_) => {
+                    // Log and fall back to HTTP warmup
+                    let _ = self.lms.ensure_server_running();
+                }
+            }
+        }
+
+        // Option 2: OpenAI-compat HTTP warmup (fallback)
         let payload = serde_json::json!({
             "model": model_id,
             "messages": [{"role": "user", "content": ""}],
