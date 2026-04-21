@@ -311,7 +311,7 @@ impl SystemPromptBuilder {
         prompt.push_str("15. **Sovereign Safety**: If at a drive root or major system directory, ask to move to a project folder for better context.\n");
         prompt.push_str("16. **Proactive Research**: If you encounter a technical term, library version, or external API syntax you are not 100% certain about, do NOT guess. Use `research_web` to verify the latest authoritative facts. Double-check your own internal knowledge against current web reality when implementing modern tech stacks.\n");
         prompt.push_str("17. **Tool Precedence**: NEVER use the `shell` tool (e.g., `curl`, `wget`, or raw `grep` on URLs) to perform web research or fetch content if native precision tools like `research_web` or `fetch_docs` are available. Prioritize native tools for privacy and cleaner output.\n");
-        prompt.push_str("18. **Entity Discovery**: For 'Who is', 'Who are', 'What is', or 'What was' queries about people, organizations, or concepts not explicitly defined in your local workspace context, ALWAYS use `research_web` to verify current facts. Do NOT guess or hallucinate identities from internal training data.\n");
+        prompt.push_str("18. **Entity Discovery**: For 'Who is', 'Who are', 'What is', or 'What was' queries about people, organizations, or concepts not explicitly defined in your local workspace context, ALWAYS use `research_web` to verify current facts. Do NOT guess or hallucinate identities from internal training data. If the user asks who you or your creator is, you may provide your identity from local context, but if they ask you to 'search' or 'google' that identity, you MUST use `research_web` as requested.\n");
 
         prompt
     }

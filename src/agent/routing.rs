@@ -3758,6 +3758,17 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
         || mentions_product_truth_routing(&lower)
     {
         QueryIntentClass::ProductTruth
+    } else if mentions_research_query(&lower) {
+        // Disambiguation: if also mentions codebase keywords, it's likely a local search.
+        if mentions_codebase_keywords(&lower) {
+            if lower.contains("logic") || lower.contains("wiring") || lower.contains("architecture") {
+                QueryIntentClass::RepoArchitecture
+            } else {
+                QueryIntentClass::RuntimeDiagnosis
+            }
+        } else {
+            QueryIntentClass::Research
+        }
     } else if toolchain_mode {
         QueryIntentClass::Toolchain
     } else if capability_mode {
@@ -3766,17 +3777,6 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
         QueryIntentClass::RuntimeDiagnosis
     } else if looks_like_mutation_request(user_input) {
         QueryIntentClass::Implementation
-    } else if mentions_research_query(&lower) {
-        // Disambiguation: if also mentions codebase keywords, it's likely a local search.
-        if mentions_codebase_keywords(&lower) {
-            if lower.contains("logic") || lower.contains("wiring") || lower.contains("architecture") {
-               QueryIntentClass::RepoArchitecture
-            } else {
-               QueryIntentClass::RuntimeDiagnosis
-            }
-        } else {
-            QueryIntentClass::Research
-        }
     } else {
         QueryIntentClass::Unknown
     };
