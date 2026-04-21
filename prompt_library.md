@@ -498,3 +498,31 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 
 **Parallel diagnostics**
 > "/swarm Run a read-only audit of the top five architecturally important files in this repo. Each worker should summarize one file's role and flag anything that looks out of place."
+
+---
+
+## Research and Technical Verification
+
+**Latest version and breaking changes**
+> "What is the latest version of `tokio`? Search for the major breaking changes since v1.30 and tell me if my current project is affected."
+
+**SysAdmin troubleshooting (Event ID)**
+> "Search for Event ID 7034 on Windows 11. Are there any recent reports of this being linked to a specific Windows Update (KB) or driver release? Inspect my recent logs first."
+
+**Network security triage**
+> "Search for recent security vulnerabilities or CVEs related to `nginx` v1.24. Then audit my current config and running services to see if I'm at risk."
+
+**"Are you sure?" Technical Verification**
+> "I'm about to apply this change to the registry: [describe change]. Search for any reports of this causing system instability, boot loops, or performance regressions on Windows 11 before we proceed."
+
+**API grounding (Are you sure?)**
+> "Are you sure this is the correct way to call the `aws-sdk-rust` S3 client in v1? Search for the latest online documentation and verify the syntax before we edit the file."
+
+**Technical concept grounding (2024/2025 specs)**
+> "Explain the latest HTTP/3 prioritization specifications based on 2024 RFC drafts. Don't answer from training data—search for the authoritative source first."
+
+**Framework issue discovery**
+> "I'm seeing `Error: [message]` in my Next.js project. Search for any recent GitHub issues or tech blogs discussing this specific error since the last major release."
+
+**Release tracking**
+> "Search for the last 3 releases of the Rust compiler and summarize the key features and 'ready for prime time' stabilized features in each."
