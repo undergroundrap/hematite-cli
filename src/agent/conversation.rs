@@ -1544,6 +1544,7 @@ impl ConversationManager {
             let _ = tx
                 .send(InferenceEvent::RuntimeProfile {
                     provider_name: self.engine.provider_name().await,
+                    endpoint: crate::runtime::session_endpoint_url(&self.engine.base_url),
                     model_id: model_id.clone(),
                     context_length: *context_length,
                 })
@@ -1551,6 +1552,28 @@ impl ConversationManager {
             self.transcript.log_system(&format!(
                 "Runtime profile refresh ({}): model={} ctx={} changed={}",
                 reason, model_id, context_length, changed
+            ));
+        } else {
+            let provider_name = self.engine.provider_name().await;
+            let endpoint = crate::runtime::session_endpoint_url(&self.engine.base_url);
+            let mut summary = format!("{} profile refresh failed at {}", provider_name, endpoint);
+            if let Some((alt_name, alt_url)) =
+                crate::runtime::detect_alternative_provider(&provider_name).await
+            {
+                summary.push_str(&format!(
+                    " | reachable alternative: {} ({})",
+                    alt_name, alt_url
+                ));
+            }
+            let _ = tx
+                .send(InferenceEvent::ProviderStatus {
+                    state: ProviderRuntimeState::Degraded,
+                    summary: summary.clone(),
+                })
+                .await;
+            self.transcript.log_system(&format!(
+                "Runtime profile refresh ({}) failed: {}",
+                reason, summary
             ));
         }
         refreshed
@@ -2640,12 +2663,21 @@ impl ConversationManager {
                     }
                 }
                 None => {
-                    let _ = tx
-                        .send(InferenceEvent::Error(
-                            "Runtime refresh failed: active provider profile could not be read."
-                                .to_string(),
-                        ))
-                        .await;
+                    let provider_name = self.engine.provider_name().await;
+                    let endpoint = crate::runtime::session_endpoint_url(&self.engine.base_url);
+                    let alternative =
+                        crate::runtime::detect_alternative_provider(&provider_name).await;
+                    let mut message = format!(
+                        "Runtime refresh failed: {} could not be read at {}.",
+                        provider_name, endpoint
+                    );
+                    if let Some((alt_name, alt_url)) = alternative {
+                        message.push_str(&format!(
+                            " Reachable alternative detected: {} ({})",
+                            alt_name, alt_url
+                        ));
+                    }
+                    let _ = tx.send(InferenceEvent::Error(message)).await;
                 }
             }
             let _ = tx.send(InferenceEvent::Done).await;

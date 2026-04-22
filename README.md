@@ -1216,7 +1216,7 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 /read-only [prompt]  Sticky hard read-only mode; optional inline prompt
 /teach [prompt]   Sticky teacher mode for grounded admin walkthroughs
 /gemma-native [auto|on|off|status]  Auto/force/disable Gemma 4 native formatting
-/provider [status|lmstudio|ollama|clear|URL]  Show or save the active provider endpoint preference
+/provider [status|lmstudio|ollama|clear|URL]  Show or save the active provider endpoint preference, including reachable alternatives
 /runtime-refresh  Re-read the active provider model profile and context window now
 /new              Fresh task context; clear chat, pins, and task files
 /forget           Hard forget; purge saved memory and the Vein index too
@@ -1360,7 +1360,7 @@ This overrides the `--url` CLI flag. The value is the `/v1` base path — Hemati
 If you prefer not to edit JSON by hand, use `/provider` inside Hematite:
 
 ```text
-/provider                 Show the active provider, session endpoint, and saved preference
+/provider                 Show the active provider, session endpoint, saved preference, and any reachable alternative
 /provider lmstudio        Save LM Studio as the workspace provider
 /provider ollama          Save Ollama as the workspace provider
 /provider clear           Clear the saved override and fall back to the default path

@@ -198,6 +198,7 @@ pub struct App {
     vein_embedded_count: usize,
     vein_docs_only: bool,
     provider_name: String,
+    provider_endpoint: String,
     provider_state: ProviderRuntimeState,
     last_provider_summary: String,
     mcp_state: McpRuntimeState,
@@ -1859,6 +1860,7 @@ pub async fn run_app<B: Backend>(
         vein_embedded_count: 0,
         vein_docs_only: false,
         provider_name: "detecting".to_string(),
+        provider_endpoint: String::new(),
         provider_state: ProviderRuntimeState::Booting,
         last_provider_summary: String::new(),
         mcp_state: McpRuntimeState::Unconfigured,
@@ -2973,12 +2975,16 @@ pub async fn run_app<B: Backend>(
                                                 } else {
                                                     app.provider_name.clone()
                                                 };
-                                                let active_endpoint = config
-                                                    .api_url
-                                                    .clone()
-                                                    .unwrap_or_else(|| {
-                                                        crate::agent::config::default_api_url_for_provider(&active_provider).to_string()
-                                                    });
+                                                let active_endpoint = if app.provider_endpoint.trim().is_empty() {
+                                                    config
+                                                        .api_url
+                                                        .clone()
+                                                        .unwrap_or_else(|| {
+                                                            crate::agent::config::default_api_url_for_provider(&active_provider).to_string()
+                                                        })
+                                                } else {
+                                                    app.provider_endpoint.clone()
+                                                };
 
                                                 let arg_text = parts[1..].join(" ").trim().to_string();
                                                 if arg_text.is_empty()
@@ -2996,11 +3002,15 @@ pub async fn run_app<B: Backend>(
                                                             crate::agent::config::DEFAULT_LM_STUDIO_API_URL
                                                         )
                                                     });
+                                                    let alternative = crate::runtime::detect_alternative_provider(&active_provider).await
+                                                        .map(|(name, url)| format!("Reachable alternative: {} ({})", name, url))
+                                                        .unwrap_or_else(|| "Reachable alternative: none detected".to_string());
                                                     let summary = format!(
-                                                        "Active provider: {} | Session endpoint: {}\nSaved preference: {}\n\nUse /provider lmstudio, /provider ollama, /provider clear, or /provider <url>.\nProvider changes apply to new sessions; restart Hematite to switch this one.",
+                                                        "Active provider: {} | Session endpoint: {}\nSaved preference: {}\n{}\n\nUse /provider lmstudio, /provider ollama, /provider clear, or /provider <url>.\nProvider changes apply to new sessions; restart Hematite to switch this one.",
                                                         active_provider,
                                                         active_endpoint,
-                                                        saved
+                                                        saved,
+                                                        alternative
                                                     );
                                                     app.push_message("System", &summary);
                                                     app.history_idx = None;
@@ -3525,6 +3535,7 @@ pub async fn run_app<B: Backend>(
                     }
                     InferenceEvent::RuntimeProfile {
                         provider_name,
+                        endpoint,
                         model_id,
                         context_length,
                     } => {
@@ -3534,6 +3545,7 @@ pub async fn run_app<B: Backend>(
                             && (app.model_id != model_id || app.context_length != context_length);
                         let provider_changed = app.provider_name != provider_name;
                         app.provider_name = provider_name.clone();
+                        app.provider_endpoint = endpoint.clone();
                         app.model_id = model_id.clone();
                         app.context_length = context_length;
                         app.last_runtime_profile_time = Instant::now();
@@ -3541,12 +3553,22 @@ pub async fn run_app<B: Backend>(
                             app.provider_state = ProviderRuntimeState::Live;
                         }
                         if now_no_model && !was_no_model {
-                            let guidance = if provider_name == "Ollama" {
-                                "No coding model is currently available from Ollama. Pull a chat model in Ollama, then keep `api_url` pointed at `http://localhost:11434/v1`."
+                            let mut guidance = if provider_name == "Ollama" {
+                                "No coding model is currently available from Ollama. Pull a chat model in Ollama, then keep `api_url` pointed at `http://localhost:11434/v1`.".to_string()
                             } else {
-                                "No coding model loaded. Load a model in LM Studio (e.g. Qwen/Qwen3.5-9B Q4_K_M) and start the server on port 1234. Optionally also load nomic-embed-text-v2 for semantic search."
+                                "No coding model loaded. Load a model in LM Studio (e.g. Qwen/Qwen3.5-9B Q4_K_M) and start the server on port 1234. Optionally also load nomic-embed-text-v2 for semantic search.".to_string()
                             };
-                            app.push_message("System", guidance);
+                            if let Some((alt_name, alt_url)) =
+                                crate::runtime::detect_alternative_provider(&provider_name).await
+                            {
+                                guidance.push_str(&format!(
+                                    " Reachable alternative detected: {} ({}). Use `/provider {}` and restart Hematite if you want to switch.",
+                                    alt_name,
+                                    alt_url,
+                                    alt_name.to_ascii_lowercase().replace(' ', "")
+                                ));
+                            }
+                            app.push_message("System", &guidance);
                         } else if provider_changed && !now_no_model {
                             app.push_message(
                                 "System",

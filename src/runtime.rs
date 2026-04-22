@@ -31,6 +31,54 @@ fn provider_help_hint(base_url: &str, provider_name: &str) -> String {
     }
 }
 
+pub fn session_endpoint_url(base_url: &str) -> String {
+    format!("{}/v1", base_url.trim_end_matches('/'))
+}
+
+pub async fn detect_alternative_provider(active_provider: &str) -> Option<(String, String)> {
+    match active_provider {
+        "LM Studio" => {
+            let ollama = crate::agent::ollama::OllamaHarness::new("http://localhost:11434");
+            if ollama.is_reachable().await {
+                Some((
+                    "Ollama".to_string(),
+                    crate::agent::config::DEFAULT_OLLAMA_API_URL.to_string(),
+                ))
+            } else {
+                None
+            }
+        }
+        "Ollama" => {
+            let lms = crate::agent::lms::LmsHarness::new();
+            if lms.is_server_responding("http://localhost:1234").await {
+                Some((
+                    "LM Studio".to_string(),
+                    crate::agent::config::DEFAULT_LM_STUDIO_API_URL.to_string(),
+                ))
+            } else {
+                None
+            }
+        }
+        _ => {
+            let lms = crate::agent::lms::LmsHarness::new();
+            if lms.is_server_responding("http://localhost:1234").await {
+                return Some((
+                    "LM Studio".to_string(),
+                    crate::agent::config::DEFAULT_LM_STUDIO_API_URL.to_string(),
+                ));
+            }
+            let ollama = crate::agent::ollama::OllamaHarness::new("http://localhost:11434");
+            if ollama.is_reachable().await {
+                return Some((
+                    "Ollama".to_string(),
+                    crate::agent::config::DEFAULT_OLLAMA_API_URL.to_string(),
+                ));
+            }
+            None
+        }
+    }
+}
+
 pub struct RuntimeServices {
     pub engine: Arc<InferenceEngine>,
     pub gpu_state: Arc<GpuState>,
@@ -233,6 +281,7 @@ pub fn spawn_runtime_profile_sync(
             if agent_tx
                 .send(InferenceEvent::RuntimeProfile {
                     provider_name,
+                    endpoint: session_endpoint_url(&engine.base_url),
                     model_id,
                     context_length,
                 })
@@ -297,6 +346,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     let _ = agent_tx
         .send(InferenceEvent::RuntimeProfile {
             provider_name: manager.engine.provider_name().await,
+            endpoint: session_endpoint_url(&manager.engine.base_url),
             model_id: manager.engine.current_model(),
             context_length: manager.engine.current_context_length(),
         })
@@ -355,7 +405,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         manager.engine.current_context_length(),
         gpu_name,
         vram,
-        format!("{}/v1", manager.engine.base_url),
+        session_endpoint_url(&manager.engine.base_url),
         workspace_root.display(),
         workspace_mode,
         embed_status,

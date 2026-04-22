@@ -90,7 +90,7 @@ pwsh ./clean.ps1
 - `/lsp`: show LSP server status and active language server diagnostics
 - `/reroll`: hatch a new companion soul mid-session (soul/personality reroll)
 - `/rules [view|edit]`: view status, inspect content, or edit project guidelines (.hematite/rules.md)
-- `/provider [status|lmstudio|ollama|clear|URL]`: show the active provider/session endpoint or save a workspace provider override to `.hematite/settings.json`
+- `/provider [status|lmstudio|ollama|clear|URL]`: show the active provider/session endpoint, reachable alternatives, or save a workspace provider override to `.hematite/settings.json`
 - `/runtime-refresh`: force a resync of the active provider model profile and context window size
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/vein-reset`: wipe the Vein index and rebuild from scratch on the next turn
