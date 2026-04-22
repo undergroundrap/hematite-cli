@@ -94,6 +94,8 @@ pwsh ./clean.ps1
 - `/runtime`: show the configured provider, live session provider/endpoint, coding model, embedding state, reachable alternatives, and shortest fix path
 - `/runtime fix`: run the shortest safe runtime recovery step without silently changing provider settings
 - `/runtime-refresh`: force a resync of the active provider model profile and context window size
+- `/model [status|list [available|loaded]|load <id> [--ctx N]|unload [id|current|all]|prefer <id>|clear]`: inspect, list, load, unload, or save the preferred coding model from inside Hematite (`--ctx` uses LM Studio context length or Ollama `num_ctx`)
+- `/embed [status|load <id>|unload [id|current]|prefer <id>|clear]`: inspect, load, unload, or save the preferred embedding model for semantic search
 - Bottom status badges now include `RT:*` for the primary runtime issue: `MOD` (no model), `NET` (provider/connectivity), `EMP` (empty replies), `CTX` (context ceiling), or `WAIT` (boot/recovery)
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/vein-reset`: wipe the Vein index and rebuild from scratch on the next turn
@@ -596,14 +598,16 @@ as a project workspace.
 **Two retrieval modes, hybrid-merged:**
 
 - **BM25** (always available) — SQLite FTS5 full-text search with Porter stemming. Fast, zero GPU
-  cost, works even when LM Studio has no embedding model loaded.
-- **Semantic** (optional, higher quality) — Calls `/v1/embeddings` on LM Studio to embed each chunk
-  using `nomic-embed-text-v2` Q8_0. Understands synonyms and concept-level matches; finds "what
-  renders on startup" even when no file uses the word "banner". Vectors are stored in SQLite so they
-  survive restarts without re-embedding.
+  cost, works even when no embedding model is loaded.
+- **Semantic** (optional, higher quality) — Calls the active provider's embedding endpoint
+  (`/v1/embeddings` on LM Studio, `/api/embed` on Ollama) to embed each chunk using the preferred
+  embedding model. Understands synonyms and concept-level matches; finds "what renders on startup"
+  even when no file uses the word "banner". Vectors are stored in SQLite so they survive restarts
+  without re-embedding.
 
-**To enable semantic search:** load `text-embedding-nomic-embed-text-v2` in LM Studio alongside
-your main coding model. On an RTX 4070 this costs ~512 MB VRAM — both models fit comfortably.
+**To enable semantic search:** load or prefer an embedding model alongside your main coding model.
+LM Studio is still the recommended default; on Ollama you can use an embedding model such as
+`embeddinggemma`, `qwen3-embedding`, or `all-minilm` and save it with `/embed prefer <id>`.
 Status bar shows `VN:SEM` (green) when active, `VN:FTS` (yellow) for BM25-only project/docs
 indexing, and `VN:DOC` when only docs/session memory are active outside a project.
 
@@ -673,7 +677,7 @@ fall back to a sliding window. This ensures each retrieved chunk is a coherent, 
 - Tool output overflow: when a tool result exceeds 8 KB, `cap_output_for_tool` writes the full text to `.hematite/scratch/<tool>_<timestamp>.txt` inside the active runtime-state directory and returns a truncation notice with the scratch path; the model recovers the full content with `read_file` without repeating the original tool call; large `read_file` results under compact-context mode follow the same scratch path
 - `read_file` satisfies the line-inspection grounding check so the model can go `read_file → edit_file` without a separate `inspect_lines` call
 - Context compaction warnings fire as visible System messages at 70% and 90% context fill; the warning resets below 60% so it only fires once per pressure band
-- Embed model load/unload is detected mid-session: when LM Studio swaps the embedding model (or unloads it), Hematite fires a System message in the TUI immediately so the operator knows semantic search state changed
+- Embed model load/unload is detected mid-session: when the active provider swaps the embedding model (or unloads it), Hematite fires a System message in the TUI immediately so the operator knows semantic search state changed
 - Startup CWD guard: if Hematite is launched from an inaccessible system folder (e.g. via a Windows shortcut pointing to a system path), it silently relocates to the user's home directory before any workspace detection runs, preventing a hung startup
 
 ## Commit Style

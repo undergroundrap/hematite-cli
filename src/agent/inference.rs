@@ -330,6 +330,8 @@ impl InferenceEngine {
                 client: client.clone(),
                 base_url: base_url.clone(),
                 model: String::new(),
+                context_length: 8192,
+                embed_model: std::sync::Arc::new(std::sync::RwLock::new(None)),
                 ollama: ollama_harness,
             }) as Box<dyn crate::agent::provider::ModelProvider>
         } else {
@@ -390,6 +392,39 @@ impl InferenceEngine {
     pub async fn load_model(&self, model_id: &str) -> Result<(), String> {
         let p = self.provider.read().await;
         p.load_model(model_id).await
+    }
+
+    pub async fn load_model_with_context(
+        &self,
+        model_id: &str,
+        context_length: Option<usize>,
+    ) -> Result<(), String> {
+        let p = self.provider.read().await;
+        p.load_model_with_context(model_id, context_length).await
+    }
+
+    pub async fn load_embedding_model(&self, model_id: &str) -> Result<(), String> {
+        let p = self.provider.read().await;
+        p.load_embedding_model(model_id).await
+    }
+
+    pub async fn list_provider_models(
+        &self,
+        kind: crate::agent::provider::ProviderModelKind,
+        loaded_only: bool,
+    ) -> Result<Vec<String>, String> {
+        let p = self.provider.read().await;
+        p.list_models(kind, loaded_only).await
+    }
+
+    pub async fn unload_model(&self, model_id: Option<&str>, all: bool) -> Result<String, String> {
+        let p = self.provider.read().await;
+        p.unload_model(model_id, all).await
+    }
+
+    pub async fn unload_embedding_model(&self, model_id: Option<&str>) -> Result<String, String> {
+        let p = self.provider.read().await;
+        p.unload_embedding_model(model_id).await
     }
 
     pub async fn prewarm(&self) -> Result<(), String> {

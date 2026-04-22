@@ -738,6 +738,60 @@ fn is_explicit_web_search_request(input: &str) -> bool {
     .any(|needle| lower.contains(needle))
 }
 
+fn extract_explicit_web_search_query(input: &str) -> Option<String> {
+    let lower = input.to_ascii_lowercase();
+    let mut query_tail = None;
+    for needle in [
+        "search for ",
+        "google ",
+        "look up ",
+        "lookup ",
+        "search the web for ",
+        "search the web ",
+        "web search for ",
+        "web search ",
+    ] {
+        if let Some(idx) = lower.find(needle) {
+            let rest = input[idx + needle.len()..].trim();
+            if !rest.is_empty() {
+                query_tail = Some(rest);
+                break;
+            }
+        }
+    }
+
+    let mut query = query_tail?;
+    let lower_query = query.to_ascii_lowercase();
+    let mut cut = query.len();
+    for marker in [
+        " and then ",
+        " then ",
+        " and make ",
+        " then make ",
+        " and create ",
+        " then create ",
+        " and build ",
+        " then build ",
+        " and scaffold ",
+        " then scaffold ",
+        " and turn ",
+        " then turn ",
+    ] {
+        if let Some(idx) = lower_query.find(marker) {
+            cut = cut.min(idx);
+        }
+    }
+    query = query[..cut].trim();
+    let query = query
+        .trim_matches(|c: char| matches!(c, '"' | '\'' | '`' | ',' | '.' | ':' | ';'))
+        .trim();
+    if query.is_empty() {
+        None
+    } else {
+        Some(query.to_string())
+    }
+}
+
 fn build_research_provider_fallback(results: &str) -> String {
     format!(
         "Local web search succeeded, but the model runtime degraded before it could synthesize a final answer. \
@@ -1155,6 +1209,14 @@ fn build_sovereign_scaffold_handoff(
         "Finish the implementation inside this sovereign project root only; do not reason from the old workspace or unrelated ./src context.".to_string(),
         "Keep the file set coherent instead of thrashing cosmetics; once the project is runnable or internally consistent, stop and summarize like a human engineer.".to_string(),
     ];
+    if let Some(query) = extract_explicit_web_search_query(user_input) {
+        steps.insert(
+            1,
+            format!(
+                "Use `research_web` first to gather current context about `{query}` before drafting content or copy for this new project root."
+            ),
+        );
+    }
     let verification = if looks_like_static_site_request(user_input) {
         steps.insert(
             1,
@@ -1213,6 +1275,16 @@ fn is_current_plan_irrelevant_tool(name: &str) -> bool {
 fn is_non_mutating_plan_step_tool(name: &str) -> bool {
     let metadata = crate::agent::inference::tool_metadata_for_name(name);
     metadata.plan_scope && !metadata.mutates_workspace
+}
+
+fn plan_handoff_mentions_tool(plan: &crate::tools::plan::PlanHandoff, tool_name: &str) -> bool {
+    let needle = tool_name.to_ascii_lowercase();
+    std::iter::once(plan.goal.as_str())
+        .chain(plan.ordered_steps.iter().map(String::as_str))
+        .chain(std::iter::once(plan.verification.as_str()))
+        .chain(plan.risks.iter().map(String::as_str))
+        .chain(plan.open_questions.iter().map(String::as_str))
+        .any(|text| text.to_ascii_lowercase().contains(&needle))
 }
 
 fn parse_inline_workflow_prompt(user_input: &str) -> Option<(WorkflowMode, &str)> {
@@ -1605,6 +1677,284 @@ impl ConversationManager {
         refreshed
     }
 
+    async fn emit_embed_profile(&self, tx: &mpsc::Sender<InferenceEvent>) {
+        let embed_model = self.engine.get_embedding_model().await;
+        self.vein.set_embed_model(embed_model.clone());
+        let _ = tx
+            .send(InferenceEvent::EmbedProfile {
+                model_id: embed_model,
+            })
+            .await;
+    }
+
+    async fn runtime_model_status_report(
+        &self,
+        config: &crate::agent::config::HematiteConfig,
+    ) -> String {
+        let provider = self.engine.provider_name().await;
+        let coding_model = self.engine.current_model();
+        let coding_pref = crate::agent::config::preferred_coding_model(config)
+            .unwrap_or_else(|| "none saved".to_string());
+        let embed_loaded = self
+            .engine
+            .get_embedding_model()
+            .await
+            .unwrap_or_else(|| "not loaded".to_string());
+        let embed_pref = config
+            .embed_model
+            .clone()
+            .unwrap_or_else(|| "none saved".to_string());
+        format!(
+            "Provider: {}\nCoding model: {} | CTX {}\nPreferred coding model: {}\nEmbedding model: {}\nPreferred embed model: {}\nProvider controls: {}\n\nUse `{}`, `/model prefer <id>`, or `{}`.",
+            provider,
+            coding_model,
+            self.engine.current_context_length(),
+            coding_pref,
+            embed_loaded,
+            embed_pref,
+            Self::provider_model_controls_summary(&provider),
+            Self::model_command_usage(),
+            Self::embed_command_usage()
+        )
+    }
+
+    fn model_command_usage() -> &'static str {
+        "/model [status|list [available|loaded]|load <id> [--ctx N]|unload [id|current|all]|prefer <id>|clear]"
+    }
+
+    fn embed_command_usage() -> &'static str {
+        "/embed [status|load <id>|unload [id|current]|prefer <id>|clear]"
+    }
+
+    fn provider_model_controls_summary(provider: &str) -> &'static str {
+        if provider == "Ollama" {
+            "Ollama supports coding and embed model load/list/unload from Hematite, and `--ctx` maps to Ollama `num_ctx` for coding models."
+        } else {
+            "LM Studio supports coding and embed model load/unload from Hematite, and `--ctx` maps to LM Studio context length."
+        }
+    }
+
+    async fn format_provider_model_inventory(
+        &self,
+        provider: &str,
+        kind: crate::agent::provider::ProviderModelKind,
+        loaded_only: bool,
+    ) -> Result<String, String> {
+        let models = self.engine.list_provider_models(kind, loaded_only).await?;
+        let scope_label = if loaded_only { "loaded" } else { "available" };
+        let role_label = match kind {
+            crate::agent::provider::ProviderModelKind::Any => "models",
+            crate::agent::provider::ProviderModelKind::Coding => "coding models",
+            crate::agent::provider::ProviderModelKind::Embed => "embedding models",
+        };
+        if models.is_empty() {
+            return Ok(format!(
+                "No {} {} detected on {}.",
+                scope_label, role_label, provider
+            ));
+        }
+        let lines = models
+            .iter()
+            .enumerate()
+            .map(|(idx, model)| format!("{}. {}", idx + 1, model))
+            .collect::<Vec<_>>()
+            .join("\n");
+        Ok(format!(
+            "{} {} on {}:\n{}",
+            if loaded_only { "Loaded" } else { "Available" },
+            role_label,
+            provider,
+            lines
+        ))
+    }
+
+    fn parse_model_load_args(arg_text: &str) -> Result<(String, Option<usize>), String> {
+        let mut model_id: Option<String> = None;
+        let mut context_length: Option<usize> = None;
+        let mut tokens = arg_text.split_whitespace().peekable();
+
+        while let Some(token) = tokens.next() {
+            match token {
+                "--ctx" | "--context" | "--context-length" => {
+                    let Some(value) = tokens.next() else {
+                        return Err("Missing value for --ctx.".to_string());
+                    };
+                    let parsed = value
+                        .parse::<usize>()
+                        .map_err(|_| format!("Invalid context length `{}`.", value))?;
+                    context_length = Some(parsed);
+                }
+                _ if token.starts_with("--ctx=") => {
+                    let value = token.trim_start_matches("--ctx=");
+                    let parsed = value
+                        .parse::<usize>()
+                        .map_err(|_| format!("Invalid context length `{}`.", value))?;
+                    context_length = Some(parsed);
+                }
+                _ if token.starts_with("--context-length=") => {
+                    let value = token.trim_start_matches("--context-length=");
+                    let parsed = value
+                        .parse::<usize>()
+                        .map_err(|_| format!("Invalid context length `{}`.", value))?;
+                    context_length = Some(parsed);
+                }
+                _ if token.starts_with("--") => {
+                    return Err(format!("Unknown model-load flag `{}`.", token));
+                }
+                _ => {
+                    if model_id.is_some() {
+                        return Err(
+                            "Model ID must be one token; if it contains spaces, use the exact local model key without spaces."
+                                .to_string(),
+                        );
+                    }
+                    model_id = Some(token.to_string());
+                }
+            }
+        }
+
+        let model_id = model_id.ok_or_else(|| "Missing model ID.".to_string())?;
+        Ok((model_id, context_length))
+    }
+
+    fn parse_unload_target(arg_text: &str) -> Result<(Option<String>, bool), String> {
+        let target = arg_text.trim();
+        if target.is_empty() || target.eq_ignore_ascii_case("current") {
+            Ok((None, false))
+        } else if target.eq_ignore_ascii_case("all") {
+            Ok((None, true))
+        } else if target.contains(char::is_whitespace) {
+            Err("Model ID must be one token; if it contains spaces, use the exact local model key without spaces.".to_string())
+        } else {
+            Ok((Some(target.to_string()), false))
+        }
+    }
+
+    async fn load_runtime_model_now(
+        &mut self,
+        tx: &mpsc::Sender<InferenceEvent>,
+        model_id: &str,
+        role_label: &str,
+        context_length: Option<usize>,
+    ) -> Result<String, String> {
+        let provider = self.engine.provider_name().await;
+        if role_label == "embed" {
+            if context_length.is_some() {
+                return Err(
+                    "Embedding models do not use `/model ... --ctx` semantics here.".to_string(),
+                );
+            }
+            self.engine.load_embedding_model(model_id).await?;
+        } else {
+            self.engine
+                .load_model_with_context(model_id, context_length)
+                .await?;
+        }
+
+        let refreshed = if provider == "Ollama" {
+            let ctx =
+                context_length.unwrap_or_else(|| self.engine.current_context_length().max(8192));
+            if role_label == "embed" {
+                None
+            } else {
+                self.engine.set_runtime_profile(model_id, ctx).await;
+                let _ = tx
+                    .send(InferenceEvent::RuntimeProfile {
+                        provider_name: provider.clone(),
+                        endpoint: crate::runtime::session_endpoint_url(&self.engine.base_url),
+                        model_id: model_id.to_string(),
+                        context_length: ctx,
+                    })
+                    .await;
+                Some((model_id.to_string(), ctx, true))
+            }
+        } else {
+            self.refresh_runtime_profile_and_report(tx, &format!("{}_load", role_label))
+                .await
+        };
+        self.emit_embed_profile(tx).await;
+
+        let loaded_embed = self.engine.get_embedding_model().await;
+        let status = match role_label {
+            "embed" => format!(
+                "Requested embed model load for `{}`. Current embedding model: {}.",
+                model_id,
+                loaded_embed.unwrap_or_else(|| "not loaded".to_string())
+            ),
+            _ => match refreshed {
+                Some((current, ctx, _)) => format!(
+                    "Requested coding model load for `{}`. Current coding model: {} | CTX {}{}.",
+                    model_id,
+                    current,
+                    ctx,
+                    context_length
+                        .map(|requested| format!(" | requested ctx {}", requested))
+                        .unwrap_or_default()
+                ),
+                None => format!(
+                    "Requested coding model load for `{}`. Hematite could not refresh the runtime profile afterward; run `/runtime-refresh` once LM Studio settles.",
+                    model_id
+                ),
+            },
+        };
+        Ok(status)
+    }
+
+    async fn unload_runtime_model_now(
+        &mut self,
+        tx: &mpsc::Sender<InferenceEvent>,
+        model_id: Option<&str>,
+        role_label: &str,
+        unload_all: bool,
+    ) -> Result<String, String> {
+        let resolved_target = if unload_all {
+            None
+        } else {
+            match role_label {
+                "embed" => match model_id {
+                    Some("current") | None => self.engine.get_embedding_model().await,
+                    Some(explicit) => Some(explicit.to_string()),
+                },
+                _ => match model_id {
+                    Some("current") | None => {
+                        let current = self.engine.current_model();
+                        let normalized = current.trim();
+                        if normalized.is_empty()
+                            || normalized.eq_ignore_ascii_case("no model loaded")
+                        {
+                            None
+                        } else {
+                            Some(normalized.to_string())
+                        }
+                    }
+                    Some(explicit) => Some(explicit.to_string()),
+                },
+            }
+        };
+
+        if !unload_all && resolved_target.is_none() {
+            return Err(match role_label {
+                "embed" => "No embedding model is currently loaded.".to_string(),
+                _ => "No coding model is currently loaded.".to_string(),
+            });
+        }
+
+        let outcome = if role_label == "embed" {
+            self.engine
+                .unload_embedding_model(resolved_target.as_deref())
+                .await?
+        } else {
+            self.engine
+                .unload_model(resolved_target.as_deref(), unload_all)
+                .await?
+        };
+        let _ = self
+            .refresh_runtime_profile_and_report(tx, &format!("{}_unload", role_label))
+            .await;
+        self.emit_embed_profile(tx).await;
+        Ok(outcome)
+    }
+
     pub fn new(
         engine: Arc<InferenceEngine>,
         professional: bool,
@@ -1989,9 +2339,16 @@ impl ConversationManager {
         {
             if is_current_plan_irrelevant_tool(name) {
                 let prompt = self.latest_user_prompt().unwrap_or("");
+                let plan_override = self
+                    .session_memory
+                    .current_plan
+                    .as_ref()
+                    .map(|plan| plan_handoff_mentions_tool(plan, name))
+                    .unwrap_or(false);
                 let explicit_override = is_sovereign_path_request(prompt)
                     || prompt.contains(name)
-                    || prompt.contains("/dev/null");
+                    || prompt.contains("/dev/null")
+                    || plan_override;
                 if !explicit_override {
                     return Err(format!(
                         "Action blocked: `{}` is not part of current-plan execution. Stay on the saved target files, use built-in workspace file tools only, and either make a concrete edit or surface one specific blocker.",
@@ -2616,6 +2973,7 @@ impl ConversationManager {
                 }
             }
         }
+        self.emit_embed_profile(&tx).await;
         self.emit_compaction_pressure(&tx).await;
         let current_model = self.engine.current_model();
         self.engine.set_gemma_native_formatting(
@@ -2642,6 +3000,119 @@ impl ConversationManager {
             .think_model
             .clone()
             .or_else(|| self.think_model.clone());
+
+        let trimmed_input = user_input.trim();
+
+        if trimmed_input == "/model" || trimmed_input.starts_with("/model ") {
+            let arg_text = trimmed_input.strip_prefix("/model").unwrap_or("").trim();
+            let response = if arg_text.is_empty() || arg_text.eq_ignore_ascii_case("status") {
+                Ok(self.runtime_model_status_report(&config).await)
+            } else if let Some(list_args) = arg_text.strip_prefix("list").map(str::trim) {
+                let loaded_only = if list_args.is_empty()
+                    || list_args.eq_ignore_ascii_case("available")
+                {
+                    false
+                } else if list_args.eq_ignore_ascii_case("loaded") {
+                    true
+                } else {
+                    for chunk in chunk_text(&format!("Usage: {}", Self::model_command_usage()), 8) {
+                        let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                    }
+                    let _ = tx.send(InferenceEvent::Done).await;
+                    return Ok(());
+                };
+                let provider = self.engine.provider_name().await;
+                self.format_provider_model_inventory(
+                    &provider,
+                    crate::agent::provider::ProviderModelKind::Coding,
+                    loaded_only,
+                )
+                .await
+            } else if let Some(load_args) = arg_text.strip_prefix("load ").map(str::trim) {
+                if load_args.is_empty() {
+                    Err(format!("Usage: {}", Self::model_command_usage()))
+                } else {
+                    let (model_id, context_length) = Self::parse_model_load_args(load_args)?;
+                    self.load_runtime_model_now(&tx, &model_id, "coding", context_length)
+                        .await
+                }
+            } else if let Some(unload_args) = arg_text.strip_prefix("unload").map(str::trim) {
+                let (target, unload_all) = Self::parse_unload_target(unload_args)?;
+                self.unload_runtime_model_now(&tx, target.as_deref(), "coding", unload_all)
+                    .await
+            } else if let Some(model_id) = arg_text.strip_prefix("prefer ").map(str::trim) {
+                if model_id.is_empty() {
+                    Err(format!("Usage: {}", Self::model_command_usage()))
+                } else {
+                    crate::agent::config::set_preferred_coding_model(Some(model_id)).map(|_| {
+                        format!(
+                            "Saved preferred coding model `{}` in `.hematite/settings.json`. Use `/model load {}` now or restart Hematite to let startup policy load it automatically.",
+                            model_id, model_id
+                        )
+                    })
+                }
+            } else if matches!(arg_text, "clear" | "clear-preference") {
+                crate::agent::config::set_preferred_coding_model(None)
+                    .map(|_| "Cleared the saved preferred coding model.".to_string())
+            } else {
+                Err(format!("Usage: {}", Self::model_command_usage()))
+            };
+
+            for chunk in chunk_text(&response.unwrap_or_else(|e| e), 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        if trimmed_input == "/embed" || trimmed_input.starts_with("/embed ") {
+            let arg_text = trimmed_input.strip_prefix("/embed").unwrap_or("").trim();
+            let response = if arg_text.is_empty() || arg_text.eq_ignore_ascii_case("status") {
+                Ok(self.runtime_model_status_report(&config).await)
+            } else if let Some(load_args) = arg_text.strip_prefix("load ").map(str::trim) {
+                if load_args.is_empty() {
+                    Err(format!("Usage: {}", Self::embed_command_usage()))
+                } else {
+                    let (model_id, context_length) = Self::parse_model_load_args(load_args)?;
+                    if context_length.is_some() {
+                        Err("`/embed load` does not accept `--ctx`. Embedding models do not use a chat context window here.".to_string())
+                    } else {
+                        self.load_runtime_model_now(&tx, &model_id, "embed", None)
+                            .await
+                    }
+                }
+            } else if let Some(unload_args) = arg_text.strip_prefix("unload").map(str::trim) {
+                let (target, unload_all) = Self::parse_unload_target(unload_args)?;
+                if unload_all {
+                    Err("`/embed unload` supports the current embed model or an explicit embed model ID, not `all`.".to_string())
+                } else {
+                    self.unload_runtime_model_now(&tx, target.as_deref(), "embed", false)
+                        .await
+                }
+            } else if let Some(model_id) = arg_text.strip_prefix("prefer ").map(str::trim) {
+                if model_id.is_empty() {
+                    Err(format!("Usage: {}", Self::embed_command_usage()))
+                } else {
+                    crate::agent::config::set_preferred_embed_model(Some(model_id)).map(|_| {
+                        format!(
+                            "Saved preferred embed model `{}` in `.hematite/settings.json`. Use `/embed load {}` now or restart Hematite to let startup policy load it automatically.",
+                            model_id, model_id
+                        )
+                    })
+                }
+            } else if matches!(arg_text, "clear" | "clear-preference") {
+                crate::agent::config::set_preferred_embed_model(None)
+                    .map(|_| "Cleared the saved preferred embed model.".to_string())
+            } else {
+                Err(format!("Usage: {}", Self::embed_command_usage()))
+            };
+
+            for chunk in chunk_text(&response.unwrap_or_else(|e| e), 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
 
         // ── /lsp: start language servers manually if needed ──────────────────
         if user_input.trim() == "/lsp" {
@@ -3374,6 +3845,7 @@ impl ConversationManager {
                  Do not restate the plan, do not provide preliminary contracts, and do not stop at analysis.\n\
                  Use the saved plan as the brief, gather only the minimum built-in file evidence you need, then start editing the target files.\n\
                  Every file inspection or edit call must be path-scoped to one of the saved target files.\n\
+                 If the saved plan explicitly calls for `research_web` or `fetch_docs`, do that research first, then return to the target files.\n\
                  If a built-in workspace read tool gives you enough context, your next step should be mutation or a concrete blocking question, not another summary.\n",
             );
             if let Some(plan) = self.session_memory.current_plan.as_ref() {
@@ -3625,14 +4097,8 @@ impl ConversationManager {
         // has grounded web data before it even starts generating.
         if loop_intervention.is_none() && research_mode {
             // Extract a clean search query from the user input.
-            let search_query = effective_user_input
-                .to_lowercase()
-                .replace("google ", "")
-                .replace("search for ", "")
-                .replace("look up ", "")
-                .replace("lookup ", "")
-                .trim()
-                .to_string();
+            let search_query = extract_explicit_web_search_query(&effective_user_input)
+                .unwrap_or_else(|| effective_user_input.trim().to_string());
 
             let _ = tx
                 .send(InferenceEvent::Thought(
@@ -8241,6 +8707,16 @@ mod tests {
     }
 
     #[test]
+    fn explicit_search_query_extracts_leading_search_clause_from_mixed_request() {
+        assert_eq!(
+            extract_explicit_web_search_query(
+                "google uefn toolbelt then make a folder on my desktop called oupa with a single file html website talking about it"
+            ),
+            Some("uefn toolbelt".to_string())
+        );
+    }
+
+    #[test]
     fn research_provider_fallback_mentions_direct_search_results() {
         let fallback = build_research_provider_fallback(
             "[Source: SearXNG]\n\n### 1. [Ocean Bennett](https://example.com)\nBio",
@@ -8846,6 +9322,40 @@ mod tests {
     }
 
     #[test]
+    fn sovereign_scaffold_handoff_carries_explicit_research_step() {
+        let mut targets = std::collections::BTreeSet::new();
+        targets.insert("index.html".to_string());
+        let plan = build_sovereign_scaffold_handoff(
+            "google uefn toolbelt then make a folder on my desktop called oupa with a single file html website talking about it",
+            &targets,
+        );
+
+        assert!(plan
+            .ordered_steps
+            .iter()
+            .any(|step| step.contains("research_web")));
+        assert!(plan
+            .ordered_steps
+            .iter()
+            .any(|step| step.contains("uefn toolbelt")));
+    }
+
+    #[test]
+    fn plan_handoff_mentions_tool_detects_research_steps() {
+        let plan = crate::tools::plan::PlanHandoff {
+            goal: "Build the site".into(),
+            target_files: vec!["index.html".into()],
+            ordered_steps: vec!["Use `research_web` first to gather context.".into()],
+            verification: "verify_build(action: \"build\")".into(),
+            risks: vec![],
+            open_questions: vec![],
+        };
+
+        assert!(plan_handoff_mentions_tool(&plan, "research_web"));
+        assert!(!plan_handoff_mentions_tool(&plan, "fetch_docs"));
+    }
+
+    #[test]
     fn parse_task_checklist_progress_counts_checked_items() {
         let progress = parse_task_checklist_progress(
             r#"
@@ -9320,5 +9830,29 @@ error[E0308]: mismatched types
         assert!(topics.contains(&"resource_load"));
         assert!(topics.contains(&"storage"));
         assert!(topics.len() >= 3);
+    }
+
+    #[test]
+    fn parse_unload_target_supports_current_and_all() {
+        assert_eq!(
+            ConversationManager::parse_unload_target("current").unwrap(),
+            (None, false)
+        );
+        assert_eq!(
+            ConversationManager::parse_unload_target("all").unwrap(),
+            (None, true)
+        );
+        assert_eq!(
+            ConversationManager::parse_unload_target("qwen/qwen3.5-9b").unwrap(),
+            (Some("qwen/qwen3.5-9b".to_string()), false)
+        );
+    }
+
+    #[test]
+    fn provider_model_controls_summary_mentions_ollama_limits() {
+        let ollama = ConversationManager::provider_model_controls_summary("Ollama");
+        assert!(ollama.contains("Ollama supports coding and embed model load/list/unload"));
+        let lms = ConversationManager::provider_model_controls_summary("LM Studio");
+        assert!(lms.contains("LM Studio supports coding and embed model load/unload"));
     }
 }

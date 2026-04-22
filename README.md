@@ -555,7 +555,7 @@ Load both in LM Studio at the same time. The embedding model stays resident but 
    LM Studio uses `http://localhost:1234/v1` by default.
    Ollama uses `http://localhost:11434/v1` when you set `api_url`.
 3. Load `Qwen/Qwen3.5-9B` Q4_K_M (or any compatible model).
-4. Optionally load `nomic-embed-text-v2` alongside it for semantic file search.
+4. Optionally load an embedding model alongside it for semantic file search.
 5. Launch `hematite` inside your project folder.
 
 If the configured provider is offline or has no coding model loaded, Hematite now tells you the shortest next step at startup and reports any reachable local alternative runtime it detects.
@@ -567,7 +567,7 @@ If the configured provider is offline or has no coding model loaded, Hematite no
    LM Studio: start the local server on `http://localhost:1234/v1`.
    Ollama: run the local server on `http://localhost:11434/v1` and set `api_url` in `.hematite/settings.json`.
 3. Load your coding model (tested: `Qwen/Qwen3.5-9B` Q4_K_M).
-4. Also load `nomic-embed-text-v2` if your provider exposes `/v1/embeddings` — this enables The Vein's semantic search and costs only ~512 MB VRAM. On a 12 GB card both models fit together.
+4. Also load an embedding model if you want The Vein's semantic search. LM Studio is the recommended default; Ollama works too when you save a preferred embed model with `/embed prefer <id>`.
 5. Download a Hematite release bundle for your platform.
 6. On Windows, run `Setup.exe` or use the portable zip. On macOS/Linux, extract the archive and run `./install.sh`.
 7. Launch `hematite` from inside your project folder.
@@ -972,12 +972,12 @@ The Vein is Hematite's retrieval layer. At the start of every turn it re-indexes
 
 **Two retrieval modes run together:**
 
-- **BM25 keyword search** (always on) — SQLite FTS5 with Porter stemming. Zero extra GPU cost, works with any LM Studio setup.
-- **Semantic vector search** (optional, better) — Calls LM Studio's `/v1/embeddings` endpoint using `nomic-embed-text-v2`. Understands concept-level queries: "what renders the startup screen" finds the right function even if no file uses the word "banner". Vectors are stored in SQLite and reused across sessions so files are only re-embedded when they actually change.
+- **BM25 keyword search** (always on) — SQLite FTS5 with Porter stemming. Zero extra GPU cost, works with any local runtime setup.
+- **Semantic vector search** (optional, better) — Calls the active provider's embedding endpoint (`/v1/embeddings` on LM Studio, `/api/embed` on Ollama) using your preferred embedding model. Understands concept-level queries: "what renders the startup screen" finds the right function even if no file uses the word "banner". Vectors are stored in SQLite and reused across sessions so files are only re-embedded when they actually change.
 
-**Why run two models?** The coding model handles language, reasoning, and tool calls. The embedding model does one specific job: convert code chunks and your queries into vectors so Hematite can find the most relevant files by meaning rather than just keywords. It stays loaded but idle during inference — it only activates when indexing changed files or searching. On an RTX 4070 (12 GB VRAM), Qwen/Qwen3.5-9B Q4_K_M uses ~6 GB and nomic-embed-text-v2 Q8_0 uses ~512 MB, leaving comfortable headroom. You do not need to swap models or manage them manually — just load both in LM Studio and leave them running.
+**Why run two models?** The coding model handles language, reasoning, and tool calls. The embedding model does one specific job: convert code chunks and your queries into vectors so Hematite can find the most relevant files by meaning rather than just keywords. It stays loaded but idle during inference — it only activates when indexing changed files or searching. On an RTX 4070 (12 GB VRAM), Qwen/Qwen3.5-9B Q4_K_M plus an embedding model still leaves comfortable headroom. LM Studio is the recommended default, but Ollama can now drive the same semantic-search lane when you configure an embed model.
 
-**To enable semantic search:** load `nomic-embed-text-v2` Q8_0 in LM Studio alongside your main coding model. The status bar shows `VN:SEM` (green) when semantic search is active, `VN:FTS` (yellow) when only BM25 is running, `VN:DOC` when Hematite is outside a real project but docs/session memory are still searchable, and `VN:--` (grey) before the first index pass or after a reset.
+**To enable semantic search:** load or prefer an embedding model alongside your main coding model. On LM Studio that usually means `nomic-embed-text-v2`; on Ollama you can use an embedding model such as `embeddinggemma`, `qwen3-embedding`, or `all-minilm` and save it with `/embed prefer <id>`. The status bar shows `VN:SEM` (green) when semantic search is active, `VN:FTS` (yellow) when only BM25 is running, `VN:DOC` when Hematite is outside a real project but docs/session memory are still searchable, and `VN:--` (grey) before the first index pass or after a reset.
 
 **Automatic backfill:** if you load the embedding model after Hematite has already indexed your project, it detects the gap and re-embeds the missing chunks gradually across the next few turns — no `/vein-reset` or file-touch needed. The `VN:FTS` badge flips to `VN:SEM` once the backfill completes.
 
@@ -1222,6 +1222,8 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 /runtime          Show the live runtime/provider/model/embed status and shortest fix path
 /runtime fix      Run the shortest safe runtime recovery step now
 /runtime-refresh  Re-read the active provider model profile and context window now
+/model [status|list [available|loaded]|load <id> [--ctx N]|unload [id|current|all]|prefer <id>|clear]  Inspect, list, load, unload, or save the preferred coding model (`--ctx` uses LM Studio context length or Ollama `num_ctx`)
+/embed [status|load <id>|unload [id|current]|prefer <id>|clear]  Inspect, load, unload, or save the preferred embed model
 /new              Fresh task context; clear chat, pins, and task files
 /forget           Hard forget; purge saved memory and the Vein index too
 /cd <path>        Teleport to another directory; supports bare tokens like downloads, desktop, docs, home, temp, and `~`, plus aliases like `@DESKTOP/project`
@@ -1334,6 +1336,7 @@ Hematite reads `.hematite/settings.json` from your project root, with `~/.hemati
   "context_hint": "This is a Rust project using Axum and SQLx.",
   "fast_model": "gemma-4-9b",
   "think_model": "gemma-4-27b",
+  "embed_model": "text-embedding-nomic-embed-text-v2",
   "gemma_native_auto": true,
   "gemma_native_formatting": false,
   "verify": {

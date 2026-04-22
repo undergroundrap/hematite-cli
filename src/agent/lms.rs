@@ -108,6 +108,32 @@ impl LmsHarness {
         Ok(models)
     }
 
+    /// Get a list of models currently loaded in memory.
+    pub fn list_loaded_models(&self) -> io::Result<Vec<String>> {
+        let Some(ref lms) = self.binary_path else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "lms CLI not found"));
+        };
+
+        let output = Command::new(lms).args(["ps"]).output()?;
+
+        if !output.status.success() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to list loaded models via lms",
+            ));
+        }
+
+        let out_str = String::from_utf8_lossy(&output.stdout);
+        let models = out_str
+            .lines()
+            .filter(|line| !line.is_empty() && !line.starts_with("NAME"))
+            .filter_map(|line| line.split_whitespace().next())
+            .map(|value| value.to_string())
+            .collect();
+
+        Ok(models)
+    }
+
     /// Load a specific model into the server.
     pub fn load_model(&self, model_id: &str) -> io::Result<()> {
         let Some(ref lms) = self.binary_path else {
@@ -124,6 +150,50 @@ impl LmsHarness {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
                 format!("Failed to load model: {}", model_id),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Unload a specific model from the server.
+    pub fn unload_model(&self, model_id: &str) -> io::Result<()> {
+        let Some(ref lms) = self.binary_path else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "lms CLI not found"));
+        };
+
+        let status = Command::new(lms)
+            .args(["unload", model_id])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()?;
+
+        if !status.success() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to unload model: {}", model_id),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Unload all loaded models from the server.
+    pub fn unload_all_models(&self) -> io::Result<()> {
+        let Some(ref lms) = self.binary_path else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "lms CLI not found"));
+        };
+
+        let status = Command::new(lms)
+            .args(["unload", "--all"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()?;
+
+        if !status.success() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to unload all models",
             ));
         }
 

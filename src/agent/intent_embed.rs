@@ -156,12 +156,19 @@ async fn embed_batch(texts: &[&str], api_url: &str) -> Option<Vec<Vec<f32>>> {
         .map(|t| format!("search_document: {t}"))
         .collect();
 
+    let embed_model = load_embed_model(api_url)?;
+    let trimmed = api_url.trim_end_matches('/');
+    let is_ollama = trimmed.contains("11434");
     let body = serde_json::json!({
-        "model": "nomic-embed-text-v2",
+        "model": embed_model,
         "input": inputs
     });
 
-    let url = format!("{}/v1/embeddings", api_url.trim_end_matches('/'));
+    let url = if is_ollama {
+        format!("{}/api/embed", trimmed)
+    } else {
+        format!("{}/v1/embeddings", trimmed)
+    };
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(20))
@@ -181,16 +188,25 @@ async fn embed_batch(texts: &[&str], api_url: &str) -> Option<Vec<Vec<f32>>> {
     }
 
     let json: serde_json::Value = resp.json().await.ok()?;
-    let data = json["data"].as_array()?;
+    let data = if is_ollama {
+        json["embeddings"].as_array()?
+    } else {
+        json["data"].as_array()?
+    };
 
     let vecs: Vec<Vec<f32>> = data
         .iter()
         .filter_map(|item| {
-            item["embedding"].as_array().map(|arr| {
+            let arr = if is_ollama {
+                item.as_array()
+            } else {
+                item["embedding"].as_array()
+            }?;
+            Some(
                 arr.iter()
                     .filter_map(|v| v.as_f64().map(|f| f as f32))
-                    .collect()
-            })
+                    .collect(),
+            )
         })
         .collect();
 
@@ -202,12 +218,19 @@ async fn embed_batch(texts: &[&str], api_url: &str) -> Option<Vec<Vec<f32>>> {
 }
 
 async fn embed_single(input: &str, api_url: &str) -> Option<Vec<f32>> {
+    let embed_model = load_embed_model(api_url)?;
+    let trimmed = api_url.trim_end_matches('/');
+    let is_ollama = trimmed.contains("11434");
     let body = serde_json::json!({
-        "model": "nomic-embed-text-v2",
+        "model": embed_model,
         "input": input
     });
 
-    let url = format!("{}/v1/embeddings", api_url.trim_end_matches('/'));
+    let url = if is_ollama {
+        format!("{}/api/embed", trimmed)
+    } else {
+        format!("{}/v1/embeddings", trimmed)
+    };
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
@@ -227,7 +250,11 @@ async fn embed_single(input: &str, api_url: &str) -> Option<Vec<f32>> {
     }
 
     let json: serde_json::Value = resp.json().await.ok()?;
-    let arr = json["data"][0]["embedding"].as_array()?;
+    let arr = if is_ollama {
+        json["embeddings"][0].as_array()?
+    } else {
+        json["data"][0]["embedding"].as_array()?
+    };
     let vec: Vec<f32> = arr
         .iter()
         .filter_map(|v| v.as_f64().map(|f| f as f32))
@@ -237,6 +264,16 @@ async fn embed_single(input: &str, api_url: &str) -> Option<Vec<f32>> {
         None
     } else {
         Some(vec)
+    }
+}
+
+fn load_embed_model(_api_url: &str) -> Option<String> {
+    let config = crate::agent::config::load_config();
+    let saved = config.embed_model?;
+    if saved.trim().is_empty() {
+        None
+    } else {
+        Some(saved)
     }
 }
 

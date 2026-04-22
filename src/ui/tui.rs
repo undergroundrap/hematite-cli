@@ -231,7 +231,7 @@ fn runtime_fix_path(app: &App) -> String {
         }
         RuntimeIssueKind::Healthy => {
             if app.embed_model_id.is_none() {
-                "Shortest fix: optional only — load `nomic-embed-text-v2` if you want semantic file search."
+                "Shortest fix: optional only — load a preferred embedding model if you want semantic file search."
                     .to_string()
             } else {
                 "Shortest fix: none — runtime is healthy.".to_string()
@@ -241,6 +241,7 @@ fn runtime_fix_path(app: &App) -> String {
 }
 
 async fn format_runtime_summary(app: &App) -> String {
+    let config = crate::agent::config::load_config();
     let configured_endpoint = runtime_configured_endpoint();
     let configured_provider =
         crate::agent::config::provider_label_for_api_url(&configured_endpoint);
@@ -261,13 +262,24 @@ async fn format_runtime_summary(app: &App) -> String {
     } else {
         "inactive"
     };
+    let preferred_coding = crate::agent::config::preferred_coding_model(&config)
+        .unwrap_or_else(|| "none saved".to_string());
+    let preferred_embed = config
+        .embed_model
+        .clone()
+        .unwrap_or_else(|| "none saved".to_string());
     let alternative = crate::runtime::detect_alternative_provider(&session_provider).await;
     let alternative_line = alternative
         .as_ref()
         .map(|(name, url)| format!("Reachable alternative: {} ({})", name, url))
         .unwrap_or_else(|| "Reachable alternative: none detected".to_string());
+    let provider_controls = if session_provider == "Ollama" {
+        "Provider controls: Ollama coding+embed load/unload is available here; `--ctx` maps to Ollama `num_ctx` for coding models."
+    } else {
+        "Provider controls: LM Studio coding+embed load/unload is available here; `--ctx` maps to LM Studio context length."
+    };
     format!(
-        "Configured provider: {} ({})\nSession provider: {} ({})\nProvider state: {}\nPrimary issue: {}\nCoding model: {}\nCTX: {}\nEmbedding model: {}\nSemantic search: {} | embedded chunks: {}\nMCP: {}\n{}\n{}\n\nTry: /runtime explain, /runtime fix, /runtime provider ollama",
+        "Configured provider: {} ({})\nSession provider: {} ({})\nProvider state: {}\nPrimary issue: {}\nCoding model: {}\nPreferred coding model: {}\nCTX: {}\nEmbedding model: {}\nPreferred embed model: {}\nSemantic search: {} | embedded chunks: {}\nMCP: {}\n{}\n{}\n{}\n\nTry: /runtime explain, /runtime fix, /model status, /model list loaded",
         configured_provider,
         configured_endpoint,
         session_provider,
@@ -275,12 +287,15 @@ async fn format_runtime_summary(app: &App) -> String {
         provider_state_label(app.provider_state),
         runtime_issue_label(issue),
         coding_model,
+        preferred_coding,
         app.context_length,
         embed_status,
+        preferred_embed,
         semantic_status,
         app.vein_embedded_count,
         mcp_state_label(app.mcp_state),
         alternative_line,
+        provider_controls,
         runtime_fix_path(app)
     )
 }
@@ -397,7 +412,7 @@ async fn handle_runtime_fix(app: &mut App) {
     if issue == RuntimeIssueKind::Healthy && app.embed_model_id.is_none() {
         app.push_message(
             "System",
-            "Runtime is already healthy. The only missing piece is optional semantic search; load `nomic-embed-text-v2` if you want embedding-backed file retrieval.",
+            "Runtime is already healthy. The only missing piece is optional semantic search; load your preferred embedding model if you want embedding-backed file retrieval.",
         );
         app.history_idx = None;
         return;
@@ -2477,6 +2492,8 @@ fn show_help_message(app: &mut App) {
          /runtime          - (Model) Show the live runtime/provider/model/embed status and shortest fix path\n\
          /runtime fix      - (Model) Run the shortest safe runtime recovery step now\n\
          /runtime-refresh  - (Model) Re-read active provider model + CTX now\n\
+         /model [status|list [available|loaded]|load <id> [--ctx N]|unload [id|current|all]|prefer <id>|clear] - (Model) Inspect, list, load, unload, or save the preferred coding model (`--ctx` uses LM Studio context length or Ollama `num_ctx`)\n\
+         /embed [status|load <id>|unload [id|current]|prefer <id>|clear] - (Model) Inspect, load, unload, or save the preferred embed model\n\
          /undo             - (Ghost) Revert last file change\n\
          /diff             - (Git) Show session changes (--stat)\n\
          /lsp              - (Logic) Start Language Servers (semantic intelligence)\n\
@@ -2552,6 +2569,8 @@ fn show_help_message_legacy(app: &mut App) {
          /runtime          — (Model) Show the live runtime/provider/model/embed status and shortest fix path\n\
          /runtime fix      — (Model) Run the shortest safe runtime recovery step now\n\
          /runtime-refresh  — (Model) Re-read active provider model + CTX now\n\
+         /model [status|list [available|loaded]|load <id> [--ctx N]|unload [id|current|all]|prefer <id>|clear] — (Model) Inspect, list, load, unload, or save the preferred coding model (`--ctx` uses LM Studio context length or Ollama `num_ctx`)\n\
+         /embed [status|load <id>|unload [id|current]|prefer <id>|clear] — (Model) Inspect, load, unload, or save the preferred embed model\n\
          /undo             — (Ghost) Revert last file change\n\
          /diff             — (Git) Show session changes (--stat)\n\
          /lsp              — (Logic) Start Language Servers (semantic intelligence)\n\
@@ -3844,6 +3863,8 @@ pub async fn run_app<B: Backend>(
                                                      /runtime          — (Model) Show the live runtime/provider/model/embed status and shortest fix path\n\
                                                      /runtime fix      — (Model) Run the shortest safe runtime recovery step now\n\
                                                      /runtime-refresh  — (Model) Re-read active provider model + CTX now\n\
+                                                     /model [status|list [available|loaded]|load <id> [--ctx N]|unload [id|current|all]|prefer <id>|clear] — (Model) Inspect, list, load, unload, or save the preferred coding model (`--ctx` uses LM Studio context length or Ollama `num_ctx`)\n\
+                                                     /embed [status|load <id>|unload [id|current]|prefer <id>|clear] — (Model) Inspect, load, unload, or save the preferred embed model\n\
                                                      /undo             — (Ghost) Revert last file change\n\
                                                      /diff             — (Git) Show session changes (--stat)\n\
                                                      /lsp              — (Logic) Start Language Servers (semantic intelligence)\n\
@@ -3958,6 +3979,24 @@ pub async fn run_app<B: Backend>(
                                                         );
                                                     }
                                                 }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/model" | "/embed" => {
+                                                let outbound = input_text.clone();
+                                                app.push_message("You", &outbound);
+                                                app.agent_running = true;
+                                                app.stop_requested = false;
+                                                app.cancel_token.store(
+                                                    false,
+                                                    std::sync::atomic::Ordering::SeqCst,
+                                                );
+                                                app.last_reasoning.clear();
+                                                app.manual_scroll_offset = None;
+                                                app.specular_auto_scroll = true;
+                                                let _ = app
+                                                    .user_input_tx
+                                                    .try_send(UserTurn::text(outbound));
                                                 app.history_idx = None;
                                                 continue;
                                             }
@@ -4449,9 +4488,9 @@ pub async fn run_app<B: Backend>(
                         }
                         if now_no_model && !was_no_model {
                             let mut guidance = if provider_name == "Ollama" {
-                                "No coding model is currently available from Ollama. Pull a chat model in Ollama, then keep `api_url` pointed at `http://localhost:11434/v1`.".to_string()
+                                "No coding model is currently available from Ollama. Pull or load a chat model in Ollama, then keep `api_url` pointed at `http://localhost:11434/v1`. If you also want semantic search, set `/embed prefer <id>` to an Ollama embedding model.".to_string()
                             } else {
-                                "No coding model loaded. Load a model in LM Studio (e.g. Qwen/Qwen3.5-9B Q4_K_M) and start the server on port 1234. Optionally also load nomic-embed-text-v2 for semantic search.".to_string()
+                                "No coding model loaded. Load a model in LM Studio (e.g. Qwen/Qwen3.5-9B Q4_K_M) and start the server on port 1234. Optionally also load an embedding model for semantic search.".to_string()
                             };
                             if let Some((alt_name, alt_url)) =
                                 crate::runtime::detect_alternative_provider(&provider_name).await

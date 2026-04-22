@@ -999,7 +999,7 @@ async fn inspect_lm_studio_fix_plan(issue: &str, max_entries: usize) -> Result<S
         }
     }
     out.push_str("- If Hematite is pointed at the wrong endpoint, fix `api_url` in `.hematite/settings.json` and restart or run `/runtime-refresh`.\n");
-    out.push_str("- If chat works but semantic search does not, load the embedding model as a second resident model in LM Studio. Hematite expects a `nomic-embed` style model there.\n");
+    out.push_str("- If chat works but semantic search does not, load an embedding model as a second resident local model. Hematite expects a `nomic-embed` or similar embedding model there.\n");
     out.push_str("- If LM Studio keeps responding with no model loaded, load the coding model first, then start the server again before blaming Hematite.\n");
     out.push_str("- If the server is up but turns still fail, narrow the prompt or refresh the runtime profile so Hematite picks up the live model and context budget.\n");
     if let Some(model) = embed_model {
@@ -1640,6 +1640,34 @@ async fn probe_http_endpoint(url: &str) -> EndpointProbe {
 }
 
 async fn detect_loaded_embed_model(configured_api: &str) -> Option<String> {
+    if configured_api.contains("11434") {
+        let base = configured_api.trim_end_matches("/v1").trim_end_matches('/');
+        let url = format!("{}/api/ps", base);
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(3))
+            .build()
+            .ok()?;
+        let response = client.get(url).send().await.ok()?;
+        let body = response.json::<serde_json::Value>().await.ok()?;
+        let entries = body["models"].as_array()?;
+        for entry in entries {
+            let name = entry["name"]
+                .as_str()
+                .or_else(|| entry["model"].as_str())
+                .unwrap_or_default();
+            let lower = name.to_ascii_lowercase();
+            if lower.contains("embed")
+                || lower.contains("embedding")
+                || lower.contains("minilm")
+                || lower.contains("bge")
+                || lower.contains("e5")
+            {
+                return Some(name.to_string());
+            }
+        }
+        return None;
+    }
+
     let base = configured_api.trim_end_matches("/v1").trim_end_matches('/');
     let url = format!("{}/api/v0/models", base);
     let client = reqwest::Client::builder()

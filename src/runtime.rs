@@ -10,6 +10,8 @@ use notify::RecommendedWatcher;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
+const MIN_RECOMMENDED_CODING_CONTEXT: usize = 8_192;
+
 fn provider_help_hint(base_url: &str, provider_name: &str) -> String {
     if provider_name == "LM Studio" {
         format!(
@@ -35,15 +37,63 @@ pub fn session_endpoint_url(base_url: &str) -> String {
     format!("{}/v1", base_url.trim_end_matches('/'))
 }
 
+fn preferred_coding_model_target(
+    config: &crate::agent::config::HematiteConfig,
+    cockpit: &CliCockpit,
+) -> Option<String> {
+    crate::agent::config::preferred_coding_model(config)
+        .or(cockpit.think_model.clone())
+        .or(cockpit.fast_model.clone())
+}
+
+fn model_name_matches(current: &str, target: &str) -> bool {
+    current.trim().eq_ignore_ascii_case(target.trim())
+}
+
+fn coding_runtime_budget_warning(
+    provider_name: &str,
+    model_name: &str,
+    context_length: usize,
+    preferred_model: Option<&str>,
+) -> Option<String> {
+    if model_name.trim().is_empty()
+        || model_name.eq_ignore_ascii_case("no model loaded")
+        || context_length >= MIN_RECOMMENDED_CODING_CONTEXT
+    {
+        return None;
+    }
+
+    let provider_label = if provider_name.is_empty() {
+        "the active provider"
+    } else {
+        provider_name
+    };
+    let mut message = format!(
+        "Warning: {} loaded `{}` with only {} tokens of live context. That is too small for normal coding, scaffold, or teleport-resume work.",
+        provider_label, model_name, context_length
+    );
+    if let Some(target) = preferred_model.filter(|target| !model_name_matches(model_name, target)) {
+        message.push_str(&format!(
+            " Load your preferred coding model `{}` and rerun `/runtime refresh` before heavy implementation.",
+            target
+        ));
+    } else {
+        message.push_str(
+            " Load a larger-context coding model before heavy implementation and rerun `/runtime refresh`.",
+        );
+    }
+    Some(message)
+}
+
 fn provider_model_setup_hint(provider_name: &str) -> String {
     if provider_name == "Ollama" {
         format!(
-            "Pull or run a chat model in Ollama, then keep `api_url` pointed at `{}`.",
+            "Pull or run a chat model in Ollama, then keep `api_url` pointed at `{}`. If you want semantic search too, save an embedding model in `/embed prefer <id>` and Hematite can load it here as well.",
             crate::agent::config::DEFAULT_OLLAMA_API_URL
         )
     } else {
         format!(
-            "Load a coding model in LM Studio and keep the local server on `{}`. Optionally also load `nomic-embed-text-v2` for semantic search.",
+            "Load a coding model in LM Studio and keep the local server on `{}`. Optionally also load an embedding model for semantic search.",
             crate::agent::config::DEFAULT_LM_STUDIO_API_URL
         )
     }
@@ -65,6 +115,14 @@ async fn provider_startup_guidance(provider_name: &str, endpoint: &str, has_mode
             .to_string(),
     );
     lines.join("\n")
+}
+
+fn runtime_context_display(model: &str, context_length: usize) -> String {
+    if model.trim().is_empty() || model == "no model loaded" || context_length == 0 {
+        "none".to_string()
+    } else {
+        context_length.to_string()
+    }
 }
 
 async fn print_provider_bootstrap_help(provider_name: &str, base_url: &str) {
@@ -198,6 +256,7 @@ pub async fn build_runtime_bundle(
     let api_url = crate::agent::config::effective_api_url(&config, &cockpit.url);
     let mut engine_raw = InferenceEngine::new(api_url, species.to_string(), snark)?;
     let provider_name = engine_raw.provider_name().await;
+    let preferred_model = preferred_coding_model_target(&config, cockpit);
     let gpu_state = ui::gpu_monitor::spawn_gpu_monitor();
     let git_state = agent::git_monitor::spawn_git_monitor();
 
@@ -214,16 +273,19 @@ pub async fn build_runtime_bundle(
         std::process::exit(1);
     }
 
-    let model_name = engine_raw.get_loaded_model().await;
-    if let Some(ref name) = model_name {
-        if name.is_empty() {
-            // Attempt auto-load if a specific model was requested via CLI or is the default.
-            let target = cockpit
-                .think_model
-                .as_deref()
-                .or(cockpit.fast_model.as_deref())
-                .unwrap_or("gemma-4-9b-it");
+    let mut detected_model = engine_raw.get_loaded_model().await.unwrap_or_default();
+    let mut detected_context = engine_raw.detect_context_length().await;
+    let mut auto_loaded_coding_model = false;
 
+    if detected_model.trim().is_empty() {
+        let target = preferred_model
+            .as_deref()
+            .or(if provider_name == "LM Studio" {
+                Some("gemma-4-9b-it")
+            } else {
+                None
+            });
+        if let Some(target) = target {
             println!(
                 "Notice: No model loaded in {}. Attempting to auto-load `{}`...",
                 provider_name, target
@@ -234,26 +296,56 @@ pub async fn build_runtime_bundle(
                     e, provider_name
                 );
             } else {
-                // Re-poll after warming up
-                if let Some(new_name) = engine_raw.get_loaded_model().await {
-                    if !new_name.is_empty() {
-                        engine_raw
-                            .set_runtime_profile(&new_name, engine_raw.current_context_length())
-                            .await;
-                    }
-                }
+                auto_loaded_coding_model = true;
+                detected_model = engine_raw.get_loaded_model().await.unwrap_or_default();
+                detected_context = engine_raw.detect_context_length().await;
             }
-        } else {
-            engine_raw
-                .set_runtime_profile(name, engine_raw.current_context_length())
-                .await;
         }
     }
-    let detected_context = engine_raw.detect_context_length().await;
-    let detected_model = engine_raw.current_model();
+
+    let effective_model = if detected_model.trim().is_empty() {
+        "no model loaded".to_string()
+    } else {
+        detected_model.clone()
+    };
+    let effective_context = if effective_model == "no model loaded" {
+        0
+    } else {
+        detected_context
+    };
     engine_raw
-        .set_runtime_profile(&detected_model, detected_context)
+        .set_runtime_profile(&effective_model, effective_context)
         .await;
+    if let Some(warning) = coding_runtime_budget_warning(
+        &provider_name,
+        &effective_model,
+        effective_context,
+        preferred_model.as_deref(),
+    ) {
+        println!("{}", warning);
+    }
+
+    if auto_loaded_coding_model {
+        if let Some(embed_target) = config.embed_model.as_deref() {
+            let current_embed = engine_raw.get_embedding_model().await;
+            let needs_embed = current_embed
+                .as_deref()
+                .map(|loaded| !model_name_matches(loaded, embed_target))
+                .unwrap_or(true);
+            if needs_embed {
+                println!(
+                    "Notice: preferred embed model `{}` is not loaded. Attempting to load it for semantic search...",
+                    embed_target
+                );
+                if let Err(e) = engine_raw.load_embedding_model(embed_target).await {
+                    println!(
+                        "Warning: Preferred embed model auto-load failed: {}. Load `{}` manually or save a different `/embed prefer` target if you want semantic search.",
+                        e, embed_target
+                    );
+                }
+            }
+        }
+    }
 
     let (specular_tx, specular_rx) = mpsc::channel(32);
     let watcher_guard = agent::specular::spawn_watcher(specular_tx)?;
@@ -262,8 +354,12 @@ pub async fn build_runtime_bundle(
     let (swarm_tx, swarm_rx) = mpsc::channel(32);
     let voice_manager = Arc::new(VoiceManager::new(agent_tx.clone()));
 
-    if let Some(ref worker) = cockpit.fast_model {
-        engine_raw.worker_model = Some(worker.clone());
+    if let Some(worker) = config
+        .fast_model
+        .clone()
+        .or_else(|| cockpit.fast_model.clone())
+    {
+        engine_raw.worker_model = Some(worker);
     }
 
     let engine = Arc::new(engine_raw);
@@ -420,7 +516,9 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     );
     let embed_status = match manager.engine.get_embedding_model().await {
         Some(id) => format!("Embed: {} (semantic search ready)", id),
-        None => "Embed: none loaded (load nomic-embed-text-v2 for semantic search)".to_string(),
+        None => {
+            "Embed: none loaded (load a preferred embedding model for semantic search)".to_string()
+        }
     };
     let workspace_root = crate::tools::file_ops::workspace_root();
     let docs_only_mode = !crate::tools::file_ops::is_project_workspace();
@@ -455,7 +553,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         crate::hematite_version_display(),
         terminal_name,
         display_model,
-        manager.engine.current_context_length(),
+        runtime_context_display(&display_model, manager.engine.current_context_length()),
         gpu_name,
         vram,
         startup_endpoint,
@@ -581,5 +679,58 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
             let _ = agent_tx.send(InferenceEvent::Error(e.to_string())).await;
             let _ = agent_tx.send(InferenceEvent::Done).await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{coding_runtime_budget_warning, model_name_matches, preferred_coding_model_target};
+    use crate::agent::config::HematiteConfig;
+
+    #[test]
+    fn preferred_coding_model_uses_config_before_cli() {
+        let mut config = HematiteConfig::default();
+        config.think_model = Some("qwen-config".into());
+        config.fast_model = Some("fast-config".into());
+        let cockpit = crate::CliCockpit {
+            yolo: false,
+            swarm_size: 3,
+            brief: false,
+            reroll: None,
+            rusty: false,
+            stats: false,
+            no_splash: false,
+            fast_model: Some("fast-cli".into()),
+            think_model: Some("think-cli".into()),
+            url: "http://localhost:1234/v1".into(),
+            mcp_server: false,
+            edge_redact: false,
+            semantic_redact: false,
+            semantic_url: None,
+            semantic_model: None,
+            pdf_extract_helper: None,
+            teleported_from: None,
+        };
+
+        assert_eq!(
+            preferred_coding_model_target(&config, &cockpit),
+            Some("qwen-config".to_string())
+        );
+    }
+
+    #[test]
+    fn model_name_matches_is_case_insensitive() {
+        assert!(model_name_matches("Qwen/Qwen3.5-9B", "qwen/qwen3.5-9b"));
+        assert!(!model_name_matches("bonsai-8b", "qwen/qwen3.5-9b"));
+    }
+
+    #[test]
+    fn coding_runtime_budget_warning_flags_small_context() {
+        let warning =
+            coding_runtime_budget_warning("LM Studio", "bonsai-8b", 4096, Some("qwen/qwen3.5-9b"))
+                .expect("warning expected");
+        assert!(warning.contains("bonsai-8b"));
+        assert!(warning.contains("4096"));
+        assert!(warning.contains("qwen/qwen3.5-9b"));
     }
 }

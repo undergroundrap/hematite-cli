@@ -28,6 +28,7 @@ pub struct Vein {
     db: std::sync::Arc<std::sync::Mutex<Connection>>,
     /// Base URL of the LLM provider, used for the embeddings endpoint.
     base_url: String,
+    embed_model: std::sync::Arc<std::sync::RwLock<Option<String>>>,
 }
 
 // SAFETY: rusqlite::Connection is !Send by default, but we wrap it in Arc<Mutex>
@@ -435,7 +436,18 @@ impl Vein {
         Ok(Self {
             db: std::sync::Arc::new(std::sync::Mutex::new(db)),
             base_url,
+            embed_model: std::sync::Arc::new(std::sync::RwLock::new(None)),
         })
+    }
+
+    pub fn set_embed_model(&self, model_id: Option<String>) {
+        if let Ok(mut guard) = self.embed_model.write() {
+            *guard = model_id;
+        }
+    }
+
+    fn current_embed_model(&self) -> Option<String> {
+        self.embed_model.read().ok().and_then(|guard| guard.clone())
     }
 
     // ── Indexing ──────────────────────────────────────────────────────────────
@@ -513,8 +525,11 @@ impl Vein {
     /// Called after `index_document` returns new chunks.
     /// Silently skips if the embedding model is unavailable.
     pub fn embed_and_store_chunks(&self, path: &str, chunks: &[String]) {
+        let Some(embed_model) = self.current_embed_model() else {
+            return;
+        };
         for (idx, chunk) in chunks.iter().enumerate() {
-            if let Some(vec) = embed_text_blocking(chunk, &self.base_url) {
+            if let Some(vec) = embed_text_blocking(chunk, &self.base_url, &embed_model) {
                 let blob = floats_to_blob(&vec);
                 let db = self.db.lock().unwrap();
                 let _ = db.execute(
@@ -596,7 +611,10 @@ impl Vein {
     /// Semantic search: embed the query, cosine-similarity against all stored vectors.
     /// Returns empty if the embedding model isn't loaded.
     pub fn search_semantic(&self, query: &str, limit: usize) -> Vec<SearchResult> {
-        let query_vec = match embed_query_blocking(query, &self.base_url) {
+        let Some(embed_model) = self.current_embed_model() else {
+            return Vec::new();
+        };
+        let query_vec = match embed_query_blocking(query, &self.base_url, &embed_model) {
             Some(v) => v,
             None => return Vec::new(),
         };
@@ -1083,8 +1101,12 @@ impl Vein {
             .collect()
         };
 
+        let Some(embed_model) = self.current_embed_model() else {
+            return;
+        };
+
         for (path, idx, content) in missing {
-            if let Some(vec) = embed_text_blocking(&content, &self.base_url) {
+            if let Some(vec) = embed_text_blocking(&content, &self.base_url, &embed_model) {
                 let blob = floats_to_blob(&vec);
                 let db = self.db.lock().unwrap();
                 let _ = db.execute(
@@ -2157,28 +2179,27 @@ fn slugify_import_path(path: &Path) -> String {
 
 // ── Embedding API ─────────────────────────────────────────────────────────────
 
-/// Call LM Studio's `/v1/embeddings` endpoint synchronously.
+/// Call the active provider's embedding endpoint synchronously.
 ///
-/// Uses nomic-embed-text-v2 MoE. Nomic v2 requires task instruction prefixes:
+/// Nomic-style models use task instruction prefixes:
 /// - Chunks stored in the index use `"search_document: "` prefix
 /// - Queries at search time use `"search_query: "` prefix
-/// LM Studio matches loaded models by substring so the quant suffix doesn't matter.
-///
-/// Returns `None` if:
-/// - No embedding model is loaded in LM Studio
-/// - LM Studio is not running
-/// - Any network or parse error occurs
 ///
 /// Callers must tolerate `None` and fall back to BM25-only search.
-fn embed_text_blocking(text: &str, base_url: &str) -> Option<Vec<f32>> {
-    embed_text_with_prefix(text, "search_document", base_url)
+fn embed_text_blocking(text: &str, base_url: &str, embed_model: &str) -> Option<Vec<f32>> {
+    embed_text_with_prefix(text, "search_document", base_url, embed_model)
 }
 
-fn embed_query_blocking(text: &str, base_url: &str) -> Option<Vec<f32>> {
-    embed_text_with_prefix(text, "search_query", base_url)
+fn embed_query_blocking(text: &str, base_url: &str, embed_model: &str) -> Option<Vec<f32>> {
+    embed_text_with_prefix(text, "search_query", base_url, embed_model)
 }
 
-fn embed_text_with_prefix(text: &str, task: &str, base_url: &str) -> Option<Vec<f32>> {
+fn embed_text_with_prefix(
+    text: &str,
+    task: &str,
+    base_url: &str,
+    embed_model: &str,
+) -> Option<Vec<f32>> {
     // Nomic v2 task instruction prefix format: "<task>: <text>"
     let prefixed = format!("{}: {}", task, text);
     // Truncate to ~8000 chars to stay within typical embedding model limits.
@@ -2194,11 +2215,17 @@ fn embed_text_with_prefix(text: &str, task: &str, base_url: &str) -> Option<Vec<
         .ok()?;
 
     let body = serde_json::json!({
-        "model": "nomic-embed-text-v2",
+        "model": embed_model,
         "input": input
     });
 
-    let url = format!("{}/v1/embeddings", base_url);
+    let trimmed = base_url.trim_end_matches('/');
+    let is_ollama = trimmed.contains("11434");
+    let url = if is_ollama {
+        format!("{}/api/embed", trimmed)
+    } else {
+        format!("{}/v1/embeddings", trimmed)
+    };
     let resp = client.post(&url).json(&body).send().ok()?;
 
     if !resp.status().is_success() {
@@ -2206,7 +2233,11 @@ fn embed_text_with_prefix(text: &str, task: &str, base_url: &str) -> Option<Vec<
     }
 
     let json: serde_json::Value = resp.json().ok()?;
-    let embedding = json["data"][0]["embedding"].as_array()?;
+    let embedding = if is_ollama {
+        json["embeddings"][0].as_array()?
+    } else {
+        json["data"][0]["embedding"].as_array()?
+    };
     let vec: Vec<f32> = embedding
         .iter()
         .filter_map(|v| v.as_f64().map(|f| f as f32))

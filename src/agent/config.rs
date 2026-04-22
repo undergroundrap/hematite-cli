@@ -36,6 +36,8 @@ pub struct HematiteConfig {
     pub fast_model: Option<String>,
     /// Override the think model ID used for complex tasks.
     pub think_model: Option<String>,
+    /// Preferred embedding model to keep loaded for semantic search.
+    pub embed_model: Option<String>,
     /// When true, Gemma 4 models enable native-formatting behavior automatically unless explicitly forced off.
     #[serde(default = "default_true")]
     pub gemma_native_auto: bool,
@@ -83,6 +85,7 @@ impl Default for HematiteConfig {
             model: None,
             fast_model: None,
             think_model: None,
+            embed_model: None,
             gemma_native_auto: true,
             gemma_native_formatting: false,
             api_url: None,
@@ -197,6 +200,7 @@ pub fn load_config() -> HematiteConfig {
                 model: ws.model.or(gb.model),
                 fast_model: ws.fast_model.or(gb.fast_model),
                 think_model: ws.think_model.or(gb.think_model),
+                embed_model: ws.embed_model.or(gb.embed_model),
                 api_url: ws.api_url.or(gb.api_url),
                 voice: if ws.voice != HematiteConfig::default().voice {
                     ws.voice
@@ -257,6 +261,36 @@ pub fn effective_api_url(config: &HematiteConfig, cli_default: &str) -> String {
 pub fn set_api_url_override(url: Option<&str>) -> Result<(), String> {
     let mut config = load_config();
     config.api_url = url
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string());
+    save_config(&config)
+}
+
+pub fn preferred_coding_model(config: &HematiteConfig) -> Option<String> {
+    config
+        .think_model
+        .clone()
+        .or(config.model.clone())
+        .or(config.fast_model.clone())
+}
+
+pub fn set_preferred_coding_model(model_id: Option<&str>) -> Result<(), String> {
+    let mut config = load_config();
+    let normalized = model_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string());
+    config.think_model = normalized.clone();
+    if normalized.is_some() {
+        config.model = None;
+    }
+    save_config(&config)
+}
+
+pub fn set_preferred_embed_model(model_id: Option<&str>) -> Result<(), String> {
+    let mut config = load_config();
+    config.embed_model = model_id
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(|value| value.to_string());
@@ -357,6 +391,7 @@ fn write_default_config(path: &std::path::Path) {
   "model": null,
   "fast_model": null,
   "think_model": null,
+  "embed_model": null,
   "gemma_native_auto": true,
   "gemma_native_formatting": false,
   "searx_url": null,
@@ -419,6 +454,19 @@ mod tests {
             default_api_url_for_provider("Custom"),
             DEFAULT_LM_STUDIO_API_URL
         );
+    }
+
+    #[test]
+    fn preferred_coding_model_prefers_think_then_model_then_fast() {
+        let mut config = HematiteConfig::default();
+        config.fast_model = Some("fast".into());
+        assert_eq!(preferred_coding_model(&config), Some("fast".to_string()));
+
+        config.model = Some("main".into());
+        assert_eq!(preferred_coding_model(&config), Some("main".to_string()));
+
+        config.think_model = Some("think".into());
+        assert_eq!(preferred_coding_model(&config), Some("think".to_string()));
     }
 }
 
