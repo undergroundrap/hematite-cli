@@ -4388,13 +4388,56 @@ impl ConversationManager {
             let context_prep_ms = context_prep_start.elapsed().as_millis();
             let inference_start = tokio::time::Instant::now();
 
-            let (mut text, mut tool_calls, usage, finish_reason) = match self
-                .engine
-                .call_with_tools(&prompt_msgs, &turn_tools, routed_model.as_deref())
+            let explicit_search_synthesis = explicit_search_request
+                && grounded_research_results.is_some()
+                && turn_tools.is_empty();
+
+            let call_result = if explicit_search_synthesis {
+                match tokio::time::timeout(
+                    tokio::time::Duration::from_secs(20),
+                    self.engine
+                        .call_with_tools(&prompt_msgs, &turn_tools, routed_model.as_deref()),
+                )
                 .await
-            {
+                {
+                    Ok(result) => result,
+                    Err(_) => Err(
+                        "explicit_search_synthesis_timeout: grounded research summary took too long to complete"
+                            .to_string(),
+                    ),
+                }
+            } else {
+                self.engine
+                    .call_with_tools(&prompt_msgs, &turn_tools, routed_model.as_deref())
+                    .await
+            };
+
+            let (mut text, mut tool_calls, usage, finish_reason) = match call_result {
                 Ok(result) => result,
                 Err(e) => {
+                    if explicit_search_synthesis
+                        && (e.contains("explicit_search_synthesis_timeout")
+                            || e.contains("provider_degraded")
+                            || e.contains("empty response"))
+                    {
+                        if let Some(results) = grounded_research_results.as_deref() {
+                            let response = build_research_provider_fallback(results);
+                            self.history.push(ChatMessage::assistant_text(&response));
+                            self.transcript.log_agent(&response);
+                            let _ = tx
+                                .send(InferenceEvent::Thought(
+                                    "Search synthesis stalled; returning a grounded fallback summary from the fetched results."
+                                        .into(),
+                                ))
+                                .await;
+                            for chunk in chunk_text(&response, 8) {
+                                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                            }
+                            let _ = tx.send(InferenceEvent::Done).await;
+                            return Ok(());
+                        }
+                    }
+
                     let class = classify_runtime_failure(&e);
                     if should_retry_runtime_failure(class) {
                         if self.recovery_context.consume_transient_retry() {

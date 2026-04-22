@@ -805,6 +805,8 @@ pub struct App {
     pub auto_approve_session: bool,
     /// Track when the current agentic task started for elapsed time rendering.
     pub task_start_time: Option<std::time::Instant>,
+    /// Track live tool start times so timeline cards can show honest elapsed chips.
+    pub tool_started_at: HashMap<String, std::time::Instant>,
 }
 
 impl App {
@@ -884,18 +886,122 @@ impl App {
         }
     }
 
-    fn format_message(&self, speaker: &str, content: &str, _is_last: bool) -> Vec<Line<'static>> {
-        let mut lines = Vec::new();
-        let rust = Color::Rgb(110, 110, 110);
-        let style = match speaker {
-            "You" => Style::default()
-                .fg(Color::Green)
-                .add_modifier(Modifier::BOLD),
-            "Hematite" => Style::default().fg(rust).add_modifier(Modifier::BOLD),
-            "Tool" => Style::default().fg(Color::Cyan),
-            _ => Style::default().fg(Color::DarkGray),
-        };
+    fn header_spans(&self, speaker: &str, is_last: bool) -> Vec<Span<'static>> {
+        let graphite = Color::Rgb(95, 95, 95);
+        let steel = Color::Rgb(110, 110, 110);
+        let ice = Color::Rgb(145, 205, 255);
+        let slate = Color::Rgb(42, 42, 42);
+        let pulse_on = self.tick_count % 2 == 0;
 
+        match speaker {
+            "You" => vec![
+                Span::styled(" [", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    "YOU",
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("] ", Style::default().fg(Color::DarkGray)),
+            ],
+            "Hematite" => {
+                let live_label = if is_last && (self.agent_running || self.thinking) {
+                    if pulse_on {
+                        "LIVE"
+                    } else {
+                        "FLOW"
+                    }
+                } else {
+                    "HEMATITE"
+                };
+                vec![
+                    Span::styled(" [", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        live_label,
+                        Style::default()
+                            .fg(if is_last { ice } else { steel })
+                            .bg(slate)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled("] ", Style::default().fg(Color::DarkGray)),
+                ]
+            }
+            "System" => vec![
+                Span::styled(" [", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    "SYSTEM",
+                    Style::default()
+                        .fg(graphite)
+                        .bg(Color::Rgb(28, 28, 28))
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("] ", Style::default().fg(Color::DarkGray)),
+            ],
+            "Tool" => vec![
+                Span::styled(" [", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    "TOOLS",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .bg(Color::Rgb(28, 34, 38))
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("] ", Style::default().fg(Color::DarkGray)),
+            ],
+            _ => vec![Span::styled(
+                format!("[{}] ", speaker),
+                Style::default().fg(graphite).add_modifier(Modifier::BOLD),
+            )],
+        }
+    }
+
+    fn tool_timeline_header(&self, label: &str, color: Color) -> Line<'static> {
+        Line::from(vec![
+            Span::styled("  o", Style::default().fg(Color::DarkGray)),
+            Span::styled("----", Style::default().fg(Color::Rgb(52, 52, 52))),
+            Span::styled(
+                format!(" {} ", label),
+                Style::default()
+                    .fg(color)
+                    .bg(Color::Rgb(28, 28, 28))
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ])
+    }
+
+    fn tool_timeline_header_with_meta(
+        &self,
+        label: &str,
+        color: Color,
+        elapsed: Option<&str>,
+    ) -> Line<'static> {
+        let mut spans = vec![
+            Span::styled("  o", Style::default().fg(Color::DarkGray)),
+            Span::styled("----", Style::default().fg(Color::Rgb(52, 52, 52))),
+            Span::styled(
+                format!(" {} ", label),
+                Style::default()
+                    .fg(color)
+                    .bg(Color::Rgb(28, 28, 28))
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ];
+        if let Some(elapsed) = elapsed.filter(|elapsed| !elapsed.trim().is_empty()) {
+            spans.push(Span::raw(" "));
+            spans.push(Span::styled(
+                format!(" {} ", elapsed),
+                Style::default()
+                    .fg(Color::Rgb(210, 210, 210))
+                    .bg(Color::Rgb(36, 36, 36))
+                    .add_modifier(Modifier::BOLD),
+            ));
+        }
+        Line::from(spans)
+    }
+
+    fn format_message(&self, speaker: &str, content: &str, is_last: bool) -> Vec<Line<'static>> {
+        let mut lines = Vec::new();
         let cleaned_str = crate::agent::inference::strip_think_blocks(content);
         let trimmed = cleaned_str.trim();
         let cleaned = String::from(strip_ghost_prefix(trimmed));
@@ -955,21 +1061,12 @@ impl App {
                 continue;
             }
 
-            let label = if is_first {
-                match speaker {
-                    "You" => "👤 You: ".to_string(),
-                    "Hematite" => "✦ Hematite: ".to_string(),
-                    "System" => "⚙️  System: ".to_string(),
-                    "Tool" => "🛠 Tool: ".to_string(),
-                    _ => format!("{}: ", speaker),
-                }
-            } else {
-                "  ".to_string()
-            };
-
             if speaker == "System" && (raw_line.contains(" +") || raw_line.contains(" -")) {
-                let mut spans: Vec<Span<'static>> =
-                    vec![Span::raw(" "), Span::styled(label, style)];
+                let mut spans: Vec<Span<'static>> = if is_first {
+                    self.header_spans(speaker, is_last)
+                } else {
+                    vec![Span::raw("   ")]
+                };
                 for token in raw_line.split_whitespace() {
                     let is_add = token.starts_with('+')
                         && token.len() > 1
@@ -1057,55 +1154,56 @@ impl App {
                 let border_style = Style::default().fg(Color::Rgb(60, 60, 60));
 
                 if raw_line.starts_with("( )") {
-                    // Tool Request start
-                    let pulse = if self.tick_count % 2 == 0 {
-                        "●"
-                    } else {
-                        "○"
-                    };
+                    lines.push(self.tool_timeline_header("REQUEST", Color::Cyan));
                     lines.push(Line::from(vec![
-                        Span::styled(" ┌──", border_style),
-                        Span::styled(
-                            format!(" {} TOOL REQUEST ", pulse),
-                            Style::default()
-                                .fg(Color::Cyan)
-                                .bg(Color::Rgb(40, 40, 40))
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                    ]));
-                    lines.push(Line::from(vec![
-                        Span::styled(" │ ", border_style),
+                        Span::styled("  | ", border_style),
                         Span::styled(
                             String::from(&raw_line[4..]),
-                            Style::default().fg(Color::Cyan),
+                            Style::default().fg(Color::Rgb(155, 220, 255)),
                         ),
                     ]));
                 } else if raw_line.starts_with("[v]") || raw_line.starts_with("[x]") {
-                    // Tool Result end
                     let is_success = raw_line.starts_with("[v]");
                     let (status, color) = if is_success {
-                        (" SUCCESS ", Color::Green)
+                        ("SUCCESS", Color::Green)
                     } else {
-                        (" FAILURE ", Color::Red)
+                        ("FAILED", Color::Red)
                     };
 
-                    lines.push(Line::from(vec![
-                        Span::styled(" │ ", border_style),
+                    let payload = raw_line[4..].trim();
+                    let (summary, preview) = if let Some((left, right)) = payload.split_once(" → ")
+                    {
+                        (left.trim(), Some(right))
+                    } else {
+                        (payload, None)
+                    };
+                    let (summary, elapsed) = extract_tool_elapsed_chip(summary);
+
+                    lines.push(self.tool_timeline_header_with_meta(
+                        status,
+                        color,
+                        elapsed.as_deref(),
+                    ));
+                    let mut detail_spans = vec![
+                        Span::styled("  | ", border_style),
                         Span::styled(
-                            String::from(&raw_line[4..]),
+                            summary,
+                            Style::default().fg(if is_success {
+                                Color::Rgb(145, 215, 145)
+                            } else {
+                                Color::Rgb(255, 175, 175)
+                            }),
+                        ),
+                    ];
+                    if let Some(preview) = preview {
+                        detail_spans
+                            .push(Span::styled(" → ", Style::default().fg(Color::DarkGray)));
+                        detail_spans.push(Span::styled(
+                            preview.to_string(),
                             Style::default().fg(Color::DarkGray),
-                        ),
-                    ]));
-                    lines.push(Line::from(vec![
-                        Span::styled(" └──", border_style),
-                        Span::styled(
-                            status,
-                            Style::default()
-                                .fg(color)
-                                .bg(Color::Rgb(30, 30, 30))
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                    ]));
+                        ));
+                    }
+                    lines.push(Line::from(detail_spans));
                 } else if raw_line.starts_with("┌──") {
                     lines.push(Line::from(vec![
                         Span::styled(" ┌──", border_style),
@@ -1150,12 +1248,15 @@ impl App {
             }
 
             let mut spans = if is_first {
-                vec![Span::raw(" "), Span::styled(label, style)]
+                self.header_spans(speaker, is_last)
             } else {
                 vec![Span::raw("   ")]
             };
 
             if speaker == "Hematite" {
+                if is_first {
+                    spans.push(Span::styled(" ", Style::default().fg(Color::DarkGray)));
+                }
                 spans.extend(inline_markdown_core(raw_line));
             } else {
                 spans.push(Span::raw(owned_line));
@@ -1584,14 +1685,63 @@ fn synced_task_start_time(
     }
 }
 
+fn format_tool_elapsed(elapsed: std::time::Duration) -> String {
+    if elapsed.as_millis() < 1_000 {
+        format!("{}ms", elapsed.as_millis())
+    } else {
+        format!("{:.1}s", elapsed.as_secs_f64())
+    }
+}
+
+fn extract_tool_elapsed_chip(summary: &str) -> (String, Option<String>) {
+    let trimmed = summary.trim();
+    if let Some((head, tail)) = trimmed.rsplit_once(" [") {
+        if let Some(elapsed) = tail.strip_suffix(']') {
+            if !elapsed.is_empty()
+                && elapsed
+                    .chars()
+                    .all(|ch| ch.is_ascii_digit() || ch == '.' || ch == 'm' || ch == 's')
+            {
+                return (head.trim().to_string(), Some(elapsed.to_string()));
+            }
+        }
+    }
+    (trimmed.to_string(), None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        classify_runtime_issue, make_animated_sparkline_gauge, provider_badge_prefix,
-        select_fitting_variant, select_sidebar_mode, should_accept_autocomplete_on_enter,
-        synced_task_start_time, RuntimeIssueKind, SidebarMode,
+        classify_runtime_issue, extract_tool_elapsed_chip, format_tool_elapsed,
+        make_animated_sparkline_gauge, provider_badge_prefix, select_fitting_variant,
+        select_sidebar_mode, should_accept_autocomplete_on_enter, synced_task_start_time,
+        RuntimeIssueKind, SidebarMode,
     };
     use crate::agent::inference::ProviderRuntimeState;
+
+    #[test]
+    fn tool_elapsed_chip_extracts_cleanly_from_summary() {
+        assert_eq!(
+            extract_tool_elapsed_chip("research_web [842ms]"),
+            ("research_web".to_string(), Some("842ms".to_string()))
+        );
+        assert_eq!(
+            extract_tool_elapsed_chip("read_file"),
+            ("read_file".to_string(), None)
+        );
+    }
+
+    #[test]
+    fn tool_elapsed_formats_compact_runtime_durations() {
+        assert_eq!(
+            format_tool_elapsed(std::time::Duration::from_millis(842)),
+            "842ms"
+        );
+        assert_eq!(
+            format_tool_elapsed(std::time::Duration::from_millis(1520)),
+            "1.5s"
+        );
+    }
 
     #[test]
     fn enter_submits_bare_alias_root_instead_of_selecting_first_child() {
@@ -2437,6 +2587,7 @@ fn reset_visible_session_state(app: &mut App) {
     app.reset_error_count();
     app.reset_runtime_status_memory();
     app.reset_active_context();
+    app.tool_started_at.clear();
     app.clear_pending_attachments();
     app.current_objective = "Idle".into();
 }
@@ -2841,6 +2992,7 @@ pub async fn run_app<B: Backend>(
         nav_list: Vec::new(),
         auto_approve_session: false,
         task_start_time: None,
+        tool_started_at: HashMap::new(),
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
@@ -4246,10 +4398,11 @@ pub async fn run_app<B: Backend>(
                             app.voice_manager.speak(token.clone());
                         }
                     }
-                    InferenceEvent::ToolCallStart { name, args, .. } => {
+                    InferenceEvent::ToolCallStart { id, name, args } => {
                         if app.stop_requested {
                             continue;
                         }
+                        app.tool_started_at.insert(id, Instant::now());
                         // In chat mode, suppress tool noise from the main chat surface.
                         if app.workflow_mode != "CHAT" {
                             let display = format!("( )  {} {}", name, args);
@@ -4264,11 +4417,15 @@ pub async fn run_app<B: Backend>(
                         trim_vec_context(&mut app.active_context, 8);
                         app.manual_scroll_offset = None;
                     }
-                    InferenceEvent::ToolCallResult { id: _, name, result, is_error } => {
+                    InferenceEvent::ToolCallResult { id, name, result, is_error } => {
                         if app.stop_requested {
                             continue;
                         }
                         let icon = if is_error { "[x]" } else { "[v]" };
+                        let elapsed_chip = app
+                            .tool_started_at
+                            .remove(&id)
+                            .map(|started| format_tool_elapsed(started.elapsed()));
                         if is_error {
                             app.record_error();
                         }
@@ -4276,7 +4433,12 @@ pub async fn run_app<B: Backend>(
                         // Errors still show so the user knows something went wrong.
                         let preview = first_n_chars(&result, 100);
                         if app.workflow_mode != "CHAT" {
-                            app.push_message("Tool", &format!("{}  {} → {}", icon, name, preview));
+                            let display = if let Some(elapsed) = elapsed_chip.as_deref() {
+                                format!("{}  {} [{}] ? {}", icon, name, elapsed, preview)
+                            } else {
+                                format!("{}  {} ? {}", icon, name, preview)
+                            };
+                            app.push_message("Tool", &display);
                         } else if is_error {
                             app.push_message("System", &format!("Tool error: {}", preview));
                         }

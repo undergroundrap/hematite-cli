@@ -572,9 +572,10 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     let startup_endpoint = session_endpoint_url(&manager.engine.base_url);
     let terminal_name = crate::ui::terminal::detect_terminal().label();
     let greeting = format!(
-        "Hematite {} Online [{}] | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\nWorkspace: {} ({})\n{}\n{}\n/ask · read-only analysis   /code · implement   /architect · plan-first   /chat · conversation\nRecovery: /undo · /new · /forget · /clear   |   /version · /about{}",
+        "Hematite {} Online [{}] | Provider: {}\nModel: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\nWorkspace: {} ({})\n{}\n{}\n/ask · read-only analysis   /code · implement   /architect · plan-first   /chat · conversation\nRecovery: /undo · /new · /forget · /clear   |   /version · /about{}",
         crate::hematite_version_display(),
         terminal_name,
+        provider_name,
         display_model,
         runtime_context_display(&display_model, manager.engine.current_context_length()),
         gpu_name,
@@ -585,11 +586,6 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         embed_status,
         voice_status,
         project_hint
-    );
-    let greeting = greeting.replacen(
-        " | Model:",
-        &format!(" | Provider: {} | Model:", provider_name),
-        1,
     );
     let _ = agent_tx
         .send(InferenceEvent::MutedToken(format!("\n{}", greeting)))
