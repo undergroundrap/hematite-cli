@@ -13,13 +13,15 @@ use tokio::sync::mpsc;
 fn provider_help_hint(base_url: &str, provider_name: &str) -> String {
     if provider_name == "LM Studio" {
         format!(
-            "Check if LM Studio is running on {}. If you prefer Ollama, set `api_url` to `http://localhost:11434/v1` in `.hematite/settings.json`.",
-            base_url
+            "Check if LM Studio is running on {}. If you prefer Ollama, set `api_url` to `{}` in `.hematite/settings.json`.",
+            base_url,
+            crate::agent::config::DEFAULT_OLLAMA_API_URL
         )
     } else if provider_name == "Ollama" {
         format!(
-            "Check if Ollama is running on {} and that a chat model is available. If you prefer LM Studio, set `api_url` to `http://localhost:1234/v1`.",
-            base_url
+            "Check if Ollama is running on {} and that a chat model is available. If you prefer LM Studio, set `api_url` to `{}`.",
+            base_url,
+            crate::agent::config::DEFAULT_LM_STUDIO_API_URL
         )
     } else {
         format!(
@@ -85,10 +87,7 @@ pub async fn build_runtime_bundle(
     let searx_session = crate::agent::searx_lifecycle::boot_searx_if_needed(&config).await;
 
     // settings.json api_url overrides the --url CLI flag so users don't need to retype it.
-    let api_url = config
-        .api_url
-        .clone()
-        .unwrap_or_else(|| cockpit.url.clone());
+    let api_url = crate::agent::config::effective_api_url(&config, &cockpit.url);
     let mut engine_raw = InferenceEngine::new(api_url, species.to_string(), snark)?;
     let provider_name = engine_raw.provider_name().await;
     let gpu_state = ui::gpu_monitor::spawn_gpu_monitor();
@@ -107,7 +106,8 @@ pub async fn build_runtime_bundle(
             let ollama = crate::agent::ollama::OllamaHarness::new("http://localhost:11434");
             if ollama.is_reachable().await {
                 println!(
-                    "Hint: Ollama is reachable on http://localhost:11434. If you want to use it, set `api_url` to `http://localhost:11434/v1`."
+                    "Hint: Ollama is reachable on http://localhost:11434. If you want to use it, set `api_url` to `{}`.",
+                    crate::agent::config::DEFAULT_OLLAMA_API_URL
                 );
             }
         }

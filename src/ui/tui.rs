@@ -1546,6 +1546,7 @@ fn show_help_message(app: &mut App) {
          /health           - (Diag) Run a synthesized plain-English system health report\n\
          /explain <text>   - (Help) Paste an error to get a non-technical breakdown\n\
          /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
+         /provider [status|lmstudio|ollama|clear|URL] - (Model) Show or save the active provider endpoint preference\n\
          /runtime-refresh  - (Model) Re-read active provider model + CTX now\n\
          /undo             - (Ghost) Revert last file change\n\
          /diff             - (Git) Show session changes (--stat)\n\
@@ -1617,6 +1618,7 @@ fn show_help_message_legacy(app: &mut App) {
          /health           — (Diag) Run a synthesized plain-English system health report\n\
          /explain <text>   — (Help) Paste an error to get a non-technical breakdown\n\
          /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
+         /provider [status|lmstudio|ollama|clear|URL] — (Model) Show or save the active provider endpoint preference\n\
          /runtime-refresh  — (Model) Re-read active provider model + CTX now\n\
          /undo             — (Ghost) Revert last file change\n\
          /diff             — (Git) Show session changes (--stat)\n\
@@ -2901,6 +2903,7 @@ pub async fn run_app<B: Backend>(
                                                        /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
                                                        /clear            — (UI) Clear dialogue display only\n\
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
+                                                     /provider [status|lmstudio|ollama|clear|URL] — (Model) Show or save the active provider endpoint preference\n\
                                                      /runtime-refresh  — (Model) Re-read active provider model + CTX now\n\
                                                      /undo             — (Ghost) Revert last file change\n\
                                                      /diff             — (Git) Show session changes (--stat)\n\
@@ -2959,6 +2962,96 @@ pub async fn run_app<B: Backend>(
                                                         let tasks = crate::agent::parser::parse_master_spec(&payload);
                                                         let _ = coord_c.dispatch_swarm(tasks, swarm_tx_c, max_workers).await;
                                                     });
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/provider" => {
+                                                let config = crate::agent::config::load_config();
+                                                let active_provider = if app.provider_name.trim().is_empty() {
+                                                    "detecting".to_string()
+                                                } else {
+                                                    app.provider_name.clone()
+                                                };
+                                                let active_endpoint = config
+                                                    .api_url
+                                                    .clone()
+                                                    .unwrap_or_else(|| {
+                                                        crate::agent::config::default_api_url_for_provider(&active_provider).to_string()
+                                                    });
+
+                                                let arg_text = parts[1..].join(" ").trim().to_string();
+                                                if arg_text.is_empty()
+                                                    || arg_text.eq_ignore_ascii_case("status")
+                                                {
+                                                    let saved = config.api_url.as_ref().map(|url| {
+                                                        format!(
+                                                            "{} ({})",
+                                                            crate::agent::config::provider_label_for_api_url(url),
+                                                            url
+                                                        )
+                                                    }).unwrap_or_else(|| {
+                                                        format!(
+                                                            "default LM Studio ({})",
+                                                            crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+                                                        )
+                                                    });
+                                                    let summary = format!(
+                                                        "Active provider: {} | Session endpoint: {}\nSaved preference: {}\n\nUse /provider lmstudio, /provider ollama, /provider clear, or /provider <url>.\nProvider changes apply to new sessions; restart Hematite to switch this one.",
+                                                        active_provider,
+                                                        active_endpoint,
+                                                        saved
+                                                    );
+                                                    app.push_message("System", &summary);
+                                                    app.history_idx = None;
+                                                    continue;
+                                                }
+
+                                                let lower = arg_text.to_ascii_lowercase();
+                                                let result = match lower.as_str() {
+                                                    "lmstudio" | "lm" => crate::agent::config::set_api_url_override(Some(
+                                                        crate::agent::config::DEFAULT_LM_STUDIO_API_URL,
+                                                    ))
+                                                    .map(|_| {
+                                                        format!(
+                                                            "Saved provider preference: LM Studio ({}) in `.hematite/settings.json`.\nRestart Hematite to switch this session.",
+                                                            crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+                                                        )
+                                                    }),
+                                                    "ollama" | "ol" => crate::agent::config::set_api_url_override(Some(
+                                                        crate::agent::config::DEFAULT_OLLAMA_API_URL,
+                                                    ))
+                                                    .map(|_| {
+                                                        format!(
+                                                            "Saved provider preference: Ollama ({}) in `.hematite/settings.json`.\nRestart Hematite to switch this session.",
+                                                            crate::agent::config::DEFAULT_OLLAMA_API_URL
+                                                        )
+                                                    }),
+                                                    "clear" | "default" => crate::agent::config::set_api_url_override(None)
+                                                        .map(|_| {
+                                                            format!(
+                                                                "Cleared the saved provider override. New sessions will fall back to LM Studio ({}) unless `--url` overrides it.\nRestart Hematite to switch this session.",
+                                                                crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+                                                            )
+                                                        }),
+                                                    _ if lower.starts_with("http://")
+                                                        || lower.starts_with("https://") =>
+                                                    {
+                                                        crate::agent::config::set_api_url_override(Some(&arg_text))
+                                                            .map(|_| {
+                                                                format!(
+                                                                    "Saved provider endpoint override: {} ({}) in `.hematite/settings.json`.\nRestart Hematite to switch this session.",
+                                                                    crate::agent::config::provider_label_for_api_url(&arg_text),
+                                                                    arg_text
+                                                                )
+                                                            })
+                                                    }
+                                                    _ => Err("Usage: /provider [status|lmstudio|ollama|clear|http://host:port/v1]".to_string()),
+                                                };
+
+                                                match result {
+                                                    Ok(message) => app.push_message("System", &message),
+                                                    Err(error) => app.push_message("System", &error),
                                                 }
                                                 app.history_idx = None;
                                                 continue;

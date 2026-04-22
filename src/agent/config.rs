@@ -5,6 +5,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+pub const DEFAULT_LM_STUDIO_API_URL: &str = "http://localhost:1234/v1";
+pub const DEFAULT_OLLAMA_API_URL: &str = "http://localhost:11434/v1";
+
 fn default_true() -> bool {
     true
 }
@@ -226,6 +229,40 @@ pub fn save_config(config: &HematiteConfig) -> Result<(), String> {
     std::fs::write(&path, json).map_err(|e| e.to_string())
 }
 
+pub fn provider_label_for_api_url(url: &str) -> &'static str {
+    let normalized = url.trim().trim_end_matches('/').to_ascii_lowercase();
+    if normalized.contains("11434") || normalized.contains("ollama") {
+        "Ollama"
+    } else if normalized.contains("1234") || normalized.contains("lmstudio") {
+        "LM Studio"
+    } else {
+        "Custom"
+    }
+}
+
+pub fn default_api_url_for_provider(provider_name: &str) -> &'static str {
+    match provider_name {
+        "Ollama" => DEFAULT_OLLAMA_API_URL,
+        _ => DEFAULT_LM_STUDIO_API_URL,
+    }
+}
+
+pub fn effective_api_url(config: &HematiteConfig, cli_default: &str) -> String {
+    config
+        .api_url
+        .clone()
+        .unwrap_or_else(|| cli_default.to_string())
+}
+
+pub fn set_api_url_override(url: Option<&str>) -> Result<(), String> {
+    let mut config = load_config();
+    config.api_url = url
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string());
+    save_config(&config)
+}
+
 pub fn set_gemma_native_formatting(enabled: bool) -> Result<(), String> {
     set_gemma_native_mode(if enabled { "on" } else { "off" })
 }
@@ -343,9 +380,46 @@ fn write_default_config(path: &std::path::Path) {
     "pre_tool_use": [],
     "post_tool_use": []
   }
-}
+  }
 "#;
     let _ = std::fs::write(path, default);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn provider_label_for_api_url_detects_known_runtimes() {
+        assert_eq!(
+            provider_label_for_api_url("http://localhost:1234/v1"),
+            "LM Studio"
+        );
+        assert_eq!(
+            provider_label_for_api_url("http://localhost:11434/v1"),
+            "Ollama"
+        );
+        assert_eq!(
+            provider_label_for_api_url("https://ai.example.com/v1"),
+            "Custom"
+        );
+    }
+
+    #[test]
+    fn default_api_url_for_provider_maps_presets() {
+        assert_eq!(
+            default_api_url_for_provider("LM Studio"),
+            DEFAULT_LM_STUDIO_API_URL
+        );
+        assert_eq!(
+            default_api_url_for_provider("Ollama"),
+            DEFAULT_OLLAMA_API_URL
+        );
+        assert_eq!(
+            default_api_url_for_provider("Custom"),
+            DEFAULT_LM_STUDIO_API_URL
+        );
+    }
 }
 
 /// Returns the permission decision for a shell command given the loaded config.

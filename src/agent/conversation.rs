@@ -2642,7 +2642,7 @@ impl ConversationManager {
                 None => {
                     let _ = tx
                         .send(InferenceEvent::Error(
-                            "Runtime refresh failed: LM Studio profile could not be read."
+                            "Runtime refresh failed: active provider profile could not be read."
                                 .to_string(),
                         ))
                         .await;

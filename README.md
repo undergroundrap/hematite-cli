@@ -1216,6 +1216,7 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 /read-only [prompt]  Sticky hard read-only mode; optional inline prompt
 /teach [prompt]   Sticky teacher mode for grounded admin walkthroughs
 /gemma-native [auto|on|off|status]  Auto/force/disable Gemma 4 native formatting
+/provider [status|lmstudio|ollama|clear|URL]  Show or save the active provider endpoint preference
 /runtime-refresh  Re-read the active provider model profile and context window now
 /new              Fresh task context; clear chat, pins, and task files
 /forget           Hard forget; purge saved memory and the Vein index too
@@ -1355,6 +1356,18 @@ Hematite reads `.hematite/settings.json` from your project root, with `~/.hemati
 | Remote machine | `http://192.168.x.x:1234/v1` |
 
 This overrides the `--url` CLI flag. The value is the `/v1` base path — Hematite appends `/chat/completions`, `/models`, and `/embeddings` automatically.
+
+If you prefer not to edit JSON by hand, use `/provider` inside Hematite:
+
+```text
+/provider                 Show the active provider, session endpoint, and saved preference
+/provider lmstudio        Save LM Studio as the workspace provider
+/provider ollama          Save Ollama as the workspace provider
+/provider clear           Clear the saved override and fall back to the default path
+/provider http://host:port/v1
+```
+
+Provider changes are persisted to `.hematite/settings.json` and apply to new sessions. Restart Hematite to switch the current session.
 
 **`context_hint`** — an optional string injected into the system prompt every turn. Use it to give Hematite a permanent shortcut to the parts of your project it would otherwise have to rediscover by reading files.
 
