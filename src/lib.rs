@@ -168,7 +168,7 @@ pub struct CliCockpit {
 
     #[arg(
         long,
-        help = "Enable semantic edge redaction — routes inspect_host output through the local model for privacy-safe summarization before any data leaves the machine. Requires LM Studio running. Implies --edge-redact."
+        help = "Enable semantic edge redaction — routes inspect_host output through the local model for privacy-safe summarization before any data leaves the machine. Requires a local OpenAI-compatible runtime running. Implies --edge-redact."
     )]
     pub semantic_redact: bool,
 
@@ -180,7 +180,7 @@ pub struct CliCockpit {
 
     #[arg(
         long,
-        help = "Model ID for --semantic-redact (e.g. bonsai-8b). Required when multiple models are loaded in LM Studio. Omit for single-model setups."
+        help = "Model ID for --semantic-redact (e.g. bonsai-8b). Required when multiple models are loaded in the local runtime. Omit for single-model setups."
     )]
     pub semantic_model: Option<String>,
 

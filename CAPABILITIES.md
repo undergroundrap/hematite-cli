@@ -1,10 +1,10 @@
 # Hematite Capabilities
 
-This document summarizes the technical strengths of **Hematite-CLI** as a local GPU-aware coding harness for LM Studio and Gemma-family models, with the strongest optimization focus on single-GPU consumer hardware such as the RTX 4070 class.
+This document summarizes the technical strengths of **Hematite-CLI** as a local GPU-aware coding harness for LM Studio, Ollama, and other local OpenAI-compatible runtimes, with the strongest optimization focus on single-GPU consumer hardware such as the RTX 4070 class.
 
 Hematite is not trying to be a generic cloud-agent platform in a terminal skin. Its product thesis is narrower and stronger:
 
-- be the best **local coding harness for LM Studio**
+- be the best **local coding harness for local OpenAI-compatible runtimes**
 - be honest about **consumer GPU limits**
 - make **runtime truth, recovery, and repo grounding** visible to the operator
 - turn open local models into a serious project-work tool instead of a chat wrapper
@@ -17,7 +17,7 @@ That is the lens for the capabilities below.
 - **Repo-grounded behavior**: Hematite prefers architecture tracing, repo mapping, tool discipline, and bounded inspection over freeform model improvisation
 - **Single-GPU engineering**: context shaping, compaction, fallback prompting, and recovery are built around what a 4070-class machine can actually sustain
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
-- **Agent-harness boundary**: LM Studio is the model runtime; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
+- **Agent-harness boundary**: the local runtime is the model server; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
 - **Full OS stack coverage**: 116+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **MCP server mode**: `hematite --mcp-server` exposes all 116+ inspect_host topics to any MCP-capable agent (Claude Desktop, OpenClaw, Cursor, Windsurf) over stdio JSON-RPC 2.0. No TUI, no local model needed on the client side.
 - **Privacy gateway**: Two-tier identity stripping before any output leaves the machine. `--edge-redact` (Tier 1) is a fast compiled regex pass — no local model required — that replaces usernames, MACs, serials, hostnames, and credential-shaped values with safe tokens. `--semantic-redact` (Tier 2) routes raw inspect_host output through a dedicated local summarizer model before forwarding; Tier 1 runs after as a safety net. Fail-safe: if the summarizer is unreachable, the call errors — raw data is never sent. Jailbreak-resistant (hardened prompt, unknown MCP args stripped, refusal detection). Metadata-only audit trail at `~/.hematite/redact_audit.jsonl`. Per-topic policy file for hard-blocking sensitive topics or overriding redaction level per topic.
@@ -59,7 +59,7 @@ Hematite continuously adapts to the machine it is running on.
 - **Live LM Studio context detection**: startup now prefers the loaded model's `loaded_context_length` from LM Studio so Hematite budgets against the active runtime context instead of an outdated fallback field
 - **Live runtime-profile refresh**: before each turn, Hematite can resync the loaded LM Studio model ID and active context budget so model swaps or context changes do not require a full Hematite restart
 - **Quiet background runtime sync**: while idle, Hematite can keep the status bar aligned with LM Studio's live model and CTX state and only emits a visible operator message when the runtime profile actually changes
-- **Compact LM runtime badge**: the bottom status bar now exposes a low-noise LM Studio state badge so the operator can see live, stale, warning, or context-ceiling conditions at a glance
+- **Compact runtime badge**: the bottom status bar now exposes a low-noise provider state badge so the operator can see live, stale, warning, or context-ceiling conditions at a glance across LM Studio or Ollama
 - **Provider-state machine**: retries and runtime failures emit compact provider states such as recovering, degraded, or context-ceiling so the operator can see what Hematite is doing without parsing long failure prose
 - **Failure-state persistence**: a runtime refresh can update model and CTX without immediately clearing a real `LM:CEIL` or `LM:WARN` condition; those states persist until successful output proves recovery
 - **Compaction-pressure meter**: the bottom bar now shows a compact percentage badge tied to Hematite's real adaptive compaction threshold so the operator can see when conversation history is approaching summary-chaining pressure
@@ -68,7 +68,7 @@ Hematite continuously adapts to the machine it is running on.
 - **Runtime-owned provider state**: recovery, degraded, live, and context-ceiling transitions are now emitted by the runtime layer itself instead of being guessed by the TUI from rendered tokens or error strings
 - **Typed operator checkpoints**: SPECULAR now receives explicit runtime checkpoint states for provider recovery, prompt-budget reduction, history compaction, blocked policy paths, blocked recent-file-evidence edits, blocked exact-line-window edits, and other recovery/blocker transitions
 - **Typed recovery recipes**: retries, runtime refreshes, prompt-budget reduction, history compaction, and proof-before-edit recovery are now described by named recovery scenarios and compact step recipes instead of only ad hoc branch logic
-- **Runtime bundle boundary**: startup assembly for engine, channels, watcher, voice, swarm, and LM Studio profile sync now lives behind a typed runtime bundle instead of being hand-wired directly in `main.rs`
+- **Runtime bundle boundary**: startup assembly for engine, channels, watcher, voice, swarm, and runtime profile sync now lives behind a typed runtime bundle instead of being hand-wired directly in `main.rs`
 - **Real-time silicon tracking**: `overclocker` delivers high-fidelity telemetry informed by the **Zero-Overhead Silicon Historian**—a 10-point RAM-only buffer tracking session trends (Temp/Clocks/Power anomalies) without disk baggage.
 - **NVIDIA Deep-Sense**: precision GPU telemetry including real-time power draw and power-cap context (W), graphics/memory clocks (MHz), fan curves, and explicit GPU-voltage availability reporting, plus the **Precision Throttle Truth** engine to decode NVIDIA bitmasks into root-cause casualties (Power vs Thermal).
 - **Typed permission enforcement**: tool authorization now converges through one runtime decision layer for allow, ask, or deny outcomes instead of splitting shell rules, MCP approval defaults, safe-path bypasses, and shell-risk classification across ad hoc branches

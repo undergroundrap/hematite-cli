@@ -113,7 +113,7 @@ Restart the terminal after running. The `hematite` command on PATH now points to
 
 ### MCP Semantic Redact Smoke Test
 
-Requires LM Studio running with three models loaded: Qwen3.5 9B (main), nomic-embed-text-v2 (search), Bonsai 8B Q1_0 (privacy summarizer).
+Requires a local OpenAI-compatible runtime running with three models loaded. The verified path is LM Studio with Qwen3.5 9B (main), nomic-embed-text-v2 (search), and Bonsai 8B Q1_0 (privacy summarizer).
 
 ```powershell
 $i1 = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'

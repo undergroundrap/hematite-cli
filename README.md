@@ -14,7 +14,7 @@ Cloud is optional at every layer. Hematite runs fully local, runs as a privacy g
 ```
 hematite
 ```
-Runs in your terminal with a local model on LM Studio (Qwen 3.5, Gemma 4, or any OpenAI-compatible model). Everything stays on your machine. No API key, no cloud, no per-token billing. This is the default mode.
+Runs in your terminal with a local model on LM Studio, Ollama, or another OpenAI-compatible runtime (Qwen 3.5, Gemma 4, or any compatible model). Everything stays on your machine. No API key, no cloud, no per-token billing. LM Studio is the default path.
 
 **2. Cloud agent uses Hematite as its eyes and hands**
 ```
@@ -76,7 +76,7 @@ A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool c
 
 ---
 
-**Local AI agent harness for LM Studio** — coding assistant, voice, RAG retrieval, and grounded diagnostic analysis. A precision SysAdmin and Network Admin assistant that runs entirely on your silicon. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, and inspects the machine it is running on — including full network state, hardware health, and workstation telemetry. All from a single binary that boots in seconds.
+**Local AI agent harness for LM Studio, Ollama, and other OpenAI-compatible runtimes** — coding assistant, voice, RAG retrieval, and grounded diagnostic analysis. A precision SysAdmin and Network Admin assistant that runs entirely on your silicon. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, and inspects the machine it is running on — including full network state, hardware health, and workstation telemetry. All from a single binary that boots in seconds.
 
 **What it actually does:**
 - **Automatic Workspace Detection**: Detects the workspace automatically—coding project, document folder, or general directory—and adjusts its behavior accordingly. Now includes robust detection for web projects via `index.html`, `style.css`, and `.hematite` management markers. No flags, no config.
@@ -100,7 +100,7 @@ A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool c
 - Speaks every response through a built-in 54-voice TTS engine — statically linked, zero install, works offline
 - Clean conversational chat mode alongside the full agent mode — terminal-native, no Electron, no browser
 
-`hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, SysAdmin and Network Admin when you need one, clean conversation when you do not. LM Studio handles model serving. Hematite handles the grounded local workflow around it.
+`hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, SysAdmin and Network Admin when you need one, clean conversation when you do not. A local OpenAI-compatible runtime handles model serving. Hematite handles the grounded local workflow around it.
 
 ![Version](https://img.shields.io/badge/version-0.6.0-blue?style=flat-square)
 ![Silicon Native](https://img.shields.io/badge/silicon-native-orange?style=flat-square)
@@ -112,7 +112,8 @@ A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool c
 ![Offline](https://img.shields.io/badge/offline-100%25-brightgreen?style=flat-square)
 ![Voice](https://img.shields.io/badge/voice-54_voices-purple?style=flat-square)
 ![RAG](https://img.shields.io/badge/RAG-hybrid_BM25+semantic-blue?style=flat-square)
-![LM Studio](https://img.shields.io/badge/LM_Studio-native-blueviolet?style=flat-square)
+![LM Studio](https://img.shields.io/badge/LM_Studio-default-blueviolet?style=flat-square)
+![Ollama](https://img.shields.io/badge/Ollama-supported-111111?style=flat-square)
 ![License](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)
 
 ---
@@ -168,7 +169,7 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 
 Hematite is for developers who want a **local coding CLI that behaves like a serious tool**, not a toy shell around a model server.
 
-- You want a **local coding agent for LM Studio** that can read, edit, search, verify, and reason about a real repository.
+- You want a **local coding agent for LM Studio or Ollama** that can read, edit, search, verify, and reason about a real repository.
 - You want a **Windows local AI coding assistant** that does not treat PowerShell or local pathing as second-class.
 - You want a **local coding harness** that survives tight context budgets instead of silently melting down near the ceiling.
 - You want a **local coding CLI** that admits real hardware limits and engineers around them — whether you're on a 4070 or a beast multi-GPU rig.
@@ -466,7 +467,7 @@ There are several tools in this space. Here is what each one actually requires a
 ## Product Boundary
 
 Hematite is the **agent harness**.
-LM Studio is the **local inference runtime**.
+Your local OpenAI-compatible runtime is the **inference runtime**.
 
 Hematite handles:
 - terminal UI and operator workflow
@@ -474,13 +475,15 @@ Hematite handles:
 - local retrieval, compaction, and context shaping
 - voice, GPU awareness, and multi-step orchestration
 
-LM Studio handles:
+The runtime handles:
 - loading local models
 - swapping models quickly
 - updating runtimes and models without rebuilding Hematite
 - serving the OpenAI-compatible endpoint on your machine
 
-That split is intentional. Hematite focuses on being the best local coding harness; LM Studio focuses on model lifecycle.
+LM Studio is the default path and the most fully documented setup in this repo. Ollama is also supported when `api_url` points at `http://localhost:11434/v1`.
+
+That split is intentional. Hematite focuses on being the best local coding harness; the runtime focuses on model lifecycle.
 
 ---
 
@@ -607,7 +610,7 @@ Source-build note: the publish-safe default build does not embed the 300MB+ voic
 
 ## Distribution
 
-Hematite is designed as a **workspace-aware standalone executable** that pairs with LM Studio.
+Hematite is designed as a **workspace-aware standalone executable** that pairs with a local OpenAI-compatible runtime, with LM Studio as the default path and Ollama as a supported alternative.
 
 ### Versioning
 
@@ -1213,7 +1216,7 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 /read-only [prompt]  Sticky hard read-only mode; optional inline prompt
 /teach [prompt]   Sticky teacher mode for grounded admin walkthroughs
 /gemma-native [auto|on|off|status]  Auto/force/disable Gemma 4 native formatting
-/runtime-refresh  Re-read the LM Studio model profile and context window now
+/runtime-refresh  Re-read the active provider model profile and context window now
 /new              Fresh task context; clear chat, pins, and task files
 /forget           Hard forget; purge saved memory and the Vein index too
 /cd <path>        Teleport to another directory; supports bare tokens like downloads, desktop, docs, home, temp, and `~`, plus aliases like `@DESKTOP/project`

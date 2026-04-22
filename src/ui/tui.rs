@@ -1546,7 +1546,7 @@ fn show_help_message(app: &mut App) {
          /health           - (Diag) Run a synthesized plain-English system health report\n\
          /explain <text>   - (Help) Paste an error to get a non-technical breakdown\n\
          /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
-         /runtime-refresh  - (Model) Re-read LM Studio model + CTX now\n\
+         /runtime-refresh  - (Model) Re-read active provider model + CTX now\n\
          /undo             - (Ghost) Revert last file change\n\
          /diff             - (Git) Show session changes (--stat)\n\
          /lsp              - (Logic) Start Language Servers (semantic intelligence)\n\
@@ -1579,12 +1579,12 @@ fn show_help_message(app: &mut App) {
          Ctrl+Q/C - Quit session\n\
          ESC    - Silence current playback\n\
          \nStatus Legend:\n\
-         LM    - LM Studio runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
+         LM/OL - Provider runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
          VN    - Vein RAG status (`SEM`=semantic active, `FTS`=BM25 only, `--`=not indexed)\n\
          BUD   - Total prompt-budget pressure against the live context window\n\
          CMP   - History compaction pressure against Hematite's adaptive threshold\n\
          ERR   - Session error count (runtime, tool, or SPECULAR failures)\n\
-         CTX   - Live context window currently reported by LM Studio\n\
+         CTX   - Live context window currently reported by the provider\n\
          VOICE - Local speech output state\n\
          \nDocument note: `/attach` supports PDF/markdown/txt, but PDF parsing is best-effort by design so Hematite can stay a lightweight single-binary local coding harness and workstation assistant. If a PDF fails, export it to text/markdown or attach page images instead.\n\
          ",
@@ -1617,7 +1617,7 @@ fn show_help_message_legacy(app: &mut App) {
          /health           — (Diag) Run a synthesized plain-English system health report\n\
          /explain <text>   — (Help) Paste an error to get a non-technical breakdown\n\
          /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
-         /runtime-refresh  — (Model) Re-read LM Studio model + CTX now\n\
+         /runtime-refresh  — (Model) Re-read active provider model + CTX now\n\
          /undo             — (Ghost) Revert last file change\n\
          /diff             — (Git) Show session changes (--stat)\n\
          /lsp              — (Logic) Start Language Servers (semantic intelligence)\n\
@@ -1648,12 +1648,12 @@ fn show_help_message_legacy(app: &mut App) {
          Ctrl+Q/C — Quit session\n\
          ESC    — Silence current playback\n\
          \nStatus Legend:\n\
-         LM    — LM Studio runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
+         LM/OL — Provider runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
          VN    — Vein RAG status (`SEM`=semantic active, `FTS`=BM25 only, `--`=not indexed)\n\
          BUD   — Total prompt-budget pressure against the live context window\n\
          CMP   — History compaction pressure against Hematite's adaptive threshold\n\
          ERR   — Session error count (runtime, tool, or SPECULAR failures)\n\
-         CTX   — Live context window currently reported by LM Studio\n\
+         CTX   — Live context window currently reported by the provider\n\
          VOICE — Local speech output state\n\
          \nAssistant: Semantic Pathing (LSP), Vision Pass, Web Research, Swarm Synthesis"
     );
@@ -2901,7 +2901,7 @@ pub async fn run_app<B: Backend>(
                                                        /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
                                                        /clear            — (UI) Clear dialogue display only\n\
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
-                                                     /runtime-refresh  — (Model) Re-read LM Studio model + CTX now\n\
+                                                     /runtime-refresh  — (Model) Re-read active provider model + CTX now\n\
                                                      /undo             — (Ghost) Revert last file change\n\
                                                      /diff             — (Git) Show session changes (--stat)\n\
                                                      /lsp              — (Logic) Start Language Servers (semantic intelligence)\n\

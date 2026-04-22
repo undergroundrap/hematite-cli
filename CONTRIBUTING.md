@@ -1,6 +1,6 @@
 # Contributing to Hematite
 
-Hematite is a local coding harness built in Rust and designed to work with local models through LM Studio. Contribute with small, clear changes that improve real behavior on a developer machine.
+Hematite is a local coding harness built in Rust and designed to work with local models through LM Studio, Ollama, and other OpenAI-compatible runtimes. Contribute with small, clear changes that improve real behavior on a developer machine.
 
 ## Development Principles
 
@@ -8,7 +8,7 @@ Hematite is a local coding harness built in Rust and designed to work with local
 - Preserve Windows correctness. PowerShell, terminal behavior, and path safety matter here.
 - Treat the TUI as one interface layer of the product, not the whole product.
 - Prefer concrete wording over dramatic or vague phrasing in prompts, labels, and docs.
-- Keep the product boundary honest: Hematite is the harness, LM Studio is the model runtime.
+- Keep the product boundary honest: Hematite is the harness, the local runtime is the model server.
 
 ## Getting Started
 
@@ -22,7 +22,7 @@ pwsh ./scripts/package-windows.ps1
 Requirements:
 
 - Rust toolchain
-- LM Studio running locally with a model loaded on port `1234`
+- A local OpenAI-compatible runtime running with a model loaded. LM Studio on `http://localhost:1234/v1` is the default path; Ollama on `http://localhost:11434/v1` is also supported.
 - Inno Setup if you want to build the Windows installer
 
 Package naming note:

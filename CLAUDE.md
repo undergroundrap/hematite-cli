@@ -90,7 +90,7 @@ pwsh ./clean.ps1
 - `/lsp`: show LSP server status and active language server diagnostics
 - `/reroll`: hatch a new companion soul mid-session (soul/personality reroll)
 - `/rules [view|edit]`: view status, inspect content, or edit project guidelines (.hematite/rules.md)
-- `/runtime-refresh`: force a resync of the LM Studio model profile and context window size
+- `/runtime-refresh`: force a resync of the active provider model profile and context window size
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/vein-reset`: wipe the Vein index and rebuild from scratch on the next turn
 - `/workspace-profile`: inspect the auto-generated workspace profile
@@ -118,7 +118,7 @@ pwsh ./clean.ps1
 - `/image-pick`: open a file picker to select an image attachment
 - `/detach`: drop any pending document or image attachment without sending
 
-Requires LM Studio running locally with a model loaded and the server started on port `1234`.
+Requires a local OpenAI-compatible runtime running with a model loaded. LM Studio on port `1234` is the default path; Ollama on `http://localhost:11434/v1` is also supported when `api_url` points there.
 
 Practical rule: the version/build label is compile-time metadata. A new commit or tag does not change what the already-built binary reports. Rebuild the binary or rerun `pwsh ./scripts/package-windows.ps1 -AddToPath` if you want `hematite --version`, `/version`, and the startup banner to reflect the latest commit, tag, or dirty/clean state.
 

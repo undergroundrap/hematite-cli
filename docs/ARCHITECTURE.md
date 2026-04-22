@@ -7,7 +7,7 @@ The goal is simple:
 - `conversation.rs` should orchestrate turns
 - specialized modules should own their own policy or explanation logic
 - the TUI should render runtime truth, not invent it
-- LM Studio should remain the local model runtime, not the product brain
+- the local model runtime should remain the model runtime, not the product brain
 - recurring workflow structure should live in the harness when local models are not dependable enough to infer it every turn
 
 ## Runtime State Anchoring
@@ -32,7 +32,7 @@ CLI entry point. Parses flags (`--no-splash`, `--yolo`, `--rusty`, `--brief`, `-
 Owns runtime assembly and startup.
 
 - builds the typed runtime bundle
-- wires agent channels, watcher channels, voice, swarm, and LM Studio profile sync
+- wires agent channels, watcher channels, voice, swarm, and runtime profile sync
 - resolves the workspace root, loads config, launches the Vein, and spawns the agent loop
 - handles the CWD guard (relocates to home if launched from an inaccessible system path)
 - **Teleportation Handshake**: Initializes the session with a context-aware greeting when arriving from a previous workspace.
@@ -101,12 +101,12 @@ Owns system prompt assembly.
 
 Owns the model and tool protocol surfaces.
 
-- `InferenceEngine` — HTTP client to LM Studio, streaming, tool calls
+- `InferenceEngine` — HTTP client to the active OpenAI-compatible runtime, streaming, tool calls
 - chat message types (`ChatMessage`, role handling)
 - `InferenceEvent` — the enum flowing from agent to TUI over `mpsc`
 - tool definitions and tool metadata (`ToolMeta`)
 - provider/runtime event flow (typed provider states: live, recovering, degraded, context-ceiling)
-- prompt preflight and LM Studio profile sync (`loaded_context_length`)
+- prompt preflight and runtime profile sync (`loaded_context_length` when the provider exposes it)
 - Gemma 4 native markup wrapping (controlled by `gemma_native_auto`)
 
 Tool metadata should continue to live here or in adjacent registry-owned code, not leak back into ad hoc name lists.
@@ -463,7 +463,7 @@ Owns the operator interface.
 
 - main transcript rendering (chat surface)
 - SPECULAR panel: live reasoning traces, shell output lines, watcher events
-- bottom status bar: LM Studio badge, VN badge, BUD/CTX meters, session error count
+- bottom status bar: provider badge, VN badge, BUD/CTX meters, session error count
 - runtime badges: provider health, compaction pressure, context ceiling
 - approval prompts and diff preview modal (`Y`/`N`)
 - voice toggle state

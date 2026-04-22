@@ -63,7 +63,7 @@ Hematite $version
 =================
 
 What this is:
-- Hematite is a local AI coding harness and terminal CLI for LM Studio.
+- Hematite is a local AI coding harness and terminal CLI for LM Studio, Ollama, and other local OpenAI-compatible runtimes.
 - This archive contains the Unix release bundle for $platform-$arch.
 
 Install:
@@ -81,10 +81,12 @@ Linux note:
 - If the binary fails to start on Linux, install those libraries and retry.
 
 Before running:
-1. Install LM Studio (https://lmstudio.ai).
+1. Install LM Studio (https://lmstudio.ai) or Ollama (https://ollama.com/).
 2. Download and load a coding model. Recommended: Qwen/Qwen3.5-9B Q4_K_M.
 3. Optionally load nomic-embed-text-v2 alongside it for semantic search.
-4. Start LM Studio's local server on port 1234.
+4. Start your local server.
+   LM Studio defaults to http://localhost:1234/v1.
+   Ollama uses http://localhost:11434/v1 when you set api_url.
 
 More info: https://github.com/undergroundrap/hematite-cli
 EOF

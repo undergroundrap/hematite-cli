@@ -6,7 +6,7 @@ It is designed for the actual target machine class of this project:
 
 - single-GPU local setups
 - Windows-first workflows
-- LM Studio as the model runtime
+- LM Studio as the default model runtime, with Ollama support in the main product path
 - Gemma-family open models on RTX 4070-class hardware
 
 The goal is not to prove cloud parity. The goal is to measure whether Hematite is making local open models more reliable, grounded, and useful over time.
