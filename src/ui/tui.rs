@@ -42,6 +42,88 @@ fn provider_state_label(state: ProviderRuntimeState) -> &'static str {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RuntimeIssueKind {
+    Healthy,
+    Booting,
+    Recovering,
+    NoModel,
+    Connectivity,
+    EmptyResponse,
+    ContextCeiling,
+}
+
+fn classify_runtime_issue(
+    provider_state: ProviderRuntimeState,
+    model_id: &str,
+    context_length: usize,
+    provider_summary: &str,
+) -> RuntimeIssueKind {
+    if provider_state == ProviderRuntimeState::ContextWindow {
+        return RuntimeIssueKind::ContextCeiling;
+    }
+    if model_id.trim() == "no model loaded" {
+        return RuntimeIssueKind::NoModel;
+    }
+    if provider_state == ProviderRuntimeState::EmptyResponse {
+        return RuntimeIssueKind::EmptyResponse;
+    }
+    if provider_state == ProviderRuntimeState::Recovering {
+        return RuntimeIssueKind::Recovering;
+    }
+    if provider_state == ProviderRuntimeState::Booting
+        || model_id.trim().is_empty()
+        || model_id.trim() == "detecting..."
+        || context_length == 0
+    {
+        return RuntimeIssueKind::Booting;
+    }
+    if provider_state == ProviderRuntimeState::Degraded {
+        let lower = provider_summary.to_ascii_lowercase();
+        if lower.contains("empty reply") || lower.contains("empty response") {
+            return RuntimeIssueKind::EmptyResponse;
+        }
+        if lower.contains("context ceiling") || lower.contains("context window") {
+            return RuntimeIssueKind::ContextCeiling;
+        }
+        return RuntimeIssueKind::Connectivity;
+    }
+    RuntimeIssueKind::Healthy
+}
+
+fn runtime_issue_kind(app: &App) -> RuntimeIssueKind {
+    classify_runtime_issue(
+        app.provider_state,
+        &app.model_id,
+        app.context_length,
+        &app.last_provider_summary,
+    )
+}
+
+fn runtime_issue_label(issue: RuntimeIssueKind) -> &'static str {
+    match issue {
+        RuntimeIssueKind::Healthy => "healthy",
+        RuntimeIssueKind::Booting => "booting",
+        RuntimeIssueKind::Recovering => "recovering",
+        RuntimeIssueKind::NoModel => "no_model",
+        RuntimeIssueKind::Connectivity => "connectivity",
+        RuntimeIssueKind::EmptyResponse => "empty_response",
+        RuntimeIssueKind::ContextCeiling => "context_ceiling",
+    }
+}
+
+fn runtime_issue_badge(issue: RuntimeIssueKind) -> (&'static str, Color) {
+    match issue {
+        RuntimeIssueKind::Healthy => ("OK", Color::Green),
+        RuntimeIssueKind::Booting => ("WAIT", Color::DarkGray),
+        RuntimeIssueKind::Recovering => ("RECV", Color::Cyan),
+        RuntimeIssueKind::NoModel => ("MOD", Color::Red),
+        RuntimeIssueKind::Connectivity => ("NET", Color::Red),
+        RuntimeIssueKind::EmptyResponse => ("EMP", Color::Red),
+        RuntimeIssueKind::ContextCeiling => ("CTX", Color::Yellow),
+    }
+}
+
 fn mcp_state_label(state: McpRuntimeState) -> &'static str {
     match state {
         McpRuntimeState::Unconfigured => "unconfigured",
@@ -112,33 +194,49 @@ async fn format_provider_summary(app: &App) -> String {
 
 fn runtime_fix_path(app: &App) -> String {
     let session_provider = runtime_session_provider(app);
-    let coding_model = if app.model_id.trim().is_empty() {
-        "detecting...".to_string()
-    } else {
-        app.model_id.clone()
-    };
-    if coding_model == "no model loaded" {
-        if session_provider == "Ollama" {
+    match runtime_issue_kind(app) {
+        RuntimeIssueKind::NoModel => {
+            if session_provider == "Ollama" {
+                format!(
+                    "Shortest fix: pull or run a chat model in Ollama, then keep `api_url` on `{}`. Hematite cannot safely auto-load that model for you here.",
+                    crate::agent::config::DEFAULT_OLLAMA_API_URL
+                )
+            } else {
+                format!(
+                    "Shortest fix: load a coding model in LM Studio and keep the local server on `{}`. Hematite cannot safely auto-load that model for you here.",
+                    crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+                )
+            }
+        }
+        RuntimeIssueKind::ContextCeiling => {
             format!(
-                "Shortest fix: pull or run a chat model in Ollama, then keep `api_url` on `{}`. Hematite cannot safely auto-load that model for you here.",
-                crate::agent::config::DEFAULT_OLLAMA_API_URL
-            )
-        } else {
-            format!(
-                "Shortest fix: load a coding model in LM Studio and keep the local server on `{}`. Hematite cannot safely auto-load that model for you here.",
-                crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+                "Shortest fix: narrow the request, let Hematite compact if needed, and run `/runtime fix` to refresh and re-check the active provider (`{}`).",
+                session_provider
             )
         }
-    } else if app.provider_state != ProviderRuntimeState::Live {
-        format!(
-            "Shortest fix: run `/runtime fix` to refresh and re-check the active provider (`{}`). If needed after that, use `/runtime provider <name>` and restart Hematite.",
-            session_provider
-        )
-    } else if app.embed_model_id.is_none() {
-        "Shortest fix: optional only — load `nomic-embed-text-v2` if you want semantic file search."
-            .to_string()
-    } else {
-        "Shortest fix: none — runtime is healthy.".to_string()
+        RuntimeIssueKind::Connectivity | RuntimeIssueKind::Recovering => {
+            format!(
+                "Shortest fix: run `/runtime fix` to refresh and re-check the active provider (`{}`). If needed after that, use `/runtime provider <name>` and restart Hematite.",
+                session_provider
+            )
+        }
+        RuntimeIssueKind::EmptyResponse => {
+            "Shortest fix: run `/runtime fix` to refresh the active runtime, then retry once with a narrower grounded request if the provider keeps answering empty.".to_string()
+        }
+        RuntimeIssueKind::Booting => {
+            format!(
+                "Shortest fix: wait for the active provider (`{}`) to stabilize, then run `/runtime fix` or `/runtime refresh` if detection stays stale.",
+                session_provider
+            )
+        }
+        RuntimeIssueKind::Healthy => {
+            if app.embed_model_id.is_none() {
+                "Shortest fix: optional only — load `nomic-embed-text-v2` if you want semantic file search."
+                    .to_string()
+            } else {
+                "Shortest fix: none — runtime is healthy.".to_string()
+            }
+        }
     }
 }
 
@@ -148,6 +246,7 @@ async fn format_runtime_summary(app: &App) -> String {
         crate::agent::config::provider_label_for_api_url(&configured_endpoint);
     let session_provider = runtime_session_provider(app);
     let session_endpoint = runtime_session_endpoint(app, &configured_endpoint);
+    let issue = runtime_issue_kind(app);
     let coding_model = if app.model_id.trim().is_empty() {
         "detecting...".to_string()
     } else {
@@ -168,12 +267,13 @@ async fn format_runtime_summary(app: &App) -> String {
         .map(|(name, url)| format!("Reachable alternative: {} ({})", name, url))
         .unwrap_or_else(|| "Reachable alternative: none detected".to_string());
     format!(
-        "Configured provider: {} ({})\nSession provider: {} ({})\nProvider state: {}\nCoding model: {}\nCTX: {}\nEmbedding model: {}\nSemantic search: {} | embedded chunks: {}\nMCP: {}\n{}\n{}\n\nTry: /runtime explain, /runtime fix, /runtime provider ollama",
+        "Configured provider: {} ({})\nSession provider: {} ({})\nProvider state: {}\nPrimary issue: {}\nCoding model: {}\nCTX: {}\nEmbedding model: {}\nSemantic search: {} | embedded chunks: {}\nMCP: {}\n{}\n{}\n\nTry: /runtime explain, /runtime fix, /runtime provider ollama",
         configured_provider,
         configured_endpoint,
         session_provider,
         session_endpoint,
         provider_state_label(app.provider_state),
+        runtime_issue_label(issue),
         coding_model,
         app.context_length,
         embed_status,
@@ -187,6 +287,7 @@ async fn format_runtime_summary(app: &App) -> String {
 
 async fn format_runtime_explanation(app: &App) -> String {
     let session_provider = runtime_session_provider(app);
+    let issue = runtime_issue_kind(app);
     let coding_model = if app.model_id.trim().is_empty() {
         "detecting...".to_string()
     } else {
@@ -233,7 +334,8 @@ async fn format_runtime_explanation(app: &App) -> String {
         .map(|(name, url)| format!("A reachable alternative exists: {} ({}).", name, url))
         .unwrap_or_else(|| "No other reachable local runtime is currently detected.".to_string());
     format!(
-        "{}\n{}\n{}\n{}",
+        "Primary issue: {}\n{}\n{}\n{}\n{}",
+        runtime_issue_label(issue),
         state_line,
         model_line,
         alternative,
@@ -243,14 +345,10 @@ async fn format_runtime_explanation(app: &App) -> String {
 
 async fn handle_runtime_fix(app: &mut App) {
     let session_provider = runtime_session_provider(app);
-    let coding_model = if app.model_id.trim().is_empty() {
-        "detecting...".to_string()
-    } else {
-        app.model_id.clone()
-    };
+    let issue = runtime_issue_kind(app);
     let alternative = crate::runtime::detect_alternative_provider(&session_provider).await;
 
-    if coding_model == "no model loaded" {
+    if issue == RuntimeIssueKind::NoModel {
         let mut message = runtime_fix_path(app);
         if let Some((name, url)) = alternative {
             message.push_str(&format!(
@@ -265,7 +363,14 @@ async fn handle_runtime_fix(app: &mut App) {
         return;
     }
 
-    if app.provider_state != ProviderRuntimeState::Live || coding_model == "detecting..." {
+    if matches!(
+        issue,
+        RuntimeIssueKind::Booting
+            | RuntimeIssueKind::Recovering
+            | RuntimeIssueKind::Connectivity
+            | RuntimeIssueKind::EmptyResponse
+            | RuntimeIssueKind::ContextCeiling
+    ) {
         let _ = app
             .user_input_tx
             .try_send(UserTurn::text("/runtime-refresh"));
@@ -289,7 +394,7 @@ async fn handle_runtime_fix(app: &mut App) {
         return;
     }
 
-    if app.embed_model_id.is_none() {
+    if issue == RuntimeIssueKind::Healthy && app.embed_model_id.is_none() {
         app.push_message(
             "System",
             "Runtime is already healthy. The only missing piece is optional semantic search; load `nomic-embed-text-v2` if you want embedding-backed file retrieval.",
@@ -1182,7 +1287,11 @@ fn copy_text_to_clipboard(text: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{provider_badge_prefix, should_accept_autocomplete_on_enter};
+    use super::{
+        classify_runtime_issue, provider_badge_prefix, should_accept_autocomplete_on_enter,
+        RuntimeIssueKind,
+    };
+    use crate::agent::inference::ProviderRuntimeState;
 
     #[test]
     fn enter_submits_bare_alias_root_instead_of_selecting_first_child() {
@@ -1201,6 +1310,40 @@ mod tests {
         assert_eq!(provider_badge_prefix("LM Studio"), "LM");
         assert_eq!(provider_badge_prefix("Ollama"), "OL");
         assert_eq!(provider_badge_prefix("Other"), "AI");
+    }
+
+    #[test]
+    fn runtime_issue_prefers_no_model_over_live_state() {
+        assert_eq!(
+            classify_runtime_issue(ProviderRuntimeState::Live, "no model loaded", 32000, ""),
+            RuntimeIssueKind::NoModel
+        );
+    }
+
+    #[test]
+    fn runtime_issue_distinguishes_context_ceiling() {
+        assert_eq!(
+            classify_runtime_issue(
+                ProviderRuntimeState::ContextWindow,
+                "qwen/qwen3.5-9b",
+                32000,
+                "LM context ceiling hit."
+            ),
+            RuntimeIssueKind::ContextCeiling
+        );
+    }
+
+    #[test]
+    fn runtime_issue_maps_generic_degraded_state_to_connectivity_signal() {
+        assert_eq!(
+            classify_runtime_issue(
+                ProviderRuntimeState::Degraded,
+                "qwen/qwen3.5-9b",
+                32000,
+                "LM Studio degraded and did not recover cleanly; operator action is now required."
+            ),
+            RuntimeIssueKind::Connectivity
+        );
     }
 }
 
@@ -1916,6 +2059,7 @@ fn show_help_message(app: &mut App) {
          ESC    - Silence current playback\n\
          \nStatus Legend:\n\
          LM/OL - Provider runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
+         RT    - Primary runtime issue (`OK`, `MOD`, `NET`, `EMP`, `CTX`, `WAIT`)\n\
          VN    - Vein RAG status (`SEM`=semantic active, `FTS`=BM25 only, `--`=not indexed)\n\
          BUD   - Total prompt-budget pressure against the live context window\n\
          CMP   - History compaction pressure against Hematite's adaptive threshold\n\
@@ -1988,6 +2132,7 @@ fn show_help_message_legacy(app: &mut App) {
          ESC    — Silence current playback\n\
          \nStatus Legend:\n\
          LM/OL — Provider runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
+         RT    — Primary runtime issue (`OK`, `MOD`, `NET`, `EMP`, `CTX`, `WAIT`)\n\
          VN    — Vein RAG status (`SEM`=semantic active, `FTS`=BM25 only, `--`=not indexed)\n\
          BUD   — Total prompt-budget pressure against the live context window\n\
          CMP   — History compaction pressure against Hematite's adaptive threshold\n\
@@ -4402,18 +4547,20 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     );
     let runtime_age = app.last_runtime_profile_time.elapsed();
     let provider_prefix = provider_badge_prefix(&app.provider_name);
-    let (lm_label, lm_color) = if app.model_id == "no model loaded" {
+    let issue = runtime_issue_kind(app);
+    let (issue_code, issue_color) = runtime_issue_badge(issue);
+    let (lm_label, lm_color) = if issue == RuntimeIssueKind::NoModel {
         (format!("{provider_prefix}:NONE"), Color::Red)
-    } else if app.model_id == "detecting..." || app.context_length == 0 {
+    } else if issue == RuntimeIssueKind::Booting {
         (format!("{provider_prefix}:BOOT"), Color::DarkGray)
-    } else if app.provider_state == ProviderRuntimeState::Recovering {
+    } else if issue == RuntimeIssueKind::Recovering {
         (format!("{provider_prefix}:RECV"), Color::Cyan)
     } else if matches!(
-        app.provider_state,
-        ProviderRuntimeState::Degraded | ProviderRuntimeState::EmptyResponse
+        issue,
+        RuntimeIssueKind::Connectivity | RuntimeIssueKind::EmptyResponse
     ) {
         (format!("{provider_prefix}:WARN"), Color::Red)
-    } else if app.provider_state == ProviderRuntimeState::ContextWindow {
+    } else if issue == RuntimeIssueKind::ContextCeiling {
         (format!("{provider_prefix}:CEIL"), Color::Yellow)
     } else if runtime_age > std::time::Duration::from_secs(12) {
         (format!("{provider_prefix}:STALE"), Color::Yellow)
@@ -4536,6 +4683,8 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             ratatui::text::Span::styled(format!(" {}", lm_label), Style::default().fg(lm_color)),
             ratatui::text::Span::raw(" | "),
             ratatui::text::Span::styled(vein_label, Style::default().fg(vein_color)),
+            ratatui::text::Span::raw(" |"),
+            ratatui::text::Span::styled(issue_code, Style::default().fg(issue_color)),
         ]))
         .block(
             Block::default()

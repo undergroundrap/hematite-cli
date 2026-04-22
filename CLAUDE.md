@@ -94,6 +94,7 @@ pwsh ./clean.ps1
 - `/runtime`: show the configured provider, live session provider/endpoint, coding model, embedding state, reachable alternatives, and shortest fix path
 - `/runtime fix`: run the shortest safe runtime recovery step without silently changing provider settings
 - `/runtime-refresh`: force a resync of the active provider model profile and context window size
+- Bottom status badges now include `RT:*` for the primary runtime issue: `MOD` (no model), `NET` (provider/connectivity), `EMP` (empty replies), `CTX` (context ceiling), or `WAIT` (boot/recovery)
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/vein-reset`: wipe the Vein index and rebuild from scratch on the next turn
 - `/workspace-profile`: inspect the auto-generated workspace profile

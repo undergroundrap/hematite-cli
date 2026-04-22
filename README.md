@@ -1373,7 +1373,9 @@ If you prefer not to edit JSON by hand, use `/provider` inside Hematite:
 
 Provider changes are persisted to `.hematite/settings.json` and apply to new sessions. Restart Hematite to switch the current session.
 
-For a live diagnosis of the current session, use `/runtime`. It reports the configured provider, the active session endpoint, coding model, embedding model, semantic-search readiness, MCP state, reachable alternatives, and the shortest fix path. If the active runtime is degraded, `/runtime fix` runs the shortest safe recovery step without silently rewriting your provider preference.
+For a live diagnosis of the current session, use `/runtime`. It reports the configured provider, the active session endpoint, the primary runtime issue, coding model, embedding model, semantic-search readiness, MCP state, reachable alternatives, and the shortest fix path. If the active runtime is degraded, `/runtime fix` runs the shortest safe recovery step without silently rewriting your provider preference.
+
+The bottom status badge now also surfaces that primary runtime issue compactly as `RT:*`, so you can tell at a glance whether the problem is `MOD` (no model), `NET` (provider/connectivity), `EMP` (empty replies), `CTX` (context ceiling), or `WAIT` (boot/recovery).
 
 **`context_hint`** — an optional string injected into the system prompt every turn. Use it to give Hematite a permanent shortcut to the parts of your project it would otherwise have to rediscover by reading files.
 
