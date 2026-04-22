@@ -51,6 +51,252 @@ fn mcp_state_label(state: McpRuntimeState) -> &'static str {
     }
 }
 
+fn runtime_configured_endpoint() -> String {
+    let config = crate::agent::config::load_config();
+    config
+        .api_url
+        .clone()
+        .unwrap_or_else(|| crate::agent::config::DEFAULT_LM_STUDIO_API_URL.to_string())
+}
+
+fn runtime_session_provider(app: &App) -> String {
+    if app.provider_name.trim().is_empty() {
+        "detecting".to_string()
+    } else {
+        app.provider_name.clone()
+    }
+}
+
+fn runtime_session_endpoint(app: &App, configured_endpoint: &str) -> String {
+    if app.provider_endpoint.trim().is_empty() {
+        configured_endpoint.to_string()
+    } else {
+        app.provider_endpoint.clone()
+    }
+}
+
+async fn format_provider_summary(app: &App) -> String {
+    let config = crate::agent::config::load_config();
+    let active_provider = runtime_session_provider(app);
+    let active_endpoint = runtime_session_endpoint(
+        app,
+        &config.api_url.clone().unwrap_or_else(|| {
+            crate::agent::config::default_api_url_for_provider(&active_provider).to_string()
+        }),
+    );
+    let saved = config
+        .api_url
+        .as_ref()
+        .map(|url| {
+            format!(
+                "{} ({})",
+                crate::agent::config::provider_label_for_api_url(url),
+                url
+            )
+        })
+        .unwrap_or_else(|| {
+            format!(
+                "default LM Studio ({})",
+                crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+            )
+        });
+    let alternative = crate::runtime::detect_alternative_provider(&active_provider)
+        .await
+        .map(|(name, url)| format!("Reachable alternative: {} ({})", name, url))
+        .unwrap_or_else(|| "Reachable alternative: none detected".to_string());
+    format!(
+        "Active provider: {} | Session endpoint: {}\nSaved preference: {}\n{}\n\nUse /provider lmstudio, /provider ollama, /provider clear, or /provider <url>.\nProvider changes apply to new sessions; restart Hematite to switch this one.",
+        active_provider, active_endpoint, saved, alternative
+    )
+}
+
+fn runtime_fix_path(app: &App) -> String {
+    let session_provider = runtime_session_provider(app);
+    let coding_model = if app.model_id.trim().is_empty() {
+        "detecting...".to_string()
+    } else {
+        app.model_id.clone()
+    };
+    if coding_model == "no model loaded" {
+        if session_provider == "Ollama" {
+            format!(
+                "Shortest fix: pull or run a chat model in Ollama, then keep `api_url` on `{}`.",
+                crate::agent::config::DEFAULT_OLLAMA_API_URL
+            )
+        } else {
+            format!(
+                "Shortest fix: load a coding model in LM Studio and keep the local server on `{}`.",
+                crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+            )
+        }
+    } else if app.provider_state != ProviderRuntimeState::Live {
+        format!(
+            "Shortest fix: stabilize the active provider (`{}`), then run `/runtime refresh`. If needed, use `/runtime provider <name>` and restart Hematite.",
+            session_provider
+        )
+    } else if app.embed_model_id.is_none() {
+        "Shortest fix: optional only — load `nomic-embed-text-v2` if you want semantic file search."
+            .to_string()
+    } else {
+        "Shortest fix: none — runtime is healthy.".to_string()
+    }
+}
+
+async fn format_runtime_summary(app: &App) -> String {
+    let configured_endpoint = runtime_configured_endpoint();
+    let configured_provider =
+        crate::agent::config::provider_label_for_api_url(&configured_endpoint);
+    let session_provider = runtime_session_provider(app);
+    let session_endpoint = runtime_session_endpoint(app, &configured_endpoint);
+    let coding_model = if app.model_id.trim().is_empty() {
+        "detecting...".to_string()
+    } else {
+        app.model_id.clone()
+    };
+    let embed_status = match app.embed_model_id.as_deref() {
+        Some(id) => format!("loaded ({})", id),
+        None => "not loaded".to_string(),
+    };
+    let semantic_status = if app.embed_model_id.is_some() || app.vein_embedded_count > 0 {
+        "ready"
+    } else {
+        "inactive"
+    };
+    let alternative = crate::runtime::detect_alternative_provider(&session_provider).await;
+    let alternative_line = alternative
+        .as_ref()
+        .map(|(name, url)| format!("Reachable alternative: {} ({})", name, url))
+        .unwrap_or_else(|| "Reachable alternative: none detected".to_string());
+    format!(
+        "Configured provider: {} ({})\nSession provider: {} ({})\nProvider state: {}\nCoding model: {}\nCTX: {}\nEmbedding model: {}\nSemantic search: {} | embedded chunks: {}\nMCP: {}\n{}\n{}\n\nTry: /runtime explain, /runtime refresh, /runtime provider ollama",
+        configured_provider,
+        configured_endpoint,
+        session_provider,
+        session_endpoint,
+        provider_state_label(app.provider_state),
+        coding_model,
+        app.context_length,
+        embed_status,
+        semantic_status,
+        app.vein_embedded_count,
+        mcp_state_label(app.mcp_state),
+        alternative_line,
+        runtime_fix_path(app)
+    )
+}
+
+async fn format_runtime_explanation(app: &App) -> String {
+    let session_provider = runtime_session_provider(app);
+    let coding_model = if app.model_id.trim().is_empty() {
+        "detecting...".to_string()
+    } else {
+        app.model_id.clone()
+    };
+    let semantic = if app.embed_model_id.is_some() || app.vein_embedded_count > 0 {
+        "semantic search is ready"
+    } else {
+        "semantic search is inactive"
+    };
+    let state_line = match app.provider_state {
+        ProviderRuntimeState::Live => format!(
+            "{} is live, Hematite sees model `{}`, and {}.",
+            session_provider, coding_model, semantic
+        ),
+        ProviderRuntimeState::Booting => format!(
+            "{} is still booting or being detected. Hematite has not stabilized the runtime view yet.",
+            session_provider
+        ),
+        ProviderRuntimeState::Recovering => format!(
+            "{} hit a runtime problem recently and Hematite is still trying to recover cleanly.",
+            session_provider
+        ),
+        ProviderRuntimeState::Degraded => format!(
+            "{} is reachable but degraded, so responses may fail or stall until the runtime is stable again.",
+            session_provider
+        ),
+        ProviderRuntimeState::EmptyResponse => format!(
+            "{} answered without useful content, which usually means the runtime needs attention even if the endpoint is still up.",
+            session_provider
+        ),
+        ProviderRuntimeState::ContextWindow => format!(
+            "{} hit its active context ceiling, so the problem is prompt budget rather than basic connectivity.",
+            session_provider
+        ),
+    };
+    let model_line = if coding_model == "no model loaded" {
+        "No coding model is loaded right now, so Hematite cannot do real model work until one is available.".to_string()
+    } else {
+        format!("The current coding model is `{}`.", coding_model)
+    };
+    let alternative = crate::runtime::detect_alternative_provider(&session_provider)
+        .await
+        .map(|(name, url)| format!("A reachable alternative exists: {} ({}).", name, url))
+        .unwrap_or_else(|| "No other reachable local runtime is currently detected.".to_string());
+    format!(
+        "{}\n{}\n{}\n{}",
+        state_line,
+        model_line,
+        alternative,
+        runtime_fix_path(app)
+    )
+}
+
+async fn handle_provider_command(app: &mut App, arg_text: String) {
+    if arg_text.is_empty() || arg_text.eq_ignore_ascii_case("status") {
+        app.push_message("System", &format_provider_summary(app).await);
+        app.history_idx = None;
+        return;
+    }
+
+    let lower = arg_text.to_ascii_lowercase();
+    let result = match lower.as_str() {
+        "lmstudio" | "lm" => {
+            crate::agent::config::set_api_url_override(Some(
+                crate::agent::config::DEFAULT_LM_STUDIO_API_URL,
+            ))
+            .map(|_| {
+                format!(
+                    "Saved provider preference: LM Studio ({}) in `.hematite/settings.json`.\nRestart Hematite to switch this session.",
+                    crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+                )
+            })
+        }
+        "ollama" | "ol" => {
+            crate::agent::config::set_api_url_override(Some(
+                crate::agent::config::DEFAULT_OLLAMA_API_URL,
+            ))
+            .map(|_| {
+                format!(
+                    "Saved provider preference: Ollama ({}) in `.hematite/settings.json`.\nRestart Hematite to switch this session.",
+                    crate::agent::config::DEFAULT_OLLAMA_API_URL
+                )
+            })
+        }
+        "clear" | "default" => crate::agent::config::set_api_url_override(None).map(|_| {
+            format!(
+                "Cleared the saved provider override. New sessions will fall back to LM Studio ({}) unless `--url` overrides it.\nRestart Hematite to switch this session.",
+                crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+            )
+        }),
+        _ if lower.starts_with("http://") || lower.starts_with("https://") => {
+            crate::agent::config::set_api_url_override(Some(&arg_text)).map(|_| {
+                format!(
+                    "Saved provider endpoint override: {} ({}) in `.hematite/settings.json`.\nRestart Hematite to switch this session.",
+                    crate::agent::config::provider_label_for_api_url(&arg_text),
+                    arg_text
+                )
+            })
+        }
+        _ => Err("Usage: /provider [status|lmstudio|ollama|clear|http://host:port/v1]".to_string()),
+    };
+
+    match result {
+        Ok(message) => app.push_message("System", &message),
+        Err(error) => app.push_message("System", &error),
+    }
+    app.history_idx = None;
+}
+
 // ── Approval modal state ──────────────────────────────────────────────────────
 
 /// Holds a pending high-risk tool approval request.
@@ -2995,178 +3241,55 @@ pub async fn run_app<B: Backend>(
                                                 continue;
                                             }
                                             "/provider" => {
-                                                let config = crate::agent::config::load_config();
-                                                let active_provider = if app.provider_name.trim().is_empty() {
-                                                    "detecting".to_string()
-                                                } else {
-                                                    app.provider_name.clone()
-                                                };
-                                                let active_endpoint = if app.provider_endpoint.trim().is_empty() {
-                                                    config
-                                                        .api_url
-                                                        .clone()
-                                                        .unwrap_or_else(|| {
-                                                            crate::agent::config::default_api_url_for_provider(&active_provider).to_string()
-                                                        })
-                                                } else {
-                                                    app.provider_endpoint.clone()
-                                                };
-
                                                 let arg_text = parts[1..].join(" ").trim().to_string();
-                                                if arg_text.is_empty()
-                                                    || arg_text.eq_ignore_ascii_case("status")
-                                                {
-                                                    let saved = config.api_url.as_ref().map(|url| {
-                                                        format!(
-                                                            "{} ({})",
-                                                            crate::agent::config::provider_label_for_api_url(url),
-                                                            url
-                                                        )
-                                                    }).unwrap_or_else(|| {
-                                                        format!(
-                                                            "default LM Studio ({})",
-                                                            crate::agent::config::DEFAULT_LM_STUDIO_API_URL
-                                                        )
-                                                    });
-                                                    let alternative = crate::runtime::detect_alternative_provider(&active_provider).await
-                                                        .map(|(name, url)| format!("Reachable alternative: {} ({})", name, url))
-                                                        .unwrap_or_else(|| "Reachable alternative: none detected".to_string());
-                                                    let summary = format!(
-                                                        "Active provider: {} | Session endpoint: {}\nSaved preference: {}\n{}\n\nUse /provider lmstudio, /provider ollama, /provider clear, or /provider <url>.\nProvider changes apply to new sessions; restart Hematite to switch this one.",
-                                                        active_provider,
-                                                        active_endpoint,
-                                                        saved,
-                                                        alternative
-                                                    );
-                                                    app.push_message("System", &summary);
-                                                    app.history_idx = None;
-                                                    continue;
-                                                }
-
-                                                let lower = arg_text.to_ascii_lowercase();
-                                                let result = match lower.as_str() {
-                                                    "lmstudio" | "lm" => crate::agent::config::set_api_url_override(Some(
-                                                        crate::agent::config::DEFAULT_LM_STUDIO_API_URL,
-                                                    ))
-                                                    .map(|_| {
-                                                        format!(
-                                                            "Saved provider preference: LM Studio ({}) in `.hematite/settings.json`.\nRestart Hematite to switch this session.",
-                                                            crate::agent::config::DEFAULT_LM_STUDIO_API_URL
-                                                        )
-                                                    }),
-                                                    "ollama" | "ol" => crate::agent::config::set_api_url_override(Some(
-                                                        crate::agent::config::DEFAULT_OLLAMA_API_URL,
-                                                    ))
-                                                    .map(|_| {
-                                                        format!(
-                                                            "Saved provider preference: Ollama ({}) in `.hematite/settings.json`.\nRestart Hematite to switch this session.",
-                                                            crate::agent::config::DEFAULT_OLLAMA_API_URL
-                                                        )
-                                                    }),
-                                                    "clear" | "default" => crate::agent::config::set_api_url_override(None)
-                                                        .map(|_| {
-                                                            format!(
-                                                                "Cleared the saved provider override. New sessions will fall back to LM Studio ({}) unless `--url` overrides it.\nRestart Hematite to switch this session.",
-                                                                crate::agent::config::DEFAULT_LM_STUDIO_API_URL
-                                                            )
-                                                        }),
-                                                    _ if lower.starts_with("http://")
-                                                        || lower.starts_with("https://") =>
-                                                    {
-                                                        crate::agent::config::set_api_url_override(Some(&arg_text))
-                                                            .map(|_| {
-                                                                format!(
-                                                                    "Saved provider endpoint override: {} ({}) in `.hematite/settings.json`.\nRestart Hematite to switch this session.",
-                                                                    crate::agent::config::provider_label_for_api_url(&arg_text),
-                                                                    arg_text
-                                                                )
-                                                            })
-                                                    }
-                                                    _ => Err("Usage: /provider [status|lmstudio|ollama|clear|http://host:port/v1]".to_string()),
-                                                };
-
-                                                match result {
-                                                    Ok(message) => app.push_message("System", &message),
-                                                    Err(error) => app.push_message("System", &error),
-                                                }
-                                                app.history_idx = None;
+                                                handle_provider_command(&mut app, arg_text).await;
                                                 continue;
                                             }
                                             "/runtime" => {
-                                                let config = crate::agent::config::load_config();
-                                                let configured_endpoint = config.api_url.clone().unwrap_or_else(|| {
-                                                    crate::agent::config::DEFAULT_LM_STUDIO_API_URL.to_string()
-                                                });
-                                                let configured_provider =
-                                                    crate::agent::config::provider_label_for_api_url(&configured_endpoint);
-                                                let session_provider = if app.provider_name.trim().is_empty() {
-                                                    "detecting".to_string()
-                                                } else {
-                                                    app.provider_name.clone()
-                                                };
-                                                let session_endpoint = if app.provider_endpoint.trim().is_empty() {
-                                                    configured_endpoint.clone()
-                                                } else {
-                                                    app.provider_endpoint.clone()
-                                                };
-                                                let coding_model = if app.model_id.trim().is_empty() {
-                                                    "detecting...".to_string()
-                                                } else {
-                                                    app.model_id.clone()
-                                                };
-                                                let embed_status = match app.embed_model_id.as_deref() {
-                                                    Some(id) => format!("loaded ({})", id),
-                                                    None => "not loaded".to_string(),
-                                                };
-                                                let semantic_status = if app.embed_model_id.is_some() || app.vein_embedded_count > 0 {
-                                                    "ready"
-                                                } else {
-                                                    "inactive"
-                                                };
-                                                let alternative = crate::runtime::detect_alternative_provider(&session_provider).await;
-                                                let alternative_line = alternative
-                                                    .as_ref()
-                                                    .map(|(name, url)| format!("Reachable alternative: {} ({})", name, url))
-                                                    .unwrap_or_else(|| "Reachable alternative: none detected".to_string());
-                                                let fix_path = if coding_model == "no model loaded" {
-                                                    if session_provider == "Ollama" {
-                                                        format!(
-                                                            "Shortest fix: pull or run a chat model in Ollama, then keep `api_url` on `{}`.",
-                                                            crate::agent::config::DEFAULT_OLLAMA_API_URL
-                                                        )
-                                                    } else {
-                                                        format!(
-                                                            "Shortest fix: load a coding model in LM Studio and keep the local server on `{}`.",
-                                                            crate::agent::config::DEFAULT_LM_STUDIO_API_URL
-                                                        )
+                                                let arg_text = parts[1..].join(" ").trim().to_string();
+                                                let lower = arg_text.to_ascii_lowercase();
+                                                match lower.as_str() {
+                                                    "" | "status" => {
+                                                        app.push_message(
+                                                            "System",
+                                                            &format_runtime_summary(&app).await,
+                                                        );
                                                     }
-                                                } else if app.provider_state != ProviderRuntimeState::Live {
-                                                    format!(
-                                                        "Shortest fix: stabilize the active provider (`{}`), then run `/runtime-refresh`. If needed, use `/provider` to switch and restart Hematite.",
-                                                        session_provider
-                                                    )
-                                                } else if app.embed_model_id.is_none() {
-                                                    "Shortest fix: optional only — load `nomic-embed-text-v2` if you want semantic file search.".to_string()
-                                                } else {
-                                                    "Shortest fix: none — runtime is healthy.".to_string()
-                                                };
-                                                let summary = format!(
-                                                    "Configured provider: {} ({})\nSession provider: {} ({})\nProvider state: {}\nCoding model: {}\nCTX: {}\nEmbedding model: {}\nSemantic search: {} | embedded chunks: {}\nMCP: {}\n{}\n{}",
-                                                    configured_provider,
-                                                    configured_endpoint,
-                                                    session_provider,
-                                                    session_endpoint,
-                                                    provider_state_label(app.provider_state),
-                                                    coding_model,
-                                                    app.context_length,
-                                                    embed_status,
-                                                    semantic_status,
-                                                    app.vein_embedded_count,
-                                                    mcp_state_label(app.mcp_state),
-                                                    alternative_line,
-                                                    fix_path
-                                                );
-                                                app.push_message("System", &summary);
+                                                    "explain" => {
+                                                        app.push_message(
+                                                            "System",
+                                                            &format_runtime_explanation(&app).await,
+                                                        );
+                                                    }
+                                                    "refresh" => {
+                                                        let _ = app
+                                                            .user_input_tx
+                                                            .try_send(UserTurn::text(
+                                                                "/runtime-refresh",
+                                                            ));
+                                                        app.push_message("You", "/runtime refresh");
+                                                        app.agent_running = true;
+                                                    }
+                                                    _ if lower.starts_with("provider") => {
+                                                        let provider_arg =
+                                                            arg_text["provider".len()..].trim().to_string();
+                                                        if provider_arg.is_empty() {
+                                                            app.push_message(
+                                                                "System",
+                                                                "Usage: /runtime provider [status|lmstudio|ollama|clear|http://host:port/v1]",
+                                                            );
+                                                        } else {
+                                                            handle_provider_command(&mut app, provider_arg)
+                                                                .await;
+                                                        }
+                                                    }
+                                                    _ => {
+                                                        app.push_message(
+                                                            "System",
+                                                            "Usage: /runtime [status|explain|refresh|provider ...]",
+                                                        );
+                                                    }
+                                                }
                                                 app.history_idx = None;
                                                 continue;
                                             }
