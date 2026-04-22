@@ -1220,6 +1220,7 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 /gemma-native [auto|on|off|status]  Auto/force/disable Gemma 4 native formatting
 /provider [status|lmstudio|ollama|clear|URL]  Show or save the active provider endpoint preference, including reachable alternatives
 /runtime          Show the live runtime/provider/model/embed status and shortest fix path
+/runtime fix      Run the shortest safe runtime recovery step now
 /runtime-refresh  Re-read the active provider model profile and context window now
 /new              Fresh task context; clear chat, pins, and task files
 /forget           Hard forget; purge saved memory and the Vein index too
@@ -1372,7 +1373,7 @@ If you prefer not to edit JSON by hand, use `/provider` inside Hematite:
 
 Provider changes are persisted to `.hematite/settings.json` and apply to new sessions. Restart Hematite to switch the current session.
 
-For a live diagnosis of the current session, use `/runtime`. It reports the configured provider, the active session endpoint, coding model, embedding model, semantic-search readiness, MCP state, reachable alternatives, and the shortest fix path.
+For a live diagnosis of the current session, use `/runtime`. It reports the configured provider, the active session endpoint, coding model, embedding model, semantic-search readiness, MCP state, reachable alternatives, and the shortest fix path. If the active runtime is degraded, `/runtime fix` runs the shortest safe recovery step without silently rewriting your provider preference.
 
 **`context_hint`** — an optional string injected into the system prompt every turn. Use it to give Hematite a permanent shortcut to the parts of your project it would otherwise have to rediscover by reading files.
 

@@ -120,18 +120,18 @@ fn runtime_fix_path(app: &App) -> String {
     if coding_model == "no model loaded" {
         if session_provider == "Ollama" {
             format!(
-                "Shortest fix: pull or run a chat model in Ollama, then keep `api_url` on `{}`.",
+                "Shortest fix: pull or run a chat model in Ollama, then keep `api_url` on `{}`. Hematite cannot safely auto-load that model for you here.",
                 crate::agent::config::DEFAULT_OLLAMA_API_URL
             )
         } else {
             format!(
-                "Shortest fix: load a coding model in LM Studio and keep the local server on `{}`.",
+                "Shortest fix: load a coding model in LM Studio and keep the local server on `{}`. Hematite cannot safely auto-load that model for you here.",
                 crate::agent::config::DEFAULT_LM_STUDIO_API_URL
             )
         }
     } else if app.provider_state != ProviderRuntimeState::Live {
         format!(
-            "Shortest fix: stabilize the active provider (`{}`), then run `/runtime refresh`. If needed, use `/runtime provider <name>` and restart Hematite.",
+            "Shortest fix: run `/runtime fix` to refresh and re-check the active provider (`{}`). If needed after that, use `/runtime provider <name>` and restart Hematite.",
             session_provider
         )
     } else if app.embed_model_id.is_none() {
@@ -168,7 +168,7 @@ async fn format_runtime_summary(app: &App) -> String {
         .map(|(name, url)| format!("Reachable alternative: {} ({})", name, url))
         .unwrap_or_else(|| "Reachable alternative: none detected".to_string());
     format!(
-        "Configured provider: {} ({})\nSession provider: {} ({})\nProvider state: {}\nCoding model: {}\nCTX: {}\nEmbedding model: {}\nSemantic search: {} | embedded chunks: {}\nMCP: {}\n{}\n{}\n\nTry: /runtime explain, /runtime refresh, /runtime provider ollama",
+        "Configured provider: {} ({})\nSession provider: {} ({})\nProvider state: {}\nCoding model: {}\nCTX: {}\nEmbedding model: {}\nSemantic search: {} | embedded chunks: {}\nMCP: {}\n{}\n{}\n\nTry: /runtime explain, /runtime fix, /runtime provider ollama",
         configured_provider,
         configured_endpoint,
         session_provider,
@@ -239,6 +239,70 @@ async fn format_runtime_explanation(app: &App) -> String {
         alternative,
         runtime_fix_path(app)
     )
+}
+
+async fn handle_runtime_fix(app: &mut App) {
+    let session_provider = runtime_session_provider(app);
+    let coding_model = if app.model_id.trim().is_empty() {
+        "detecting...".to_string()
+    } else {
+        app.model_id.clone()
+    };
+    let alternative = crate::runtime::detect_alternative_provider(&session_provider).await;
+
+    if coding_model == "no model loaded" {
+        let mut message = runtime_fix_path(app);
+        if let Some((name, url)) = alternative {
+            message.push_str(&format!(
+                "\nReachable alternative: {} ({}). Hematite will not switch providers silently; use `/runtime provider {}` and restart if you want that runtime instead.",
+                name,
+                url,
+                name.to_ascii_lowercase()
+            ));
+        }
+        app.push_message("System", &message);
+        app.history_idx = None;
+        return;
+    }
+
+    if app.provider_state != ProviderRuntimeState::Live || coding_model == "detecting..." {
+        let _ = app
+            .user_input_tx
+            .try_send(UserTurn::text("/runtime-refresh"));
+        app.push_message("You", "/runtime fix");
+        app.agent_running = true;
+
+        let mut message = format!(
+            "Running the shortest safe fix now: refreshing the {} runtime profile and re-checking the active model/context window.",
+            session_provider
+        );
+        if let Some((name, url)) = alternative {
+            message.push_str(&format!(
+                "\nReachable alternative: {} ({}). Hematite will stay on the current provider unless you explicitly switch with `/runtime provider {}` and restart.",
+                name,
+                url,
+                name.to_ascii_lowercase()
+            ));
+        }
+        app.push_message("System", &message);
+        app.history_idx = None;
+        return;
+    }
+
+    if app.embed_model_id.is_none() {
+        app.push_message(
+            "System",
+            "Runtime is already healthy. The only missing piece is optional semantic search; load `nomic-embed-text-v2` if you want embedding-backed file retrieval.",
+        );
+        app.history_idx = None;
+        return;
+    }
+
+    app.push_message(
+        "System",
+        "Runtime is already healthy. `/runtime fix` has nothing safe to change right now.",
+    );
+    app.history_idx = None;
 }
 
 async fn handle_provider_command(app: &mut App, arg_text: String) {
@@ -1817,6 +1881,7 @@ fn show_help_message(app: &mut App) {
          /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
          /provider [status|lmstudio|ollama|clear|URL] - (Model) Show or save the active provider endpoint preference\n\
          /runtime          - (Model) Show the live runtime/provider/model/embed status and shortest fix path\n\
+         /runtime fix      - (Model) Run the shortest safe runtime recovery step now\n\
          /runtime-refresh  - (Model) Re-read active provider model + CTX now\n\
          /undo             - (Ghost) Revert last file change\n\
          /diff             - (Git) Show session changes (--stat)\n\
@@ -1890,6 +1955,7 @@ fn show_help_message_legacy(app: &mut App) {
          /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
          /provider [status|lmstudio|ollama|clear|URL] — (Model) Show or save the active provider endpoint preference\n\
          /runtime          — (Model) Show the live runtime/provider/model/embed status and shortest fix path\n\
+         /runtime fix      — (Model) Run the shortest safe runtime recovery step now\n\
          /runtime-refresh  — (Model) Re-read active provider model + CTX now\n\
          /undo             — (Ghost) Revert last file change\n\
          /diff             — (Git) Show session changes (--stat)\n\
@@ -3178,6 +3244,7 @@ pub async fn run_app<B: Backend>(
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
                                                      /provider [status|lmstudio|ollama|clear|URL] — (Model) Show or save the active provider endpoint preference\n\
                                                      /runtime          — (Model) Show the live runtime/provider/model/embed status and shortest fix path\n\
+                                                     /runtime fix      — (Model) Run the shortest safe runtime recovery step now\n\
                                                      /runtime-refresh  — (Model) Re-read active provider model + CTX now\n\
                                                      /undo             — (Ghost) Revert last file change\n\
                                                      /diff             — (Git) Show session changes (--stat)\n\
@@ -3270,6 +3337,9 @@ pub async fn run_app<B: Backend>(
                                                         app.push_message("You", "/runtime refresh");
                                                         app.agent_running = true;
                                                     }
+                                                    "fix" => {
+                                                        handle_runtime_fix(&mut app).await;
+                                                    }
                                                     _ if lower.starts_with("provider") => {
                                                         let provider_arg =
                                                             arg_text["provider".len()..].trim().to_string();
@@ -3286,7 +3356,7 @@ pub async fn run_app<B: Backend>(
                                                     _ => {
                                                         app.push_message(
                                                             "System",
-                                                            "Usage: /runtime [status|explain|refresh|provider ...]",
+                                                            "Usage: /runtime [status|explain|fix|refresh|provider ...]",
                                                         );
                                                     }
                                                 }

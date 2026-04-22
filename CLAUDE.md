@@ -92,6 +92,7 @@ pwsh ./clean.ps1
 - `/rules [view|edit]`: view status, inspect content, or edit project guidelines (.hematite/rules.md)
 - `/provider [status|lmstudio|ollama|clear|URL]`: show the active provider/session endpoint, reachable alternatives, or save a workspace provider override to `.hematite/settings.json`
 - `/runtime`: show the configured provider, live session provider/endpoint, coding model, embedding state, reachable alternatives, and shortest fix path
+- `/runtime fix`: run the shortest safe runtime recovery step without silently changing provider settings
 - `/runtime-refresh`: force a resync of the active provider model profile and context window size
 - `/vein-inspect`: inspect indexed Vein memory, hot files, and active room bias
 - `/vein-reset`: wipe the Vein index and rebuild from scratch on the next turn
