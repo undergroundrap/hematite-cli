@@ -712,11 +712,37 @@ fn classify_runtime_failure(detail: &str) -> RuntimeFailureClass {
 }
 
 fn format_runtime_failure(class: RuntimeFailureClass, detail: &str) -> String {
+    let trimmed = detail.trim();
+    if trimmed.starts_with("[failure:") {
+        return trimmed.to_string();
+    }
     format!(
         "[failure:{}] {} Detail: {}",
         class.tag(),
         class.operator_guidance(),
-        detail.trim()
+        trimmed
+    )
+}
+
+fn is_explicit_web_search_request(input: &str) -> bool {
+    let lower = input.to_ascii_lowercase();
+    [
+        "google ",
+        "search for ",
+        "search the web",
+        "web search",
+        "look up ",
+        "lookup ",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+fn build_research_provider_fallback(results: &str) -> String {
+    format!(
+        "Local web search succeeded, but the model runtime degraded before it could synthesize a final answer. \
+Surfacing the grounded search results directly.\n\n{}",
+        cap_output(results, 2400)
     )
 }
 
@@ -2856,6 +2882,8 @@ impl ConversationManager {
                 .as_ref()
                 .map(|plan| plan.has_signal())
                 .unwrap_or(false);
+        let explicit_search_request = is_explicit_web_search_request(&effective_user_input);
+        let mut grounded_research_results: Option<String> = None;
         self.plan_execution_active
             .store(implement_current_plan, std::sync::atomic::Ordering::SeqCst);
         let _plan_execution_guard = PlanExecutionGuard {
@@ -3240,11 +3268,13 @@ impl ConversationManager {
         };
         let maintainer_workflow_mode = intent.maintainer_workflow_mode
             || preferred_maintainer_workflow(&effective_user_input).is_some();
-        let research_mode = intent.primary_class == QueryIntentClass::Research;
         let fix_plan_mode =
             preferred_host_inspection_topic(&effective_user_input) == Some("fix_plan");
         let architecture_overview_mode = intent.architecture_overview_mode;
         let capability_needs_repo = intent.capability_needs_repo;
+        let research_mode = intent.primary_class == QueryIntentClass::Research
+            && intent.direct_answer.is_none()
+            && !(capability_mode && !capability_needs_repo);
         let mut system_msg = build_system_with_corrections(
             &base_prompt,
             &self.correction_hints,
@@ -3626,6 +3656,7 @@ impl ConversationManager {
                 Ok(results)
                     if !results.is_empty() && !results.contains("No search results found") =>
                 {
+                    grounded_research_results = Some(results.clone());
                     let _ = tx
                         .send(InferenceEvent::ToolCallResult {
                             id: call_id.clone(),
@@ -3635,32 +3666,14 @@ impl ConversationManager {
                         })
                         .await;
 
-                    // Inject tool call + result into history so the model sees it.
-                    self.history.push(ChatMessage::assistant_tool_calls(
-                        "",
-                        vec![crate::agent::types::ToolCallResponse {
-                            id: call_id.clone(),
-                            call_type: "function".to_string(),
-                            function: crate::agent::types::ToolCallFn {
-                                name: "research_web".to_string(),
-                                arguments: args.clone(),
-                            },
-                            index: None,
-                        }],
-                    ));
-                    self.history.push(ChatMessage::tool_result_for_model(
-                        &call_id,
-                        "research_web",
-                        &results,
-                        &self.engine.current_model(),
-                    ));
-
                     loop_intervention = Some(format!(
                         "## RESEARCH PRE-RUN RESULTS\n\
                          The harness already ran `research_web` for your query.\n\
                          Use the search results above to answer the user's question with grounded, factual information.\n\
                          Do NOT re-run `research_web` unless you need additional detail.\n\
-                         Do NOT hallucinate or guess — base your answer entirely on the search results.\n"
+                         Do NOT hallucinate or guess — base your answer entirely on the search results.\n\n\
+                         {}",
+                        results
                     ));
                 }
                 Ok(_) | Err(_) => {
@@ -3889,7 +3902,9 @@ impl ConversationManager {
             self.emit_prompt_pressure_for_messages(&tx, &prompt_msgs)
                 .await;
 
-            let turn_tools = if yolo {
+            let turn_tools = if yolo
+                || (explicit_search_request && grounded_research_results.is_some())
+            {
                 // FORCE NLG ONLY: Hide all tools to ensure a plain text summary.
                 Vec::new()
             } else if intent.sovereign_mode {
@@ -3944,6 +3959,25 @@ impl ConversationManager {
                             )
                             .await;
                             continue;
+                        }
+                    }
+
+                    if explicit_search_request
+                        && matches!(
+                            class,
+                            RuntimeFailureClass::ProviderDegraded
+                                | RuntimeFailureClass::EmptyModelResponse
+                        )
+                    {
+                        if let Some(results) = grounded_research_results.as_deref() {
+                            let response = build_research_provider_fallback(results);
+                            self.history.push(ChatMessage::assistant_text(&response));
+                            self.transcript.log_agent(&response);
+                            for chunk in chunk_text(&response, 8) {
+                                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                            }
+                            let _ = tx.send(InferenceEvent::Done).await;
+                            return Ok(());
                         }
                     }
 
@@ -5192,6 +5226,25 @@ impl ConversationManager {
                             .await;
                             continue;
                         }
+                    }
+                }
+
+                if explicit_search_request
+                    && matches!(
+                        class,
+                        RuntimeFailureClass::ProviderDegraded
+                            | RuntimeFailureClass::EmptyModelResponse
+                    )
+                {
+                    if let Some(results) = grounded_research_results.as_deref() {
+                        let response = build_research_provider_fallback(results);
+                        self.history.push(ChatMessage::assistant_text(&response));
+                        self.transcript.log_agent(&response);
+                        for chunk in chunk_text(&response, 8) {
+                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                        }
+                        let _ = tx.send(InferenceEvent::Done).await;
+                        return Ok(());
                     }
                 }
 
@@ -8171,6 +8224,33 @@ mod tests {
     }
 
     #[test]
+    fn formatted_runtime_failure_is_not_wrapped_twice() {
+        let detail =
+            "[failure:provider_degraded] Retry once automatically, then narrow the turn or restart LM Studio if it persists. Detail: LMS unreachable: Request failed";
+        let formatted = format_runtime_failure(RuntimeFailureClass::ProviderDegraded, detail);
+        assert_eq!(formatted, detail);
+        assert_eq!(formatted.matches("[failure:provider_degraded]").count(), 1);
+    }
+
+    #[test]
+    fn explicit_search_detection_requires_search_language() {
+        assert!(is_explicit_web_search_request("search for ocean bennett"));
+        assert!(is_explicit_web_search_request("google ocean bennett"));
+        assert!(is_explicit_web_search_request("look up ocean bennett"));
+        assert!(!is_explicit_web_search_request("who is ocean bennett"));
+    }
+
+    #[test]
+    fn research_provider_fallback_mentions_direct_search_results() {
+        let fallback = build_research_provider_fallback(
+            "[Source: SearXNG]\n\n### 1. [Ocean Bennett](https://example.com)\nBio",
+        );
+        assert!(fallback.contains("Local web search succeeded"));
+        assert!(fallback.contains("[Source: SearXNG]"));
+        assert!(fallback.contains("Ocean Bennett"));
+    }
+
+    #[test]
     fn runtime_failure_maps_to_provider_and_checkpoint_state() {
         assert_eq!(
             provider_state_for_runtime_failure(RuntimeFailureClass::ContextWindow),
@@ -8276,6 +8356,12 @@ mod tests {
             ),
             Some("summary")
         );
+    }
+
+    #[test]
+    fn intent_router_treats_purpose_question_as_local_identity() {
+        let intent = classify_query_intent(WorkflowMode::Auto, "What is your purpose?");
+        assert_eq!(intent.direct_answer, Some(DirectAnswerKind::Identity));
     }
 
     #[test]

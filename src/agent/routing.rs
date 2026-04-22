@@ -234,6 +234,11 @@ fn mentions_capability_question(lower: &str) -> bool {
     contains_any(
         lower,
         &[
+            "what is your purpose",
+            "what's your purpose",
+            "what are you for",
+            "what is your job",
+            "what's your job",
             "what can you do",
             "what are you capable",
             "can you make projects",
@@ -252,6 +257,9 @@ fn mentions_creator_question(lower: &str) -> bool {
     contains_any(
         lower,
         &[
+            "who is ocean bennett",
+            "who's ocean bennett",
+            "tell me about ocean bennett",
             "who created you",
             "who built you",
             "who made you",
@@ -3641,7 +3649,20 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
         Some(DirectAnswerKind::About)
     } else if matches!(
         trimmed.as_str(),
-        "who are you" | "who are you?" | "what are you" | "what are you?"
+        "who are you"
+            | "who are you?"
+            | "what are you"
+            | "what are you?"
+            | "what is your purpose"
+            | "what is your purpose?"
+            | "what's your purpose"
+            | "what's your purpose?"
+            | "what are you for"
+            | "what are you for?"
+            | "what is your job"
+            | "what is your job?"
+            | "what's your job"
+            | "what's your job?"
     ) || (lower.contains("what is hematite") && !lower.contains("lm studio"))
     {
         Some(DirectAnswerKind::Identity)
@@ -4239,6 +4260,12 @@ mod tests {
         assert_eq!(intent.direct_answer, Some(DirectAnswerKind::About));
 
         let intent = classify_query_intent(WorkflowMode::Auto, "/about");
+        assert_eq!(intent.direct_answer, Some(DirectAnswerKind::About));
+    }
+
+    #[test]
+    fn classify_query_intent_routes_known_author_question_to_about() {
+        let intent = classify_query_intent(WorkflowMode::Auto, "who is ocean bennett");
         assert_eq!(intent.direct_answer, Some(DirectAnswerKind::About));
     }
 

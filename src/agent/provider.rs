@@ -55,6 +55,19 @@ pub struct LmsProvider {
     pub lms: crate::agent::lms::LmsHarness,
 }
 
+fn truncate_provider_error_body(body: &str) -> String {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let compact: String = trimmed.chars().take(240).collect();
+    if trimmed.chars().count() > 240 {
+        format!("{}...", compact)
+    } else {
+        compact
+    }
+}
+
 #[async_trait]
 impl ModelProvider for LmsProvider {
     async fn call_with_tools(
@@ -95,7 +108,19 @@ impl ModelProvider for LmsProvider {
                         finish_reason,
                     });
                 }
-                _ => last_err = "Request failed".to_string(),
+                Ok(res) => {
+                    let status = res.status();
+                    let body = res.text().await.unwrap_or_default();
+                    let body_note = truncate_provider_error_body(&body);
+                    last_err = if body_note.is_empty() {
+                        format!("HTTP {}", status)
+                    } else {
+                        format!("HTTP {} | {}", status, body_note)
+                    };
+                }
+                Err(e) => {
+                    last_err = e.to_string();
+                }
             }
             if attempt < 2 {
                 tokio::time::sleep(Duration::from_millis(500)).await;

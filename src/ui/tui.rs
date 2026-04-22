@@ -10,10 +10,10 @@ use futures::StreamExt;
 use ratatui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{
-        Block, Borders, Clear, Gauge, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation,
+        Block, Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation,
         ScrollbarState, Wrap,
     },
     Terminal,
@@ -788,6 +788,8 @@ pub struct App {
     /// When true, all ApprovalRequired events are auto-approved for the rest of the session.
     /// Activated by pressing [A] ("Accept All") on any approval dialog.
     pub auto_approve_session: bool,
+    /// Track when the current agentic task started for elapsed time rendering.
+    pub task_start_time: Option<std::time::Instant>,
 }
 
 impl App {
@@ -847,6 +849,11 @@ impl App {
         }
     }
 
+    fn sync_task_start_time(&mut self) {
+        self.task_start_time =
+            synced_task_start_time(self.agent_running || self.thinking, self.task_start_time);
+    }
+
     fn rebuild_formatted_messages(&mut self) {
         self.messages.clear();
         let total = self.messages_raw.len();
@@ -864,8 +871,7 @@ impl App {
 
     fn format_message(&self, speaker: &str, content: &str, _is_last: bool) -> Vec<Line<'static>> {
         let mut lines = Vec::new();
-        // Hematite = rust iron-oxide brown; You = green; Tool = cyan
-        let rust = Color::Rgb(180, 90, 50);
+        let rust = Color::Rgb(110, 110, 110);
         let style = match speaker {
             "You" => Style::default()
                 .fg(Color::Green)
@@ -875,34 +881,80 @@ impl App {
             _ => Style::default().fg(Color::DarkGray),
         };
 
-        // Aggressive trim to avoid leading/trailing blank rows.
-        let cleaned = crate::agent::inference::strip_think_blocks(content)
-            .trim()
-            .to_string();
-        let cleaned = strip_ghost_prefix(&cleaned);
+        let cleaned_str = crate::agent::inference::strip_think_blocks(content);
+        let trimmed = cleaned_str.trim();
+        let cleaned = String::from(strip_ghost_prefix(trimmed));
 
         let mut is_first = true;
+        let mut in_code_block = false;
+
         for raw_line in cleaned.lines() {
-            // SPACING FIX:
-            // If we have a sequence of blank lines, don't label them with "  ".
-            // Only add labels to lines that have content OR are the very first line of the message.
+            let owned_line = String::from(raw_line);
             if !is_first && raw_line.trim().is_empty() {
                 lines.push(Line::raw(""));
                 continue;
             }
 
+            if raw_line.trim_start().starts_with("```") {
+                in_code_block = !in_code_block;
+                let lang = raw_line
+                    .trim_start()
+                    .strip_prefix("```")
+                    .unwrap_or("")
+                    .trim();
+
+                let (border, label) = if in_code_block {
+                    (
+                        " ┌── ",
+                        format!(" {} ", if lang.is_empty() { "code" } else { lang }),
+                    )
+                } else {
+                    (" └──", String::new())
+                };
+
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        border,
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::DIM),
+                    ),
+                    Span::styled(
+                        label,
+                        Style::default()
+                            .fg(Color::Cyan)
+                            .bg(Color::Rgb(40, 40, 40))
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]));
+                is_first = false;
+                continue;
+            }
+
+            if in_code_block {
+                lines.push(Line::from(vec![
+                    Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(owned_line, Style::default().fg(Color::Rgb(200, 200, 160))),
+                ]));
+                is_first = false;
+                continue;
+            }
+
             let label = if is_first {
-                format!("{}: ", speaker)
+                match speaker {
+                    "You" => "👤 You: ".to_string(),
+                    "Hematite" => "✦ Hematite: ".to_string(),
+                    "System" => "⚙️  System: ".to_string(),
+                    "Tool" => "🛠 Tool: ".to_string(),
+                    _ => format!("{}: ", speaker),
+                }
             } else {
                 "  ".to_string()
             };
 
-            // System messages with "+N -N" stat tokens get inline green/red coloring.
             if speaker == "System" && (raw_line.contains(" +") || raw_line.contains(" -")) {
                 let mut spans: Vec<Span<'static>> =
                     vec![Span::raw(" "), Span::styled(label, style)];
-                // Tokenise on whitespace, colouring +digits green, -digits red,
-                // and file paths (containing '/' or '.') bright white.
                 for token in raw_line.split_whitespace() {
                     let is_add = token.starts_with('+')
                         && token.len() > 1
@@ -949,39 +1001,151 @@ impl App {
                     || raw_line.starts_with("+")
                     || raw_line.starts_with("@@"))
             {
-                let line_style = if raw_line.starts_with("-") {
-                    Style::default().fg(Color::Red)
+                let (line_style, gutter_style, sign) = if raw_line.starts_with("-") {
+                    (
+                        Style::default()
+                            .fg(Color::Rgb(255, 200, 200))
+                            .bg(Color::Rgb(60, 20, 20)),
+                        Style::default().fg(Color::Red).bg(Color::Rgb(40, 15, 15)),
+                        "-",
+                    )
                 } else if raw_line.starts_with("+") {
-                    Style::default().fg(Color::Green)
+                    (
+                        Style::default()
+                            .fg(Color::Rgb(200, 255, 200))
+                            .bg(Color::Rgb(20, 50, 30)),
+                        Style::default().fg(Color::Green).bg(Color::Rgb(15, 30, 20)),
+                        "+",
+                    )
                 } else {
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::DIM)
+                    (
+                        Style::default().fg(Color::Cyan).add_modifier(Modifier::DIM),
+                        Style::default().fg(Color::DarkGray),
+                        "⋮",
+                    )
                 };
-                lines.push(Line::from(vec![
-                    Span::raw("    "), // Deeper indent for diffs
-                    Span::styled(raw_line.to_string(), line_style),
-                ]));
-            } else {
-                let mut spans = vec![Span::raw(" "), Span::styled(label, style)];
-                // Render inline markdown for Hematite responses; plain text for others.
-                // Code fence lines (``` or ```rust etc.) are rendered as plain dim text
-                // rather than passed through inline_markdown_core, which would misparse
-                // the backticks as inline code spans and garble the layout.
-                if speaker == "Hematite" {
-                    if raw_line.trim_start().starts_with("```") {
-                        spans.push(Span::styled(
-                            raw_line.to_string(),
-                            Style::default().fg(Color::DarkGray),
-                        ));
-                    } else {
-                        spans.extend(inline_markdown_core(raw_line));
-                    }
+
+                let content = if raw_line.starts_with("@@") {
+                    owned_line
                 } else {
-                    spans.push(Span::raw(raw_line.to_string()));
-                }
-                lines.push(Line::from(spans));
+                    String::from(&raw_line[1..])
+                };
+
+                lines.push(Line::from(vec![
+                    Span::styled(format!("  {} ", sign), gutter_style),
+                    Span::styled(content, line_style),
+                ]));
+                is_first = false;
+                continue;
             }
+            if speaker == "Tool" {
+                let border_style = Style::default().fg(Color::Rgb(60, 60, 60));
+
+                if raw_line.starts_with("( )") {
+                    // Tool Request start
+                    let pulse = if self.tick_count % 2 == 0 {
+                        "●"
+                    } else {
+                        "○"
+                    };
+                    lines.push(Line::from(vec![
+                        Span::styled(" ┌──", border_style),
+                        Span::styled(
+                            format!(" {} TOOL REQUEST ", pulse),
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .bg(Color::Rgb(40, 40, 40))
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ]));
+                    lines.push(Line::from(vec![
+                        Span::styled(" │ ", border_style),
+                        Span::styled(
+                            String::from(&raw_line[4..]),
+                            Style::default().fg(Color::Cyan),
+                        ),
+                    ]));
+                } else if raw_line.starts_with("[v]") || raw_line.starts_with("[x]") {
+                    // Tool Result end
+                    let is_success = raw_line.starts_with("[v]");
+                    let (status, color) = if is_success {
+                        (" SUCCESS ", Color::Green)
+                    } else {
+                        (" FAILURE ", Color::Red)
+                    };
+
+                    lines.push(Line::from(vec![
+                        Span::styled(" │ ", border_style),
+                        Span::styled(
+                            String::from(&raw_line[4..]),
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                    ]));
+                    lines.push(Line::from(vec![
+                        Span::styled(" └──", border_style),
+                        Span::styled(
+                            status,
+                            Style::default()
+                                .fg(color)
+                                .bg(Color::Rgb(30, 30, 30))
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ]));
+                } else if raw_line.starts_with("┌──") {
+                    lines.push(Line::from(vec![
+                        Span::styled(" ┌──", border_style),
+                        Span::styled(
+                            String::from(&raw_line[3..]),
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ]));
+                } else if raw_line.starts_with("└─") {
+                    let status_color = if raw_line.contains("SUCCESS") {
+                        Color::Green
+                    } else {
+                        Color::Red
+                    };
+                    lines.push(Line::from(vec![
+                        Span::styled(" └─", border_style),
+                        Span::styled(
+                            String::from(&raw_line[3..]),
+                            Style::default()
+                                .fg(status_color)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ]));
+                } else if raw_line.starts_with("│") {
+                    lines.push(Line::from(vec![
+                        Span::styled(" │", border_style),
+                        Span::styled(
+                            String::from(&raw_line[1..]),
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                    ]));
+                } else {
+                    lines.push(Line::from(vec![
+                        Span::styled(" │ ", border_style),
+                        Span::styled(owned_line, Style::default().fg(Color::DarkGray)),
+                    ]));
+                }
+                is_first = false;
+                continue;
+            }
+
+            let mut spans = if is_first {
+                vec![Span::raw(" "), Span::styled(label, style)]
+            } else {
+                vec![Span::raw("   ")]
+            };
+
+            if speaker == "Hematite" {
+                spans.extend(inline_markdown_core(raw_line));
+            } else {
+                spans.push(Span::raw(owned_line));
+            }
+            lines.push(Line::from(spans));
             is_first = false;
         }
 
@@ -1394,11 +1558,23 @@ fn copy_text_to_clipboard(text: &str) {
     let _ = child.wait();
 }
 
+fn synced_task_start_time(
+    active: bool,
+    current: Option<std::time::Instant>,
+) -> Option<std::time::Instant> {
+    match (active, current) {
+        (true, None) => Some(std::time::Instant::now()),
+        (false, Some(_)) => None,
+        (_, existing) => existing,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        classify_runtime_issue, provider_badge_prefix, select_sidebar_mode,
-        should_accept_autocomplete_on_enter, RuntimeIssueKind, SidebarMode,
+        classify_runtime_issue, make_animated_sparkline_gauge, provider_badge_prefix,
+        select_fitting_variant, select_sidebar_mode, should_accept_autocomplete_on_enter,
+        synced_task_start_time, RuntimeIssueKind, SidebarMode,
     };
     use crate::agent::inference::ProviderRuntimeState;
 
@@ -1466,6 +1642,34 @@ mod tests {
         assert_eq!(select_sidebar_mode(130, false, false), SidebarMode::Compact);
         assert_eq!(select_sidebar_mode(130, false, true), SidebarMode::Compact);
         assert_eq!(select_sidebar_mode(160, false, true), SidebarMode::Full);
+    }
+
+    #[test]
+    fn task_timer_starts_when_activity_begins() {
+        assert!(synced_task_start_time(true, None).is_some());
+    }
+
+    #[test]
+    fn task_timer_clears_when_activity_ends() {
+        assert!(synced_task_start_time(false, Some(std::time::Instant::now())).is_none());
+    }
+
+    #[test]
+    fn fitting_variant_picks_longest_string_that_fits() {
+        let variants = vec![
+            "this variant is too wide".to_string(),
+            "fits nicely".to_string(),
+            "tiny".to_string(),
+        ];
+        assert_eq!(select_fitting_variant(&variants, 12), "fits nicely");
+        assert_eq!(select_fitting_variant(&variants, 4), "tiny");
+    }
+
+    #[test]
+    fn animated_gauge_preserves_requested_width() {
+        let gauge = make_animated_sparkline_gauge(0.42, 12, 7);
+        assert_eq!(gauge.chars().count(), 12);
+        assert!(gauge.contains('█') || gauge.contains('▓') || gauge.contains('▒'));
     }
 }
 
@@ -1910,7 +2114,7 @@ fn input_rect_for_size(size: Rect, input_len: usize) -> Rect {
         .constraints([
             Constraint::Min(0),
             Constraint::Length(input_height),
-            Constraint::Length(3),
+            Constraint::Length(5), // Synced with 2-tier ui() for surgical mouse alignment
         ])
         .split(size)[1]
 }
@@ -2048,24 +2252,109 @@ fn input_status_variants(app: &App) -> Vec<String> {
             format!("RT:{}", issue),
         ]
     } else {
+        let draft_len = app.input.len();
         vec![
             format!(
                 "DRAFT:{} · FLOW:{} · RT:{} · {}",
-                app.input.len(),
-                flow,
-                issue,
-                attach_status
+                draft_len, flow, issue, attach_status
             ),
-            format!(
-                "DRAFT:{} · RT:{} · {}",
-                app.input.len(),
-                issue,
-                attach_status
-            ),
-            format!("LEN:{} · RT:{}", app.input.len(), issue),
+            format!("DRAFT:{} · RT:{} · {}", draft_len, issue, attach_status),
+            format!("LEN:{} · RT:{}", draft_len, issue),
             format!("RT:{}", issue),
         ]
     }
+}
+
+fn make_sparkline_gauge(ratio: f64, width: usize) -> String {
+    let filled = (ratio * width as f64).round() as usize;
+    let mut s = String::with_capacity(width);
+    for i in 0..width {
+        if i < filled {
+            s.push('▓');
+        } else {
+            s.push('░');
+        }
+    }
+    s
+}
+
+fn make_animated_sparkline_gauge(ratio: f64, width: usize, tick_count: u64) -> String {
+    let filled = (ratio.clamp(0.0, 1.0) * width as f64).round() as usize;
+    let shimmer_idx = if filled > 0 {
+        (tick_count as usize / 2) % filled.max(1)
+    } else {
+        0
+    };
+    let mut chars: Vec<char> = make_sparkline_gauge(ratio, width).chars().collect();
+    for (i, ch) in chars.iter_mut().enumerate() {
+        if i < filled {
+            *ch = if i == shimmer_idx { '█' } else { '▓' };
+        } else if i == filled && filled < width && ratio > 0.0 {
+            *ch = '▒';
+        } else {
+            *ch = '░';
+        }
+    }
+    chars.into_iter().collect()
+}
+
+fn select_fitting_variant(variants: &[String], width: u16) -> String {
+    let max_width = width as usize;
+    for variant in variants {
+        if variant.chars().count() <= max_width {
+            return variant.clone();
+        }
+    }
+    variants.last().cloned().unwrap_or_default()
+}
+
+fn idle_footer_variants(app: &App) -> Vec<String> {
+    let issue = runtime_issue_badge(runtime_issue_kind(app)).0;
+    if issue != "OK" {
+        return vec![
+            format!(" /runtime fix • /runtime explain • RT:{} ", issue),
+            format!(" /runtime fix • RT:{} ", issue),
+            format!(" RT:{} ", issue),
+        ];
+    }
+
+    let phase = (app.tick_count / 18) % 3;
+    match phase {
+        0 => vec![
+            " [↑/↓] scroll • /help hints • /runtime status ".to_string(),
+            " [↑/↓] scroll • /help hints ".to_string(),
+            " /help ".to_string(),
+        ],
+        1 => vec![
+            " /ask analyze • /architect plan • /code implement ".to_string(),
+            " /ask • /architect • /code ".to_string(),
+            " /code ".to_string(),
+        ],
+        _ => vec![
+            " /provider status • /runtime refresh • /ls desktop ".to_string(),
+            " /provider • /runtime refresh ".to_string(),
+            " /runtime ".to_string(),
+        ],
+    }
+}
+
+fn running_footer_variants(app: &App, elapsed: &str, last_log: &str) -> Vec<String> {
+    let worker_count = app.active_workers.len();
+    let worker_label = if worker_count > 0 {
+        format!(
+            " • {} worker{}",
+            worker_count,
+            if worker_count == 1 { "" } else { "s" }
+        )
+    } else {
+        String::new()
+    };
+    vec![
+        format!("{}{} • {}", elapsed.trim(), worker_label, last_log),
+        format!("{} • {}", elapsed.trim(), last_log),
+        format!("{} • working", elapsed.trim()),
+        "working".to_string(),
+    ]
 }
 
 fn select_input_title_layout(app: &App, title_width: u16) -> (Vec<InputActionVisual>, String) {
@@ -2093,34 +2382,34 @@ fn input_action_hitboxes(app: &App, title_area: Rect) -> Vec<(InputAction, u16, 
     let mut out = Vec::new();
     let (actions, _) = select_input_title_layout(app, title_area.width);
     for action in actions {
-        let chip_width = action.label.chars().count() as u16 + 2;
+        let chip_width = action.label.chars().count() as u16 + 2; // " " + label + " "
         out.push((action.action, x, x + chip_width.saturating_sub(1)));
         x = x.saturating_add(chip_width + 1);
     }
     out
 }
 
-fn render_input_title(app: &App, title_area: Rect) -> Line<'static> {
+fn render_input_title<'a>(app: &'a App, area: Rect) -> Line<'a> {
     let mut spans = Vec::new();
-    let (actions, status) = select_input_title_layout(app, title_area.width);
-    for (idx, action) in actions.into_iter().enumerate() {
-        if idx > 0 {
-            spans.push(Span::raw(" "));
-        }
-        let style = if app.hovered_input_action == Some(action.action) {
-            action
-                .style
-                .bg(Color::Rgb(85, 48, 26))
-                .add_modifier(Modifier::REVERSED)
+    let (actions, status) = select_input_title_layout(app, area.width);
+    for action in actions {
+        let is_hovered = app.hovered_input_action == Some(action.action);
+        let style = if is_hovered {
+            Style::default()
+                .bg(action.style.fg.unwrap_or(Color::Gray))
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD)
         } else {
             action.style
         };
-        spans.push(Span::styled(format!("[{}]", action.label), style));
+        spans.push(Span::styled(format!(" {} ", action.label), style));
+        spans.push(Span::raw(" "));
     }
-    if !spans.is_empty() {
-        spans.push(Span::raw(" | "));
+
+    if !status.is_empty() {
+        spans.push(Span::raw(" "));
+        spans.push(Span::styled(status, Style::default().fg(Color::DarkGray)));
     }
-    spans.push(Span::styled(status, Style::default().fg(Color::DarkGray)));
     Line::from(spans)
 }
 
@@ -2532,6 +2821,7 @@ pub async fn run_app<B: Backend>(
         teleported_from: cockpit.teleported_from.clone(),
         nav_list: Vec::new(),
         auto_approve_session: false,
+        task_start_time: None,
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
@@ -2593,6 +2883,7 @@ pub async fn run_app<B: Backend>(
             );
         }
 
+        app.sync_task_start_time();
         terminal.draw(|f| ui(f, &app))?;
 
         tokio::select! {
@@ -4299,7 +4590,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         .constraints([
             Constraint::Min(0),
             Constraint::Length(input_height),
-            Constraint::Length(3),
+            Constraint::Length(5), // Expanded to accommodate Multi-Tier Liquid Telemetry
         ])
         .split(f.size());
 
@@ -4677,60 +4968,151 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     // ── Box 3: Status bar ─────────────────────────────────────────────────────
     let frame = app.tick_count % 3;
-    let spark = match frame {
+    let _spark = match frame {
         0 => "✧",
         1 => "✦",
         _ => "✨",
     };
-    let vigil = if app.brief_mode {
+    let _vigil = if app.brief_mode {
         "VIGIL:[ON]"
     } else {
         "VIGIL:[off]"
     };
-    let yolo = if app.yolo_mode {
+    let _yolo = if app.yolo_mode {
         " | APPROVALS: OFF"
     } else {
         ""
     };
 
-    let bar_constraints = if app.professional {
-        vec![
-            Constraint::Min(0),     // MODE
-            Constraint::Length(22), // LM + VN badge
-            Constraint::Length(12), // BUD
-            Constraint::Length(12), // CMP
-            Constraint::Length(16), // REMOTE
-            Constraint::Length(28), // TOKENS
-            Constraint::Length(28), // VRAM
-        ]
-    } else {
-        vec![
-            Constraint::Length(12), // NAME
-            Constraint::Min(0),     // MODE
-            Constraint::Length(22), // LM + VN badge
-            Constraint::Length(12), // BUD
-            Constraint::Length(12), // CMP
-            Constraint::Length(16), // REMOTE
-            Constraint::Length(28), // TOKENS
-            Constraint::Length(28), // VRAM
-        ]
-    };
+    let bar_constraints = vec![Constraint::Fill(1)];
     let bar_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(bar_constraints)
         .split(chunks[2]);
 
-    let char_count: usize = app.messages_raw.iter().map(|(_, c)| c.len()).sum();
-    let est_tokens = char_count / 3;
-    let current_tokens = if app.total_tokens > 0 {
-        app.total_tokens
+    // ── Box 4: Logic Activity Row (Alive cues) ───────────────────────────────
+    // We render this in the bottom-most area if active.
+    let _footer_row_legacy = if app.agent_running || app.thinking {
+        let elapsed = if let Some(start) = app.task_start_time {
+            format!(" {:0>2}s ", start.elapsed().as_secs())
+        } else {
+            String::new()
+        };
+        let last_log = app
+            .specular_logs
+            .last()
+            .map(|s| s.as_str())
+            .unwrap_or("...");
+        let spinner = match app.tick_count % 8 {
+            0 => "⠋",
+            1 => "⠙",
+            2 => "⠹",
+            3 => "⠸",
+            4 => "⠼",
+            5 => "⠴",
+            6 => "⠦",
+            _ => "⠧",
+        };
+
+        Line::from(vec![
+            Span::styled(
+                format!(" {} ", spinner),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                elapsed,
+                Style::default()
+                    .bg(Color::Rgb(40, 40, 40))
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!(" ⬢ {}", last_log),
+                Style::default().fg(Color::DarkGray),
+            ),
+        ])
     } else {
-        est_tokens
+        Line::from(vec![
+            Span::styled(" ⬢ ", Style::default().fg(Color::Rgb(40, 40, 40))),
+            Span::styled(
+                " [↑/↓] scroll ",
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::DIM),
+            ),
+            Span::styled(" | ", Style::default().fg(Color::Rgb(30, 30, 30))),
+            Span::styled(
+                " /help hints ",
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::DIM),
+            ),
+        ])
     };
-    let usage_text = format!(
-        "TOKENS: {:0>5} | TOTAL: ${:.4}",
-        current_tokens, app.current_session_cost
-    );
+
+    let footer_row = {
+        let footer_row_width = bar_chunks[0].width.saturating_sub(6);
+        if app.agent_running || app.thinking {
+            let elapsed = if let Some(start) = app.task_start_time {
+                format!(" {:0>2}s ", start.elapsed().as_secs())
+            } else {
+                String::new()
+            };
+            let last_log = app
+                .specular_logs
+                .last()
+                .map(|s| s.as_str())
+                .unwrap_or("...");
+            let spinner = match app.tick_count % 8 {
+                0 => "⠋",
+                1 => "⠙",
+                2 => "⠹",
+                3 => "⠸",
+                4 => "⠼",
+                5 => "⠴",
+                6 => "⠦",
+                _ => "⠧",
+            };
+            let footer_caption = select_fitting_variant(
+                &running_footer_variants(app, &elapsed, last_log),
+                footer_row_width,
+            );
+
+            Line::from(vec![
+                Span::styled(
+                    format!(" {} ", spinner),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    elapsed,
+                    Style::default()
+                        .bg(Color::Rgb(40, 40, 40))
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!(" ⬢ {}", footer_caption),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ])
+        } else {
+            let idle_hint = select_fitting_variant(&idle_footer_variants(app), footer_row_width);
+            Line::from(vec![
+                Span::styled(" ⬢ ", Style::default().fg(Color::Rgb(40, 40, 40))),
+                Span::styled(
+                    idle_hint,
+                    Style::default()
+                        .fg(Color::DarkGray)
+                        .add_modifier(Modifier::DIM),
+                ),
+            ])
+        }
+    };
+
     let runtime_age = app.last_runtime_profile_time.elapsed();
     let provider_prefix = provider_badge_prefix(&app.provider_name);
     let issue = runtime_issue_kind(app);
@@ -4754,12 +5136,12 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         (format!("{provider_prefix}:LIVE"), Color::Green)
     };
     let compaction_percent = app.compaction_percent.min(100);
-    let compaction_label = if app.compaction_threshold_tokens == 0 {
+    let _compaction_label = if app.compaction_threshold_tokens == 0 {
         " CMP:  0%".to_string()
     } else {
         format!(" CMP:{:>3}%", compaction_percent)
     };
-    let compaction_color = if app.compaction_threshold_tokens == 0 {
+    let _compaction_color = if app.compaction_threshold_tokens == 0 {
         Color::DarkGray
     } else if compaction_percent >= 85 {
         Color::Red
@@ -4769,12 +5151,12 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         Color::Green
     };
     let prompt_percent = app.prompt_pressure_percent.min(100);
-    let prompt_label = if app.prompt_estimated_total_tokens == 0 {
+    let _prompt_label = if app.prompt_estimated_total_tokens == 0 {
         " BUD:  0%".to_string()
     } else {
         format!(" BUD:{:>3}%", prompt_percent)
     };
-    let prompt_color = if app.prompt_estimated_total_tokens == 0 {
+    let _prompt_color = if app.prompt_estimated_total_tokens == 0 {
         Color::DarkGray
     } else if prompt_percent >= 85 {
         Color::Red
@@ -4784,11 +5166,16 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         Color::Green
     };
 
-    let think_badge = match app.think_mode {
+    let _think_badge = match app.think_mode {
         Some(true) => " [THINK]",
         Some(false) => " [FAST]",
         None => "",
     };
+
+    // ── VRAM gauge (live from nvidia-smi poller) ─────────────────────────────
+    let vram_ratio = app.gpu_state.ratio();
+    let vram_label = app.gpu_state.label();
+    let gpu_name = app.gpu_state.gpu_name();
 
     let (vein_label, vein_color) = if app.vein_docs_only {
         let color = if app.vein_embedded_count > 0 {
@@ -4807,155 +5194,97 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         ("VN:FTS", Color::Yellow)
     };
 
-    let (status_idx, lm_idx, bud_idx, cmp_idx, remote_idx, tokens_idx, vram_idx) =
-        if app.professional {
-            (0usize, 1usize, 2usize, 3usize, 4usize, 5usize, 6usize)
-        } else {
-            (1usize, 2usize, 3usize, 4usize, 5usize, 6usize, 7usize)
-        };
-
-    if app.professional {
-        f.render_widget(Clear, bar_chunks[status_idx]);
-
-        let voice_badge = if app.voice_manager.is_enabled() {
-            " | VOICE:ON"
-        } else {
-            ""
-        };
-        f.render_widget(
-            Paragraph::new(format!(
-                " MODE:PRO | FLOW:{}{} | CTX:{} | ERR:{}{}{}",
-                app.workflow_mode,
-                yolo,
-                app.context_length,
-                app.stats.debugging,
-                think_badge,
-                voice_badge
-            ))
-            .block(Block::default().borders(Borders::ALL)),
-            bar_chunks[status_idx],
-        );
+    let char_count: usize = app.messages_raw.iter().map(|(_, c)| c.len()).sum();
+    let est_tokens = char_count / 3;
+    let current_tokens = if app.total_tokens > 0 {
+        app.total_tokens
     } else {
-        f.render_widget(Clear, bar_chunks[0]);
-        f.render_widget(
-            Paragraph::new(format!(" {} {}", spark, app.soul_name))
-                .block(Block::default().borders(Borders::ALL)),
-            bar_chunks[0],
-        );
-        f.render_widget(Clear, bar_chunks[status_idx]);
-        f.render_widget(
-            Paragraph::new(format!("{}{}", vigil, think_badge))
-                .block(Block::default().borders(Borders::ALL).fg(Color::Yellow)),
-            bar_chunks[status_idx],
-        );
-    }
-
-    // ── Remote status indicator ──────────────────────────────────────────────
-    let git_status = app.git_state.status();
-    let git_label = app.git_state.label();
-    let git_color = match git_status {
-        crate::agent::git_monitor::GitRemoteStatus::Connected => Color::Green,
-        crate::agent::git_monitor::GitRemoteStatus::NoRemote => Color::Yellow,
-        crate::agent::git_monitor::GitRemoteStatus::Behind
-        | crate::agent::git_monitor::GitRemoteStatus::Ahead => Color::Magenta,
-        crate::agent::git_monitor::GitRemoteStatus::Diverged
-        | crate::agent::git_monitor::GitRemoteStatus::Error => Color::Red,
-        _ => Color::DarkGray,
+        est_tokens
     };
+    let session_usage_text = format!(
+        " TOKENS: {:0>5} | TOTAL: ${:.2} ",
+        current_tokens, app.current_session_cost
+    );
 
-    f.render_widget(Clear, bar_chunks[lm_idx]);
+    // ── Single Liquid Status Bar ──────────────────────────────────────────
+    f.render_widget(Clear, bar_chunks[0]);
+
+    let usage_color = Color::Rgb(100, 100, 100);
+    let ai_line = vec![
+        Span::styled(
+            format!(" {} ", lm_label),
+            Style::default().fg(lm_color).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled("║ ", Style::default().fg(Color::Rgb(60, 60, 60))),
+        Span::styled(format!("{} ", vein_label), Style::default().fg(vein_color)),
+        Span::styled("│ ", Style::default().fg(Color::Rgb(40, 40, 40))),
+        Span::styled(format!("{} ", issue_code), Style::default().fg(issue_color)),
+        Span::styled("│ ", Style::default().fg(Color::Rgb(40, 40, 40))),
+        Span::styled(
+            format!("CTX:{} ", app.context_length),
+            Style::default().fg(Color::DarkGray),
+        ),
+        Span::styled("│ ", Style::default().fg(Color::Rgb(40, 40, 40))),
+        Span::styled(
+            format!("REMOTE:{} ", app.git_state.label()),
+            Style::default().fg(Color::DarkGray),
+        ),
+        Span::styled("│ ", Style::default().fg(Color::Rgb(40, 40, 40))),
+        Span::styled(
+            format!("BUD:{} CMP:{} ", prompt_percent, compaction_percent),
+            Style::default().fg(Color::DarkGray),
+        ),
+        Span::styled("│ ", Style::default().fg(Color::Rgb(40, 40, 40))),
+        Span::styled(session_usage_text, Style::default().fg(usage_color)),
+    ];
+
+    let hardware_line = vec![
+        Span::styled("   ⬢ ", Style::default().fg(Color::Rgb(60, 60, 60))), // Gray tint
+        Span::styled(
+            format!("{} ", gpu_name),
+            Style::default()
+                .fg(Color::Rgb(200, 200, 200))
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled("║ ", Style::default().fg(Color::Rgb(60, 60, 60))),
+        Span::styled(
+            format!(
+                "[{}] ",
+                make_animated_sparkline_gauge(vram_ratio, 12, app.tick_count)
+            ),
+            Style::default().fg(Color::Cyan),
+        ),
+        Span::styled(
+            format!("{}% ", (vram_ratio * 100.0) as u8),
+            Style::default().fg(Color::Cyan),
+        ),
+        Span::styled(
+            format!("({})", vram_label),
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::DIM),
+        ),
+    ];
+
     f.render_widget(
-        Paragraph::new(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(format!(" {}", lm_label), Style::default().fg(lm_color)),
-            ratatui::text::Span::raw(" | "),
-            ratatui::text::Span::styled(vein_label, Style::default().fg(vein_color)),
-            ratatui::text::Span::raw(" |"),
-            ratatui::text::Span::styled(issue_code, Style::default().fg(issue_color)),
-        ]))
+        Paragraph::new(vec![
+            Line::from(ai_line),
+            Line::from(hardware_line),
+            footer_row,
+        ])
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(lm_color)),
+                .border_style(Style::default().fg(Color::Rgb(60, 60, 60))),
         ),
-        bar_chunks[lm_idx],
-    );
-
-    f.render_widget(Clear, bar_chunks[bud_idx]);
-    f.render_widget(
-        Paragraph::new(prompt_label)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(prompt_color)),
-            )
-            .fg(prompt_color),
-        bar_chunks[bud_idx],
-    );
-
-    f.render_widget(Clear, bar_chunks[cmp_idx]);
-    f.render_widget(
-        Paragraph::new(compaction_label)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(compaction_color)),
-            )
-            .fg(compaction_color),
-        bar_chunks[cmp_idx],
-    );
-
-    f.render_widget(Clear, bar_chunks[remote_idx]);
-    f.render_widget(
-        Paragraph::new(format!(" REMOTE: {}", git_label))
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(git_color)),
-            )
-            .fg(git_color),
-        bar_chunks[remote_idx],
-    );
-
-    let usage_color = Color::Rgb(215, 125, 40);
-    f.render_widget(Clear, bar_chunks[tokens_idx]);
-    f.render_widget(
-        Paragraph::new(usage_text)
-            .block(Block::default().borders(Borders::ALL).fg(usage_color))
-            .fg(usage_color),
-        bar_chunks[tokens_idx],
-    );
-
-    // ── VRAM gauge (live from nvidia-smi poller) ─────────────────────────────
-    let vram_ratio = app.gpu_state.ratio();
-    let vram_label = app.gpu_state.label();
-    let gpu_name = app.gpu_state.gpu_name();
-
-    let gauge_color = if vram_ratio > 0.85 {
-        Color::Red
-    } else if vram_ratio > 0.60 {
-        Color::Yellow
-    } else {
-        Color::Cyan
-    };
-    f.render_widget(Clear, bar_chunks[vram_idx]);
-    f.render_widget(
-        Gauge::default()
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(format!(" {} ", gpu_name)),
-            )
-            .gauge_style(Style::default().fg(gauge_color))
-            .ratio(vram_ratio)
-            .label(format!("  {}  ", vram_label)), // Added extra padding for visual excellence
-        bar_chunks[vram_idx],
+        bar_chunks[0],
     );
 
     // ── Box 4: Input ──────────────────────────────────────────────────────────
-    let input_style = if app.agent_running {
-        Style::default().fg(Color::DarkGray)
+    let input_border_color = if app.agent_running {
+        Color::Rgb(60, 60, 60)
     } else {
-        Style::default().fg(Color::Rgb(120, 70, 50))
+        Color::Rgb(100, 100, 100) // High-focus gray glow
     };
     let input_rect = chunks[1];
     let title_area = input_title_area(input_rect);
@@ -4963,8 +5292,8 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let input_block = Block::default()
         .title(input_hint)
         .borders(Borders::ALL)
-        .border_style(input_style)
-        .style(Style::default().bg(Color::Rgb(40, 25, 15))); // Deeper soil rich background
+        .border_style(Style::default().fg(input_border_color))
+        .style(Style::default().bg(Color::Rgb(25, 25, 25))); // Obsidian Dark Gray
 
     let inner_area = input_block.inner(input_rect);
     f.render_widget(Clear, input_rect);
@@ -5449,7 +5778,7 @@ fn inline_markdown(text: &str) -> Vec<Span<'static>> {
 // ── Splash Screen ─────────────────────────────────────────────────────────────
 
 fn draw_splash<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), Box<dyn std::error::Error>> {
-    let rust_color = Color::Rgb(180, 90, 50);
+    let rust_color = Color::Rgb(110, 110, 110);
 
     let logo_lines = vec![
         "██╗  ██╗███████╗███╗   ███╗ █████╗ ████████╗██╗████████╗███████╗",

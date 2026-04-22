@@ -52,12 +52,13 @@ pub async fn execute_search(args: &Value, searx_url: Option<String>) -> Result<S
 /// Proactively strip JSON-like structures and tool-call patterns from web content.
 /// This prevents 'Prompt Injection' where a website tries to trick the agent into running commands.
 fn sanitize_web_content(text: &str) -> String {
+    // Preserve markdown link syntax, but neuter common prompt/tool-call markers.
     text.replace("{", " (")
         .replace("}", ") ")
-        .replace("[", " (")
-        .replace("]", ") ")
         .replace("\"", "'")
         .replace("<script", "[BLOCKED SCRIPT]")
+        .replace("<iframe", "[BLOCKED IFRAME]")
+        .replace("javascript:", "blocked-js:")
 }
 
 async fn perform_search(query: &str, searx_url: Option<&str>) -> Result<String, String> {
@@ -135,7 +136,7 @@ async fn perform_search(query: &str, searx_url: Option<&str>) -> Result<String, 
 
 async fn perform_searx_search(query: &str, base_url: &str) -> Result<String, String> {
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(5))
         .build()
         .map_err(|e| format!("Failed to build SearXNG client: {e}"))?;
 
@@ -191,6 +192,21 @@ async fn perform_searx_search(query: &str, base_url: &str) -> Result<String, Str
     }
 
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_web_content;
+
+    #[test]
+    fn sanitize_web_content_blocks_script_patterns_without_breaking_markdown_links() {
+        let input = r#"Use {"tool":"shell"} and [Rust](https://www.rust-lang.org) <iframe src="x"></iframe>"#;
+        let sanitized = sanitize_web_content(input);
+
+        assert!(sanitized.contains("('tool':'shell')"));
+        assert!(sanitized.contains("[Rust](https://www.rust-lang.org)"));
+        assert!(sanitized.contains("[BLOCKED IFRAME]"));
+    }
 }
 
 /// tool: fetch_docs

@@ -18,11 +18,11 @@ pub fn draw_diff_review(f: &mut Frame, review: &ActiveReview) {
     f.render_widget(Clear, area);
 
     // ── Outer Frame ──────────────────────────────────────────────
-    let rust_color = Color::Rgb(120, 70, 50);
+    let rust_color = Color::Rgb(100, 100, 100);
     let outer_block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(rust_color))
-        .style(Style::default().bg(Color::Rgb(15, 10, 5))); // Deep soil background
+        .style(Style::default().bg(Color::Rgb(25, 25, 25))); // Obsidian background
 
     let inner_area = outer_block.inner(area);
     f.render_widget(outer_block, area);
