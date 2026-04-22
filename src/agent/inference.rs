@@ -459,17 +459,17 @@ impl InferenceEngine {
         };
 
         let detected_context = self.detect_context_length().await;
-        let effective_context = if detected_context > 0 {
-            detected_context
-        } else {
-            previous_context
-        };
-
         let effective_model = if detected_model.is_empty() {
             previous_model.clone()
         } else {
             detected_model
         };
+        let effective_context = resolve_runtime_context(
+            &previous_model,
+            previous_context,
+            &effective_model,
+            detected_context,
+        );
 
         let changed = effective_model != previous_model || effective_context != previous_context;
         if changed {
@@ -1600,6 +1600,23 @@ pub fn strip_native_tool_call_text(text: &str) -> String {
         .to_string()
 }
 
+fn resolve_runtime_context(
+    previous_model: &str,
+    previous_context: usize,
+    effective_model: &str,
+    detected_context: usize,
+) -> usize {
+    if effective_model == "no model loaded" || effective_model.trim().is_empty() {
+        0
+    } else if detected_context > 0 {
+        detected_context
+    } else if effective_model == previous_model {
+        previous_context
+    } else {
+        0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1692,5 +1709,25 @@ Check if the binary exists
         let stripped = strip_native_tool_call_text(text);
         assert!(!stripped.contains("<tool_call>"));
         assert!(!stripped.contains("<function=shell>"));
+    }
+
+    #[test]
+    fn resolve_runtime_context_returns_zero_when_no_model_loaded() {
+        assert_eq!(
+            resolve_runtime_context("qwen/qwen3.5-9b", 32000, "no model loaded", 0),
+            0
+        );
+    }
+
+    #[test]
+    fn resolve_runtime_context_preserves_previous_only_for_same_model() {
+        assert_eq!(
+            resolve_runtime_context("qwen/qwen3.5-9b", 32000, "qwen/qwen3.5-9b", 0),
+            32000
+        );
+        assert_eq!(
+            resolve_runtime_context("qwen/qwen3.5-9b", 32000, "bonsai-8b", 0),
+            0
+        );
     }
 }

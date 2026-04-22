@@ -119,10 +119,7 @@ async fn provider_startup_guidance(provider_name: &str, endpoint: &str, has_mode
 
 fn runtime_context_display(model: &str, context_length: usize) -> String {
     let lower = model.to_ascii_lowercase();
-    if lower.trim().is_empty()
-        || lower.contains("no model loaded")
-        || context_length == 0
-    {
+    if lower.trim().is_empty() || lower.contains("no model loaded") || context_length == 0 {
         "none".to_string()
     } else {
         context_length.to_string()
@@ -279,14 +276,24 @@ pub async fn build_runtime_bundle(
 
     let mut detected_model = String::new();
     let mut detected_context = 0;
+    let mut empty_observations = 0u8;
 
-    // Handshake loop: wait up to 5 seconds for the provider to report both model and context.
+    // Handshake loop: wait briefly for the provider to settle, but treat repeated
+    // "no model loaded" observations as a valid steady state rather than blocking startup.
     for _ in 0..20 {
         detected_model = engine_raw.get_loaded_model().await.unwrap_or_default();
         detected_context = engine_raw.detect_context_length().await;
-        
+
         if !detected_model.trim().is_empty() && detected_context > 0 {
             break;
+        }
+        if detected_model.trim().is_empty() && detected_context == 0 {
+            empty_observations = empty_observations.saturating_add(1);
+            if empty_observations >= 2 {
+                break;
+            }
+        } else {
+            empty_observations = 0;
         }
         tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
     }
@@ -700,7 +707,10 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
 
 #[cfg(test)]
 mod tests {
-    use super::{coding_runtime_budget_warning, model_name_matches, preferred_coding_model_target};
+    use super::{
+        coding_runtime_budget_warning, model_name_matches, preferred_coding_model_target,
+        runtime_context_display,
+    };
     use crate::agent::config::HematiteConfig;
 
     #[test]
@@ -748,5 +758,12 @@ mod tests {
         assert!(warning.contains("bonsai-8b"));
         assert!(warning.contains("4096"));
         assert!(warning.contains("qwen/qwen3.5-9b"));
+    }
+
+    #[test]
+    fn runtime_context_display_reports_none_without_loaded_model() {
+        assert_eq!(runtime_context_display("no model loaded", 0), "none");
+        assert_eq!(runtime_context_display("", 32768), "none");
+        assert_eq!(runtime_context_display("qwen/qwen3.5-9b", 32000), "32000");
     }
 }

@@ -303,7 +303,7 @@ impl ModelProvider for LmsProvider {
                 }
             }
         }
-        let url_v1 = format!("{}/models", base);
+        let url_v1 = format!("{}/v1/models", base);
         let resp_v1 = self
             .client
             .get(&url_v1)
@@ -344,21 +344,33 @@ impl ModelProvider for LmsProvider {
                                 "max_context_length",
                                 "contextLength",
                             ];
-                            
+
                             // Check top-level first
                             for field in fields {
                                 if let Some(val) = m.get(field) {
-                                    if let Some(len) = val.as_u64() { return len as usize; }
-                                    if let Some(s) = val.as_str() { if let Ok(len) = s.parse::<usize>() { return len; } }
+                                    if let Some(len) = val.as_u64() {
+                                        return len as usize;
+                                    }
+                                    if let Some(s) = val.as_str() {
+                                        if let Ok(len) = s.parse::<usize>() {
+                                            return len;
+                                        }
+                                    }
                                 }
                             }
-                            
+
                             // Check "stats" object
                             if let Some(stats) = m.get("stats") {
                                 for field in fields {
                                     if let Some(val) = stats.get(field) {
-                                        if let Some(len) = val.as_u64() { return len as usize; }
-                                        if let Some(s) = val.as_str() { if let Ok(len) = s.parse::<usize>() { return len; } }
+                                        if let Some(len) = val.as_u64() {
+                                            return len as usize;
+                                        }
+                                        if let Some(s) = val.as_str() {
+                                            if let Ok(len) = s.parse::<usize>() {
+                                                return len;
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -367,8 +379,14 @@ impl ModelProvider for LmsProvider {
                             if let Some(config) = m.get("config") {
                                 for field in fields {
                                     if let Some(val) = config.get(field) {
-                                        if let Some(len) = val.as_u64() { return len as usize; }
-                                        if let Some(s) = val.as_str() { if let Ok(len) = s.parse::<usize>() { return len; } }
+                                        if let Some(len) = val.as_u64() {
+                                            return len as usize;
+                                        }
+                                        if let Some(s) = val.as_str() {
+                                            if let Ok(len) = s.parse::<usize>() {
+                                                return len;
+                                            }
+                                        }
                                     }
                                 }
                             }
