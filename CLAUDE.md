@@ -120,6 +120,7 @@ pwsh ./clean.ps1
 - `/detach`: drop any pending document or image attachment without sending
 
 Requires a local OpenAI-compatible runtime running with a model loaded. LM Studio on port `1234` is the default path; Ollama on `http://localhost:11434/v1` is also supported when `api_url` points there.
+If the configured provider is offline or reachable without a loaded coding model, Hematite should surface the shortest setup path and mention any reachable local alternative runtime it detects.
 
 Practical rule: the version/build label is compile-time metadata. A new commit or tag does not change what the already-built binary reports. Rebuild the binary or rerun `pwsh ./scripts/package-windows.ps1 -AddToPath` if you want `hematite --version`, `/version`, and the startup banner to reflect the latest commit, tag, or dirty/clean state.
 

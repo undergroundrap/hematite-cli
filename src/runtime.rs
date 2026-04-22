@@ -35,6 +35,66 @@ pub fn session_endpoint_url(base_url: &str) -> String {
     format!("{}/v1", base_url.trim_end_matches('/'))
 }
 
+fn provider_model_setup_hint(provider_name: &str) -> String {
+    if provider_name == "Ollama" {
+        format!(
+            "Pull or run a chat model in Ollama, then keep `api_url` pointed at `{}`.",
+            crate::agent::config::DEFAULT_OLLAMA_API_URL
+        )
+    } else {
+        format!(
+            "Load a coding model in LM Studio and keep the local server on `{}`. Optionally also load `nomic-embed-text-v2` for semantic search.",
+            crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+        )
+    }
+}
+
+async fn provider_startup_guidance(provider_name: &str, endpoint: &str, has_model: bool) -> String {
+    let mut lines = vec![format!("Provider setup: {} ({})", provider_name, endpoint)];
+    if has_model {
+        lines.push("Status: local runtime is reachable and a coding model is loaded.".to_string());
+    } else {
+        lines.push("Status: provider is reachable but no coding model is loaded yet.".to_string());
+        lines.push(provider_model_setup_hint(provider_name));
+    }
+    if let Some((alt_name, alt_url)) = detect_alternative_provider(provider_name).await {
+        lines.push(format!("Reachable alternative: {} ({})", alt_name, alt_url));
+    }
+    lines.push(
+        "Use `/provider` after startup if you want to save a different runtime for future sessions."
+            .to_string(),
+    );
+    lines.join("\n")
+}
+
+async fn print_provider_bootstrap_help(provider_name: &str, base_url: &str) {
+    let endpoint = session_endpoint_url(base_url);
+    println!("Quick setup path:");
+    if provider_name == "Ollama" {
+        println!("  1. Install Ollama: https://ollama.com/");
+        println!("  2. Start Ollama and ensure `{}` is reachable.", endpoint);
+        println!("  3. Pull a chat model, for example: `ollama pull qwen3.5:latest`");
+        println!(
+            "  4. Restart Hematite, or switch back to LM Studio with `api_url = \"{}\"`.",
+            crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+        );
+    } else {
+        println!("  1. Install LM Studio: https://lmstudio.ai/");
+        println!(
+            "  2. Start the local server and ensure `{}` is reachable.",
+            endpoint
+        );
+        println!("  3. Load a coding model such as `Qwen/Qwen3.5-9B Q4_K_M`.");
+        println!("  4. Restart Hematite after the model is loaded.");
+    }
+    if let Some((alt_name, alt_url)) = detect_alternative_provider(provider_name).await {
+        println!(
+            "Reachable alternative detected: {} ({}). You can point Hematite there instead.",
+            alt_name, alt_url
+        );
+    }
+}
+
 pub async fn detect_alternative_provider(active_provider: &str) -> Option<(String, String)> {
     match active_provider {
         "LM Studio" => {
@@ -150,15 +210,7 @@ pub async fn build_runtime_bundle(
             "{}",
             provider_help_hint(&engine_raw.base_url, &provider_name)
         );
-        if provider_name == "LM Studio" {
-            let ollama = crate::agent::ollama::OllamaHarness::new("http://localhost:11434");
-            if ollama.is_reachable().await {
-                println!(
-                    "Hint: Ollama is reachable on http://localhost:11434. If you want to use it, set `api_url` to `{}`.",
-                    crate::agent::config::DEFAULT_OLLAMA_API_URL
-                );
-            }
-        }
+        print_provider_bootstrap_help(&provider_name, &engine_raw.base_url).await;
         std::process::exit(1);
     }
 
@@ -396,6 +448,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         }
     };
     let provider_name = manager.engine.provider_name().await;
+    let startup_endpoint = session_endpoint_url(&manager.engine.base_url);
     let terminal_name = crate::ui::terminal::detect_terminal().label();
     let greeting = format!(
         "Hematite {} Online [{}] | Model: {} | CTX: {} | GPU: {} | VRAM: {}\nEndpoint: {}\nWorkspace: {} ({})\n{}\n{}\n/ask · read-only analysis   /code · implement   /architect · plan-first   /chat · conversation\nRecovery: /undo · /new · /forget · /clear   |   /version · /about{}",
@@ -405,7 +458,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         manager.engine.current_context_length(),
         gpu_name,
         vram,
-        session_endpoint_url(&manager.engine.base_url),
+        startup_endpoint,
         workspace_root.display(),
         workspace_mode,
         embed_status,
@@ -424,6 +477,10 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
         let _ = agent_tx
             .send(InferenceEvent::Thought(summary.to_string()))
             .await;
+    }
+    if display_model == "no chat model loaded" {
+        let guidance = provider_startup_guidance(&provider_name, &startup_endpoint, false).await;
+        let _ = agent_tx.send(InferenceEvent::Thought(guidance)).await;
     }
 
     if let Err(e) = manager.initialize_mcp(&agent_tx).await {
@@ -482,6 +539,13 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
                                  - Help: Have a weird error? Type `/explain ` and paste it.\n\n\
                                  Just type \"hello\" to start a normal conversation!".to_string();
             let _ = agent_tx.send(InferenceEvent::Thought(first_run_msg)).await;
+            let provider_setup = provider_startup_guidance(
+                &provider_name,
+                &startup_endpoint,
+                display_model != "no chat model loaded",
+            )
+            .await;
+            let _ = agent_tx.send(InferenceEvent::Thought(provider_setup)).await;
 
             // Create a minimal empty session struct so we don't show this again until they intentionally /forget
             let _ = std::fs::write(&session_path, "{\"turn_count\": 0}");

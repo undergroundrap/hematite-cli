@@ -558,6 +558,8 @@ Load both in LM Studio at the same time. The embedding model stays resident but 
 4. Optionally load `nomic-embed-text-v2` alongside it for semantic file search.
 5. Launch `hematite` inside your project folder.
 
+If the configured provider is offline or has no coding model loaded, Hematite now tells you the shortest next step at startup and reports any reachable local alternative runtime it detects.
+
 ### Recommended User Path
 
 1. Install LM Studio or Ollama.
