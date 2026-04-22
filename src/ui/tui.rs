@@ -577,6 +577,115 @@ fn default_active_context() -> Vec<ContextFile> {
     files
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SidebarMode {
+    Hidden,
+    Compact,
+    Full,
+}
+
+fn sidebar_has_live_activity(app: &App) -> bool {
+    app.agent_running
+        || app.thinking
+        || !app.active_workers.is_empty()
+        || app.active_review.is_some()
+        || app.awaiting_approval.is_some()
+}
+
+fn select_sidebar_mode(width: u16, brief_mode: bool, live_activity: bool) -> SidebarMode {
+    if brief_mode || width < 100 {
+        SidebarMode::Hidden
+    } else if live_activity && width >= 145 {
+        SidebarMode::Full
+    } else {
+        SidebarMode::Compact
+    }
+}
+
+fn sidebar_mode(app: &App, width: u16) -> SidebarMode {
+    select_sidebar_mode(width, app.brief_mode, sidebar_has_live_activity(app))
+}
+
+fn build_compact_sidebar_lines(app: &App) -> Vec<Line<'static>> {
+    let mut lines = Vec::new();
+    let issue = runtime_issue_label(runtime_issue_kind(app));
+    let provider = if app.provider_name.trim().is_empty() {
+        "detecting".to_string()
+    } else {
+        app.provider_name.clone()
+    };
+    let model = if app.model_id.trim().is_empty() {
+        "detecting...".to_string()
+    } else {
+        app.model_id.clone()
+    };
+
+    lines.push(Line::from(vec![
+        Span::styled(" Runtime ", Style::default().fg(Color::Gray)),
+        Span::styled(
+            format!("{} / {}", provider, issue),
+            Style::default().fg(Color::White),
+        ),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(" Model   ", Style::default().fg(Color::Gray)),
+        Span::styled(model, Style::default().fg(Color::White)),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(" Flow    ", Style::default().fg(Color::Gray)),
+        Span::styled(
+            format!("{} | CTX {}", app.workflow_mode, app.context_length),
+            Style::default().fg(Color::White),
+        ),
+    ]));
+
+    let context_source = if app.active_context.is_empty() {
+        default_active_context()
+    } else {
+        app.active_context.clone()
+    };
+    if !context_source.is_empty() {
+        lines.push(Line::raw(""));
+        lines.push(Line::from(Span::styled(
+            "Files",
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::DIM),
+        )));
+        for file in context_source.iter().take(3) {
+            lines.push(Line::from(vec![
+                Span::styled("· ", Style::default().fg(Color::DarkGray)),
+                Span::styled(file.path.clone(), Style::default().fg(Color::White)),
+            ]));
+        }
+    }
+
+    let mut recent_events: Vec<String> = Vec::new();
+    if sidebar_has_live_activity(app) {
+        let label = if app.thinking { "Reasoning" } else { "Working" };
+        let dots = ".".repeat((app.tick_count % 4) as usize + 1);
+        recent_events.push(format!("{label}{dots}"));
+    }
+    recent_events.extend(app.specular_logs.iter().rev().take(4).cloned());
+    if !recent_events.is_empty() {
+        lines.push(Line::raw(""));
+        lines.push(Line::from(Span::styled(
+            "Signals",
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::DIM),
+        )));
+        for event in recent_events.into_iter().take(4) {
+            lines.push(Line::from(vec![
+                Span::styled("· ", Style::default().fg(Color::DarkGray)),
+                Span::styled(event, Style::default().fg(Color::Gray)),
+            ]));
+        }
+    }
+
+    lines
+}
+
 pub struct App {
     pub messages: Vec<Line<'static>>,
     pub messages_raw: Vec<(String, String)>, // Keep raw for reference or re-formatting if needed
@@ -1288,8 +1397,8 @@ fn copy_text_to_clipboard(text: &str) {
 #[cfg(test)]
 mod tests {
     use super::{
-        classify_runtime_issue, provider_badge_prefix, should_accept_autocomplete_on_enter,
-        RuntimeIssueKind,
+        classify_runtime_issue, provider_badge_prefix, select_sidebar_mode,
+        should_accept_autocomplete_on_enter, RuntimeIssueKind, SidebarMode,
     };
     use crate::agent::inference::ProviderRuntimeState;
 
@@ -1344,6 +1453,19 @@ mod tests {
             ),
             RuntimeIssueKind::Connectivity
         );
+    }
+
+    #[test]
+    fn sidebar_mode_hides_in_brief_or_narrow_layouts() {
+        assert_eq!(select_sidebar_mode(99, false, true), SidebarMode::Hidden);
+        assert_eq!(select_sidebar_mode(160, true, true), SidebarMode::Hidden);
+    }
+
+    #[test]
+    fn sidebar_mode_only_uses_full_chrome_for_live_wide_sessions() {
+        assert_eq!(select_sidebar_mode(130, false, false), SidebarMode::Compact);
+        assert_eq!(select_sidebar_mode(130, false, true), SidebarMode::Compact);
+        assert_eq!(select_sidebar_mode(160, false, true), SidebarMode::Full);
     }
 }
 
@@ -2048,7 +2170,7 @@ fn show_help_message(app: &mut App) {
          /copy-clean       - (Debug) Copy chat transcript without help/debug boilerplate\n\
          /copy2            - (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
          \nHotkeys:\n\
-         Ctrl+B - Toggle Brief Mode (minimal output)\n\
+         Ctrl+B - Toggle Brief Mode (minimal output; collapses side chrome)\n\
          Ctrl+P - Toggle Professional Mode (strip personality)\n\
          Ctrl+O - Open document picker for next-turn context\n\
          Ctrl+I - Open image picker for next-turn vision context\n\
@@ -2121,7 +2243,7 @@ fn show_help_message_legacy(app: &mut App) {
          /copy             — (Debug) Copy session transcript to clipboard\n\
          /copy2            — (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
          \nHotkeys:\n\
-         Ctrl+B — Toggle Brief Mode (minimal output)\n\
+         Ctrl+B — Toggle Brief Mode (minimal output; collapses side chrome)\n\
          Ctrl+P — Toggle Professional Mode (strip personality)\n\
          Ctrl+O — Open document picker for next-turn context\n\
          Ctrl+I — Open image picker for next-turn vision context\n\
@@ -3408,7 +3530,7 @@ pub async fn run_app<B: Backend>(
                                                      /copy             — (Debug) Copy session transcript to clipboard\n\
                                                      /copy2            — (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
                                                      \nHotkeys:\n\
-                                                     Ctrl+B — Toggle Brief Mode (minimal output)\n\
+                                                     Ctrl+B — Toggle Brief Mode (minimal output; collapses side chrome)\n\
                                                      Ctrl+P — Toggle Professional Mode (strip personality)\n\
                                                      Ctrl+O — Open document picker for next-turn context\n\
                                                      Ctrl+I — Open image picker for next-turn vision context\n\
@@ -4141,9 +4263,15 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         ])
         .split(f.size());
 
+    let sidebar_mode = sidebar_mode(app, size.width);
+    let sidebar_width = match sidebar_mode {
+        SidebarMode::Hidden => 0,
+        SidebarMode::Compact => 32,
+        SidebarMode::Full => 45,
+    };
     let top = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Fill(1), Constraint::Length(45)]) // Fixed width sidebar prevents bleed
+        .constraints([Constraint::Fill(1), Constraint::Length(sidebar_width)])
         .split(chunks[0]);
 
     // ── Box 1: Dialogue ───────────────────────────────────────────────────────
@@ -4273,221 +4401,239 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     );
 
     // ── Box 2: Side panel ─────────────────────────────────────────────────────
-    let side = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(8), // CONTEXT
-            Constraint::Min(0),    // SPECULAR
-        ])
-        .split(top[1]);
-
-    // Pane 1: Context (Nervous focus)
-    let context_source = if app.active_context.is_empty() {
-        default_active_context()
-    } else {
-        app.active_context.clone()
-    };
-    let mut context_display = context_source
-        .iter()
-        .map(|f| {
-            let (icon, color) = match f.status.as_str() {
-                "Running" => ("⚙️", Color::Cyan),
-                "Dirty" => ("📝", Color::Yellow),
-                _ => ("📄", Color::Gray),
-            };
-            // Simple heuristic for "Tokens" (size / 4)
-            let tokens = f.size / 4;
-            ListItem::new(Line::from(vec![
-                Span::styled(format!(" {} ", icon), Style::default().fg(color)),
-                Span::styled(f.path.clone(), Style::default().fg(Color::White)),
-                Span::styled(
-                    format!(" {}t ", tokens),
-                    Style::default().fg(Color::DarkGray),
-                ),
-            ]))
-        })
-        .collect::<Vec<ListItem>>();
-
-    if context_display.is_empty() {
-        context_display = vec![ListItem::new(" (No active files)")];
-    }
-
-    let ctx_block = Block::default()
-        .title(" ACTIVE CONTEXT ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-
-    f.render_widget(Clear, side[0]);
-    f.render_widget(List::new(context_display).block(ctx_block), side[0]);
-
-    // Optional: Add a Gauge for total context if tokens were tracked accurately.
-    // For now, let's just make the CONTEXT pane look high-density.
-
-    // ── SPECULAR panel (Pane 2) ────────────────────────────────────────────────
-    let v_title = if app.thinking || app.agent_running {
-        format!(" SPECULAR [working] ")
-    } else {
-        " SPECULAR [Watching] ".to_string()
-    };
-
-    f.render_widget(Clear, side[1]);
-
-    let mut v_lines: Vec<Line<'static>> = Vec::new();
-
-    // Section: live thought (bounded to last 300 chars to avoid wall-of-text)
-    if app.thinking || app.agent_running {
-        let dots = ".".repeat((app.tick_count % 4) as usize + 1);
-        let label = if app.thinking { "REASONING" } else { "WORKING" };
-        v_lines.push(Line::from(vec![Span::styled(
-            format!("[ {}{} ]", label, dots),
-            Style::default()
-                .fg(Color::Green)
-                .add_modifier(Modifier::BOLD),
-        )]));
-        // Show last 300 chars of current thought, split by line.
-        let preview = if app.current_thought.chars().count() > 300 {
-            app.current_thought
-                .chars()
-                .rev()
-                .take(300)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect::<String>()
+    if sidebar_mode == SidebarMode::Compact && top[1].width > 0 {
+        let compact_title = if sidebar_has_live_activity(app) {
+            " SIGNALS "
         } else {
-            app.current_thought.clone()
+            " SESSION "
         };
-        for raw in preview.lines() {
-            let raw = raw.trim();
-            if !raw.is_empty() {
+        let compact_para = Paragraph::new(build_compact_sidebar_lines(app))
+            .wrap(Wrap { trim: true })
+            .block(
+                Block::default()
+                    .title(compact_title)
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::DarkGray)),
+            );
+        f.render_widget(Clear, top[1]);
+        f.render_widget(compact_para, top[1]);
+    } else if sidebar_mode == SidebarMode::Full && top[1].width > 0 {
+        let side = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(8), // CONTEXT
+                Constraint::Min(0),    // SPECULAR
+            ])
+            .split(top[1]);
+
+        // Pane 1: Context (Nervous focus)
+        let context_source = if app.active_context.is_empty() {
+            default_active_context()
+        } else {
+            app.active_context.clone()
+        };
+        let mut context_display = context_source
+            .iter()
+            .map(|f| {
+                let (icon, color) = match f.status.as_str() {
+                    "Running" => ("⚙️", Color::Cyan),
+                    "Dirty" => ("📝", Color::Yellow),
+                    _ => ("📄", Color::Gray),
+                };
+                // Simple heuristic for "Tokens" (size / 4)
+                let tokens = f.size / 4;
+                ListItem::new(Line::from(vec![
+                    Span::styled(format!(" {} ", icon), Style::default().fg(color)),
+                    Span::styled(f.path.clone(), Style::default().fg(Color::White)),
+                    Span::styled(
+                        format!(" {}t ", tokens),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                ]))
+            })
+            .collect::<Vec<ListItem>>();
+
+        if context_display.is_empty() {
+            context_display = vec![ListItem::new(" (No active files)")];
+        }
+
+        let ctx_block = Block::default()
+            .title(" ACTIVE CONTEXT ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::DarkGray));
+
+        f.render_widget(Clear, side[0]);
+        f.render_widget(List::new(context_display).block(ctx_block), side[0]);
+
+        // Optional: Add a Gauge for total context if tokens were tracked accurately.
+        // For now, let's just make the CONTEXT pane look high-density.
+
+        // ── SPECULAR panel (Pane 2) ────────────────────────────────────────────────
+        let v_title = if app.thinking || app.agent_running {
+            format!(" SPECULAR [working] ")
+        } else {
+            " SPECULAR [Watching] ".to_string()
+        };
+
+        f.render_widget(Clear, side[1]);
+
+        let mut v_lines: Vec<Line<'static>> = Vec::new();
+
+        // Section: live thought (bounded to last 300 chars to avoid wall-of-text)
+        if app.thinking || app.agent_running {
+            let dots = ".".repeat((app.tick_count % 4) as usize + 1);
+            let label = if app.thinking { "REASONING" } else { "WORKING" };
+            v_lines.push(Line::from(vec![Span::styled(
+                format!("[ {}{} ]", label, dots),
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )]));
+            // Show last 300 chars of current thought, split by line.
+            let preview = if app.current_thought.chars().count() > 300 {
+                app.current_thought
+                    .chars()
+                    .rev()
+                    .take(300)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect::<String>()
+            } else {
+                app.current_thought.clone()
+            };
+            for raw in preview.lines() {
+                let raw = raw.trim();
+                if !raw.is_empty() {
+                    v_lines.extend(render_markdown_line(raw));
+                }
+            }
+            v_lines.push(Line::raw(""));
+        }
+
+        // Section: worker progress bars
+        if !app.active_workers.is_empty() {
+            v_lines.push(Line::from(vec![Span::styled(
+                "── Task Progress ──",
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::DIM),
+            )]));
+
+            let mut sorted_ids: Vec<_> = app.active_workers.keys().cloned().collect();
+            sorted_ids.sort();
+
+            for id in sorted_ids {
+                let prog = app.active_workers[&id];
+                let custom_label = app.worker_labels.get(&id).cloned();
+
+                let (label, color) = match prog {
+                    101..=102 => ("VERIFIED", Color::Green),
+                    100 if !app.agent_running && id != "AGENT" => ("SKIPPED ", Color::DarkGray),
+                    100 => ("REVIEW  ", Color::Magenta),
+                    _ => ("WORKING ", Color::Yellow),
+                };
+
+                let display_label = custom_label.unwrap_or_else(|| label.to_string());
+                let filled = (prog.min(100) / 10) as usize;
+                let bar = "▓".repeat(filled) + &"░".repeat(10 - filled);
+
+                let id_prefix = if id == "AGENT" {
+                    "Agent: ".to_string()
+                } else {
+                    format!("W{}: ", id)
+                };
+
+                v_lines.push(Line::from(vec![
+                    Span::styled(id_prefix, Style::default().fg(Color::Gray)),
+                    Span::styled(bar, Style::default().fg(color)),
+                    Span::styled(
+                        format!(" {} ", display_label),
+                        Style::default().fg(color).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{}%", prog.min(100)),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                ]));
+            }
+            v_lines.push(Line::raw(""));
+        }
+
+        // Section: last completed turn's reasoning
+        if !app.last_reasoning.is_empty() {
+            v_lines.push(Line::from(vec![Span::styled(
+                "── Logic Trace ──",
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::DIM),
+            )]));
+            for raw in app.last_reasoning.lines() {
                 v_lines.extend(render_markdown_line(raw));
             }
+            v_lines.push(Line::raw(""));
         }
-        v_lines.push(Line::raw(""));
-    }
 
-    // Section: worker progress bars
-    if !app.active_workers.is_empty() {
-        v_lines.push(Line::from(vec![Span::styled(
-            "── Task Progress ──",
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::DIM),
-        )]));
-
-        let mut sorted_ids: Vec<_> = app.active_workers.keys().cloned().collect();
-        sorted_ids.sort();
-
-        for id in sorted_ids {
-            let prog = app.active_workers[&id];
-            let custom_label = app.worker_labels.get(&id).cloned();
-
-            let (label, color) = match prog {
-                101..=102 => ("VERIFIED", Color::Green),
-                100 if !app.agent_running && id != "AGENT" => ("SKIPPED ", Color::DarkGray),
-                100 => ("REVIEW  ", Color::Magenta),
-                _ => ("WORKING ", Color::Yellow),
-            };
-
-            let display_label = custom_label.unwrap_or_else(|| label.to_string());
-            let filled = (prog.min(100) / 10) as usize;
-            let bar = "▓".repeat(filled) + &"░".repeat(10 - filled);
-
-            let id_prefix = if id == "AGENT" {
-                "Agent: ".to_string()
-            } else {
-                format!("W{}: ", id)
-            };
-
-            v_lines.push(Line::from(vec![
-                Span::styled(id_prefix, Style::default().fg(Color::Gray)),
-                Span::styled(bar, Style::default().fg(color)),
-                Span::styled(
-                    format!(" {} ", display_label),
-                    Style::default().fg(color).add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(
-                    format!("{}%", prog.min(100)),
-                    Style::default().fg(Color::DarkGray),
-                ),
-            ]));
+        // Section: specular event log
+        if !app.specular_logs.is_empty() {
+            v_lines.push(Line::from(vec![Span::styled(
+                "── Events ──",
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::DIM),
+            )]));
+            for log in &app.specular_logs {
+                let (icon, color) = if log.starts_with("ERROR") {
+                    ("X ", Color::Red)
+                } else if log.starts_with("INDEX") {
+                    ("I ", Color::Cyan)
+                } else if log.starts_with("GHOST") {
+                    ("< ", Color::Magenta)
+                } else {
+                    ("- ", Color::Gray)
+                };
+                v_lines.push(Line::from(vec![
+                    Span::styled(icon, Style::default().fg(color)),
+                    Span::styled(
+                        log.to_string(),
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::DIM),
+                    ),
+                ]));
+            }
         }
-        v_lines.push(Line::raw(""));
+
+        let v_total = v_lines.len() as u16;
+        let v_avail = side[1].height.saturating_sub(2);
+        let v_max_scroll = v_total.saturating_sub(v_avail);
+        // If auto-scroll is active, always show the bottom. Otherwise respect the
+        // user's manual position (clamped so we never scroll past the content end).
+        let v_scroll = if app.specular_auto_scroll {
+            v_max_scroll
+        } else {
+            app.specular_scroll.min(v_max_scroll)
+        };
+
+        let specular_para = Paragraph::new(v_lines)
+            .wrap(Wrap { trim: true })
+            .scroll((v_scroll, 0))
+            .block(Block::default().title(v_title).borders(Borders::ALL));
+
+        f.render_widget(specular_para, side[1]);
+
+        // Scrollbar for SPECULAR
+        let mut v_scrollbar_state =
+            ScrollbarState::new(v_max_scroll as usize + 1).position(v_scroll as usize);
+        f.render_stateful_widget(
+            Scrollbar::default()
+                .orientation(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(None)
+                .end_symbol(None),
+            side[1],
+            &mut v_scrollbar_state,
+        );
     }
-
-    // Section: last completed turn's reasoning
-    if !app.last_reasoning.is_empty() {
-        v_lines.push(Line::from(vec![Span::styled(
-            "── Logic Trace ──",
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::DIM),
-        )]));
-        for raw in app.last_reasoning.lines() {
-            v_lines.extend(render_markdown_line(raw));
-        }
-        v_lines.push(Line::raw(""));
-    }
-
-    // Section: specular event log
-    if !app.specular_logs.is_empty() {
-        v_lines.push(Line::from(vec![Span::styled(
-            "── Events ──",
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::DIM),
-        )]));
-        for log in &app.specular_logs {
-            let (icon, color) = if log.starts_with("ERROR") {
-                ("X ", Color::Red)
-            } else if log.starts_with("INDEX") {
-                ("I ", Color::Cyan)
-            } else if log.starts_with("GHOST") {
-                ("< ", Color::Magenta)
-            } else {
-                ("- ", Color::Gray)
-            };
-            v_lines.push(Line::from(vec![
-                Span::styled(icon, Style::default().fg(color)),
-                Span::styled(
-                    log.to_string(),
-                    Style::default()
-                        .fg(Color::White)
-                        .add_modifier(Modifier::DIM),
-                ),
-            ]));
-        }
-    }
-
-    let v_total = v_lines.len() as u16;
-    let v_avail = side[1].height.saturating_sub(2);
-    let v_max_scroll = v_total.saturating_sub(v_avail);
-    // If auto-scroll is active, always show the bottom. Otherwise respect the
-    // user's manual position (clamped so we never scroll past the content end).
-    let v_scroll = if app.specular_auto_scroll {
-        v_max_scroll
-    } else {
-        app.specular_scroll.min(v_max_scroll)
-    };
-
-    let specular_para = Paragraph::new(v_lines)
-        .wrap(Wrap { trim: true })
-        .scroll((v_scroll, 0))
-        .block(Block::default().title(v_title).borders(Borders::ALL));
-
-    f.render_widget(specular_para, side[1]);
-
-    // Scrollbar for SPECULAR
-    let mut v_scrollbar_state =
-        ScrollbarState::new(v_max_scroll as usize + 1).position(v_scroll as usize);
-    f.render_stateful_widget(
-        Scrollbar::default()
-            .orientation(ScrollbarOrientation::VerticalRight)
-            .begin_symbol(None)
-            .end_symbol(None),
-        side[1],
-        &mut v_scrollbar_state,
-    );
 
     // ── Box 3: Status bar ─────────────────────────────────────────────────────
     let frame = app.tick_count % 3;
