@@ -1710,6 +1710,7 @@ enum InputAction {
     Help,
 }
 
+#[derive(Clone)]
 struct InputActionVisual {
     action: InputAction,
     label: String,
@@ -2008,50 +2009,90 @@ fn visible_input_actions(app: &App, max_width: u16) -> Vec<InputActionVisual> {
     visible
 }
 
-fn input_status_text(app: &App) -> String {
+fn input_status_variants(app: &App) -> Vec<String> {
     let voice_status = if app.voice_manager.is_enabled() {
         "ON"
     } else {
         "OFF"
     };
     let approvals_status = if app.yolo_mode { "OFF" } else { "ON" };
-    let doc_status = if app.attached_context.is_some() {
-        "DOC"
+    let issue = runtime_issue_badge(runtime_issue_kind(app)).0;
+    let flow = app.workflow_mode.to_uppercase();
+    let attach_status = if app.attached_context.is_some() && app.attached_image.is_some() {
+        "ATTACH:DOC+IMG"
+    } else if app.attached_context.is_some() {
+        "ATTACH:DOC"
+    } else if app.attached_image.is_some() {
+        "ATTACH:IMG"
     } else {
-        "--"
-    };
-    let image_status = if app.attached_image.is_some() {
-        "IMG"
-    } else {
-        "--"
+        "ATTACH:--"
     };
     if app.agent_running {
-        format!(
-            "pending:{}:{} | voice:{}",
-            doc_status, image_status, voice_status
-        )
+        vec![
+            format!(
+                "WORKING · ESC stops · FLOW:{} · RT:{} · VOICE:{}",
+                flow, issue, voice_status
+            ),
+            format!("WORKING · RT:{} · VOICE:{}", issue, voice_status),
+            format!("RT:{} · VOICE:{}", issue, voice_status),
+            format!("RT:{}", issue),
+        ]
+    } else if app.input.trim().is_empty() {
+        vec![
+            format!(
+                "READY · FLOW:{} · RT:{} · VOICE:{} · APPR:{}",
+                flow, issue, voice_status, approvals_status
+            ),
+            format!("READY · FLOW:{} · RT:{}", flow, issue),
+            format!("FLOW:{} · RT:{}", flow, issue),
+            format!("RT:{}", issue),
+        ]
     } else {
-        format!(
-            "pending:{}:{} | voice:{} | appr:{} | Len:{}",
-            doc_status,
-            image_status,
-            voice_status,
-            approvals_status,
-            app.input.len()
-        )
+        vec![
+            format!(
+                "DRAFT:{} · FLOW:{} · RT:{} · {}",
+                app.input.len(),
+                flow,
+                issue,
+                attach_status
+            ),
+            format!(
+                "DRAFT:{} · RT:{} · {}",
+                app.input.len(),
+                issue,
+                attach_status
+            ),
+            format!("LEN:{} · RT:{}", app.input.len(), issue),
+            format!("RT:{}", issue),
+        ]
     }
 }
 
-fn visible_input_actions_for_title(app: &App, title_area: Rect) -> Vec<InputActionVisual> {
-    let reserved = input_status_text(app).chars().count() as u16 + 3;
-    let max_width = title_area.width.saturating_sub(reserved);
-    visible_input_actions(app, max_width)
+fn select_input_title_layout(app: &App, title_width: u16) -> (Vec<InputActionVisual>, String) {
+    let action_total = build_input_actions(app).len();
+    let mut best_actions = visible_input_actions(app, title_width);
+    let mut best_status = String::new();
+    for status in input_status_variants(app) {
+        let reserved = status.chars().count() as u16 + 3;
+        let actions = visible_input_actions(app, title_width.saturating_sub(reserved));
+        let replace = actions.len() > best_actions.len()
+            || (actions.len() == best_actions.len() && status.len() > best_status.len());
+        if replace {
+            best_actions = actions.clone();
+            best_status = status.clone();
+        }
+        if actions.len() == action_total {
+            return (actions, status);
+        }
+    }
+    (best_actions, best_status)
 }
 
 fn input_action_hitboxes(app: &App, title_area: Rect) -> Vec<(InputAction, u16, u16)> {
     let mut x = title_area.x;
     let mut out = Vec::new();
-    for action in visible_input_actions_for_title(app, title_area) {
+    let (actions, _) = select_input_title_layout(app, title_area.width);
+    for action in actions {
         let chip_width = action.label.chars().count() as u16 + 2;
         out.push((action.action, x, x + chip_width.saturating_sub(1)));
         x = x.saturating_add(chip_width + 1);
@@ -2061,7 +2102,7 @@ fn input_action_hitboxes(app: &App, title_area: Rect) -> Vec<(InputAction, u16, 
 
 fn render_input_title(app: &App, title_area: Rect) -> Line<'static> {
     let mut spans = Vec::new();
-    let actions = visible_input_actions_for_title(app, title_area);
+    let (actions, status) = select_input_title_layout(app, title_area.width);
     for (idx, action) in actions.into_iter().enumerate() {
         if idx > 0 {
             spans.push(Span::raw(" "));
@@ -2076,7 +2117,6 @@ fn render_input_title(app: &App, title_area: Rect) -> Line<'static> {
         };
         spans.push(Span::styled(format!("[{}]", action.label), style));
     }
-    let status = input_status_text(app);
     if !spans.is_empty() {
         spans.push(Span::raw(" | "));
     }
