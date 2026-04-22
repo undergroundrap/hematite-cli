@@ -31,6 +31,26 @@ fn provider_badge_prefix(provider_name: &str) -> &'static str {
     }
 }
 
+fn provider_state_label(state: ProviderRuntimeState) -> &'static str {
+    match state {
+        ProviderRuntimeState::Booting => "booting",
+        ProviderRuntimeState::Live => "live",
+        ProviderRuntimeState::Degraded => "degraded",
+        ProviderRuntimeState::Recovering => "recovering",
+        ProviderRuntimeState::EmptyResponse => "empty_response",
+        ProviderRuntimeState::ContextWindow => "context_window",
+    }
+}
+
+fn mcp_state_label(state: McpRuntimeState) -> &'static str {
+    match state {
+        McpRuntimeState::Unconfigured => "unconfigured",
+        McpRuntimeState::Healthy => "healthy",
+        McpRuntimeState::Degraded => "degraded",
+        McpRuntimeState::Failed => "failed",
+    }
+}
+
 // ── Approval modal state ──────────────────────────────────────────────────────
 
 /// Holds a pending high-risk tool approval request.
@@ -199,6 +219,7 @@ pub struct App {
     vein_docs_only: bool,
     provider_name: String,
     provider_endpoint: String,
+    embed_model_id: Option<String>,
     provider_state: ProviderRuntimeState,
     last_provider_summary: String,
     mcp_state: McpRuntimeState,
@@ -264,6 +285,7 @@ impl App {
         self.last_operator_checkpoint_summary.clear();
         self.last_operator_checkpoint_state = OperatorCheckpointState::Idle;
         self.last_recovery_recipe_summary.clear();
+        self.embed_model_id = None;
     }
 
     pub fn clear_pending_attachments(&mut self) {
@@ -1548,6 +1570,7 @@ fn show_help_message(app: &mut App) {
          /explain <text>   - (Help) Paste an error to get a non-technical breakdown\n\
          /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
          /provider [status|lmstudio|ollama|clear|URL] - (Model) Show or save the active provider endpoint preference\n\
+         /runtime          - (Model) Show the live runtime/provider/model/embed status and shortest fix path\n\
          /runtime-refresh  - (Model) Re-read active provider model + CTX now\n\
          /undo             - (Ghost) Revert last file change\n\
          /diff             - (Git) Show session changes (--stat)\n\
@@ -1620,6 +1643,7 @@ fn show_help_message_legacy(app: &mut App) {
          /explain <text>   — (Help) Paste an error to get a non-technical breakdown\n\
          /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
          /provider [status|lmstudio|ollama|clear|URL] — (Model) Show or save the active provider endpoint preference\n\
+         /runtime          — (Model) Show the live runtime/provider/model/embed status and shortest fix path\n\
          /runtime-refresh  — (Model) Re-read active provider model + CTX now\n\
          /undo             — (Ghost) Revert last file change\n\
          /diff             — (Git) Show session changes (--stat)\n\
@@ -1861,6 +1885,7 @@ pub async fn run_app<B: Backend>(
         vein_docs_only: false,
         provider_name: "detecting".to_string(),
         provider_endpoint: String::new(),
+        embed_model_id: None,
         provider_state: ProviderRuntimeState::Booting,
         last_provider_summary: String::new(),
         mcp_state: McpRuntimeState::Unconfigured,
@@ -2906,6 +2931,7 @@ pub async fn run_app<B: Backend>(
                                                        /clear            — (UI) Clear dialogue display only\n\
                                                      /gemma-native [auto|on|off|status] — (Model) Auto/force/disable Gemma 4 native formatting\n\
                                                      /provider [status|lmstudio|ollama|clear|URL] — (Model) Show or save the active provider endpoint preference\n\
+                                                     /runtime          — (Model) Show the live runtime/provider/model/embed status and shortest fix path\n\
                                                      /runtime-refresh  — (Model) Re-read active provider model + CTX now\n\
                                                      /undo             — (Ghost) Revert last file change\n\
                                                      /diff             — (Git) Show session changes (--stat)\n\
@@ -3063,6 +3089,84 @@ pub async fn run_app<B: Backend>(
                                                     Ok(message) => app.push_message("System", &message),
                                                     Err(error) => app.push_message("System", &error),
                                                 }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/runtime" => {
+                                                let config = crate::agent::config::load_config();
+                                                let configured_endpoint = config.api_url.clone().unwrap_or_else(|| {
+                                                    crate::agent::config::DEFAULT_LM_STUDIO_API_URL.to_string()
+                                                });
+                                                let configured_provider =
+                                                    crate::agent::config::provider_label_for_api_url(&configured_endpoint);
+                                                let session_provider = if app.provider_name.trim().is_empty() {
+                                                    "detecting".to_string()
+                                                } else {
+                                                    app.provider_name.clone()
+                                                };
+                                                let session_endpoint = if app.provider_endpoint.trim().is_empty() {
+                                                    configured_endpoint.clone()
+                                                } else {
+                                                    app.provider_endpoint.clone()
+                                                };
+                                                let coding_model = if app.model_id.trim().is_empty() {
+                                                    "detecting...".to_string()
+                                                } else {
+                                                    app.model_id.clone()
+                                                };
+                                                let embed_status = match app.embed_model_id.as_deref() {
+                                                    Some(id) => format!("loaded ({})", id),
+                                                    None => "not loaded".to_string(),
+                                                };
+                                                let semantic_status = if app.embed_model_id.is_some() || app.vein_embedded_count > 0 {
+                                                    "ready"
+                                                } else {
+                                                    "inactive"
+                                                };
+                                                let alternative = crate::runtime::detect_alternative_provider(&session_provider).await;
+                                                let alternative_line = alternative
+                                                    .as_ref()
+                                                    .map(|(name, url)| format!("Reachable alternative: {} ({})", name, url))
+                                                    .unwrap_or_else(|| "Reachable alternative: none detected".to_string());
+                                                let fix_path = if coding_model == "no model loaded" {
+                                                    if session_provider == "Ollama" {
+                                                        format!(
+                                                            "Shortest fix: pull or run a chat model in Ollama, then keep `api_url` on `{}`.",
+                                                            crate::agent::config::DEFAULT_OLLAMA_API_URL
+                                                        )
+                                                    } else {
+                                                        format!(
+                                                            "Shortest fix: load a coding model in LM Studio and keep the local server on `{}`.",
+                                                            crate::agent::config::DEFAULT_LM_STUDIO_API_URL
+                                                        )
+                                                    }
+                                                } else if app.provider_state != ProviderRuntimeState::Live {
+                                                    format!(
+                                                        "Shortest fix: stabilize the active provider (`{}`), then run `/runtime-refresh`. If needed, use `/provider` to switch and restart Hematite.",
+                                                        session_provider
+                                                    )
+                                                } else if app.embed_model_id.is_none() {
+                                                    "Shortest fix: optional only — load `nomic-embed-text-v2` if you want semantic file search.".to_string()
+                                                } else {
+                                                    "Shortest fix: none — runtime is healthy.".to_string()
+                                                };
+                                                let summary = format!(
+                                                    "Configured provider: {} ({})\nSession provider: {} ({})\nProvider state: {}\nCoding model: {}\nCTX: {}\nEmbedding model: {}\nSemantic search: {} | embedded chunks: {}\nMCP: {}\n{}\n{}",
+                                                    configured_provider,
+                                                    configured_endpoint,
+                                                    session_provider,
+                                                    session_endpoint,
+                                                    provider_state_label(app.provider_state),
+                                                    coding_model,
+                                                    app.context_length,
+                                                    embed_status,
+                                                    semantic_status,
+                                                    app.vein_embedded_count,
+                                                    mcp_state_label(app.mcp_state),
+                                                    alternative_line,
+                                                    fix_path
+                                                );
+                                                app.push_message("System", &summary);
                                                 app.history_idx = None;
                                                 continue;
                                             }
@@ -3588,6 +3692,7 @@ pub async fn run_app<B: Backend>(
                         }
                     }
                     InferenceEvent::EmbedProfile { model_id } => {
+                        app.embed_model_id = model_id.clone();
                         match model_id {
                             Some(id) => app.push_message(
                                 "System",
