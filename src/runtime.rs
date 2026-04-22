@@ -118,7 +118,11 @@ async fn provider_startup_guidance(provider_name: &str, endpoint: &str, has_mode
 }
 
 fn runtime_context_display(model: &str, context_length: usize) -> String {
-    if model.trim().is_empty() || model == "no model loaded" || context_length == 0 {
+    let lower = model.to_ascii_lowercase();
+    if lower.trim().is_empty()
+        || lower.contains("no model loaded")
+        || context_length == 0
+    {
         "none".to_string()
     } else {
         context_length.to_string()
@@ -273,8 +277,20 @@ pub async fn build_runtime_bundle(
         std::process::exit(1);
     }
 
-    let mut detected_model = engine_raw.get_loaded_model().await.unwrap_or_default();
-    let mut detected_context = engine_raw.detect_context_length().await;
+    let mut detected_model = String::new();
+    let mut detected_context = 0;
+
+    // Handshake loop: wait up to 5 seconds for the provider to report both model and context.
+    for _ in 0..20 {
+        detected_model = engine_raw.get_loaded_model().await.unwrap_or_default();
+        detected_context = engine_raw.detect_context_length().await;
+        
+        if !detected_model.trim().is_empty() && detected_context > 0 {
+            break;
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
+    }
+
     let mut auto_loaded_coding_model = false;
 
     if detected_model.trim().is_empty() {
@@ -539,8 +555,8 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
     };
     let display_model = {
         let m = manager.engine.current_model();
-        if m.is_empty() {
-            "no chat model loaded".to_string()
+        if m.is_empty() || m == "no model loaded" {
+            "no model loaded".to_string()
         } else {
             m
         }
@@ -576,7 +592,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
             .send(InferenceEvent::Thought(summary.to_string()))
             .await;
     }
-    if display_model == "no chat model loaded" {
+    if display_model == "no model loaded" {
         let guidance = provider_startup_guidance(&provider_name, &startup_endpoint, false).await;
         let _ = agent_tx.send(InferenceEvent::Thought(guidance)).await;
     }
@@ -640,7 +656,7 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
             let provider_setup = provider_startup_guidance(
                 &provider_name,
                 &startup_endpoint,
-                display_model != "no chat model loaded",
+                display_model != "no model loaded",
             )
             .await;
             let _ = agent_tx.send(InferenceEvent::Thought(provider_setup)).await;

@@ -286,13 +286,15 @@ impl ModelProvider for LmsProvider {
     }
 
     async fn detect_model(&self) -> Result<String, String> {
-        let url = format!("{}/api/v0/models", self.base_url);
+        let base = self.base_url.trim_end_matches('/').trim_end_matches("/v1");
+        let url = format!("{}/api/v0/models", base);
         if let Ok(res) = self.client.get(&url).send().await {
             if res.status().is_success() {
                 let body: Value = res.json().await.map_err(|e| e.to_string())?;
                 if let Some(data) = body["data"].as_array() {
                     for m in data {
-                        if m["type"].as_str() == Some("chat")
+                        let m_type = m["type"].as_str().unwrap_or_default();
+                        if (m_type == "chat" || m_type == "vlm" || m_type == "llm")
                             && m["state"].as_str() == Some("loaded")
                         {
                             return Ok(m["id"].as_str().unwrap_or_default().to_string());
@@ -301,7 +303,7 @@ impl ModelProvider for LmsProvider {
                 }
             }
         }
-        let url_v1 = format!("{}/v1/models", self.base_url);
+        let url_v1 = format!("{}/models", base);
         let resp_v1 = self
             .client
             .get(&url_v1)
@@ -324,23 +326,51 @@ impl ModelProvider for LmsProvider {
     }
 
     async fn detect_context_length(&self) -> usize {
-        let url = format!("{}/api/v0/models", self.base_url);
+        let base = self.base_url.trim_end_matches('/').trim_end_matches("/v1");
+        let url = format!("{}/api/v0/models", base);
         if let Ok(res) = self.client.get(&url).send().await {
             if res.status().is_success() {
                 let body: Value = res.json().await.unwrap_or_default();
                 if let Some(data) = body["data"].as_array() {
                     for m in data {
-                        if m["type"].as_str() == Some("chat")
+                        let m_type = m["type"].as_str().unwrap_or_default();
+                        if (m_type == "chat" || m_type == "vlm" || m_type == "llm")
                             && m["state"].as_str() == Some("loaded")
                         {
-                            if let Some(len) = m["loaded_context_length"].as_u64() {
-                                return len as usize;
+                            // Try multiple possible field names and nested locations
+                            let fields = [
+                                "loaded_context_length",
+                                "context_length",
+                                "max_context_length",
+                                "contextLength",
+                            ];
+                            
+                            // Check top-level first
+                            for field in fields {
+                                if let Some(val) = m.get(field) {
+                                    if let Some(len) = val.as_u64() { return len as usize; }
+                                    if let Some(s) = val.as_str() { if let Ok(len) = s.parse::<usize>() { return len; } }
+                                }
                             }
-                            if let Some(len) = m["context_length"].as_u64() {
-                                return len as usize;
+                            
+                            // Check "stats" object
+                            if let Some(stats) = m.get("stats") {
+                                for field in fields {
+                                    if let Some(val) = stats.get(field) {
+                                        if let Some(len) = val.as_u64() { return len as usize; }
+                                        if let Some(s) = val.as_str() { if let Ok(len) = s.parse::<usize>() { return len; } }
+                                    }
+                                }
                             }
-                            if let Some(len) = m["max_context_length"].as_u64() {
-                                return len as usize;
+
+                            // Check "config" object
+                            if let Some(config) = m.get("config") {
+                                for field in fields {
+                                    if let Some(val) = config.get(field) {
+                                        if let Some(len) = val.as_u64() { return len as usize; }
+                                        if let Some(s) = val.as_str() { if let Ok(len) = s.parse::<usize>() { return len; } }
+                                    }
+                                }
                             }
                         }
                     }

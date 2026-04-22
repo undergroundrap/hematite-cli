@@ -340,7 +340,7 @@ impl InferenceEngine {
                 api_url: api_url_full,
                 base_url: base_url.clone(),
                 model: String::new(),
-                context_length: 32_768,
+                context_length: 0,
                 lms,
             }) as Box<dyn crate::agent::provider::ModelProvider>
         };
@@ -348,7 +348,7 @@ impl InferenceEngine {
         Ok(Self {
             provider: std::sync::Arc::new(tokio::sync::RwLock::new(provider)),
             cached_model: std::sync::Arc::new(std::sync::RwLock::new(String::new())),
-            cached_context: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(32_768)),
+            cached_context: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             base_url: base_url.clone(),
             species: species.clone(),
             snark,
@@ -459,19 +459,25 @@ impl InferenceEngine {
         };
 
         let detected_context = self.detect_context_length().await;
+        let effective_context = if detected_context > 0 {
+            detected_context
+        } else {
+            previous_context
+        };
+
         let effective_model = if detected_model.is_empty() {
             previous_model.clone()
         } else {
             detected_model
         };
 
-        let changed = effective_model != previous_model || detected_context != previous_context;
+        let changed = effective_model != previous_model || effective_context != previous_context;
         if changed {
-            self.set_runtime_profile(&effective_model, detected_context)
+            self.set_runtime_profile(&effective_model, effective_context)
                 .await;
         }
 
-        Some((effective_model, detected_context, changed))
+        Some((effective_model, effective_context, changed))
     }
 
     pub fn build_system_prompt(
