@@ -2792,7 +2792,7 @@ fn show_help_message(app: &mut App) {
          /ls [path|N]      - (Nav) List common locations or subdirectories; use /ls desktop, then /ls <N> to teleport to a numbered entry\n\
          /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
          /workspace-profile - (Profile) Show the auto-generated workspace profile\n\
-         /rules            - (Rules) View behavioral guidelines (.hematite/rules.md)\n\
+         /rules            - (Rules) View project guidance (CLAUDE.md, SKILLS.md, .hematite/rules.md)\n\
          /version          - (Build) Show the running Hematite version\n\
          /about            - (Info) Show author, repo, and product info\n\
          /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
@@ -2872,7 +2872,7 @@ fn show_help_message_legacy(app: &mut App) {
            /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
            /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
            /workspace-profile — (Profile) Show the auto-generated workspace profile\n\
-           /rules            — (Rules) View behavioral guidelines (.hematite/rules.md)\n\
+           /rules            — (Rules) View project guidance (CLAUDE.md, SKILLS.md, .hematite/rules.md)\n\
            /version          — (Build) Show the running Hematite version\n\
            /about            — (Info) Show author, repo, and product info\n\
            /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
@@ -4113,16 +4113,8 @@ pub async fn run_app<B: Backend>(
                                                 match sub.as_str() {
                                                     "view" => {
                                                         let mut combined = String::new();
-                                                        let candidates = [
-                                                            "CLAUDE.md",
-                                                            ".claude.md",
-                                                            "CLAUDE.local.md",
-                                                            "HEMATITE.md",
-                                                            ".hematite/rules.md",
-                                                            ".hematite/rules.local.md",
-                                                        ];
-                                                        for cand in candidates {
-                                                            let p = ws_root.join(cand);
+                                                        for cand in crate::agent::instructions::PROJECT_GUIDANCE_FILES {
+                                                            let p = crate::agent::instructions::resolve_guidance_path(&ws_root, cand);
                                                             if p.exists() {
                                                                 if let Ok(c) = std::fs::read_to_string(&p) {
                                                                     combined.push_str(&format!("--- [{}] ---\n", cand));
@@ -4132,9 +4124,9 @@ pub async fn run_app<B: Backend>(
                                                             }
                                                         }
                                                         if combined.is_empty() {
-                                                            app.push_message("System", "No rule files found (CLAUDE.md, .hematite/rules.md, etc.).");
+                                                            app.push_message("System", "No project guidance files found (CLAUDE.md, SKILLS.md, .hematite/rules.md, etc.).");
                                                         } else {
-                                                            app.push_message("System", &format!("Current behavioral rules being injected:\n\n{}", combined));
+                                                            app.push_message("System", &format!("Current project guidance being injected:\n\n{}", combined));
                                                         }
                                                     }
                                                     "edit" => {
@@ -4156,22 +4148,14 @@ pub async fn run_app<B: Backend>(
                                                         }
                                                     }
                                                     _ => {
-                                                        let mut status = "Behavioral Guidelines:\n".to_string();
-                                                        let candidates = [
-                                                            "CLAUDE.md",
-                                                            ".claude.md",
-                                                            "CLAUDE.local.md",
-                                                            "HEMATITE.md",
-                                                            ".hematite/rules.md",
-                                                            ".hematite/rules.local.md",
-                                                        ];
-                                                        for cand in candidates {
-                                                              let p = ws_root.join(cand);
+                                                        let mut status = "Project Guidance:\n".to_string();
+                                                        for cand in crate::agent::instructions::PROJECT_GUIDANCE_FILES {
+                                                              let p = crate::agent::instructions::resolve_guidance_path(&ws_root, cand);
                                                               let icon = if p.exists() { "[v]" } else { "[ ]" };
-                                                              let label = if cand.contains(".local") || cand.ends_with(".local.md") { "(local override)" } else { "(shared asset)" };
+                                                              let label = crate::agent::instructions::guidance_status_label(cand);
                                                               status.push_str(&format!("  {} {:<25} {}\n", icon, cand, label));
                                                         }
-                                                        status.push_str("\nUsage:\n  /rules view        - View combined rules\n  /rules edit        - Edit personal local rules (ignored by git)\n  /rules edit shared - Edit project-wide shared rules");
+                                                        status.push_str("\nUsage:\n  /rules view        - View combined guidance\n  /rules edit        - Edit personal local rules (ignored by git)\n  /rules edit shared - Edit project-wide shared rules");
                                                         app.push_message("System", &status);
                                                     }
                                                 }
@@ -4200,7 +4184,7 @@ pub async fn run_app<B: Backend>(
                                                        /forget           — (Wipe) Hard forget; purge saved memory and Vein index too\n\
                                                        /vein-inspect     — (Vein) Inspect indexed memory, hot files, and active room bias\n\
                                                        /workspace-profile — (Profile) Show the auto-generated workspace profile\n\
-                                                       /rules            — (Rules) View behavioral guidelines (.hematite/rules.md)\n\
+                                                       /rules            — (Rules) View project guidance (CLAUDE.md, SKILLS.md, .hematite/rules.md)\n\
                                                        /version          — (Build) Show the running Hematite version\n\
                                                        /about            — (Info) Show author, repo, and product info\n\
                                                        /vein-reset       — (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\

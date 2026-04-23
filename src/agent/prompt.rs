@@ -2,6 +2,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::agent::git;
+use crate::agent::instructions::{
+    guidance_section_title, resolve_guidance_path, PROJECT_GUIDANCE_FILES,
+};
 
 enum WorkspaceMode {
     Coding,
@@ -138,25 +141,21 @@ impl SystemPromptBuilder {
             }
         }
 
-        let project_rule_files = [
-            "CLAUDE.md",
-            ".claude.md",
-            "CLAUDE.local.md",
-            "HEMATITE.md",
-            ".hematite/rules.md",
-            ".hematite/rules.local.md",
-        ];
-
-        for name in &project_rule_files {
-            let path = self.workspace_root.join(name);
+        for name in PROJECT_GUIDANCE_FILES {
+            let path = resolve_guidance_path(&self.workspace_root, name);
             if path.exists() {
                 if let Ok(content) = fs::read_to_string(&path) {
                     let content = if content.len() > 6000 {
-                        format!("{}...[Rules Truncated]", &content[..6000])
+                        format!("{}...[Guidance Truncated]", &content[..6000])
                     } else {
                         content
                     };
-                    static_sections.push(format!("\n# PROJECT RULES ({})\n{}", name, content));
+                    static_sections.push(format!(
+                        "\n# {} ({})\n{}",
+                        guidance_section_title(name),
+                        name,
+                        content
+                    ));
                 }
             }
         }

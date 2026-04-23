@@ -3098,20 +3098,37 @@ impl ConversationManager {
         }
 
         if user_input.trim() == "/rules" {
-            let rules_path = crate::tools::file_ops::hematite_dir().join("rules.md");
-            let report = if rules_path.exists() {
-                match std::fs::read_to_string(&rules_path) {
-                    Ok(content) => format!(
-                        "## Behavioral Rules (.hematite/rules.md)\n\n{}\n\n---\nTo update: ask Hematite to edit your rules, or open `.hematite/rules.md` directly. Changes take effect on the next turn.",
-                        content.trim()
-                    ),
-                    Err(e) => format!("Error reading .hematite/rules.md: {e}"),
+            let workspace_root = crate::tools::file_ops::workspace_root();
+            let report = {
+                let mut combined = String::new();
+                for name in crate::agent::instructions::PROJECT_GUIDANCE_FILES {
+                    let path =
+                        crate::agent::instructions::resolve_guidance_path(&workspace_root, name);
+                    if !path.exists() {
+                        continue;
+                    }
+                    match std::fs::read_to_string(&path) {
+                        Ok(content) => {
+                            combined.push_str(&format!("## {}\n\n{}\n\n", name, content.trim()));
+                        }
+                        Err(e) => {
+                            combined.push_str(&format!(
+                                "## {}\n\nError reading {}: {}\n\n",
+                                name,
+                                path.display(),
+                                e
+                            ));
+                        }
+                    }
                 }
-            } else {
-                format!(
-                    "No behavioral rules file found at `.hematite/rules.md`.\n\nCreate it to add custom behavioral guidelines — they are injected into the system prompt on every turn and apply to any model you load.\n\nExample: ask Hematite to \"create a rules.md with simplicity-first and surgical-edit guidelines\" and it will write the file for you.\n\nExpected path: {}",
-                    rules_path.display()
-                )
+                if combined.is_empty() {
+                    "No project guidance files found.\n\nRecognized files: `CLAUDE.md`, `SKILLS.md`, `SKILL.md`, `HEMATITE.md`, `.hematite/rules.md`, `.hematite/rules.local.md`, and `.hematite/instructions.md`.\n\nCreate one of those files to inject workspace-specific guidance on the next turn.".to_string()
+                } else {
+                    format!(
+                        "## Project Guidance\n\n{}---\nTo update shared rules, open `.hematite/rules.md`. To add workspace-specific recipes or conventions, use `SKILLS.md` or `SKILL.md` in the workspace root. Changes take effect on the next turn.",
+                        combined
+                    )
+                }
             };
             for chunk in chunk_text(&report, 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
@@ -5524,9 +5541,8 @@ impl ConversationManager {
                         ));
                     } else if res.blocked_by_policy
                         && implement_current_plan
-                        && final_output.contains(
-                            "current-plan execution is locked to the saved target files",
-                        )
+                        && final_output
+                            .contains("current-plan execution is locked to the saved target files")
                         && recoverable_policy_intervention.is_none()
                     {
                         let target_files = self
@@ -6036,7 +6052,8 @@ impl ConversationManager {
             && turn_mutated_paths.is_empty()
             && current_plan_pass == 1
         {
-            if let Some(progress) = task_progress_after.filter(|progress| progress.has_open_items()) {
+            if let Some(progress) = task_progress_after.filter(|progress| progress.has_open_items())
+            {
                 let target_files = self
                     .session_memory
                     .current_plan
@@ -9923,8 +9940,7 @@ Plain paragraph
 
     #[test]
     fn current_plan_scope_recovery_prompt_names_saved_targets() {
-        let prompt =
-            build_current_plan_scope_recovery_prompt(&["index.html".to_string()]);
+        let prompt = build_current_plan_scope_recovery_prompt(&["index.html".to_string()]);
 
         assert!(prompt.contains("`index.html`"));
         assert!(prompt.contains(".hematite/TASK.md"));

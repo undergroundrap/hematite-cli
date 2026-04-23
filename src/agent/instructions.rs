@@ -2,13 +2,49 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub const PROJECT_GUIDANCE_FILES: &[&str] = &[
+    "CLAUDE.md",
+    ".claude.md",
+    "CLAUDE.local.md",
+    "HEMATITE.md",
+    "HEMATITE.local.md",
+    ".hematite/rules.md",
+    ".hematite/rules.local.md",
+    "SKILLS.md",
+    "SKILL.md",
+    ".hematite/instructions.md",
+];
+
 #[derive(Debug, Clone)]
 pub struct InstructionFile {
-    pub _path: PathBuf,
+    pub path: PathBuf,
     pub content: String,
 }
 
-/// Discovers instruction files from the current directory up to the root.
+pub fn resolve_guidance_path(dir: &Path, candidate_name: &str) -> PathBuf {
+    candidate_name
+        .split('/')
+        .fold(dir.to_path_buf(), |acc, part| acc.join(part))
+}
+
+pub fn guidance_section_title(candidate_name: &str) -> &'static str {
+    match candidate_name {
+        "SKILLS.md" | "SKILL.md" => "PROJECT GUIDANCE",
+        _ => "PROJECT RULES",
+    }
+}
+
+pub fn guidance_status_label(candidate_name: &str) -> &'static str {
+    match candidate_name {
+        "SKILLS.md" | "SKILL.md" => "(workspace guidance)",
+        _ if candidate_name.contains(".local") || candidate_name.ends_with(".local.md") => {
+            "(local override)"
+        }
+        _ => "(shared asset)",
+    }
+}
+
+/// Discovers project guidance files from the current directory up to the root.
 pub fn discover_instruction_files(cwd: &Path) -> Vec<InstructionFile> {
     let mut directories = Vec::new();
     let mut cursor = Some(cwd);
@@ -22,18 +58,8 @@ pub fn discover_instruction_files(cwd: &Path) -> Vec<InstructionFile> {
     let mut seen_hashes = HashSet::new();
 
     for dir in directories {
-        for candidate_name in [
-            "HEMATITE.md",
-            "HEMATITE.local.md",
-            ".hematite/rules.md",
-            ".hematite/instructions.md",
-        ] {
-            let candidate_path = if candidate_name.contains('/') {
-                let parts: Vec<&str> = candidate_name.split('/').collect();
-                dir.join(parts[0]).join(parts[1])
-            } else {
-                dir.join(candidate_name)
-            };
+        for candidate_name in PROJECT_GUIDANCE_FILES {
+            let candidate_path = resolve_guidance_path(&dir, candidate_name);
 
             if let Ok(content) = fs::read_to_string(&candidate_path) {
                 let trimmed = content.trim();
@@ -45,7 +71,7 @@ pub fn discover_instruction_files(cwd: &Path) -> Vec<InstructionFile> {
                     }
                     seen_hashes.insert(hash);
                     files.push(InstructionFile {
-                        _path: candidate_path,
+                        path: candidate_path,
                         content: trimmed.to_string(),
                     });
                 }
@@ -70,9 +96,10 @@ pub fn render_instructions(files: &[InstructionFile], max_chars: usize) -> Optio
     }
 
     let mut output = Vec::new();
-    output.push("# Project Instructions".to_string());
+    output.push("# Project Instructions And Skills".to_string());
     output.push(
-        "These rules were discovered in the directory tree for the current repository:".to_string(),
+        "These guidance files were discovered in the directory tree for the current repository:"
+            .to_string(),
     );
 
     let mut remaining = max_chars;
@@ -89,7 +116,7 @@ pub fn render_instructions(files: &[InstructionFile], max_chars: usize) -> Optio
         };
 
         remaining = remaining.saturating_sub(content.len());
-        output.push(format!("\n## Source: HEMATITE FILE\n{}", content));
+        output.push(format!("\n## Source: {}\n{}", file.path.display(), content));
     }
 
     Some(output.join("\n"))

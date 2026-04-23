@@ -71,14 +71,16 @@ pub fn tool_metadata_for_name(name: &str) -> ToolMetadata {
             read_only_friendly: true,
             plan_scope: true,
         },
-        "create_directory" | "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace" => ToolMetadata {
-            category: ToolCategory::RepoWrite,
-            mutates_workspace: true,
-            external_surface: false,
-            trust_sensitive: true,
-            read_only_friendly: false,
-            plan_scope: true,
-        },
+        "create_directory" | "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace" => {
+            ToolMetadata {
+                category: ToolCategory::RepoWrite,
+                mutates_workspace: true,
+                external_surface: false,
+                trust_sensitive: true,
+                read_only_friendly: false,
+                plan_scope: true,
+            }
+        }
         "trace_runtime_flow" => ToolMetadata {
             category: ToolCategory::Architecture,
             mutates_workspace: false,
@@ -1122,8 +1124,9 @@ fn preflight_chat_request(
     Ok(())
 }
 
-/// Walk from CWD up to 4 parent directories and collect instruction files.
-/// Looks for CLAUDE.md, CLAUDE.local.md, and .hematite/instructions.md.
+/// Walk from CWD up to 4 parent directories and collect project guidance files.
+/// Looks for rule files plus optional skill guidance such as CLAUDE.md,
+/// .hematite/rules.md, SKILLS.md, SKILL.md, and .hematite/instructions.md.
 /// Deduplicates by content hash; truncates at 4KB per file, 12KB total.
 fn load_instruction_files() -> String {
     use std::collections::hash_map::DefaultHasher;
@@ -1139,12 +1142,10 @@ fn load_instruction_files() -> String {
     const MAX_TOTAL: usize = 12_000;
     const MAX_PER_FILE: usize = 4_000;
 
-    let candidates = ["CLAUDE.md", "CLAUDE.local.md", ".hematite/instructions.md"];
-
     let mut dir = cwd.clone();
     for _ in 0..4 {
-        for name in &candidates {
-            let path = dir.join(name);
+        for name in crate::agent::instructions::PROJECT_GUIDANCE_FILES {
+            let path = crate::agent::instructions::resolve_guidance_path(&dir, name);
             if !path.exists() {
                 continue;
             }
@@ -1183,7 +1184,7 @@ fn load_instruction_files() -> String {
     if result.is_empty() {
         return String::new();
     }
-    format!("\n\n# Project Instructions\n{}", result)
+    format!("\n\n# Project Instructions And Skills\n{}", result)
 }
 
 pub fn extract_think_block(text: &str) -> Option<String> {
@@ -1444,10 +1445,9 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
     }
 
     // -- Format 3: shorthand XML wrapper (<tool_call>name(key="value")</tool_call>) --
-    let re_short_call = Regex::new(
-        r#"(?s)<tool_call>\s*([A-Za-z_][A-Za-z0-9_]*)\((.*?)\)\s*</tool_call>"#,
-    )
-    .unwrap();
+    let re_short_call =
+        Regex::new(r#"(?s)<tool_call>\s*([A-Za-z_][A-Za-z0-9_]*)\((.*?)\)\s*</tool_call>"#)
+            .unwrap();
     let re_short_arg = Regex::new(
         r#"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:"((?:\\.|[^"])*)"|'((?:\\.|[^'])*)'|([^,\)]+))"#,
     )
@@ -1648,8 +1648,8 @@ pub fn strip_native_tool_call_text(text: &str) -> String {
     // Format 2: XML (Qwen/Claude style)
     let re_xml = Regex::new(r#"(?s)<tool_call>\s*<function=.*?>.*?</tool_call>"#).unwrap();
     // Format 3: shorthand XML wrapper
-    let re_short = Regex::new(r#"(?s)<tool_call>\s*[A-Za-z_][A-Za-z0-9_]*\(.*?\)\s*</tool_call>"#)
-        .unwrap();
+    let re_short =
+        Regex::new(r#"(?s)<tool_call>\s*[A-Za-z_][A-Za-z0-9_]*\(.*?\)\s*</tool_call>"#).unwrap();
     let re_response =
         Regex::new(r#"(?s)<\|tool_response\|?>.*?(?:<\|tool_response\|?>|<tool_response\|>)"#)
             .unwrap();
@@ -1682,6 +1682,7 @@ fn resolve_runtime_context(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn system_prompt_includes_running_hematite_version() {
@@ -1807,9 +1808,8 @@ I'll search before continuing.
 
     #[test]
     fn strips_thinking_tag_as_reasoning_prefix() {
-        let cleaned = strip_think_blocks(
-            "<thinking>\nThe user wants a search.\n</thinking>\nVisible answer",
-        );
+        let cleaned =
+            strip_think_blocks("<thinking>\nThe user wants a search.\n</thinking>\nVisible answer");
         assert_eq!(cleaned, "");
     }
 
@@ -1831,5 +1831,24 @@ I'll search before continuing.
             resolve_runtime_context("qwen/qwen3.5-9b", 32000, "bonsai-8b", 0),
             0
         );
+    }
+
+    #[test]
+    fn load_instruction_files_includes_workspace_guidance_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let previous = std::env::current_dir().unwrap();
+
+        fs::write(
+            temp.path().join("SKILLS.md"),
+            "# Workspace Skills\n- Prefer API-first changes before UI polish.",
+        )
+        .unwrap();
+
+        std::env::set_current_dir(temp.path()).unwrap();
+        let loaded = load_instruction_files();
+        std::env::set_current_dir(previous).unwrap();
+
+        assert!(loaded.contains("SKILLS.md"));
+        assert!(loaded.contains("Prefer API-first changes before UI polish."));
     }
 }

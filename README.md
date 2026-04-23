@@ -247,6 +247,8 @@ Inside the harness, Hematite also has explicit workflow clamps:
 
 That mode discipline is one of the places Hematite should feel closer to a serious engineering tool than a generic chat shell.
 
+Hematite should keep those workflows baked in. Teleportation, sovereign scaffold, `.hematite/PLAN.md`, `.hematite/TASK.md`, resumable `/architect -> /implement-plan` handoff, and policy-aware execution are core harness behavior, not optional skill files. `SKILLS.md` or `SKILL.md` should be treated as additive project guidance: conventions, domain recipes, and repo-specific patterns layered on top of the built-in execution system.
+
 ---
 
 ## Grounded Terminal Ops
@@ -795,7 +797,7 @@ For project-specific questions or commands, launch Hematite in that project's di
 
 **Workspace profile.** On startup, Hematite also writes `workspace_profile.json` into its active runtime-state directory. In normal project workspaces that is `.hematite/workspace_profile.json`; in **Path Alias** folders it lands in `~/.hematite/workspace_profile.json` so Hematite does not litter Desktop/Downloads-style directories with workspace metadata. The file is auto-generated and gitignored when local. It captures the detected stack, package manager, important folders, ignored noise folders, and build/test hints so the harness starts with a grounded project profile instead of guessing from scratch every turn. Use `/workspace-profile` to inspect the current generated profile from inside the TUI.
 
-**Behavioral rules.** Drop a `.hematite/rules.md` file in any project and Hematite injects its contents into the system prompt on every turn — no restart needed. Use it to set project-specific agent behavior: coding conventions, files to avoid, architectural constraints, simplicity guidelines, anything. `/rules` shows which rule files are currently active. `/rules edit` opens your personal `.hematite/rules.local.md` (gitignored) in the system editor; `/rules edit shared` opens the shared `.hematite/rules.md` that can be committed with the repo. For larger projects, `.hematite/instructions/<topic>.md` files are injected only when the turn's context mentions that topic — zero token cost otherwise.
+**Behavioral rules and project skills.** Drop a `.hematite/rules.md` file in any project and Hematite injects its contents into the system prompt on every turn — no restart needed. Use it to set project-specific agent behavior: coding conventions, files to avoid, architectural constraints, simplicity guidelines, anything. `/rules` shows which rule files are currently active. `/rules edit` opens your personal `.hematite/rules.local.md` (gitignored) in the system editor; `/rules edit shared` opens the shared `.hematite/rules.md` that can be committed with the repo. For larger projects, `.hematite/instructions/<topic>.md` files are injected only when the turn's context mentions that topic — zero token cost otherwise. Hematite also auto-discovers workspace `SKILLS.md` or `SKILL.md` files and injects them as project guidance, but those skills do not replace the built-in workflow engine.
 
 On macOS/Linux, the packaged archive includes an installer helper:
 
@@ -953,9 +955,15 @@ Before every file edit, Hematite snapshots a hidden git ref at `refs/hematite/gh
 
 **Single-GPU note:** on a single consumer GPU with one model loaded, workers share the same inference endpoint and run sequentially rather than truly in parallel. On a 4070-class machine it still works — workers run one after another and review diffs in the modal before anything is applied. Swarm reaches its full potential on multi-GPU setups, high-VRAM cards (3090/5090) running larger models, or when pointing at a remote LM Studio instance where workers genuinely run concurrently.
 
-### Project Rule Discovery
+### Project Rule And Skill Discovery
 
-Drop a `CLAUDE.md` or `.hematite.md` in your project root. Hematite picks it up automatically and follows your project-specific coding standards every turn.
+Drop a `CLAUDE.md`, `SKILLS.md`, or `SKILL.md` in your project root. Hematite picks it up automatically and follows that project guidance every turn. The intent split is:
+
+- `CLAUDE.md` and `.hematite/rules.md` for explicit project rules and guardrails
+- `SKILLS.md` or `SKILL.md` for reusable project recipes, conventions, and domain-specific guidance
+- `.hematite/PLAN.md` and `.hematite/TASK.md` for live execution state, sovereign handoff, and resumable work
+
+That keeps Hematite's core workflows deterministic while still letting each repo teach the agent how it wants work done.
 
 ### The Vein (Hybrid RAG Memory)
 
