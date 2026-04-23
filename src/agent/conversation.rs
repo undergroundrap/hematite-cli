@@ -1606,6 +1606,8 @@ pub struct ConversationManager {
     pub diff_tracker: Arc<Mutex<crate::agent::diff_tracker::TurnDiffTracker>>,
     /// Authoritative Toolchain Heartbeat for environment awareness.
     pub last_heartbeat: Option<crate::agent::policy::ToolchainHeartbeat>,
+    /// Skill body explicitly loaded via `/skill <name>` — injected once then cleared.
+    pending_skill_inject: Option<String>,
 }
 
 impl ConversationManager {
@@ -2209,6 +2211,7 @@ impl ConversationManager {
             latest_target_dir: None,
             pending_teleport_handoff: None,
             last_heartbeat: None,
+            pending_skill_inject: None,
             diff_tracker: Arc::new(Mutex::new(
                 crate::agent::diff_tracker::TurnDiffTracker::new(),
             )),
@@ -3150,6 +3153,62 @@ impl ConversationManager {
             return Ok(());
         }
 
+        // /skill <name> — explicitly load a skill's full body for the next turn.
+        if let Some(skill_name) = user_input
+            .trim()
+            .strip_prefix("/skill ")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            let workspace_root = crate::tools::file_ops::workspace_root();
+            let config = crate::agent::config::load_config();
+            let discovery =
+                crate::agent::instructions::discover_agent_skills(&workspace_root, &config.trust);
+            let name_lower = skill_name.to_lowercase();
+            if let Some(skill) = discovery
+                .skills
+                .iter()
+                .find(|s| s.name.to_lowercase() == name_lower)
+            {
+                if skill.body.is_empty() {
+                    let msg = format!(
+                        "Skill `{}` found but its SKILL.md has no body — add instructions after the frontmatter.",
+                        skill.name
+                    );
+                    for chunk in chunk_text(&msg, 8) {
+                        let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                    }
+                } else {
+                    self.pending_skill_inject =
+                        Some(format!("## Skill: {}\n{}", skill.name, skill.body));
+                    let msg = format!(
+                        "Skill `{}` loaded — instructions will be active for the next turn.",
+                        skill.name
+                    );
+                    for chunk in chunk_text(&msg, 8) {
+                        let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                    }
+                }
+            } else {
+                let available: Vec<&str> =
+                    discovery.skills.iter().map(|s| s.name.as_str()).collect();
+                let msg = if available.is_empty() {
+                    format!("No skill named `{}` found. No skills are currently discovered.", skill_name)
+                } else {
+                    format!(
+                        "No skill named `{}` found. Available: {}",
+                        skill_name,
+                        available.join(", ")
+                    )
+                };
+                for chunk in chunk_text(&msg, 8) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         if user_input.trim() == "/vein-reset" {
             tokio::task::block_in_place(|| self.vein.reset());
             let _ = tx
@@ -4059,6 +4118,10 @@ impl ConversationManager {
                 8_000,
             ) {
                 system_msg.push_str(&format!("\n\n{}", bodies));
+            }
+            // Inject any explicitly force-loaded skill from /skill <name>, then clear it.
+            if let Some(forced_body) = self.pending_skill_inject.take() {
+                system_msg.push_str(&format!("\n\n# Active Skill Instructions\n\n{}", forced_body));
             }
         }
         if !tiny_context_mode && implement_current_plan {

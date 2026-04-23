@@ -8,6 +8,8 @@ use crate::agent::config::WorkspaceTrustConfig;
 use crate::agent::trust_resolver::{resolve_workspace_trust, WorkspaceTrustPolicy};
 
 pub const PROJECT_GUIDANCE_FILES: &[&str] = &[
+    "AGENTS.md",
+    "agents.md",
     "CLAUDE.md",
     ".claude.md",
     "CLAUDE.local.md",
@@ -169,6 +171,9 @@ pub fn render_skill_catalog(discovery: &SkillDiscovery, max_chars: usize) -> Opt
             skill.description,
             skill.skill_md_path.display()
         );
+        if !skill.triggers.is_empty() {
+            line.push_str(&format!(" | auto-activates: {}", skill.triggers.join(", ")));
+        }
         if let Some(compatibility) = &skill.compatibility {
             line.push_str(&format!(" | compatibility: {}", compatibility));
         }
@@ -372,6 +377,12 @@ pub fn render_skills_report(discovery: &SkillDiscovery) -> String {
             skill.description,
             skill.skill_md_path.display()
         ));
+        if !skill.triggers.is_empty() {
+            report.push_str(&format!(
+                "  auto-activates: {}\n",
+                skill.triggers.join(", ")
+            ));
+        }
         if let Some(compatibility) = &skill.compatibility {
             report.push_str(&format!("  compatibility: {}\n", compatibility));
         }
