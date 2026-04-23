@@ -4047,6 +4047,20 @@ impl ConversationManager {
         if !tiny_context_mode && is_scaffold_request(&effective_user_input) {
             system_msg.push_str(scaffold_protocol());
         }
+        if !tiny_context_mode {
+            let workspace_root = crate::tools::file_ops::workspace_root();
+            let skill_discovery = crate::agent::instructions::discover_agent_skills(
+                &workspace_root,
+                &config.trust,
+            );
+            if let Some(bodies) = crate::agent::instructions::render_active_skill_bodies(
+                &skill_discovery,
+                &effective_user_input,
+                8_000,
+            ) {
+                system_msg.push_str(&format!("\n\n{}", bodies));
+            }
+        }
         if !tiny_context_mode && implement_current_plan {
             system_msg.push_str(
                 "\n\n# CURRENT PLAN EXECUTION CONTRACT\n\

@@ -48,8 +48,12 @@ pub struct AgentSkill {
     pub name: String,
     pub description: String,
     pub compatibility: Option<String>,
+    /// Glob patterns that auto-activate this skill based on file context.
+    /// Examples: `["*.py"]`, `["*.rs"]`, `["Cargo.toml"]`
+    pub triggers: Vec<String>,
     pub skill_md_path: PathBuf,
     pub scope: SkillScope,
+    pub body: String,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +68,8 @@ struct SkillFrontmatter {
     name: Option<String>,
     description: Option<String>,
     compatibility: Option<String>,
+    // Comma-separated glob patterns, e.g. "*.py, *.pyx" or "Cargo.toml"
+    triggers: Option<String>,
 }
 
 pub fn resolve_guidance_path(dir: &Path, candidate_name: &str) -> PathBuf {
@@ -171,6 +177,163 @@ pub fn render_skill_catalog(discovery: &SkillDiscovery, max_chars: usize) -> Opt
     }
 
     Some(output.join("\n"))
+}
+
+/// Returns skills whose names (or hyphenated name parts) appear in `query`,
+/// or whose `triggers` glob patterns match files referenced in the query or
+/// the active workspace stack.
+pub fn activate_matching_skills<'a>(
+    discovery: &'a SkillDiscovery,
+    query: &str,
+) -> Vec<&'a AgentSkill> {
+    let q = query.to_lowercase();
+    let workspace_root = crate::tools::file_ops::workspace_root();
+    let ws_exts = workspace_stack_extensions(&workspace_root);
+    let query_paths = extract_query_paths(query);
+
+    let mut matched = Vec::new();
+    for skill in &discovery.skills {
+        // 1. Direct name match (e.g. "use the pdf-processing skill")
+        let name_lower = skill.name.to_lowercase();
+        if q.contains(&name_lower) {
+            matched.push(skill);
+            continue;
+        }
+
+        // 2. All significant hyphen/underscore parts appear in query
+        let parts: Vec<&str> = skill
+            .name
+            .split(['-', '_', ' '])
+            .filter(|p| p.len() > 3)
+            .collect();
+        if parts.len() >= 2 && parts.iter().all(|p| q.contains(&p.to_lowercase())) {
+            matched.push(skill);
+            continue;
+        }
+
+        // 3. Trigger glob matches a file path mentioned in the query
+        if !skill.triggers.is_empty() {
+            let trigger_hit = skill.triggers.iter().any(|pattern| {
+                query_paths.iter().any(|path| glob_matches(pattern, path))
+            });
+            if trigger_hit {
+                matched.push(skill);
+                continue;
+            }
+
+            // 4. Trigger glob matches the workspace stack (e.g. "*.rs" when Cargo.toml exists)
+            let ws_hit = skill
+                .triggers
+                .iter()
+                .any(|pattern| ws_exts.iter().any(|ext| glob_matches(pattern, ext)));
+            if ws_hit {
+                matched.push(skill);
+            }
+        }
+    }
+    matched
+}
+
+/// Simple glob matcher supporting `*.ext`, `prefix*`, and exact-name patterns.
+fn glob_matches(pattern: &str, name: &str) -> bool {
+    if let Some(ext_pattern) = pattern.strip_prefix("*.") {
+        // *.ext — match the file extension
+        name.ends_with(&format!(".{}", ext_pattern))
+            || name == ext_pattern
+    } else if let Some(prefix) = pattern.strip_suffix('*') {
+        name.starts_with(prefix)
+    } else if pattern.contains('*') {
+        // mid-pattern wildcard: split on first * and check prefix + suffix
+        let (pre, suf) = pattern.split_once('*').unwrap();
+        name.starts_with(pre) && name.ends_with(suf)
+    } else {
+        // exact match (e.g. "Cargo.toml")
+        name == pattern
+    }
+}
+
+/// Returns synthetic "file extension" strings that represent the active workspace stack,
+/// derived from presence of stack marker files. Used to match trigger patterns like `*.rs`.
+fn workspace_stack_extensions(root: &std::path::Path) -> Vec<String> {
+    let mut exts: Vec<String> = Vec::new();
+    let markers: &[(&str, &[&str])] = &[
+        ("Cargo.toml",      &["x.rs"]),
+        ("go.mod",          &["x.go"]),
+        ("CMakeLists.txt",  &["x.cpp", "x.c", "x.h"]),
+        ("package.json",    &["x.ts", "x.js", "x.tsx", "x.jsx"]),
+        ("tsconfig.json",   &["x.ts", "x.tsx"]),
+        ("pyproject.toml",  &["x.py"]),
+        ("setup.py",        &["x.py"]),
+        ("requirements.txt",&["x.py"]),
+        ("Gemfile",         &["x.rb"]),
+        ("pom.xml",         &["x.java"]),
+        ("build.gradle",    &["x.java", "x.kt"]),
+        ("composer.json",   &["x.php"]),
+    ];
+    for (marker, file_exts) in markers {
+        if root.join(marker).exists() {
+            exts.extend(file_exts.iter().map(|s| s.to_string()));
+        }
+    }
+    exts
+}
+
+/// Extracts token-like file paths from the query (words containing a `.` and a known extension,
+/// plus `@mention` paths).
+fn extract_query_paths(query: &str) -> Vec<String> {
+    let known_exts = [
+        "rs", "py", "ts", "js", "tsx", "jsx", "go", "cpp", "c", "h", "java", "kt",
+        "rb", "php", "swift", "cs", "md", "toml", "yaml", "yml", "json", "html",
+        "css", "scss", "sh", "pdf", "txt",
+    ];
+    let mut paths = Vec::new();
+    for token in query.split_whitespace() {
+        let token = token.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '/' && c != '_' && c != '-' && c != '@');
+        let effective = if token.starts_with('@') { &token[1..] } else { token };
+        if let Some(ext) = effective.rsplit('.').next() {
+            if known_exts.contains(&ext.to_lowercase().as_str()) {
+                paths.push(effective.to_string());
+            }
+        }
+    }
+    paths
+}
+
+/// Renders the full body text of every skill that matches `query`.
+/// Returns `None` when no skills are activated or all bodies are empty.
+pub fn render_active_skill_bodies(
+    discovery: &SkillDiscovery,
+    query: &str,
+    max_chars: usize,
+) -> Option<String> {
+    let matches = activate_matching_skills(discovery, query);
+    if matches.is_empty() {
+        return None;
+    }
+    let mut sections: Vec<String> = vec!["# Active Skill Instructions".to_string()];
+    let mut remaining = max_chars;
+    for skill in matches {
+        if remaining < 200 {
+            sections.push("... [further skill bodies omitted — context limit]".to_string());
+            break;
+        }
+        let body = skill.body.trim();
+        if body.is_empty() {
+            continue;
+        }
+        let section = format!("## Skill: {}\n{}", skill.name, body);
+        let entry = if section.len() > remaining {
+            format!("{}\n... [skill body truncated]", &section[..remaining.saturating_sub(30)])
+        } else {
+            section
+        };
+        remaining = remaining.saturating_sub(entry.len());
+        sections.push(entry);
+    }
+    if sections.len() <= 1 {
+        return None;
+    }
+    Some(sections.join("\n\n"))
 }
 
 pub fn render_skills_report(discovery: &SkillDiscovery) -> String {
@@ -328,13 +491,22 @@ fn discover_skill_markdown_files(root: &Path) -> Vec<PathBuf> {
 
 fn parse_agent_skill(skill_md_path: &Path, scope: SkillScope) -> Option<AgentSkill> {
     let content = fs::read_to_string(skill_md_path).ok()?;
-    let (frontmatter, _) = split_frontmatter(&content)?;
+    let (frontmatter, body) = split_frontmatter(&content)?;
     let parsed = parse_frontmatter(&frontmatter)?;
     let name = parsed.name?.trim().to_string();
     let description = parsed.description?.trim().to_string();
     if name.is_empty() || description.is_empty() {
         return None;
     }
+    let triggers = parsed
+        .triggers
+        .map(|t| {
+            t.split(',')
+                .map(|p| p.trim().to_string())
+                .filter(|p| !p.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
     Some(AgentSkill {
         name,
         description,
@@ -342,8 +514,10 @@ fn parse_agent_skill(skill_md_path: &Path, scope: SkillScope) -> Option<AgentSki
             .compatibility
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty()),
+        triggers,
         skill_md_path: skill_md_path.to_path_buf(),
         scope,
+        body: body.trim().to_string(),
     })
 }
 
@@ -394,6 +568,7 @@ fn parse_frontmatter_fallback(frontmatter: &str) -> Option<SkillFrontmatter> {
             "name" => parsed.name = Some(value.to_string()),
             "description" => parsed.description = Some(value.to_string()),
             "compatibility" => parsed.compatibility = Some(value.to_string()),
+            "triggers" => parsed.triggers = Some(value.to_string()),
             _ => {}
         }
     }
@@ -531,14 +706,161 @@ mod tests {
     }
 
     #[test]
+    fn activate_matching_skills_finds_by_name() {
+        let discovery = SkillDiscovery {
+            skills: vec![
+                AgentSkill {
+                    name: "pdf-processing".to_string(),
+                    description: "Use when PDFs are involved.".to_string(),
+                    compatibility: None,
+                    triggers: vec![],
+                    skill_md_path: PathBuf::from("/tmp/pdf-processing/SKILL.md"),
+                    scope: SkillScope::User,
+                    body: "Step 1: extract text.".to_string(),
+                },
+                AgentSkill {
+                    name: "code-review".to_string(),
+                    description: "Review diffs.".to_string(),
+                    compatibility: None,
+                    triggers: vec![],
+                    skill_md_path: PathBuf::from("/tmp/code-review/SKILL.md"),
+                    scope: SkillScope::Project,
+                    body: "Review all changed files.".to_string(),
+                },
+            ],
+            project_skills_loaded: true,
+            project_skills_note: None,
+        };
+
+        // Direct name match
+        let m = activate_matching_skills(&discovery, "please use the pdf-processing skill");
+        assert_eq!(m.len(), 1);
+        assert_eq!(m[0].name, "pdf-processing");
+
+        // Part match (both "code" and "review" in query, each >3 chars)
+        let m2 = activate_matching_skills(&discovery, "can you do a code review of this PR?");
+        assert_eq!(m2.len(), 1);
+        assert_eq!(m2[0].name, "code-review");
+
+        // No match
+        let m3 = activate_matching_skills(&discovery, "what is the weather today?");
+        assert!(m3.is_empty());
+    }
+
+    #[test]
+    fn activate_matching_skills_triggers_on_file_extension() {
+        let discovery = SkillDiscovery {
+            skills: vec![AgentSkill {
+                name: "python-style".to_string(),
+                description: "Python style guide.".to_string(),
+                compatibility: None,
+                triggers: vec!["*.py".to_string()],
+                skill_md_path: PathBuf::from("/tmp/python-style/SKILL.md"),
+                scope: SkillScope::User,
+                body: "Use ruff for linting.".to_string(),
+            }],
+            project_skills_loaded: true,
+            project_skills_note: None,
+        };
+
+        // File extension in query activates skill
+        let m = activate_matching_skills(&discovery, "fix the type hints in src/parser.py");
+        assert_eq!(m.len(), 1, "should activate via *.py trigger");
+
+        // @mention path
+        let m2 = activate_matching_skills(&discovery, "refactor @src/utils.py");
+        assert_eq!(m2.len(), 1, "should activate via @mention .py path");
+
+        // Unrelated query — no file extension match
+        let m3 = activate_matching_skills(&discovery, "how does the network stack work?");
+        assert!(m3.is_empty());
+    }
+
+    #[test]
+    fn glob_matches_patterns() {
+        assert!(glob_matches("*.rs", "main.rs"));
+        assert!(glob_matches("*.rs", "src/lib.rs"));
+        assert!(!glob_matches("*.rs", "main.py"));
+        assert!(glob_matches("Cargo.toml", "Cargo.toml"));
+        assert!(!glob_matches("Cargo.toml", "cargo.toml"));
+        assert!(glob_matches("test*", "test_utils.rs"));
+        assert!(!glob_matches("test*", "unit_test.rs"));
+        assert!(glob_matches("*.py", "x.py")); // exact ext sentinel
+    }
+
+    #[test]
+    fn triggers_parsed_from_frontmatter() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("py-skill")).unwrap();
+        fs::write(
+            temp.path().join("py-skill/SKILL.md"),
+            "---\nname: py-skill\ndescription: Python helper.\ntriggers: \"*.py, *.pyx\"\n---\n\nDo python things.\n",
+        )
+        .unwrap();
+
+        let skill =
+            parse_agent_skill(&temp.path().join("py-skill/SKILL.md"), SkillScope::User).unwrap();
+        assert_eq!(skill.triggers, vec!["*.py", "*.pyx"]);
+        assert!(skill.body.contains("Do python things."));
+    }
+
+    #[test]
+    fn render_active_skill_bodies_injects_body() {
+        let discovery = SkillDiscovery {
+            skills: vec![AgentSkill {
+                name: "pdf-processing".to_string(),
+                description: "Use when PDFs are involved.".to_string(),
+                compatibility: None,
+                triggers: vec![],
+                skill_md_path: PathBuf::from("/tmp/pdf-processing/SKILL.md"),
+                scope: SkillScope::User,
+                body: "## Instructions\nRun pdftotext first.".to_string(),
+            }],
+            project_skills_loaded: true,
+            project_skills_note: None,
+        };
+
+        let rendered =
+            render_active_skill_bodies(&discovery, "process this pdf-processing task", 8_000);
+        assert!(rendered.is_some());
+        let text = rendered.unwrap();
+        assert!(text.contains("Active Skill Instructions"));
+        assert!(text.contains("Skill: pdf-processing"));
+        assert!(text.contains("pdftotext"));
+
+        // No match → None
+        let none =
+            render_active_skill_bodies(&discovery, "unrelated query about network", 8_000);
+        assert!(none.is_none());
+    }
+
+    #[test]
+    fn skill_body_captured_from_skill_md() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("my-skill")).unwrap();
+        fs::write(
+            temp.path().join("my-skill/SKILL.md"),
+            "---\nname: my-skill\ndescription: A test skill.\n---\n\n## How to use\nDo the thing.\n",
+        )
+        .unwrap();
+
+        let skill =
+            parse_agent_skill(&temp.path().join("my-skill/SKILL.md"), SkillScope::User).unwrap();
+        assert_eq!(skill.name, "my-skill");
+        assert!(skill.body.contains("Do the thing."));
+    }
+
+    #[test]
     fn guidance_catalog_renders_skill_paths() {
         let discovery = SkillDiscovery {
             skills: vec![AgentSkill {
                 name: "code-review".to_string(),
                 description: "Review diffs.".to_string(),
                 compatibility: Some("Requires git".to_string()),
+                triggers: vec![],
                 skill_md_path: PathBuf::from("/tmp/code-review/SKILL.md"),
                 scope: SkillScope::Project,
+                body: String::new(),
             }],
             project_skills_loaded: true,
             project_skills_note: None,
