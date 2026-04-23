@@ -36,6 +36,7 @@ ratatui = "0.26"
 crossterm = { version = "0.27", features = ["event-stream"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde_yaml = "0.9"
 clap = { version = "4.4", features = ["derive"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 thiserror = "1.0"

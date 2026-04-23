@@ -2780,6 +2780,7 @@ fn show_help_message(app: &mut App) {
          /reroll           - (Soul) Hatch a new companion mid-session\n\
          /auto             - (Flow) Let Hematite choose the narrowest effective workflow\n\
          /rules [view|edit]- (Meta) View status or edit local/shared project guidelines\n\
+         /skills           - (Meta) View discovered Agent Skills (`SKILL.md` catalogs)\n\
          /ask [prompt]     - (Flow) Read-only analysis mode; optional inline prompt\n\
          /code [prompt]    - (Flow) Explicit implementation mode; optional inline prompt\n\
          /architect [prompt] - (Flow) Plan-first mode; optional inline prompt\n\
@@ -2793,6 +2794,7 @@ fn show_help_message(app: &mut App) {
          /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
          /workspace-profile - (Profile) Show the auto-generated workspace profile\n\
          /rules            - (Rules) View project guidance (CLAUDE.md, SKILLS.md, .hematite/rules.md)\n\
+         /skills           - (Skills) View directory-based Agent Skills\n\
          /version          - (Build) Show the running Hematite version\n\
          /about            - (Info) Show author, repo, and product info\n\
          /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
@@ -4159,6 +4161,19 @@ pub async fn run_app<B: Backend>(
                                                         app.push_message("System", &status);
                                                     }
                                                 }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
+                                            "/skills" => {
+                                                let workspace_root = crate::tools::file_ops::workspace_root();
+                                                let config = crate::agent::config::load_config();
+                                                let discovery = crate::agent::instructions::discover_agent_skills(
+                                                    &workspace_root,
+                                                    &config.trust,
+                                                );
+                                                let report =
+                                                    crate::agent::instructions::render_skills_report(&discovery);
+                                                app.push_message("System", &report);
                                                 app.history_idx = None;
                                                 continue;
                                             }

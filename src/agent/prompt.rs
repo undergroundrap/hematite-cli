@@ -160,6 +160,13 @@ impl SystemPromptBuilder {
             }
         }
 
+        if let Some(skill_catalog) = crate::agent::instructions::render_skill_catalog(
+            &crate::agent::instructions::discover_agent_skills(&self.workspace_root, &config.trust),
+            6_000,
+        ) {
+            static_sections.push(format!("\n{}", skill_catalog));
+        }
+
         let instructions_dir = crate::tools::file_ops::hematite_dir().join("instructions");
         if instructions_dir.exists() && instructions_dir.is_dir() {
             if let Ok(entries) = fs::read_dir(instructions_dir) {

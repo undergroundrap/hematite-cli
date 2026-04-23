@@ -666,6 +666,7 @@ impl InferenceEngine {
 
         // Inject CLAUDE.md / instruction files from the project directory.
         sys.push_str(&load_instruction_files());
+        sys.push_str(&load_agent_skill_catalog());
 
         // Inject cross-session memories synthesized by DeepReflect.
         sys.push_str(&crate::memory::deep_reflect::load_recent_memories());
@@ -1185,6 +1186,16 @@ fn load_instruction_files() -> String {
         return String::new();
     }
     format!("\n\n# Project Instructions And Skills\n{}", result)
+}
+
+fn load_agent_skill_catalog() -> String {
+    let workspace_root = crate::tools::file_ops::workspace_root();
+    let config = crate::agent::config::load_config();
+    let discovery =
+        crate::agent::instructions::discover_agent_skills(&workspace_root, &config.trust);
+    crate::agent::instructions::render_skill_catalog(&discovery, 6_000)
+        .map(|rendered| format!("\n\n{}", rendered))
+        .unwrap_or_default()
 }
 
 pub fn extract_think_block(text: &str) -> Option<String> {
@@ -1850,5 +1861,26 @@ I'll search before continuing.
 
         assert!(loaded.contains("SKILLS.md"));
         assert!(loaded.contains("Prefer API-first changes before UI polish."));
+    }
+
+    #[test]
+    fn load_agent_skill_catalog_includes_skill_directory_entries() {
+        let temp = tempfile::tempdir().unwrap();
+        let previous = std::env::current_dir().unwrap();
+
+        std::fs::create_dir_all(temp.path().join(".agents/skills/code-review")).unwrap();
+        fs::write(
+            temp.path().join(".agents/skills/code-review/SKILL.md"),
+            "---\nname: code-review\ndescription: Review diffs and flag regressions.\ncompatibility: Requires git\n---\n",
+        )
+        .unwrap();
+
+        std::env::set_current_dir(temp.path()).unwrap();
+        let loaded = load_agent_skill_catalog();
+        std::env::set_current_dir(previous).unwrap();
+
+        assert!(loaded.contains("Agent Skills Catalog"));
+        assert!(loaded.contains("code-review"));
+        assert!(loaded.contains("Review diffs and flag regressions."));
     }
 }

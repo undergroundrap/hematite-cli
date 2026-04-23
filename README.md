@@ -247,7 +247,7 @@ Inside the harness, Hematite also has explicit workflow clamps:
 
 That mode discipline is one of the places Hematite should feel closer to a serious engineering tool than a generic chat shell.
 
-Hematite should keep those workflows baked in. Teleportation, sovereign scaffold, `.hematite/PLAN.md`, `.hematite/TASK.md`, resumable `/architect -> /implement-plan` handoff, and policy-aware execution are core harness behavior, not optional skill files. `SKILLS.md` or `SKILL.md` should be treated as additive project guidance: conventions, domain recipes, and repo-specific patterns layered on top of the built-in execution system.
+Hematite should keep those workflows baked in. Teleportation, sovereign scaffold, `.hematite/PLAN.md`, `.hematite/TASK.md`, resumable `/architect -> /implement-plan` handoff, and policy-aware execution are core harness behavior, not optional skill files. Root `SKILLS.md` or `SKILL.md` files are additive project guidance, while directory-based Agent Skills under `.agents/skills/` or `.hematite/skills/` are portable skill packages layered on top of the built-in execution system.
 
 ---
 
@@ -797,7 +797,7 @@ For project-specific questions or commands, launch Hematite in that project's di
 
 **Workspace profile.** On startup, Hematite also writes `workspace_profile.json` into its active runtime-state directory. In normal project workspaces that is `.hematite/workspace_profile.json`; in **Path Alias** folders it lands in `~/.hematite/workspace_profile.json` so Hematite does not litter Desktop/Downloads-style directories with workspace metadata. The file is auto-generated and gitignored when local. It captures the detected stack, package manager, important folders, ignored noise folders, and build/test hints so the harness starts with a grounded project profile instead of guessing from scratch every turn. Use `/workspace-profile` to inspect the current generated profile from inside the TUI.
 
-**Behavioral rules and project skills.** Drop a `.hematite/rules.md` file in any project and Hematite injects its contents into the system prompt on every turn — no restart needed. Use it to set project-specific agent behavior: coding conventions, files to avoid, architectural constraints, simplicity guidelines, anything. `/rules` shows which rule files are currently active. `/rules edit` opens your personal `.hematite/rules.local.md` (gitignored) in the system editor; `/rules edit shared` opens the shared `.hematite/rules.md` that can be committed with the repo. For larger projects, `.hematite/instructions/<topic>.md` files are injected only when the turn's context mentions that topic — zero token cost otherwise. Hematite also auto-discovers workspace `SKILLS.md` or `SKILL.md` files and injects them as project guidance, but those skills do not replace the built-in workflow engine.
+**Behavioral rules and project skills.** Drop a `.hematite/rules.md` file in any project and Hematite injects its contents into the system prompt on every turn — no restart needed. Use it to set project-specific agent behavior: coding conventions, files to avoid, architectural constraints, simplicity guidelines, anything. `/rules` shows which rule files are currently active. `/rules edit` opens your personal `.hematite/rules.local.md` (gitignored) in the system editor; `/rules edit shared` opens the shared `.hematite/rules.md` that can be committed with the repo. For larger projects, `.hematite/instructions/<topic>.md` files are injected only when the turn's context mentions that topic — zero token cost otherwise. Hematite also auto-discovers root `SKILLS.md` / `SKILL.md` guidance files, and now scans `.agents/skills/` plus `.hematite/skills/` for directory-based Agent Skills with `SKILL.md` frontmatter. Use `/skills` to inspect the discovered skill catalog. None of those skill layers replace the built-in workflow engine.
 
 On macOS/Linux, the packaged archive includes an installer helper:
 
@@ -957,10 +957,11 @@ Before every file edit, Hematite snapshots a hidden git ref at `refs/hematite/gh
 
 ### Project Rule And Skill Discovery
 
-Drop a `CLAUDE.md`, `SKILLS.md`, or `SKILL.md` in your project root. Hematite picks it up automatically and follows that project guidance every turn. The intent split is:
+Drop a `CLAUDE.md`, `SKILLS.md`, or `SKILL.md` in your project root for lightweight repo guidance, or install full Agent Skills under `.agents/skills/<skill-name>/SKILL.md` or `.hematite/skills/<skill-name>/SKILL.md`. Hematite picks them up automatically. The intent split is:
 
 - `CLAUDE.md` and `.hematite/rules.md` for explicit project rules and guardrails
-- `SKILLS.md` or `SKILL.md` for reusable project recipes, conventions, and domain-specific guidance
+- root `SKILLS.md` or `SKILL.md` for lightweight repo-local recipes, conventions, and domain-specific guidance
+- `.agents/skills/` or `.hematite/skills/` for portable Agent Skills with metadata, scripts, references, and assets
 - `.hematite/PLAN.md` and `.hematite/TASK.md` for live execution state, sovereign handoff, and resumable work
 
 That keeps Hematite's core workflows deterministic while still letting each repo teach the agent how it wants work done.
@@ -1242,6 +1243,7 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 /rules view       Display combined content of all active rule files
 /rules edit       Open .hematite/rules.local.md in system editor (private, gitignored)
 /rules edit shared Open .hematite/rules.md in system editor (shared, committed with repo)
+/skills           Show discovered Agent Skills from .agents/skills and .hematite/skills
 /version          Show the running Hematite release version plus build state
 /about            Show author, repo, and product info
 hematite --version Show the same build report from the CLI

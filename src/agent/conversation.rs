@@ -3137,6 +3137,19 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if user_input.trim() == "/skills" {
+            let workspace_root = crate::tools::file_ops::workspace_root();
+            let config = crate::agent::config::load_config();
+            let discovery =
+                crate::agent::instructions::discover_agent_skills(&workspace_root, &config.trust);
+            let report = crate::agent::instructions::render_skills_report(&discovery);
+            for chunk in chunk_text(&report, 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         if user_input.trim() == "/vein-reset" {
             tokio::task::block_in_place(|| self.vein.reset());
             let _ = tx
