@@ -1163,9 +1163,34 @@ fn canonicalize_safe(candidate: &Path, original: &str) -> Result<PathBuf, String
     Ok(abs)
 }
 
+fn is_allowed_plan_sidecar(workspace: &Path, abs: &Path) -> bool {
+    let normalized = abs
+        .to_string_lossy()
+        .trim_start_matches(r"\\?\")
+        .to_lowercase()
+        .replace('\\', "/");
+    let workspace_norm = workspace
+        .to_string_lossy()
+        .trim_start_matches(r"\\?\")
+        .to_lowercase()
+        .replace('\\', "/");
+
+    if !normalized.starts_with(&workspace_norm) {
+        return false;
+    }
+
+    normalized.ends_with("/.hematite/task.md")
+        || normalized.ends_with("/.hematite/plan.md")
+        || normalized.ends_with("/.hematite/walkthrough.md")
+}
+
 fn check_workspace_bounds(abs: &Path, original: &str) -> Result<(), String> {
-    // Delegate to the existing guard for blacklist + traversal checks.
     let workspace = std::env::current_dir().map_err(|e| format!("could not read cwd: {e}"))?;
+    if is_allowed_plan_sidecar(&workspace, abs) {
+        return Ok(());
+    }
+
+    // Delegate to the existing guard for blacklist + traversal checks.
     super::guard::path_is_safe(&workspace, abs)
         .map(|_| ())
         .map_err(|e| format!("file access denied for '{original}': {e}"))
@@ -1659,4 +1684,24 @@ pub fn open_in_system_editor(path: &std::path::Path) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn safe_path_allows_plan_sidecars_inside_workspace() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        std::fs::create_dir_all(root.join(".hematite")).unwrap();
+        std::fs::write(root.join(".hematite").join("TASK.md"), "# Task Ledger\n").unwrap();
+
+        let previous = std::env::current_dir().unwrap();
+        std::env::set_current_dir(root).unwrap();
+        let resolved = safe_path(".hematite/TASK.md").unwrap();
+        std::env::set_current_dir(previous).unwrap();
+
+        assert!(resolved.ends_with(Path::new(".hematite").join("TASK.md")));
+    }
 }

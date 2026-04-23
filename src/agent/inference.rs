@@ -71,7 +71,7 @@ pub fn tool_metadata_for_name(name: &str) -> ToolMetadata {
             read_only_friendly: true,
             plan_scope: true,
         },
-        "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace" => ToolMetadata {
+        "create_directory" | "write_file" | "edit_file" | "patch_hunk" | "multi_search_replace" => ToolMetadata {
             category: ToolCategory::RepoWrite,
             mutates_workspace: true,
             external_surface: false,
@@ -1236,6 +1236,7 @@ pub fn strip_think_blocks(text: &str) -> String {
     let first_open = [
         lower.find("<|channel>thought"), // Prioritize Gemma-4 native
         lower.find("<think>"),
+        lower.find("<thinking>"),
         lower.find("<thought>"),
         lower.find("<|think|>"),
     ]
@@ -1330,6 +1331,7 @@ fn strip_xml_tool_call_artifacts(text: &str) -> String {
         "<invoke>",
         // Stray think/reasoning closing tags that leak after block extraction.
         "</think>",
+        "<thinking>",
         "</thought>",
         "</thinking>",
     ];
@@ -1427,6 +1429,62 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
             } else {
                 Value::String(val_raw.to_string())
             };
+            arguments.insert(key, val);
+        }
+
+        results.push(ToolCallResponse {
+            id: format!("call_{}", rand::random::<u32>()),
+            call_type: "function".to_string(),
+            function: ToolCallFn {
+                name,
+                arguments: Value::Object(arguments),
+            },
+            index: None,
+        });
+    }
+
+    // -- Format 3: shorthand XML wrapper (<tool_call>name(key="value")</tool_call>) --
+    let re_short_call = Regex::new(
+        r#"(?s)<tool_call>\s*([A-Za-z_][A-Za-z0-9_]*)\((.*?)\)\s*</tool_call>"#,
+    )
+    .unwrap();
+    let re_short_arg = Regex::new(
+        r#"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:"((?:\\.|[^"])*)"|'((?:\\.|[^'])*)'|([^,\)]+))"#,
+    )
+    .unwrap();
+
+    for cap in re_short_call.captures_iter(text) {
+        let name = cap[1].to_string();
+        let args_str = cap[2].trim();
+        let mut arguments = serde_json::Map::new();
+
+        for arg_cap in re_short_arg.captures_iter(args_str) {
+            let key = arg_cap[1].to_string();
+            let val_raw = arg_cap
+                .get(2)
+                .or_else(|| arg_cap.get(3))
+                .or_else(|| arg_cap.get(4))
+                .map(|m| m.as_str())
+                .unwrap_or("")
+                .trim();
+            let normalized_raw = normalize_string_arg(&val_raw.replace("\\\"", "\""));
+
+            let val = if normalized_raw == "true" {
+                Value::Bool(true)
+            } else if normalized_raw == "false" {
+                Value::Bool(false)
+            } else if let Ok(n) = normalized_raw.parse::<i64>() {
+                Value::Number(n.into())
+            } else if let Ok(n) = normalized_raw.parse::<u64>() {
+                Value::Number(n.into())
+            } else if let Ok(n) = normalized_raw.parse::<f64>() {
+                serde_json::Number::from_f64(n)
+                    .map(Value::Number)
+                    .unwrap_or(Value::String(normalized_raw.clone()))
+            } else {
+                Value::String(normalized_raw)
+            };
+
             arguments.insert(key, val);
         }
 
@@ -1589,13 +1647,17 @@ pub fn strip_native_tool_call_text(text: &str) -> String {
     ).unwrap();
     // Format 2: XML (Qwen/Claude style)
     let re_xml = Regex::new(r#"(?s)<tool_call>\s*<function=.*?>.*?</tool_call>"#).unwrap();
+    // Format 3: shorthand XML wrapper
+    let re_short = Regex::new(r#"(?s)<tool_call>\s*[A-Za-z_][A-Za-z0-9_]*\(.*?\)\s*</tool_call>"#)
+        .unwrap();
     let re_response =
         Regex::new(r#"(?s)<\|tool_response\|?>.*?(?:<\|tool_response\|?>|<tool_response\|>)"#)
             .unwrap();
     let without_calls = re_call.replace_all(text, "");
     let without_xml = re_xml.replace_all(without_calls.as_ref(), "");
+    let without_short = re_short.replace_all(without_xml.as_ref(), "");
     re_response
-        .replace_all(without_xml.as_ref(), "")
+        .replace_all(without_short.as_ref(), "")
         .trim()
         .to_string()
 }
@@ -1679,6 +1741,13 @@ Read main.
     }
 
     #[test]
+    fn create_directory_is_treated_as_mutating_repo_write() {
+        let metadata = tool_metadata_for_name("create_directory");
+        assert!(metadata.mutates_workspace);
+        assert!(!metadata.read_only_friendly);
+    }
+
+    #[test]
     fn extracts_qwen_xml_tool_calls_from_reasoning() {
         let text = r#"Based on the project structure, I need to check the binary.
 <tool_call>
@@ -1709,6 +1778,39 @@ Check if the binary exists
         let stripped = strip_native_tool_call_text(text);
         assert!(!stripped.contains("<tool_call>"));
         assert!(!stripped.contains("<function=shell>"));
+    }
+
+    #[test]
+    fn extracts_shorthand_tool_calls_from_reasoning() {
+        let text = r#"<thinking>
+The user wants a search first.
+</thinking>
+
+I'll search before continuing.
+
+<tool_call>research_web(query="uefn toolbelt python automation unreal engine fortnite")</tool_call>"#;
+
+        let calls = extract_native_tool_calls(text);
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].function.name, "research_web");
+
+        let args: Value = calls[0].function.arguments.clone();
+        assert_eq!(
+            args.get("query").and_then(|v| v.as_str()),
+            Some("uefn toolbelt python automation unreal engine fortnite")
+        );
+
+        let stripped = strip_native_tool_call_text(text);
+        assert!(!stripped.contains("<tool_call>"));
+        assert!(!stripped.contains("research_web(query="));
+    }
+
+    #[test]
+    fn strips_thinking_tag_as_reasoning_prefix() {
+        let cleaned = strip_think_blocks(
+            "<thinking>\nThe user wants a search.\n</thinking>\nVisible answer",
+        );
+        assert_eq!(cleaned, "");
     }
 
     #[test]

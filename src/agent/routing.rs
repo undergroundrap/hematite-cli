@@ -4083,6 +4083,15 @@ pub fn is_scaffold_request(user_input: &str) -> bool {
             "cmake project",
             // Generic project types
             "landing page",
+            "html website",
+            "html site",
+            "html page",
+            "html file",
+            "single file html",
+            "single-file html",
+            "single html file",
+            "single index.html",
+            "index.html",
             "portfolio site",
             "portfolio page",
             "personal site",
@@ -4391,5 +4400,14 @@ mod tests {
 
         assert_eq!(intent.primary_class, QueryIntentClass::Implementation);
         assert_ne!(intent.direct_answer, Some(DirectAnswerKind::HostInspection));
+    }
+
+    #[test]
+    fn single_file_html_sovereign_prompt_counts_as_scaffold() {
+        let input = "google uefn toolbelt then make a folder on my desktop called yourtask and inside it create a single index.html that explains what you found";
+        let intent = classify_query_intent(WorkflowMode::Auto, input);
+
+        assert!(intent.sovereign_mode);
+        assert!(intent.scaffold_mode);
     }
 }

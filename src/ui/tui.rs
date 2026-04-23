@@ -390,6 +390,7 @@ async fn handle_runtime_fix(app: &mut App) {
             .user_input_tx
             .try_send(UserTurn::text("/runtime-refresh"));
         app.push_message("You", "/runtime fix");
+        app.provider_state = ProviderRuntimeState::Recovering;
         app.agent_running = true;
 
         let mut message = format!(
@@ -405,6 +406,22 @@ async fn handle_runtime_fix(app: &mut App) {
             ));
         }
         app.push_message("System", &message);
+        if issue == RuntimeIssueKind::EmptyResponse {
+            if let Some(fallback) =
+                build_runtime_fix_grounded_fallback(&app.recent_grounded_results)
+            {
+                app.push_message(
+                    "System",
+                    "The last turn already produced grounded tool output, so Hematite is surfacing a bounded fallback while the runtime refresh completes.",
+                );
+                app.push_message("Hematite", &fallback);
+            } else {
+                app.push_message(
+                    "System",
+                    "Runtime refresh requested successfully. The failed turn has no safe grounded fallback cached, so retry the turn once the runtime settles.",
+                );
+            }
+        }
         app.history_idx = None;
         return;
     }
@@ -701,6 +718,44 @@ fn build_compact_sidebar_lines(app: &App) -> Vec<Line<'static>> {
     lines
 }
 
+fn sidebar_signal_rows(app: &App) -> Vec<(String, Color)> {
+    let mut rows = Vec::new();
+    if !app.last_operator_checkpoint_summary.trim().is_empty() {
+        rows.push((
+            format!(
+                "STATE: {}",
+                first_n_chars(&app.last_operator_checkpoint_summary, 96)
+            ),
+            Color::Yellow,
+        ));
+    }
+    if !app.last_recovery_recipe_summary.trim().is_empty() {
+        rows.push((
+            format!(
+                "RECOVERY: {}",
+                first_n_chars(&app.last_recovery_recipe_summary, 96)
+            ),
+            Color::Cyan,
+        ));
+    }
+    if !app.last_provider_summary.trim().is_empty() {
+        rows.push((
+            format!(
+                "PROVIDER: {}",
+                first_n_chars(&app.last_provider_summary, 96)
+            ),
+            Color::Gray,
+        ));
+    }
+    if !app.last_mcp_summary.trim().is_empty() {
+        rows.push((
+            format!("MCP: {}", first_n_chars(&app.last_mcp_summary, 96)),
+            Color::Gray,
+        ));
+    }
+    rows
+}
+
 pub struct App {
     pub messages: Vec<Line<'static>>,
     pub messages_raw: Vec<(String, String)>, // Keep raw for reference or re-formatting if needed
@@ -807,6 +862,9 @@ pub struct App {
     pub task_start_time: Option<std::time::Instant>,
     /// Track live tool start times so timeline cards can show honest elapsed chips.
     pub tool_started_at: HashMap<String, std::time::Instant>,
+    /// Successful grounded research/docs outputs from the current turn, used for
+    /// bounded fallback recovery when the model returns empty content.
+    pub recent_grounded_results: Vec<(String, String)>,
 }
 
 impl App {
@@ -834,6 +892,10 @@ impl App {
     pub fn clear_pending_attachments(&mut self) {
         self.attached_context = None;
         self.attached_image = None;
+    }
+
+    pub fn clear_grounded_recovery_cache(&mut self) {
+        self.recent_grounded_results.clear();
     }
 
     pub fn push_message(&mut self, speaker: &str, content: &str) {
@@ -1685,6 +1747,21 @@ fn synced_task_start_time(
     }
 }
 
+fn scroll_specular_up(app: &mut App, amount: u16) {
+    app.specular_auto_scroll = false;
+    app.specular_scroll = app.specular_scroll.saturating_sub(amount);
+}
+
+fn scroll_specular_down(app: &mut App, amount: u16) {
+    app.specular_auto_scroll = false;
+    app.specular_scroll = app.specular_scroll.saturating_add(amount);
+}
+
+fn follow_live_specular(app: &mut App) {
+    app.specular_auto_scroll = true;
+    app.specular_scroll = 0;
+}
+
 fn format_tool_elapsed(elapsed: std::time::Duration) -> String {
     if elapsed.as_millis() < 1_000 {
         format!("{}ms", elapsed.as_millis())
@@ -1709,13 +1786,77 @@ fn extract_tool_elapsed_chip(summary: &str) -> (String, Option<String>) {
     (trimmed.to_string(), None)
 }
 
+fn should_capture_grounded_tool_output(name: &str, is_error: bool) -> bool {
+    !is_error && matches!(name, "research_web" | "fetch_docs")
+}
+
+fn looks_like_markup_payload(result: &str) -> bool {
+    let lower = result
+        .chars()
+        .take(256)
+        .collect::<String>()
+        .to_ascii_lowercase();
+    lower.contains("<!doctype")
+        || lower.contains("<html")
+        || lower.contains("<body")
+        || lower.contains("<meta ")
+}
+
+fn build_runtime_fix_grounded_fallback(results: &[(String, String)]) -> Option<String> {
+    if results.is_empty() {
+        return None;
+    }
+
+    let mut sections = Vec::new();
+
+    for (name, result) in results.iter().filter(|(name, _)| name == "research_web") {
+        sections.push(format!(
+            "[{}]\n{}",
+            name,
+            first_n_chars(result, 1800).trim()
+        ));
+    }
+
+    if sections.is_empty() {
+        for (name, result) in results
+            .iter()
+            .filter(|(name, result)| name == "fetch_docs" && !looks_like_markup_payload(result))
+        {
+            sections.push(format!(
+                "[{}]\n{}",
+                name,
+                first_n_chars(result, 1600).trim()
+            ));
+        }
+    }
+
+    if sections.is_empty() {
+        if let Some((name, result)) = results.last() {
+            sections.push(format!(
+                "[{}]\n{}",
+                name,
+                first_n_chars(result, 1200).trim()
+            ));
+        }
+    }
+
+    if sections.is_empty() {
+        None
+    } else {
+        Some(format!(
+            "The model returned empty content after grounded tool work. Hematite is surfacing the latest verified tool output directly.\n\n{}",
+            sections.join("\n\n")
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        classify_runtime_issue, extract_tool_elapsed_chip, format_tool_elapsed,
-        make_animated_sparkline_gauge, provider_badge_prefix, select_fitting_variant,
-        select_sidebar_mode, should_accept_autocomplete_on_enter, synced_task_start_time,
-        RuntimeIssueKind, SidebarMode,
+        build_runtime_fix_grounded_fallback, classify_runtime_issue, extract_tool_elapsed_chip,
+        format_tool_elapsed, make_animated_sparkline_gauge, provider_badge_prefix,
+        select_fitting_variant, select_sidebar_mode, should_accept_autocomplete_on_enter,
+        synced_task_start_time, RuntimeIssueKind, SidebarMode,
     };
     use crate::agent::inference::ProviderRuntimeState;
 
@@ -1835,6 +1976,29 @@ mod tests {
         let gauge = make_animated_sparkline_gauge(0.42, 12, 7);
         assert_eq!(gauge.chars().count(), 12);
         assert!(gauge.contains('█') || gauge.contains('▓') || gauge.contains('▒'));
+    }
+    #[test]
+    fn runtime_fix_grounded_fallback_prefers_search_results_over_html_fetch() {
+        let fallback = build_runtime_fix_grounded_fallback(&[
+            (
+                "fetch_docs".to_string(),
+                "<!doctype html><html><body>raw page shell</body></html>".to_string(),
+            ),
+            (
+                "research_web".to_string(),
+                "Search results for: uefn toolbelt\n1. GitHub repo\n2. Epic forum thread"
+                    .to_string(),
+            ),
+        ])
+        .expect("fallback");
+
+        assert!(fallback.contains("Search results for: uefn toolbelt"));
+        assert!(!fallback.contains("<!doctype html>"));
+    }
+
+    #[test]
+    fn runtime_fix_grounded_fallback_returns_none_without_grounded_results() {
+        assert!(build_runtime_fix_grounded_fallback(&[]).is_none());
     }
 }
 
@@ -2505,18 +2669,14 @@ fn idle_footer_variants(app: &App) -> Vec<String> {
 
 fn running_footer_variants(app: &App, elapsed: &str, last_log: &str) -> Vec<String> {
     let worker_count = app.active_workers.len();
-    let worker_label = if worker_count > 0 {
-        format!(
-            " • {} worker{}",
-            worker_count,
-            if worker_count == 1 { "" } else { "s" }
-        )
+    let primary_caption = if worker_count > 0 {
+        format!("{} workers • {}", worker_count, last_log)
     } else {
-        String::new()
+        last_log.to_string()
     };
     vec![
-        format!("{}{} • {}", elapsed.trim(), worker_label, last_log),
-        format!("{} • {}", elapsed.trim(), last_log),
+        primary_caption,
+        last_log.to_string(),
         format!("{} • working", elapsed.trim()),
         "working".to_string(),
     ]
@@ -2588,6 +2748,7 @@ fn reset_visible_session_state(app: &mut App) {
     app.reset_runtime_status_memory();
     app.reset_active_context();
     app.tool_started_at.clear();
+    app.clear_grounded_recovery_cache();
     app.clear_pending_attachments();
     app.current_objective = "Idle".into();
 }
@@ -2665,9 +2826,12 @@ fn show_help_message(app: &mut App) {
          /copy             - (Debug) Copy exact session transcript (includes help/system output)\n\
          /copy-last        - (Debug) Copy the latest Hematite reply only\n\
          /copy-clean       - (Debug) Copy chat transcript without help/debug boilerplate\n\
-         /copy2            - (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
+         /copy2            - (Debug) Copy the full SPECULAR rail to clipboard (reasoning + events)\n\
          \nHotkeys:\n\
          Ctrl+B - Toggle Brief Mode (minimal output; collapses side chrome)\n\
+         Alt+↑/↓ - Scroll the SPECULAR rail by 3 lines\n\
+         Alt+PgUp/PgDn - Scroll the SPECULAR rail by 10 lines\n\
+         Alt+End - Snap SPECULAR back to live follow mode\n\
          Ctrl+P - Toggle Professional Mode (strip personality)\n\
          Ctrl+O - Open document picker for next-turn context\n\
          Ctrl+I - Open image picker for next-turn vision context\n\
@@ -2740,9 +2904,12 @@ fn show_help_message_legacy(app: &mut App) {
          /image-pick       — (Vision) Open a file picker and attach an image\n\
          /detach           — (Context) Drop pending document/image attachments\n\
          /copy             — (Debug) Copy session transcript to clipboard\n\
-         /copy2            — (Debug) Copy SPECULAR log to clipboard (reasoning + events)\n\
+         /copy2            — (Debug) Copy the full SPECULAR rail to clipboard (reasoning + events)\n\
          \nHotkeys:\n\
          Ctrl+B — Toggle Brief Mode (minimal output; collapses side chrome)\n\
+         Alt+↑/↓ — Scroll the SPECULAR rail by 3 lines\n\
+         Alt+PgUp/PgDn — Scroll the SPECULAR rail by 10 lines\n\
+         Alt+End — Snap SPECULAR back to live follow mode\n\
          Ctrl+P — Toggle Professional Mode (strip personality)\n\
          Ctrl+O — Open document picker for next-turn context\n\
          Ctrl+I — Open image picker for next-turn vision context\n\
@@ -2993,6 +3160,7 @@ pub async fn run_app<B: Backend>(
         auto_approve_session: false,
         task_start_time: None,
         tool_started_at: HashMap::new(),
+        recent_grounded_results: Vec::new(),
     };
 
     // Initial placeholder — streaming will overwrite this with hardware diagnostics
@@ -3149,8 +3317,7 @@ pub async fn run_app<B: Backend>(
                             MouseEventKind::ScrollUp => {
                                 if is_right_side {
                                     // User scrolled up — disable auto-scroll so they can read.
-                                    app.specular_auto_scroll = false;
-                                    app.specular_scroll = app.specular_scroll.saturating_sub(3);
+                                    scroll_specular_up(&mut app, 3);
                                 } else {
                                     let cur = app.manual_scroll_offset.unwrap_or(0);
                                     app.manual_scroll_offset = Some(cur.saturating_add(3));
@@ -3158,8 +3325,7 @@ pub async fn run_app<B: Backend>(
                             }
                             MouseEventKind::ScrollDown => {
                                 if is_right_side {
-                                    app.specular_auto_scroll = false;
-                                    app.specular_scroll = app.specular_scroll.saturating_add(3);
+                                    scroll_specular_down(&mut app, 3);
                                 } else if let Some(cur) = app.manual_scroll_offset {
                                     app.manual_scroll_offset = if cur <= 3 { None } else { Some(cur - 3) };
                                 }
@@ -3343,6 +3509,35 @@ pub async fn run_app<B: Backend>(
                                         app.push_message("System", &format!("Undo failed: {}", e));
                                     }
                                 }
+                            }
+                            KeyCode::Up
+                                if key.modifiers.contains(event::KeyModifiers::ALT) =>
+                            {
+                                scroll_specular_up(&mut app, 3);
+                            }
+                            KeyCode::Down
+                                if key.modifiers.contains(event::KeyModifiers::ALT) =>
+                            {
+                                scroll_specular_down(&mut app, 3);
+                            }
+                            KeyCode::PageUp
+                                if key.modifiers.contains(event::KeyModifiers::ALT) =>
+                            {
+                                scroll_specular_up(&mut app, 10);
+                            }
+                            KeyCode::PageDown
+                                if key.modifiers.contains(event::KeyModifiers::ALT) =>
+                            {
+                                scroll_specular_down(&mut app, 10);
+                            }
+                            KeyCode::End
+                                if key.modifiers.contains(event::KeyModifiers::ALT) =>
+                            {
+                                follow_live_specular(&mut app);
+                                app.push_message(
+                                    "System",
+                                    "SPECULAR snapped back to live follow mode.",
+                                );
                             }
                             KeyCode::Up => {
                                 if app.show_autocomplete && !app.autocomplete_suggestions.is_empty() {
@@ -4286,6 +4481,7 @@ pub async fn run_app<B: Backend>(
                                         }
                                     }
                                     app.history_idx = None;
+                                    app.clear_grounded_recovery_cache();
                                     app.push_message("You", &input_text);
                                     app.agent_running = true;
                                     app.stop_requested = false;
@@ -4420,6 +4616,12 @@ pub async fn run_app<B: Backend>(
                     InferenceEvent::ToolCallResult { id, name, result, is_error } => {
                         if app.stop_requested {
                             continue;
+                        }
+                        if should_capture_grounded_tool_output(&name, is_error) {
+                            app.recent_grounded_results.push((name.clone(), result.clone()));
+                            if app.recent_grounded_results.len() > 4 {
+                                app.recent_grounded_results.remove(0);
+                            }
                         }
                         let icon = if is_error { "[x]" } else { "[v]" };
                         let elapsed_chip = app
@@ -4684,16 +4886,19 @@ pub async fn run_app<B: Backend>(
                         }
                     }
                     InferenceEvent::EmbedProfile { model_id } => {
+                        let changed = app.embed_model_id != model_id;
                         app.embed_model_id = model_id.clone();
-                        match model_id {
-                            Some(id) => app.push_message(
-                                "System",
-                                &format!("Embed model loaded: {} (semantic search ready)", id),
-                            ),
-                            None => app.push_message(
-                                "System",
-                                "Embed model unloaded. Semantic search inactive.",
-                            ),
+                        if changed {
+                            match model_id {
+                                Some(id) => app.push_message(
+                                    "System",
+                                    &format!("Embed model loaded: {} (semantic search ready)", id),
+                                ),
+                                None => app.push_message(
+                                    "System",
+                                    "Embed model unloaded. Semantic search inactive.",
+                                ),
+                            }
                         }
                     }
                     InferenceEvent::VeinStatus { file_count, embedded_count, docs_only } => {
@@ -4989,8 +5194,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             context_display = vec![ListItem::new(" (No active files)")];
         }
 
+        let ctx_title = if sidebar_has_live_activity(app) {
+            " LIVE CONTEXT "
+        } else {
+            " SESSION CONTEXT "
+        };
+
         let ctx_block = Block::default()
-            .title(" ACTIVE CONTEXT ")
+            .title(ctx_title)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::DarkGray));
 
@@ -5002,9 +5213,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
         // ── SPECULAR panel (Pane 2) ────────────────────────────────────────────────
         let v_title = if app.thinking || app.agent_running {
-            format!(" SPECULAR [working] ")
+            " HEMATITE SIGNALS [live] ".to_string()
         } else {
-            " SPECULAR [Watching] ".to_string()
+            " HEMATITE SIGNALS [watching] ".to_string()
         };
 
         f.render_widget(Clear, side[1]);
@@ -5039,6 +5250,44 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                 if !raw.is_empty() {
                     v_lines.extend(render_markdown_line(raw));
                 }
+            }
+            v_lines.push(Line::raw(""));
+        } else {
+            v_lines.push(Line::from(vec![
+                Span::styled("• ", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    "Waiting for the next turn. Runtime, MCP, and index signals stay visible here.",
+                    Style::default().fg(Color::Gray),
+                ),
+            ]));
+            v_lines.push(Line::raw(""));
+        }
+
+        let signal_rows = sidebar_signal_rows(app);
+        if !signal_rows.is_empty() {
+            let section_title = if app.thinking || app.agent_running {
+                "-- Operator Signals --"
+            } else {
+                "-- Session Snapshot --"
+            };
+            v_lines.push(Line::from(vec![Span::styled(
+                section_title,
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::DIM),
+            )]));
+            for (row, color) in signal_rows
+                .iter()
+                .take(if app.thinking || app.agent_running {
+                    4
+                } else {
+                    3
+                })
+            {
+                v_lines.push(Line::from(vec![
+                    Span::styled("- ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(row.clone(), Style::default().fg(*color)),
+                ]));
             }
             v_lines.push(Line::raw(""));
         }
@@ -5093,7 +5342,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         }
 
         // Section: last completed turn's reasoning
-        if !app.last_reasoning.is_empty() {
+        if (app.thinking || app.agent_running) && !app.last_reasoning.is_empty() {
             v_lines.push(Line::from(vec![Span::styled(
                 "── Logic Trace ──",
                 Style::default()
@@ -5109,12 +5358,21 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         // Section: specular event log
         if !app.specular_logs.is_empty() {
             v_lines.push(Line::from(vec![Span::styled(
-                "── Events ──",
+                if app.thinking || app.agent_running {
+                    "── Live Events ──"
+                } else {
+                    "── Recent Events ──"
+                },
                 Style::default()
                     .fg(Color::White)
                     .add_modifier(Modifier::DIM),
             )]));
-            for log in &app.specular_logs {
+            let recent_logs: Vec<String> = if app.thinking || app.agent_running {
+                app.specular_logs.iter().rev().take(8).cloned().collect()
+            } else {
+                app.specular_logs.iter().rev().take(5).cloned().collect()
+            };
+            for log in recent_logs.into_iter().rev() {
                 let (icon, color) = if log.starts_with("ERROR") {
                     ("X ", Color::Red)
                 } else if log.starts_with("INDEX") {
@@ -5127,7 +5385,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                 v_lines.push(Line::from(vec![
                     Span::styled(icon, Style::default().fg(color)),
                     Span::styled(
-                        log.to_string(),
+                        log,
                         Style::default()
                             .fg(Color::White)
                             .add_modifier(Modifier::DIM),

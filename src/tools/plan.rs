@@ -491,6 +491,7 @@ pub fn save_plan_handoff_for_root(root: &Path, plan: &PlanHandoff) -> Result<(),
     let path = plan_path_for_root(root);
     fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
     fs::write(&path, plan.to_markdown()).map_err(|e| format!("Failed to write plan: {e}"))?;
+    seed_plan_support_files_for_root(root, plan)?;
     let _ = sync_structured_execution_plan_for_root(root, plan);
     Ok(())
 }
@@ -498,7 +499,9 @@ pub fn save_plan_handoff_for_root(root: &Path, plan: &PlanHandoff) -> Result<(),
 pub fn load_plan_handoff() -> Option<PlanHandoff> {
     let path = plan_path();
     let content = fs::read_to_string(path).ok()?;
-    parse_plan_handoff(&content)
+    let plan = parse_plan_handoff(&content)?;
+    let _ = seed_plan_support_files_for_root(&workspace_root(), &plan);
+    Some(plan)
 }
 
 pub fn write_teleport_resume_marker_for_root(root: &Path) -> Result<(), String> {
@@ -625,6 +628,40 @@ fn parse_bullets(section: &str) -> Vec<String> {
         })
         .filter(|s| !s.is_empty())
         .collect()
+}
+
+fn default_task_ledger_for_plan(plan: &PlanHandoff) -> String {
+    let mut content = String::from("# Task Ledger\n\n");
+    if plan.ordered_steps.is_empty() {
+        content.push_str("- [ ] Clarify the next implementation step\n");
+    } else {
+        for step in &plan.ordered_steps {
+            content.push_str("- [ ] ");
+            content.push_str(step.trim());
+            content.push('\n');
+        }
+    }
+    content
+}
+
+fn seed_plan_support_files_for_root(root: &Path, plan: &PlanHandoff) -> Result<(), String> {
+    let task_path = task_path_for_root(root);
+    if !task_path.exists()
+        || fs::read_to_string(&task_path)
+            .map(|content| content.trim().is_empty())
+            .unwrap_or(true)
+    {
+        fs::write(&task_path, default_task_ledger_for_plan(plan))
+            .map_err(|e| format!("Failed to seed task ledger: {e}"))?;
+    }
+
+    let walkthrough_path = root.join(".hematite").join("WALKTHROUGH.md");
+    if !walkthrough_path.exists() {
+        fs::write(&walkthrough_path, "")
+            .map_err(|e| format!("Failed to seed walkthrough file: {e}"))?;
+    }
+
+    Ok(())
 }
 
 /// Strip markdown formatting and parenthetical annotations from a bullet path.
@@ -806,5 +843,35 @@ mod tests {
         assert!(archived_content.contains("Add reliability notes"));
         assert!(tracker.contains("Add reliability notes"));
         assert!(read_active_plan_slug_for_root(root).is_none());
+    }
+
+    #[test]
+    fn save_plan_handoff_for_root_seeds_task_and_walkthrough_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        let plan = PlanHandoff {
+            goal: "Document the findings".to_string(),
+            target_files: vec!["index.html".to_string()],
+            ordered_steps: vec![
+                "Use `research_web` first to gather context.".to_string(),
+                "Write the single index.html deliverable.".to_string(),
+            ],
+            verification: "Open index.html".to_string(),
+            risks: vec![],
+            open_questions: vec![],
+        };
+
+        save_plan_handoff_for_root(root, &plan).unwrap();
+
+        let task = std::fs::read_to_string(task_path_for_root(root)).unwrap();
+        let walkthrough =
+            std::fs::read_to_string(root.join(".hematite").join("WALKTHROUGH.md")).unwrap();
+        let written_plan = std::fs::read_to_string(plan_path_for_root(root)).unwrap();
+        let parsed = parse_plan_handoff(&written_plan).unwrap();
+
+        assert!(task.contains("Use `research_web` first to gather context."));
+        assert!(task.contains("Write the single index.html deliverable."));
+        assert!(walkthrough.is_empty());
+        assert_eq!(parsed.target_files, vec!["index.html".to_string()]);
     }
 }

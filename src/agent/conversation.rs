@@ -231,17 +231,8 @@ fn load_session_data() -> SavedSession {
         .unwrap_or_default();
 
     let mut saved = saved;
-    if saved
-        .session_memory
-        .current_plan
-        .as_ref()
-        .map(|plan| plan.has_signal())
-        .unwrap_or(false)
-        == false
-    {
-        if let Some(plan) = crate::tools::plan::load_plan_handoff() {
-            saved.session_memory.current_plan = Some(plan);
-        }
+    if let Some(plan) = crate::tools::plan::load_plan_handoff() {
+        saved.session_memory.current_plan = Some(plan);
     }
     saved
 }
@@ -435,6 +426,159 @@ fn build_continue_plan_execution_prompt(progress: TaskChecklistProgress) -> Stri
         "Continue implementing the current plan. Read `.hematite/TASK.md` first, focus on the next unchecked items, and keep working until the checklist is complete or you hit one concrete blocker. There are currently {} unchecked checklist item(s) remaining.",
         progress.remaining
     )
+}
+
+fn build_force_plan_mutation_prompt(
+    progress: TaskChecklistProgress,
+    target_files: &[String],
+) -> String {
+    let targets = if target_files.is_empty() {
+        "the saved target files".to_string()
+    } else {
+        target_files
+            .iter()
+            .map(|path| format!("`{path}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    format!(
+        "You completed an implementation pass without mutating any target files, but `.hematite/TASK.md` still has {} unchecked item(s). This is not done. Read `.hematite/TASK.md`, inspect {}, and make a concrete implementation edit now. Do not summarize. If you still cannot mutate safely after grounding yourself in those files, surface exactly one concrete blocker.",
+        progress.remaining, targets
+    )
+}
+
+fn build_current_plan_scope_recovery_prompt(target_files: &[String]) -> String {
+    let targets = if target_files.is_empty() {
+        "the saved target files".to_string()
+    } else {
+        target_files
+            .iter()
+            .map(|path| format!("`{path}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    format!(
+        "STOP. You just tried to read or inspect something outside the saved current-plan targets. Stay inside {} only. Read `.hematite/TASK.md` or inspect one saved target file, then make progress there. Do not branch into unrelated files or docs/exec-plans paths.",
+        targets
+    )
+}
+
+fn build_task_ledger_closeout_prompt(
+    progress: TaskChecklistProgress,
+    target_files: &[String],
+) -> String {
+    let targets = if target_files.is_empty() {
+        "the saved target files".to_string()
+    } else {
+        target_files
+            .iter()
+            .map(|path| format!("`{path}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    format!(
+        "The deliverable files were already mutated, but `.hematite/TASK.md` still has {} unchecked item(s). This is not summary time yet. Read `.hematite/TASK.md`, verify the completed work in {}, then update the checklist to mark the finished items `[x]`. If needed, also write `.hematite/WALKTHROUGH.md`. Do not summarize until the task ledger reflects reality.",
+        progress.remaining, targets
+    )
+}
+
+fn should_suppress_recoverable_tool_result(
+    blocked_by_policy: bool,
+    recoverable_policy_intervention: bool,
+) -> bool {
+    blocked_by_policy && recoverable_policy_intervention
+}
+
+fn is_sovereign_scaffold_plan(plan: &crate::tools::plan::PlanHandoff) -> bool {
+    plan.goal
+        .to_ascii_lowercase()
+        .contains("sovereign scaffold task")
+}
+
+fn target_files_materialized(target_files: &[String]) -> bool {
+    if target_files.is_empty() {
+        return false;
+    }
+    target_files.iter().all(|path| {
+        let file = std::path::Path::new(path);
+        std::fs::metadata(file)
+            .map(|meta| meta.is_file() && meta.len() > 0)
+            .unwrap_or(false)
+    })
+}
+
+fn mark_all_task_ledger_items_complete() -> Result<TaskChecklistProgress, String> {
+    let path = task_status_path();
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read task ledger for closeout: {e}"))?;
+    let mut updated = String::new();
+    for line in content.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("- [ ]") {
+            let indent_len = line.len().saturating_sub(trimmed.len());
+            let indent = &line[..indent_len];
+            updated.push_str(indent);
+            updated.push_str(&line[indent_len..].replacen("- [ ]", "- [x]", 1));
+        } else if trimmed.starts_with("* [ ]") {
+            let indent_len = line.len().saturating_sub(trimmed.len());
+            let indent = &line[..indent_len];
+            updated.push_str(indent);
+            updated.push_str(&line[indent_len..].replacen("* [ ]", "* [x]", 1));
+        } else if trimmed.starts_with("+ [ ]") {
+            let indent_len = line.len().saturating_sub(trimmed.len());
+            let indent = &line[..indent_len];
+            updated.push_str(indent);
+            updated.push_str(&line[indent_len..].replacen("+ [ ]", "+ [x]", 1));
+        } else {
+            updated.push_str(line);
+        }
+        updated.push('\n');
+    }
+    std::fs::write(&path, updated)
+        .map_err(|e| format!("Failed to update task ledger during closeout: {e}"))?;
+    read_task_checklist_progress().ok_or_else(|| "Task ledger closeout re-read failed.".to_string())
+}
+
+fn write_minimal_walkthrough(summary: &str) -> Result<(), String> {
+    let path = crate::tools::file_ops::hematite_dir().join("WALKTHROUGH.md");
+    std::fs::write(&path, summary)
+        .map_err(|e| format!("Failed to write walkthrough during closeout: {e}"))
+}
+
+fn deterministic_sovereign_closeout_summary(
+    plan: &crate::tools::plan::PlanHandoff,
+    target_files: &[String],
+) -> String {
+    let targets = target_files
+        .iter()
+        .map(|path| format!("`{path}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "## Summary: Sovereign Scaffold Task Complete\n\n### What Was Built\nImplemented the sovereign scaffold deliverable in {}.\n\n### What Was Verified\n- Deliverable files exist and are non-empty\n- `.hematite/TASK.md` was updated to reflect completion\n- `.hematite/WALKTHROUGH.md` was written for session closeout\n\n### Plan Goal\n{}\n",
+        targets,
+        plan.goal.trim()
+    )
+}
+
+fn maybe_deterministic_sovereign_closeout(
+    plan: Option<&crate::tools::plan::PlanHandoff>,
+    mutation_occurred: bool,
+) -> Option<String> {
+    let plan = plan?;
+    if !mutation_occurred || !is_sovereign_scaffold_plan(plan) {
+        return None;
+    }
+    if !target_files_materialized(&plan.target_files) {
+        return None;
+    }
+    let progress = mark_all_task_ledger_items_complete().ok()?;
+    if progress.remaining != 0 {
+        return None;
+    }
+    let summary = deterministic_sovereign_closeout_summary(plan, &plan.target_files);
+    let _ = write_minimal_walkthrough(&summary);
+    Some(summary)
 }
 
 fn purge_persistent_memory() {
@@ -792,6 +936,13 @@ fn extract_explicit_web_search_query(input: &str) -> Option<String> {
     }
 }
 
+fn should_use_turn_scoped_investigation_mode(
+    workflow_mode: WorkflowMode,
+    primary_class: QueryIntentClass,
+) -> bool {
+    workflow_mode == WorkflowMode::Auto && primary_class == QueryIntentClass::Research
+}
+
 fn build_research_provider_fallback(results: &str) -> String {
     format!(
         "Local web search succeeded, but the model runtime degraded before it could synthesize a final answer. \
@@ -1079,12 +1230,32 @@ fn scaffold_protocol() -> &'static str {
 
 fn looks_like_static_site_request(input: &str) -> bool {
     let lower = input.to_ascii_lowercase();
-    (lower.contains("website") || lower.contains("landing page") || lower.contains("web page"))
+    let mentions_site_shape = lower.contains("website")
+        || lower.contains("landing page")
+        || lower.contains("web page")
+        || lower.contains("html website")
+        || lower.contains("html site")
+        || lower.contains("single index.html")
+        || lower.contains("index.html")
+        || lower.contains("single file html")
+        || lower.contains("single-file html")
+        || lower.contains("single html file");
+    mentions_site_shape
         && (lower.contains("html")
             || lower.contains("css")
             || lower.contains("javascript")
             || lower.contains("js")
+            || lower.contains("index.html")
             || !lower.contains("react"))
+}
+
+fn prefers_single_file_html_site(input: &str) -> bool {
+    let lower = input.to_ascii_lowercase();
+    lower.contains("single index.html")
+        || lower.contains("index.html")
+        || lower.contains("single file html")
+        || lower.contains("single-file html")
+        || lower.contains("single html file")
 }
 
 fn sanitize_project_folder_name(raw: &str) -> String {
@@ -1147,8 +1318,10 @@ fn default_sovereign_scaffold_targets(user_input: &str) -> std::collections::BTr
     let mut targets = std::collections::BTreeSet::new();
     if looks_like_static_site_request(user_input) {
         targets.insert("index.html".to_string());
-        targets.insert("style.css".to_string());
-        targets.insert("script.js".to_string());
+        if !prefers_single_file_html_site(user_input) {
+            targets.insert("style.css".to_string());
+            targets.insert("script.js".to_string());
+        }
     }
     targets
 }
@@ -1218,11 +1391,20 @@ fn build_sovereign_scaffold_handoff(
         );
     }
     let verification = if looks_like_static_site_request(user_input) {
-        steps.insert(
-            1,
-            "Make sure index.html, style.css, and script.js stay linked correctly and that the layout remains responsive on desktop and mobile.".to_string(),
-        );
-        "Open and inspect the generated front-end files in this root, confirm cross-file links are valid, and verify the page is coherent and responsive without using repo-root workflows.".to_string()
+        if prefers_single_file_html_site(user_input) {
+            steps.insert(
+                1,
+                "Keep the deliverable to a single `index.html` file with inline structure/content that explains the research clearly and reads well on desktop and mobile."
+                    .to_string(),
+            );
+            "Open and inspect `index.html` in this root, confirm the page is coherent, self-contained, and responsive without relying on extra front-end files or repo-root workflows.".to_string()
+        } else {
+            steps.insert(
+                1,
+                "Make sure index.html, style.css, and script.js stay linked correctly and that the layout remains responsive on desktop and mobile.".to_string(),
+            );
+            "Open and inspect the generated front-end files in this root, confirm cross-file links are valid, and verify the page is coherent and responsive without using repo-root workflows.".to_string()
+        }
     } else {
         "Use only project-appropriate verification scoped to this root. Avoid unrelated repo workflows; verify the generated files are internally consistent before stopping.".to_string()
     };
@@ -3377,14 +3559,11 @@ impl ConversationManager {
         });
         let intent = classify_query_intent(self.workflow_mode, &effective_user_input);
 
-        // Seamless Search Handover: Transition to ASK mode if research is detected in AUTO.
-        if self.workflow_mode == WorkflowMode::Auto
-            && intent.primary_class == QueryIntentClass::Research
-        {
-            self.set_workflow_mode(WorkflowMode::Ask);
+        // Seamless Search Handover: investigation mode is turn-scoped in AUTO.
+        if should_use_turn_scoped_investigation_mode(self.workflow_mode, intent.primary_class) {
             let _ = tx
                 .send(InferenceEvent::Thought(
-                    "Seamless search detected: transitioning to investigation mode...".into(),
+                    "Seamless search detected: using investigation mode for this turn...".into(),
                 ))
                 .await;
         }
@@ -5125,14 +5304,19 @@ impl ConversationManager {
                         return Ok(());
                     }
 
-                    let _ = tx
-                        .send(InferenceEvent::ToolCallResult {
-                            id: call_id.clone(),
-                            name: tool_name.clone(),
-                            result: final_output.clone(),
-                            is_error,
-                        })
-                        .await;
+                    if !should_suppress_recoverable_tool_result(
+                        res.blocked_by_policy,
+                        recoverable_policy_intervention.is_some(),
+                    ) {
+                        let _ = tx
+                            .send(InferenceEvent::ToolCallResult {
+                                id: call_id.clone(),
+                                name: tool_name.clone(),
+                                result: final_output.clone(),
+                                is_error,
+                            })
+                            .await;
+                    }
 
                     let repeat_guard_exempt = matches!(
                         tool_name.as_str(),
@@ -5335,6 +5519,29 @@ impl ConversationManager {
                             OperatorCheckpointState::BlockedPolicy,
                             format!(
                                 "Current-plan execution blocked unrelated tool `{}`.",
+                                tool_name
+                            ),
+                        ));
+                    } else if res.blocked_by_policy
+                        && implement_current_plan
+                        && final_output.contains(
+                            "current-plan execution is locked to the saved target files",
+                        )
+                        && recoverable_policy_intervention.is_none()
+                    {
+                        let target_files = self
+                            .session_memory
+                            .current_plan
+                            .as_ref()
+                            .map(|plan| plan.target_files.clone())
+                            .unwrap_or_default();
+                        recoverable_policy_intervention =
+                            Some(build_current_plan_scope_recovery_prompt(&target_files));
+                        recoverable_policy_recipe = Some(RecoveryScenario::CurrentPlanScopeBlocked);
+                        recoverable_policy_checkpoint = Some((
+                            OperatorCheckpointState::BlockedPolicy,
+                            format!(
+                                "Current-plan execution blocked off-target path access via `{}`.",
                                 tool_name
                             ),
                         ));
@@ -5672,6 +5879,18 @@ impl ConversationManager {
                     // Nudge budget exhausted — surface as a recoverable empty-response failure
                     // so the TUI unblocks instead of hanging for the full max_iters budget.
                     let class = RuntimeFailureClass::EmptyModelResponse;
+                    if let Some(summary) = maybe_deterministic_sovereign_closeout(
+                        self.session_memory.current_plan.as_ref(),
+                        mutation_occurred,
+                    ) {
+                        self.history.push(ChatMessage::assistant_text(&summary));
+                        self.transcript.log_agent(&summary);
+                        for chunk in chunk_text(&summary, 8) {
+                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                        }
+                        let _ = tx.send(InferenceEvent::Done).await;
+                        return Ok(());
+                    }
                     self.emit_runtime_failure(
                         &tx,
                         class,
@@ -5757,6 +5976,24 @@ impl ConversationManager {
                     }
                 }
 
+                if implement_current_plan
+                    && mutation_occurred
+                    && matches!(class, RuntimeFailureClass::EmptyModelResponse)
+                {
+                    if let Some(summary) = maybe_deterministic_sovereign_closeout(
+                        self.session_memory.current_plan.as_ref(),
+                        mutation_occurred,
+                    ) {
+                        self.history.push(ChatMessage::assistant_text(&summary));
+                        self.transcript.log_agent(&summary);
+                        for chunk in chunk_text(&summary, 8) {
+                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                        }
+                        let _ = tx.send(InferenceEvent::Done).await;
+                        return Ok(());
+                    }
+                }
+
                 self.emit_runtime_failure(&tx, class, detail).await;
                 break;
             }
@@ -5791,6 +6028,65 @@ impl ConversationManager {
                     attached_image: None,
                 };
                 return Box::pin(self.run_turn(&synthetic_turn, tx.clone(), false)).await;
+            }
+        }
+
+        if implement_current_plan
+            && !visible_closeout_emitted
+            && turn_mutated_paths.is_empty()
+            && current_plan_pass == 1
+        {
+            if let Some(progress) = task_progress_after.filter(|progress| progress.has_open_items()) {
+                let target_files = self
+                    .session_memory
+                    .current_plan
+                    .as_ref()
+                    .map(|plan| plan.target_files.clone())
+                    .unwrap_or_default();
+                let _ = tx
+                    .send(InferenceEvent::Thought(
+                        "No target files were mutated during the first current-plan pass. Forcing one grounded implementation retry before allowing summary mode."
+                            .to_string(),
+                    ))
+                    .await;
+                let synthetic_turn = UserTurn {
+                    text: build_force_plan_mutation_prompt(progress, &target_files),
+                    attached_document: None,
+                    attached_image: None,
+                };
+                return Box::pin(self.run_turn(&synthetic_turn, tx.clone(), false)).await;
+            }
+        }
+
+        if implement_current_plan
+            && !visible_closeout_emitted
+            && !turn_mutated_paths.is_empty()
+            && current_plan_pass <= 2
+        {
+            if let (Some(before), Some(after)) = (task_progress_before, task_progress_after) {
+                if after.has_open_items()
+                    && after.remaining == before.remaining
+                    && after.completed == before.completed
+                {
+                    let target_files = self
+                        .session_memory
+                        .current_plan
+                        .as_ref()
+                        .map(|plan| plan.target_files.clone())
+                        .unwrap_or_default();
+                    let _ = tx
+                        .send(InferenceEvent::Thought(
+                            "Implementation mutated target files, but the task ledger did not advance. Forcing one closeout pass to update `.hematite/TASK.md` before summary mode."
+                                .to_string(),
+                        ))
+                        .await;
+                    let synthetic_turn = UserTurn {
+                        text: build_task_ledger_closeout_prompt(after, &target_files),
+                        attached_document: None,
+                        attached_image: None,
+                    };
+                    return Box::pin(self.run_turn(&synthetic_turn, tx.clone(), false)).await;
+                }
             }
         }
 
@@ -7319,6 +7615,27 @@ impl ConversationManager {
             .find(|message| message.role == "user")
             .map(|message| message.content.as_str());
         rewrite_host_tool_call(&mut call.name, &mut args, last_user_prompt);
+        if self
+            .plan_execution_active
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            let fallback_target = self
+                .session_memory
+                .current_plan
+                .as_ref()
+                .and_then(|plan| plan.target_files.first().map(String::as_str));
+            let explicit_query = last_user_prompt.and_then(extract_explicit_web_search_query);
+            if let Some((repaired_args, note)) = repaired_plan_tool_args(
+                &call.name,
+                &args,
+                std::path::Path::new(".hematite/TASK.md").exists(),
+                fallback_target,
+                explicit_query.as_deref(),
+            ) {
+                args = repaired_args;
+                let _ = tx.send(InferenceEvent::Thought(note)).await;
+            }
+        }
 
         let display = format_tool_display(&call.name, &args);
         let precondition_result = self.validate_action_preconditions(&call.name, &args).await;
@@ -8515,6 +8832,78 @@ fn chunk_text(text: &str, words_per_chunk: usize) -> Vec<String> {
     chunks
 }
 
+fn repaired_plan_tool_args(
+    tool_name: &str,
+    args: &Value,
+    task_file_exists: bool,
+    fallback_target: Option<&str>,
+    explicit_query: Option<&str>,
+) -> Option<(Value, String)> {
+    match tool_name {
+        "read_file" | "inspect_lines" => {
+            let has_path = args
+                .as_object()
+                .and_then(|map| map.get("path"))
+                .and_then(|v| v.as_str())
+                .map(|s| !s.trim().is_empty())
+                .unwrap_or(false);
+            if has_path {
+                return None;
+            }
+
+            let target = if task_file_exists {
+                Some(".hematite/TASK.md")
+            } else {
+                fallback_target
+            }?;
+            let mut repaired = if args.is_object() {
+                args.clone()
+            } else {
+                Value::Object(serde_json::Map::new())
+            };
+            let map = repaired.as_object_mut()?;
+            map.insert("path".to_string(), Value::String(target.to_string()));
+            Some((
+                repaired,
+                format!(
+                    "Recovered malformed `{}` call during current-plan execution by grounding it to `{}`.",
+                    tool_name, target
+                ),
+            ))
+        }
+        "research_web" => {
+            let has_query = args
+                .as_object()
+                .and_then(|map| map.get("query"))
+                .and_then(|v| v.as_str())
+                .map(|s| !s.trim().is_empty())
+                .unwrap_or(false);
+            if has_query {
+                return None;
+            }
+            let query = explicit_query?.trim();
+            if query.is_empty() {
+                return None;
+            }
+            let mut repaired = if args.is_object() {
+                args.clone()
+            } else {
+                Value::Object(serde_json::Map::new())
+            };
+            let map = repaired.as_object_mut()?;
+            map.insert("query".to_string(), Value::String(query.to_string()));
+            Some((
+                repaired,
+                format!(
+                    "Recovered malformed `research_web` call during current-plan execution by restoring query `{}`.",
+                    query
+                ),
+            ))
+        }
+        _ => None,
+    }
+}
+
 fn repeated_read_target(call: &crate::agent::inference::ToolCallFn) -> Option<String> {
     if call.name != "read_file" {
         return None;
@@ -8757,6 +9146,22 @@ mod tests {
             ),
             Some("uefn toolbelt".to_string())
         );
+    }
+
+    #[test]
+    fn auto_research_handover_is_turn_scoped_only() {
+        assert!(should_use_turn_scoped_investigation_mode(
+            WorkflowMode::Auto,
+            QueryIntentClass::Research
+        ));
+        assert!(!should_use_turn_scoped_investigation_mode(
+            WorkflowMode::Ask,
+            QueryIntentClass::Research
+        ));
+        assert!(!should_use_turn_scoped_investigation_mode(
+            WorkflowMode::Auto,
+            QueryIntentClass::RepoArchitecture
+        ));
     }
 
     #[test]
@@ -9384,6 +9789,34 @@ mod tests {
     }
 
     #[test]
+    fn single_file_html_sovereign_targets_only_index() {
+        let targets = default_sovereign_scaffold_targets(
+            "google uefn toolbelt then make a folder on my desktop called yourtask and inside it create a single index.html that explains what you found",
+        );
+
+        assert!(targets.contains("index.html"));
+        assert!(!targets.contains("style.css"));
+        assert!(!targets.contains("script.js"));
+    }
+
+    #[test]
+    fn single_file_html_handoff_verification_mentions_self_contained_index() {
+        let mut targets = std::collections::BTreeSet::new();
+        targets.insert("index.html".to_string());
+        let plan = build_sovereign_scaffold_handoff(
+            "google uefn toolbelt then make a folder on my desktop called yourtask and inside it create a single index.html that explains what you found",
+            &targets,
+        );
+
+        assert!(plan.verification.contains("index.html"));
+        assert!(plan.verification.contains("self-contained"));
+        assert!(plan
+            .ordered_steps
+            .iter()
+            .any(|step| step.contains("single `index.html` file")));
+    }
+
+    #[test]
     fn plan_handoff_mentions_tool_detects_research_steps() {
         let plan = crate::tools::plan::PlanHandoff {
             goal: "Build the site".into(),
@@ -9426,6 +9859,140 @@ Plain paragraph
         assert!(allowed
             .iter()
             .any(|path| path.ends_with("/.hematite/plan.md")));
+    }
+
+    #[test]
+    fn repaired_plan_tool_args_recovers_empty_read_to_task_ledger() {
+        let args = serde_json::json!({});
+        let (repaired, note) =
+            repaired_plan_tool_args("read_file", &args, true, Some("index.html"), None).unwrap();
+
+        assert_eq!(
+            repaired.get("path").and_then(|v| v.as_str()),
+            Some(".hematite/TASK.md")
+        );
+        assert!(note.contains(".hematite/TASK.md"));
+    }
+
+    #[test]
+    fn repaired_plan_tool_args_recovers_empty_research_query() {
+        let args = serde_json::json!({});
+        let (repaired, note) = repaired_plan_tool_args(
+            "research_web",
+            &args,
+            true,
+            Some("index.html"),
+            Some("uefn toolbelt"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            repaired.get("query").and_then(|v| v.as_str()),
+            Some("uefn toolbelt")
+        );
+        assert!(note.contains("uefn toolbelt"));
+    }
+
+    #[test]
+    fn repaired_plan_tool_args_recovers_non_object_read_call() {
+        let args = serde_json::json!("");
+        let (repaired, _) =
+            repaired_plan_tool_args("read_file", &args, true, Some("index.html"), None).unwrap();
+
+        assert_eq!(
+            repaired.get("path").and_then(|v| v.as_str()),
+            Some(".hematite/TASK.md")
+        );
+    }
+
+    #[test]
+    fn force_plan_mutation_prompt_names_target_files() {
+        let prompt = build_force_plan_mutation_prompt(
+            TaskChecklistProgress {
+                total: 5,
+                completed: 0,
+                remaining: 5,
+            },
+            &["index.html".to_string()],
+        );
+
+        assert!(prompt.contains(".hematite/TASK.md"));
+        assert!(prompt.contains("`index.html`"));
+        assert!(prompt.contains("Do not summarize"));
+    }
+
+    #[test]
+    fn current_plan_scope_recovery_prompt_names_saved_targets() {
+        let prompt =
+            build_current_plan_scope_recovery_prompt(&["index.html".to_string()]);
+
+        assert!(prompt.contains("`index.html`"));
+        assert!(prompt.contains(".hematite/TASK.md"));
+        assert!(prompt.contains("Do not branch into unrelated files"));
+    }
+
+    #[test]
+    fn task_ledger_closeout_prompt_demands_checklist_update() {
+        let prompt = build_task_ledger_closeout_prompt(
+            TaskChecklistProgress {
+                total: 5,
+                completed: 0,
+                remaining: 5,
+            },
+            &["index.html".to_string()],
+        );
+
+        assert!(prompt.contains(".hematite/TASK.md"));
+        assert!(prompt.contains("`index.html`"));
+        assert!(prompt.contains("Do not summarize"));
+        assert!(prompt.contains("`[x]`"));
+    }
+
+    #[test]
+    fn suppresses_recoverable_blocked_tool_result_only_when_redirect_exists() {
+        assert!(should_suppress_recoverable_tool_result(true, true));
+        assert!(!should_suppress_recoverable_tool_result(true, false));
+        assert!(!should_suppress_recoverable_tool_result(false, true));
+    }
+
+    #[test]
+    fn sovereign_closeout_detects_materialized_targets() {
+        let temp = tempfile::tempdir().unwrap();
+        let previous = std::env::current_dir().unwrap();
+        std::env::set_current_dir(temp.path()).unwrap();
+        std::fs::write("index.html", "<html>ok</html>").unwrap();
+
+        assert!(target_files_materialized(&["index.html".to_string()]));
+
+        std::env::set_current_dir(previous).unwrap();
+    }
+
+    #[test]
+    fn deterministic_sovereign_closeout_returns_summary_when_targets_exist() {
+        let temp = tempfile::tempdir().unwrap();
+        let previous = std::env::current_dir().unwrap();
+        std::env::set_current_dir(temp.path()).unwrap();
+        std::fs::create_dir_all(".hematite").unwrap();
+        std::fs::write("index.html", "<html>ok</html>").unwrap();
+        std::fs::write(".hematite/TASK.md", "# Task Ledger\n\n- [ ] Build index\n").unwrap();
+        std::fs::write(".hematite/WALKTHROUGH.md", "").unwrap();
+
+        let plan = crate::tools::plan::PlanHandoff {
+            goal: "Continue the sovereign scaffold task in this new project root".to_string(),
+            target_files: vec!["index.html".to_string()],
+            ordered_steps: vec!["Build index".to_string()],
+            verification: "Open index.html".to_string(),
+            risks: vec![],
+            open_questions: vec![],
+        };
+
+        let summary = maybe_deterministic_sovereign_closeout(Some(&plan), true).unwrap();
+        let task = std::fs::read_to_string(".hematite/TASK.md").unwrap();
+
+        std::env::set_current_dir(previous).unwrap();
+
+        assert!(summary.contains("Sovereign Scaffold Task Complete"));
+        assert!(task.contains("- [x] Build index"));
     }
 
     #[test]
