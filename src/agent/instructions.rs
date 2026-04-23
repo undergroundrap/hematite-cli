@@ -218,9 +218,10 @@ pub fn activate_matching_skills<'a>(
 
         // 3. Trigger glob matches a file path mentioned in the query
         if !skill.triggers.is_empty() {
-            let trigger_hit = skill.triggers.iter().any(|pattern| {
-                query_paths.iter().any(|path| glob_matches(pattern, path))
-            });
+            let trigger_hit = skill
+                .triggers
+                .iter()
+                .any(|pattern| query_paths.iter().any(|path| glob_matches(pattern, path)));
             if trigger_hit {
                 matched.push(skill);
                 continue;
@@ -243,8 +244,7 @@ pub fn activate_matching_skills<'a>(
 fn glob_matches(pattern: &str, name: &str) -> bool {
     if let Some(ext_pattern) = pattern.strip_prefix("*.") {
         // *.ext — match the file extension
-        name.ends_with(&format!(".{}", ext_pattern))
-            || name == ext_pattern
+        name.ends_with(&format!(".{}", ext_pattern)) || name == ext_pattern
     } else if let Some(prefix) = pattern.strip_suffix('*') {
         name.starts_with(prefix)
     } else if pattern.contains('*') {
@@ -262,18 +262,18 @@ fn glob_matches(pattern: &str, name: &str) -> bool {
 fn workspace_stack_extensions(root: &std::path::Path) -> Vec<String> {
     let mut exts: Vec<String> = Vec::new();
     let markers: &[(&str, &[&str])] = &[
-        ("Cargo.toml",      &["x.rs"]),
-        ("go.mod",          &["x.go"]),
-        ("CMakeLists.txt",  &["x.cpp", "x.c", "x.h"]),
-        ("package.json",    &["x.ts", "x.js", "x.tsx", "x.jsx"]),
-        ("tsconfig.json",   &["x.ts", "x.tsx"]),
-        ("pyproject.toml",  &["x.py"]),
-        ("setup.py",        &["x.py"]),
-        ("requirements.txt",&["x.py"]),
-        ("Gemfile",         &["x.rb"]),
-        ("pom.xml",         &["x.java"]),
-        ("build.gradle",    &["x.java", "x.kt"]),
-        ("composer.json",   &["x.php"]),
+        ("Cargo.toml", &["x.rs"]),
+        ("go.mod", &["x.go"]),
+        ("CMakeLists.txt", &["x.cpp", "x.c", "x.h"]),
+        ("package.json", &["x.ts", "x.js", "x.tsx", "x.jsx"]),
+        ("tsconfig.json", &["x.ts", "x.tsx"]),
+        ("pyproject.toml", &["x.py"]),
+        ("setup.py", &["x.py"]),
+        ("requirements.txt", &["x.py"]),
+        ("Gemfile", &["x.rb"]),
+        ("pom.xml", &["x.java"]),
+        ("build.gradle", &["x.java", "x.kt"]),
+        ("composer.json", &["x.php"]),
     ];
     for (marker, file_exts) in markers {
         if root.join(marker).exists() {
@@ -287,14 +287,20 @@ fn workspace_stack_extensions(root: &std::path::Path) -> Vec<String> {
 /// plus `@mention` paths).
 fn extract_query_paths(query: &str) -> Vec<String> {
     let known_exts = [
-        "rs", "py", "ts", "js", "tsx", "jsx", "go", "cpp", "c", "h", "java", "kt",
-        "rb", "php", "swift", "cs", "md", "toml", "yaml", "yml", "json", "html",
-        "css", "scss", "sh", "pdf", "txt",
+        "rs", "py", "ts", "js", "tsx", "jsx", "go", "cpp", "c", "h", "java", "kt", "rb", "php",
+        "swift", "cs", "md", "toml", "yaml", "yml", "json", "html", "css", "scss", "sh", "pdf",
+        "txt",
     ];
     let mut paths = Vec::new();
     for token in query.split_whitespace() {
-        let token = token.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '/' && c != '_' && c != '-' && c != '@');
-        let effective = if token.starts_with('@') { &token[1..] } else { token };
+        let token = token.trim_matches(|c: char| {
+            !c.is_alphanumeric() && c != '.' && c != '/' && c != '_' && c != '-' && c != '@'
+        });
+        let effective = if token.starts_with('@') {
+            &token[1..]
+        } else {
+            token
+        };
         if let Some(ext) = effective.rsplit('.').next() {
             if known_exts.contains(&ext.to_lowercase().as_str()) {
                 paths.push(effective.to_string());
@@ -328,7 +334,10 @@ pub fn render_active_skill_bodies(
         }
         let section = format!("## Skill: {}\n{}", skill.name, body);
         let entry = if section.len() > remaining {
-            format!("{}\n... [skill body truncated]", &section[..remaining.saturating_sub(30)])
+            format!(
+                "{}\n... [skill body truncated]",
+                &section[..remaining.saturating_sub(30)]
+            )
         } else {
             section
         };
@@ -840,8 +849,7 @@ mod tests {
         assert!(text.contains("pdftotext"));
 
         // No match → None
-        let none =
-            render_active_skill_bodies(&discovery, "unrelated query about network", 8_000);
+        let none = render_active_skill_bodies(&discovery, "unrelated query about network", 8_000);
         assert!(none.is_none());
     }
 

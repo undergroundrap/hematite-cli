@@ -3193,7 +3193,10 @@ impl ConversationManager {
                 let available: Vec<&str> =
                     discovery.skills.iter().map(|s| s.name.as_str()).collect();
                 let msg = if available.is_empty() {
-                    format!("No skill named `{}` found. No skills are currently discovered.", skill_name)
+                    format!(
+                        "No skill named `{}` found. No skills are currently discovered.",
+                        skill_name
+                    )
                 } else {
                     format!(
                         "No skill named `{}` found. Available: {}",
@@ -4108,10 +4111,8 @@ impl ConversationManager {
         }
         if !tiny_context_mode {
             let workspace_root = crate::tools::file_ops::workspace_root();
-            let skill_discovery = crate::agent::instructions::discover_agent_skills(
-                &workspace_root,
-                &config.trust,
-            );
+            let skill_discovery =
+                crate::agent::instructions::discover_agent_skills(&workspace_root, &config.trust);
             if let Some(bodies) = crate::agent::instructions::render_active_skill_bodies(
                 &skill_discovery,
                 &effective_user_input,
@@ -4121,7 +4122,10 @@ impl ConversationManager {
             }
             // Inject any explicitly force-loaded skill from /skill <name>, then clear it.
             if let Some(forced_body) = self.pending_skill_inject.take() {
-                system_msg.push_str(&format!("\n\n# Active Skill Instructions\n\n{}", forced_body));
+                system_msg.push_str(&format!(
+                    "\n\n# Active Skill Instructions\n\n{}",
+                    forced_body
+                ));
             }
         }
         if !tiny_context_mode && implement_current_plan {
