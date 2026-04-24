@@ -4215,6 +4215,30 @@ pub(crate) fn is_capability_probe_tool(name: &str) -> bool {
     )
 }
 
+/// Returns true when the user's query is GitHub-related and should use `github_ops`.
+/// The model should never shell out to `gh` — use the dedicated tool instead.
+pub fn needs_github_ops(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("pull request")
+        || lower.contains("open pr")
+        || lower.contains("create pr")
+        || lower.contains("merge pr")
+        || lower.contains("list prs")
+        || lower.contains("list issues")
+        || lower.contains("open issue")
+        || lower.contains("create issue")
+        || lower.contains("github issue")
+        || lower.contains("ci status")
+        || lower.contains("ci run")
+        || lower.contains("github actions")
+        || lower.contains("workflow run")
+        || lower.contains("gh pr")
+        || lower.contains("gh issue")
+        || lower.contains("gh run")
+        || (lower.contains("check") && lower.contains("pr"))
+        || (lower.contains("status") && lower.contains("ci"))
+}
+
 /// Returns true when the user's query involves computation that must be exact —
 /// checksums, financial math, statistics, date arithmetic, algorithmic verification, etc.
 /// Used by the harness to inject a pre-turn nudge toward run_code instead of model memory.

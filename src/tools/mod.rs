@@ -5,6 +5,7 @@ pub mod file_edit;
 pub mod file_ops;
 pub mod git;
 pub mod git_onboarding;
+pub mod github;
 pub mod guard;
 pub mod hardening;
 pub mod health;

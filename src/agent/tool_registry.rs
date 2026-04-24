@@ -704,6 +704,39 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
         make_tool(
+            "github_ops",
+            "Interact with GitHub via the `gh` CLI. Requires `gh` installed and `gh auth login` completed. \
+             Use for pull requests, issues, CI run status, and repo metadata. \
+             Never use `shell` to call `gh` — use this tool instead.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "pr_list", "pr_view", "pr_create", "pr_status", "pr_checks", "pr_merge",
+                            "issue_list", "issue_view", "issue_create",
+                            "ci_status", "run_view",
+                            "repo_view", "release_list"
+                        ],
+                        "description": "GitHub operation to perform"
+                    },
+                    "title": { "type": "string", "description": "PR or issue title (for create actions)" },
+                    "body": { "type": "string", "description": "PR or issue body (for create actions)" },
+                    "base": { "type": "string", "description": "Base branch for PR (default: main)" },
+                    "draft": { "type": "boolean", "description": "Create PR as draft" },
+                    "pr": { "type": "string", "description": "PR number or URL (for view/checks/merge)" },
+                    "number": { "description": "Issue number (for issue_view)" },
+                    "state": { "type": "string", "enum": ["open", "closed", "all"], "description": "Filter state for listings" },
+                    "strategy": { "type": "string", "enum": ["merge", "squash", "rebase"], "description": "Merge strategy for pr_merge" },
+                    "branch": { "type": "string", "description": "Branch name for ci_status (defaults to current branch)" },
+                    "run_id": { "type": "string", "description": "Run ID for run_view" },
+                    "limit": { "type": "integer", "description": "Max results to return (default 10)" }
+                },
+                "required": ["action"]
+            }),
+        ),
+        make_tool(
             "git_commit",
             "Stage all changes (git add -A) and create a commit. You MUST use 'Conventional Commits' (e.g. 'feat: description').",
             serde_json::json!({
@@ -922,6 +955,7 @@ pub async fn dispatch_builtin_tool(
         "multi_search_replace" => crate::tools::file_ops::multi_search_replace(args).await,
         "list_files" => crate::tools::file_ops::list_files(args, budget_tokens).await,
         "grep_files" => crate::tools::file_ops::grep_files(args, budget_tokens).await,
+        "github_ops" => crate::tools::github::execute(args).await,
         "git_commit" => crate::tools::git::execute(args).await,
         "git_push" => crate::tools::git::execute_push(args).await,
         "git_remote" => crate::tools::git::execute_remote(args).await,
@@ -996,6 +1030,15 @@ pub fn get_mutation_label(name: &str, args: &Value) -> Option<String> {
         "edit_file" | "patch_hunk" | "multi_search_replace" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("file");
             Some(format!("Surgical Code Mutation: {}", path))
+        }
+        "github_ops" => {
+            let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("?");
+            match action {
+                "pr_create" | "pr_merge" | "issue_create" => {
+                    Some(format!("GitHub: {}", action))
+                }
+                _ => None,
+            }
         }
         "git_commit" => Some("Permanent Version History Commit".into()),
         "git_push" => Some("Remote Origin Synchronisation (Push)".into()),

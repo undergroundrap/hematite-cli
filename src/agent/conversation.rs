@@ -24,7 +24,7 @@ use crate::agent::recovery_recipes::{
 };
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
-    is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox,
+    is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_github_ops,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -3351,6 +3351,68 @@ impl ConversationManager {
             }
         }
 
+        // ── GitHub slash commands (harness-driven, no model) ─────────────────
+        {
+            let trimmed = user_input.trim();
+
+            // /pr [--draft] [title]
+            if trimmed == "/pr" || trimmed.starts_with("/pr ") {
+                let rest = trimmed.strip_prefix("/pr").unwrap_or("").trim();
+                let draft = rest.contains("--draft");
+                let title_part = rest
+                    .trim_start_matches("--draft")
+                    .trim();
+                let title = if title_part.is_empty() { None } else { Some(title_part) };
+                let msg = match crate::tools::github::create_pr_from_context(title, draft) {
+                    Ok(out) => out,
+                    Err(e) => format!("PR creation failed: {}", e),
+                };
+                for chunk in chunk_text(&msg, 8) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+                let _ = tx.send(InferenceEvent::Done).await;
+                return Ok(());
+            }
+
+            // /ci
+            if trimmed == "/ci" {
+                let msg = match crate::tools::github::ci_status_current() {
+                    Ok(out) if out.trim().is_empty() => {
+                        "No CI runs found for this branch. Push to GitHub and trigger a workflow first.".to_string()
+                    }
+                    Ok(out) => format!("## CI Status\n\n```\n{}\n```", out.trim()),
+                    Err(e) => format!("CI status failed: {}", e),
+                };
+                for chunk in chunk_text(&msg, 8) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+                let _ = tx.send(InferenceEvent::Done).await;
+                return Ok(());
+            }
+
+            // /issue
+            if trimmed == "/issue" || trimmed.starts_with("/issue ") {
+                let rest = trimmed.strip_prefix("/issue").unwrap_or("").trim();
+                let args = if rest.is_empty() {
+                    serde_json::json!({ "action": "issue_list", "limit": 10 })
+                } else if let Ok(n) = rest.parse::<u64>() {
+                    serde_json::json!({ "action": "issue_view", "number": n })
+                } else {
+                    serde_json::json!({ "action": "issue_list", "limit": 10, "state": rest })
+                };
+                let msg = match crate::tools::github::execute(&args).await {
+                    Ok(out) if out.trim().is_empty() => "No issues found.".to_string(),
+                    Ok(out) => format!("## Issues\n\n```\n{}\n```", out.trim()),
+                    Err(e) => format!("Issue lookup failed: {}", e),
+                };
+                for chunk in chunk_text(&msg, 8) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+                let _ = tx.send(InferenceEvent::Done).await;
+                return Ok(());
+            }
+        }
+
         // Reload config every turn (edits apply immediately, no restart needed).
         let config = crate::agent::config::load_config();
         self.recovery_context.clear();
@@ -4584,6 +4646,16 @@ impl ConversationManager {
         // a brief pre-turn reminder so the model reaches for run_code instead of
         // answering from training-data memory. Only fires when no harness pre-run
         // already set a loop_intervention.
+        if loop_intervention.is_none() && needs_github_ops(&effective_user_input) {
+            loop_intervention = Some(
+                "GITHUB TOOL NOTICE: This query is about GitHub (PRs, issues, CI runs, or checks). \
+                 Use the `github_ops` tool — never call `gh` via `shell`. \
+                 For a quick overview, try `/pr` (PR status), `/ci` (CI status), or `/issue` (issues). \
+                 The model should call `github_ops` with the appropriate `action` field."
+                    .to_string(),
+            );
+        }
+
         if loop_intervention.is_none() && needs_computation_sandbox(&effective_user_input) {
             loop_intervention = Some(
                 "COMPUTATION INTEGRITY NOTICE: This query involves precise numeric computation. \
