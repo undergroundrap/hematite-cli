@@ -8,6 +8,7 @@ pub mod direct_answers;
 pub mod economics;
 pub mod edge_redact;
 pub mod find_files;
+pub mod fix_recipes;
 pub mod fuzzy;
 pub mod git;
 pub mod git_context;

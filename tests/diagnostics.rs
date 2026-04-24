@@ -7208,7 +7208,7 @@ fn test_report_export_markdown_structure() {
 
 #[test]
 fn test_report_cli_flags_exist() {
-    // Smoke-test that --report and --report-format are valid CliCockpit fields.
+    // Smoke-test that --report, --report-format, and --diagnose are valid CliCockpit fields.
     use hematite::CliCockpit;
     use clap::CommandFactory;
     let cmd = CliCockpit::command();
@@ -7218,4 +7218,76 @@ fn test_report_cli_flags_exist() {
         .collect();
     assert!(flag_names.contains(&"report"), "--report flag missing from CliCockpit");
     assert!(flag_names.contains(&"report-format"), "--report-format flag missing from CliCockpit");
+    assert!(flag_names.contains(&"diagnose"), "--diagnose flag missing from CliCockpit");
+}
+
+// ── Fix recipes ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_fix_recipes_match_low_disk() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "disk: C: — very low free space (2 GB)";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match low disk recipe");
+    assert!(recipes.iter().any(|r| r.title.contains("disk")), "wrong recipe matched");
+}
+
+#[test]
+fn test_fix_recipes_match_no_internet() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "Internet Connectivity: unreachable — could not ping 1.1.1.1";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match no internet recipe");
+}
+
+#[test]
+fn test_fix_recipes_no_match_on_clean_output() {
+    use hematite::agent::fix_recipes::match_recipes;
+    // A genuine health_report ALL GOOD output has no trigger words
+    let output = "ALL GOOD — system is healthy\ncpu: 12%\nmemory: 4 GB used of 16 GB";
+    let recipes = match_recipes(output);
+    assert!(recipes.is_empty(), "clean output should not trigger any recipes");
+}
+
+#[test]
+fn test_fix_recipes_format_action_plan_healthy() {
+    use hematite::agent::fix_recipes::format_action_plan;
+    let sections: &[(&str, &str)] = &[
+        ("health_report", "ALL GOOD — no issues found"),
+    ];
+    let plan = format_action_plan(sections);
+    assert!(plan.contains("healthy") || plan.contains("healthy") || plan.to_ascii_lowercase().contains("no actionable"),
+        "healthy machine should produce 'no actionable findings' message");
+}
+
+#[test]
+fn test_fix_recipes_format_action_plan_with_issues() {
+    use hematite::agent::fix_recipes::format_action_plan;
+    let sections: &[(&str, &str)] = &[
+        ("health_report", "[!] Disk: C: — very low free space\n[!] Pending reboot required"),
+    ];
+    let plan = format_action_plan(sections);
+    assert!(plan.contains("ACTION") || plan.contains("INVESTIGATE"), "should have severity badges");
+    assert!(!plan.is_empty(), "should have non-empty plan for issues");
+}
+
+#[test]
+fn test_fix_recipes_action_sorted_before_monitor() {
+    use hematite::agent::fix_recipes::format_action_plan;
+    let sections: &[(&str, &str)] = &[
+        ("health_report", "high latency detected — ms rtt — high latency\ndisk: C: — very low free space"),
+    ];
+    let plan = format_action_plan(sections);
+    let action_pos = plan.find("ACTION");
+    let monitor_pos = plan.find("MONITOR");
+    if let (Some(a), Some(m)) = (action_pos, monitor_pos) {
+        assert!(a < m, "ACTION items should appear before MONITOR items");
+    }
+}
+
+#[test]
+fn test_fix_recipes_diagnose_report_wiring() {
+    // Verify generate_diagnosis_report is reachable (wiring/compile check).
+    use hematite::agent::report_export;
+    let _ = std::hint::black_box(report_export::generate_diagnosis_report as usize);
 }

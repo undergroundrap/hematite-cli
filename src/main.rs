@@ -68,6 +68,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if cockpit.diagnose {
+        let out = hematite::agent::report_export::generate_diagnosis_report().await;
+        print!("{}", out);
+        return Ok(());
+    }
+
     if let Some(path) = cockpit.pdf_extract_helper.as_deref() {
         let code = hematite::memory::vein::run_pdf_extract_helper(std::path::Path::new(path));
         std::process::exit(code);

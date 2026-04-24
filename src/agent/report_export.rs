@@ -40,6 +40,9 @@ pub async fn generate_report_markdown() -> String {
         sections.push((label, output));
     }
 
+    let section_refs: Vec<(&str, &str)> = sections.iter().map(|(l, o)| (*l, o.as_str())).collect();
+    let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
+
     let mut md = String::new();
     md.push_str("# Hematite Diagnostic Report\n\n");
     md.push_str(&format!("**Generated:** {}  \n", timestamp));
@@ -47,11 +50,79 @@ pub async fn generate_report_markdown() -> String {
     md.push_str(&format!("**Hematite:** v{}  \n\n", version));
     md.push_str("---\n\n");
 
+    md.push_str("## Action Plan\n\n");
+    md.push_str(&action_plan);
+    md.push_str("---\n\n");
+
     for (label, output) in &sections {
         md.push_str(&format!("## {}\n\n", label));
         md.push_str("```\n");
         md.push_str(output.trim_end());
         md.push_str("\n```\n\n");
+    }
+
+    md
+}
+
+/// Run a full staged diagnosis — health_report → triage → targeted follow-ups → fix recipes.
+/// No TUI, no model required. Output is self-contained markdown for cloud model ingestion.
+pub async fn generate_diagnosis_report() -> String {
+    let timestamp = now_timestamp_string();
+    let hostname = hostname_from_env();
+    let version = env!("CARGO_PKG_VERSION");
+
+    // Phase 1: health_report
+    let health_args = json!({"topic": "health_report"});
+    let health_output = match crate::tools::host_inspect::inspect_host(&health_args).await {
+        Ok(s) => s,
+        Err(e) => format!("Error running health_report: {}", e),
+    };
+
+    // Phase 2: triage — find which topics need deeper investigation
+    let follow_up_topics = crate::agent::diagnose::triage_follow_up_topics(&health_output);
+
+    // Phase 3: run each targeted follow-up
+    let mut follow_up_outputs: Vec<(&'static str, String)> = Vec::new();
+    for topic in &follow_up_topics {
+        let args = json!({"topic": topic});
+        let output = match crate::tools::host_inspect::inspect_host(&args).await {
+            Ok(s) => s,
+            Err(e) => format!("Error: {}", e),
+        };
+        follow_up_outputs.push((*topic, output));
+    }
+
+    // Build section refs for fix recipe matching
+    let mut section_refs: Vec<(&str, &str)> = vec![("health_report", health_output.as_str())];
+    for (topic, output) in &follow_up_outputs {
+        section_refs.push((*topic, output.as_str()));
+    }
+    let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
+
+    let mut md = String::new();
+    md.push_str("# Hematite Staged Diagnosis Report\n\n");
+    md.push_str(&format!("**Generated:** {}  \n", timestamp));
+    md.push_str(&format!("**Host:** {}  \n", hostname));
+    md.push_str(&format!("**Hematite:** v{}  \n\n", version));
+    md.push_str("---\n\n");
+
+    md.push_str("## Action Plan\n\n");
+    md.push_str(&action_plan);
+    md.push_str("---\n\n");
+
+    md.push_str("## System Health\n\n");
+    md.push_str("```\n");
+    md.push_str(health_output.trim_end());
+    md.push_str("\n```\n\n");
+
+    if !follow_up_outputs.is_empty() {
+        md.push_str("## Targeted Investigation\n\n");
+        for (topic, output) in &follow_up_outputs {
+            md.push_str(&format!("### {}\n\n", topic));
+            md.push_str("```\n");
+            md.push_str(output.trim_end());
+            md.push_str("\n```\n\n");
+        }
     }
 
     md

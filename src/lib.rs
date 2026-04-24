@@ -197,6 +197,12 @@ pub struct CliCockpit {
     )]
     pub report_format: String,
 
+    #[arg(
+        long,
+        help = "Run a full staged triage — no TUI, no model required. Runs health_report, identifies problems, runs targeted follow-up topics, and outputs a self-contained fix plan. Pipe to a file: hematite --diagnose > diagnosis.md"
+    )]
+    pub diagnose: bool,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
