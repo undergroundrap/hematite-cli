@@ -4428,23 +4428,32 @@ pub async fn run_app<B: Backend>(
                                             }
                                             "/export" => {
                                                 let fmt = parts.get(1).copied().unwrap_or("md").to_ascii_lowercase();
-                                                let use_json = fmt == "json";
-                                                app.push_message("System", if use_json {
-                                                    "Generating diagnostic report (JSON) — scanning 6 topics..."
-                                                } else {
-                                                    "Generating diagnostic report — scanning 6 topics..."
-                                                });
-                                                let path = if use_json {
-                                                    let (_, p) = crate::agent::report_export::save_report_json().await;
-                                                    p
-                                                } else {
-                                                    let (_, p) = crate::agent::report_export::save_report_markdown().await;
-                                                    p
+                                                let label = match fmt.as_str() {
+                                                    "json" => "JSON",
+                                                    "html" => "HTML",
+                                                    _ => "Markdown",
+                                                };
+                                                app.push_message("System", &format!(
+                                                    "Generating diagnostic report ({}) — scanning 6 topics...", label
+                                                ));
+                                                let path = match fmt.as_str() {
+                                                    "json" => {
+                                                        let (_, p) = crate::agent::report_export::save_report_json().await;
+                                                        p
+                                                    }
+                                                    "html" => {
+                                                        let (_, p) = crate::agent::report_export::save_report_html().await;
+                                                        p
+                                                    }
+                                                    _ => {
+                                                        let (_, p) = crate::agent::report_export::save_report_markdown().await;
+                                                        p
+                                                    }
                                                 };
                                                 let path_str = path.display().to_string();
                                                 copy_text_to_clipboard(&path_str);
                                                 app.push_message("System", &format!(
-                                                    "Report saved: {}\n(Path copied to clipboard — attach to a ticket or share with your team)",
+                                                    "Report saved: {}\n(Path copied to clipboard — open in browser or share with your team)",
                                                     path_str
                                                 ));
                                                 app.history_idx = None;

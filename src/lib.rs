@@ -193,7 +193,7 @@ pub struct CliCockpit {
     #[arg(
         long,
         default_value = "md",
-        help = "Output format for --report: 'md' (markdown, default) or 'json'"
+        help = "Output format for --report: 'md' (markdown, default), 'json', or 'html' (self-contained, double-clickable)"
     )]
     pub report_format: String,
 

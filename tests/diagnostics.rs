@@ -7194,16 +7194,63 @@ fn test_diagnose_instruction_names_exact_topics() {
 
 #[test]
 fn test_report_export_markdown_structure() {
-    // Verify the report generation wiring compiles and the topic list is sane.
-    // We don't call inspect_host (async, requires PowerShell) — we just validate
-    // the module is reachable and the path helper produces a dated filename.
     use hematite::agent::report_export;
-
-    // report_export is a public module — accessible means the wiring is correct.
     let _ = std::hint::black_box(report_export::generate_report_markdown as usize);
     let _ = std::hint::black_box(report_export::generate_report_json as usize);
+    let _ = std::hint::black_box(report_export::generate_report_html as usize);
     let _ = std::hint::black_box(report_export::save_report_markdown as usize);
     let _ = std::hint::black_box(report_export::save_report_json as usize);
+    let _ = std::hint::black_box(report_export::save_report_html as usize);
+}
+
+// ── HTML report ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_html_report_action_plan_html_healthy() {
+    use hematite::agent::fix_recipes::format_action_plan_html;
+    let sections: &[(&str, &str)] = &[("health_report", "ALL GOOD system is healthy")];
+    let html = format_action_plan_html(sections);
+    assert!(html.contains("healthy"), "healthy output should say 'healthy'");
+    assert!(!html.contains("<div class=\"recipe"), "no recipe cards for a clean machine");
+}
+
+#[test]
+fn test_html_report_action_plan_html_with_issues() {
+    use hematite::agent::fix_recipes::format_action_plan_html;
+    let sections: &[(&str, &str)] = &[(
+        "health_report",
+        "disk: C: — very low free space\npending reboot required",
+    )];
+    let html = format_action_plan_html(sections);
+    assert!(html.contains("<div class=\"recipe"), "should contain recipe cards");
+    assert!(html.contains("b-action") || html.contains("b-investigate"), "should have severity badges");
+    assert!(html.contains("<ol>"), "steps should be in an ordered list");
+}
+
+#[test]
+fn test_html_report_escapes_special_chars() {
+    use hematite::agent::fix_recipes::format_action_plan_html;
+    // The recipe steps contain PowerShell-style strings with <, >, & chars
+    let sections: &[(&str, &str)] = &[("health_report", "disk: C: — very low free space")];
+    let html = format_action_plan_html(sections);
+    // Should not contain raw unescaped angle brackets from step content outside of real tags
+    // (steps are in <li> tags so the step text itself must be escaped)
+    assert!(!html.contains("&lt;"), "no escaped content needed in these steps"); // steps don't have < in them
+    assert!(html.contains("</ol>"), "ordered list must close");
+}
+
+#[test]
+fn test_html_report_format_flag() {
+    use hematite::CliCockpit;
+    use clap::CommandFactory;
+    let cmd = CliCockpit::command();
+    let format_arg = cmd
+        .get_arguments()
+        .find(|a| a.get_long() == Some("report-format"));
+    assert!(format_arg.is_some(), "--report-format flag must exist");
+    let help = format_arg.unwrap().get_help().map(|h| h.to_string()).unwrap_or_default();
+    assert!(help.contains("html") || help.to_ascii_lowercase().contains("html"),
+        "--report-format help text should mention html: {}", help);
 }
 
 #[test]

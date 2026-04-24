@@ -59,8 +59,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if cockpit.report {
-        let out = if cockpit.report_format.trim().eq_ignore_ascii_case("json") {
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let out = if fmt == "json" {
             hematite::agent::report_export::generate_report_json().await
+        } else if fmt == "html" {
+            hematite::agent::report_export::generate_report_html().await
         } else {
             hematite::agent::report_export::generate_report_markdown().await
         };

@@ -342,3 +342,65 @@ pub fn format_action_plan(outputs: &[(&str, &str)]) -> String {
 
     out
 }
+
+/// Format all matching recipes as an HTML fragment for embedding in a report page.
+pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
+    let mut all_recipes: Vec<&Recipe> = Vec::new();
+    let mut seen_titles = std::collections::HashSet::new();
+
+    for (_label, output) in outputs {
+        for recipe in match_recipes(output) {
+            if seen_titles.insert(recipe.title) {
+                all_recipes.push(recipe);
+            }
+        }
+    }
+
+    if all_recipes.is_empty() {
+        return "<p class=\"healthy\">No actionable findings — machine appears healthy.</p>\n"
+            .to_string();
+    }
+
+    all_recipes.sort_by_key(|r| match r.severity {
+        "ACTION" => 0,
+        "INVESTIGATE" => 1,
+        _ => 2,
+    });
+
+    let mut out = String::new();
+    for (i, recipe) in all_recipes.iter().enumerate() {
+        let (sev_class, badge_class, badge_text) = match recipe.severity {
+            "ACTION" => ("sev-action", "b-action", "ACTION REQUIRED"),
+            "INVESTIGATE" => ("sev-investigate", "b-investigate", "INVESTIGATE"),
+            _ => ("sev-monitor", "b-monitor", "MONITOR"),
+        };
+        out.push_str(&format!("<div class=\"recipe {}\">\n", sev_class));
+        out.push_str(&format!(
+            "<h3><span class=\"badge {}\">{}</span> {}. {}</h3>\n",
+            badge_class,
+            badge_text,
+            i + 1,
+            he(recipe.title)
+        ));
+        out.push_str("<ol>\n");
+        for step in recipe.steps {
+            out.push_str(&format!("<li>{}</li>\n", he(step)));
+        }
+        out.push_str("</ol>\n");
+        if let Some(topic) = recipe.dig_deeper {
+            out.push_str(&format!(
+                "<p class=\"dig-deeper\">For more detail: run <code>inspect_host(topic=\"{}\")</code> or <code>/diagnose</code></p>\n",
+                he(topic)
+            ));
+        }
+        out.push_str("</div>\n");
+    }
+    out
+}
+
+fn he(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&#34;")
+}
