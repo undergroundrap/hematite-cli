@@ -307,7 +307,7 @@ impl SystemPromptBuilder {
         prompt.push_str("5. **Continuous Goal**: Continue your task until you have fulfilled the user's intent. Stay grounded in results.\n");
         prompt.push_str("6. **Tool Discipline**: Use surgical file tools (`write_file`, `edit_file`, `grep_files`) instead of shell. Overwriting code is blocked; use hunk-patching.\n");
         prompt.push_str("7. **Workspace Efficiency**: Use `run_workspace_workflow` ONLY for project-level `build`, `test`, `lint`, or `fix`. Do NOT use it for general coding or autonomy.\n");
-        prompt.push_str("8. **Host Inspection**: Use `inspect_host` ONLY for legitimate system diagnostics. Topics: hardware, security, network, updates, health_report, storage.\n");
+        prompt.push_str("8. **Host Inspection**: Use `inspect_host` ONLY for legitimate system diagnostics. Topics: hardware, security, network, updates, health_report, storage, storage_spaces, defender_quarantine.\n");
         prompt.push_str("9. **Proof Before Action**: ALWAYS `grep_files` for symbols and `read_file` to verify content before any edit.\n");
         prompt.push_str("10. **Proof Before Commit**: Run `verify_build` (or `workflow=build`) after all edits to confirm zero regressions.\n");
         prompt.push_str("11. **Edit Precision**: Match indentation and whitespace exactly in search/replace targets.\n");

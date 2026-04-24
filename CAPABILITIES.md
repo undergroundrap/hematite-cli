@@ -157,6 +157,8 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Overclocker Telemetry** (`overclocker`) — Precision real-time silicon performance: NVIDIA graphics/memory clocks, fan speeds, board power draw and power-cap context (W), explicit GPU-voltage availability reporting, firmware-reported CPU voltage when WMI exposes it, root-cause throttle decoding (Power vs Thermal), and **Session History** (in-memory trends/anomalies) identifying hardware drift since startup.
 - **Authoritative Directory Audit** (`directory`, `desktop`, `downloads`, `music`, `videos`, `pictures`) — High-precision directory listing using OS-level tokens; instantly routes to surgical tools via the deterministic intent engine.
 - **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths.
+- **Storage Spaces / Windows RAID** (`storage_spaces`) — Windows Storage Spaces pool inventory: pool name, health, operational status, resiliency type (Simple/Mirror/Parity), virtual disk health, physical disk member count and media type; Linux fallback reads `/proc/mdstat` and `lvs` for software RAID and LVM; reports gracefully when no pools exist
+- **Defender Quarantine / Threat History** (`defender_quarantine`) — Windows Defender threat detection history: threat name, severity, action taken (Quarantine/Remove/Allow), detection timestamp, affected file path, and current remediation status; also covers recent real-time protection and scan activity from `Get-MpComputerStatus`; Linux fallback checks ClamAV quarantine log
 
 **Network Admin topics (28+):**
 
