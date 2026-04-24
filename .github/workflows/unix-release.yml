@@ -70,46 +70,25 @@ jobs:
         shell: bash
         run: |
           mkdir -p ~/.cache/ort-lib
-          ORT_URL="https://cdn.pyke.io/0/pyke:ort-rs/ms@1.24.2/x86_64-unknown-linux-gnu.tar.lzma2"
-          for attempt in 1 2 3 4 5; do
-            echo "ORT download attempt $attempt of 5..."
-            curl -fSL --max-time 120 -o /tmp/ort.tar.lzma2 "$ORT_URL" && DOWNLOADED=1 && break
-            DOWNLOADED=0
-            [ $attempt -lt 5 ] && echo "Failed, retrying in 60s..." && sleep 60
-          done
-          if [ "${DOWNLOADED:-0}" = "0" ]; then
-            echo "::warning::ORT pre-fetch failed — build will attempt inline download"
-            exit 0
-          fi
-          python3 - <<'PYEOF'
-import lzma, tarfile, pathlib, sys
-dest = pathlib.Path.home() / ".cache/ort-lib"
-dest.mkdir(parents=True, exist_ok=True)
-try:
-    with lzma.open("/tmp/ort.tar.lzma2") as f:
-        with tarfile.open(fileobj=f) as tar:
-            tar.extractall(dest)
-    matches = sorted(dest.rglob("libonnxruntime.so*"))
-    if matches:
-        print(f"ORT library ready: {matches[0]}")
-    else:
-        print("WARNING: libonnxruntime.so not found after extraction", file=sys.stderr)
-        sys.exit(1)
-except Exception as e:
-    print(f"Extraction error: {e}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
+          # cdn.pyke.io Linux binary is currently unreachable globally (confirmed 504).
+          # Use Microsoft's official GitHub release as a reliable alternative.
+          GH_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.24.2/onnxruntime-linux-x64-1.24.2.tgz"
+          echo "Downloading ORT 1.24.2 from Microsoft GitHub releases..."
+          curl -fSL --retry 3 --retry-delay 10 --max-time 180 -L -o /tmp/ort.tgz "$GH_URL"
+          tar -xzf /tmp/ort.tgz -C ~/.cache/ort-lib --strip-components=1
+          ls ~/.cache/ort-lib/lib/libonnxruntime* 2>/dev/null || echo "WARNING: libonnxruntime not found after extraction"
 
       - name: Set ORT_LIB_LOCATION (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          LIB_DIR=$(find ~/.cache/ort-lib -name "libonnxruntime.so" -exec dirname {} \; 2>/dev/null | head -1)
-          if [ -n "$LIB_DIR" ]; then
-            echo "ORT_LIB_LOCATION=$LIB_DIR" >> "$GITHUB_ENV"
-            echo "ORT_LIB_LOCATION=$LIB_DIR"
+          ORT_LIB="$HOME/.cache/ort-lib/lib/libonnxruntime.so"
+          if [ -f "$ORT_LIB" ]; then
+            echo "ORT_LIB_LOCATION=$HOME/.cache/ort-lib/lib" >> "$GITHUB_ENV"
+            echo "ORT_LIB_LOCATION=$HOME/.cache/ort-lib/lib"
           else
-            echo "::warning::ORT cache empty — build will download from CDN"
+            echo "::warning::ORT cache empty or unexpected layout - build will download from CDN"
+            ls ~/.cache/ort-lib/ 2>/dev/null || true
           fi
 
       - name: Build portable archive
