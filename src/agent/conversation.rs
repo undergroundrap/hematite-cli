@@ -1610,6 +1610,8 @@ pub struct ConversationManager {
     pending_skill_inject: Option<String>,
     /// Recent shell command history — loaded once at session start, injected into system prompt.
     shell_history_block: Option<String>,
+    /// Error context loaded by `/fix` — injected as a focused intervention on the next turn.
+    pending_fix_context: Option<String>,
 }
 
 impl ConversationManager {
@@ -2215,6 +2217,7 @@ impl ConversationManager {
             last_heartbeat: None,
             pending_skill_inject: None,
             shell_history_block: crate::agent::shell_history::load_shell_history_block(),
+            pending_fix_context: None,
             diff_tracker: Arc::new(Mutex::new(
                 crate::agent::diff_tracker::TurnDiffTracker::new(),
             )),
@@ -3459,6 +3462,46 @@ impl ConversationManager {
             }
         }
 
+        // ── /fix — run verify_build now, load error into next-turn intervention ──
+        if user_input.trim() == "/fix" || user_input.trim() == "/fix --test" {
+            let action = if user_input.trim() == "/fix --test" { "test" } else { "build" };
+            let _ = tx
+                .send(InferenceEvent::Thought(format!(
+                    "Running verify_build({action}) to capture current error state..."
+                )))
+                .await;
+            let result =
+                crate::tools::verify_build::execute(&serde_json::json!({ "action": action }))
+                    .await;
+            let (ok, output) = match result {
+                Ok(out) => (true, out),
+                Err(e) => (false, e),
+            };
+            if ok {
+                for chunk in chunk_text(
+                    &format!("Build is clean — nothing to fix.\n\n```\n{}\n```", output.trim()),
+                    8,
+                ) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+            } else {
+                // Stream the error so the user sees it.
+                let capped: String = output.chars().take(3000).collect();
+                for chunk in chunk_text(
+                    &format!(
+                        "Build failed. Fix context loaded — send any message to start fixing.\n\n```\n{}\n```",
+                        capped.trim()
+                    ),
+                    8,
+                ) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+                self.pending_fix_context = Some(capped);
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         // Reload config every turn (edits apply immediately, no restart needed).
         let config = crate::agent::config::load_config();
         self.recovery_context.clear();
@@ -4700,6 +4743,19 @@ impl ConversationManager {
         // a brief pre-turn reminder so the model reaches for run_code instead of
         // answering from training-data memory. Only fires when no harness pre-run
         // already set a loop_intervention.
+        if loop_intervention.is_none() {
+            if let Some(fix_ctx) = self.pending_fix_context.take() {
+                loop_intervention = Some(format!(
+                    "FIX MODE — The build is currently failing. Fix ONLY the error below. \
+                     Do not refactor, add features, or touch unrelated code. \
+                     After each edit call `verify_build` to check if the error is resolved. \
+                     Stop as soon as the build is green.\n\n\
+                     ## Current Build Error\n```\n{}\n```",
+                    fix_ctx.trim()
+                ));
+            }
+        }
+
         if loop_intervention.is_none() && needs_github_ops(&effective_user_input) {
             loop_intervention = Some(
                 "GITHUB TOOL NOTICE: This query is about GitHub (PRs, issues, CI runs, or checks). \

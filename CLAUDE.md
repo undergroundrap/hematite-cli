@@ -72,6 +72,7 @@ pwsh ./clean.ps1
 - `/forget`: purge saved conversation memory and wipe visible session state
 - `/new`: reset session history while keeping project memory
 - `/compact`: immediately compact history in place — summarizes older turns, frees context, preserves active task and working set; safer than /new because nothing is lost
+- `/fix`: run `verify_build` immediately, stream the current error, then load it as a focused FIX MODE intervention that fires on the next turn — the model sees only the error and is instructed to fix it before doing anything else; `/fix --test` targets tests instead of build
 - `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, aliases like `@DESKTOP/project`, `..`, and absolute paths. If you want a numbered picker, run `/ls desktop` first and then `/ls <N>`.
 - `/ls`: show a numbered navigation map — common OS locations + subdirectories of the current directory. Type `/ls <N>` to teleport directly to entry N. `/ls <path>` lists subdirectories of any path.
 - `/ask [prompt]`: sticky read-only analysis mode
