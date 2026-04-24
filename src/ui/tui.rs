@@ -4400,6 +4400,32 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/diagnose" => {
+                                                app.push_message("You", "/diagnose");
+                                                app.push_message("System", "Running health triage...");
+                                                let health_args = serde_json::json!({"topic": "health_report"});
+                                                let health_output = crate::tools::host_inspect::inspect_host(&health_args)
+                                                    .await
+                                                    .unwrap_or_else(|e| format!("Error: {}", e));
+                                                let follow_ups = crate::agent::diagnose::triage_follow_up_topics(&health_output);
+                                                let n = follow_ups.len();
+                                                if n > 0 {
+                                                    app.push_message("System", &format!(
+                                                        "Triage complete — {} area(s) flagged. Handing off to agent for deep investigation...",
+                                                        n
+                                                    ));
+                                                } else {
+                                                    app.push_message("System", "Triage complete — machine looks healthy. Confirming with agent...");
+                                                }
+                                                let instruction = crate::agent::diagnose::build_diagnose_instruction(
+                                                    &health_output,
+                                                    &follow_ups,
+                                                );
+                                                app.agent_running = true;
+                                                let _ = app.user_input_tx.try_send(UserTurn::text(instruction));
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/export" => {
                                                 let fmt = parts.get(1).copied().unwrap_or("md").to_ascii_lowercase();
                                                 let use_json = fmt == "json";

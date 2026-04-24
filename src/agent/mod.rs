@@ -2,6 +2,7 @@ pub mod architecture_summary;
 pub mod compaction;
 pub mod config;
 pub mod conversation;
+pub mod diagnose;
 pub mod diff_tracker;
 pub mod direct_answers;
 pub mod economics;

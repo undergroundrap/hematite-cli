@@ -124,6 +124,7 @@ pwsh ./clean.ps1
 - `/diff`: show a diff of the last file edit made this session
 - `/undo`: undo the last file edit by restoring from the ghost backup
 - `/health`: run a quick workstation health check via `inspect_host(topic: "health_report")`
+- `/diagnose`: staged triage — harness runs `health_report` first, identifies which areas are flagged (disk, RAM, event log errors, security, etc.), then hands the agent a pre-built instruction naming exactly which topics to investigate; agent synthesizes a grounded numbered fix plan from real tool output; skips dev-environment "not installed" warnings (those are not system health issues)
 - `/export`: generate a self-contained markdown diagnostic report covering System Health, Hardware, Storage, Network, Security, and Toolchains — saves to `.hematite/reports/health-YYYY-MM-DD_HH-MM.md` and copies the path to clipboard; `/export json` outputs JSON instead
 - `/explain [prompt]`: explain the current file or selection in plain English
 - `/version`: show the running Hematite release version plus build state

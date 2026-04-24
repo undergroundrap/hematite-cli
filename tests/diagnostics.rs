@@ -7146,6 +7146,53 @@ fn test_scaffold_request_detection() {
 }
 
 #[test]
+fn test_diagnose_triage_all_good() {
+    use hematite::agent::diagnose::triage_follow_up_topics;
+    let health = "System Health Report — ALL GOOD\n\nLooking good:\n  [+] Disk: 200 GB free\n  [+] RAM: 16 GB free\n  [+] Dev tools found: Git, Rust / Cargo";
+    let topics = triage_follow_up_topics(health);
+    assert!(topics.is_empty(), "ALL GOOD should return no follow-up topics, got: {:?}", topics);
+}
+
+#[test]
+fn test_diagnose_triage_disk_action_required() {
+    use hematite::agent::diagnose::triage_follow_up_topics;
+    let health = "System Health Report — ACTION REQUIRED\n\nNeeds fixing:\n  [!] Disk: 1 GB free on C: (0% available)";
+    let topics = triage_follow_up_topics(health);
+    assert!(topics.contains(&"storage"), "disk [!] should trigger storage");
+    assert!(topics.contains(&"disk_health"), "disk [!] should trigger disk_health");
+}
+
+#[test]
+fn test_diagnose_triage_event_log_errors() {
+    use hematite::agent::diagnose::triage_follow_up_topics;
+    let health = "System Health Report — WORTH A LOOK\n\nWorth watching:\n  [-] 68 critical/error events in Windows event logs in the last 24 hours.";
+    let topics = triage_follow_up_topics(health);
+    assert!(topics.contains(&"log_check"), "event log errors should trigger log_check");
+}
+
+#[test]
+fn test_diagnose_triage_skips_toolchain_warnings() {
+    use hematite::agent::diagnose::triage_follow_up_topics;
+    let health = "System Health Report — WORTH A LOOK\n\nWorth watching:\n  [-] Not installed (or not on PATH): Python, npm — only matters if you need them";
+    let topics = triage_follow_up_topics(health);
+    // Dev tool "not installed" warnings should NOT trigger system health follow-up
+    assert!(!topics.contains(&"toolchains"), "toolchain warnings should not trigger follow-up");
+    assert!(!topics.contains(&"dev_conflicts"), "toolchain warnings should not trigger follow-up");
+}
+
+#[test]
+fn test_diagnose_instruction_names_exact_topics() {
+    use hematite::agent::diagnose::build_diagnose_instruction;
+    let health = "System Health Report — WORTH A LOOK\n\nWorth watching:\n  [-] 45 error events.";
+    let topics = &["log_check", "services"];
+    let instruction = build_diagnose_instruction(health, topics);
+    assert!(instruction.contains("log_check"), "instruction must name log_check");
+    assert!(instruction.contains("services"), "instruction must name services");
+    assert!(instruction.contains("PROTOCOL"), "instruction must include protocol header");
+    assert!(instruction.contains("numbered fix plan"), "instruction must request grounded fix plan");
+}
+
+#[test]
 fn test_report_export_markdown_structure() {
     // Verify the report generation wiring compiles and the topic list is sane.
     // We don't call inspect_host (async, requires PowerShell) — we just validate
