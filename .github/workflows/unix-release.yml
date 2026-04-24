@@ -63,42 +63,46 @@ jobs:
         id: cache-ort-lib
         with:
           path: ~/.cache/ort-lib
-          key: ort-ms-1.24.2-x86_64-linux
+          key: ort-ms-1.24.2-x86_64-linux-v3
 
       - name: Pre-fetch ORT library (Linux)
         if: runner.os == 'Linux' && steps.cache-ort-lib.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          mkdir -p ~/.cache/ort-lib
-          # cdn.pyke.io Linux binary is globally unreachable (confirmed 504 locally).
-          # Use Microsoft's official GitHub release instead.
+          rm -rf ~/.cache/ort-lib && mkdir -p ~/.cache/ort-lib
           GH_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.24.2/onnxruntime-linux-x64-1.24.2.tgz"
           echo "Downloading ORT 1.24.2 from Microsoft GitHub releases..."
           curl -fSL --retry 3 --retry-delay 10 --max-time 180 -L -o /tmp/ort.tgz "$GH_URL"
           tar -xzf /tmp/ort.tgz -C ~/.cache/ort-lib --strip-components=1
-          # Microsoft's release ships libonnxruntime.so.X.Y.Z but not the bare symlink.
-          # Create it so the linker can find the library by its base name.
-          cd ~/.cache/ort-lib/lib
-          if [ ! -f "libonnxruntime.so" ]; then
-            VERSIONED=$(ls libonnxruntime.so.* 2>/dev/null | head -1)
-            if [ -n "$VERSIONED" ]; then
-              ln -sf "$VERSIONED" libonnxruntime.so
-              echo "Created symlink: libonnxruntime.so -> $VERSIONED"
-            fi
+          echo "=== ORT extraction layout ==="
+          find ~/.cache/ort-lib -name "libonnxruntime*" | sort
+          echo "============================="
+          # Find the directory containing the versioned .so and ensure bare symlink exists
+          VERSIONED=$(find ~/.cache/ort-lib -name "libonnxruntime.so.*" -not -type l | head -1)
+          if [ -z "$VERSIONED" ]; then
+            echo "ERROR: libonnxruntime.so.* not found after extraction" >&2
+            exit 1
           fi
-          echo "ORT lib contents:"
-          ls -la ~/.cache/ort-lib/lib/libonnxruntime*
+          LIB_DIR=$(dirname "$VERSIONED")
+          echo "Library directory: $LIB_DIR"
+          if [ ! -f "$LIB_DIR/libonnxruntime.so" ]; then
+            ln -sf "$(basename "$VERSIONED")" "$LIB_DIR/libonnxruntime.so"
+            echo "Created symlink: libonnxruntime.so -> $(basename "$VERSIONED")"
+          fi
+          # Store the resolved path for the next step
+          echo "$LIB_DIR" > ~/.cache/ort-lib/.ort_lib_dir
 
       - name: Set ORT_LIB_LOCATION (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          if [ -f "$HOME/.cache/ort-lib/lib/libonnxruntime.so" ]; then
-            echo "ORT_LIB_LOCATION=$HOME/.cache/ort-lib" >> "$GITHUB_ENV"
-            echo "ORT_LIB_LOCATION=$HOME/.cache/ort-lib"
+          if [ -f "$HOME/.cache/ort-lib/.ort_lib_dir" ]; then
+            LIB_DIR=$(cat "$HOME/.cache/ort-lib/.ort_lib_dir")
+            ORT_ROOT=$(dirname "$LIB_DIR")
+            echo "ORT_LIB_LOCATION=$ORT_ROOT" >> "$GITHUB_ENV"
+            echo "ORT_LIB_LOCATION=$ORT_ROOT (lib at $LIB_DIR)"
           else
-            echo "::warning::ORT cache empty or unexpected layout - build will download from CDN"
-            ls ~/.cache/ort-lib/lib/ 2>/dev/null || true
+            echo "::warning::ORT pre-fetch did not run or failed - build will attempt CDN download"
           fi
 
       - name: Build portable archive
