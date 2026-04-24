@@ -7060,6 +7060,48 @@ fn test_conversational_declaratives_do_not_trigger_summary_route() {
 }
 
 #[test]
+fn test_routing_detects_storage_spaces_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show me my storage pools"),
+        Some("storage_spaces")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is my Windows RAID degraded?"),
+        Some("storage_spaces")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is the health of my virtual disks?"),
+        Some("storage_spaces")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show storage space pool status"),
+        Some("storage_spaces")
+    );
+}
+
+#[test]
+fn test_routing_detects_defender_quarantine_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show defender quarantine history"),
+        Some("defender_quarantine")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what threats has Defender detected?"),
+        Some("defender_quarantine")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("did defender find any malware?"),
+        Some("defender_quarantine")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show threat history"),
+        Some("defender_quarantine")
+    );
+}
+
+#[test]
 fn test_scaffold_request_detection() {
     use hematite::agent::routing::is_scaffold_request;
 

@@ -642,9 +642,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("detected virus")
         || lower.contains("defender found")
         || lower.contains("defender detected")
+        || lower.contains("defender find")
         || lower.contains("virus found")
         || lower.contains("threats found")
         || lower.contains("threat detected")
+        || (lower.contains("defender") && (lower.contains("malware") || lower.contains("virus") || lower.contains("threat")))
         || (lower.contains("defender") && lower.contains("scan") && (lower.contains("result") || lower.contains("history") || lower.contains("found")));
     let asks_event_query = lower.contains("event id")
         || lower.contains("event log query")
