@@ -618,7 +618,6 @@ enum SidebarMode {
 
 fn sidebar_has_live_activity(app: &App) -> bool {
     app.agent_running
-        || app.thinking
         || !app.active_workers.is_empty()
         || app.active_review.is_some()
         || app.awaiting_approval.is_some()
@@ -930,7 +929,7 @@ impl App {
 
     fn sync_task_start_time(&mut self) {
         self.task_start_time =
-            synced_task_start_time(self.agent_running || self.thinking, self.task_start_time);
+            synced_task_start_time(self.agent_running, self.task_start_time);
     }
 
     fn rebuild_formatted_messages(&mut self) {
@@ -4706,6 +4705,7 @@ pub async fn run_app<B: Backend>(
                         app.thinking = false;
                         app.agent_running = false;
                         app.stop_requested = false;
+                        app.task_start_time = None;
                         if app.voice_manager.is_enabled() {
                             app.voice_manager.flush();
                         }
@@ -4743,6 +4743,7 @@ pub async fn run_app<B: Backend>(
                         app.record_error();
                         app.thinking = false;
                         app.agent_running = false;
+                        app.task_start_time = None;
                         if app.voice_manager.is_enabled() {
                             app.voice_manager.flush();
                         }
@@ -5458,7 +5459,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     // ── Box 4: Logic Activity Row (Alive cues) ───────────────────────────────
     // We render this in the bottom-most area if active.
-    let _footer_row_legacy = if app.agent_running || app.thinking {
+    let _footer_row_legacy = if app.agent_running {
         let elapsed = if let Some(start) = app.task_start_time {
             format!(" {:0>2}s ", start.elapsed().as_secs())
         } else {
@@ -5520,7 +5521,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     let footer_row = {
         let footer_row_width = bar_chunks[0].width.saturating_sub(6);
-        if app.agent_running || app.thinking {
+        if app.agent_running {
             let elapsed = if let Some(start) = app.task_start_time {
                 format!(" {:0>2}s ", start.elapsed().as_secs())
             } else {
@@ -5697,7 +5698,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         ),
         Span::styled("│ ", Style::default().fg(Color::Rgb(40, 40, 40))),
         Span::styled(
-            format!("BUD:{} CMP:{} ", prompt_percent, compaction_percent),
+            format!("BUD:{:>3}% CMP:{:>3}% ", prompt_percent, compaction_percent),
             Style::default().fg(Color::DarkGray),
         ),
         Span::styled("│ ", Style::default().fg(Color::Rgb(40, 40, 40))),
