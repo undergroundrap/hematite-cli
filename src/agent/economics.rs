@@ -2,6 +2,62 @@
 
 use serde::Serialize;
 
+// ── Per-turn context budget ledger ────────────────────────────────────────────
+
+/// Token cost of a single tool result within a turn.
+#[derive(Debug, Clone)]
+pub struct ToolCost {
+    pub name: String,
+    /// Estimated tokens (result_chars / 4).
+    pub tokens: usize,
+}
+
+/// Per-turn breakdown of context consumed.
+/// Populated at turn end and surfaced in the SPECULAR panel.
+#[derive(Debug, Clone)]
+pub struct TurnBudget {
+    /// Actual input tokens charged this turn (precise — from API usage delta).
+    pub input_tokens: usize,
+    /// Actual output tokens generated this turn (precise — from API usage delta).
+    pub output_tokens: usize,
+    /// Estimated prior-history tokens (chars / 4) — context already present before this turn.
+    pub history_est: usize,
+    /// Per-tool result costs (estimated tokens from result length).
+    pub tool_costs: Vec<ToolCost>,
+    /// Context window fill percentage at turn end.
+    pub context_pct: u8,
+}
+
+impl TurnBudget {
+    /// Compact ledger string for the SPECULAR panel and /budget command.
+    pub fn render(&self) -> String {
+        let total = self.input_tokens + self.output_tokens;
+        let mut parts = Vec::new();
+
+        if self.history_est > 0 {
+            parts.push(format!("prior hist ~{}t", self.history_est));
+        }
+        for tc in &self.tool_costs {
+            parts.push(format!("{} ~{}t", tc.name, tc.tokens));
+        }
+        if self.output_tokens > 0 {
+            parts.push(format!("model out {}t", self.output_tokens));
+        }
+
+        let breakdown = if parts.is_empty() {
+            String::new()
+        } else {
+            format!("\n  {}", parts.join("  |  "))
+        };
+
+        format!(
+            "Context budget: +{}t this turn  ({}% ctx){}\n  \
+             Tip: large tool results are the most common cause of context pressure.",
+            total, self.context_pct, breakdown
+        )
+    }
+}
+
 /// Tracks token usage and tool calls for a session.
 pub struct SessionEconomics {
     /// Input tokens accumulated across all calls.

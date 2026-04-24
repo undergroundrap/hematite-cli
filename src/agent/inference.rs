@@ -1053,7 +1053,7 @@ fn estimate_serialized_tokens<T: Serialize + ?Sized>(value: &T) -> usize {
 
 const IMAGE_PART_TOKEN_ESTIMATE: usize = 1024;
 
-fn estimate_message_tokens(message: &ChatMessage) -> usize {
+pub fn estimate_message_tokens(message: &ChatMessage) -> usize {
     let content_tokens = match &message.content {
         MessageContent::Text(s) => s.len() / 4 + 1,
         MessageContent::Parts(parts) => parts

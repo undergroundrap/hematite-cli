@@ -4941,6 +4941,11 @@ pub async fn run_app<B: Backend>(
                         app.current_thought.push_str(&line);
                         app.current_thought.push('\n');
                     }
+                    InferenceEvent::TurnBudget(budget) => {
+                        // Route the per-turn context budget ledger into SPECULAR.
+                        app.current_thought.push_str(&budget.render());
+                        app.current_thought.push('\n');
+                    }
                 }
             }
 

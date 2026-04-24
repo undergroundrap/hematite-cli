@@ -374,4 +374,5 @@ pub enum InferenceEvent {
         model_id: Option<String>,
     },
     ShellLine(String),
+    TurnBudget(crate::agent::economics::TurnBudget),
 }

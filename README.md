@@ -113,7 +113,7 @@ A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool c
 ![Voice](https://img.shields.io/badge/voice-54_voices-purple?style=flat-square)
 ![RAG](https://img.shields.io/badge/RAG-hybrid_BM25+semantic-blue?style=flat-square)
 ![LM Studio](https://img.shields.io/badge/LM_Studio-default-blueviolet?style=flat-square)
-![Ollama](https://img.shields.io/badge/Ollama-supported-111111?style=flat-square)
+![Ollama](https://img.shields.io/badge/Ollama-native-3DDC84?style=flat-square)
 ![License](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)
 
 ---
@@ -1235,6 +1235,17 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 /embed [status|load <id>|unload [id|current]|prefer <id>|clear]  Inspect, load, unload, or save the preferred embed model
 /new              Fresh task context; clear chat, pins, and task files
 /forget           Hard forget; purge saved memory and the Vein index too
+/compact          Compact history in place — summarizes older turns, frees context, preserves active task; safer than /new
+/budget           Show context budget ledger for the last turn — token delta, per-tool costs, context fill %; also appears in SPECULAR after every turn
+/fix              Run verify_build now, then fire a focused FIX MODE intervention on the next turn; `/fix --test` targets tests instead of build
+/task             Show the persistent task list
+/task add <text>  Add a task — injected into the system prompt every turn
+/task done <N>    Mark task N complete
+/task remove <N>  Remove task N
+/task clear       Wipe all tasks
+/pr               Create a pull request from the current branch (wraps gh CLI)
+/ci               Show CI status for the current branch
+/issue            List open issues for the repo
 /cd <path>        Teleport to another directory; supports bare tokens like downloads, desktop, docs, home, temp, and `~`, plus aliases like `@DESKTOP/project`
 /ls [path|N]      List common locations or subdirectories; use `/ls desktop` first, then `/ls <N>` to teleport to the numbered entry
 /vein-inspect     Show indexed Vein memory, hot files, and active room bias

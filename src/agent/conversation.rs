@@ -1612,6 +1612,8 @@ pub struct ConversationManager {
     shell_history_block: Option<String>,
     /// Error context loaded by `/fix` — injected as a focused intervention on the next turn.
     pending_fix_context: Option<String>,
+    /// Last turn's context budget ledger — re-surfaced by /budget.
+    last_turn_budget: Option<crate::agent::economics::TurnBudget>,
 }
 
 impl ConversationManager {
@@ -2218,6 +2220,7 @@ impl ConversationManager {
             pending_skill_inject: None,
             shell_history_block: crate::agent::shell_history::load_shell_history_block(),
             pending_fix_context: None,
+            last_turn_budget: None,
             diff_tracker: Arc::new(Mutex::new(
                 crate::agent::diff_tracker::TurnDiffTracker::new(),
             )),
@@ -3320,6 +3323,18 @@ impl ConversationManager {
                 after_tokens,
                 self.session_memory.current_task,
             );
+            for chunk in chunk_text(&msg, 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
+        if user_input.trim() == "/budget" {
+            let msg = match &self.last_turn_budget {
+                Some(b) => b.render(),
+                None => "No turn budget recorded yet — run a prompt first.".to_string(),
+            };
             for chunk in chunk_text(&msg, 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
@@ -4886,6 +4901,21 @@ impl ConversationManager {
         // Dropped automatically when the turn completes.
         let _sleep_guard = crate::ui::sleep_inhibitor::SleepInhibitor::acquire();
 
+        // ── Context budget ledger — snapshot tokens before this turn ────────
+        let (budget_input_start, budget_output_start) = {
+            let econ = self.engine.economics.lock().unwrap_or_else(|p| p.into_inner());
+            (econ.input_tokens, econ.output_tokens)
+        };
+        // Estimate existing history size before this turn (excludes system prompt).
+        let budget_history_est: usize = self
+            .history
+            .iter()
+            .take(turn_anchor)
+            .map(|m| crate::agent::inference::estimate_message_tokens(m))
+            .sum();
+        // Accumulates per-tool result costs (chars / 4) during the turn.
+        let mut budget_tool_costs: Vec<crate::agent::economics::ToolCost> = Vec::new();
+
         for _iter in 0..max_iters {
             let context_prep_start = tokio::time::Instant::now();
             let mut mutation_occurred = false;
@@ -5823,6 +5853,10 @@ impl ConversationManager {
                         &capped,
                         &self.engine.current_model(),
                     ));
+                    budget_tool_costs.push(crate::agent::economics::ToolCost {
+                        name: tool_name.clone(),
+                        tokens: capped.len() / 4,
+                    });
 
                     if architecture_overview_mode && !is_error && tool_name == "trace_runtime_flow"
                     {
@@ -6613,6 +6647,47 @@ impl ConversationManager {
         self.last_goal = Some(user_input.chars().take(300).collect());
         self.turn_count = self.turn_count.saturating_add(1);
         self.emit_compaction_pressure(&tx).await;
+
+        // ── Context budget ledger ────────────────────────────────────────────
+        {
+            let (input_end, output_end) = {
+                let econ = self.engine.economics.lock().unwrap_or_else(|p| p.into_inner());
+                (econ.input_tokens, econ.output_tokens)
+            };
+            let context_pct = {
+                let ctx_len = self.engine.current_context_length();
+                if ctx_len > 0 {
+                    let total = input_end.saturating_sub(budget_input_start)
+                        + output_end.saturating_sub(budget_output_start);
+                    ((total * 100) / ctx_len).min(100) as u8
+                } else {
+                    0
+                }
+            };
+            // Collapse duplicate tool names into summed costs (insertion order preserved).
+            let mut tool_costs: Vec<crate::agent::economics::ToolCost> = Vec::new();
+            for tc in &budget_tool_costs {
+                if let Some(existing) = tool_costs.iter_mut().find(|e| e.name == tc.name) {
+                    existing.tokens += tc.tokens;
+                } else {
+                    tool_costs.push(crate::agent::economics::ToolCost {
+                        name: tc.name.clone(),
+                        tokens: tc.tokens,
+                    });
+                }
+            }
+            let budget = crate::agent::economics::TurnBudget {
+                input_tokens: input_end.saturating_sub(budget_input_start),
+                output_tokens: output_end.saturating_sub(budget_output_start),
+                history_est: budget_history_est,
+                tool_costs,
+                context_pct,
+            };
+            let _ = tx
+                .send(InferenceEvent::Thought(budget.render()))
+                .await;
+            self.last_turn_budget = Some(budget);
+        }
 
         // AUTHORITATIVE TURN SUMMARY: Generate and display unified diffs.
         if !implement_current_plan {
