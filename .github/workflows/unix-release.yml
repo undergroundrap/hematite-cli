@@ -70,25 +70,35 @@ jobs:
         shell: bash
         run: |
           mkdir -p ~/.cache/ort-lib
-          # cdn.pyke.io Linux binary is currently unreachable globally (confirmed 504).
-          # Use Microsoft's official GitHub release as a reliable alternative.
+          # cdn.pyke.io Linux binary is globally unreachable (confirmed 504 locally).
+          # Use Microsoft's official GitHub release instead.
           GH_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.24.2/onnxruntime-linux-x64-1.24.2.tgz"
           echo "Downloading ORT 1.24.2 from Microsoft GitHub releases..."
           curl -fSL --retry 3 --retry-delay 10 --max-time 180 -L -o /tmp/ort.tgz "$GH_URL"
           tar -xzf /tmp/ort.tgz -C ~/.cache/ort-lib --strip-components=1
-          ls ~/.cache/ort-lib/lib/libonnxruntime* 2>/dev/null || echo "WARNING: libonnxruntime not found after extraction"
+          # Microsoft's release ships libonnxruntime.so.X.Y.Z but not the bare symlink.
+          # Create it so the linker can find the library by its base name.
+          cd ~/.cache/ort-lib/lib
+          if [ ! -f "libonnxruntime.so" ]; then
+            VERSIONED=$(ls libonnxruntime.so.* 2>/dev/null | head -1)
+            if [ -n "$VERSIONED" ]; then
+              ln -sf "$VERSIONED" libonnxruntime.so
+              echo "Created symlink: libonnxruntime.so -> $VERSIONED"
+            fi
+          fi
+          echo "ORT lib contents:"
+          ls -la ~/.cache/ort-lib/lib/libonnxruntime*
 
       - name: Set ORT_LIB_LOCATION (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          ORT_LIB="$HOME/.cache/ort-lib/lib/libonnxruntime.so"
-          if [ -f "$ORT_LIB" ]; then
-            echo "ORT_LIB_LOCATION=$HOME/.cache/ort-lib/lib" >> "$GITHUB_ENV"
-            echo "ORT_LIB_LOCATION=$HOME/.cache/ort-lib/lib"
+          if [ -f "$HOME/.cache/ort-lib/lib/libonnxruntime.so" ]; then
+            echo "ORT_LIB_LOCATION=$HOME/.cache/ort-lib" >> "$GITHUB_ENV"
+            echo "ORT_LIB_LOCATION=$HOME/.cache/ort-lib"
           else
             echo "::warning::ORT cache empty or unexpected layout - build will download from CDN"
-            ls ~/.cache/ort-lib/ 2>/dev/null || true
+            ls ~/.cache/ort-lib/lib/ 2>/dev/null || true
           fi
 
       - name: Build portable archive
