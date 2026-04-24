@@ -99,11 +99,13 @@ jobs:
           if [ -f "$HOME/.cache/ort-lib/.ort_lib_dir" ]; then
             LIB_DIR=$(cat "$HOME/.cache/ort-lib/.ort_lib_dir")
             ORT_ROOT=$(dirname "$LIB_DIR")
-            # ort-sys looks for {ORT_LIB_LOCATION}/lib/libonnxruntime.so when dynamic linking.
-            # ORT_PREFER_DYNAMIC_LINK=1 switches it from .a (static) to .so (shared).
             echo "ORT_LIB_LOCATION=$ORT_ROOT" >> "$GITHUB_ENV"
             echo "ORT_PREFER_DYNAMIC_LINK=1" >> "$GITHUB_ENV"
-            echo "ORT_LIB_LOCATION=$ORT_ROOT, ORT_PREFER_DYNAMIC_LINK=1"
+            # LIBRARY_PATH: tells the C linker (lld) where to find -lonnxruntime at link time.
+            # LD_LIBRARY_PATH: tells the dynamic loader where to find it at runtime/test time.
+            echo "LIBRARY_PATH=$LIB_DIR" >> "$GITHUB_ENV"
+            echo "LD_LIBRARY_PATH=$LIB_DIR" >> "$GITHUB_ENV"
+            echo "ORT_LIB_LOCATION=$ORT_ROOT  LIBRARY_PATH=$LIB_DIR"
             ls "$LIB_DIR/libonnxruntime.so" && echo "symlink confirmed" || echo "WARNING: symlink missing"
           else
             echo "::warning::ORT pre-fetch did not run or failed - build will attempt CDN download"
