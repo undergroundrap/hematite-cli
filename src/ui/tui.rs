@@ -9,7 +9,7 @@ use crossterm::event::{self, Event, EventStream, KeyCode};
 use futures::StreamExt;
 use ratatui::{
     backend::Backend,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{
@@ -19,7 +19,7 @@ use ratatui::{
     Terminal,
 };
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::Receiver;
 use walkdir::WalkDir;
 
@@ -3179,15 +3179,18 @@ pub async fn run_app<B: Backend>(
     }
 
     // ── Splash Screen ─────────────────────────────────────────────────────────
-    // Blocking splash — user must press Enter to proceed.
+    // Animated splash — redraw every 350ms until Enter or Space.
     if !cockpit.no_splash {
-        draw_splash(terminal)?;
         loop {
-            if let Ok(Event::Key(key)) = event::read() {
-                if key.kind == event::KeyEventKind::Press
-                    && matches!(key.code, KeyCode::Enter | KeyCode::Char(' '))
-                {
-                    break;
+            draw_splash(terminal)?;
+
+            if event::poll(Duration::from_millis(350))? {
+                if let Event::Key(key) = event::read()? {
+                    if key.kind == event::KeyEventKind::Press
+                        && matches!(key.code, KeyCode::Enter | KeyCode::Char(' '))
+                    {
+                        break;
+                    }
                 }
             }
         }
@@ -6235,10 +6238,46 @@ fn inline_markdown(text: &str) -> Vec<Span<'static>> {
 
 // ── Splash Screen ─────────────────────────────────────────────────────────────
 
-fn draw_splash<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), Box<dyn std::error::Error>> {
-    let rust_color = Color::Rgb(110, 110, 110);
+fn make_starfield(width: u16, rows: u16, seed: u64, tick: u64) -> Vec<String> {
+    let mut lines = Vec::with_capacity(rows as usize);
 
-    let logo_lines = vec![
+    for y in 0..rows {
+        let mut line = String::with_capacity(width as usize);
+
+        for x in 0..width {
+            let n = (x as u64).wrapping_mul(73_856_093)
+                ^ (y as u64).wrapping_mul(19_349_663)
+                ^ seed
+                ^ tick.wrapping_mul(83_492_791);
+
+            let ch = match n % 97 {
+                0 => '*',
+                1 | 2 => '.',
+                3 => '+',
+                _ => ' ',
+            };
+
+            line.push(ch);
+        }
+
+        lines.push(line);
+    }
+
+    lines
+}
+
+// ── Splash Screen ─────────────────────────────────────────────────────────────
+
+fn draw_splash<B: Backend>(
+    terminal: &mut Terminal<B>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let logo_color = Color::Rgb(118, 118, 124);
+    let star_color = Color::White;
+    let sub_logo_color = Color::DarkGray;
+    let tagline_color = Color::Gray;
+    let author_color = Color::DarkGray;
+
+    let wide_logo = vec![
         "██╗  ██╗███████╗███╗   ███╗ █████╗ ████████╗██╗████████╗███████╗",
         "██║  ██║██╔════╝████╗ ████║██╔══██╗╚══██╔══╝██║╚══██╔══╝██╔════╝",
         "███████║█████╗  ██╔████╔██║███████║   ██║   ██║   ██║   █████╗  ",
@@ -6252,72 +6291,115 @@ fn draw_splash<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), Box<dyn std
     terminal.draw(|f| {
         let area = f.size();
 
-        // Clear with a dark background
         f.render_widget(
             Block::default().style(Style::default().bg(Color::Black)),
             area,
         );
 
-        // Total content height: logo(6) + spacer(1) + version(1) + tagline(1) + author(1) + spacer(2) + prompt(1) = 13
-        let content_height: u16 = 13;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default();
+        let tick = (now.as_millis() / 350) as u64;
+
+        let top_stars = make_starfield(area.width, 3, 0xA11CE, tick);
+        let bottom_stars = make_starfield(area.width, 2, 0xBADC0DE, tick + 17);
+
+        // total content:
+        // top_stars(3)
+        // logo(6)
+        // sub_logo(1)
+        // spacer(1)
+        // version(1)
+        // tagline(1)
+        // author(1)
+        // spacer(1)
+        // bottom_stars(2)
+        // spacer(1)
+        // prompt(1)
+        let content_height: u16 = 19;
         let top_pad = area.height.saturating_sub(content_height) / 2;
 
         let mut lines: Vec<Line<'static>> = Vec::new();
 
-        // Top padding
         for _ in 0..top_pad {
             lines.push(Line::raw(""));
         }
 
-        // Logo lines — centered horizontally
-        for logo_line in &logo_lines {
+        // Top starfield
+        for line in top_stars {
             lines.push(Line::from(Span::styled(
-                logo_line.to_string(),
-                Style::default().fg(rust_color).add_modifier(Modifier::BOLD),
+                line,
+                Style::default()
+                    .fg(star_color)
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::DIM),
             )));
         }
 
-        // Spacer
+        // Main logo
+        for line in &wide_logo {
+            lines.push(Line::from(Span::styled(
+                (*line).to_string(),
+                Style::default()
+                    .fg(logo_color)
+                    .add_modifier(Modifier::BOLD),
+            )));
+        }
+
+        // Sub-logo
+        lines.push(Line::from(Span::styled(
+            "                                   -- cli --".to_string(),
+            Style::default().fg(sub_logo_color).add_modifier(Modifier::DIM),
+        )));
+
         lines.push(Line::raw(""));
 
         // Version
-        lines.push(Line::from(vec![Span::styled(
+        lines.push(Line::from(Span::styled(
             format!("v{}", version),
-            Style::default().fg(Color::DarkGray),
-        )]));
+            Style::default().fg(sub_logo_color),
+        )));
 
         // Tagline
-        lines.push(Line::from(vec![Span::styled(
-            "Local AI coding harness + workstation assistant",
-            Style::default()
-                .fg(Color::DarkGray)
-                .add_modifier(Modifier::DIM),
-        )]));
+        lines.push(Line::from(Span::styled(
+            "Local AI coding harness + workstation assistant".to_string(),
+            Style::default().fg(tagline_color),
+        )));
 
-        // Developer credit
-        lines.push(Line::from(vec![Span::styled(
-            "Developed by Ocean Bennett",
-            Style::default().fg(Color::Gray).add_modifier(Modifier::DIM),
-        )]));
+        // Author
+        lines.push(Line::from(Span::styled(
+            "developed by Ocean Bennett".to_string(),
+            Style::default().fg(author_color).add_modifier(Modifier::DIM),
+        )));
 
-        // Spacer
         lines.push(Line::raw(""));
+
+        // Bottom starfield
+        for line in bottom_stars {
+            lines.push(Line::from(Span::styled(
+                line,
+                Style::default()
+                    .fg(star_color)
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::DIM),
+            )));
+        }
+
         lines.push(Line::raw(""));
 
         // Prompt
         lines.push(Line::from(vec![
-            Span::styled("[ ", Style::default().fg(rust_color)),
+            Span::styled("[ ", Style::default().fg(logo_color)),
             Span::styled(
-                "Press ENTER to start",
+                "PRESS ENTER TO START",
                 Style::default()
                     .fg(Color::White)
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(" ]", Style::default().fg(rust_color)),
+            Span::styled(" ]", Style::default().fg(logo_color)),
         ]));
 
-        let splash = Paragraph::new(lines).alignment(ratatui::layout::Alignment::Center);
-
+        let splash = Paragraph::new(lines).alignment(Alignment::Center);
         f.render_widget(splash, area);
     })?;
 

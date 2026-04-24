@@ -3212,6 +3212,55 @@ impl ConversationManager {
             return Ok(());
         }
 
+        // /skill new <name> — scaffold a SKILL.md skeleton in .agents/skills/<name>/
+        if let Some(new_name) = user_input
+            .trim()
+            .strip_prefix("/skill new ")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            let slug = new_name
+                .to_lowercase()
+                .replace(' ', "-")
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+                .collect::<String>();
+            let skill_dir = crate::tools::file_ops::workspace_root()
+                .join(".agents")
+                .join("skills")
+                .join(&slug);
+            let skill_path = skill_dir.join("SKILL.md");
+            let msg = if skill_path.exists() {
+                format!(
+                    "Skill `{}` already exists at `{}`.",
+                    slug,
+                    skill_path.display()
+                )
+            } else {
+                match std::fs::create_dir_all(&skill_dir) {
+                    Err(e) => format!("Failed to create skill directory: {}", e),
+                    Ok(()) => {
+                        let template = format!(
+                            "---\nname: {slug}\ndescription: Describe when this skill should activate.\ntriggers: \"\"\n---\n\n## When to use\n\nDescribe the problem or context this skill addresses.\n\n## Instructions\n\n1. Step one.\n2. Step two.\n3. Step three.\n\n## Notes\n\n- Any caveats or edge cases.\n"
+                        );
+                        match std::fs::write(&skill_path, template) {
+                            Ok(()) => format!(
+                                "Created `{}` — edit the description, triggers, and instructions, then use `/skill {}` to load it.",
+                                skill_path.display(),
+                                slug
+                            ),
+                            Err(e) => format!("Failed to write SKILL.md: {}", e),
+                        }
+                    }
+                }
+            };
+            for chunk in chunk_text(&msg, 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         if user_input.trim() == "/vein-reset" {
             tokio::task::block_in_place(|| self.vein.reset());
             let _ = tx

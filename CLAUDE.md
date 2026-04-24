@@ -105,10 +105,13 @@ pwsh ./clean.ps1
 - `/rules edit`: open `.hematite/rules.local.md` in the system editor (private, gitignored)
 - `/rules edit shared`: open `.hematite/rules.md` in the system editor (shared, committed with the repo)
 - `/skills`: show the discovered Agent Skills catalog from `.agents/skills/` and `.hematite/skills/`
+- `/skill <name>`: explicitly load a named skill's full body into the system prompt for the next turn — shows available skills on name mismatch
+- `/skill new <name>`: scaffold a new skill directory with a SKILL.md template at `.agents/skills/<name>/`
 - Rule files are injected into the system prompt every turn automatically — no restart needed after editing
 - `.hematite/instructions/`: drop any `<topic>.md` file here for topic-scoped rules that only inject when the turn context mentions that topic name (e.g. `authentication.md` injects only when the user's message references authentication)
 - `SKILLS.md` / `SKILL.md`: optional root-level workspace guidance files for project conventions, domain recipes, and repo-specific operating patterns; they are additive to the built-in workflow engine, not a replacement for `.hematite/PLAN.md` or `.hematite/TASK.md`
-- `.agents/skills/` / `.hematite/skills/`: directory-based Agent Skills. Each skill lives in its own folder with a `SKILL.md` file plus optional `scripts/`, `references/`, and `assets/`
+- `.agents/skills/` / `.hematite/skills/`: directory-based Agent Skills. Each skill lives in its own folder with a `SKILL.md` file plus optional `scripts/`, `references/`, and `assets/`; skills auto-activate when their name appears in the query or their `triggers` patterns match files being discussed
+- `AGENTS.md` / `agents.md`: Codex CLI / Gemini CLI compatible instruction files — read automatically alongside CLAUDE.md and HEMATITE.md
 - `/diff`: show a diff of the last file edit made this session
 - `/undo`: undo the last file edit by restoring from the ghost backup
 - `/health`: run a quick workstation health check via `inspect_host(topic: "health_report")`

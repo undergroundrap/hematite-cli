@@ -237,8 +237,11 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             let process_filter = args.get("process").and_then(|v| v.as_str()).map(|s| s.to_string());
             inspect_app_crashes(process_filter.as_deref(), max_entries)
         }
+        "mdm_enrollment" | "mdm" | "intune" | "intune_enrollment" | "device_enrollment" | "autopilot" => {
+            inspect_mdm_enrollment()
+        }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query, mdm_enrollment.",
             other
         )),
 
@@ -11536,6 +11539,163 @@ fn ps_exec(script: &str) -> String {
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
         .unwrap_or_default()
+}
+
+fn inspect_mdm_enrollment() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let mut out = String::from("Host inspection: mdm_enrollment\n\n");
+
+        // ── dsregcmd /status — primary enrollment signal ──────────────────────
+        out.push_str("=== Device join and MDM state (dsregcmd) ===\n");
+        let ps_dsreg = r#"
+$raw = dsregcmd /status 2>$null
+$fields = @('AzureAdJoined','EnterpriseJoined','DomainJoined','MdmEnrolled',
+            'WamDefaultSet','AzureAdPrt','TenantName','TenantId','MdmUrl','MdmTouUrl')
+foreach ($line in $raw) {
+    $t = $line.Trim()
+    foreach ($f in $fields) {
+        if ($t -like "$f :*") {
+            $val = ($t -split ':',2)[1].Trim()
+            "$f`: $val"
+        }
+    }
+}
+"#;
+        match run_powershell(ps_dsreg) {
+            Ok(o) if !o.trim().is_empty() => {
+                for line in o.lines() {
+                    let l = line.trim();
+                    if !l.is_empty() {
+                        out.push_str(&format!("- {l}\n"));
+                    }
+                }
+            }
+            Ok(_) => out.push_str("- dsregcmd returned no enrollment fields (device may not be AAD-joined)\n"),
+            Err(e) => out.push_str(&format!("- dsregcmd error: {e}\n")),
+        }
+
+        // ── Registry enrollment accounts ──────────────────────────────────────
+        out.push_str("\n=== Enrollment accounts (registry) ===\n");
+        let ps_enroll = r#"
+$base = 'HKLM:\SOFTWARE\Microsoft\Enrollments'
+if (Test-Path $base) {
+    $accounts = Get-ChildItem $base -ErrorAction SilentlyContinue
+    if ($accounts) {
+        foreach ($acct in $accounts) {
+            $p = Get-ItemProperty $acct.PSPath -ErrorAction SilentlyContinue
+            $upn    = if ($p.UPN)                { $p.UPN }                else { '(none)' }
+            $server = if ($p.EnrollmentServerUrl){ $p.EnrollmentServerUrl }else { '(none)' }
+            $type   = switch ($p.EnrollmentType) {
+                6  { 'MDM' }
+                13 { 'MAM' }
+                default { "Type=$($p.EnrollmentType)" }
+            }
+            $state  = switch ($p.EnrollmentState) {
+                1  { 'Enrolled' }
+                2  { 'InProgress' }
+                6  { 'Unenrolled' }
+                default { "State=$($p.EnrollmentState)" }
+            }
+            "Account: $upn | $type | $state | $server"
+        }
+    } else { "No enrollment accounts found under $base" }
+} else { "Enrollment registry key not found — device is not MDM-enrolled" }
+"#;
+        match run_powershell(ps_enroll) {
+            Ok(o) => {
+                for line in o.lines() {
+                    let l = line.trim();
+                    if !l.is_empty() {
+                        out.push_str(&format!("- {l}\n"));
+                    }
+                }
+            }
+            Err(e) => out.push_str(&format!("- Registry read error: {e}\n")),
+        }
+
+        // ── MDM service health ────────────────────────────────────────────────
+        out.push_str("\n=== MDM services ===\n");
+        let ps_svc = r#"
+$names = @('IntuneManagementExtension','dmwappushservice','Microsoft.Management.Services.IntuneWindowsAgent')
+foreach ($n in $names) {
+    $s = Get-Service -Name $n -ErrorAction SilentlyContinue
+    if ($s) { "$($s.Name): $($s.Status) (StartType: $($s.StartType))" }
+}
+"#;
+        match run_powershell(ps_svc) {
+            Ok(o) if !o.trim().is_empty() => {
+                for line in o.lines() {
+                    let l = line.trim();
+                    if !l.is_empty() {
+                        out.push_str(&format!("- {l}\n"));
+                    }
+                }
+            }
+            Ok(_) => out.push_str("- No Intune management services found (unmanaged device or extension not installed)\n"),
+            Err(e) => out.push_str(&format!("- Service query error: {e}\n")),
+        }
+
+        // ── Recent MDM / Intune events ────────────────────────────────────────
+        out.push_str("\n=== Recent MDM events (last 24h) ===\n");
+        let ps_evt = r#"
+$logs = @('Microsoft-Windows-DeviceManagement-Enterprise-Diagnostics-Provider/Admin',
+          'Microsoft-Windows-ModernDeployment-Diagnostics-Provider/Autopilot')
+$cutoff = (Get-Date).AddHours(-24)
+$found = $false
+foreach ($log in $logs) {
+    $evts = Get-WinEvent -LogName $log -MaxEvents 20 -ErrorAction SilentlyContinue |
+            Where-Object { $_.TimeCreated -gt $cutoff -and $_.Level -le 3 }
+    foreach ($e in $evts) {
+        $found = $true
+        $ts = $e.TimeCreated.ToString('HH:mm')
+        $lvl = if ($e.Level -eq 2) { 'ERR' } else { 'WARN' }
+        "[$lvl $ts] ID=$($e.Id) — $($e.Message.Split("`n")[0].Trim())"
+    }
+}
+if (-not $found) { "No MDM warning/error events in the last 24 hours" }
+"#;
+        match run_powershell(ps_evt) {
+            Ok(o) => {
+                for line in o.lines() {
+                    let l = line.trim();
+                    if !l.is_empty() {
+                        out.push_str(&format!("- {l}\n"));
+                    }
+                }
+            }
+            Err(e) => out.push_str(&format!("- Event log read error: {e}\n")),
+        }
+
+        // ── Findings ──────────────────────────────────────────────────────────
+        out.push_str("\n=== Findings ===\n");
+        let body = out.clone();
+        let enrolled = body.contains("MdmEnrolled: YES") || body.contains("| Enrolled |");
+        let intune_running = body.contains("IntuneManagementExtension: Running");
+        let has_errors = body.contains("[ERR ") || body.contains("[WARN ");
+
+        if !enrolled {
+            out.push_str("- NOT ENROLLED: Device shows no active MDM enrollment. If Intune enrollment is expected, check AAD join state and re-run device enrollment from Settings > Accounts > Access work or school.\n");
+        } else {
+            out.push_str("- ENROLLED: Device has an active MDM enrollment.\n");
+            if !intune_running {
+                out.push_str("- WARNING: Intune Management Extension service is not running — policies and app deployments may stall. Check service health and restart if needed.\n");
+            }
+        }
+        if has_errors {
+            out.push_str("- MDM error/warning events detected — review the events section above for blockers.\n");
+        }
+        if !enrolled && !has_errors {
+            out.push_str("- No MDM error events detected. If enrollment is required, initiate from Settings > Accounts > Access work or school > Connect.\n");
+        }
+
+        Ok(out)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok("Host inspection: mdm_enrollment\n\n=== Findings ===\n- MDM/Intune enrollment inspection is Windows-only.\n".into())
+    }
 }
 
 fn inspect_hyperv() -> Result<String, String> {
