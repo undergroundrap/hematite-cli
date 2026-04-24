@@ -4400,6 +4400,30 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/export" => {
+                                                let fmt = parts.get(1).copied().unwrap_or("md").to_ascii_lowercase();
+                                                let use_json = fmt == "json";
+                                                app.push_message("System", if use_json {
+                                                    "Generating diagnostic report (JSON) — scanning 6 topics..."
+                                                } else {
+                                                    "Generating diagnostic report — scanning 6 topics..."
+                                                });
+                                                let path = if use_json {
+                                                    let (_, p) = crate::agent::report_export::save_report_json().await;
+                                                    p
+                                                } else {
+                                                    let (_, p) = crate::agent::report_export::save_report_markdown().await;
+                                                    p
+                                                };
+                                                let path_str = path.display().to_string();
+                                                copy_text_to_clipboard(&path_str);
+                                                app.push_message("System", &format!(
+                                                    "Report saved: {}\n(Path copied to clipboard — attach to a ticket or share with your team)",
+                                                    path_str
+                                                ));
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/detach" => {
                                                 app.clear_pending_attachments();
                                                 app.push_message("System", "Cleared pending document/image attachments for the next turn.");

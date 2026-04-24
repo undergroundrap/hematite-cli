@@ -124,10 +124,12 @@ pwsh ./clean.ps1
 - `/diff`: show a diff of the last file edit made this session
 - `/undo`: undo the last file edit by restoring from the ghost backup
 - `/health`: run a quick workstation health check via `inspect_host(topic: "health_report")`
+- `/export`: generate a self-contained markdown diagnostic report covering System Health, Hardware, Storage, Network, Security, and Toolchains — saves to `.hematite/reports/health-YYYY-MM-DD_HH-MM.md` and copies the path to clipboard; `/export json` outputs JSON instead
 - `/explain [prompt]`: explain the current file or selection in plain English
 - `/version`: show the running Hematite release version plus build state
 - `/about`: show author, repo, and product info
 - `hematite --version`: print the same build report from the CLI
+- `hematite --report`: headless diagnostic report to stdout — no TUI, pipeable: `hematite --report > health.md`; `--report-format json` for JSON output
 - `/copy`: copy the session transcript manually
 - `/copy-clean`: copy the transcript with tool calls stripped — prose only
 - `/copy-last`: copy only the last assistant response

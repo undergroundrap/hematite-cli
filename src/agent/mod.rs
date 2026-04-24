@@ -29,6 +29,7 @@ pub mod prompt;
 pub mod provider;
 pub mod recovery_recipes;
 pub mod redact_audit;
+pub mod report_export;
 pub mod redact_policy;
 pub mod routing;
 pub mod searx_lifecycle;

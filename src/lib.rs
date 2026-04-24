@@ -184,6 +184,19 @@ pub struct CliCockpit {
     )]
     pub semantic_model: Option<String>,
 
+    #[arg(
+        long,
+        help = "Run a headless diagnostic report and print to stdout — no TUI launched. Pipe to a file: hematite --report > health.md"
+    )]
+    pub report: bool,
+
+    #[arg(
+        long,
+        default_value = "md",
+        help = "Output format for --report: 'md' (markdown, default) or 'json'"
+    )]
+    pub report_format: String,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

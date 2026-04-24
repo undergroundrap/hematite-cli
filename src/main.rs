@@ -58,6 +58,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if cockpit.report {
+        let out = if cockpit.report_format.trim().eq_ignore_ascii_case("json") {
+            hematite::agent::report_export::generate_report_json().await
+        } else {
+            hematite::agent::report_export::generate_report_markdown().await
+        };
+        print!("{}", out);
+        return Ok(());
+    }
+
     if let Some(path) = cockpit.pdf_extract_helper.as_deref() {
         let code = hematite::memory::vein::run_pdf_extract_helper(std::path::Path::new(path));
         std::process::exit(code);
