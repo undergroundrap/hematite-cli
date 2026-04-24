@@ -508,6 +508,7 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
     let mut files: IndexedSet = IndexedSet::default();
     let mut tools: HashSet<String> = HashSet::new();
     let mut requests: Vec<String> = Vec::new();
+    let mut assistant_notes: Vec<String> = Vec::new();
     // Tool results: verify_build, edit outcomes, notable errors.
     let mut verify_outcome: Option<bool> = None;
     let mut error_snippets: Vec<String> = Vec::new();
@@ -546,10 +547,26 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
 
         // User requests (up to 4, most recent last).
         if m.role == "user" && !m.content.as_str().trim().is_empty() && requests.len() < 4 {
+            let text = m.content.as_str().trim_start_matches("/think\n").trim_start_matches("/no_think\n").trim();
             requests.push(truncate_summary_line(
-                &collapse_inline_whitespace(m.content.as_str()),
+                &collapse_inline_whitespace(text),
                 140,
             ));
+        }
+
+        // Assistant prose (up to 3) — capture decisions and explanations made.
+        if m.role == "assistant"
+            && !m.content.as_str().trim().is_empty()
+            && m.tool_calls.as_ref().map_or(true, |tc| tc.is_empty())
+            && assistant_notes.len() < 3
+        {
+            let text = m.content.as_str().trim();
+            if text.len() > 20 {
+                assistant_notes.push(truncate_summary_line(
+                    &collapse_inline_whitespace(text),
+                    120,
+                ));
+            }
         }
 
         // Word-scan fallback for path-like tokens not in tool args.
@@ -584,6 +601,12 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
     error_snippets.dedup();
     for snippet in error_snippets.into_iter().take(2) {
         lines.push(format!("- Error seen: {}", snippet));
+    }
+    if !assistant_notes.is_empty() {
+        lines.push("- Assistant decisions/responses (oldest→newest):".to_string());
+        for note in &assistant_notes {
+            lines.push(format!("  - {}", note));
+        }
     }
     if !requests.is_empty() {
         lines.push("- User requests (oldest→newest):".to_string());

@@ -3278,6 +3278,49 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if user_input.trim() == "/compact" {
+            let context_length = self.engine.current_context_length();
+            let vram_ratio = self.gpu_state.ratio();
+            let config = compaction::CompactionConfig::adaptive(context_length, vram_ratio);
+            let before_len = self.history.len();
+            let estimated_tokens = compaction::estimate_compactable_tokens(&self.history);
+            let result = compaction::compact_history(
+                &self.history,
+                self.running_summary.as_deref(),
+                config,
+                None,
+            );
+            let removed = before_len.saturating_sub(result.messages.len());
+            self.history = result.messages;
+            self.running_summary = result.summary;
+            let previous_memory = self.session_memory.clone();
+            self.session_memory = compaction::extract_memory(&self.history);
+            self.session_memory.inherit_runtime_ledger_from(&previous_memory);
+            self.session_memory.record_compaction(
+                removed,
+                format!(
+                    "Manual /compact: task '{}', {} file(s) in working set.",
+                    self.session_memory.current_task,
+                    self.session_memory.working_set.len()
+                ),
+            );
+            self.emit_compaction_pressure(&tx).await;
+            let after_tokens = compaction::estimate_compactable_tokens(&self.history);
+            let msg = format!(
+                "History compacted. {} message(s) summarized, ~{} tokens freed. \
+                 Remaining: ~{} tokens. Active task: \"{}\".",
+                removed,
+                estimated_tokens.saturating_sub(after_tokens),
+                after_tokens,
+                self.session_memory.current_task,
+            );
+            for chunk in chunk_text(&msg, 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         // ── /task commands ───────────────────────────────────────────────────────
         {
             let trimmed = user_input.trim();
@@ -4747,6 +4790,30 @@ impl ConversationManager {
 
         // Track the index of the message that started THIS turn, so compaction doesn't summarize it.
         let mut turn_anchor = self.history.len().saturating_sub(1);
+
+        // ── Pre-turn compaction (Codex-style: PreTurn phase) ────────────────
+        // If context is already overloaded before inference starts, compact now.
+        // This prevents the model from seeing a 90%+ full prompt on the first call.
+        {
+            let context_length = self.engine.current_context_length();
+            let vram_ratio = self.gpu_state.ratio();
+            if compaction::should_compact(&self.history, context_length, vram_ratio) {
+                let _ = tx
+                    .send(InferenceEvent::Thought(
+                        "Pre-turn compaction: context pressure detected — compacting history before inference.".into(),
+                    ))
+                    .await;
+                if self.compact_history_if_needed(&tx, Some(turn_anchor)).await? {
+                    // After compaction, history is [system, summary, user, ...].
+                    // Recalculate the anchor so the in-loop compaction doesn't misfire.
+                    turn_anchor = self
+                        .history
+                        .iter()
+                        .rposition(|m| m.role == "user")
+                        .unwrap_or(self.history.len().saturating_sub(1));
+                }
+            }
+        }
 
         for _iter in 0..max_iters {
             let context_prep_start = tokio::time::Instant::now();

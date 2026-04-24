@@ -4806,13 +4806,13 @@ pub async fn run_app<B: Backend>(
                             app.compaction_warned_level = 90;
                             app.push_message(
                                 "System",
-                                "Context is 90% full. Use /new to reset history (project memory is preserved) or /forget to wipe everything.",
+                                "Context is 90% full. Run /compact to summarize history in place, /new to reset (preserves project memory), or /forget to wipe everything.",
                             );
                         } else if percent >= 70 && app.compaction_warned_level < 70 {
                             app.compaction_warned_level = 70;
                             app.push_message(
                                 "System",
-                                &format!("Context at {}% — approaching the compaction threshold. Consider /new soon to keep responses sharp.", percent),
+                                &format!("Context at {}% — approaching compaction threshold. Run /compact to summarize history and free space.", percent),
                             );
                         }
                     }
