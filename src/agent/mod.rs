@@ -33,6 +33,7 @@ pub mod redact_policy;
 pub mod routing;
 pub mod searx_lifecycle;
 pub mod semantic_redact;
+pub mod shell_history;
 pub mod specular;
 pub mod swarm;
 pub mod tasks;

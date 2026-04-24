@@ -1608,6 +1608,8 @@ pub struct ConversationManager {
     pub last_heartbeat: Option<crate::agent::policy::ToolchainHeartbeat>,
     /// Skill body explicitly loaded via `/skill <name>` — injected once then cleared.
     pending_skill_inject: Option<String>,
+    /// Recent shell command history — loaded once at session start, injected into system prompt.
+    shell_history_block: Option<String>,
 }
 
 impl ConversationManager {
@@ -2212,6 +2214,7 @@ impl ConversationManager {
             pending_teleport_handoff: None,
             last_heartbeat: None,
             pending_skill_inject: None,
+            shell_history_block: crate::agent::shell_history::load_shell_history_block(),
             diff_tracker: Arc::new(Mutex::new(
                 crate::agent::diff_tracker::TurnDiffTracker::new(),
             )),
@@ -4422,6 +4425,14 @@ impl ConversationManager {
             if let Some(block) = crate::agent::tasks::render_prompt_block(&tasks) {
                 final_system_msg.push_str("\n\n");
                 final_system_msg.push_str(&block);
+            }
+        }
+
+        // ── Inject shell history (once per session, non-chat modes) ──────────
+        if !tiny_context_mode && !self.workflow_mode.is_chat() {
+            if let Some(ref block) = self.shell_history_block {
+                final_system_msg.push_str("\n\n");
+                final_system_msg.push_str(block);
             }
         }
 
