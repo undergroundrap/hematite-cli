@@ -224,6 +224,77 @@ static ALL_RECIPES: &[RecipeEntry] = &[
     },
 ];
 
+pub struct HealthScore {
+    pub grade: char,
+    pub label: &'static str,
+    pub action_count: usize,
+    pub investigate_count: usize,
+    pub monitor_count: usize,
+}
+
+impl HealthScore {
+    pub fn summary_line(&self) -> String {
+        match (self.action_count, self.investigate_count, self.monitor_count) {
+            (0, 0, 0) => "No issues found — machine is healthy.".to_string(),
+            (0, 0, m) => format!("{} item(s) to monitor.", m),
+            (0, i, 0) => format!("{} item(s) need investigation.", i),
+            (0, i, m) => format!("{} item(s) need investigation, {} to monitor.", i, m),
+            (a, 0, 0) => format!("{} item(s) require immediate action.", a),
+            (a, i, _) => format!(
+                "{} item(s) require immediate action, {} need investigation.",
+                a, i
+            ),
+        }
+    }
+}
+
+/// Compute a health grade (A–F) from diagnostic output sections.
+pub fn score_health(outputs: &[(&str, &str)]) -> HealthScore {
+    let mut all_recipes: Vec<&Recipe> = Vec::new();
+    let mut seen_titles = std::collections::HashSet::new();
+
+    for (_label, output) in outputs {
+        for recipe in match_recipes(output) {
+            if seen_titles.insert(recipe.title) {
+                all_recipes.push(recipe);
+            }
+        }
+    }
+
+    let action_count = all_recipes
+        .iter()
+        .filter(|r| r.severity == "ACTION")
+        .count();
+    let investigate_count = all_recipes
+        .iter()
+        .filter(|r| r.severity == "INVESTIGATE")
+        .count();
+    let monitor_count = all_recipes
+        .iter()
+        .filter(|r| r.severity == "MONITOR")
+        .count();
+
+    let (grade, label) = if action_count >= 3 {
+        ('F', "Critical")
+    } else if action_count >= 1 {
+        ('D', "Poor")
+    } else if investigate_count >= 2 {
+        ('C', "Fair")
+    } else if investigate_count >= 1 {
+        ('B', "Good")
+    } else {
+        ('A', "Excellent")
+    };
+
+    HealthScore {
+        grade,
+        label,
+        action_count,
+        investigate_count,
+        monitor_count,
+    }
+}
+
 /// Format all matching recipes for a given diagnostic output into a
 /// human-readable action plan section suitable for a Markdown report.
 pub fn format_action_plan(outputs: &[(&str, &str)]) -> String {

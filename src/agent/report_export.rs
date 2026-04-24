@@ -41,13 +41,19 @@ pub async fn generate_report_markdown() -> String {
     }
 
     let section_refs: Vec<(&str, &str)> = sections.iter().map(|(l, o)| (*l, o.as_str())).collect();
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
     let mut md = String::new();
     md.push_str("# Hematite Diagnostic Report\n\n");
     md.push_str(&format!("**Generated:** {}  \n", timestamp));
     md.push_str(&format!("**Host:** {}  \n", hostname));
-    md.push_str(&format!("**Hematite:** v{}  \n\n", version));
+    md.push_str(&format!("**Hematite:** v{}  \n", version));
+    md.push_str(&format!(
+        "**Health Score:** {} — {}  \n\n",
+        score.grade, score.label
+    ));
+    md.push_str(&format!("> {}\n\n", score.summary_line()));
     md.push_str("---\n\n");
 
     md.push_str("## Action Plan\n\n");
@@ -97,13 +103,19 @@ pub async fn generate_diagnosis_report() -> String {
     for (topic, output) in &follow_up_outputs {
         section_refs.push((*topic, output.as_str()));
     }
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
     let mut md = String::new();
     md.push_str("# Hematite Staged Diagnosis Report\n\n");
     md.push_str(&format!("**Generated:** {}  \n", timestamp));
     md.push_str(&format!("**Host:** {}  \n", hostname));
-    md.push_str(&format!("**Hematite:** v{}  \n\n", version));
+    md.push_str(&format!("**Hematite:** v{}  \n", version));
+    md.push_str(&format!(
+        "**Health Score:** {} — {}  \n\n",
+        score.grade, score.label
+    ));
+    md.push_str(&format!("> {}\n\n", score.summary_line()));
     md.push_str("---\n\n");
 
     md.push_str("## Action Plan\n\n");

@@ -7291,3 +7291,62 @@ fn test_fix_recipes_diagnose_report_wiring() {
     use hematite::agent::report_export;
     let _ = std::hint::black_box(report_export::generate_diagnosis_report as usize);
 }
+
+// ── Health score ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_health_score_clean_is_a() {
+    use hematite::agent::fix_recipes::score_health;
+    let sections: &[(&str, &str)] = &[("health_report", "ALL GOOD — system is healthy")];
+    let score = score_health(sections);
+    assert_eq!(score.grade, 'A');
+    assert_eq!(score.label, "Excellent");
+    assert_eq!(score.action_count, 0);
+}
+
+#[test]
+fn test_health_score_one_action_is_d() {
+    use hematite::agent::fix_recipes::score_health;
+    let sections: &[(&str, &str)] = &[
+        ("health_report", "disk: C: — very low free space"),
+    ];
+    let score = score_health(sections);
+    assert_eq!(score.grade, 'D');
+    assert_eq!(score.action_count, 1);
+}
+
+#[test]
+fn test_health_score_three_actions_is_f() {
+    use hematite::agent::fix_recipes::score_health;
+    let sections: &[(&str, &str)] = &[(
+        "health_report",
+        "disk: C: — very low free space\nreal-time protection: disabled\nthreat detected malware found",
+    )];
+    let score = score_health(sections);
+    assert_eq!(score.grade, 'F');
+    assert_eq!(score.label, "Critical");
+}
+
+#[test]
+fn test_health_score_investigate_only_is_b_or_c() {
+    use hematite::agent::fix_recipes::score_health;
+    let b_sections: &[(&str, &str)] = &[("health_report", "pending reboot required")];
+    let b = score_health(b_sections);
+    assert_eq!(b.grade, 'B');
+
+    let c_sections: &[(&str, &str)] = &[(
+        "health_report",
+        "pending reboot required\nwindows update pending update",
+    )];
+    let c = score_health(c_sections);
+    assert_eq!(c.grade, 'C');
+}
+
+#[test]
+fn test_health_score_summary_line_clean() {
+    use hematite::agent::fix_recipes::score_health;
+    let score = score_health(&[("h", "ALL GOOD system healthy")]);
+    let summary = score.summary_line();
+    assert!(summary.to_ascii_lowercase().contains("healthy") || summary.to_ascii_lowercase().contains("no issues"),
+        "clean summary should mention healthy/no issues: {}", summary);
+}
