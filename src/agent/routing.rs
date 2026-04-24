@@ -624,6 +624,28 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("ram")))
         || lower.contains("vmms")
         || lower.contains("vmmem");
+    let asks_storage_spaces = lower.contains("storage space")
+        || lower.contains("storage pool")
+        || lower.contains("storage pools")
+        || lower.contains("virtual disk")
+        || lower.contains("virtual disks")
+        || lower.contains("windows raid")
+        || lower.contains("disk pool")
+        || lower.contains("resiliency")
+        || (lower.contains("storage") && lower.contains("pool"))
+        || (lower.contains("mdadm") || lower.contains("software raid") || lower.contains("md array"));
+    let asks_defender_quarantine = lower.contains("quarantine")
+        || lower.contains("threat history")
+        || lower.contains("malware history")
+        || lower.contains("defender history")
+        || lower.contains("detected threat")
+        || lower.contains("detected virus")
+        || lower.contains("defender found")
+        || lower.contains("defender detected")
+        || lower.contains("virus found")
+        || lower.contains("threats found")
+        || lower.contains("threat detected")
+        || (lower.contains("defender") && lower.contains("scan") && (lower.contains("result") || lower.contains("history") || lower.contains("found")));
     let asks_event_query = lower.contains("event id")
         || lower.contains("event log query")
         || lower.contains("event_id")
@@ -2045,6 +2067,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("wsl_filesystems")
     } else if asks_lan_discovery {
         Some("lan_discovery")
+    } else if asks_storage_spaces {
+        Some("storage_spaces")
+    } else if asks_defender_quarantine {
+        Some("defender_quarantine")
     } else if asks_storage {
         Some("storage")
     } else if asks_gpo {

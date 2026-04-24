@@ -240,8 +240,14 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "mdm_enrollment" | "mdm" | "intune" | "intune_enrollment" | "device_enrollment" | "autopilot" => {
             inspect_mdm_enrollment()
         }
+        "storage_spaces" | "storage_pool" | "storage_pools" | "virtual_disk" | "virtual_disks" | "windows_raid" => {
+            inspect_storage_spaces()
+        }
+        "defender_quarantine" | "quarantine" | "threat_history" | "malware_history" | "defender_history" | "detected_threats" => {
+            inspect_defender_quarantine(max_entries)
+        }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query, mdm_enrollment.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query, mdm_enrollment, storage_spaces, defender_quarantine.",
             other
         )),
 
@@ -17196,6 +17202,218 @@ fn inspect_network_profile() -> Result<String, String> {
         out.push_str(&String::from_utf8_lossy(&o.stdout));
     } else {
         out.push_str("  nmcli not available.\n");
+    }
+    Ok(out)
+}
+
+// ── Storage Spaces ────────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_storage_spaces() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+# Storage Pools
+try {
+    $pools = Get-StoragePool -IsPrimordial $false -ErrorAction SilentlyContinue
+    if ($pools) {
+        $result.AppendLine("=== Storage Pools ===") | Out-Null
+        foreach ($pool in $pools) {
+            $health = $pool.HealthStatus
+            $oper   = $pool.OperationalStatus
+            $sizGB  = [math]::Round($pool.Size / 1GB, 1)
+            $allocGB= [math]::Round($pool.AllocatedSize / 1GB, 1)
+            $result.AppendLine("  Pool: $($pool.FriendlyName)  Size: ${sizGB}GB  Allocated: ${allocGB}GB  Health: $health  Status: $oper") | Out-Null
+        }
+        $result.AppendLine("") | Out-Null
+    } else {
+        $result.AppendLine("=== Storage Pools ===") | Out-Null
+        $result.AppendLine("  No Storage Spaces pools configured.") | Out-Null
+        $result.AppendLine("") | Out-Null
+    }
+} catch {
+    $result.AppendLine("=== Storage Pools ===") | Out-Null
+    $result.AppendLine("  Unable to query storage pools (may require elevation).") | Out-Null
+    $result.AppendLine("") | Out-Null
+}
+
+# Virtual Disks
+try {
+    $vdisks = Get-VirtualDisk -ErrorAction SilentlyContinue
+    if ($vdisks) {
+        $result.AppendLine("=== Virtual Disks ===") | Out-Null
+        foreach ($vd in $vdisks) {
+            $health  = $vd.HealthStatus
+            $oper    = $vd.OperationalStatus
+            $layout  = $vd.ResiliencySettingName
+            $sizGB   = [math]::Round($vd.Size / 1GB, 1)
+            $result.AppendLine("  VDisk: $($vd.FriendlyName)  Layout: $layout  Size: ${sizGB}GB  Health: $health  Status: $oper") | Out-Null
+        }
+        $result.AppendLine("") | Out-Null
+    } else {
+        $result.AppendLine("=== Virtual Disks ===") | Out-Null
+        $result.AppendLine("  No Storage Spaces virtual disks configured.") | Out-Null
+        $result.AppendLine("") | Out-Null
+    }
+} catch {
+    $result.AppendLine("=== Virtual Disks ===") | Out-Null
+    $result.AppendLine("  Unable to query virtual disks.") | Out-Null
+    $result.AppendLine("") | Out-Null
+}
+
+# Physical Disks in pools
+try {
+    $pdisks = Get-PhysicalDisk -ErrorAction SilentlyContinue | Where-Object { $_.Usage -ne 'Journal' }
+    if ($pdisks) {
+        $result.AppendLine("=== Physical Disks ===") | Out-Null
+        foreach ($pd in $pdisks) {
+            $sizGB  = [math]::Round($pd.Size / 1GB, 1)
+            $health = $pd.HealthStatus
+            $usage  = $pd.Usage
+            $media  = $pd.MediaType
+            $result.AppendLine("  $($pd.FriendlyName)  ${sizGB}GB  $media  Usage: $usage  Health: $health") | Out-Null
+        }
+        $result.AppendLine("") | Out-Null
+    }
+} catch {}
+
+# Findings
+$findings = @()
+try {
+    $unhealthy = Get-StoragePool -IsPrimordial $false -ErrorAction SilentlyContinue | Where-Object { $_.HealthStatus -ne 'Healthy' }
+    foreach ($p in $unhealthy) { $findings += "WARN: Pool '$($p.FriendlyName)' health is $($p.HealthStatus)" }
+    $degraded = Get-VirtualDisk -ErrorAction SilentlyContinue | Where-Object { $_.HealthStatus -ne 'Healthy' }
+    foreach ($v in $degraded) { $findings += "WARN: VDisk '$($v.FriendlyName)' health is $($v.HealthStatus) — check for failed drives" }
+    $failedPd = Get-PhysicalDisk -ErrorAction SilentlyContinue | Where-Object { $_.HealthStatus -eq 'Unhealthy' -or $_.OperationalStatus -eq 'Lost Communication' }
+    foreach ($d in $failedPd) { $findings += "CRITICAL: Physical disk '$($d.FriendlyName)' is $($d.HealthStatus) / $($d.OperationalStatus)" }
+} catch {}
+
+if ($findings.Count -gt 0) {
+    $result.AppendLine("=== Findings ===") | Out-Null
+    foreach ($f in $findings) { $result.AppendLine("  $f") | Out-Null }
+} else {
+    $result.AppendLine("=== Findings ===") | Out-Null
+    $result.AppendLine("  All storage pool components healthy (or no Storage Spaces configured).") | Out-Null
+}
+
+Write-Output $result.ToString().TrimEnd()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: storage_spaces\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_storage_spaces() -> Result<String, String> {
+    let mut out = String::from("Host inspection: storage_spaces\n\n");
+    // Linux: check mdadm software RAID
+    let mdstat = std::fs::read_to_string("/proc/mdstat").unwrap_or_default();
+    if !mdstat.is_empty() {
+        out.push_str("=== Software RAID (/proc/mdstat) ===\n");
+        out.push_str(&mdstat);
+    } else {
+        out.push_str("No mdadm software RAID detected (/proc/mdstat not found or empty).\n");
+    }
+    // Check LVM
+    if let Ok(o) = Command::new("lvs").args(["--noheadings", "-o", "lv_name,vg_name,lv_size,lv_attr"]).output() {
+        let lvs = String::from_utf8_lossy(&o.stdout).to_string();
+        if !lvs.trim().is_empty() {
+            out.push_str("\n=== LVM Logical Volumes ===\n");
+            out.push_str(&lvs);
+        }
+    }
+    Ok(out)
+}
+
+// ── Defender Quarantine / Threat History ─────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_defender_quarantine(max_entries: usize) -> Result<String, String> {
+    let limit = max_entries.min(50);
+    let script = format!(r#"
+$result = [System.Text.StringBuilder]::new()
+
+# Current threat detections (active + quarantined)
+try {{
+    $threats = Get-MpThreatDetection -ErrorAction SilentlyContinue | Sort-Object InitialDetectionTime -Descending | Select-Object -First {limit}
+    if ($threats) {{
+        $result.AppendLine("=== Recent Threat Detections (last {limit}) ===") | Out-Null
+        foreach ($t in $threats) {{
+            $name    = (Get-MpThreat -ThreatID $t.ThreatID -ErrorAction SilentlyContinue).ThreatName
+            if (-not $name) {{ $name = "ID:$($t.ThreatID)" }}
+            $time    = $t.InitialDetectionTime.ToString("yyyy-MM-dd HH:mm")
+            $action  = $t.ActionSuccess
+            $status  = $t.CurrentThreatExecutionStatusID
+            $result.AppendLine("  [$time] $name  ActionSuccess:$action  Status:$status") | Out-Null
+        }}
+        $result.AppendLine("") | Out-Null
+    }} else {{
+        $result.AppendLine("=== Recent Threat Detections ===") | Out-Null
+        $result.AppendLine("  No threat detections on record — Defender history is clean.") | Out-Null
+        $result.AppendLine("") | Out-Null
+    }}
+}} catch {{
+    $result.AppendLine("=== Recent Threat Detections ===") | Out-Null
+    $result.AppendLine("  Unable to query threat detections: $_") | Out-Null
+    $result.AppendLine("") | Out-Null
+}}
+
+# Quarantine items
+try {{
+    $quarantine = Get-MpThreat -ErrorAction SilentlyContinue | Where-Object {{ $_.IsActive -eq $false }} | Select-Object -First {limit}
+    if ($quarantine) {{
+        $result.AppendLine("=== Quarantined / Remediated Threats ===") | Out-Null
+        foreach ($q in $quarantine) {{
+            $result.AppendLine("  $($q.ThreatName)  Severity:$($q.SeverityID)  Category:$($q.CategoryID)  Active:$($q.IsActive)") | Out-Null
+        }}
+        $result.AppendLine("") | Out-Null
+    }} else {{
+        $result.AppendLine("=== Quarantined / Remediated Threats ===") | Out-Null
+        $result.AppendLine("  No quarantined threats found.") | Out-Null
+        $result.AppendLine("") | Out-Null
+    }}
+}} catch {{
+    $result.AppendLine("=== Quarantined / Remediated Threats ===") | Out-Null
+    $result.AppendLine("  Unable to query quarantine list: $_") | Out-Null
+    $result.AppendLine("") | Out-Null
+}}
+
+# Defender scan stats
+try {{
+    $status = Get-MpComputerStatus -ErrorAction SilentlyContinue
+    if ($status) {{
+        $lastScan   = $status.QuickScanStartTime
+        $lastFull   = $status.FullScanStartTime
+        $sigDate    = $status.AntivirusSignatureLastUpdated
+        $result.AppendLine("=== Defender Scan Summary ===") | Out-Null
+        $result.AppendLine("  Last quick scan : $lastScan") | Out-Null
+        $result.AppendLine("  Last full scan  : $lastFull") | Out-Null
+        $result.AppendLine("  Signature date  : $sigDate") | Out-Null
+    }}
+}} catch {{}}
+
+Write-Output $result.ToString().TrimEnd()
+"#, limit = limit);
+    let out = run_powershell(&script)?;
+    Ok(format!("Host inspection: defender_quarantine\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_defender_quarantine(_max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: defender_quarantine\n\n");
+    out.push_str("Windows Defender is Windows-only.\n");
+    // Check ClamAV on Linux/macOS
+    if let Ok(o) = Command::new("clamscan").arg("--version").output() {
+        if o.status.success() {
+            out.push_str("\nClamAV detected. Run `clamscan -r --infected /path` for a scan.\n");
+            if let Ok(log) = std::fs::read_to_string("/var/log/clamav/clamav.log") {
+                out.push_str("\n=== ClamAV Recent Log ===\n");
+                for line in log.lines().rev().take(20) {
+                    out.push_str(&format!("  {line}\n"));
+                }
+            }
+        }
+    } else {
+        out.push_str("No AV tool detected (ClamAV not found).\n");
     }
     Ok(out)
 }
