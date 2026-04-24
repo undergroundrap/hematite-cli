@@ -3,7 +3,7 @@
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
-It features a high-fidelity integrated host inspection suite covering **116+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **117+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -230,6 +230,7 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Databases**: Use `topic: "databases"` to detect running local database engines — PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQLite, SQL Server, CouchDB, Cassandra, Elasticsearch — via CLI version check, TCP port probe, and OS service state. No credentials required.
 - **Overclocker Telemetry**: Use `topic: "overclocker"` for precision silicon performance — NVIDIA clocks, fans, board power and power-cap context (W), explicit GPU-voltage availability reporting, firmware-reported CPU voltage when WMI exposes it, root-cause throttle decoding (Power vs Thermal), and session history trends (Temp/Clock drift anomalies).
 - **Hyper-V**: Use `topic: "hyperv"` for Hyper-V role state (VMMS service, feature installed), VM inventory (name, state, CPU%, RAM, uptime), VM network switches (External/Internal/Private with bound NIC), VM checkpoint listing (flags excessive checkpoints), and host RAM overcommit detection. Reports gracefully if Hyper-V is not installed.
+- **MDM / Intune Enrollment**: Use `topic: "mdm_enrollment"` for Intune/MDM enrollment state — dsregcmd AAD and MDM join flags, registry enrollment accounts (UPN, enrollment type, server URL), Intune Management Extension service health, recent MDM event log errors, and plain-English findings for enrolled/unenrolled/stalled states. Enterprise support lane for managed Windows fleets and Autopilot deployments.
 - **User Accounts**: Use `topic: "user_accounts"` for local user accounts (name, enabled state, last logon, password required), Administrators group members, active logon sessions, and whether the current process is running elevated.
 - **Audit Policy**: Use `topic: "audit_policy"` for Windows audit policy (auditpol /get /category:*) — shows which event categories are logging Success/Failure. Flags if no categories are enabled. Requires Administrator elevation on Windows; falls back to auditd on Linux.
 - **Shares**: Use `topic: "shares"` for SMB shares this machine is exposing (flags custom non-admin shares), SMB server security settings (SMB1/SMB2 state, signing required, encryption), and mapped network drives. Warns if SMB1 is enabled.
@@ -325,7 +326,7 @@ When a local model gets uncertain, the answer is usually not "give it more freed
 
 ## MCP Server Mode
 
-Hematite can run as an MCP server, exposing its 116+ host inspection tools to any MCP-capable agent over the stdio transport.
+Hematite can run as an MCP server, exposing its 117+ host inspection tools to any MCP-capable agent over the stdio transport.
 
 ```powershell
 hematite --mcp-server
@@ -345,7 +346,7 @@ This starts a JSON-RPC 2.0 newline-delimited stdio server. No TUI launches. Prot
 }
 ```
 
-**Tool exposed:** `inspect_host` — all 116+ topics, same as the TUI. Any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) can call it directly and get grounded machine state with no cloud, no API key, and no prompt guessing.
+**Tool exposed:** `inspect_host` — all 117+ topics, same as the TUI. Any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) can call it directly and get grounded machine state with no cloud, no API key, and no prompt guessing.
 
 **Implementation:** `src/agent/mcp_server.rs` — stdio reader loop, JSON-RPC dispatch, delegates to `crate::tools::host_inspect::inspect_host()`.
 
@@ -958,13 +959,17 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 - **Windows backup diagnostics** — ✓ Done. Shipped as `inspect_host(topic: “windows_backup”)`. Covers File History service state and last backup date/target drive, Windows Backup (wbadmin) last successful backup versions and scheduled tasks, System Restore enabled state and most recent restore point, OneDrive Known Folder Move per-account protection state, and recent backup failure events from the Application event log.
 - **Hyper-V diagnostics** — ✓ Done. Shipped as `inspect_host(topic: “hyperv”)`. Covers Hyper-V role state (VMMS service, feature installed), VM inventory with name, state, CPU%, RAM, and uptime, VM network switch inventory (External/Internal/Private with bound NIC), VM checkpoint listing with creation timestamps, and host RAM overcommit detection. Reports gracefully if Hyper-V is not installed.
 - **Application crash triage** — ✓ Done. Shipped as `inspect_host(topic: “app_crashes”)`. Faulting application name/version, faulting module, exception code, crash vs hang classification, WER archive count, crash frequency over 7 days. Accepts optional `process` arg to filter by app name. Distinct from `recent_crashes` (BSOD/kernel events); routing detects natural-language variants including plural/verb forms.
-- **MCP server mode** — ✓ Done. `hematite --mcp-server` starts a JSON-RPC 2.0 newline-delimited stdio server exposing all 116+ `inspect_host` topics to any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) with no TUI, no local model required. Implemented in `src/agent/mcp_server.rs`.
+- **MCP server mode** — ✓ Done. `hematite --mcp-server` starts a JSON-RPC 2.0 newline-delimited stdio server exposing all 117+ `inspect_host` topics to any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) with no TUI, no local model required. Implemented in `src/agent/mcp_server.rs`.
 - **Edge redaction Tier 1** — ✓ Done. `--edge-redact` applies compiled regex patterns post-inspect_host: strips usernames in paths, MAC addresses, serial numbers, hostnames, AWS key IDs, and credential-shaped env values. Each response includes a machine-readable receipt header with per-category counts. Implemented in `src/agent/edge_redact.rs`.
 - **Semantic redaction Tier 2 + privacy gateway** — ✓ Done. `--semantic-redact` routes raw inspect_host output through the local LM Studio model with a hardened privacy prompt before any data leaves the machine. Fail-safe: unreachable model returns an error, never raw data. Jailbreak resistance: `<diagnostic_data>` delimiters, refusal detection, unknown MCP args stripped. Tier 1 runs after as safety net. Policy file (`.hematite/redact_policy.json`) provides per-topic block lists, whitelist mode, and redaction level overrides. Metadata-only audit trail written to `~/.hematite/redact_audit.jsonl`. Implemented across `src/agent/semantic_redact.rs`, `src/agent/redact_policy.rs`, `src/agent/redact_audit.rs`.
 
 ### Next Up — highest-value missing support lanes
 
-- **Enterprise enrollment diagnostics** — add `inspect_host(topic: “mdm_enrollment”)` for Intune / Autopilot / MDM enrollment state, common ESP blockers, and the first concrete support lane for managed Windows fleets.
+Nothing currently queued. All roadmap items shipped.
+
+### Recently Shipped
+
+- **Enterprise enrollment diagnostics** — ✓ Done. `inspect_host(topic: “mdm_enrollment”)` covers dsregcmd AAD/MDM join state, registry enrollment accounts with UPN/type/server URL, Intune Management Extension service health, recent MDM event log errors, and plain-English findings for enrolled/unenrolled/stalled states.
 
 ### Deferred — implement if users request it
 

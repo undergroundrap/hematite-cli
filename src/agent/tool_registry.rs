@@ -176,6 +176,7 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              topic=sessions for auditing active and disconnected user logon sessions, \
              topic=ad_user for specific Active Directory user identity, SID, and group membership auditing, \
              topic=dns_lookup for precision DNS record queries (SRV, MX, TXT), \
+             topic=mdm_enrollment for Intune/MDM enrollment state, Azure AD join, and device management health, \
              topic=hyperv for local Hyper-V VM inventory and real-time load, \
              topic=ip_config for detailed adapter configuration and DHCP lease state, \
              topic=disk_benchmark for high-performance silicon-aware stress testing, \
@@ -185,8 +186,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "updates", "security", "pending_reboot", "disk_health", "battery", "recent_crashes", "scheduled_tasks", "dev_conflicts", "os_config", "bitlocker", "rdp", "shadow_copies", "pagefile", "windows_features", "printers", "winrm", "network_stats", "udp_ports", "gpo", "certificates", "integrity", "domain", "device_health", "drivers", "peripherals", "disk_benchmark", "permissions", "login_history", "registry_audit", "share_access", "thermal", "activation", "patch_history", "ad_user", "dns_lookup", "hyperv", "ip_config"],
-                        "description": "Which structured host inspection to run. Use topic=ad_user for domain identity audit, topic=dns_lookup for SRV/MX records, topic=hyperv for VM load, and topic=ip_config for detailed adapter info."
+                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "updates", "security", "pending_reboot", "disk_health", "battery", "recent_crashes", "scheduled_tasks", "dev_conflicts", "os_config", "bitlocker", "rdp", "shadow_copies", "pagefile", "windows_features", "printers", "winrm", "network_stats", "udp_ports", "gpo", "certificates", "integrity", "domain", "device_health", "drivers", "peripherals", "disk_benchmark", "permissions", "login_history", "registry_audit", "share_access", "thermal", "activation", "patch_history", "ad_user", "dns_lookup", "hyperv", "ip_config", "mdm_enrollment"],
+                        "description": "Which structured host inspection to run. Use topic=ad_user for domain identity audit, topic=dns_lookup for SRV/MX records, topic=hyperv for VM load, topic=ip_config for detailed adapter info, and topic=mdm_enrollment for Intune/MDM enrollment state."
                     },
                     "name": {
                         "type": "string",

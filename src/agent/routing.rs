@@ -592,6 +592,19 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_ad_user = lower.contains("ad user")
         || lower.contains("domain user")
         || (lower.contains("user") && (lower.contains("sid") || lower.contains("membership")));
+    let asks_mdm = lower.contains("mdm")
+        || lower.contains("intune")
+        || lower.contains("autopilot")
+        || lower.contains("device enrollment")
+        || lower.contains("enrolled in")
+        || lower.contains("mdm enrollment")
+        || lower.contains("device management")
+        || lower.contains("managed device")
+        || lower.contains("azure ad join")
+        || lower.contains("aad join")
+        || (lower.contains("enrolled") && lower.contains("device"))
+        || (lower.contains("enroll") && lower.contains("device"))
+        || (lower.contains("microsoft") && lower.contains("endpoint"));
     let asks_hyperv = lower.contains("hyper-v")
         || lower.contains("hyperv")
         || lower.contains("hyper v")
@@ -1932,6 +1945,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("dns_lookup")
     } else if asks_event_query {
         Some("event_query")
+    } else if asks_mdm {
+        Some("mdm_enrollment")
     } else if asks_hyperv {
         Some("hyperv")
     } else if asks_ip_config {
@@ -2240,6 +2255,16 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("ip address") && l.contains(" of "))
                 || l.contains("srv record")
                 || l.contains("mx record")
+        }),
+        ("mdm_enrollment", |l| {
+            l.contains("mdm")
+                || l.contains("intune")
+                || l.contains("autopilot")
+                || l.contains("device enrollment")
+                || l.contains("mdm enrollment")
+                || l.contains("managed device")
+                || l.contains("azure ad join")
+                || (l.contains("enrolled") && l.contains("device"))
         }),
         ("hyperv", |l| {
             l.contains("hyper-v")

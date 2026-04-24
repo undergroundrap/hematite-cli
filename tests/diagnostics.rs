@@ -6379,6 +6379,56 @@ async fn test_inspect_host_hyperv_returns_header() {
 }
 
 #[tokio::test]
+async fn test_inspect_host_mdm_enrollment_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "mdm_enrollment" }))
+        .await
+        .unwrap();
+    assert!(
+        output.contains("Host inspection: mdm_enrollment"),
+        "mdm_enrollment must return a header; got:\n{output}"
+    );
+}
+
+#[test]
+fn test_routing_detects_mdm_enrollment_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let phrases = [
+        "is my device enrolled in Intune",
+        "check MDM enrollment status",
+        "is this device managed by MDM",
+        "show me the Intune enrollment state",
+        "is the device Azure AD joined",
+    ];
+    for phrase in &phrases {
+        assert_eq!(
+            preferred_host_inspection_topic(phrase),
+            Some("mdm_enrollment"),
+            "phrase {:?} should route to mdm_enrollment",
+            phrase
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_inspect_host_mdm_enrollment_reports_findings() {
+    use hematite::tools::host_inspect::inspect_host;
+    use serde_json::json;
+    let output = inspect_host(&json!({ "topic": "mdm_enrollment" }))
+        .await
+        .unwrap();
+    assert!(
+        output.contains("=== Findings ==="),
+        "mdm_enrollment must include a Findings section; got:\n{output}"
+    );
+    assert!(
+        output.contains("=== Device join and MDM state"),
+        "mdm_enrollment must include dsregcmd section; got:\n{output}"
+    );
+}
+
+#[tokio::test]
 async fn test_inspect_host_ip_config_returns_header() {
     use hematite::tools::host_inspect::inspect_host;
     use serde_json::json;
