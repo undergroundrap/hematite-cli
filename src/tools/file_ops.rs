@@ -393,10 +393,11 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
     } else {
         // ── Fuzzy repair: progressive normalisation ───────────────────────
         // Level 1: rstrip only — preserves indentation, strips trailing spaces.
-        // Level 2: full strip — corrects indentation mismatches.
-        // Level 3: cross-file hint — tells the model which file has the string.
-        let span =
-            rstrip_find_span(&original, search).or_else(|| fuzzy_find_span(&original, search));
+        // Level 2: indent-flexible — dedent both sides, preserve relative structure.
+        // Level 3: full strip — last resort before cross-file hint.
+        let span = rstrip_find_span(&original, search)
+            .or_else(|| indent_flexible_find_span(&original, search))
+            .or_else(|| fuzzy_find_span(&original, search));
         match span {
             Some(span) => {
                 let real_slice = original[span.clone()].to_string();
@@ -561,8 +562,9 @@ pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
             // Exact match — use as-is.
             (hunk.search.clone(), hunk.replace.clone())
         } else if match_count == 0 {
-            // Progressive fuzzy fallback: rstrip → full-strip.
+            // Progressive fuzzy fallback: rstrip → indent-flexible → full-strip.
             let span = rstrip_find_span(&current_content, &hunk.search)
+                .or_else(|| indent_flexible_find_span(&current_content, &hunk.search))
                 .or_else(|| fuzzy_find_span(&current_content, &hunk.search));
             match span {
                 Some(span) => {
@@ -1337,9 +1339,48 @@ fn rstrip_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize
     })
 }
 
-/// Level 2 fuzzy: full strip — trims all leading and trailing whitespace
-/// per line. Catches indentation mismatches where the model wrote the
-/// correct content but with wrong indent level.
+/// Level 2 fuzzy: indent-flexible — strips the minimum common leading whitespace
+/// (dedent) from both search and candidate windows before comparing. Preserves
+/// relative indentation structure so nested code remains distinguishable. Also
+/// normalises tabs → 4 spaces so tab/space mismatches are tolerated.
+fn indent_flexible_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>> {
+    let norm_search = dedent(search.trim_matches('\n'));
+    if norm_search.trim().is_empty() {
+        return None;
+    }
+    let search_line_count = norm_search.lines().count();
+    let content_lines: Vec<&str> = content.lines().collect();
+    if content_lines.len() < search_line_count {
+        return None;
+    }
+
+    // Precompute byte start of each line (content is already LF-normalised).
+    let mut line_starts: Vec<usize> = Vec::with_capacity(content_lines.len() + 1);
+    let mut pos = 0usize;
+    for line in &content_lines {
+        line_starts.push(pos);
+        pos += line.len() + 1; // +1 for '\n'
+    }
+    line_starts.push(pos);
+
+    for start in 0..=(content_lines.len() - search_line_count) {
+        let window = content_lines[start..start + search_line_count].join("\n");
+        if dedent(&window) == norm_search {
+            let byte_start = line_starts[start];
+            let end_line = start + search_line_count;
+            let byte_end = if end_line < content_lines.len() {
+                line_starts[end_line] - 1 // exclude trailing '\n'
+            } else {
+                content.len()
+            };
+            return Some(byte_start..byte_end);
+        }
+    }
+    None
+}
+
+/// Level 3 fuzzy: full strip — trims all leading and trailing whitespace
+/// per line. Last resort before the cross-file hint error.
 fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>> {
     find_span_normalised(content, search, |s| {
         s.lines().map(|l| l.trim()).collect::<Vec<_>>().join("\n")
@@ -1396,6 +1437,30 @@ fn find_search_in_workspace(search: &str, skip_path: &str) -> Option<String> {
 }
 
 // ── Indent-aware replacement ──────────────────────────────────────────────────
+
+/// Strip minimum common leading whitespace from all non-empty lines and
+/// normalise tabs to 4 spaces. Blank lines are reduced to empty strings.
+/// Used by indent_flexible_find_span for canonical comparison.
+fn dedent(s: &str) -> String {
+    let expanded: Vec<String> = s.lines().map(|l| l.replace('\t', "    ")).collect();
+    let min_indent = expanded
+        .iter()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| l.len() - l.trim_start_matches(' ').len())
+        .min()
+        .unwrap_or(0);
+    expanded
+        .iter()
+        .map(|l| {
+            if l.trim().is_empty() {
+                String::new()
+            } else {
+                l.get(min_indent..).unwrap_or(l).trim_end().to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
 
 /// When the model's search string has different indentation than the actual file
 /// content (fuzzy match succeeded), apply the same indentation delta to the
@@ -1459,8 +1524,9 @@ pub fn compute_edit_file_diff(args: &Value) -> Result<String, String> {
     let (effective_search, effective_replace): (String, String) = if original.contains(search) {
         (search.to_string(), replace.to_string())
     } else {
-        let span =
-            rstrip_find_span(&original, search).or_else(|| fuzzy_find_span(&original, search));
+        let span = rstrip_find_span(&original, search)
+            .or_else(|| indent_flexible_find_span(&original, search))
+            .or_else(|| fuzzy_find_span(&original, search));
         match span {
             Some(span) => {
                 let real_slice = original[span].to_string();

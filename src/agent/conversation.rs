@@ -4882,6 +4882,10 @@ impl ConversationManager {
             }
         }
 
+        // Prevent Windows from sleeping during inference/tool execution.
+        // Dropped automatically when the turn completes.
+        let _sleep_guard = crate::ui::sleep_inhibitor::SleepInhibitor::acquire();
+
         for _iter in 0..max_iters {
             let context_prep_start = tokio::time::Instant::now();
             let mut mutation_occurred = false;

@@ -169,6 +169,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     disable_raw_mode()?;
     std::io::stdout().execute(crossterm::event::DisableMouseCapture)?;
     std::io::stdout().execute(LeaveAlternateScreen)?;
+
+    // Flush any keystrokes buffered during inference so they don't ghost
+    // into the next terminal session after Hematite exits.
+    #[cfg(target_os = "windows")]
+    {
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn GetStdHandle(nStdHandle: u32) -> *mut std::ffi::c_void;
+            fn FlushConsoleInputBuffer(hConsoleInput: *mut std::ffi::c_void) -> i32;
+        }
+        const STD_INPUT_HANDLE: u32 = 0xFFFFFFF6; // (-10i32) as u32
+        unsafe {
+            let h = GetStdHandle(STD_INPUT_HANDLE);
+            if !h.is_null() && h as isize != -1 {
+                FlushConsoleInputBuffer(h);
+            }
+        }
+    }
+
     if let Some(summary) =
         hematite::agent::searx_lifecycle::shutdown_searx_if_owned(&searx_session).await
     {
