@@ -57,6 +57,27 @@ jobs:
           path: .hematite/assets/voice
           key: kokoro-voice-assets-v1.0
 
+      # ── ORT Linux workaround ────────────────────────────────────────────────────
+      # cdn.pyke.io (the CDN that serves pyke's custom ORT builds for the `ort`
+      # Rust crate) broke for the Linux target in April 2026 while macOS/Windows
+      # continued to work. We bypass it entirely by downloading the identical
+      # ORT 1.24.2 binary from Microsoft's official GitHub releases instead.
+      #
+      # Four non-obvious requirements to make this work:
+      # 1. Create a bare libonnxruntime.so symlink — Microsoft ships only the
+      #    versioned .so.X.Y.Z; the linker needs the unversioned name.
+      # 2. Set ORT_PREFER_DYNAMIC_LINK=1 — ort-sys defaults to static (.a) when
+      #    ORT_LIB_LOCATION is set; Microsoft's release is dynamic-only.
+      # 3. ORT_LIB_LOCATION points to the root dir (containing lib/); ort-sys
+      #    searches {root}/lib/ for the .so.
+      # 4. LIBRARY_PATH + LD_LIBRARY_PATH — lld needs the explicit search path
+      #    even after ort-sys validates the location successfully.
+      #
+      # The cache key is stable (not tied to Cargo.lock) so subsequent releases
+      # hit the cache and never contact pyke.io or GitHub for ORT again.
+      # If pyke.io recovers, this path still works and is strictly more reliable.
+      # To revert to the default CDN path: remove these four steps entirely.
+      # ────────────────────────────────────────────────────────────────────────────
       - name: Cache ORT library (Linux)
         if: runner.os == 'Linux'
         uses: actions/cache@v4
