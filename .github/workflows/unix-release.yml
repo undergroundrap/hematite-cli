@@ -63,7 +63,7 @@ jobs:
         id: cache-ort-lib
         with:
           path: ~/.cache/ort-lib
-          key: ort-ms-1.24.2-x86_64-linux-v4
+          key: ort-ms-1.24.2-x86_64-linux-v5
 
       - name: Pre-fetch ORT library (Linux)
         if: runner.os == 'Linux' && steps.cache-ort-lib.outputs.cache-hit != 'true'
@@ -98,8 +98,12 @@ jobs:
         run: |
           if [ -f "$HOME/.cache/ort-lib/.ort_lib_dir" ]; then
             LIB_DIR=$(cat "$HOME/.cache/ort-lib/.ort_lib_dir")
-            echo "ORT_LIB_LOCATION=$LIB_DIR" >> "$GITHUB_ENV"
-            echo "ORT_LIB_LOCATION=$LIB_DIR"
+            ORT_ROOT=$(dirname "$LIB_DIR")
+            # ort-sys looks for {ORT_LIB_LOCATION}/lib/libonnxruntime.so when dynamic linking.
+            # ORT_PREFER_DYNAMIC_LINK=1 switches it from .a (static) to .so (shared).
+            echo "ORT_LIB_LOCATION=$ORT_ROOT" >> "$GITHUB_ENV"
+            echo "ORT_PREFER_DYNAMIC_LINK=1" >> "$GITHUB_ENV"
+            echo "ORT_LIB_LOCATION=$ORT_ROOT, ORT_PREFER_DYNAMIC_LINK=1"
             ls "$LIB_DIR/libonnxruntime.so" && echo "symlink confirmed" || echo "WARNING: symlink missing"
           else
             echo "::warning::ORT pre-fetch did not run or failed - build will attempt CDN download"
