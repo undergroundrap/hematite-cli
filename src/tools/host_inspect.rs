@@ -4083,6 +4083,10 @@ fn inspect_health_report() -> Result<String, String> {
 
     health_check_disk(&mut needs_fix, &mut watch, &mut good);
     health_check_memory(&mut watch, &mut good);
+    health_check_network(&mut needs_fix, &mut watch, &mut good);
+    health_check_pending_reboot(&mut watch, &mut good);
+    health_check_services(&mut needs_fix, &mut watch, &mut good);
+    health_check_thermal(&mut watch, &mut good);
     health_check_tools(&mut watch, &mut good, &mut tips);
     health_check_recent_errors(&mut watch, &mut tips);
 
@@ -4403,6 +4407,222 @@ fn health_check_recent_errors(watch: &mut Vec<String>, tips: &mut Vec<String>) {
                 tips.push(
                     "Run inspect_host(topic=\"log_check\") to see recent errors.".to_string(),
                 );
+            }
+        }
+    }
+}
+
+fn health_check_network(needs_fix: &mut Vec<String>, watch: &mut Vec<String>, good: &mut Vec<String>) {
+    #[cfg(target_os = "windows")]
+    {
+        // Use .NET Ping directly — PS5.1 compatible, 2-second timeout.
+        let script = r#"try {
+    $ping = New-Object System.Net.NetworkInformation.Ping
+    $r = $ping.Send("1.1.1.1", 2000)
+    if ($r.Status -eq 'Success') { "OK|$($r.RoundtripTime)" } else { "FAIL" }
+} catch { "FAIL" }"#;
+        if let Ok(out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let text = text.trim();
+            if text.starts_with("OK") {
+                let latency = text.split('|').nth(1).unwrap_or("?");
+                let latency_ms: u64 = latency.parse().unwrap_or(0);
+                let msg = format!("Internet connectivity: reachable ({}ms RTT)", latency_ms);
+                if latency_ms > 300 {
+                    watch.push(format!("{msg} — high latency, may indicate network issue."));
+                } else {
+                    good.push(msg);
+                }
+            } else {
+                needs_fix.push(
+                    "Internet connectivity: unreachable — could not ping 1.1.1.1. \
+                     Check adapter, gateway, or DNS."
+                        .to_string(),
+                );
+            }
+            return;
+        }
+        watch.push("Network: could not run connectivity check.".to_string());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let ok = Command::new("ping")
+            .args(["-c", "1", "-W", "2", "1.1.1.1"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if ok {
+            good.push("Internet connectivity: reachable.".to_string());
+        } else {
+            needs_fix.push("Internet connectivity: unreachable — cannot ping 1.1.1.1.".to_string());
+        }
+    }
+}
+
+fn health_check_pending_reboot(watch: &mut Vec<String>, good: &mut Vec<String>) {
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"try {
+    $pending = $false
+    $reasons = @()
+    if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending' -ErrorAction SilentlyContinue) {
+        $pending = $true; $reasons += 'CBS/component update'
+    }
+    if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired' -ErrorAction SilentlyContinue) {
+        $pending = $true; $reasons += 'Windows Update'
+    }
+    $pfr = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue)
+    if ($pfr -and $pfr.PendingFileRenameOperations) {
+        $pending = $true; $reasons += 'file rename ops'
+    }
+    if ($pending) { "PENDING|$($reasons -join ',')" } else { "OK" }
+} catch { "OK" }"#;
+        if let Ok(out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let text = text.trim();
+            if text.starts_with("PENDING") {
+                let reasons = text.split('|').nth(1).unwrap_or("unknown reason");
+                watch.push(format!(
+                    "Pending reboot required ({reasons}) — restart when convenient to apply changes."
+                ));
+            } else {
+                good.push("No pending reboot.".to_string());
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Linux: check if a kernel update is pending (requires reboot to take effect)
+        if std::path::Path::new("/var/run/reboot-required").exists() {
+            watch.push("Pending reboot required — a kernel or package update needs a restart.".to_string());
+        } else {
+            good.push("No pending reboot.".to_string());
+        }
+    }
+}
+
+fn health_check_services(needs_fix: &mut Vec<String>, watch: &mut Vec<String>, good: &mut Vec<String>) {
+    #[cfg(not(target_os = "windows"))]
+    let _ = (&needs_fix, &good);
+    #[cfg(target_os = "windows")]
+    let _ = &watch;
+
+    #[cfg(target_os = "windows")]
+    {
+        // Only checks services whose being stopped indicates a real system problem.
+        let script = r#"try {
+    $names = @('EventLog','WinDefend','Dnscache')
+    $stopped = @()
+    foreach ($n in $names) {
+        $s = Get-Service $n -ErrorAction SilentlyContinue
+        if ($s -and $s.Status -ne 'Running') { $stopped += $n }
+    }
+    if ($stopped.Count -gt 0) { "STOPPED|$($stopped -join ',')" } else { "OK" }
+} catch { "OK" }"#;
+        if let Ok(out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let text = text.trim();
+            if text.starts_with("STOPPED") {
+                let names = text.split('|').nth(1).unwrap_or("unknown");
+                needs_fix.push(format!(
+                    "Critical service(s) not running: {names} — these should always be active."
+                ));
+            } else {
+                good.push("Core services (Event Log, Defender, DNS) all running.".to_string());
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Linux: check systemd failed units
+        if let Ok(out) = Command::new("systemctl")
+            .args(["--failed", "--no-legend", "--plain"])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let failed: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+            if !failed.is_empty() {
+                watch.push(format!(
+                    "{} failed systemd unit(s): {}",
+                    failed.len(),
+                    failed.join(", ")
+                ));
+            } else {
+                good.push("No failed systemd units.".to_string());
+            }
+        }
+    }
+}
+
+fn health_check_thermal(watch: &mut Vec<String>, good: &mut Vec<String>) {
+    #[cfg(target_os = "windows")]
+    {
+        // WMI thermal zones — best-effort, silently skip if unavailable or requires elevation.
+        let script = r#"try {
+    $zones = Get-WmiObject -Namespace "root/wmi" -Class MSAcpi_ThermalZoneTemperature -ErrorAction Stop
+    $temps = $zones | ForEach-Object { [math]::Round(($_.CurrentTemperature - 2732) / 10, 1) }
+    $max = ($temps | Measure-Object -Maximum).Maximum
+    "$max"
+} catch { "NA" }"#;
+        if let Ok(out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let text = text.trim();
+            if text != "NA" && !text.is_empty() {
+                if let Ok(temp) = text.parse::<f64>() {
+                    let msg = format!("CPU thermal: {temp:.0}°C peak zone temperature");
+                    if temp >= 90.0 {
+                        watch.push(format!(
+                            "{msg} — very high, check cooling and airflow."
+                        ));
+                    } else if temp >= 75.0 {
+                        watch.push(format!("{msg} — elevated under load, monitor for throttling."));
+                    } else {
+                        good.push(format!("{msg} — normal."));
+                    }
+                }
+            }
+            // If NA or unparseable, skip silently — thermal WMI often needs admin.
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Linux: read first available hwmon temp input
+        let paths = [
+            "/sys/class/thermal/thermal_zone0/temp",
+            "/sys/class/hwmon/hwmon0/temp1_input",
+        ];
+        for path in &paths {
+            if let Ok(content) = std::fs::read_to_string(path) {
+                if let Ok(raw) = content.trim().parse::<u64>() {
+                    let temp_c = raw / 1000;
+                    let msg = format!("CPU thermal: {temp_c}°C");
+                    if temp_c >= 90 {
+                        watch.push(format!("{msg} — very high, check cooling."));
+                    } else if temp_c >= 75 {
+                        watch.push(format!("{msg} — elevated under load."));
+                    } else {
+                        good.push(format!("{msg} — normal."));
+                    }
+                    return;
+                }
             }
         }
     }

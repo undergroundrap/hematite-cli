@@ -39,8 +39,10 @@ pub fn triage_follow_up_topics(health_output: &str) -> Vec<&'static str> {
         }
     }
 
-    // Services crashing or stopped
-    if (lower.contains("[!]") || lower.contains("[-]")) && lower.contains("service") {
+    // Critical services stopped
+    if lower.contains("[!]") && lower.contains("service") {
+        topics.push("services");
+    } else if lower.contains("[-]") && lower.contains("service") {
         topics.push("services");
     }
 
@@ -53,21 +55,25 @@ pub fn triage_follow_up_topics(health_output: &str) -> Vec<&'static str> {
         topics.push("security");
     }
 
-    // Network issues
-    if (lower.contains("[!]") || lower.contains("[-]")) && lower.contains("network") {
+    // Network unreachable or high latency
+    if lower.contains("[!]") && lower.contains("internet connectivity") {
+        topics.push("connectivity");
+        topics.push("network");
+    } else if lower.contains("[-]") && lower.contains("internet connectivity") {
         topics.push("connectivity");
     }
 
     // Pending reboot
-    if lower.contains("reboot") || lower.contains("restart required") {
+    if lower.contains("pending reboot") {
         topics.push("pending_reboot");
     }
 
-    // Thermal / throttling
+    // Thermal elevated or very high
     if (lower.contains("[!]") || lower.contains("[-]"))
-        && (lower.contains("thermal") || lower.contains("throttl") || lower.contains("temp"))
+        && (lower.contains("thermal") || lower.contains("°c"))
     {
         topics.push("thermal");
+        topics.push("overclocker");
     }
 
     // Deduplicate while preserving order
