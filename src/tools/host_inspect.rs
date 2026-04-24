@@ -4277,6 +4277,49 @@ fn health_check_memory(watch: &mut Vec<String>, good: &mut Vec<String>) {
     }
 }
 
+/// Try running `cmd --arg` via PATH first, then via a known install-path fallback.
+/// Prevents false "not installed" reports when the process PATH omits tool directories
+/// (e.g. ~/.cargo/bin missing from a shortcut-launched or headless session).
+fn probe_tool(cmd: &str, arg: &str) -> bool {
+    if Command::new(cmd)
+        .arg(arg)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+    {
+        return true;
+    }
+    // Fallback: well-known Windows install locations for tools that live outside system32.
+    #[cfg(windows)]
+    {
+        let home = std::env::var("USERPROFILE").unwrap_or_default();
+        let fallback: Option<String> = match cmd {
+            "cargo" | "rustc" | "rustup" => {
+                Some(format!(r"{}\\.cargo\\bin\\{}.exe", home, cmd))
+            }
+            "node" => Some(
+                r"C:\Program Files\nodejs\node.exe".to_string(),
+            ),
+            "npm" => Some(format!(
+                r"C:\Program Files\nodejs\npm.cmd"
+            )),
+            _ => None,
+        };
+        if let Some(path) = fallback {
+            return Command::new(&path)
+                .arg(arg)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+        }
+    }
+    false
+}
+
 fn health_check_tools(watch: &mut Vec<String>, good: &mut Vec<String>, tips: &mut Vec<String>) {
     let tool_checks: &[(&str, &str, &str)] = &[
         ("git", "--version", "Git"),
@@ -4295,13 +4338,7 @@ fn health_check_tools(watch: &mut Vec<String>, good: &mut Vec<String>, tips: &mu
         if cmd.starts_with("python") && python_found {
             continue;
         }
-        let ok = Command::new(cmd)
-            .arg(arg)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false);
+        let ok = probe_tool(cmd, arg);
         if ok {
             found.push((*label).to_string());
             if cmd.starts_with("python") {
