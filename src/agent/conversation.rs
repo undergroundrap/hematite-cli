@@ -3304,7 +3304,8 @@ impl ConversationManager {
             self.running_summary = result.summary;
             let previous_memory = self.session_memory.clone();
             self.session_memory = compaction::extract_memory(&self.history);
-            self.session_memory.inherit_runtime_ledger_from(&previous_memory);
+            self.session_memory
+                .inherit_runtime_ledger_from(&previous_memory);
             self.session_memory.record_compaction(
                 removed,
                 format!(
@@ -3358,9 +3359,17 @@ impl ConversationManager {
             }
 
             // /task add <text>
-            if let Some(text) = trimmed.strip_prefix("/task add ").map(str::trim).filter(|s| !s.is_empty()) {
+            if let Some(text) = trimmed
+                .strip_prefix("/task add ")
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
                 let tasks = crate::agent::tasks::add(text);
-                let added = tasks.iter().find(|t| t.text == text.trim()).map(|t| t.id).unwrap_or(0);
+                let added = tasks
+                    .iter()
+                    .find(|t| t.text == text.trim())
+                    .map(|t| t.id)
+                    .unwrap_or(0);
                 let msg = format!("Task {} added: {}", added, text.trim());
                 for chunk in chunk_text(&msg, 8) {
                     let _ = tx.send(InferenceEvent::Token(chunk)).await;
@@ -3375,7 +3384,11 @@ impl ConversationManager {
                     Ok(n) => match crate::agent::tasks::mark_done(n) {
                         Ok(tasks) => {
                             let task = tasks.iter().find(|t| t.id == n);
-                            format!("Task {} marked done: {}", n, task.map(|t| t.text.as_str()).unwrap_or(""))
+                            format!(
+                                "Task {} marked done: {}",
+                                n,
+                                task.map(|t| t.text.as_str()).unwrap_or("")
+                            )
                         }
                         Err(e) => e,
                     },
@@ -3423,10 +3436,12 @@ impl ConversationManager {
             if trimmed == "/pr" || trimmed.starts_with("/pr ") {
                 let rest = trimmed.strip_prefix("/pr").unwrap_or("").trim();
                 let draft = rest.contains("--draft");
-                let title_part = rest
-                    .trim_start_matches("--draft")
-                    .trim();
-                let title = if title_part.is_empty() { None } else { Some(title_part) };
+                let title_part = rest.trim_start_matches("--draft").trim();
+                let title = if title_part.is_empty() {
+                    None
+                } else {
+                    Some(title_part)
+                };
                 let msg = match crate::tools::github::create_pr_from_context(title, draft) {
                     Ok(out) => out,
                     Err(e) => format!("PR creation failed: {}", e),
@@ -3479,22 +3494,28 @@ impl ConversationManager {
 
         // ── /fix — run verify_build now, load error into next-turn intervention ──
         if user_input.trim() == "/fix" || user_input.trim() == "/fix --test" {
-            let action = if user_input.trim() == "/fix --test" { "test" } else { "build" };
+            let action = if user_input.trim() == "/fix --test" {
+                "test"
+            } else {
+                "build"
+            };
             let _ = tx
                 .send(InferenceEvent::Thought(format!(
                     "Running verify_build({action}) to capture current error state..."
                 )))
                 .await;
             let result =
-                crate::tools::verify_build::execute(&serde_json::json!({ "action": action }))
-                    .await;
+                crate::tools::verify_build::execute(&serde_json::json!({ "action": action })).await;
             let (ok, output) = match result {
                 Ok(out) => (true, out),
                 Err(e) => (false, e),
             };
             if ok {
                 for chunk in chunk_text(
-                    &format!("Build is clean — nothing to fix.\n\n```\n{}\n```", output.trim()),
+                    &format!(
+                        "Build is clean — nothing to fix.\n\n```\n{}\n```",
+                        output.trim()
+                    ),
                     8,
                 ) {
                     let _ = tx.send(InferenceEvent::Token(chunk)).await;
@@ -4885,7 +4906,10 @@ impl ConversationManager {
                         "Pre-turn compaction: context pressure detected — compacting history before inference.".into(),
                     ))
                     .await;
-                if self.compact_history_if_needed(&tx, Some(turn_anchor)).await? {
+                if self
+                    .compact_history_if_needed(&tx, Some(turn_anchor))
+                    .await?
+                {
                     // After compaction, history is [system, summary, user, ...].
                     // Recalculate the anchor so the in-loop compaction doesn't misfire.
                     turn_anchor = self
@@ -4903,7 +4927,11 @@ impl ConversationManager {
 
         // ── Context budget ledger — snapshot tokens before this turn ────────
         let (budget_input_start, budget_output_start) = {
-            let econ = self.engine.economics.lock().unwrap_or_else(|p| p.into_inner());
+            let econ = self
+                .engine
+                .economics
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
             (econ.input_tokens, econ.output_tokens)
         };
         // Estimate existing history size before this turn (excludes system prompt).
@@ -6651,7 +6679,11 @@ impl ConversationManager {
         // ── Context budget ledger ────────────────────────────────────────────
         {
             let (input_end, output_end) = {
-                let econ = self.engine.economics.lock().unwrap_or_else(|p| p.into_inner());
+                let econ = self
+                    .engine
+                    .economics
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner());
                 (econ.input_tokens, econ.output_tokens)
             };
             let context_pct = {
@@ -6683,9 +6715,7 @@ impl ConversationManager {
                 tool_costs,
                 context_pct,
             };
-            let _ = tx
-                .send(InferenceEvent::Thought(budget.render()))
-                .await;
+            let _ = tx.send(InferenceEvent::Thought(budget.render())).await;
             self.last_turn_budget = Some(budget);
         }
 

@@ -37,7 +37,10 @@ fn read_history() -> Option<Vec<String>> {
             continue;
         }
         // Skip trivials
-        if matches!(cmd, "ls" | "pwd" | "cd" | "clear" | "exit" | "cls" | "history") {
+        if matches!(
+            cmd,
+            "ls" | "pwd" | "cd" | "clear" | "exit" | "cls" | "history"
+        ) {
             continue;
         }
         // Skip lines that look like prompts or comments
@@ -55,7 +58,11 @@ fn read_history() -> Option<Vec<String>> {
     }
 
     cmds.reverse(); // oldest-first for readability
-    if cmds.is_empty() { None } else { Some(cmds) }
+    if cmds.is_empty() {
+        None
+    } else {
+        Some(cmds)
+    }
 }
 
 fn history_path() -> Option<std::path::PathBuf> {
@@ -69,7 +76,11 @@ fn history_path() -> Option<std::path::PathBuf> {
             .join("PowerShell")
             .join("PSReadLine")
             .join("ConsoleHost_history.txt");
-        if p.exists() { Some(p) } else { None }
+        if p.exists() {
+            Some(p)
+        } else {
+            None
+        }
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -91,7 +102,13 @@ fn history_path() -> Option<std::path::PathBuf> {
 struct LinkedHashSet(Vec<String>);
 
 impl LinkedHashSet {
-    fn new() -> Self { Self(Vec::new()) }
-    fn contains(&self, s: &str) -> bool { self.0.iter().any(|x| x == s) }
-    fn insert(&mut self, s: String) { self.0.push(s); }
+    fn new() -> Self {
+        Self(Vec::new())
+    }
+    fn contains(&self, s: &str) -> bool {
+        self.0.iter().any(|x| x == s)
+    }
+    fn insert(&mut self, s: String) {
+        self.0.push(s);
+    }
 }

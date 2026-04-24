@@ -78,7 +78,9 @@ pub fn render_prompt_block(tasks: &[HematiteTask]) -> Option<String> {
         let mark = if t.done { "[x]" } else { "[ ]" };
         out.push_str(&format!("{} {}. {}\n", mark, t.id, t.text));
     }
-    out.push_str("\nWhen you complete a task, let the user know and suggest running `/task done <N>`.");
+    out.push_str(
+        "\nWhen you complete a task, let the user know and suggest running `/task done <N>`.",
+    );
     Some(out)
 }
 

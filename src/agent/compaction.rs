@@ -547,7 +547,12 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
 
         // User requests (up to 4, most recent last).
         if m.role == "user" && !m.content.as_str().trim().is_empty() && requests.len() < 4 {
-            let text = m.content.as_str().trim_start_matches("/think\n").trim_start_matches("/no_think\n").trim();
+            let text = m
+                .content
+                .as_str()
+                .trim_start_matches("/think\n")
+                .trim_start_matches("/no_think\n")
+                .trim();
             requests.push(truncate_summary_line(
                 &collapse_inline_whitespace(text),
                 140,

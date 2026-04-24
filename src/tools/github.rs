@@ -11,11 +11,9 @@ fn gh_available() -> bool {
 
 fn run_gh(args: &[&str]) -> Result<String, String> {
     if !gh_available() {
-        return Err(
-            "GitHub CLI (`gh`) is not installed or not on PATH. \
+        return Err("GitHub CLI (`gh`) is not installed or not on PATH. \
              Install it from https://cli.github.com/ and run `gh auth login`."
-                .to_string(),
-        );
+            .to_string());
     }
     let out = Command::new("gh")
         .args(args)
@@ -70,7 +68,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             let pr = args.get("pr").and_then(|v| v.as_str()).unwrap_or("");
             if pr.is_empty() {
                 // default: current branch's PR
-                run_gh(&["pr", "view", "--json", "number,title,state,body,reviews,url"])
+                run_gh(&[
+                    "pr",
+                    "view",
+                    "--json",
+                    "number,title,state,body,reviews,url",
+                ])
             } else {
                 run_gh(&[
                     "pr",
@@ -89,11 +92,10 @@ pub async fn execute(args: &Value) -> Result<String, String> {
                 .ok_or("Missing 'title' for pr_create")?;
             let body = args.get("body").and_then(|v| v.as_str()).unwrap_or("");
             let base = args.get("base").and_then(|v| v.as_str()).unwrap_or("main");
-            let draft = args
-                .get("draft")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            let mut gh_args = vec!["pr", "create", "--title", title, "--body", body, "--base", base];
+            let draft = args.get("draft").and_then(|v| v.as_bool()).unwrap_or(false);
+            let mut gh_args = vec![
+                "pr", "create", "--title", title, "--body", body, "--base", base,
+            ];
             if draft {
                 gh_args.push("--draft");
             }
@@ -113,7 +115,10 @@ pub async fn execute(args: &Value) -> Result<String, String> {
 
         "pr_merge" => {
             let pr = args.get("pr").and_then(|v| v.as_str()).unwrap_or("");
-            let strategy = args.get("strategy").and_then(|v| v.as_str()).unwrap_or("merge");
+            let strategy = args
+                .get("strategy")
+                .and_then(|v| v.as_str())
+                .unwrap_or("merge");
             let flag = match strategy {
                 "squash" => "--squash",
                 "rebase" => "--rebase",
@@ -153,7 +158,11 @@ pub async fn execute(args: &Value) -> Result<String, String> {
                 .get("number")
                 .and_then(|v| v.as_u64())
                 .map(|n| n.to_string())
-                .or_else(|| args.get("number").and_then(|v| v.as_str()).map(str::to_string))
+                .or_else(|| {
+                    args.get("number")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string)
+                })
                 .ok_or("Missing 'number' for issue_view")?;
             run_gh(&["issue", "view", &number])
         }
@@ -267,10 +276,7 @@ pub fn create_pr_from_context(title: Option<&str>, draft: bool) -> Result<String
     };
 
     let mut gh_args = vec![
-        "pr", "create",
-        "--title", &pr_title,
-        "--body", &body,
-        "--base", "main",
+        "pr", "create", "--title", &pr_title, "--body", &body, "--base", "main",
     ];
     if draft {
         gh_args.push("--draft");

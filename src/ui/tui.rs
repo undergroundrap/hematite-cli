@@ -6273,9 +6273,7 @@ fn make_starfield(width: u16, rows: u16, seed: u64, tick: u64) -> Vec<String> {
 
 // ── Splash Screen ─────────────────────────────────────────────────────────────
 
-fn draw_splash<B: Backend>(
-    terminal: &mut Terminal<B>,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn draw_splash<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), Box<dyn std::error::Error>> {
     let logo_color = Color::Rgb(118, 118, 124);
     let star_color = Color::White;
     let sub_logo_color = Color::DarkGray;
@@ -6345,16 +6343,16 @@ fn draw_splash<B: Backend>(
         for line in &wide_logo {
             lines.push(Line::from(Span::styled(
                 (*line).to_string(),
-                Style::default()
-                    .fg(logo_color)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(logo_color).add_modifier(Modifier::BOLD),
             )));
         }
 
         // Sub-logo
         lines.push(Line::from(Span::styled(
             "                                   -- cli --".to_string(),
-            Style::default().fg(sub_logo_color).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(sub_logo_color)
+                .add_modifier(Modifier::DIM),
         )));
 
         lines.push(Line::raw(""));
@@ -6374,7 +6372,9 @@ fn draw_splash<B: Backend>(
         // Author
         lines.push(Line::from(Span::styled(
             "developed by Ocean Bennett".to_string(),
-            Style::default().fg(author_color).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(author_color)
+                .add_modifier(Modifier::DIM),
         )));
 
         lines.push(Line::raw(""));

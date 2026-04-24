@@ -11571,7 +11571,9 @@ foreach ($line in $raw) {
                     }
                 }
             }
-            Ok(_) => out.push_str("- dsregcmd returned no enrollment fields (device may not be AAD-joined)\n"),
+            Ok(_) => out.push_str(
+                "- dsregcmd returned no enrollment fields (device may not be AAD-joined)\n",
+            ),
             Err(e) => out.push_str(&format!("- dsregcmd error: {e}\n")),
         }
 

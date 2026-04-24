@@ -1034,9 +1034,7 @@ pub fn get_mutation_label(name: &str, args: &Value) -> Option<String> {
         "github_ops" => {
             let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("?");
             match action {
-                "pr_create" | "pr_merge" | "issue_create" => {
-                    Some(format!("GitHub: {}", action))
-                }
+                "pr_create" | "pr_merge" | "issue_create" => Some(format!("GitHub: {}", action)),
                 _ => None,
             }
         }

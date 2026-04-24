@@ -193,8 +193,18 @@ pub fn bash_is_safe(cmd: &str) -> Result<(), String> {
 fn catastrophic_bash_check(lower: &str) -> Result<(), String> {
     // Pipe-to-shell: silently executes whatever curl/wget/cat produces.
     for shell in &[
-        "|sh", "| sh", "|bash", "| bash", "|zsh", "| zsh",
-        "|fish", "| fish", "|pwsh", "| pwsh", "|powershell", "| powershell",
+        "|sh",
+        "| sh",
+        "|bash",
+        "| bash",
+        "|zsh",
+        "| zsh",
+        "|fish",
+        "| fish",
+        "|pwsh",
+        "| pwsh",
+        "|powershell",
+        "| powershell",
     ] {
         if lower.contains(shell) {
             return Err(format!(
@@ -455,9 +465,7 @@ fn is_destructive_mutation(tokens: &[String]) -> bool {
     }
 
     // Linux firewall flush — drops all rules silently.
-    if exe_name == "iptables"
-        && (cmd_str.contains(" -f") || cmd_str.contains("--flush"))
-    {
+    if exe_name == "iptables" && (cmd_str.contains(" -f") || cmd_str.contains("--flush")) {
         return true;
     }
 
@@ -635,7 +643,10 @@ mod tests {
             classify_bash_risk("echo done & del /f config.json"),
             RiskLevel::High
         );
-        assert_eq!(classify_bash_risk("start https://google.com"), RiskLevel::High);
+        assert_eq!(
+            classify_bash_risk("start https://google.com"),
+            RiskLevel::High
+        );
         assert_eq!(
             classify_bash_risk("msedge.exe https://google.com"),
             RiskLevel::High
@@ -668,7 +679,10 @@ mod tests {
     fn test_high_risk_additions() {
         // Windows boot/disk manipulation.
         assert_eq!(classify_bash_risk("diskpart"), RiskLevel::High);
-        assert_eq!(classify_bash_risk("bcdedit /set testsigning on"), RiskLevel::High);
+        assert_eq!(
+            classify_bash_risk("bcdedit /set testsigning on"),
+            RiskLevel::High
+        );
 
         // Windows registry deletion.
         assert_eq!(
@@ -680,14 +694,20 @@ mod tests {
         assert_eq!(classify_bash_risk("net stop wuauserv"), RiskLevel::High);
 
         // Windows force-kill.
-        assert_eq!(classify_bash_risk("taskkill /f /im explorer.exe"), RiskLevel::High);
+        assert_eq!(
+            classify_bash_risk("taskkill /f /im explorer.exe"),
+            RiskLevel::High
+        );
 
         // Linux firewall flush.
         assert_eq!(classify_bash_risk("iptables -F"), RiskLevel::High);
         assert_eq!(classify_bash_risk("iptables --flush"), RiskLevel::High);
 
         // Setuid escalation.
-        assert_eq!(classify_bash_risk("chmod +s /usr/bin/bash"), RiskLevel::High);
+        assert_eq!(
+            classify_bash_risk("chmod +s /usr/bin/bash"),
+            RiskLevel::High
+        );
 
         // Audit evasion.
         assert_eq!(classify_bash_risk("history -c"), RiskLevel::High);
