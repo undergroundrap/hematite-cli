@@ -3055,6 +3055,7 @@ impl ConversationManager {
             self.pinned_files.lock().await.clear();
             self.reset_action_grounding().await;
             reset_task_files();
+            crate::agent::tasks::clear();
             purge_persistent_memory();
             tokio::task::block_in_place(|| self.vein.reset());
             let _ = std::fs::remove_file(session_path());
@@ -3062,7 +3063,7 @@ impl ConversationManager {
             self.emit_compaction_pressure(&tx).await;
             self.emit_prompt_pressure_idle(&tx).await;
             for chunk in chunk_text(
-                "Hard forget complete. Chat history, saved memory, task files, and the Vein index were purged.",
+                "Hard forget complete. Chat history, saved memory, task files, task list, and the Vein index were purged.",
                 8,
             ) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
@@ -3275,6 +3276,79 @@ impl ConversationManager {
             }
             let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
+        }
+
+        // ── /task commands ───────────────────────────────────────────────────────
+        {
+            let trimmed = user_input.trim();
+
+            // /task or /task list — show current tasks
+            if trimmed == "/task" || trimmed == "/task list" {
+                let tasks = crate::agent::tasks::load();
+                let report = crate::agent::tasks::render_list(&tasks);
+                for chunk in chunk_text(&report, 8) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+                let _ = tx.send(InferenceEvent::Done).await;
+                return Ok(());
+            }
+
+            // /task add <text>
+            if let Some(text) = trimmed.strip_prefix("/task add ").map(str::trim).filter(|s| !s.is_empty()) {
+                let tasks = crate::agent::tasks::add(text);
+                let added = tasks.iter().find(|t| t.text == text.trim()).map(|t| t.id).unwrap_or(0);
+                let msg = format!("Task {} added: {}", added, text.trim());
+                for chunk in chunk_text(&msg, 8) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+                let _ = tx.send(InferenceEvent::Done).await;
+                return Ok(());
+            }
+
+            // /task done <N>
+            if let Some(n_str) = trimmed.strip_prefix("/task done ").map(str::trim) {
+                let msg = match n_str.parse::<usize>() {
+                    Ok(n) => match crate::agent::tasks::mark_done(n) {
+                        Ok(tasks) => {
+                            let task = tasks.iter().find(|t| t.id == n);
+                            format!("Task {} marked done: {}", n, task.map(|t| t.text.as_str()).unwrap_or(""))
+                        }
+                        Err(e) => e,
+                    },
+                    Err(_) => format!("Usage: /task done <number>  (e.g. `/task done 2`)"),
+                };
+                for chunk in chunk_text(&msg, 8) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+                let _ = tx.send(InferenceEvent::Done).await;
+                return Ok(());
+            }
+
+            // /task remove <N>
+            if let Some(n_str) = trimmed.strip_prefix("/task remove ").map(str::trim) {
+                let msg = match n_str.parse::<usize>() {
+                    Ok(n) => match crate::agent::tasks::remove(n) {
+                        Ok(_) => format!("Task {} removed.", n),
+                        Err(e) => e,
+                    },
+                    Err(_) => format!("Usage: /task remove <number>  (e.g. `/task remove 3`)"),
+                };
+                for chunk in chunk_text(&msg, 8) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+                let _ = tx.send(InferenceEvent::Done).await;
+                return Ok(());
+            }
+
+            // /task clear
+            if trimmed == "/task clear" {
+                crate::agent::tasks::clear();
+                for chunk in chunk_text("All tasks cleared.", 8) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+                let _ = tx.send(InferenceEvent::Done).await;
+                return Ok(());
+            }
         }
 
         // Reload config every turn (edits apply immediately, no restart needed).
@@ -4234,6 +4308,15 @@ impl ConversationManager {
                     final_system_msg.push_str(&snippet);
                     final_system_msg.push_str("\n```\n");
                 }
+            }
+        }
+
+        // ── Inject user task list ────────────────────────────────────────────
+        if !tiny_context_mode {
+            let tasks = crate::agent::tasks::load();
+            if let Some(block) = crate::agent::tasks::render_prompt_block(&tasks) {
+                final_system_msg.push_str("\n\n");
+                final_system_msg.push_str(&block);
             }
         }
 

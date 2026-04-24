@@ -107,6 +107,12 @@ pwsh ./clean.ps1
 - `/skills`: show the discovered Agent Skills catalog from `.agents/skills/` and `.hematite/skills/`
 - `/skill <name>`: explicitly load a named skill's full body into the system prompt for the next turn — shows available skills on name mismatch
 - `/skill new <name>`: scaffold a new skill directory with a SKILL.md template at `.agents/skills/<name>/`
+- `/task`: show the current task list
+- `/task add <text>`: add a task to the persistent task list — injected into the system prompt every turn so the model always knows what's pending
+- `/task done <N>`: mark task N complete
+- `/task remove <N>`: remove task N from the list
+- `/task clear`: wipe all tasks
+- Task list persists across `/new` (context resets) but is cleared by `/forget` (full wipe)
 - Rule files are injected into the system prompt every turn automatically — no restart needed after editing
 - `.hematite/instructions/`: drop any `<topic>.md` file here for topic-scoped rules that only inject when the turn context mentions that topic name (e.g. `authentication.md` injects only when the user's message references authentication)
 - `SKILLS.md` / `SKILL.md`: optional root-level workspace guidance files for project conventions, domain recipes, and repo-specific operating patterns; they are additive to the built-in workflow engine, not a replacement for `.hematite/PLAN.md` or `.hematite/TASK.md`

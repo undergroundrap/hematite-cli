@@ -35,6 +35,7 @@ pub mod searx_lifecycle;
 pub mod semantic_redact;
 pub mod specular;
 pub mod swarm;
+pub mod tasks;
 pub mod tool_registry;
 pub mod transcript;
 pub mod truncation;
