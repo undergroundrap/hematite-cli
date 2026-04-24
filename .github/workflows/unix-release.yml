@@ -63,7 +63,7 @@ jobs:
         id: cache-ort-lib
         with:
           path: ~/.cache/ort-lib
-          key: ort-ms-1.24.2-x86_64-linux-v3
+          key: ort-ms-1.24.2-x86_64-linux-v4
 
       - name: Pre-fetch ORT library (Linux)
         if: runner.os == 'Linux' && steps.cache-ort-lib.outputs.cache-hit != 'true'
@@ -98,9 +98,9 @@ jobs:
         run: |
           if [ -f "$HOME/.cache/ort-lib/.ort_lib_dir" ]; then
             LIB_DIR=$(cat "$HOME/.cache/ort-lib/.ort_lib_dir")
-            ORT_ROOT=$(dirname "$LIB_DIR")
-            echo "ORT_LIB_LOCATION=$ORT_ROOT" >> "$GITHUB_ENV"
-            echo "ORT_LIB_LOCATION=$ORT_ROOT (lib at $LIB_DIR)"
+            echo "ORT_LIB_LOCATION=$LIB_DIR" >> "$GITHUB_ENV"
+            echo "ORT_LIB_LOCATION=$LIB_DIR"
+            ls "$LIB_DIR/libonnxruntime.so" && echo "symlink confirmed" || echo "WARNING: symlink missing"
           else
             echo "::warning::ORT pre-fetch did not run or failed - build will attempt CDN download"
           fi
