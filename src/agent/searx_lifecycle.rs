@@ -13,9 +13,12 @@ pub struct SearxRuntimeSession {
     pub owned_by_session: bool,
     pub auto_stop_on_exit: bool,
     pub startup_summary: Option<String>,
+    /// Docker Desktop was launched this session; background poller should
+    /// watch for daemon readiness and then start SearXNG.
+    pub docker_wake_pending: bool,
 }
 
-enum DockerState {
+pub(crate) enum DockerState {
     Ready,
     MissingCli,
     DaemonUnavailable(String),
@@ -63,7 +66,21 @@ fn looks_like_local_searx_url(url: &str) -> bool {
         || !lower.contains("://")
 }
 
-fn docker_state() -> DockerState {
+/// Try to find Docker Desktop.exe on Windows. Checks the two most common
+/// install locations (system-wide and per-user LOCALAPPDATA).
+#[cfg(target_os = "windows")]
+fn find_docker_desktop_exe() -> Option<PathBuf> {
+    let mut candidates = vec![
+        PathBuf::from(r"C:\Program Files\Docker\Docker\Docker Desktop.exe"),
+        PathBuf::from(r"C:\Program Files (x86)\Docker\Docker\Docker Desktop.exe"),
+    ];
+    if let Some(local) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) {
+        candidates.push(local.join("Programs").join("Docker").join("Docker").join("Docker Desktop.exe"));
+    }
+    candidates.into_iter().find(|p| p.exists())
+}
+
+pub(crate) fn docker_state() -> DockerState {
     match Command::new("docker")
         .args(["info", "--format", "{{.ServerVersion}}"])
         .output()
@@ -116,7 +133,7 @@ fn ensure_scaffolded(root: &Path) -> Result<(), String> {
     }
 }
 
-fn docker_compose_up(root: &Path) -> Result<(), String> {
+pub(crate) fn docker_compose_up(root: &Path) -> Result<(), String> {
     let output = Command::new("docker")
         .args(["compose", "up", "-d"])
         .current_dir(root)
@@ -150,7 +167,7 @@ fn docker_compose_down(root: &Path) -> Result<(), String> {
     }
 }
 
-async fn wait_for_searx(url: &str) -> bool {
+pub(crate) async fn wait_for_searx(url: &str) -> bool {
     for _ in 0..20 {
         if is_searx_responding(url).await {
             return true;
@@ -182,6 +199,7 @@ pub async fn boot_searx_if_needed(config: &HematiteConfig) -> SearxRuntimeSessio
         owned_by_session: false,
         auto_stop_on_exit: config.auto_stop_searx,
         startup_summary: None,
+        docker_wake_pending: false,
     };
 
     if !config.auto_start_searx {
@@ -209,11 +227,25 @@ pub async fn boot_searx_if_needed(config: &HematiteConfig) -> SearxRuntimeSessio
             );
             return session;
         }
-        DockerState::DaemonUnavailable(detail) => {
+        DockerState::DaemonUnavailable(_detail) => {
+            #[cfg(target_os = "windows")]
+            if let Some(exe) = find_docker_desktop_exe() {
+                let launched = std::process::Command::new(&exe).spawn().is_ok();
+                if launched {
+                    session.docker_wake_pending = true;
+                    session.startup_summary = Some(
+                        "Local search: Docker Desktop wasn't running — launching it now. \
+                        SearXNG will auto-start once Docker is ready (~30–60s). \
+                        Falling back to Jina until then."
+                        .to_string(),
+                    );
+                    return session;
+                }
+            }
             session.startup_summary = Some(format!(
-                "Local search is unavailable: Docker is installed but not running. Start Docker Desktop, then relaunch Hematite or start SearXNG manually from `{}`. Detail: {}",
-                root.display(),
-                detail
+                "Local search is unavailable: Docker is installed but not running. \
+                Start Docker Desktop, then relaunch Hematite or run `docker compose up -d` in `{}`.",
+                root.display()
             ));
             return session;
         }

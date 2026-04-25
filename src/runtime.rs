@@ -595,6 +595,70 @@ pub async fn run_agent_loop(runtime: AgentLoopRuntime, config: AgentLoopConfig) 
             .send(InferenceEvent::Thought(summary.to_string()))
             .await;
     }
+
+    // If Docker Desktop was just launched, poll in background until the daemon
+    // is ready, then start SearXNG automatically and notify the TUI.
+    if searx_session.docker_wake_pending {
+        let wake_tx = agent_tx.clone();
+        let wake_root = searx_session.root.clone();
+        let wake_url = crate::agent::config::load_config()
+            .searx_url
+            .unwrap_or_else(|| "http://localhost:8080".to_string());
+        tokio::spawn(async move {
+            // Poll for Docker daemon — up to 90 seconds, checking every 3s.
+            let mut docker_ready = false;
+            for _ in 0..30 {
+                tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                if matches!(
+                    crate::agent::searx_lifecycle::docker_state(),
+                    crate::agent::searx_lifecycle::DockerState::Ready
+                ) {
+                    docker_ready = true;
+                    break;
+                }
+            }
+            if !docker_ready {
+                let _ = wake_tx
+                    .send(InferenceEvent::Thought(
+                        "Local search: Docker daemon did not come online within 90s. \
+                        Start SearXNG manually with `docker compose up -d` in ~/.hematite/searxng-local."
+                        .to_string(),
+                    ))
+                    .await;
+                return;
+            }
+            match crate::agent::searx_lifecycle::docker_compose_up(&wake_root) {
+                Err(e) => {
+                    let _ = wake_tx
+                        .send(InferenceEvent::Thought(format!(
+                            "Local search: Docker is ready but SearXNG failed to start — {}",
+                            e
+                        )))
+                        .await;
+                }
+                Ok(()) => {
+                    if crate::agent::searx_lifecycle::wait_for_searx(&wake_url).await {
+                        let _ = wake_tx
+                            .send(InferenceEvent::Thought(format!(
+                                "Local search online: SearXNG is now live at {} — switching from Jina.",
+                                wake_url
+                            )))
+                            .await;
+                    } else {
+                        let _ = wake_tx
+                            .send(InferenceEvent::Thought(format!(
+                                "Local search: SearXNG container started but {} is not responding. \
+                                Check `docker compose logs` in {}.",
+                                wake_url,
+                                wake_root.display()
+                            )))
+                            .await;
+                    }
+                }
+            }
+        });
+    }
+
     if display_model == "no model loaded" {
         let guidance = provider_startup_guidance(&provider_name, &startup_endpoint, false).await;
         let _ = agent_tx.send(InferenceEvent::Thought(guidance)).await;
