@@ -70,24 +70,25 @@ pub async fn generate_report_markdown() -> String {
     md
 }
 
-/// Run a full staged diagnosis — health_report → triage → targeted follow-ups → fix recipes.
-/// No TUI, no model required. Output is self-contained markdown for cloud model ingestion.
-pub async fn generate_diagnosis_report() -> String {
+struct DiagnosisData {
+    timestamp: String,
+    hostname: String,
+    health_output: String,
+    follow_up_outputs: Vec<(&'static str, String)>,
+}
+
+async fn run_diagnosis_phases() -> DiagnosisData {
     let timestamp = now_timestamp_string();
     let hostname = hostname_from_env();
-    let version = env!("CARGO_PKG_VERSION");
 
-    // Phase 1: health_report
     let health_args = json!({"topic": "health_report"});
     let health_output = match crate::tools::host_inspect::inspect_host(&health_args).await {
         Ok(s) => s,
         Err(e) => format!("Error running health_report: {}", e),
     };
 
-    // Phase 2: triage — find which topics need deeper investigation
     let follow_up_topics = crate::agent::diagnose::triage_follow_up_topics(&health_output);
 
-    // Phase 3: run each targeted follow-up
     let mut follow_up_outputs: Vec<(&'static str, String)> = Vec::new();
     for topic in &follow_up_topics {
         let args = json!({"topic": topic});
@@ -98,9 +99,18 @@ pub async fn generate_diagnosis_report() -> String {
         follow_up_outputs.push((*topic, output));
     }
 
-    // Build section refs for fix recipe matching
-    let mut section_refs: Vec<(&str, &str)> = vec![("health_report", health_output.as_str())];
-    for (topic, output) in &follow_up_outputs {
+    DiagnosisData { timestamp, hostname, health_output, follow_up_outputs }
+}
+
+/// Run a full staged diagnosis — health_report → triage → targeted follow-ups → fix recipes.
+/// No TUI, no model required. Output is self-contained markdown for cloud model ingestion.
+pub async fn generate_diagnosis_report() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    let data = run_diagnosis_phases().await;
+
+    let mut section_refs: Vec<(&str, &str)> =
+        vec![("health_report", data.health_output.as_str())];
+    for (topic, output) in &data.follow_up_outputs {
         section_refs.push((*topic, output.as_str()));
     }
     let score = crate::agent::fix_recipes::score_health(&section_refs);
@@ -108,36 +118,59 @@ pub async fn generate_diagnosis_report() -> String {
 
     let mut md = String::new();
     md.push_str("# Hematite Staged Diagnosis Report\n\n");
-    md.push_str(&format!("**Generated:** {}  \n", timestamp));
-    md.push_str(&format!("**Host:** {}  \n", hostname));
+    md.push_str(&format!("**Generated:** {}  \n", data.timestamp));
+    md.push_str(&format!("**Host:** {}  \n", data.hostname));
     md.push_str(&format!("**Hematite:** v{}  \n", version));
-    md.push_str(&format!(
-        "**Health Score:** {} — {}  \n\n",
-        score.grade, score.label
-    ));
+    md.push_str(&format!("**Health Score:** {} — {}  \n\n", score.grade, score.label));
     md.push_str(&format!("> {}\n\n", score.summary_line()));
     md.push_str("---\n\n");
-
     md.push_str("## Action Plan\n\n");
     md.push_str(&action_plan);
     md.push_str("---\n\n");
-
-    md.push_str("## System Health\n\n");
-    md.push_str("```\n");
-    md.push_str(health_output.trim_end());
+    md.push_str("## System Health\n\n```\n");
+    md.push_str(data.health_output.trim_end());
     md.push_str("\n```\n\n");
 
-    if !follow_up_outputs.is_empty() {
+    if !data.follow_up_outputs.is_empty() {
         md.push_str("## Targeted Investigation\n\n");
-        for (topic, output) in &follow_up_outputs {
-            md.push_str(&format!("### {}\n\n", topic));
-            md.push_str("```\n");
+        for (topic, output) in &data.follow_up_outputs {
+            md.push_str(&format!("### {}\n\n```\n", topic));
             md.push_str(output.trim_end());
             md.push_str("\n```\n\n");
         }
     }
 
     md
+}
+
+/// Same as generate_diagnosis_report but outputs a self-contained HTML file.
+pub async fn generate_diagnosis_report_html() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    let data = run_diagnosis_phases().await;
+
+    let mut section_refs: Vec<(&str, &str)> =
+        vec![("health_report", data.health_output.as_str())];
+    for (topic, output) in &data.follow_up_outputs {
+        section_refs.push((*topic, output.as_str()));
+    }
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
+    let action_plan_html = crate::agent::fix_recipes::format_action_plan_html(&section_refs);
+
+    let mut sections: Vec<(&str, String)> =
+        vec![("System Health", data.health_output.clone())];
+    for (topic, output) in &data.follow_up_outputs {
+        sections.push((*topic, output.clone()));
+    }
+
+    build_html_document(
+        "Hematite Staged Diagnosis",
+        &data.timestamp,
+        &data.hostname,
+        version,
+        &score,
+        &action_plan_html,
+        &sections,
+    )
 }
 
 pub async fn generate_report_json() -> String {
@@ -217,6 +250,7 @@ pub async fn generate_report_html() -> String {
     let action_plan_html = crate::agent::fix_recipes::format_action_plan_html(&section_refs);
 
     build_html_document(
+        "Hematite Diagnostic Report",
         &timestamp,
         &hostname,
         version,
@@ -244,7 +278,18 @@ pub async fn save_diagnosis_report() -> (String, PathBuf) {
     (md, path)
 }
 
+pub async fn save_diagnosis_report_html() -> (String, PathBuf) {
+    let html = generate_diagnosis_report_html().await;
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("diagnosis-{}.html", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &html);
+    (html, path)
+}
+
 fn build_html_document(
+    title: &str,
     timestamp: &str,
     hostname: &str,
     version: &str,
@@ -302,13 +347,13 @@ footer{text-align:center;color:#94a3b8;font-size:.775rem;margin-top:1.5rem;paddi
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hematite Diagnostic Report — {hostname}</title>
+<title>{title} — {hostname}</title>
 <style>{css}</style>
 </head>
 <body>
 <div class="wrap">
 <header>
-<h1>Hematite Diagnostic Report</h1>
+<h1>{title}</h1>
 <div class="meta">
   <span>Generated: {timestamp}</span>
   <span>Host: {hostname}</span>
@@ -331,9 +376,10 @@ footer{text-align:center;color:#94a3b8;font-size:.775rem;margin-top:1.5rem;paddi
 {sections_html}
 </section>
 </div>
-<footer>Generated by Hematite v{version} &middot; <code>hematite --report --report-format html</code></footer>
+<footer>Generated by Hematite v{version}</footer>
 </body>
 </html>"#,
+        title = he(title),
         hostname = he(hostname),
         timestamp = he(timestamp),
         version = he(version),

@@ -80,7 +80,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if cockpit.diagnose {
-        let (_, path) = hematite::agent::report_export::save_diagnosis_report().await;
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let path = match fmt.as_str() {
+            "html" => hematite::agent::report_export::save_diagnosis_report_html().await.1,
+            _ => hematite::agent::report_export::save_diagnosis_report().await.1,
+        };
         println!("Diagnosis saved: {}", path.display());
         if cockpit.open {
             open_path(&path);

@@ -308,6 +308,129 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("dns_servers"),
         },
     },
+
+    // ── Repeated app crashes ──────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["faulting application", "crash count", "crash frequency", "application hang", "faulting module"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Application crashing repeatedly",
+            steps: &[
+                "Note the faulting application name and module from the report — these are the most important clues",
+                "If the faulting module is ntdll.dll or a system DLL: run SFC to repair Windows files → PowerShell (admin) → sfc /scannow",
+                "If the faulting module is a third-party DLL (e.g. a codec or plugin): uninstall the associated program",
+                "Update or reinstall the crashing application — corrupted installs are a common cause",
+                "Check for conflicting software: antivirus, screen recorders, and overlays (Discord, GeForce Experience) frequently inject into other processes",
+                "If it is a Microsoft Office app: run the Office repair → Control Panel → Programs → right-click Office → Change → Quick Repair",
+            ],
+            dig_deeper: Some("app_crashes"),
+        },
+    },
+
+    // ── Visual C++ / runtime missing ─────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["vcruntime", "msvcr", "0xc000007b", "side-by-side configuration", "missing runtime", "vc++ redistributable"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Visual C++ runtime missing or corrupt",
+            steps: &[
+                "Download and install the latest Visual C++ Redistributable packages (both x64 and x86) from Microsoft: search 'Visual C++ Redistributable downloads'",
+                "Install all available years: 2015–2022 package covers most apps; older apps may need 2013, 2012, or 2010 separately",
+                "If a specific app shows error 0xc000007b: right-click the app → Properties → Compatibility → Run as administrator",
+                "Repair existing runtimes: Control Panel → Programs → find 'Microsoft Visual C++ 20XX' → Repair",
+                "After installing, restart before testing the application again — runtimes must be registered at boot",
+            ],
+            dig_deeper: None,
+        },
+    },
+
+    // ── Certificate expiring ──────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["expiring within 30 days", "expires in", "certificate expir", "cert.*expir"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Certificate expiring soon",
+            steps: &[
+                "Open Certificate Manager: press Win+R → type 'certmgr.msc' → check Personal → Certificates for the expiring cert",
+                "Note the certificate subject and issuer — determines who you need to contact for renewal",
+                "For personal/S-MIME certificates: renew through your CA or email provider portal",
+                "For web/TLS certificates on a server: generate a new CSR and submit to your CA before expiry",
+                "For code-signing certificates: do not let these lapse — signed binaries will show 'unknown publisher' warnings after expiry",
+            ],
+            dig_deeper: Some("certificates"),
+        },
+    },
+
+    // ── Wi-Fi weak signal ─────────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["signal: poor", "weak signal", "rssi: -8", "rssi: -9", "signal strength: poor", "quality: poor", "poor signal"],
+        recipe: Recipe {
+            severity: "MONITOR",
+            title: "Wi-Fi signal weak",
+            steps: &[
+                "Move closer to the router or access point — Wi-Fi degrades quickly through walls and floors",
+                "Switch to 5 GHz band if available — faster and less congested in most home environments (but shorter range than 2.4 GHz)",
+                "Check for interference: microwave ovens, baby monitors, and neighboring networks on the same channel all degrade signal",
+                "Change the router's Wi-Fi channel: log into router admin → Wireless settings → try channels 1, 6, or 11 (2.4 GHz) or auto (5 GHz)",
+                "Update the Wi-Fi adapter driver: Device Manager → Network Adapters → right-click adapter → Update driver",
+                "If signal is consistently poor from a fixed desk, consider a powerline adapter or mesh Wi-Fi node nearby",
+            ],
+            dig_deeper: Some("wifi"),
+        },
+    },
+
+    // ── NTP / time sync failure ───────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["time sync failed", "sync failed", "clock drift", "ntp.*error", "w32tm.*fail", "ntp source.*unreachable", "time.*not synchronized"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "System clock not synchronizing",
+            steps: &[
+                "Force a sync now: PowerShell (admin) → w32tm /resync /force",
+                "Check the current NTP source: PowerShell → w32tm /query /source",
+                "If source shows 'Local CMOS Clock' or 'Free-running', the time service has lost its server",
+                "Reset to Microsoft's NTP server: PowerShell (admin) → w32tm /config /manualpeerlist:time.windows.com /syncfromflags:manual /reliable:YES /update",
+                "Restart the time service: PowerShell (admin) → Restart-Service w32tm",
+                "If clock drift is large (>5 minutes), some authentication systems (Kerberos, MFA) will fail until synced",
+            ],
+            dig_deeper: Some("ntp"),
+        },
+    },
+
+    // ── Page file missing ─────────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["no page file", "pagefile: none", "page file: none", "virtual memory: none", "pagefile not configured", "no pagefile"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Page file not configured",
+            steps: &[
+                "Windows needs a page file even with plenty of RAM — some apps and crash dumps require it",
+                "Re-enable automatic page file management: search 'Adjust the appearance and performance of Windows' → Advanced → Virtual memory → Change → check 'Automatically manage'",
+                "If manually set: assign at least 1.5× your RAM as maximum size on the system drive",
+                "After changing page file settings, restart is required — changes do not take effect until reboot",
+                "Note: if this machine intentionally has no page file (e.g. a RAM disk setup), verify that was deliberate before changing it",
+            ],
+            dig_deeper: Some("pagefile"),
+        },
+    },
+
+    // ── System file corruption ────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["corrupt files found", "autorepairrequired: true", "integrity.*failed", "component store corruption", "sfc.*corrupt", "windows resource protection found corrupt"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Windows system file corruption detected",
+            steps: &[
+                "Run SFC to repair corrupt files: PowerShell (admin) → sfc /scannow (takes 5–15 minutes)",
+                "If SFC reports 'Windows Resource Protection found corrupt files but was unable to fix some of them', run DISM next:",
+                "DISM repair: PowerShell (admin) → DISM /Online /Cleanup-Image /RestoreHealth (requires internet access, 10–30 minutes)",
+                "Run SFC again after DISM completes — DISM provides the source files SFC needs",
+                "Restart after both complete, then check Event Viewer for CBS log: Applications and Services Logs → Microsoft → Windows → Servicing",
+                "If corruption persists after both tools: in-place upgrade repair (Windows Setup without wiping data) is the next step",
+            ],
+            dig_deeper: Some("integrity"),
+        },
+    },
 ];
 
 pub struct HealthScore {

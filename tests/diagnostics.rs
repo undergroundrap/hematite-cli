@@ -7475,3 +7475,105 @@ fn test_fix_recipes_total_count() {
     let recipes = match_recipes(everything);
     assert!(recipes.len() >= 17, "expected at least 17 recipes, got {}", recipes.len());
 }
+
+#[test]
+fn test_fix_recipes_match_app_crashes() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "Faulting application: chrome.exe — crash count: 5 in last 7 days";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match app crash recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("crash")),
+        "should match crash recipe");
+    assert!(recipes.iter().any(|r| r.severity == "INVESTIGATE"),
+        "app crashes should be INVESTIGATE severity");
+}
+
+#[test]
+fn test_fix_recipes_match_vcredist_missing() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "Error: 0xc000007b — vcruntime140.dll not found";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match VC++ runtime recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("visual c++")),
+        "should match VC++ runtime recipe");
+    assert!(recipes.iter().any(|r| r.severity == "ACTION"),
+        "missing VC++ runtime should be ACTION severity");
+}
+
+#[test]
+fn test_fix_recipes_match_certificate_expiring() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "Certificate: CN=example.com — expires in 15 days";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match certificate expiry recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("certificate")),
+        "should match certificate recipe");
+    assert!(recipes.iter().any(|r| r.severity == "INVESTIGATE"),
+        "expiring certificate should be INVESTIGATE severity");
+}
+
+#[test]
+fn test_fix_recipes_match_wifi_weak() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "Signal: Poor — RSSI: -88 dBm";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match Wi-Fi weak signal recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("wi-fi")),
+        "should match Wi-Fi recipe");
+    assert!(recipes.iter().any(|r| r.severity == "MONITOR"),
+        "weak Wi-Fi should be MONITOR severity");
+}
+
+#[test]
+fn test_fix_recipes_match_ntp_failure() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "Time Sync Failed — NTP source unreachable; clock drift detected";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match NTP failure recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("clock")),
+        "should match NTP/clock recipe");
+    assert!(recipes.iter().any(|r| r.severity == "INVESTIGATE"),
+        "NTP failure should be INVESTIGATE severity");
+}
+
+#[test]
+fn test_fix_recipes_match_pagefile_missing() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "Pagefile: None — no page file configured on this system";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match page file recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("page file")),
+        "should match page file recipe");
+    assert!(recipes.iter().any(|r| r.severity == "INVESTIGATE"),
+        "missing page file should be INVESTIGATE severity");
+}
+
+#[test]
+fn test_fix_recipes_match_system_file_corruption() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "AutoRepairRequired: True — Windows Resource Protection found corrupt files";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match system file corruption recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("corrupt")),
+        "should match corruption recipe");
+    assert!(recipes.iter().any(|r| r.severity == "ACTION"),
+        "system file corruption should be ACTION severity");
+}
+
+#[test]
+fn test_fix_recipes_total_count_expanded() {
+    // Phase 5: now expect at least 24 recipes — trigger all known patterns
+    use hematite::agent::fix_recipes::match_recipes;
+    let everything = "disk: very low free space\ndisk_health smart predictive failure\n\
+        pending reboot required\ncritical error event\nnot running: windefend\n\
+        internet connectivity: unreachable\nms rtt — high latency\nram: very low\n\
+        °c — very high check cooling\nreal-time protection: disabled\nthreat detected malware\n\
+        windows update pending\nyellow bang pnp error\nfile history: disabled no restore points\n\
+        smb1 is enabled\nprotection state: off bitlocker: off\ndns resolution: failed\n\
+        faulting application chrome.exe crash count: 5\n0xc000007b vcruntime140.dll not found\n\
+        certificate expires in 15 days\nsignal: poor rssi: -88\n\
+        time sync failed ntp source unreachable\nno page file configured\n\
+        autorepairrequired: true windows resource protection found corrupt files";
+    let recipes = match_recipes(everything);
+    assert!(recipes.len() >= 24, "expected at least 24 recipes, got {}", recipes.len());
+}

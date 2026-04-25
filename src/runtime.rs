@@ -730,6 +730,10 @@ mod tests {
             semantic_redact: false,
             semantic_url: None,
             semantic_model: None,
+            report: false,
+            report_format: "md".into(),
+            diagnose: false,
+            open: false,
             pdf_extract_helper: None,
             teleported_from: None,
         };
