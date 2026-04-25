@@ -222,6 +222,92 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("updates"),
         },
     },
+
+    // ── Device / driver errors ────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["yellow bang", "pnp error", "configmanager error", "error code 43", "error code 10", "error code 28", "device problem", "driver error"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Hardware device error detected",
+            steps: &[
+                "Open Device Manager: press Win+R → type 'devmgmt.msc' → Enter",
+                "Look for yellow exclamation marks (!) — right-click → Properties → note the error code and device name",
+                "Error Code 43 (USB/GPU): unplug and replug the device, or roll back the driver: right-click → Properties → Driver → Roll Back Driver",
+                "Error Code 10 (failed to start): update the driver — right-click → Update driver → Search automatically",
+                "Error Code 28 (no driver): download the driver from the manufacturer's website (look up the device name + Windows version)",
+                "For recurring errors: run SFC scan → PowerShell (admin) → sfc /scannow",
+            ],
+            dig_deeper: Some("device_health"),
+        },
+    },
+
+    // ── No backup configured ──────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["file history: disabled", "no backup configured", "no restore points", "last backup: never", "backup: not configured", "file history.*disabled", "no system restore"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "No backup configured",
+            steps: &[
+                "Enable File History: Settings → System → Storage → Advanced storage settings → Backup options → Add a drive",
+                "Enable System Restore: search 'Create a restore point' → select C: → Configure → turn on protection → OK → Create",
+                "For a full image backup: search 'Backup and Restore (Windows 7)' → Create a system image → choose an external drive",
+                "OneDrive Known Folder Backup covers Desktop/Documents/Pictures: Settings → OneDrive → Backup → Manage backup",
+                "Run your first backup immediately — a backup that has never run has zero value",
+            ],
+            dig_deeper: Some("windows_backup"),
+        },
+    },
+
+    // ── SMB1 enabled ─────────────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["smb1 is enabled", "smb1: enabled", "smb1 protocol: enabled", "smb version 1", "smbv1 enabled"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "SMB1 protocol enabled — security risk",
+            steps: &[
+                "SMB1 is a deprecated protocol exploited by WannaCry and NotPetya ransomware — disable it immediately",
+                "Disable SMB1: PowerShell (admin) → Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force",
+                "Verify it's off: PowerShell → Get-SmbServerConfiguration | Select EnableSMB1Protocol (should show False)",
+                "If a legacy device (old NAS, printer) stops working after disabling, upgrade its firmware or replace it — do not re-enable SMB1",
+                "Restart required to fully remove the SMB1 listener",
+            ],
+            dig_deeper: Some("shares"),
+        },
+    },
+
+    // ── BitLocker not protecting ──────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["protection state: off", "bitlocker: off", "bitlocker.*not protecting", "encryption status: fully decrypted", "bitlocker.*disabled"],
+        recipe: Recipe {
+            severity: "MONITOR",
+            title: "Drive encryption not enabled",
+            steps: &[
+                "BitLocker encrypts your drive so data is unreadable if the laptop is lost or stolen — strongly recommended on portable machines",
+                "Enable BitLocker: search 'Manage BitLocker' → Turn on BitLocker for C: → follow the wizard",
+                "Save the recovery key to your Microsoft account or print it — you will need it if Windows can't auto-unlock at boot",
+                "Encryption runs in the background and takes 1–3 hours for a typical drive — the PC remains usable during this time",
+                "Requires TPM 1.2+ or USB key; check: PowerShell → Get-Tpm | Select TpmPresent,TpmReady",
+            ],
+            dig_deeper: Some("bitlocker"),
+        },
+    },
+
+    // ── DNS resolution failing ────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["dns resolution: failed", "dns: failed", "dns fail", "dns resolution failed", "could not resolve"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "DNS resolution failing",
+            steps: &[
+                "Flush DNS cache: PowerShell (admin) → Clear-DnsClientCache",
+                "Test DNS directly: PowerShell → Resolve-DnsName google.com -Server 8.8.8.8 — if this works, your DNS server is the problem",
+                "Switch to a reliable DNS server: PowerShell (admin) → Set-DnsClientServerAddress -InterfaceAlias 'Wi-Fi' -ServerAddresses ('8.8.8.8','1.1.1.1')",
+                "Check if the DNS client service is running: Get-Service Dnscache | Select Status",
+                "If on a corporate network or VPN, contact IT — split DNS may require the VPN to be connected for internal names to resolve",
+            ],
+            dig_deeper: Some("dns_servers"),
+        },
+    },
 ];
 
 pub struct HealthScore {

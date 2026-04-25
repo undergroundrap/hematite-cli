@@ -60,20 +60,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if cockpit.report {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
-        let out = if fmt == "json" {
-            hematite::agent::report_export::generate_report_json().await
-        } else if fmt == "html" {
-            hematite::agent::report_export::generate_report_html().await
+        if cockpit.open {
+            let path = match fmt.as_str() {
+                "json" => hematite::agent::report_export::save_report_json().await.1,
+                "html" => hematite::agent::report_export::save_report_html().await.1,
+                _ => hematite::agent::report_export::save_report_markdown().await.1,
+            };
+            println!("Report saved: {}", path.display());
+            open_path(&path);
         } else {
-            hematite::agent::report_export::generate_report_markdown().await
-        };
-        print!("{}", out);
+            let out = match fmt.as_str() {
+                "json" => hematite::agent::report_export::generate_report_json().await,
+                "html" => hematite::agent::report_export::generate_report_html().await,
+                _ => hematite::agent::report_export::generate_report_markdown().await,
+            };
+            print!("{}", out);
+        }
         return Ok(());
     }
 
     if cockpit.diagnose {
-        let out = hematite::agent::report_export::generate_diagnosis_report().await;
-        print!("{}", out);
+        let (_, path) = hematite::agent::report_export::save_diagnosis_report().await;
+        println!("Diagnosis saved: {}", path.display());
+        if cockpit.open {
+            open_path(&path);
+        }
         return Ok(());
     }
 
@@ -213,6 +224,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("{}", summary);
     }
     Ok(())
+}
+
+fn open_path(path: &std::path::Path) {
+    #[cfg(target_os = "windows")]
+    {
+        let s = path.to_string_lossy().into_owned();
+        let _ = std::process::Command::new("cmd").args(["/c", "start", "", &s]).spawn();
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+        let _ = std::process::Command::new(opener).arg(path).spawn();
+    }
 }
 
 #[cfg(test)]

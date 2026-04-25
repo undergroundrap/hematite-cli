@@ -130,8 +130,9 @@ pwsh ./clean.ps1
 - `/version`: show the running Hematite release version plus build state
 - `/about`: show author, repo, and product info
 - `hematite --version`: print the same build report from the CLI
-- `hematite --report`: headless diagnostic report to stdout — includes health score (A–F) and action plan at the top, then raw section data; no TUI, pipeable: `hematite --report > health.md`; `--report-format json` for JSON, `--report-format html` for a self-contained HTML file
-- `hematite --diagnose`: headless staged triage — no TUI, no model required; runs `health_report`, triages which topics need deeper investigation, runs targeted follow-up inspections, then outputs a self-contained fix plan graded A–F: `hematite --diagnose > diagnosis.md`
+- `hematite --report`: headless diagnostic report to stdout — includes health score (A–F) and action plan at the top, then raw section data; no TUI, pipeable: `hematite --report > health.md`; `--report-format json` for JSON, `--report-format html` for a self-contained HTML file; add `--open` to save and launch the file immediately
+- `hematite --diagnose`: headless staged triage — no TUI, no model required; runs `health_report`, triages which topics need deeper investigation, runs targeted follow-up inspections, saves a self-contained fix plan to `.hematite/reports/diagnosis-DATE.md` and prints the path; add `--open` to launch the file immediately after saving
+- `--open`: works with `--report` and `--diagnose` — saves the output file and opens it in the default application (browser for HTML, editor for Markdown)
 - `/copy`: copy the session transcript manually
 - `/copy-clean`: copy the transcript with tool calls stripped — prose only
 - `/copy-last`: copy only the last assistant response

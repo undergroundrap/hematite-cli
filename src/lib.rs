@@ -199,9 +199,15 @@ pub struct CliCockpit {
 
     #[arg(
         long,
-        help = "Run a full staged triage — no TUI, no model required. Runs health_report, identifies problems, runs targeted follow-up topics, and outputs a self-contained fix plan. Pipe to a file: hematite --diagnose > diagnosis.md"
+        help = "Run a full staged triage — no TUI, no model required. Saves diagnosis to .hematite/reports/ and prints the path. Add --open to launch the file immediately."
     )]
     pub diagnose: bool,
+
+    #[arg(
+        long,
+        help = "After generating a --report or --diagnose, open the saved file in the default application (browser for HTML, editor for Markdown)"
+    )]
+    pub open: bool,
 
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,

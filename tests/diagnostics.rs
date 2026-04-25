@@ -7266,6 +7266,13 @@ fn test_report_cli_flags_exist() {
     assert!(flag_names.contains(&"report"), "--report flag missing from CliCockpit");
     assert!(flag_names.contains(&"report-format"), "--report-format flag missing from CliCockpit");
     assert!(flag_names.contains(&"diagnose"), "--diagnose flag missing from CliCockpit");
+    assert!(flag_names.contains(&"open"), "--open flag missing from CliCockpit");
+}
+
+#[test]
+fn test_report_export_save_diagnosis_wiring() {
+    use hematite::agent::report_export;
+    let _ = std::hint::black_box(report_export::save_diagnosis_report as usize);
 }
 
 // ── Fix recipes ───────────────────────────────────────────────────────────────
@@ -7396,4 +7403,75 @@ fn test_health_score_summary_line_clean() {
     let summary = score.summary_line();
     assert!(summary.to_ascii_lowercase().contains("healthy") || summary.to_ascii_lowercase().contains("no issues"),
         "clean summary should mention healthy/no issues: {}", summary);
+}
+
+// ── New fix recipe coverage ───────────────────────────────────────────────────
+
+#[test]
+fn test_fix_recipes_match_device_error() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "Yellow Bang detected: USB Root Hub — Error Code 43";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match device error recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("device")),
+        "should match hardware device recipe");
+    assert!(recipes.iter().any(|r| r.severity == "ACTION"),
+        "device errors should be ACTION severity");
+}
+
+#[test]
+fn test_fix_recipes_match_no_backup() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "File History: Disabled\nNo restore points found";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match no backup recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("backup")),
+        "should match backup recipe");
+}
+
+#[test]
+fn test_fix_recipes_match_smb1() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "SMB1 is enabled — security risk";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match SMB1 recipe");
+    assert!(recipes.iter().any(|r| r.severity == "ACTION"),
+        "SMB1 enabled should be ACTION severity");
+}
+
+#[test]
+fn test_fix_recipes_match_bitlocker_off() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "Protection State: Off\nBitLocker: Off";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match BitLocker recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("encrypt")),
+        "should match encryption recipe");
+}
+
+#[test]
+fn test_fix_recipes_match_dns_failure() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let output = "DNS Resolution: Failed — could not resolve google.com";
+    let recipes = match_recipes(output);
+    assert!(!recipes.is_empty(), "should match DNS failure recipe");
+    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("dns")),
+        "should match DNS recipe");
+    assert!(recipes.iter().any(|r| r.severity == "ACTION"),
+        "DNS failure should be ACTION severity");
+}
+
+#[test]
+fn test_fix_recipes_total_count() {
+    // Sanity check: we have at least 17 recipes (12 original + 5 new).
+    use hematite::agent::fix_recipes::match_recipes;
+    // Trigger all known recipes by building an output with all trigger words
+    let everything = "disk: very low free space\ndisk_health smart predictive failure\n\
+        pending reboot required\ncritical error event\nnot running: windefend\n\
+        internet connectivity: unreachable\nms rtt — high latency\nram: very low\n\
+        °c — very high check cooling\nreal-time protection: disabled\nthreat detected malware\n\
+        windows update pending\nyellow bang pnp error\nfile history: disabled no restore points\n\
+        smb1 is enabled\nprotection state: off bitlocker: off\ndns resolution: failed";
+    let recipes = match_recipes(everything);
+    assert!(recipes.len() >= 17, "expected at least 17 recipes, got {}", recipes.len());
 }

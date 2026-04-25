@@ -234,6 +234,16 @@ pub async fn save_report_html() -> (String, PathBuf) {
     (html, path)
 }
 
+pub async fn save_diagnosis_report() -> (String, PathBuf) {
+    let md = generate_diagnosis_report().await;
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("diagnosis-{}.md", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &md);
+    (md, path)
+}
+
 fn build_html_document(
     timestamp: &str,
     hostname: &str,
