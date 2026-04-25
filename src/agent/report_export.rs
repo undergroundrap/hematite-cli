@@ -297,40 +297,42 @@ fn build_html_document(
     action_plan_html: &str,
     sections: &[(&str, String)],
 ) -> String {
-    let css = r#"*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1e293b;padding:2rem 1rem}
+    let css = r#":root{--bg:#000;--fg:#fff;--dim:#6b6b6b;--line:#1a1a1a;--line-2:#262626}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scrollbar-width:thin;scrollbar-color:#2a2a2a #000}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:#000}::-webkit-scrollbar-thumb{background:#222;border-radius:999px;border:2px solid #000}::-webkit-scrollbar-thumb:hover{background:#333}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;background:var(--bg);color:var(--fg);padding:2.5rem 1.5rem;min-height:100vh}
 .wrap{max-width:900px;margin:0 auto}
-header{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:2rem;margin-bottom:1.5rem;box-shadow:0 1px 3px rgba(0,0,0,.07)}
-h1{font-size:1.6rem;font-weight:800;color:#0f172a;margin-bottom:.75rem}
-.meta{font-size:.8rem;color:#64748b;margin-bottom:1.25rem;display:flex;flex-wrap:wrap;gap:.5rem 1.5rem}
+header{background:#0a0a0a;border:1px solid var(--line-2);border-radius:18px;padding:2rem 2.25rem;margin-bottom:1rem}
+h1{font-size:1.35rem;font-weight:600;letter-spacing:-0.025em;color:var(--fg);margin-bottom:.6rem}
+.meta{font-size:.775rem;color:var(--dim);margin-bottom:1.25rem;display:flex;flex-wrap:wrap;gap:.4rem 1.5rem;letter-spacing:-0.005em}
 .score-row{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
-.grade{font-size:2.5rem;font-weight:900;width:3.25rem;height:3.25rem;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
-.gA{background:#16a34a}.gB{background:#22c55e;color:#14532d}.gC{background:#d97706}.gD{background:#ea580c}.gF{background:#dc2626}
-.score-info h2{font-size:1.1rem;font-weight:700}.score-info p{color:#64748b;font-size:.875rem;margin-top:.2rem}
-section{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:2rem;margin-bottom:1.5rem;box-shadow:0 1px 3px rgba(0,0,0,.07)}
-section>h2{font-size:1.1rem;font-weight:700;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid #f1f5f9}
-.recipe{padding:1rem 1.25rem;border-left:4px solid #e2e8f0;border-radius:0 8px 8px 0;margin-bottom:1rem;background:#f8fafc}
+.grade{font-size:2rem;font-weight:800;width:3rem;height:3rem;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:-0.02em}
+.gA{background:#14532d;color:#4ade80}.gB{background:#166534;color:#86efac}.gC{background:#78350f;color:#fbbf24}.gD{background:#7c2d12;color:#fb923c}.gF{background:#7f1d1d;color:#f87171}
+.score-info h2{font-size:1rem;font-weight:600;letter-spacing:-0.02em;color:var(--fg)}.score-info p{color:#a3a3a3;font-size:.85rem;margin-top:.2rem;letter-spacing:-0.005em}
+section{background:#0a0a0a;border:1px solid var(--line-2);border-radius:18px;padding:2rem 2.25rem;margin-bottom:1rem}
+section>h2{font-size:.85rem;font-weight:600;letter-spacing:-0.01em;color:#d4d4d4;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--line)}
+.recipe{padding:1rem 1.25rem;border-left:3px solid var(--line-2);border-radius:0 10px 10px 0;margin-bottom:.75rem;background:#111}
 .recipe:last-child{margin-bottom:0}
-.sev-action{border-left-color:#ef4444;background:#fff5f5}
-.sev-investigate{border-left-color:#f59e0b;background:#fffbeb}
-.sev-monitor{border-left-color:#3b82f6;background:#eff6ff}
-.recipe h3{font-size:.95rem;font-weight:700;margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
-.badge{font-size:.7rem;font-weight:800;padding:.2rem .5rem;border-radius:4px;letter-spacing:.03em}
-.b-action{background:#ef4444;color:#fff}.b-investigate{background:#f59e0b;color:#fff}.b-monitor{background:#3b82f6;color:#fff}
-.recipe ol{padding-left:1.25rem;color:#334155}
-.recipe li{margin-bottom:.4rem;line-height:1.55;font-size:.875rem}
-.dig-deeper{font-size:.78rem;color:#94a3b8;margin-top:.75rem}
-.dig-deeper code{background:#f1f5f9;padding:.1rem .3rem;border-radius:3px;font-size:.78rem}
-.healthy{color:#16a34a;font-weight:600;padding:.5rem 0}
-details{border:1px solid #e2e8f0;border-radius:8px;margin-bottom:.75rem;overflow:hidden}
+.sev-action{border-left-color:#dc2626}.sev-investigate{border-left-color:#d97706}.sev-monitor{border-left-color:#3b82f6}
+.recipe h3{font-size:.875rem;font-weight:600;letter-spacing:-0.015em;margin-bottom:.7rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;color:var(--fg)}
+.badge{font-size:.65rem;font-weight:700;padding:.2rem .5rem;border-radius:5px;letter-spacing:.02em}
+.b-action{background:#7f1d1d;color:#f87171}.b-investigate{background:#78350f;color:#fbbf24}.b-monitor{background:#1e3a5f;color:#93c5fd}
+.recipe ol{padding-left:1.2rem;color:#d4d4d4}
+.recipe li{margin-bottom:.4rem;line-height:1.6;font-size:.85rem}
+.dig-deeper{font-size:.75rem;color:#4b4b4b;margin-top:.7rem}
+.dig-deeper code{background:var(--line);padding:.1rem .3rem;border-radius:3px;font-size:.75rem;color:#6b6b6b}
+.healthy{color:#4ade80;font-weight:500;font-size:.875rem;padding:.4rem 0;letter-spacing:-0.01em}
+details{border:1px solid var(--line);border-radius:10px;margin-bottom:.6rem;overflow:hidden}
 details:last-child{margin-bottom:0}
-summary{cursor:pointer;font-weight:600;font-size:.875rem;color:#334155;padding:.75rem 1rem;background:#f8fafc;list-style:none;user-select:none}
+summary{cursor:pointer;font-weight:500;font-size:.8rem;color:#a3a3a3;padding:.7rem 1rem;background:#111;list-style:none;user-select:none;letter-spacing:-0.005em;transition:color 150ms ease,background 150ms ease}
 summary::-webkit-details-marker{display:none}
-summary::before{content:'▶  ';font-size:.65rem;color:#94a3b8}
+summary::before{content:'▶  ';font-size:.6rem;color:var(--dim)}
 details[open] summary::before{content:'▼  '}
-summary:hover{background:#f1f5f9}
-pre{font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:.775rem;background:#0f172a;color:#e2e8f0;padding:1.25rem;overflow-x:auto;white-space:pre-wrap;word-break:break-word;line-height:1.55;margin:0}
-footer{text-align:center;color:#94a3b8;font-size:.775rem;margin-top:1.5rem;padding-top:1rem}"#;
+summary:hover{background:#161616;color:var(--fg)}
+pre{font-family:'Cascadia Code','JetBrains Mono','Fira Code',Consolas,monospace;font-size:.75rem;background:#000;color:#a3a3a3;padding:1.25rem;overflow-x:auto;white-space:pre-wrap;word-break:break-word;line-height:1.6;margin:0;border-top:1px solid var(--line)}
+footer{text-align:center;color:var(--dim);font-size:.725rem;margin-top:1.5rem;padding-top:1rem;letter-spacing:-0.005em}
+@media(max-width:640px){body{padding:1.5rem .75rem}header,section{padding:1.5rem;border-radius:14px}}"#;
 
     let mut sections_html = String::new();
     for (label, output) in sections {
