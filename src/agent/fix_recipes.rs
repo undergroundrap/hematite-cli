@@ -540,11 +540,8 @@ pub fn format_action_plan(outputs: &[(&str, &str)]) -> String {
         for step in recipe.steps {
             out.push_str(&format!("- {}\n", step));
         }
-        if let Some(topic) = recipe.dig_deeper {
-            out.push_str(&format!(
-                "\n*For more detail: run `inspect_host(topic=\"{}\")` or `/diagnose`*\n",
-                topic
-            ));
+        if let Some(_topic) = recipe.dig_deeper {
+            out.push_str("\n*Run `hematite --diagnose` for a deeper automated investigation.*\n");
         }
         out.push('\n');
     }
@@ -596,11 +593,10 @@ pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
             out.push_str(&format!("<li>{}</li>\n", he(step)));
         }
         out.push_str("</ol>\n");
-        if let Some(topic) = recipe.dig_deeper {
-            out.push_str(&format!(
-                "<p class=\"dig-deeper\">For more detail: run <code>inspect_host(topic=\"{}\")</code> or <code>/diagnose</code></p>\n",
-                he(topic)
-            ));
+        if let Some(_topic) = recipe.dig_deeper {
+            out.push_str(
+                "<p class=\"dig-deeper\">Run <code>hematite --diagnose</code> for a deeper automated investigation of this issue.</p>\n"
+            );
         }
         out.push_str("</div>\n");
     }
