@@ -99,6 +99,148 @@ pub const COPY_BUTTON_HTML: &str = r#"<button class="copy-btn" id="copyBtn" oncl
   Copy report for AI
 </button>"#;
 
+/// Convert a subset of Markdown to HTML suitable for research/note pages.
+/// Handles: ATX headings, fenced code blocks, inline code, bold, bullet lists,
+/// blank-line-separated paragraphs, and bare URLs as links.
+pub fn markdown_to_html(md: &str) -> String {
+    let mut out = String::new();
+    let mut in_code_block = false;
+    let mut code_buf = String::new();
+    let mut list_items: Vec<String> = Vec::new();
+
+    let flush_list = |items: &mut Vec<String>, out: &mut String| {
+        if !items.is_empty() {
+            out.push_str("<ul>\n");
+            for item in items.iter() {
+                out.push_str(&format!("<li>{}</li>\n", item));
+            }
+            out.push_str("</ul>\n");
+            items.clear();
+        }
+    };
+
+    for line in md.lines() {
+        // fenced code block toggle
+        if line.starts_with("```") {
+            if in_code_block {
+                out.push_str(&format!("<pre>{}</pre>\n", he(code_buf.trim_end())));
+                code_buf.clear();
+                in_code_block = false;
+            } else {
+                flush_list(&mut list_items, &mut out);
+                in_code_block = true;
+            }
+            continue;
+        }
+        if in_code_block {
+            code_buf.push_str(line);
+            code_buf.push('\n');
+            continue;
+        }
+
+        // headings
+        if let Some(rest) = line.strip_prefix("### ") {
+            flush_list(&mut list_items, &mut out);
+            out.push_str(&format!("<h3>{}</h3>\n", inline_md(rest)));
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("## ") {
+            flush_list(&mut list_items, &mut out);
+            out.push_str(&format!("<h2>{}</h2>\n", inline_md(rest)));
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("# ") {
+            flush_list(&mut list_items, &mut out);
+            out.push_str(&format!("<h2>{}</h2>\n", inline_md(rest)));
+            continue;
+        }
+
+        // bullet list items
+        if let Some(rest) = line.strip_prefix("- ").or_else(|| line.strip_prefix("* ")) {
+            list_items.push(inline_md(rest));
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("  - ").or_else(|| line.strip_prefix("  * ")) {
+            list_items.push(inline_md(rest));
+            continue;
+        }
+
+        // blank line — close any open list, emit paragraph break
+        if line.trim().is_empty() {
+            flush_list(&mut list_items, &mut out);
+            out.push('\n');
+            continue;
+        }
+
+        // paragraph line
+        flush_list(&mut list_items, &mut out);
+        out.push_str(&format!("<p>{}</p>\n", inline_md(line)));
+    }
+
+    flush_list(&mut list_items, &mut out);
+    if in_code_block && !code_buf.is_empty() {
+        out.push_str(&format!("<pre>{}</pre>\n", he(code_buf.trim_end())));
+    }
+
+    // Collapse consecutive <p> tags separated only by blank lines into a section
+    out
+}
+
+/// Process inline markdown: bold, inline code, bare URLs.
+fn inline_md(s: &str) -> String {
+    let mut result = he(s);
+    // bold **text**
+    result = replace_pairs(&result, "**", "<strong>", "</strong>");
+    // bold __text__
+    result = replace_pairs(&result, "__", "<strong>", "</strong>");
+    // italic *text* (single star, not preceded by another star)
+    result = replace_pairs(&result, "*", "<em>", "</em>");
+    // inline code `text`
+    result = replace_pairs(&result, "`", "<code>", "</code>");
+    // bare URLs
+    result = linkify(&result);
+    result
+}
+
+fn replace_pairs(s: &str, delim: &str, open: &str, close: &str) -> String {
+    let mut out = String::new();
+    let mut rest = s;
+    let mut open_tag = true;
+    while let Some(pos) = rest.find(delim) {
+        out.push_str(&rest[..pos]);
+        out.push_str(if open_tag { open } else { close });
+        rest = &rest[pos + delim.len()..];
+        open_tag = !open_tag;
+    }
+    out.push_str(rest);
+    out
+}
+
+fn linkify(s: &str) -> String {
+    // Simple pass: wrap bare http/https URLs not already inside an href
+    let mut out = String::new();
+    let mut rest = s;
+    while let Some(pos) = rest.find("http") {
+        let pre = &rest[..pos];
+        // Skip if already inside an href
+        if pre.ends_with("href=\"") || pre.ends_with("href='") {
+            out.push_str(&rest[..pos + 4]);
+            rest = &rest[pos + 4..];
+            continue;
+        }
+        out.push_str(pre);
+        let url_start = &rest[pos..];
+        let end = url_start
+            .find(|c: char| c.is_whitespace() || c == '<' || c == '>' || c == '"' || c == '\'')
+            .unwrap_or(url_start.len());
+        let url = &url_start[..end];
+        out.push_str(&format!("<a href=\"{}\" target=\"_blank\">{}</a>", url, url));
+        rest = &url_start[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Wrap `content_html` in the Hematite dark-theme shell.
 /// `content_html` is everything inside `.wrap` — assemble header cards,
 /// sections, etc. in the caller. The shell provides CSS, JS, and the footer.

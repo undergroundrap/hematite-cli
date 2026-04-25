@@ -349,6 +349,48 @@ fn build_html_document(
     build_html_shell(&page_title, version, &content)
 }
 
+/// Save arbitrary markdown content as a dark-theme HTML page.
+/// Returns `(html_string, saved_path)`. Title defaults to a timestamp slug
+/// if empty. Saves to `.hematite/reports/research-DATE.html`.
+pub fn save_research_html(title: &str, body_md: &str) -> (String, PathBuf) {
+    use crate::agent::html_template::{he, markdown_to_html, build_html_shell, COPY_BUTTON_HTML};
+    let version = env!("CARGO_PKG_VERSION");
+    let timestamp = now_timestamp_string();
+    let display_title = if title.trim().is_empty() {
+        format!("Research — {}", &timestamp[..10])
+    } else {
+        title.to_string()
+    };
+
+    let body_html = markdown_to_html(body_md);
+    let content = format!(
+        r#"<header>
+<h1>{title}</h1>
+<div class="meta">
+  <span>Saved: {timestamp}</span>
+  <span>Hematite v{version}</span>
+</div>
+{copy_btn}
+</header>
+<section>
+{body_html}
+</section>"#,
+        title = he(&display_title),
+        timestamp = he(&timestamp),
+        version = he(version),
+        copy_btn = COPY_BUTTON_HTML,
+        body_html = body_html,
+    );
+
+    let html = build_html_shell(&display_title, version, &content);
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("research-{}.html", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &html);
+    (html, path)
+}
+
 fn report_path(ext: &str) -> PathBuf {
     crate::tools::file_ops::hematite_dir()
         .join("reports")

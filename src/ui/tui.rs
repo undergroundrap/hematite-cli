@@ -4459,6 +4459,33 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
+                                            "/save-html" => {
+                                                let title = parts[1..].join(" ");
+                                                // Find the last Hematite response in raw message history
+                                                let last_response = app.messages_raw.iter().rev()
+                                                    .find(|(speaker, _)| speaker == "Hematite")
+                                                    .map(|(_, content)| content.clone());
+                                                match last_response {
+                                                    None => {
+                                                        app.push_message("System", "No Hematite response found in this session to save.");
+                                                    }
+                                                    Some(body) => {
+                                                        let (_, path) = crate::agent::report_export::save_research_html(&title, &body);
+                                                        let path_str = path.display().to_string();
+                                                        copy_text_to_clipboard(&path_str);
+                                                        app.push_message("System", &format!(
+                                                            "Saved: {}\n(Path copied to clipboard)",
+                                                            path_str
+                                                        ));
+                                                        #[cfg(target_os = "windows")]
+                                                        { let s = path.to_string_lossy().into_owned(); let _ = std::process::Command::new("cmd").args(["/c", "start", "", &s]).spawn(); }
+                                                        #[cfg(not(target_os = "windows"))]
+                                                        { let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" }; let _ = std::process::Command::new(opener).arg(&path).spawn(); }
+                                                    }
+                                                }
+                                                app.history_idx = None;
+                                                continue;
+                                            }
                                             "/detach" => {
                                                 app.clear_pending_attachments();
                                                 app.push_message("System", "Cleared pending document/image attachments for the next turn.");
