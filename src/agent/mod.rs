@@ -9,6 +9,7 @@ pub mod economics;
 pub mod edge_redact;
 pub mod find_files;
 pub mod fix_recipes;
+pub mod html_template;
 pub mod fuzzy;
 pub mod git;
 pub mod git_context;

@@ -603,9 +603,4 @@ pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
     out
 }
 
-fn he(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&#34;")
-}
+use crate::agent::html_template::he;
