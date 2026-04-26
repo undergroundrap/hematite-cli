@@ -1,4 +1,4 @@
-# Hematite Capabilities
+﻿# Hematite Capabilities
 
 This document summarizes the technical strengths of **Hematite-CLI** as a local GPU-aware coding harness for LM Studio, Ollama, and other local OpenAI-compatible runtimes, with the strongest optimization focus on single-GPU consumer hardware such as the RTX 4070 class.
 
@@ -312,6 +312,7 @@ Hematite transforms technical discovery into a privacy-first, grounded competenc
 ---
 
 Hematite is strongest when treated as a complete local AI workstation partner: a polished coding harness, a grounded SysAdmin and Network Admin, and a natural-language terminal interface — all GPU-aware, terminal-native, tool-rich, and tuned for serious work on single-GPU consumer hardware, especially RTX 4070-class machines.
+
 
 
 

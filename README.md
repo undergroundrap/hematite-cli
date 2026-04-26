@@ -1,4 +1,4 @@
-# hematite
+﻿# hematite
 
 **Your RTX 4070 is a serious machine. Hematite is its local AI layer — coding harness, SysAdmin, Network Admin, and host intelligence backend, all in one terminal binary.**
 
@@ -102,7 +102,7 @@ A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool c
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, SysAdmin and Network Admin when you need one, clean conversation when you do not. A local OpenAI-compatible runtime handles model serving. Hematite handles the grounded local workflow around it.
 
-![Version](https://img.shields.io/badge/version-0.7.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.7.1-blue?style=flat-square)
 ![Silicon Native](https://img.shields.io/badge/silicon-native-orange?style=flat-square)
 [![crate hematite-cli](https://img.shields.io/crates/v/hematite-cli?style=flat-square&label=crate%20hematite-cli)](https://crates.io/crates/hematite-cli)
 [![crate hematite-kokoros](https://img.shields.io/crates/v/hematite-kokoros?style=flat-square&label=crate%20hematite-kokoros)](https://crates.io/crates/hematite-kokoros)
@@ -1501,6 +1501,7 @@ Developed by [Ocean Bennett](https://github.com/undergroundrap)
 Copyright © 2026 Ocean Bennett.
 
 This project is licensed under the **AGPL-3.0 License** - see the [LICENSE](https://github.com/undergroundrap/hematite-cli/blob/main/LICENSE) file for details.
+
 
 
 
