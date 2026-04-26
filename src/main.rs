@@ -124,6 +124,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(ref issue) = cockpit.fix {
         let issue_str = issue.trim();
+
+        // --fix list / help — print category table and exit
         if issue_str.eq_ignore_ascii_case("list") || issue_str.eq_ignore_ascii_case("help") {
             println!("hematite --fix: supported issue categories\n");
             for (category, keywords) in hematite::agent::report_export::fix_issue_categories() {
@@ -136,6 +138,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("  hematite --fix \"Outlook not opening\"");
             return Ok(());
         }
+
+        // --fix --dry-run — preview topics without running any checks
+        if cockpit.dry_run {
+            let topics = hematite::agent::report_export::fix_plan_topics(issue_str);
+            println!("hematite --fix \"{}\": would inspect:\n", issue_str);
+            for (i, (topic, label)) in topics.iter().enumerate() {
+                println!("  [{}/{}] {} ({})", i + 1, topics.len(), label, topic);
+            }
+            println!("\nUp to 3 follow-up checks may be added automatically based on findings.");
+            return Ok(());
+        }
+
+        // Normal run
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let (content, path) = match fmt.as_str() {
             "html" => hematite::agent::report_export::save_fix_plan_html(issue).await,
@@ -145,6 +160,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if cockpit.open {
             open_path(&path);
         }
+
+        // --execute — offer safe non-destructive auto-fixes
+        if cockpit.execute {
+            let auto_cmds = hematite::agent::report_export::fix_plan_auto_commands(&content);
+            if auto_cmds.is_empty() {
+                println!("\nNo safe auto-fixes available for these findings.");
+            } else {
+                println!("\nFound {} safe auto-fix(es):", auto_cmds.len());
+                for (i, (label, cmd)) in auto_cmds.iter().enumerate() {
+                    println!("  [{}] {} — {}", i + 1, label, cmd);
+                }
+                print!("\nRun these now? [Y/n]: ");
+                use std::io::Write;
+                let _ = std::io::stdout().flush();
+                let mut answer = String::new();
+                let _ = std::io::stdin().read_line(&mut answer);
+                if !answer.trim().eq_ignore_ascii_case("n") {
+                    println!();
+                    for (label, cmd) in &auto_cmds {
+                        print!("  Running: {}... ", label);
+                        let _ = std::io::stdout().flush();
+                        let result = std::process::Command::new("cmd").args(["/C", cmd]).status();
+                        match result {
+                            Ok(s) if s.success() => println!("done"),
+                            Ok(s) => println!("exited {}", s.code().unwrap_or(-1)),
+                            Err(e) => println!("error: {}", e),
+                        }
+                    }
+                }
+            }
+        }
+
         std::process::exit(if report_indicates_issues(&content) { 1 } else { 0 });
     }
 

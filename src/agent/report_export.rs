@@ -420,6 +420,86 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     topics
 }
 
+/// Public alias for --fix --dry-run: returns the inspection topics that would
+/// run for a given issue description without executing anything.
+pub fn fix_plan_topics(issue: &str) -> Vec<(&'static str, &'static str)> {
+    topics_for_issue(issue)
+}
+
+/// Safe non-destructive commands that can be auto-executed with --execute.
+/// Each entry: (trigger_substring_in_output, display_label, command_to_run).
+/// Only single-service restarts and DNS/clock operations — nothing that
+/// modifies files, accounts, firewall rules, or requires a reboot.
+pub fn fix_plan_auto_commands(combined_output: &str) -> Vec<(&'static str, &'static str)> {
+    const SAFE: &[(&str, &str, &str)] = &[
+        (
+            "dns resolution: failed",
+            "Flush DNS cache",
+            "ipconfig /flushdns",
+        ),
+        (
+            "wsearch: stopped",
+            "Restart Windows Search",
+            "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
+        ),
+        (
+            "windows search: stopped",
+            "Restart Windows Search",
+            "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
+        ),
+        (
+            "spooler: stopped",
+            "Restart Print Spooler",
+            "powershell -Command \"Restart-Service Spooler -Force\"",
+        ),
+        (
+            "print spooler: stopped",
+            "Restart Print Spooler",
+            "powershell -Command \"Restart-Service Spooler -Force\"",
+        ),
+        (
+            "ntp source unreachable",
+            "Resync system clock",
+            "w32tm /resync /force",
+        ),
+        (
+            "time sync failed",
+            "Resync system clock",
+            "w32tm /resync /force",
+        ),
+        (
+            "bits: stopped",
+            "Restart BITS service",
+            "powershell -Command \"Restart-Service BITS -Force\"",
+        ),
+        (
+            "wuauserv: stopped",
+            "Restart Windows Update service",
+            "powershell -Command \"Restart-Service wuauserv -Force\"",
+        ),
+        (
+            "windows audio: stopped",
+            "Restart Audio service",
+            "powershell -Command \"Restart-Service Audiosrv -Force\"",
+        ),
+        (
+            "audiosrv: stopped",
+            "Restart Audio service",
+            "powershell -Command \"Restart-Service Audiosrv -Force\"",
+        ),
+    ];
+
+    let lower = combined_output.to_ascii_lowercase();
+    let mut seen_labels = std::collections::HashSet::new();
+    let mut result: Vec<(&'static str, &'static str)> = Vec::new();
+    for &(trigger, label, cmd) in SAFE {
+        if lower.contains(trigger) && seen_labels.insert(label) {
+            result.push((label, cmd));
+        }
+    }
+    result
+}
+
 /// Returns true when report content indicates actionable findings (health grade != A).
 /// Works for both markdown ("**Health Score:** B") and HTML ("Health Score: B") formats.
 pub fn report_has_issues_in_content(content: &str) -> bool {
@@ -537,6 +617,7 @@ async fn run_diagnosis_phases() -> DiagnosisData {
     let timestamp = now_timestamp_string();
     let hostname = hostname_from_env();
 
+    eprintln!("  → System Health (scanning for issues)...");
     let health_args = json!({"topic": "health_report"});
     let health_output = match crate::tools::host_inspect::inspect_host(&health_args).await {
         Ok(s) => s,
@@ -545,8 +626,18 @@ async fn run_diagnosis_phases() -> DiagnosisData {
 
     let follow_up_topics = crate::agent::diagnose::triage_follow_up_topics(&health_output);
 
+    if follow_up_topics.is_empty() {
+        eprintln!("  → No follow-up checks needed.");
+    } else {
+        eprintln!(
+            "  → {} area(s) flagged — running targeted checks...",
+            follow_up_topics.len()
+        );
+    }
+
     let mut follow_up_outputs: Vec<(&'static str, String)> = Vec::new();
-    for topic in &follow_up_topics {
+    for (i, topic) in follow_up_topics.iter().enumerate() {
+        eprintln!("  [{}/{}] {}...", i + 1, follow_up_topics.len(), topic);
         let args = json!({"topic": topic});
         let output = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(s) => s,
@@ -814,19 +905,25 @@ fn build_html_document(
 
 // ── Triage report (IT-first-look, no model required) ─────────────────────────
 
-pub async fn generate_triage_report_markdown(preset: &str) -> String {
+struct TriageData {
+    timestamp: String,
+    hostname: String,
+    sections: Vec<(&'static str, String)>,
+}
+
+async fn run_triage_phases(preset: &str) -> TriageData {
     let topics = triage_topics_for_preset(preset);
-    let title = triage_preset_title(preset);
+    let total = topics.len();
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
-    let version = env!("CARGO_PKG_VERSION");
-    let mut sections: Vec<(&str, String)> = Vec::new();
+    let mut sections: Vec<(&'static str, String)> = Vec::new();
 
-    for (topic, label) in topics {
+    for (i, &(topic, label)) in topics.iter().enumerate() {
+        eprintln!("  [{}/{}] {}...", i + 1, total, label);
         let args = serde_json::json!({"topic": topic});
         let output = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(s) => {
-                if *topic == "health_report" {
+                if topic == "health_report" {
                     for line in s.lines() {
                         let ll = line.to_ascii_lowercase();
                         if ll.contains("hostname") || ll.contains("computer name") {
@@ -846,14 +943,30 @@ pub async fn generate_triage_report_markdown(preset: &str) -> String {
         sections.push((label, output));
     }
 
-    let section_refs: Vec<(&str, &str)> = sections.iter().map(|(l, o)| (*l, o.as_str())).collect();
+    TriageData {
+        timestamp,
+        hostname,
+        sections,
+    }
+}
+
+pub async fn generate_triage_report_markdown(preset: &str) -> String {
+    let title = triage_preset_title(preset);
+    let data = run_triage_phases(preset).await;
+    let version = env!("CARGO_PKG_VERSION");
+
+    let section_refs: Vec<(&str, &str)> = data
+        .sections
+        .iter()
+        .map(|(l, o)| (*l, o.as_str()))
+        .collect();
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
     let mut md = String::new();
     md.push_str(&format!("# {}\n\n", title));
-    md.push_str(&format!("**Generated:** {}  \n", timestamp));
-    md.push_str(&format!("**Host:** {}  \n", hostname));
+    md.push_str(&format!("**Generated:** {}  \n", data.timestamp));
+    md.push_str(&format!("**Host:** {}  \n", data.hostname));
     md.push_str(&format!("**Hematite:** v{}  \n", version));
     md.push_str(&format!(
         "**Health Score:** {} — {}  \n\n",
@@ -863,7 +976,7 @@ pub async fn generate_triage_report_markdown(preset: &str) -> String {
     md.push_str("---\n\n## Action Plan\n\n");
     md.push_str(&action_plan);
     md.push_str("---\n\n");
-    for (label, output) in &sections {
+    for (label, output) in &data.sections {
         md.push_str(&format!("## {}\n\n```\n", label));
         md.push_str(output.trim_end());
         md.push_str("\n```\n\n");
@@ -872,49 +985,26 @@ pub async fn generate_triage_report_markdown(preset: &str) -> String {
 }
 
 pub async fn generate_triage_report_html(preset: &str) -> String {
-    let topics = triage_topics_for_preset(preset);
     let title = triage_preset_title(preset);
-    let timestamp = now_timestamp_string();
-    let mut hostname = hostname_from_env();
+    let data = run_triage_phases(preset).await;
     let version = env!("CARGO_PKG_VERSION");
-    let mut sections: Vec<(&str, String)> = Vec::new();
 
-    for (topic, label) in topics {
-        let args = serde_json::json!({"topic": topic});
-        let output = match crate::tools::host_inspect::inspect_host(&args).await {
-            Ok(s) => {
-                if *topic == "health_report" {
-                    for line in s.lines() {
-                        let ll = line.to_ascii_lowercase();
-                        if ll.contains("hostname") || ll.contains("computer name") {
-                            if let Some(val) = line.splitn(2, ':').nth(1) {
-                                let h = val.trim().to_string();
-                                if !h.is_empty() {
-                                    hostname = h;
-                                }
-                            }
-                        }
-                    }
-                }
-                s
-            }
-            Err(e) => format!("Error: {}", e),
-        };
-        sections.push((label, output));
-    }
-
-    let section_refs: Vec<(&str, &str)> = sections.iter().map(|(l, o)| (*l, o.as_str())).collect();
+    let section_refs: Vec<(&str, &str)> = data
+        .sections
+        .iter()
+        .map(|(l, o)| (*l, o.as_str()))
+        .collect();
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan_html = crate::agent::fix_recipes::format_action_plan_html(&section_refs);
 
     build_html_document(
         title,
-        &timestamp,
-        &hostname,
+        &data.timestamp,
+        &data.hostname,
         version,
         &score,
         &action_plan_html,
-        &sections,
+        &data.sections,
     )
 }
 
@@ -951,11 +1041,13 @@ struct FixPlanData {
 /// Phase 2: read phase-1 output, detect signals, run up to 3 follow-up topics.
 async fn run_fix_plan_phases(issue: &str) -> FixPlanData {
     let initial_topics = topics_for_issue(issue);
+    let total = initial_topics.len();
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
     let mut sections: Vec<(&'static str, String)> = Vec::new();
 
-    for &(topic, label) in &initial_topics {
+    for (i, &(topic, label)) in initial_topics.iter().enumerate() {
+        eprintln!("  [{}/{}] {}...", i + 1, total, label);
         let args = serde_json::json!({"topic": topic});
         let output = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(s) => {
@@ -988,7 +1080,15 @@ async fn run_fix_plan_phases(issue: &str) -> FixPlanData {
     let ran: Vec<&str> = initial_topics.iter().map(|&(t, _)| t).collect();
     let follow_ups = crate::agent::diagnose::fix_follow_up_topics(&combined, &ran);
 
-    for &(topic, label) in &follow_ups {
+    if !follow_ups.is_empty() {
+        eprintln!(
+            "  → {} follow-up check(s) triggered by findings...",
+            follow_ups.len()
+        );
+    }
+
+    for (i, &(topic, label)) in follow_ups.iter().enumerate() {
+        eprintln!("  + [{}/{}] {}...", i + 1, follow_ups.len(), label);
         let args = serde_json::json!({"topic": topic});
         let output = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(s) => s,

@@ -800,6 +800,8 @@ mod tests {
             triage: None,
             fix: None,
             open: false,
+            dry_run: false,
+            execute: false,
             pdf_extract_helper: None,
             teleported_from: None,
         };

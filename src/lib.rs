@@ -225,6 +225,18 @@ pub struct CliCockpit {
     )]
     pub open: bool,
 
+    #[arg(
+        long,
+        help = "With --fix: preview which topics would be inspected without running any checks"
+    )]
+    pub dry_run: bool,
+
+    #[arg(
+        long,
+        help = "With --fix: after the fix plan is generated, offer to run any safe non-destructive fixes automatically (service restarts, DNS flush, clock sync, etc.)"
+    )]
+    pub execute: bool,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
