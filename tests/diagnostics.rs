@@ -7716,7 +7716,7 @@ fn test_fix_recipes_match_system_file_corruption() {
 
 #[test]
 fn test_fix_recipes_total_count_expanded() {
-    // Phase 6: now expect at least 28 recipes — trigger all known patterns
+    // Phase 7: now expect at least 36 recipes — trigger all known patterns
     use hematite::agent::fix_recipes::match_recipes;
     let everything = "disk: very low free space\ndisk_health smart predictive failure\n\
         pending reboot required\ncritical error event\nnot running: windefend\n\
@@ -7728,11 +7728,14 @@ fn test_fix_recipes_total_count_expanded() {
         certificate expires in 15 days\nsignal: poor rssi: -88\n\
         time sync failed ntp source unreachable\nno page file configured\n\
         autorepairrequired: true windows resource protection found corrupt files\n\
-        service terminated\nrdp status: disabled\nwuauserv: stopped\nfinding: printnightmare";
+        service terminated\nrdp status: disabled\nwuauserv: stopped\nfinding: printnightmare\n\
+        classic teams cache: 2.3 gb\ntoken broker: not running\n\
+        wmi repository is inconsistent\nlicense status: unlicensed\n\
+        wsearch: stopped\nsync status: error\nstatus: offline\nprofile count: 0";
     let recipes = match_recipes(everything);
     assert!(
-        recipes.len() >= 28,
-        "expected at least 28 recipes, got {}",
+        recipes.len() >= 36,
+        "expected at least 36 recipes, got {}",
         recipes.len()
     );
 }

@@ -486,6 +486,150 @@ static ALL_RECIPES: &[RecipeEntry] = &[
         },
     },
 
+    // ── Teams cache ───────────────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["classic teams cache:", "new teams cache:", "msteams cache:", "teams cache size"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Teams cache — clear to resolve most Teams issues",
+            steps: &[
+                "Quit Teams completely: right-click the Teams icon in the system tray → Quit",
+                "Clear Classic Teams cache: open Run (Win+R) → type %AppData%\\Microsoft\\Teams → delete the contents of: Cache, blob_storage, databases, GPUCache, IndexedDB, Local Storage, tmp",
+                "Clear New Teams (MSTeams) cache: open Run → %LocalAppData%\\Packages\\MSTeams_8wekyb3d8bbwe\\LocalCache\\ → delete all contents",
+                "Restart Teams and sign in — cache rebuilds from the server automatically",
+                "If Teams still fails to sign in after clearing cache, also clear credentials: Credential Manager (Win+R → credmgr.msc) → Windows Credentials → remove all MicrosoftOffice16_Data:SSPI:* entries",
+            ],
+            dig_deeper: Some("teams"),
+        },
+    },
+
+    // ── M365 token broker not running ─────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["token broker: not running", "aad broker plugin: not found", "web account manager: not running", "wam: not running", "aad broker: not found"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Microsoft 365 authentication broker not running",
+            steps: &[
+                "The Windows Account Manager (WAM) and AAD Broker are required for M365 sign-in — if they're not running, Teams, Outlook, and OneDrive will loop on sign-in",
+                "Re-register the token broker: PowerShell (admin) → sfc /scannow — this repairs the system files WAM depends on",
+                "Restart the TokenBroker service: PowerShell (admin) → Restart-Service TokenBroker -ErrorAction SilentlyContinue",
+                "If re-registering doesn't help, sign out of all work accounts: Settings → Accounts → Access work or school → disconnect and reconnect your org account",
+                "On Intune/AAD-joined machines: run 'dsregcmd /leave' then 'dsregcmd /join' (admin) to re-register the device — requires network connectivity to Azure AD",
+                "Check for conflicting credential entries: Credential Manager → Windows Credentials → remove stale MicrosoftOffice16_Data:SSPI:* and MicrosoftOffice15_Data:* entries",
+            ],
+            dig_deeper: Some("identity_auth"),
+        },
+    },
+
+    // ── WMI repository corrupt ────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["wmi repository is inconsistent", "repository is inconsistent", "wmi: inconsistent", "verifyrepository: inconsistent", "wmi corruption"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "WMI repository corrupt — cascading tool failures",
+            steps: &[
+                "WMI corruption breaks PowerShell Get-WmiObject, Defender, Windows Update, and many admin tools — fix it first before investigating other issues",
+                "Stop WMI: PowerShell (admin) → net stop winmgmt /y",
+                "Rebuild the repository: PowerShell (admin) → winmgmt /resetrepository",
+                "Start WMI: PowerShell (admin) → net start winmgmt",
+                "Verify the fix: PowerShell → winmgmt /verifyrepository — should say 'WMI repository is consistent'",
+                "If resetrepository fails, try salvage mode: winmgmt /salvagerepository — this preserves customizations",
+                "Restart the machine after repair — WMI caches are session-scoped and some tools won't see the fix until reboot",
+            ],
+            dig_deeper: Some("wmi_health"),
+        },
+    },
+
+    // ── Windows not activated ─────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["license status: unlicensed", "license status: notification", "activation: not activated", "not genuine", "windows is not activated"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Windows not activated",
+            steps: &[
+                "Check activation status: Settings → System → Activation — note the exact status message",
+                "If you have a product key: Settings → System → Activation → Change product key → enter the 25-character key",
+                "If the key was tied to a Microsoft account: sign in with that Microsoft account and activation should happen automatically over the internet",
+                "Force activation attempt: PowerShell (admin) → slmgr /ato",
+                "If you get error 0xC004F074 (Key Management Service unreachable): you're on a domain with KMS — contact your IT department, the KMS server may be offline",
+                "If you recently changed hardware (motherboard): activation may need to be relinked — use the Activation Troubleshooter in Settings",
+            ],
+            dig_deeper: Some("activation"),
+        },
+    },
+
+    // ── Windows Search not indexing ───────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["wsearch: stopped", "search service: stopped", "wsearch service: stopped", "indexer: stopped", "windows search: stopped"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Windows Search not running — search won't find files",
+            steps: &[
+                "Start the Windows Search service: PowerShell (admin) → Start-Service WSearch",
+                "Set it to start automatically: PowerShell (admin) → Set-Service WSearch -StartupType Automatic",
+                "If the service won't start: check Event Viewer → Windows Logs → Application → filter for 'Search' for the specific error",
+                "Rebuild the search index: Settings → Privacy & Security → Windows Search → Advanced indexing options → Advanced → Rebuild — takes 15–60 minutes",
+                "If rebuilding doesn't help, reset the index database: Stop-Service WSearch → delete C:\\ProgramData\\Microsoft\\Search\\Data\\Applications\\Windows\\Windows.edb → Start-Service WSearch",
+                "Restart File Explorer after: PowerShell → Stop-Process -Name explorer → Start-Process explorer",
+            ],
+            dig_deeper: Some("search_index"),
+        },
+    },
+
+    // ── OneDrive sync error ───────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["sync status: error", "onedrive: not running", "sync errors detected", "onedrive sync error", "known folder backup: not configured"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "OneDrive not syncing",
+            steps: &[
+                "Check the sync status icon in the system tray — hover over it for the specific error message",
+                "Common fix: right-click the OneDrive tray icon → Pause syncing → Resume syncing — resets stuck sync state",
+                "If that doesn't work: right-click the OneDrive tray icon → Settings → Account → Unlink this PC → relink with the same account",
+                "Check for conflicting files: File Explorer → OneDrive folder → look for files with a red X — rename or delete the local copy and let it sync from the cloud",
+                "If the issue is 'Not enough space in OneDrive': manage storage at onedrive.live.com/manage",
+                "Reset OneDrive if all else fails: Win+R → %localappdata%\\Microsoft\\OneDrive\\onedrive.exe /reset — wait 2 minutes, then reopen OneDrive from Start",
+            ],
+            dig_deeper: Some("onedrive"),
+        },
+    },
+
+    // ── Printer offline or stuck queue ────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["status: offline", "pending jobs:", "print spooler: stopped", "spooler: stopped"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Printer offline or stuck print queue",
+            steps: &[
+                "Check the printer is powered on and connected (USB cable or same Wi-Fi network as the PC)",
+                "Clear the stuck print queue: PowerShell (admin) → Stop-Service Spooler → Remove-Item C:\\Windows\\System32\\spool\\PRINTERS\\* -Force → Start-Service Spooler",
+                "If printer shows Offline: right-click the printer in Settings → Printers & scanners → See what's printing → Printer menu → uncheck 'Use Printer Offline'",
+                "For network printers: verify the printer's IP hasn't changed — print a configuration page from the printer itself to check its current IP",
+                "Re-add the printer if the IP changed: Settings → Bluetooth & devices → Printers & scanners → Add device → Add manually → enter the new IP",
+                "If the Print Spooler service is stopped: PowerShell (admin) → Start-Service Spooler → Set-Service Spooler -StartupType Automatic",
+            ],
+            dig_deeper: Some("printers"),
+        },
+    },
+
+    // ── No Outlook mail profile ───────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["profile count: 0", "no mail profiles", "mail profile: none", "no profiles configured", "outlook profiles: 0"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "No Outlook mail profile — Outlook will not open",
+            steps: &[
+                "Outlook requires at least one mail profile to start — create one from the Mail control panel applet, not from within Outlook",
+                "Open Mail applet: Win+R → type 'control mlcfg32.cpl' (or search 'Mail' in Control Panel) → Show Profiles → Add",
+                "Enter a profile name (e.g. 'Outlook') → Add Account → enter your email address and follow the auto-configuration wizard",
+                "For Exchange/Microsoft 365: the wizard needs network access to find the Autodiscover DNS record — ensure VPN is connected if this is a corporate account",
+                "For manual setup: choose 'Manual setup' → Microsoft Exchange or compatible service → enter server and username from your IT department",
+                "After creating the profile: launch Outlook, sign in if prompted — first launch will take 2–10 minutes to download the mailbox",
+            ],
+            dig_deeper: Some("outlook"),
+        },
+    },
+
     // ── PrintNightmare not mitigated ──────────────────────────────────────────
     RecipeEntry {
         triggers: &["rpcauthnlevelprivacyenabled: 0", "printnightmare rpc mitigation not applied", "point and print allows silent", "finding: printnightmare"],

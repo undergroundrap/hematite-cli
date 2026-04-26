@@ -894,18 +894,26 @@ pub async fn save_triage_report_html(preset: &str) -> (String, PathBuf) {
 
 // ── Fix Plan (--fix "<issue>", no model required) ─────────────────────────────
 
-pub async fn generate_fix_plan_markdown(issue: &str) -> String {
-    let topics = topics_for_issue(issue);
+struct FixPlanData {
+    timestamp: String,
+    hostname: String,
+    sections: Vec<(&'static str, String)>,
+}
+
+/// Two-phase fix plan collection.
+/// Phase 1: keyword-match issue → initial topics.
+/// Phase 2: read phase-1 output, detect signals, run up to 3 follow-up topics.
+async fn run_fix_plan_phases(issue: &str) -> FixPlanData {
+    let initial_topics = topics_for_issue(issue);
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
-    let version = env!("CARGO_PKG_VERSION");
-    let mut sections: Vec<(&str, String)> = Vec::new();
+    let mut sections: Vec<(&'static str, String)> = Vec::new();
 
-    for (topic, label) in &topics {
+    for &(topic, label) in &initial_topics {
         let args = serde_json::json!({"topic": topic});
         let output = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(s) => {
-                if *topic == "health_report" {
+                if topic == "health_report" {
                     for line in s.lines() {
                         let ll = line.to_ascii_lowercase();
                         if ll.contains("hostname") || ll.contains("computer name") {
@@ -925,15 +933,48 @@ pub async fn generate_fix_plan_markdown(issue: &str) -> String {
         sections.push((label, output));
     }
 
-    let section_refs: Vec<(&str, &str)> = sections.iter().map(|(l, o)| (*l, o.as_str())).collect();
+    // Phase 2: self-chain — read what was found and drill deeper
+    let combined: String = sections
+        .iter()
+        .map(|(_, o)| o.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let ran: Vec<&str> = initial_topics.iter().map(|&(t, _)| t).collect();
+    let follow_ups = crate::agent::diagnose::fix_follow_up_topics(&combined, &ran);
+
+    for &(topic, label) in &follow_ups {
+        let args = serde_json::json!({"topic": topic});
+        let output = match crate::tools::host_inspect::inspect_host(&args).await {
+            Ok(s) => s,
+            Err(e) => format!("Error: {}", e),
+        };
+        sections.push((label, output));
+    }
+
+    FixPlanData {
+        timestamp,
+        hostname,
+        sections,
+    }
+}
+
+pub async fn generate_fix_plan_markdown(issue: &str) -> String {
+    let data = run_fix_plan_phases(issue).await;
+    let version = env!("CARGO_PKG_VERSION");
+
+    let section_refs: Vec<(&str, &str)> = data
+        .sections
+        .iter()
+        .map(|(l, o)| (*l, o.as_str()))
+        .collect();
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
     let mut md = String::new();
     md.push_str("# Hematite Fix Plan\n\n");
     md.push_str(&format!("**Issue:** {}  \n", issue));
-    md.push_str(&format!("**Generated:** {}  \n", timestamp));
-    md.push_str(&format!("**Host:** {}  \n", hostname));
+    md.push_str(&format!("**Generated:** {}  \n", data.timestamp));
+    md.push_str(&format!("**Host:** {}  \n", data.hostname));
     md.push_str(&format!("**Hematite:** v{}  \n", version));
     md.push_str(&format!(
         "**Health Score:** {} — {}  \n\n",
@@ -943,7 +984,7 @@ pub async fn generate_fix_plan_markdown(issue: &str) -> String {
     md.push_str("---\n\n## Fix Steps\n\n");
     md.push_str(&action_plan);
     md.push_str("---\n\n");
-    for (label, output) in &sections {
+    for (label, output) in &data.sections {
         md.push_str(&format!("## {}\n\n```\n", label));
         md.push_str(output.trim_end());
         md.push_str("\n```\n\n");
@@ -952,44 +993,21 @@ pub async fn generate_fix_plan_markdown(issue: &str) -> String {
 }
 
 pub async fn generate_fix_plan_html(issue: &str) -> String {
-    let topics = topics_for_issue(issue);
-    let timestamp = now_timestamp_string();
-    let mut hostname = hostname_from_env();
+    let data = run_fix_plan_phases(issue).await;
     let version = env!("CARGO_PKG_VERSION");
-    let mut sections: Vec<(&str, String)> = Vec::new();
 
-    for (topic, label) in &topics {
-        let args = serde_json::json!({"topic": topic});
-        let output = match crate::tools::host_inspect::inspect_host(&args).await {
-            Ok(s) => {
-                if *topic == "health_report" {
-                    for line in s.lines() {
-                        let ll = line.to_ascii_lowercase();
-                        if ll.contains("hostname") || ll.contains("computer name") {
-                            if let Some(val) = line.splitn(2, ':').nth(1) {
-                                let h = val.trim().to_string();
-                                if !h.is_empty() {
-                                    hostname = h;
-                                }
-                            }
-                        }
-                    }
-                }
-                s
-            }
-            Err(e) => format!("Error: {}", e),
-        };
-        sections.push((label, output));
-    }
-
-    let section_refs: Vec<(&str, &str)> = sections.iter().map(|(l, o)| (*l, o.as_str())).collect();
+    let section_refs: Vec<(&str, &str)> = data
+        .sections
+        .iter()
+        .map(|(l, o)| (*l, o.as_str()))
+        .collect();
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan_html = crate::agent::fix_recipes::format_action_plan_html(&section_refs);
 
     use crate::agent::html_template::{build_html_shell, he, COPY_BUTTON_HTML};
 
     let mut sections_html = String::new();
-    for (label, output) in &sections {
+    for (label, output) in &data.sections {
         sections_html.push_str(&format!(
             "<details><summary>{}</summary><pre>{}</pre></details>\n",
             he(label),
@@ -1024,8 +1042,8 @@ pub async fn generate_fix_plan_html(issue: &str) -> String {
 {sections_html}
 </section>"#,
         issue = he(issue),
-        hostname = he(&hostname),
-        timestamp = he(&timestamp),
+        hostname = he(&data.hostname),
+        timestamp = he(&data.timestamp),
         version = he(version),
         grade = score.grade,
         label = he(score.label),
@@ -1035,7 +1053,7 @@ pub async fn generate_fix_plan_html(issue: &str) -> String {
         sections_html = sections_html,
     );
 
-    let page_title = format!("Fix Plan: {} — {}", he(issue), he(&hostname));
+    let page_title = format!("Fix Plan: {} — {}", he(issue), he(&data.hostname));
     build_html_shell(&page_title, version, &content)
 }
 

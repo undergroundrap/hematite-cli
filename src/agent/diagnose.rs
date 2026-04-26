@@ -81,6 +81,115 @@ pub fn triage_follow_up_topics(health_output: &str) -> Vec<&'static str> {
     topics
 }
 
+/// Examine the combined output from a --fix phase-1 topic run and return
+/// additional topics to drill into. Caps at 3 to keep the command fast.
+pub fn fix_follow_up_topics(
+    combined_output: &str,
+    already_ran: &[&str],
+) -> Vec<(&'static str, &'static str)> {
+    let lower = combined_output.to_ascii_lowercase();
+    let ran: std::collections::HashSet<&str> = already_ran.iter().copied().collect();
+    let mut candidates: Vec<(&'static str, &'static str)> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    macro_rules! add {
+        ($topic:expr, $label:expr, $cond:expr) => {
+            if $cond && !ran.contains($topic) && seen.insert($topic) {
+                candidates.push(($topic, $label));
+            }
+        };
+    }
+
+    // High CPU → find the culprit process
+    add!(
+        "processes",
+        "Top Processes",
+        lower.contains("very high") && (lower.contains("cpu") || lower.contains("processor"))
+    );
+
+    // Thermal throttling → check power plan
+    add!(
+        "cpu_power",
+        "CPU Power",
+        lower.contains("throttling") || (lower.contains("very high") && lower.contains("°c"))
+    );
+
+    // High memory → look for leak/crash
+    add!(
+        "app_crashes",
+        "Application Crashes",
+        lower.contains("very high") && lower.contains("memory")
+    );
+
+    // Disk health warning → check backup/VSS state
+    add!(
+        "shadow_copies",
+        "Shadow Copies",
+        (lower.contains("unhealthy") || lower.contains("predictive failure"))
+            && lower.contains("disk")
+    );
+
+    // Crash events in initial pass → drill event log
+    add!(
+        "log_check",
+        "Event Log",
+        lower.contains("unexpected shutdown")
+            || lower.contains("kernel: critical")
+            || lower.contains("stop error")
+    );
+
+    // Event log errors flagged → correlate with services
+    add!(
+        "services",
+        "Services",
+        lower.contains("critical/error event")
+            || lower.contains("error events in windows event log")
+    );
+
+    // No internet → check Wi-Fi as the likely cause
+    add!(
+        "wifi",
+        "Wi-Fi",
+        lower.contains("unreachable") && !lower.contains("reachable: yes")
+    );
+
+    // DNS failing → check gateway connectivity
+    add!(
+        "connectivity",
+        "Connectivity",
+        lower.contains("dns resolution: failed") || lower.contains("dns: failed")
+    );
+
+    // Defender disabled → scan for threats
+    add!(
+        "defender_quarantine",
+        "Defender Quarantine",
+        lower.contains("real-time protection: disabled") || lower.contains("threat detected")
+    );
+
+    // Teams/Outlook auth signals → inspect token broker
+    add!(
+        "identity_auth",
+        "Identity & Auth",
+        (lower.contains("teams") || lower.contains("outlook"))
+            && (lower.contains("sign-in fail")
+                || lower.contains("auth fail")
+                || lower.contains("token broker"))
+    );
+
+    // Token broker not running → check saved credentials
+    add!(
+        "credentials",
+        "Credentials",
+        lower.contains("token broker: not running")
+            || lower.contains("wam: not running")
+            || lower.contains("aad broker plugin: not found")
+    );
+
+    candidates.truncate(3);
+    candidates
+}
+
 /// Build the agent instruction for phase 2 of /diagnose.
 /// The harness has already run health_report; this tells the agent exactly
 /// which topics to investigate and how to synthesize the results.
