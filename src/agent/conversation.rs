@@ -4409,7 +4409,6 @@ impl ConversationManager {
         if tiny_context_mode {
             system_msg
                 .push_str("Use the narrowest safe behavior for this mode. Keep the turn short.\n");
-        } else {
         }
         if !tiny_context_mode && self.workflow_mode == WorkflowMode::Architect {
             system_msg.push_str("\n\n# ARCHITECT HANDOFF CONTRACT\n");

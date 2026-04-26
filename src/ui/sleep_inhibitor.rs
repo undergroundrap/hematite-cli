@@ -1,11 +1,11 @@
-/// Windows sleep inhibitor — prevents the OS from sleeping during active
-/// inference or tool execution. Uses `SetThreadExecutionState` with
-/// `ES_SYSTEM_REQUIRED` so the system stays awake without forcing the display on.
-///
-/// On non-Windows platforms this is a zero-cost no-op struct.
-///
-/// Usage: create a `SleepInhibitor` at the start of a model turn; it
-/// automatically restores normal power policy when it drops.
+//! Windows sleep inhibitor — prevents the OS from sleeping during active
+//! inference or tool execution. Uses `SetThreadExecutionState` with
+//! `ES_SYSTEM_REQUIRED` so the system stays awake without forcing the display on.
+//!
+//! On non-Windows platforms this is a zero-cost no-op struct.
+//!
+//! Usage: create a `SleepInhibitor` at the start of a model turn; it
+//! automatically restores normal power policy when it drops.
 
 #[cfg(target_os = "windows")]
 mod imp {

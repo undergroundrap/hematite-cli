@@ -1,7 +1,6 @@
-/// Grounded Output Truncation Module.
-/// Ports the "Middle-Truncation" patterns from Codex-RS to ensure
-/// Hematite preserves exit codes and headers while providing line metadata.
-
+//! Grounded Output Truncation Module.
+//! Ports the "Middle-Truncation" patterns from Codex-RS to ensure
+//! Hematite preserves exit codes and headers while providing line metadata.
 pub fn formatted_truncate(content: &str, max_bytes: usize) -> String {
     if content.len() <= max_bytes {
         return content.to_string();

@@ -177,13 +177,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     for (label, cmd) in &auto_cmds {
                         print!("  Running: {}... ", label);
                         let _ = std::io::stdout().flush();
-                        let result = std::process::Command::new("cmd").args(["/C", cmd]).status();
+                        let result = std::process::Command::new("cmd")
+                            .args(["/C", cmd])
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null())
+                            .status();
                         match result {
-                            Ok(s) if s.success() => println!("done"),
-                            Ok(s) => println!("exited {}", s.code().unwrap_or(-1)),
-                            Err(e) => println!("error: {}", e),
+                            Ok(s) if s.success() => println!("OK"),
+                            Ok(s) => println!("Failed (code {})", s.code().unwrap_or(1)),
+                            Err(e) => println!("Error: {}", e),
                         }
                     }
+                    println!("\nSafe fixes complete.");
                 }
             }
         }

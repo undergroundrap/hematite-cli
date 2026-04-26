@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn main() {
@@ -85,7 +85,7 @@ fn emit_git_build_info() {
     println!("cargo:rustc-env=HEMATITE_GIT_DIRTY={}", dirty);
 }
 
-fn resolve_git_dir(repo_root: &PathBuf) -> Option<PathBuf> {
+fn resolve_git_dir(repo_root: &Path) -> Option<PathBuf> {
     let dot_git = repo_root.join(".git");
     if dot_git.is_dir() {
         return Some(dot_git);

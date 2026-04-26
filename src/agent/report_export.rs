@@ -428,61 +428,21 @@ pub fn fix_plan_topics(issue: &str) -> Vec<(&'static str, &'static str)> {
 /// modifies files, accounts, firewall rules, or requires a reboot.
 pub fn fix_plan_auto_commands(combined_output: &str) -> Vec<(&'static str, &'static str)> {
     const SAFE: &[(&str, &str, &str)] = &[
-        (
-            "dns resolution: failed",
-            "Flush DNS cache",
-            "ipconfig /flushdns",
-        ),
-        (
-            "wsearch: stopped",
-            "Restart Windows Search",
-            "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
-        ),
-        (
-            "windows search: stopped",
-            "Restart Windows Search",
-            "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
-        ),
-        (
-            "spooler: stopped",
-            "Restart Print Spooler",
-            "powershell -Command \"Restart-Service Spooler -Force\"",
-        ),
-        (
-            "print spooler: stopped",
-            "Restart Print Spooler",
-            "powershell -Command \"Restart-Service Spooler -Force\"",
-        ),
-        (
-            "ntp source unreachable",
-            "Resync system clock",
-            "w32tm /resync /force",
-        ),
-        (
-            "time sync failed",
-            "Resync system clock",
-            "w32tm /resync /force",
-        ),
-        (
-            "bits: stopped",
-            "Restart BITS service",
-            "powershell -Command \"Restart-Service BITS -Force\"",
-        ),
-        (
-            "wuauserv: stopped",
-            "Restart Windows Update service",
-            "powershell -Command \"Restart-Service wuauserv -Force\"",
-        ),
-        (
-            "windows audio: stopped",
-            "Restart Audio service",
-            "powershell -Command \"Restart-Service Audiosrv -Force\"",
-        ),
-        (
-            "audiosrv: stopped",
-            "Restart Audio service",
-            "powershell -Command \"Restart-Service Audiosrv -Force\"",
-        ),
+        ("dns: failed", "Flush DNS cache", "ipconfig /flushdns"),
+        ("dns resolution: failed", "Flush DNS cache", "ipconfig /flushdns"),
+        ("wsearch", "Restart Windows Search", "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\""),
+        ("windows search", "Restart Windows Search", "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\""),
+        ("spooler", "Restart Print Spooler", "powershell -Command \"Restart-Service Spooler -Force\""),
+        ("print spooler", "Restart Print Spooler", "powershell -Command \"Restart-Service Spooler -Force\""),
+        ("ntp source unreachable", "Resync system clock", "w32tm /resync /force"),
+        ("time sync failed", "Resync system clock", "w32tm /resync /force"),
+        ("bits", "Restart BITS service", "powershell -Command \"Restart-Service BITS -Force\""),
+        ("wuauserv", "Restart Windows Update service", "powershell -Command \"Restart-Service wuauserv -Force\""),
+        ("windows update service", "Restart Windows Update service", "powershell -Command \"Restart-Service wuauserv -Force\""),
+        ("audiosrv", "Restart Audio service", "powershell -Command \"Restart-Service Audiosrv -Force\""),
+        ("windows audio", "Restart Audio service", "powershell -Command \"Restart-Service Audiosrv -Force\""),
+        ("low disk", "Empty Recycle Bin", "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\""),
+        ("free up space", "Empty Recycle Bin", "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\""),
     ];
 
     let lower = combined_output.to_ascii_lowercase();
@@ -551,7 +511,9 @@ pub async fn generate_report_markdown() -> String {
     let version = env!("CARGO_PKG_VERSION");
     let mut sections: Vec<(&str, String)> = Vec::new();
 
-    for (topic, label) in REPORT_TOPICS {
+    let total = REPORT_TOPICS.len();
+    for (i, (topic, label)) in REPORT_TOPICS.iter().enumerate() {
+        eprintln!("  [{}/{}] {}...", i + 1, total, label);
         let args = json!({"topic": topic});
         let output = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(s) => {
@@ -733,7 +695,9 @@ pub async fn generate_report_json() -> String {
     obj.insert("host".into(), json!(hostname));
     obj.insert("hematite_version".into(), json!(version));
 
-    for (topic, label) in REPORT_TOPICS {
+    let total = REPORT_TOPICS.len();
+    for (i, (topic, label)) in REPORT_TOPICS.iter().enumerate() {
+        eprintln!("  [{}/{}] {}...", i + 1, total, label);
         let args = json!({"topic": topic});
         let value = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(output) => json!({"label": label, "output": output}),
@@ -772,7 +736,9 @@ pub async fn generate_report_html() -> String {
     let version = env!("CARGO_PKG_VERSION");
     let mut sections: Vec<(&str, String)> = Vec::new();
 
-    for (topic, label) in REPORT_TOPICS {
+    let total = REPORT_TOPICS.len();
+    for (i, (topic, label)) in REPORT_TOPICS.iter().enumerate() {
+        eprintln!("  [{}/{}] {}...", i + 1, total, label);
         let args = json!({"topic": topic});
         let output = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(s) => {
