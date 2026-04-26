@@ -1,8 +1,10 @@
-﻿# hematite
+# hematite
 
 **Your RTX 4070 is a serious machine. Hematite is its local AI layer — coding harness, SysAdmin, Network Admin, and host intelligence backend, all in one terminal binary.**
 
 Think of it as a **Senior SysAdmin, Network Admin, and Software Engineer living in your terminal** — running 100% on your own silicon for total privacy and speed.
+
+**AI-Native Architecture**: Hematite is built for the agentic era. The source code is signal-dense, "Clippy-Clean," and optimized for LLM context windows to ensure AI assistants can reason about the codebase with maximum precision and minimum token noise.
 
 ---
 

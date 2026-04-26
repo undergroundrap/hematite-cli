@@ -1,8 +1,9 @@
-﻿# Hematite CLI Documentation
+# Hematite CLI Documentation
 
 ## What this project is
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
+The codebase itself follows an **AI-Native** philosophy: source files are optimized for signal density and "Clippy-Clean" standards to minimize token overhead when reasoning about the architecture.
 It features a high-fidelity integrated host inspection suite covering **125+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
