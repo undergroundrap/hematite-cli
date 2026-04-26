@@ -537,7 +537,7 @@ impl InferenceEngine {
         }
 
         // Hematite bootstrap: keep reasoning disciplined without leaking scaffolding into user-facing replies.
-        let mut sys = String::from("<|turn>system\n<|think|>\n## HEMATITE OPERATING PROTOCOL\n\
+        let mut sys = String::from("## HEMATITE OPERATING PROTOCOL\n\
                                      - You are Hematite, a local coding system working on the user's machine.\n\
                                      - The running Hematite build is ");
         sys.push_str(&crate::hematite_version_display());
@@ -549,8 +549,7 @@ impl InferenceEngine {
                                      - Do not expose internal tool names, hidden protocols, or planning jargon unless the user asks for implementation details.\n\
                                      - ALWAYS use the thought channel (`<|channel>thought ... <channel|>`) for analysis.\n\
                                      - Keep internal reasoning inside channel delimiters.\n\
-                                     - Final responses must be direct, clear, and formatted in clean Markdown when formatting helps.\n\
-                                     <turn|>\n\n");
+                                     - Final responses must be direct, clear, and formatted in clean Markdown when formatting helps.\n\n");
 
         if let Some(history) = reasoning_history {
             if !history.is_empty() {
@@ -700,11 +699,10 @@ impl InferenceEngine {
         let current_context_length = self.current_context_length();
         let os = std::env::consts::OS;
 
-        let mut sys = String::from("<|turn>system\n<|think|>\n");
-        sys.push_str(&format!(
+        let mut sys = format!(
             "You are Hematite {}, a local coding harness working on the user's machine.\n",
             crate::hematite_version_display()
-        ));
+        );
         if professional {
             sys.push_str("Be direct, technical, concise, and ASCII-first.\n");
         } else {
@@ -753,7 +751,6 @@ impl InferenceEngine {
             }
         }
 
-        sys.push_str("<turn|>\n");
         sys
     }
 
@@ -762,7 +759,7 @@ impl InferenceEngine {
         let current_context_length = self.current_context_length();
         let os = std::env::consts::OS;
         let mut sys = format!(
-            "<|turn>system\nYou are Hematite {}, a local coding harness working on the user's machine.\n",
+            "You are Hematite {}, a local coding harness working on the user's machine.\n",
             crate::hematite_version_display()
         );
         if professional {
@@ -801,7 +798,6 @@ impl InferenceEngine {
         if brief {
             sys.push_str("BRIEF MODE: answer in one concise sentence unless code is required.\n");
         }
-        sys.push_str("<turn|>\n");
         sys
     }
 
@@ -1346,6 +1342,17 @@ fn strip_xml_tool_call_artifacts(text: &str) -> String {
         "<thinking>",
         "</thought>",
         "</thinking>",
+        // Gemma-style turn markers that Qwen occasionally mirrors back from the system prompt.
+        "<|turn>system",
+        "<|turn>user",
+        "<|turn>assistant",
+        "<|turn>tool",
+        "<turn|>",
+        "<|think|>",
+        // ChatML EOS/BOS tokens that can leak at end-of-generation.
+        "<|im_start|>",
+        "<|im_end|>",
+        "<|endoftext|>",
     ];
     let mut out = text.to_string();
     for tag in XML_ARTIFACTS {
