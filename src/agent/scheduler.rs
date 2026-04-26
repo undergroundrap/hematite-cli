@@ -1,14 +1,5 @@
-/// Windows scheduled-task registration for `hematite --schedule`.
-///
-/// Registers a task that runs `hematite --triage --report-format html`
-/// on a recurring cadence (weekly or daily) so the machine self-reports
-/// without any model or interactive session. Reports land in
-/// `~/.hematite/reports/` via Hematite's OS-directory fallback.
-
 const TASK_NAME: &str = "Hematite Health Check";
 
-/// Register a scheduled task for the given cadence ("weekly", "daily").
-/// `exe_path` should be the full path to the running hematite binary.
 pub fn register_scheduled_task(cadence: &str, exe_path: &str) -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
@@ -69,7 +60,6 @@ pub fn register_scheduled_task(cadence: &str, exe_path: &str) -> Result<String, 
     }
 }
 
-/// Remove the Hematite scheduled task.
 pub fn remove_scheduled_task() -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     return Err("Scheduled tasks require Windows.".into());
@@ -94,13 +84,11 @@ pub fn remove_scheduled_task() -> Result<String, String> {
     }
 }
 
-/// Query the current status of the Hematite scheduled task.
 pub fn query_scheduled_task() -> String {
     #[cfg(not(target_os = "windows"))]
-    return format!(
-        "Scheduled tasks are Windows-only. Use cron for recurring triage:\n\
-         hematite --triage --report-format html"
-    );
+    return "Scheduled tasks are Windows-only. Use cron for recurring triage:\n\
+            hematite --triage --report-format html"
+        .to_string();
 
     #[cfg(target_os = "windows")]
     {

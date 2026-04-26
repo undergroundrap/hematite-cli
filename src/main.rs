@@ -125,7 +125,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(ref issue) = cockpit.fix {
         let issue_str = issue.trim();
 
-        // --fix list / help — print category table and exit
         if issue_str.eq_ignore_ascii_case("list") || issue_str.eq_ignore_ascii_case("help") {
             println!("hematite --fix: supported issue categories\n");
             for (category, keywords) in hematite::agent::report_export::fix_issue_categories() {
@@ -139,7 +138,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
 
-        // --fix --dry-run — preview topics without running any checks
         if cockpit.dry_run {
             let topics = hematite::agent::report_export::fix_plan_topics(issue_str);
             println!("hematite --fix \"{}\": would inspect:\n", issue_str);
@@ -150,7 +148,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
 
-        // Normal run
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let (content, path) = match fmt.as_str() {
             "html" => hematite::agent::report_export::save_fix_plan_html(issue).await,
@@ -161,7 +158,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             open_path(&path);
         }
 
-        // --execute — offer safe non-destructive auto-fixes
         if cockpit.execute {
             let auto_cmds = hematite::agent::report_export::fix_plan_auto_commands(&content);
             if auto_cmds.is_empty() {
