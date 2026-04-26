@@ -55,7 +55,8 @@ h3{font-size:.95rem;font-weight:600;letter-spacing:-0.015em;margin-bottom:.5rem}
 ul,ol{padding-left:1.25rem;color:#d4d4d4}
 li{margin-bottom:.4rem;line-height:1.6;font-size:.875rem}
 a{color:#d4d4d4;text-decoration:none;border-bottom:1px solid var(--line-2);transition:border-color 150ms ease,color 150ms ease}
-a:hover{color:var(--fg);border-bottom-color:var(--fg)}"#;
+a:hover{color:var(--fg);border-bottom-color:var(--fg)}
+.grade-intro{font-size:.9rem;color:#d4d4d4;margin-top:.85rem;line-height:1.55;letter-spacing:-0.005em}"#;
 
 // DOM-driven — reads title, score, recipes, and sections from the page.
 // Works for any content built with the shared CSS classes; no format args needed.

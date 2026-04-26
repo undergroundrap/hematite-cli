@@ -455,6 +455,18 @@ impl HealthScore {
             ),
         }
     }
+
+    /// A plain-English sentence for non-technical users that explains what
+    /// the grade means and what to do next.
+    pub fn grade_intro(&self) -> &'static str {
+        match self.grade {
+            'A' => "Your PC is in great shape — no issues were found. The diagnostic data below is included for reference.",
+            'B' => "Your PC is doing well, but there's one thing worth a closer look. The action plan below has specific steps.",
+            'C' => "Your PC needs some attention. A couple of things should be investigated — follow the action plan below.",
+            'D' => "Your PC needs attention. There are issues that should be fixed — follow the action plan below.",
+            _ => "Your PC has critical issues that need immediate attention. Work through the action plan below as soon as possible.",
+        }
+    }
 }
 
 /// Compute a health grade (A–F) from diagnostic output sections.

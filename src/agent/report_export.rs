@@ -323,6 +323,7 @@ fn build_html_document(
     <p>{summary}</p>
   </div>
 </div>
+<p class="grade-intro">{intro}</p>
 {copy_btn}
 </header>
 <section>
@@ -340,6 +341,7 @@ fn build_html_document(
         grade = score.grade,
         label = he(score.label),
         summary = he(&score.summary_line()),
+        intro = he(score.grade_intro()),
         copy_btn = COPY_BUTTON_HTML,
         action_plan_html = action_plan_html,
         sections_html = sections_html,
