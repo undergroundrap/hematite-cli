@@ -34,6 +34,7 @@ pub enum DirectAnswerKind {
     Toolchain,
     HostInspection,
     ArchitectSessionResetPlan,
+    Help,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -3872,7 +3873,11 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
             || mentions_broad_system_walkthrough(&lower)
     };
 
-    let direct_answer = if trimmed == "/about" || mentions_creator_question(&lower) {
+    let direct_answer = if lower == "/help" || lower == "help" || lower == "/inventory" || lower == "/commands" {
+        Some(DirectAnswerKind::Help)
+    } else if lower == "/about" || lower == "/version" || lower == "about" || lower == "version" {
+        Some(DirectAnswerKind::About)
+    } else if mentions_creator_question(&lower) {
         Some(DirectAnswerKind::About)
     } else if matches!(
         trimmed.as_str(),

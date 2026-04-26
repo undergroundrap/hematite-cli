@@ -10,7 +10,8 @@ use crate::agent::direct_answers::{
     build_reasoning_split_answer, build_recovery_recipes_answer, build_session_memory_answer,
     build_session_reset_semantics_answer, build_tool_classes_answer,
     build_tool_registry_ownership_answer, build_unsafe_workflow_pressure_answer,
-    build_verify_profiles_answer, build_workflow_modes_answer,
+    build_verify_profiles_answer, build_workflow_modes_answer, build_help_answer,
+    build_inspect_inventory, build_remediation_help,
 };
 use crate::agent::inference::InferenceEngine;
 use crate::agent::policy::{
@@ -35,6 +36,10 @@ use crate::agent::types::{
 };
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
 use crate::agent::compaction::{self, CompactionConfig};
+use crate::agent::report_export::{
+    generate_triage_report_markdown, generate_fix_plan_markdown, fix_issue_categories
+};
+use crate::tools::host_inspect::inspect_host;
 use crate::ui::gpu_monitor::GpuState;
 
 use serde_json::Value;
@@ -3031,6 +3036,60 @@ impl ConversationManager {
         yolo: bool,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let user_input = user_turn.text.as_str();
+
+        // ── Deterministic IT Lane: 0-model remediation ────────────────────────
+        if user_input.starts_with("/triage") || user_input == "/health" {
+            let preset = if user_input.starts_with("/triage") {
+                user_input.strip_prefix("/triage").unwrap_or("").trim()
+            } else {
+                ""
+            };
+            let preset = if preset.is_empty() { "default" } else { preset };
+            let _ = tx.send(InferenceEvent::Think("Running deterministic IT triage...".into())).await;
+            let report = generate_triage_report_markdown(preset).await;
+            for chunk in chunk_text(&report, 8) {
+                let _ = tx.send(InferenceEvent::Text(chunk.to_string())).await;
+            }
+            return Ok(());
+        }
+
+        if user_input.starts_with("/fix") {
+            let issue = user_input.strip_prefix("/fix").unwrap_or("").trim();
+            if issue.is_empty() || issue == "list" || issue == "help" {
+                 let mut list = "Supported issue categories:\n\n".to_string();
+                 for (cat, keywords) in fix_issue_categories() {
+                     list.push_str(&format!("  {:<22} {}\n", cat, keywords));
+                 }
+                 for chunk in chunk_text(&list, 8) {
+                     let _ = tx.send(InferenceEvent::Text(chunk.to_string())).await;
+                 }
+                 return Ok(());
+            }
+            let _ = tx.send(InferenceEvent::Think(format!("Generating fix plan for '{}'...", issue))).await;
+            let plan = generate_fix_plan_markdown(issue).await;
+            for chunk in chunk_text(&plan, 8) {
+                let _ = tx.send(InferenceEvent::Text(chunk.to_string())).await;
+            }
+            return Ok(());
+        }
+
+        if user_input.starts_with("/inspect") {
+            let topic = user_input.strip_prefix("/inspect").unwrap_or("").trim();
+            if topic.is_empty() {
+                for chunk in chunk_text(&build_inspect_inventory(), 8) {
+                    let _ = tx.send(InferenceEvent::Text(chunk.to_string())).await;
+                }
+                return Ok(());
+            }
+            let _ = tx.send(InferenceEvent::Think(format!("Inspecting host topic: {}...", topic))).await;
+            let args = serde_json::json!({"topic": topic});
+            let output = inspect_host(&args).await.unwrap_or_else(|e| format!("Error: {}", e));
+            for chunk in chunk_text(&output, 8) {
+                let _ = tx.send(InferenceEvent::Text(chunk.to_string())).await;
+            }
+            return Ok(());
+        }
+
         // ── Fast-path reset commands: handled locally, no network I/O needed ──
         if user_input.trim() == "/new" {
             self.history.clear();

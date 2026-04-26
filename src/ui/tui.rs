@@ -2772,85 +2772,40 @@ fn request_stop(app: &mut App) {
 fn show_help_message(app: &mut App) {
     app.push_message(
         "System",
-        "Hematite Commands:\n\
-         /chat             - (Mode) Conversation mode - clean chat, no tool noise\n\
-         /agent            - (Mode) Full coding harness + workstation mode - tools, file edits, builds, inspection\n\
-         /reroll           - (Soul) Hatch a new companion mid-session\n\
-         /auto             - (Flow) Let Hematite choose the narrowest effective workflow\n\
-         /rules [view|edit]- (Meta) View status or edit local/shared project guidelines\n\
-         /skills           - (Meta) View discovered Agent Skills (`SKILL.md` catalogs)\n\
-         /ask [prompt]     - (Flow) Read-only analysis mode; optional inline prompt\n\
-         /code [prompt]    - (Flow) Explicit implementation mode; optional inline prompt\n\
-         /architect [prompt] - (Flow) Plan-first mode; optional inline prompt\n\
-         /implement-plan   - (Flow) Execute the saved architect handoff in /code\n\
-         /read-only [prompt] - (Flow) Hard read-only mode; optional inline prompt\n\
-         /teach [prompt]   - (Flow) Teacher mode; inspect machine then walk you through any admin task step-by-step\n\
-         /new              - (Reset) Fresh task context; clear chat, pins, and task files\n\
-         /forget           - (Wipe) Hard forget; purge saved memory and Vein index too\n\
-         /cd <path>        - (Nav) Teleport to another directory and close this session; supports bare tokens like downloads, desktop, docs, home, temp, and ~, plus aliases like @DESKTOP/project\n\
-         /ls [path|N]      - (Nav) List common locations or subdirectories; use /ls desktop, then /ls <N> to teleport to a numbered entry\n\
-         /vein-inspect     - (Vein) Inspect indexed memory, hot files, and active room bias\n\
-         /workspace-profile - (Profile) Show the auto-generated workspace profile\n\
-         /rules            - (Rules) View project guidance (CLAUDE.md, SKILLS.md, .hematite/rules.md)\n\
-         /skills           - (Skills) View directory-based Agent Skills\n\
-         /version          - (Build) Show the running Hematite version\n\
-         /about            - (Info) Show author, repo, and product info\n\
-         /vein-reset       - (Vein) Wipe the RAG index; rebuilds automatically on next turn\n\
-         /clear            - (UI) Clear dialogue display only\n\
-         /health           - (Diag) Run a synthesized plain-English system health report\n\
-         /explain <text>   - (Help) Paste an error to get a non-technical breakdown\n\
-         /gemma-native [auto|on|off|status] - (Model) Auto/force/disable Gemma 4 native formatting\n\
-         /provider [status|lmstudio|ollama|clear|URL] - (Model) Show or save the active provider endpoint preference\n\
-         /runtime          - (Model) Show the live runtime/provider/model/embed status and shortest fix path\n\
-         /runtime fix      - (Model) Run the shortest safe runtime recovery step now\n\
-         /runtime-refresh  - (Model) Re-read active provider model + CTX now\n\
-         /model [status|list [available|loaded]|load <id> [--ctx N]|unload [id|current|all]|prefer <id>|clear] - (Model) Inspect, list, load, unload, or save the preferred coding model (`--ctx` uses LM Studio context length or Ollama `num_ctx`)\n\
-         /embed [status|load <id>|unload [id|current]|prefer <id>|clear] - (Model) Inspect, load, unload, or save the preferred embed model\n\
-         /undo             - (Ghost) Revert last file change\n\
-         /diff             - (Git) Show session changes (--stat)\n\
-         /lsp              - (Logic) Start Language Servers (semantic intelligence)\n\
-         /swarm <text>     - (Swarm) Spawn parallel workers on a directive\n\
-         /worktree <cmd>   - (Isolated) Manage git worktrees (list|add|remove|prune)\n\
-         /think            - (Brain) Enable deep reasoning mode\n\
-         /no_think         - (Speed) Disable reasoning (3-5x faster responses)\n\
-         /voice            - (TTS) List all available voices\n\
-         /voice N          - (TTS) Select voice by number\n\
-         /read <text>      - (TTS) Speak text aloud directly, bypassing the model. ESC to stop.\n\
-         /explain <text>   - (Plain English) Paste any error or output; Hematite explains it in plain English.\n\
-         /health           - (SysAdmin) Run a full system health report (disk, RAM, tools, recent errors).\n\
-         /attach <path>    - (Docs) Attach a PDF/markdown/txt file for next message (PDF best-effort)\n\
-         /attach-pick      - (Docs) Open a file picker and attach a document\n\
-         /image <path>     - (Vision) Attach an image for the next message\n\
-         /image-pick       - (Vision) Open a file picker and attach an image\n\
-         /detach           - (Context) Drop pending document/image attachments\n\
-         /copy             - (Debug) Copy exact session transcript (includes help/system output)\n\
-         /copy-last        - (Debug) Copy the latest Hematite reply only\n\
-         /copy-clean       - (Debug) Copy chat transcript without help/debug boilerplate\n\
-         /copy2            - (Debug) Copy the full SPECULAR rail to clipboard (reasoning + events)\n\
-         \nHotkeys:\n\
-         Ctrl+B - Toggle Brief Mode (minimal output; collapses side chrome)\n\
-         Alt+↑/↓ - Scroll the SPECULAR rail by 3 lines\n\
-         Alt+PgUp/PgDn - Scroll the SPECULAR rail by 10 lines\n\
-         Alt+End - Snap SPECULAR back to live follow mode\n\
-         Ctrl+P - Toggle Professional Mode (strip personality)\n\
-         Ctrl+O - Open document picker for next-turn context\n\
-         Ctrl+I - Open image picker for next-turn vision context\n\
-         Ctrl+Y - Toggle Approvals Off (bypass safety approvals)\n\
-         Ctrl+S - Quick Swarm (hardcoded bootstrap)\n\
-         Ctrl+Z - Undo last edit\n\
-         Ctrl+Q/C - Quit session\n\
-         ESC    - Silence current playback\n\
-         \nStatus Legend:\n\
-         LM/OL - Provider runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
-         RT    - Primary runtime issue (`OK`, `MOD`, `NET`, `EMP`, `CTX`, `WAIT`)\n\
-         VN    - Vein RAG status (`SEM`=semantic active, `FTS`=BM25 only, `--`=not indexed)\n\
-         BUD   - Total prompt-budget pressure against the live context window\n\
-         CMP   - History compaction pressure against Hematite's adaptive threshold\n\
-         ERR   - Session error count (runtime, tool, or SPECULAR failures)\n\
-         CTX   - Live context window currently reported by the provider\n\
-         VOICE - Local speech output state\n\
-         \nDocument note: `/attach` supports PDF/markdown/txt, but PDF parsing is best-effort by design so Hematite can stay a lightweight single-binary local coding harness and workstation assistant. If a PDF fails, export it to text/markdown or attach page images instead.\n\
-         ",
+        "Hematite Command Inventory\n\n\
+         [IT & Remediation Tools] (0-Model Logic)\n\
+         /triage [preset] - Run IT triage logic (health, security, connectivity, identity, updates)\n\
+         /health          - Alias for /triage (deterministic health report)\n\
+         /fix <issue>     - Generate a targeted fix plan for a specific issue\n\
+         /inspect <topic> - Run a specific host inspection topic (e.g., /inspect connectivity)\n\
+         /diagnose        - Run staged health triage with agent handoff\n\
+         /export [fmt]    - Generate and save a full diagnostic report (md|html|json)\n\
+         /explain <text>  - Paste an error to get a non-technical breakdown\n\n\
+         [Agent Workflow Modes]\n\
+         /chat            - Conversation mode (no tool noise)\n\
+         /agent           - Full coding harness + workstation mode (tools active)\n\
+         /auto            - Let Hematite choose the narrowest effective workflow\n\
+         /ask, /code      - Sticky Analysis or Implementation modes\n\
+         /architect       - Plan-first mode (inspect and approach before edit)\n\
+         /teach           - Guided walkthrough mode (no-execute)\n\n\
+         [Context & Memory Management]\n\
+         /new             - Fresh task context (clear chat/pins/task files)\n\
+         /forget          - Hard forget (purge chat + saved memory + Vein index)\n\
+         /clear           - Clear dialogue display only\n\
+         /attach, /image  - Attach document or image for next message\n\
+         /detach          - Drop pending attachments\n\
+         /vein-inspect    - Inspect RAG memory and active room bias\n\n\
+         [System & Runtime]\n\
+         /runtime [fix]   - Show or fix live provider/model/embed status\n\
+         /model, /embed   - List, load, unload, or prefer specific models\n\
+         /lsp             - Start Language Servers (semantic intelligence)\n\
+         /think, /no_think - Toggle deep reasoning mode (reasoning is 3-5x slower)\n\
+         /undo            - Revert last file change\n\
+         /version, /about - Show build and product info\n\n\
+         [Navigation & Filesystem]\n\
+         /cd <path>       - Teleport to another directory\n\
+         /ls [path]       - List locations or subdirectories\n\n\
+         Hotkeys: Ctrl+B (Brief), Ctrl+P (Professional), Ctrl+Y (Auto-approve), Ctrl+Z (Undo), Ctrl+C (Quit), ESC (Silence)"
     );
 }
 
@@ -4387,15 +4342,10 @@ pub async fn run_app<B: Backend>(
                                                 app.history_idx = None;
                                                 continue;
                                             }
-                                            "/health" => {
-                                                app.push_message("You", "/health");
+                                            "/health" | "/triage" | "/fix" | "/inspect" => {
+                                                app.push_message("You", &input_text);
                                                 app.agent_running = true;
-                                                let _ = app.user_input_tx.try_send(UserTurn::text(
-                                                    "Run inspect_host with topic=health_report. \
-                                                     After getting the report, summarize it in plain English for a non-technical user. \
-                                                     Use the tier labels (Needs fixing / Worth watching / Looking good) and \
-                                                     give specific, actionable next steps for any items that need attention."
-                                                ));
+                                                let _ = app.user_input_tx.try_send(UserTurn::text(input_text.clone()));
                                                 app.history_idx = None;
                                                 continue;
                                             }
