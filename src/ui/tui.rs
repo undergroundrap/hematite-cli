@@ -4241,11 +4241,11 @@ pub async fn run_app<B: Backend>(
                                                      \nStatus Legend:\n\
                                                      LM    — LM Studio runtime health (`LIVE`, `RECV`, `WARN`, `CEIL`, `STALE`, `BOOT`)\n\
                                                      VN    — Vein RAG status (`SEM`=semantic active, `FTS`=BM25 only, `--`=not indexed)\n\
-                                                     BUD   â€” Total prompt-budget pressure against the live context window\n\
-                                                     CMP   â€” History compaction pressure against Hematite's adaptive threshold\n\
-                                                     ERR   â€” Session error count (runtime, tool, or SPECULAR failures)\n\
-                                                     CTX   â€” Live context window currently reported by LM Studio\n\
-                                                     VOICE â€” Local speech output state\n\
+                                                     BUD   — Total prompt-budget pressure against the live context window\n\
+                                                     CMP   — History compaction pressure against Hematite's adaptive threshold\n\
+                                                     ERR   — Session error count (runtime, tool, or SPECULAR failures)\n\
+                                                     CTX   — Live context window currently reported by LM Studio\n\
+                                                     VOICE — Local speech output state\n\
                                                      \nAssistant: Semantic Pathing (LSP), Vision Pass, Web Research, Swarm Synthesis"
                                                 );
                                                 app.history_idx = None;

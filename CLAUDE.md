@@ -1,4 +1,4 @@
-﻿# Hematite CLI Documentation
+# Hematite CLI Documentation
 
 ## What this project is
 
@@ -7,9 +7,9 @@ It features a high-fidelity integrated host inspection suite covering **125+ rea
 
 Hematite supports two model protocol paths:
 
-- **Gemma 4 native** â€” Gemma 4 family models; native tool markup auto-enabled by model name (`gemma_native_auto: true` by default)
-- **Standard OpenAI-compatible** â€” all other models; plain tool format; tested primary target is Qwen/Qwen3.5-9B Q4_K_M
-- **Ollama** â€” supported as a local runtime when `api_url` points at an Ollama-compatible endpoint such as `http://localhost:11434/v1`
+- **Gemma 4 native** — Gemma 4 family models; native tool markup auto-enabled by model name (`gemma_native_auto: true` by default)
+- **Standard OpenAI-compatible** — all other models; plain tool format; tested primary target is Qwen/Qwen3.5-9B Q4_K_M
+- **Ollama** — supported as a local runtime when `api_url` points at an Ollama-compatible endpoint such as `http://localhost:11434/v1`
 
 ## Build and Run
 
@@ -34,8 +34,8 @@ pwsh ./clean.ps1
 - **Local Search Stack**: When `auto_start_searx` is enabled, Hematite scaffolds and boots a private SearXNG stack under `~/.hematite/searxng-local` when the configured `searx_url` is local and Docker Desktop is available. If SearXNG is already reachable, Hematite reuses it instead of restarting it. If Docker is missing or the daemon is stopped, Hematite surfaces a compact startup note with the fix instead of silently failing. Set `HEMATITE_SEARX_ROOT` to relocate the stack; `auto_stop_searx` only stops the instance Hematite started in the current session. The default scaffold now favors a safer technical-source engine pool instead of the older broad 12-engine mix.
 
 > **Important:** `cargo build` / `cargo run` only update `target/debug/hematite.exe`. If you run
-> Hematite from the portable dist (`dist\windows\Hematite-X.Y.Z-portable\hematite.exe`) â€” which is
-> what end-users have on their PATH â€” you must rebuild the portable bundle after any code change:
+> Hematite from the portable dist (`dist\windows\Hematite-X.Y.Z-portable\hematite.exe`) — which is
+> what end-users have on their PATH — you must rebuild the portable bundle after any code change:
 >
 > ```powershell
 > pwsh ./scripts/package-windows.ps1
@@ -59,34 +59,34 @@ pwsh ./clean.ps1
 - `Ctrl+O`: open file picker to attach a document (PDF/markdown/txt) for the next turn
 - `Ctrl+I`: open file picker to attach an image for the next turn (vision path)
 - `Ctrl+Z`: undo last file edit (ghost backup restore)
-- `@` in input: opens live file autocomplete â€” scans workspace, filters as you type, optimized with **Smart Splicing** for Path Aliases (e.g. `@DESKTOP`); Tab/Enter/Mouse-click inserts the path
-- `/read <text>`: speaks text aloud directly through the TTS engine, bypassing the model â€” ESC stops playback
+- `@` in input: opens live file autocomplete — scans workspace, filters as you type, optimized with **Smart Splicing** for Path Aliases (e.g. `@DESKTOP`); Tab/Enter/Mouse-click inserts the path
+- `/read <text>`: speaks text aloud directly through the TTS engine, bypassing the model — ESC stops playback
 - `Y` / `N`: approve or skip a diff preview modal when the model proposes an edit
 - `/voice`: list all available TTS voices with numbers
-- `/voice N` or `/voice <id>`: select a voice by number or ID â€” saves to `.hematite/settings.json` and takes effect immediately
+- `/voice N` or `/voice <id>`: select a voice by number or ID — saves to `.hematite/settings.json` and takes effect immediately
 - `/attach <path>`: attach a PDF, markdown, or text file as context for the next message then clear
-- `/image <path>`: attach an image for the next message â€” passed to the model via the vision path
+- `/image <path>`: attach an image for the next message — passed to the model via the vision path
 - `/detach`: drop any pending document or image attachment without sending
 - `/copy`: copy the session transcript manually
 - `/clear`: clear visible dialogue and side-panel session state
 - `/forget`: purge saved conversation memory and wipe visible session state
 - `/new`: reset session history while keeping project memory
-- `/compact`: immediately compact history in place â€” summarizes older turns, frees context, preserves active task and working set; safer than /new because nothing is lost
-- `/budget`: show the context budget ledger for the last completed turn â€” total tokens consumed, per-tool result costs, prior history size, and context fill percentage; also appears automatically in the SPECULAR panel after every turn
-- `/fix`: run `verify_build` immediately, stream the current error, then load it as a focused FIX MODE intervention that fires on the next turn â€” the model sees only the error and is instructed to fix it before doing anything else; `/fix --test` targets tests instead of build
-- `/cd <path>`: teleport to any directory â€” opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, aliases like `@DESKTOP/project`, `..`, and absolute paths. If you want a numbered picker, run `/ls desktop` first and then `/ls <N>`.
-- `/ls`: show a numbered navigation map â€” common OS locations + subdirectories of the current directory. Type `/ls <N>` to teleport directly to entry N. `/ls <path>` lists subdirectories of any path.
+- `/compact`: immediately compact history in place — summarizes older turns, frees context, preserves active task and working set; safer than /new because nothing is lost
+- `/budget`: show the context budget ledger for the last completed turn — total tokens consumed, per-tool result costs, prior history size, and context fill percentage; also appears automatically in the SPECULAR panel after every turn
+- `/fix`: run `verify_build` immediately, stream the current error, then load it as a focused FIX MODE intervention that fires on the next turn — the model sees only the error and is instructed to fix it before doing anything else; `/fix --test` targets tests instead of build
+- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, aliases like `@DESKTOP/project`, `..`, and absolute paths. If you want a numbered picker, run `/ls desktop` first and then `/ls <N>`.
+- `/ls`: show a numbered navigation map — common OS locations + subdirectories of the current directory. Type `/ls <N>` to teleport directly to entry N. `/ls <path>` lists subdirectories of any path.
 - `/ask [prompt]`: sticky read-only analysis mode
 - `/code [prompt]`: sticky implementation mode
 - `/architect [prompt]`: sticky plan-first mode that persists a reusable handoff
 - `/implement-plan`: execute the saved architect handoff in `/code`
 - `/read-only [prompt]`: sticky hard no-mutation mode
-- `/teach [prompt]`: sticky teacher mode â€” inspects real machine state first, then delivers a grounded numbered walkthrough for any admin/config/system task; does not execute write operations itself
+- `/teach [prompt]`: sticky teacher mode — inspects real machine state first, then delivers a grounded numbered walkthrough for any admin/config/system task; does not execute write operations itself
 - `/auto`: return to the narrowest-effective workflow mode
-- `/chat [prompt]`: sticky conversational mode â€” lighter prompt, no coding scaffolding, tools still available
+- `/chat [prompt]`: sticky conversational mode — lighter prompt, no coding scaffolding, tools still available
 - `/agent`: alias for returning to the full coding agent mode from chat
 - `/think [prompt]`: enable extended reasoning (thinking tokens) for the next turn or sticky
-- `/no_think [prompt]`: disable thinking tokens â€” faster, lower token cost
+- `/no_think [prompt]`: disable thinking tokens — faster, lower token cost
 - `/gemma-native`: toggle Gemma 4 native tool markup on/off manually (auto-detected by default)
 - `/swarm`: trigger parallel worker agents
 - `/worktree [branch]`: create or switch to a git worktree for isolated branch work
@@ -108,39 +108,39 @@ pwsh ./clean.ps1
 - `/rules edit`: open `.hematite/rules.local.md` in the system editor (private, gitignored)
 - `/rules edit shared`: open `.hematite/rules.md` in the system editor (shared, committed with the repo)
 - `/skills`: show the discovered Agent Skills catalog from `.agents/skills/` and `.hematite/skills/`
-- `/skill <name>`: explicitly load a named skill's full body into the system prompt for the next turn â€” shows available skills on name mismatch
+- `/skill <name>`: explicitly load a named skill's full body into the system prompt for the next turn — shows available skills on name mismatch
 - `/skill new <name>`: scaffold a new skill directory with a SKILL.md template at `.agents/skills/<name>/`
 - `/task`: show the current task list
-- `/task add <text>`: add a task to the persistent task list â€” injected into the system prompt every turn so the model always knows what's pending
+- `/task add <text>`: add a task to the persistent task list — injected into the system prompt every turn so the model always knows what's pending
 - `/task done <N>`: mark task N complete
 - `/task remove <N>`: remove task N from the list
 - `/task clear`: wipe all tasks
 - Task list persists across `/new` (context resets) but is cleared by `/forget` (full wipe)
-- Rule files are injected into the system prompt every turn automatically â€” no restart needed after editing
+- Rule files are injected into the system prompt every turn automatically — no restart needed after editing
 - `.hematite/instructions/`: drop any `<topic>.md` file here for topic-scoped rules that only inject when the turn context mentions that topic name (e.g. `authentication.md` injects only when the user's message references authentication)
 - `SKILLS.md` / `SKILL.md`: optional root-level workspace guidance files for project conventions, domain recipes, and repo-specific operating patterns; they are additive to the built-in workflow engine, not a replacement for `.hematite/PLAN.md` or `.hematite/TASK.md`
 - `.agents/skills/` / `.hematite/skills/`: directory-based Agent Skills. Each skill lives in its own folder with a `SKILL.md` file plus optional `scripts/`, `references/`, and `assets/`; skills auto-activate when their name appears in the query or their `triggers` patterns match files being discussed
-- `AGENTS.md` / `agents.md`: Codex CLI / Gemini CLI compatible instruction files â€” read automatically alongside CLAUDE.md and HEMATITE.md
+- `AGENTS.md` / `agents.md`: Codex CLI / Gemini CLI compatible instruction files — read automatically alongside CLAUDE.md and HEMATITE.md
 - `/diff`: show a diff of the last file edit made this session
 - `/undo`: undo the last file edit by restoring from the ghost backup
 - `/health`: run a quick workstation health check via `inspect_host(topic: "health_report")`
-- `/diagnose`: staged triage (TUI) â€” harness runs `health_report` first, identifies which areas are flagged (disk, RAM, event log errors, security, etc.), then hands the agent a pre-built instruction naming exactly which topics to investigate; agent synthesizes a grounded numbered fix plan from real tool output; skips dev-environment "not installed" warnings (those are not system health issues)
-- `/export`: generate a self-contained diagnostic report covering System Health, Hardware, Storage, Network, Security, and Toolchains â€” includes a health score (Aâ€“F) and action plan at the top â€” saves to `.hematite/reports/health-YYYY-MM-DD_HH-MM.<ext>` and copies the path to clipboard; `/export json` for JSON, `/export html` for a double-clickable self-contained HTML file anyone can open in a browser
+- `/diagnose`: staged triage (TUI) — harness runs `health_report` first, identifies which areas are flagged (disk, RAM, event log errors, security, etc.), then hands the agent a pre-built instruction naming exactly which topics to investigate; agent synthesizes a grounded numbered fix plan from real tool output; skips dev-environment "not installed" warnings (those are not system health issues)
+- `/export`: generate a self-contained diagnostic report covering System Health, Hardware, Storage, Network, Security, and Toolchains — includes a health score (A–F) and action plan at the top — saves to `.hematite/reports/health-YYYY-MM-DD_HH-MM.<ext>` and copies the path to clipboard; `/export json` for JSON, `/export html` for a double-clickable self-contained HTML file anyone can open in a browser
 - `/explain [prompt]`: explain the current file or selection in plain English
 - `/version`: show the running Hematite release version plus build state
 - `/about`: show author, repo, and product info
 - `hematite --version`: print the same build report from the CLI
-- `hematite --report`: headless diagnostic report to stdout â€” includes health score (Aâ€“F) and action plan at the top, then raw section data; no TUI, pipeable: `hematite --report > health.md`; `--report-format json` for JSON, `--report-format html` for a self-contained HTML file; add `--open` to save and launch the file immediately
-- `hematite --diagnose`: headless staged triage â€” no TUI, no model required; runs `health_report`, triages which topics need deeper investigation, runs targeted follow-up inspections, saves a self-contained fix plan to `.hematite/reports/diagnosis-DATE.md` and prints the path; add `--open` to launch the file immediately after saving; `--report-format html` saves a double-clickable self-contained HTML file instead (`diagnosis-DATE.html`)
-- `--open`: works with `--report` and `--diagnose` â€” saves the output file and opens it in the default application (browser for HTML, editor for Markdown); `hematite --diagnose --report-format html --open` is the one-shot USB-drive path: runs full staged triage, saves an HTML report, and opens it in the browser immediately
-- **HTML report UX**: all HTML outputs use the dark-theme template from `src/agent/html_template.rs` â€” consistent look across all saved pages; includes a **"Copy report for AI"** button that copies the full action plan + diagnostic data as plain text so the user can paste directly into Claude or ChatGPT without manual text selection; fix recipe hints use plain English (`Run hematite --diagnose for a deeper investigation`) not internal tool references
-- **Shared HTML template**: `src/agent/html_template.rs` owns the CSS, JS, and `build_html_shell(title, version, content_html)` function â€” any feature that saves an HTML file should call this instead of building its own document from scratch; `he()` HTML escaping and `markdown_to_html()` are also exported from here
-- `/save-html [optional title]`: saves the last Hematite response as a polished dark-theme HTML page â€” converts markdown to HTML, wraps in the shared template, saves to `.hematite/reports/research-DATE.html`, copies path to clipboard, and opens in the browser immediately; use after any research turn to keep a permanent shareable record
+- `hematite --report`: headless diagnostic report to stdout — includes health score (A–F) and action plan at the top, then raw section data; no TUI, pipeable: `hematite --report > health.md`; `--report-format json` for JSON, `--report-format html` for a self-contained HTML file; add `--open` to save and launch the file immediately
+- `hematite --diagnose`: headless staged triage — no TUI, no model required; runs `health_report`, triages which topics need deeper investigation, runs targeted follow-up inspections, saves a self-contained fix plan to `.hematite/reports/diagnosis-DATE.md` and prints the path; add `--open` to launch the file immediately after saving; `--report-format html` saves a double-clickable self-contained HTML file instead (`diagnosis-DATE.html`)
+- `--open`: works with `--report` and `--diagnose` — saves the output file and opens it in the default application (browser for HTML, editor for Markdown); `hematite --diagnose --report-format html --open` is the one-shot USB-drive path: runs full staged triage, saves an HTML report, and opens it in the browser immediately
+- **HTML report UX**: all HTML outputs use the dark-theme template from `src/agent/html_template.rs` — consistent look across all saved pages; includes a **"Copy report for AI"** button that copies the full action plan + diagnostic data as plain text so the user can paste directly into Claude or ChatGPT without manual text selection; fix recipe hints use plain English (`Run hematite --diagnose for a deeper investigation`) not internal tool references
+- **Shared HTML template**: `src/agent/html_template.rs` owns the CSS, JS, and `build_html_shell(title, version, content_html)` function — any feature that saves an HTML file should call this instead of building its own document from scratch; `he()` HTML escaping and `markdown_to_html()` are also exported from here
+- `/save-html [optional title]`: saves the last Hematite response as a polished dark-theme HTML page — converts markdown to HTML, wraps in the shared template, saves to `.hematite/reports/research-DATE.html`, copies path to clipboard, and opens in the browser immediately; use after any research turn to keep a permanent shareable record
 - `/copy`: copy the session transcript manually
-- `/copy-clean`: copy the transcript with tool calls stripped â€” prose only
+- `/copy-clean`: copy the transcript with tool calls stripped — prose only
 - `/copy-last`: copy only the last assistant response
 - `/clear`: clear visible dialogue and side-panel session state
-- `/cd <path>`: teleport to any directory â€” opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, aliases like `@DESKTOP/project`, `..`, and absolute paths. If you want a numbered picker, run `/ls desktop` first and then `/ls <N>`.
+- `/cd <path>`: teleport to any directory — opens a fresh Hematite session there and closes this one. Supports bare tokens like `downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, bare `~`, aliases like `@DESKTOP/project`, `..`, and absolute paths. If you want a numbered picker, run `/ls desktop` first and then `/ls <N>`.
 - `/attach <path>`: attach a PDF, markdown, or text file as context for the next message then clear
 - `/attach-pick`: open a file picker to select a document attachment
 - `/image <path>`: attach an image for the next message via the vision path
@@ -164,63 +164,63 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 
 - **Host Inspection Priority**: For all diagnostic questions (load, network, processes, log-checks), the agent **MUST** prefer `inspect_host` over raw `shell`.
 - **Native Diagnostic Lane**: For all hardware intensity, throughput, or disk benchmarking tasks, the agent **MUST** use `inspect_host(topic: "disk_benchmark")`. 
-- **Auto-Fallback Robustness**: If a requested target binary (e.g. `.hematite/hematite.exe`) is not found, the `disk_benchmark` tool will automatically pivot to benchmarking the current running executable. Do not fail if a path is missingâ€”run the benchmark on the current binary to provide data.
+- **Auto-Fallback Robustness**: If a requested target binary (e.g. `.hematite/hematite.exe`) is not found, the `disk_benchmark` tool will automatically pivot to benchmarking the current running executable. Do not fail if a path is missing—run the benchmark on the current binary to provide data.
 - **Redirection Discipline**: Common diagnostic commands and read-only metadata checks (e.g. `arp -a`, `Get-Process`, `Get-Item`, `Test-Path`, `Select-Object`) are silently redirected or whitelisted. These are safe operations.
 - **Telemetry Whitelisting**: `get-counter`, `Get-Item`, `Test-Path`, and `Select-Object` are whitelisted in `guard.rs` to reduce operator approval friction during system audits.
 - **Harness Pre-Run**: When the user asks about 2+ inspection topics in one message, Hematite executes all queries *before* the model turn begins. Results are injected into the **conversation history** as simulated turns (assistant calls + tool results). This ensures the model "sees" the data in the official transcript, which prevents redundant tool calls or orchestration loops.
-- **Multi-Topic Rule**: Never collapse multiple distinct topics into a single generic topic like `"network"`. Each topic must be called separately. Example: "show route table, ARP, DNS cache, and traceroute" â†’ four separate inspect_host calls (or one harness pre-run covering all four).
+- **Multi-Topic Rule**: Never collapse multiple distinct topics into a single generic topic like `"network"`. Each topic must be called separately. Example: "show route table, ARP, DNS cache, and traceroute" → four separate inspect_host calls (or one harness pre-run covering all four).
 - **Storage Inspection**: Use `topic: "storage"` for all-drives capacity with ASCII bar charts, developer cache directory sizing, and **Real-time Disk Intensity** (`Average Disk Queue Length`).
-- **Hardware Inventory**: Use `topic: "hardware"` for full hardware DNA â€” CPU model/cores/clock, RAM total/speed/sticks, GPU name/driver/resolution, motherboard/BIOS manufacturer/version, and **Virtualization Health** (Hypervisor status and SLAT/VT-x capability).
+- **Hardware Inventory**: Use `topic: "hardware"` for full hardware DNA — CPU model/cores/clock, RAM total/speed/sticks, GPU name/driver/resolution, motherboard/BIOS manufacturer/version, and **Virtualization Health** (Hypervisor status and SLAT/VT-x capability).
 - **Session Audit**: Use `topic: "sessions"` for active and disconnected user logon sessions.
 - **Health Report**: Use `topic: "health_report"` (or alias `"system_health"`) for a tiered plain-English verdict (ALL GOOD / WORTH A LOOK / ACTION REQUIRED) across disk, RAM, tools, and recent error events.
 - **Windows Update**: Use `topic: "updates"` for last install date, pending update count, and Windows Update service state.
 - **Security Status**: Use `topic: "security"` for Defender real-time protection, last scan age, signature freshness, firewall profile states, Windows activation, and UAC state.
 - **Pending Reboot**: Use `topic: "pending_reboot"` to check if a restart is queued (Windows Update, CBS, file rename operations) and why.
 - **Drive SMART Health**: Use `topic: "disk_health"` for physical drive health via Get-PhysicalDisk and SMART failure prediction.
-- **Battery**: Use `topic: "battery"` for charge level, status, estimated runtime, and wear level â€” reports no battery gracefully on desktops.
+- **Battery**: Use `topic: "battery"` for charge level, status, estimated runtime, and wear level — reports no battery gracefully on desktops.
 - **Crash History**: Use `topic: "recent_crashes"` for BSOD/unexpected shutdown events and application crash/hang events from the Windows event log.
-- **Application Crashes**: Use `topic: "app_crashes"` for detailed application crash and hang triage â€” faulting application name, version, faulting module, exception code, crash frequency, WER archive count. Accepts optional `process` arg to filter by app name (e.g. `process: "chrome.exe"`). Use `recent_crashes` for BSOD/kernel panics instead.
+- **Application Crashes**: Use `topic: "app_crashes"` for detailed application crash and hang triage — faulting application name, version, faulting module, exception code, crash frequency, WER archive count. Accepts optional `process` arg to filter by app name (e.g. `process: "chrome.exe"`). Use `recent_crashes` for BSOD/kernel panics instead.
 - **Device Health**: Use `topic: "device_health"` for precision detection of malfunctioning hardware (PnP "Yellow Bangs") via ConfigManager error codes.
 - **Drivers**: Use `topic: "drivers"` for a comprehensive audit of active system drivers and their operational states.
 - **Peripherals**: Use `topic: "peripherals"` for a deep-dive into USB controllers, HID devices (Keyboard/Mouse), and connected monitors.
 - **Scheduled Tasks**: Use `topic: "scheduled_tasks"` for all non-disabled scheduled tasks with name, path, last run time, and executable.
-- **Thermal Health**: Use `topic: "thermal"` for real-time telemetry â€” CPU temp, thermal margins, ACPI fallback sensing, and active throttling indicators.
+- **Thermal Health**: Use `topic: "thermal"` for real-time telemetry — CPU temp, thermal margins, ACPI fallback sensing, and active throttling indicators.
 - **Windows Activation**: Use `topic: "activation"` for license state, genuine status, and Product ID/Key metadata.
 - **Patch History**: Use `topic: "patch_history"` for Windows HotFix and KB update audit (last 48h focus).
-- **Repo Doctor**: Use `topic: "repo_doctor"` to inspect workspace health â€” git status, uncommitted changes, and build-file presence.
+- **Repo Doctor**: Use `topic: "repo_doctor"` to inspect workspace health — git status, uncommitted changes, and build-file presence.
 - **Disk Benchmark**: Use `topic: "disk_benchmark"` for sequential read/write throughput and latency measurements.
-- **Dev Conflicts**: Use `topic: "dev_conflicts"` for cross-tool environment conflict detection â€” Node.js version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, and duplicate PATH entries.
-- **Connectivity Check**: Use `topic: "connectivity"` to test internet reachability and DNS resolution â€” reports REACHABLE/UNREACHABLE with DNS pass/fail and gateway/VPN context.
+- **Dev Conflicts**: Use `topic: "dev_conflicts"` for cross-tool environment conflict detection — Node.js version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, and duplicate PATH entries.
+- **Connectivity Check**: Use `topic: "connectivity"` to test internet reachability and DNS resolution — reports REACHABLE/UNREACHABLE with DNS pass/fail and gateway/VPN context.
 - **Wi-Fi Status**: Use `topic: "wifi"` for wireless adapter state, SSID, signal strength (RSSI/quality), band, channel, and negotiated speed.
-- **Active TCP Connections**: Use `topic: "connections"` for active/established TCP connections â€” remote address, port, process name, and connection state.
+- **Active TCP Connections**: Use `topic: "connections"` for active/established TCP connections — remote address, port, process name, and connection state.
 - **VPN Status**: Use `topic: "vpn"` to detect active VPN adapters, tunnel IPs, and any recognized VPN client services.
 - **Proxy Settings**: Use `topic: "proxy"` for WinHTTP system proxy, Internet Options proxy, and environment variable proxy config.
-- **Firewall Rules**: Use `topic: "firewall_rules"` for non-default enabled Windows Firewall rules â€” direction, action (Allow/Block), and profile.
-- **BitLocker**: Use `topic: "bitlocker"` for drive encryption status â€” BitLocker volume status, protection state (ON/OFF), and encryption percentage.
-- **RDP Status**: Use `topic: "rdp"` for Remote Desktop configuration â€” enabled state, port (default 3389), NLA requirements, firewall rule check, and active RDP sessions.
-- **Shadow Copies**: Use `topic: "shadow_copies"` for Volume Shadow Copies (VSS) â€” lists snapshot history, storage allocation, and recent system restore points.
-- **Page File**: Use `topic: "pagefile"` for virtual memory configuration â€” page file paths, allocated size, current usage, and peak usage relative to RAM.
-- **Windows Features**: Use `topic: "windows_features"` for enabled Windows optional features â€” lists all ON features and flags notable ones (IIS, Hyper-V, WSL).
-- **Printers**: Use `topic: "printers"` for installed printers â€” printer name, driver, port, status, and active print job queue.
-- **WinRM**: Use `topic: "winrm"` for Windows Remote Management â€” service state, listeners, PS Remoting status (WS-Man test), and TrustedHosts list.
-- **Network Stats**: Use `topic: "network_stats"` for adapter-level throughput analytics â€” TX/RX bytes (MB), packet errors, and discarded/dropped packets since boot.
-- **UDP Listeners**: Use `topic: "udp_ports"` for active UDP listeners â€” local address, port, PID, process name, and annotations for well-known ports (DNS, DHCP, NTP).
-- **Group Policy (GPO)**: Use `topic: "gpo"` for applied Group Policy Objects â€” shows applied computer-scope GPOs and filtering status. Requires Administrator elevation on Windows.
-- **Certificates**: Use `topic: "certificates"` for local personal certificates â€” lists subjects, thumbprints, and expiry dates (flags those expiring within 30 days).
-- **Integrity**: Use `topic: "integrity"` for Windows component store health â€” checks SFC/DISM status (Corrupt/AutoRepairNeeded) via registry and log visibility.
+- **Firewall Rules**: Use `topic: "firewall_rules"` for non-default enabled Windows Firewall rules — direction, action (Allow/Block), and profile.
+- **BitLocker**: Use `topic: "bitlocker"` for drive encryption status — BitLocker volume status, protection state (ON/OFF), and encryption percentage.
+- **RDP Status**: Use `topic: "rdp"` for Remote Desktop configuration — enabled state, port (default 3389), NLA requirements, firewall rule check, and active RDP sessions.
+- **Shadow Copies**: Use `topic: "shadow_copies"` for Volume Shadow Copies (VSS) — lists snapshot history, storage allocation, and recent system restore points.
+- **Page File**: Use `topic: "pagefile"` for virtual memory configuration — page file paths, allocated size, current usage, and peak usage relative to RAM.
+- **Windows Features**: Use `topic: "windows_features"` for enabled Windows optional features — lists all ON features and flags notable ones (IIS, Hyper-V, WSL).
+- **Printers**: Use `topic: "printers"` for installed printers — printer name, driver, port, status, and active print job queue.
+- **WinRM**: Use `topic: "winrm"` for Windows Remote Management — service state, listeners, PS Remoting status (WS-Man test), and TrustedHosts list.
+- **Network Stats**: Use `topic: "network_stats"` for adapter-level throughput analytics — TX/RX bytes (MB), packet errors, and discarded/dropped packets since boot.
+- **UDP Listeners**: Use `topic: "udp_ports"` for active UDP listeners — local address, port, PID, process name, and annotations for well-known ports (DNS, DHCP, NTP).
+- **Group Policy (GPO)**: Use `topic: "gpo"` for applied Group Policy Objects — shows applied computer-scope GPOs and filtering status. Requires Administrator elevation on Windows.
+- **Certificates**: Use `topic: "certificates"` for local personal certificates — lists subjects, thumbprints, and expiry dates (flags those expiring within 30 days).
+- **Integrity**: Use `topic: "integrity"` for Windows component store health — checks SFC/DISM status (Corrupt/AutoRepairNeeded) via registry and log visibility.
 - **Share Access**: Use `topic: "share_access"` for readability and connectivity testing for specific network shares and UNC paths.
 - **Directory Audit**: Use `topic: "directory"`, `"desktop"`, or `"downloads"` for directory listing and file metadata.
 - **Traceroute**: Use `topic: "traceroute"` to trace the network path to a host (default 8.8.8.8). Accepts optional `host` arg. Uses `tracert` on Windows, `traceroute`/`tracepath` on Linux/macOS.
-- **DNS Cache**: Use `topic: "dns_cache"` to inspect locally cached DNS entries â€” hostname, record type, resolved address, and TTL.
-- **ARP Table**: Use `topic: "arp"` for the ARP neighbor table â€” IP-to-MAC mappings for devices on the local network.
-- **Route Table**: Use `topic: "route_table"` for the system routing table â€” destination prefixes, next hops, metrics, and interface names.
+- **DNS Cache**: Use `topic: "dns_cache"` to inspect locally cached DNS entries — hostname, record type, resolved address, and TTL.
+- **ARP Table**: Use `topic: "arp"` for the ARP neighbor table — IP-to-MAC mappings for devices on the local network.
+- **Route Table**: Use `topic: "route_table"` for the system routing table — destination prefixes, next hops, metrics, and interface names.
 - **Heuristic Command Sanitizer**: Hematite enforces a hard gate that blocks tool calls containing natural language sentences in command arguments. Never pass conversational "overthinking" into shell tools; use surgical, machine-readable commands only.
 - **Proactive Research Priority**: When answering technical questions about API versions, library changes, or news since 2024, the agent **MUST** prefer `research_web` over internal knowledge. Verifying technical uncertainty is a core behavioral requirement.
-- **Environment Variables**: Use `topic: "env"` to inspect environment variables â€” shows developer/tool vars (CARGO_HOME, JAVA_HOME, GOPATH, etc.) and redacts secret-shaped values (KEY, TOKEN, PASSWORD) to presence-only.
-- **Hosts File**: Use `topic: "hosts_file"` to read `/etc/hosts` (Windows: `drivers\etc\hosts`) â€” active entries, custom non-loopback entries flagged, full file content shown.
+- **Environment Variables**: Use `topic: "env"` to inspect environment variables — shows developer/tool vars (CARGO_HOME, JAVA_HOME, GOPATH, etc.) and redacts secret-shaped values (KEY, TOKEN, PASSWORD) to presence-only.
+- **Hosts File**: Use `topic: "hosts_file"` to read `/etc/hosts` (Windows: `drivers\etc\hosts`) — active entries, custom non-loopback entries flagged, full file content shown.
 - **Docker**: Use `topic: "docker"` for Docker daemon state, running containers, local images, Compose projects, and active context. Reports gracefully if Docker is not installed or daemon is not running.
 - **Docker Filesystems**: Use `topic: "docker_filesystems"` for bind mounts, named volumes, per-container mount summaries, and Docker Desktop disk-image growth. Output is shaped as `finding -> impact -> fix`.
-- **WSL**: Use `topic: "wsl"` for Windows Subsystem for Linux â€” installed distros, running state, WSL version. Windows-only; reports gracefully on Linux/macOS.
+- **WSL**: Use `topic: "wsl"` for Windows Subsystem for Linux — installed distros, running state, WSL version. Windows-only; reports gracefully on Linux/macOS.
 - **WSL Filesystems**: Use `topic: "wsl_filesystems"` for WSL rootfs usage, host-side `ext4.vhdx` growth, and `/mnt/c` bridge health without starting stopped distros.
 - **LAN Discovery**: Use `topic: "lan_discovery"` for neighborhood, NAS/printer visibility, NetBIOS/SMB browse evidence, mDNS/SSDP/UPnP listener surface, gateway/device-discovery hints, and a plain-English diagnosis path for discovery failures.
 - **Audio**: Use `topic: "audio"` for Windows Audio service health, playback and recording endpoint inventory, speaker and microphone path triage, and Bluetooth-audio crossover.
@@ -236,33 +236,33 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **Windows Backup**: Use `topic: "windows_backup"` for File History service state and last backup date/target drive, Windows Backup (wbadmin) last successful backup and scheduled tasks, System Restore enabled state and most recent restore point, OneDrive Known Folder Move per-account protection state, and recent backup failure events from the Application event log.
 - **Event Query**: Use `topic: "event_query"` for targeted Windows Event Log filtering by Event ID, source/provider, log name, severity level, and time window. Supports prompts like "System errors in the last 4 hours", Event ID 4625 failed-logon review, 7034 service crash search, and 41 unexpected-shutdown triage.
 - **Search Index**: Use `topic: "search_index"` for Windows Search (WSearch) service state, indexer registry configuration, indexed locations, recent indexer errors, and plain-English diagnosis for "search not finding files / indexer stopped".
-- **Display Config**: Use `topic: "display_config"` for active monitor resolution, refresh rate, DPI/scaling, video adapter driver version, and connected monitor names â€” answers "what refresh rate / how many monitors / is my DPI correct".
+- **Display Config**: Use `topic: "display_config"` for active monitor resolution, refresh rate, DPI/scaling, video adapter driver version, and connected monitor names — answers "what refresh rate / how many monitors / is my DPI correct".
 - **NTP / Time Sync**: Use `topic: "ntp"` for Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers, and plain-English diagnosis for clock drift or sync failure.
 - **CPU Power**: Use `topic: "cpu_power"` for active power plan, processor min/max state, turbo boost mode, current CPU clock and load, thermal zone temperatures, and diagnosis for "CPU stuck slow / boost disabled / power plan capping frequency".
 - **Credentials**: Use `topic: "credentials"` for Windows Credential Manager vault summary, credential target inventory, type counts, and hygiene warnings without ever exposing secret values.
 - **TPM / Secure Boot**: Use `topic: "tpm"` for TPM presence/readiness/spec version, Secure Boot state, firmware mode (UEFI vs legacy BIOS), and plain-English diagnosis for Windows 11 or BitLocker security posture.
 - **SSH**: Use `topic: "ssh"` for SSH client version, sshd service state, `~/.ssh` directory inventory (known_hosts count, authorized_keys count, private key files), and `~/.ssh/config` host entries.
-- **Installed Software**: Use `topic: "installed_software"` for installed programs â€” winget list on Windows (registry fallback), dpkg/rpm/pacman on Linux, brew + mas on macOS.
-- **Git Config**: Use `topic: "git_config"` for global git configuration audit â€” user identity, core settings, signing config, push/pull defaults, credential helper, branch defaults, local repo config, and git aliases.
-- **Databases**: Use `topic: "databases"` to detect running local database engines â€” PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQLite, SQL Server, CouchDB, Cassandra, Elasticsearch â€” via CLI version check, TCP port probe, and OS service state. No credentials required.
-- **Overclocker Telemetry**: Use `topic: "overclocker"` for precision silicon performance â€” NVIDIA clocks, fans, board power and power-cap context (W), explicit GPU-voltage availability reporting, firmware-reported CPU voltage when WMI exposes it, root-cause throttle decoding (Power vs Thermal), and session history trends (Temp/Clock drift anomalies).
+- **Installed Software**: Use `topic: "installed_software"` for installed programs — winget list on Windows (registry fallback), dpkg/rpm/pacman on Linux, brew + mas on macOS.
+- **Git Config**: Use `topic: "git_config"` for global git configuration audit — user identity, core settings, signing config, push/pull defaults, credential helper, branch defaults, local repo config, and git aliases.
+- **Databases**: Use `topic: "databases"` to detect running local database engines — PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQLite, SQL Server, CouchDB, Cassandra, Elasticsearch — via CLI version check, TCP port probe, and OS service state. No credentials required.
+- **Overclocker Telemetry**: Use `topic: "overclocker"` for precision silicon performance — NVIDIA clocks, fans, board power and power-cap context (W), explicit GPU-voltage availability reporting, firmware-reported CPU voltage when WMI exposes it, root-cause throttle decoding (Power vs Thermal), and session history trends (Temp/Clock drift anomalies).
 - **Hyper-V**: Use `topic: "hyperv"` for Hyper-V role state (VMMS service, feature installed), VM inventory (name, state, CPU%, RAM, uptime), VM network switches (External/Internal/Private with bound NIC), VM checkpoint listing (flags excessive checkpoints), and host RAM overcommit detection. Reports gracefully if Hyper-V is not installed.
-- **MDM / Intune Enrollment**: Use `topic: "mdm_enrollment"` for Intune/MDM enrollment state â€” dsregcmd AAD and MDM join flags, registry enrollment accounts (UPN, enrollment type, server URL), Intune Management Extension service health, recent MDM event log errors, and plain-English findings for enrolled/unenrolled/stalled states. Enterprise support lane for managed Windows fleets and Autopilot deployments.
-- **Storage Spaces / Windows RAID**: Use `topic: "storage_spaces"` for Windows Storage Spaces pool inventory â€” pool name, health, operational status, resiliency tier (Simple/Mirror/Parity), virtual disk health, physical disk member count and media type. Linux fallback reads `/proc/mdstat` and `lvs` for software RAID and LVM. Reports gracefully if no pools exist.
-- **Defender Quarantine / Threat History**: Use `topic: "defender_quarantine"` for Windows Defender threat detection history â€” threat name, severity, action taken (Quarantine/Remove/Allow), detection timestamp, affected path, and current remediation status. Also includes recent real-time protection and scan activity from `Get-MpComputerStatus`. Linux fallback checks ClamAV quarantine log.
-- **Domain Health / DC Connectivity**: Use `topic: "domain_health"` for domain controller discovery (nltest /dsgetdc), LDAP/LDAPS/Kerberos/GC port tests to the DC, dsregcmd AAD and domain join state, and GPO last machine refresh time. Use this for "can my machine reach its DC?", "are LDAP ports open?", "is Kerberos working?", and GPO refresh triage. Distinct from `domain` (basic join status) â€” `domain_health` actively tests DC reachability.
-- **Service Dependencies**: Use `topic: "service_dependencies"` for the service dependency graph â€” which services require which other services to run, and which services will break if you stop a given one. Essential for restart cascade planning. Linux fallback uses `systemctl list-dependencies`.
-- **WMI Health**: Use `topic: "wmi_health"` for WMI repository integrity â€” queries Win32_OperatingSystem as a live test, runs `winmgmt /verifyrepository`, checks the winmgmt service state, and reports repository size. Includes recovery steps if corrupt. WMI corruption causes cascading failures across many tools and is a classic hidden root cause on Windows.
-- **Local Security Policy**: Use `topic: "local_security_policy"` for local account and password policy (`net accounts` â€” minimum/maximum age, lockout threshold, observation window), LAN Manager / NTLM authentication level (LmCompatibilityLevel â€” flags if below 3), and UAC enabled state and admin prompt behavior. Useful for security baseline audits and compliance checks.
-- **USB Device History**: Use `topic: "usb_history"` for USB storage device connection history from the USBSTOR registry key â€” lists unique device friendly names of all USB storage devices ever connected to this machine. Useful for security/forensics audits. Requires elevation for full history. Linux fallback queries journalctl for USB kernel events.
+- **MDM / Intune Enrollment**: Use `topic: "mdm_enrollment"` for Intune/MDM enrollment state — dsregcmd AAD and MDM join flags, registry enrollment accounts (UPN, enrollment type, server URL), Intune Management Extension service health, recent MDM event log errors, and plain-English findings for enrolled/unenrolled/stalled states. Enterprise support lane for managed Windows fleets and Autopilot deployments.
+- **Storage Spaces / Windows RAID**: Use `topic: "storage_spaces"` for Windows Storage Spaces pool inventory — pool name, health, operational status, resiliency tier (Simple/Mirror/Parity), virtual disk health, physical disk member count and media type. Linux fallback reads `/proc/mdstat` and `lvs` for software RAID and LVM. Reports gracefully if no pools exist.
+- **Defender Quarantine / Threat History**: Use `topic: "defender_quarantine"` for Windows Defender threat detection history — threat name, severity, action taken (Quarantine/Remove/Allow), detection timestamp, affected path, and current remediation status. Also includes recent real-time protection and scan activity from `Get-MpComputerStatus`. Linux fallback checks ClamAV quarantine log.
+- **Domain Health / DC Connectivity**: Use `topic: "domain_health"` for domain controller discovery (nltest /dsgetdc), LDAP/LDAPS/Kerberos/GC port tests to the DC, dsregcmd AAD and domain join state, and GPO last machine refresh time. Use this for "can my machine reach its DC?", "are LDAP ports open?", "is Kerberos working?", and GPO refresh triage. Distinct from `domain` (basic join status) — `domain_health` actively tests DC reachability.
+- **Service Dependencies**: Use `topic: "service_dependencies"` for the service dependency graph — which services require which other services to run, and which services will break if you stop a given one. Essential for restart cascade planning. Linux fallback uses `systemctl list-dependencies`.
+- **WMI Health**: Use `topic: "wmi_health"` for WMI repository integrity — queries Win32_OperatingSystem as a live test, runs `winmgmt /verifyrepository`, checks the winmgmt service state, and reports repository size. Includes recovery steps if corrupt. WMI corruption causes cascading failures across many tools and is a classic hidden root cause on Windows.
+- **Local Security Policy**: Use `topic: "local_security_policy"` for local account and password policy (`net accounts` — minimum/maximum age, lockout threshold, observation window), LAN Manager / NTLM authentication level (LmCompatibilityLevel — flags if below 3), and UAC enabled state and admin prompt behavior. Useful for security baseline audits and compliance checks.
+- **USB Device History**: Use `topic: "usb_history"` for USB storage device connection history from the USBSTOR registry key — lists unique device friendly names of all USB storage devices ever connected to this machine. Useful for security/forensics audits. Requires elevation for full history. Linux fallback queries journalctl for USB kernel events.
 - **Print Spooler / PrintNightmare**: Use `topic: "print_spooler"` for Print Spooler service state, PrintNightmare (CVE-2021-34527) hardening check (RpcAuthnLevelPrivacyEnabled and Point and Print driver installation policy), and pending print queue. Flags unmitigated PrintNightmare configurations. Linux fallback checks CUPS via lpstat.
 - **User Accounts**: Use `topic: "user_accounts"` for local user accounts (name, enabled state, last logon, password required), Administrators group members, active logon sessions, and whether the current process is running elevated.
-- **Audit Policy**: Use `topic: "audit_policy"` for Windows audit policy (auditpol /get /category:*) â€” shows which event categories are logging Success/Failure. Flags if no categories are enabled. Requires Administrator elevation on Windows; falls back to auditd on Linux.
+- **Audit Policy**: Use `topic: "audit_policy"` for Windows audit policy (auditpol /get /category:*) — shows which event categories are logging Success/Failure. Flags if no categories are enabled. Requires Administrator elevation on Windows; falls back to auditd on Linux.
 - **Shares**: Use `topic: "shares"` for SMB shares this machine is exposing (flags custom non-admin shares), SMB server security settings (SMB1/SMB2 state, signing required, encryption), and mapped network drives. Warns if SMB1 is enabled.
-- **DNS Servers**: Use `topic: "dns_servers"` for the DNS resolvers configured per network adapter (not cache â€” the actual configured nameservers), annotated with well-known providers (Google, Cloudflare, Quad9, OpenDNS), DoH configuration, and DNS search suffix list.
-- **Latency**: Use `topic: "latency"` for ping RTT (min/avg/max) and packet loss to the default gateway, Cloudflare DNS (1.1.1.1), and Google DNS (8.8.8.8) â€” findings for unreachable targets, high packet loss (â‰¥25%), and elevated average RTT (>150ms).
+- **DNS Servers**: Use `topic: "dns_servers"` for the DNS resolvers configured per network adapter (not cache — the actual configured nameservers), annotated with well-known providers (Google, Cloudflare, Quad9, OpenDNS), DoH configuration, and DNS search suffix list.
+- **Latency**: Use `topic: "latency"` for ping RTT (min/avg/max) and packet loss to the default gateway, Cloudflare DNS (1.1.1.1), and Google DNS (8.8.8.8) — findings for unreachable targets, high packet loss (≥25%), and elevated average RTT (>150ms).
 - **Network Adapter**: Use `topic: "network_adapter"` for NIC inventory (link speed, MAC, driver version), offload settings (LSO/RSS/TCP checksum offload/jumbo frames) per adapter, error and discard counters, and wake-on-LAN / power management state; findings for adapter errors and half-duplex mismatches.
-- **DHCP Lease**: Use `topic: "dhcp"` for DHCP lease details per adapter â€” server IP, lease obtained time, lease expires time, subnet mask, DNS servers assigned by DHCP; findings for expired or imminently-expiring leases.
+- **DHCP Lease**: Use `topic: "dhcp"` for DHCP lease details per adapter — server IP, lease obtained time, lease expires time, subnet mask, DNS servers assigned by DHCP; findings for expired or imminently-expiring leases.
 - **MTU**: Use `topic: "mtu"` for per-adapter IPv4/IPv6 MTU and path MTU discovery (DF-bit ping test to 8.8.8.8 at 1472/1400/1280/576 bytes); findings for restricted MTU, VPN fragmentation issues, or ICMP-blocked paths.
 - **IPv6**: Use `topic: "ipv6"` for per-adapter IPv6 addresses (global/link-local/ULA) with prefix origin (SLAAC/DHCPv6/static), IPv6 default gateway, DHCPv6 lease assignments, privacy extension state (RFC 4941), and tunnel adapter inventory (Teredo/6to4/ISATAP); findings for no global address or missing IPv6 gateway.
 - **TCP Parameters**: Use `topic: "tcp_params"` for TCP autotuning level, congestion provider (CUBIC/NewReno), initial congestion window, scaling heuristics, dynamic port range, chimney offload state, and ECN capability; findings for disabled autotuning or non-standard congestion provider.
@@ -271,32 +271,32 @@ Crates.io update rule: in normal use, almost every public tagged Hematite releas
 - **NetBIOS**: Use `topic: "netbios"` for NetBIOS over TCP/IP state per adapter (enabled/disabled/DHCP), WINS server configuration, nbtstat registered names and active NetBIOS sessions; findings for enabled NetBIOS and configured WINS servers.
 - **NIC Teaming**: Use `topic: "nic_teaming"` for LBFO team inventory (mode, load-balancing algorithm, status), team member operational state; findings for degraded teams or inactive members.
 - **SNMP**: Use `topic: "snmp"` for Windows SNMP agent service state, community string presence audit (values redacted), permitted manager list, SNMP Trap service state; findings flag running agents and the 'public' community string as a risk.
-- **Port Test**: Use `topic: "port_test"` with `host` and `port` args to test TCP port reachability â€” returns OPEN/CLOSED/FILTERED with ICMP result, source address, and interface. Example: `inspect_host(topic: "port_test", host: "192.168.1.1", port: 443)`.
+- **Port Test**: Use `topic: "port_test"` with `host` and `port` args to test TCP port reachability — returns OPEN/CLOSED/FILTERED with ICMP result, source address, and interface. Example: `inspect_host(topic: "port_test", host: "192.168.1.1", port: 443)`.
 - **Network Profile**: Use `topic: "network_profile"` for Windows network location profile per interface (Public/Private/DomainAuthenticated), IPv4/IPv6 connectivity state; findings flag Public-category interfaces.
-- **DNS Lookup**: Use `topic: "dns_lookup"` with a required `name` arg for active DNS resolution of a specific hostname â€” returns A, AAAA, MX, TXT, SRV, or any record type; use `type` arg to specify (default: A). Example: `inspect_host(topic: "dns_lookup", name: "example.com", type: "A")`.
-- **IP Config**: Use `topic: "ip_config"` for full adapter IP detail equivalent to `ipconfig /all` â€” DHCP enabled state, IP addresses, gateway, DNS servers per adapter; useful when you need a complete adapter inventory without DHCP lease timing.
-- **Summary**: Use `topic: "summary"` (the default when no topic is given) for a general host overview â€” OS, hostname, uptime, CPU/RAM snapshot, disk health flag, and active network adapters.
-- **Toolchains**: Use `topic: "toolchains"` for installed developer tools â€” detects Rust, Node, Python, Go, Java, Docker, Git, and other common toolchain binaries with versions.
+- **DNS Lookup**: Use `topic: "dns_lookup"` with a required `name` arg for active DNS resolution of a specific hostname — returns A, AAAA, MX, TXT, SRV, or any record type; use `type` arg to specify (default: A). Example: `inspect_host(topic: "dns_lookup", name: "example.com", type: "A")`.
+- **IP Config**: Use `topic: "ip_config"` for full adapter IP detail equivalent to `ipconfig /all` — DHCP enabled state, IP addresses, gateway, DNS servers per adapter; useful when you need a complete adapter inventory without DHCP lease timing.
+- **Summary**: Use `topic: "summary"` (the default when no topic is given) for a general host overview — OS, hostname, uptime, CPU/RAM snapshot, disk health flag, and active network adapters.
+- **Toolchains**: Use `topic: "toolchains"` for installed developer tools — detects Rust, Node, Python, Go, Java, Docker, Git, and other common toolchain binaries with versions.
 - **Prompt Synchronicity Rule**: Any addition of an `inspect_host` topic or a new tool **MUST** be reflected in `src/agent/prompt.rs` and the `CAPABILITIES.md` competency matrix. This ensures the agent uses high-precision tools instead of falling back to raw shell.
 - **Topic Registration**: When adding a topic to `host_inspect.rs`, synchronize its keywords in `routing.rs` and its mandatory instruction in `prompt.rs` in the same PR.
 - **Cross-Platform Parameter Integrity**: When modifying shared tool signatures (especially in `host_inspect.rs`), ensure all parameters are either used on all platforms or explicitly silenced in non-target `#[cfg]` blocks using the `let _ = param;` pattern. This prevents "blindspot" build failures in CI (e.g., breaking Windows by renaming a parameter to satisfy a Unix warning).
-- **PATH**: Use `topic: "path"` for PATH entry analysis â€” lists all entries, flags duplicates, missing directories, and shadowed binaries.
-- **Environment Doctor**: Use `topic: "env_doctor"` for a full developer environment health check â€” PATH sanity, package manager conflicts, toolchain version mismatches, and missing expected tools.
+- **PATH**: Use `topic: "path"` for PATH entry analysis — lists all entries, flags duplicates, missing directories, and shadowed binaries.
+- **Environment Doctor**: Use `topic: "env_doctor"` for a full developer environment health check — PATH sanity, package manager conflicts, toolchain version mismatches, and missing expected tools.
 - **Fix Plan**: Use `topic: "fix_plan"` for a grounded, step-by-step remediation plan for a reported issue. Pass `issue` arg with the problem description; the harness inspects relevant machine state and returns an actionable numbered plan.
-- **Network Overview**: Use `topic: "network"` for a general network snapshot â€” adapter list, IP addresses, default gateway, and active connection count.
+- **Network Overview**: Use `topic: "network"` for a general network snapshot — adapter list, IP addresses, default gateway, and active connection count.
 - **Processes**: Use `topic: "processes"` for running processes ranked by CPU/RAM with PID, name, memory MB, CPU %, and real-time I/O R/W operation counts.
-- **Services**: Use `topic: "services"` for Windows/Linux service states â€” name, status (Running/Stopped), startup type, and description.
-- **Ports**: Use `topic: "ports"` for listening TCP/UDP ports â€” local address, port number, owning process name and PID.
-- **Log Check**: Use `topic: "log_check"` for recent system error/warning events from the Windows Event Log or journald â€” application and system log tails with severity.
-- **Startup Items**: Use `topic: "startup_items"` (aliases: `startup`, `boot`, `autorun`) for programs and scripts that run at login â€” registry run keys, startup folder entries, and scheduled task autorun items.
-- **OS Config**: Use `topic: "os_config"` for OS-level configuration â€” Windows edition, build, activation status, power plan, UAC level, and system locale.
+- **Services**: Use `topic: "services"` for Windows/Linux service states — name, status (Running/Stopped), startup type, and description.
+- **Ports**: Use `topic: "ports"` for listening TCP/UDP ports — local address, port number, owning process name and PID.
+- **Log Check**: Use `topic: "log_check"` for recent system error/warning events from the Windows Event Log or journald — application and system log tails with severity.
+- **Startup Items**: Use `topic: "startup_items"` (aliases: `startup`, `boot`, `autorun`) for programs and scripts that run at login — registry run keys, startup folder entries, and scheduled task autorun items.
+- **OS Config**: Use `topic: "os_config"` for OS-level configuration — Windows edition, build, activation status, power plan, UAC level, and system locale.
 - **Resource Load**: Use `topic: "resource_load"` (aliases: `performance`, `system_load`) for live CPU and RAM utilization with top resource consumers by process.
-- **Repo Doctor**: Use `topic: "repo_doctor"` to inspect workspace health â€” git status, uncommitted changes, branch state, remote tracking, and basic build-file presence (Cargo.toml, package.json, etc.).
+- **Repo Doctor**: Use `topic: "repo_doctor"` to inspect workspace health — git status, uncommitted changes, branch state, remote tracking, and basic build-file presence (Cargo.toml, package.json, etc.).
 - **Disk Benchmark**: Use `topic: "disk_benchmark"` (aliases: `stress_test`, `io_intensity`) for sequential read/write throughput and latency measurements on the workspace drive. Accepts optional `path` arg; falls back to the running binary's drive if the path is not found.
-- **Desktop / Downloads**: Use `topic: "desktop"` or `topic: "downloads"` to list files in the user's Desktop or Downloads directory â€” names, sizes, and modification dates.
-- **Disk**: Use `topic: "disk"` with a `path` arg to inspect a specific disk path â€” free space, filesystem type, and usage.
-- **Directory**: Use `topic: "directory"` with a required `path` arg to list any arbitrary directory â€” file names, sizes, and modification dates.
-- **Teacher Mode (`/teach`)**: Activates a grounded walkthrough mode for write/admin tasks Hematite cannot safely execute itself. Protocol: (1) call `inspect_host` with the relevant topic(s) to observe actual machine state, (2) deliver a numbered step-by-step tutorial referencing real observed state â€” exact commands, exact paths, exact values. Does NOT execute write operations. Covers:
+- **Desktop / Downloads**: Use `topic: "desktop"` or `topic: "downloads"` to list files in the user's Desktop or Downloads directory — names, sizes, and modification dates.
+- **Disk**: Use `topic: "disk"` with a `path` arg to inspect a specific disk path — free space, filesystem type, and usage.
+- **Directory**: Use `topic: "directory"` with a required `path` arg to list any arbitrary directory — file names, sizes, and modification dates.
+- **Teacher Mode (`/teach`)**: Activates a grounded walkthrough mode for write/admin tasks Hematite cannot safely execute itself. Protocol: (1) call `inspect_host` with the relevant topic(s) to observe actual machine state, (2) deliver a numbered step-by-step tutorial referencing real observed state — exact commands, exact paths, exact values. Does NOT execute write operations. Covers:
 - **SysAdmin Diagnostics**: `inspect_host` (topic=network, services, processes, ports, log_check, startup_items, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, scheduled_tasks, connections, etc.)
 - **Hardware Diagnostic Suite**: `topic=device_health` (PnP errors), `topic=drivers` (active audit), `topic=peripherals` (USB/HID tree).
 - **Deep System Visibility**: `topic=sessions` (Logon sessions), `topic=hardware` (BIOS/Virtualization DNA), `topic=processes` (Real-time I/O tracking), `topic=thermal` (Thermal/Throttling), `topic=activation` (Licensing), `topic=patch_history` (KB Audit), `topic=overclocker` (Precision Silicon Historian).
@@ -327,6 +327,7 @@ These core guidelines help minimize common LLM coding mistakes. They prioritize 
 2. **Simplicity First**: Write the minimum code necessary. Avoid speculative abstractions or "future-proofing" that wasn't requested.
 3. **Surgical Changes**: Touch only what is necessary. Match existing style and refactor only what is broken. Clean up any artifacts (unused imports/variables) created by your change.
 4. **Goal-Driven Execution**: Define clear success criteria (e.g., reproduction tests) and verify every step.
+5. **No Mojibake**: Always check for and prevent garbled character regressions (e.g., `—` instead of `—`). This is a common AI error when handling UTF-8 characters like em-dashes, arrows, and smart quotes. Before submitting any documentation or UI changes, verify that no character encoding errors have been introduced. If you encounter mojibake in existing files, fix it immediately.
 
 ## Product Direction
 
@@ -371,11 +372,11 @@ This starts a JSON-RPC 2.0 newline-delimited stdio server. No TUI launches. Prot
 }
 ```
 
-**Tool exposed:** `inspect_host` â€” all 125+ topics, same as the TUI. Any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) can call it directly and get grounded machine state with no cloud, no API key, and no prompt guessing.
+**Tool exposed:** `inspect_host` — all 125+ topics, same as the TUI. Any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) can call it directly and get grounded machine state with no cloud, no API key, and no prompt guessing.
 
-**Implementation:** `src/agent/mcp_server.rs` â€” stdio reader loop, JSON-RPC dispatch, delegates to `crate::tools::host_inspect::inspect_host()`.
+**Implementation:** `src/agent/mcp_server.rs` — stdio reader loop, JSON-RPC dispatch, delegates to `crate::tools::host_inspect::inspect_host()`.
 
-### Edge Redaction (Tier 1 â€” Regex)
+### Edge Redaction (Tier 1 — Regex)
 
 Add `--edge-redact` to strip sensitive identifiers before any response leaves the machine:
 
@@ -384,23 +385,23 @@ hematite --mcp-server --edge-redact
 ```
 
 Patterns sanitized before the cloud agent sees the output:
-- Usernames in file paths (`C:\Users\<name>\` â†’ `C:\Users\[USER]\`)
-- MAC addresses â†’ `[MAC]`
-- Hardware / disk serial numbers â†’ `[SERIAL]`
-- Hostnames and computer names â†’ `[HOSTNAME]`
-- AWS access key IDs â†’ `[AWS-KEY]`
-- Credential-shaped env values (API keys, tokens, passwords) â†’ `[REDACTED]`
+- Usernames in file paths (`C:\Users\<name>\` → `C:\Users\[USER]\`)
+- MAC addresses → `[MAC]`
+- Hardware / disk serial numbers → `[SERIAL]`
+- Hostnames and computer names → `[HOSTNAME]`
+- AWS access key IDs → `[AWS-KEY]`
+- Credential-shaped env values (API keys, tokens, passwords) → `[REDACTED]`
 
 Every response includes a receipt header the cloud model can read:
 ```
-[edge-redact: 4 substitution(s) â€” username-path Ã—4 â€” values replaced before leaving this machine]
+[edge-redact: 4 substitution(s) — username-path ×4 — values replaced before leaving this machine]
 ```
 
-**Use case:** enterprises and security-conscious operators who want frontier model reasoning (Claude Desktop, OpenClaw) without raw machine identifiers crossing the wire. The local machine provides grounded observations; the cloud model reasons about them â€” but never sees the raw identity data.
+**Use case:** enterprises and security-conscious operators who want frontier model reasoning (Claude Desktop, OpenClaw) without raw machine identifiers crossing the wire. The local machine provides grounded observations; the cloud model reasons about them — but never sees the raw identity data.
 
-**Implementation:** `src/agent/edge_redact.rs` â€” `lazy_static!` compiled regex patterns, `redact()` returns count by category, `apply()` prepends the receipt header.
+**Implementation:** `src/agent/edge_redact.rs` — `lazy_static!` compiled regex patterns, `redact()` returns count by category, `apply()` prepends the receipt header.
 
-### Semantic Redaction (Tier 2 â€” Local Model Summarizer)
+### Semantic Redaction (Tier 2 — Local Model Summarizer)
 
 Add `--semantic-redact` and `--semantic-model` to route inspect_host output through a dedicated local model before any data leaves the machine:
 
@@ -408,26 +409,26 @@ Add `--semantic-redact` and `--semantic-model` to route inspect_host output thro
 hematite --mcp-server --semantic-redact --semantic-model bonsai-8b
 ```
 
-The summarizer model receives raw diagnostic output and produces an anonymous diagnostic summary â€” stripping usernames, hostnames, MACs, local IPs, serial numbers, org names, and credentials while preserving diagnostic value (versions, error codes, metrics, findings, time deltas). Tier 1 regex runs after the semantic pass as a final safety net to catch anything the model missed.
+The summarizer model receives raw diagnostic output and produces an anonymous diagnostic summary — stripping usernames, hostnames, MACs, local IPs, serial numbers, org names, and credentials while preserving diagnostic value (versions, error codes, metrics, findings, time deltas). Tier 1 regex runs after the semantic pass as a final safety net to catch anything the model missed.
 
-**`--semantic-model`** specifies which model in LM Studio handles privacy summarization. This is separate from the main reasoning model â€” it only activates during MCP calls with `--semantic-redact`. The main TUI model (Qwen etc.) is never involved in privacy filtering. When multiple models are loaded in LM Studio, this flag is required.
+**`--semantic-model`** specifies which model in LM Studio handles privacy summarization. This is separate from the main reasoning model — it only activates during MCP calls with `--semantic-redact`. The main TUI model (Qwen etc.) is never involved in privacy filtering. When multiple models are loaded in LM Studio, this flag is required.
 
-**`--semantic-url`** (optional) points the summarizer at a different server endpoint entirely â€” useful if running the privacy model on a separate llama.cpp instance or a second LM Studio installation. If omitted, the summarizer uses the same port as `--url` (default: `http://localhost:1234/v1`). All three models (main + embed + summarizer) can share port 1234 in LM Studio's multi-model mode.
+**`--semantic-url`** (optional) points the summarizer at a different server endpoint entirely — useful if running the privacy model on a separate llama.cpp instance or a second LM Studio installation. If omitted, the summarizer uses the same port as `--url` (default: `http://localhost:1234/v1`). All three models (main + embed + summarizer) can share port 1234 in LM Studio's multi-model mode.
 
 **Choosing a summarizer model:** any instruction-following model works. Smaller is better for constrained setups since the summarizer runs alongside your main model:
-- **RTX 4070 (12 GB):** [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) at 1.16 GB â€” verified. Fits with Qwen3.5 9B + nomic-embed, 8.22 GB total.
-- **RTX 4080/4090 (16â€“24 GB):** any 8B Q4_K_M model at 5â€“6 GB â€” better summarization quality.
-- **Workstation / multi-GPU:** 70B-class models â€” near-perfect identity stripping.
+- **RTX 4070 (12 GB):** [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) at 1.16 GB — verified. Fits with Qwen3.5 9B + nomic-embed, 8.22 GB total.
+- **RTX 4080/4090 (16–24 GB):** any 8B Q4_K_M model at 5–6 GB — better summarization quality.
+- **Workstation / multi-GPU:** 70B-class models — near-perfect identity stripping.
 
 The summarizer does not need to be good at code or reasoning. Benchmark scores for instruction-following and summarization matter; coding benchmarks do not.
 
-**Fail-safe:** if the local model is unreachable, the tool call returns an error â€” raw data is never sent to the cloud model.
+**Fail-safe:** if the local model is unreachable, the tool call returns an error — raw data is never sent to the cloud model.
 
 **Jailbreak resistance:** the summarizer prompt is injected by Hematite and wraps system data in `<diagnostic_data>` tags explicitly marked as untrusted. Unknown MCP arguments are stripped before tool dispatch. Model refusals are detected and treated as errors.
 
 **Audit trail:** every tool call is logged to `~/.hematite/redact_audit.jsonl` with metadata only (topic, mode, substitution counts, input/output size, shrink ratio). Raw output and original values never appear in the audit log.
 
-**Implementation:** `src/agent/semantic_redact.rs` â€” HTTP to LM Studio `/v1/chat/completions`, temperature=0, max_tokens capped at 1.5Ã— input length. `src/agent/redact_audit.rs` â€” JSONL appender, no external deps.
+**Implementation:** `src/agent/semantic_redact.rs` — HTTP to LM Studio `/v1/chat/completions`, temperature=0, max_tokens capped at 1.5× input length. `src/agent/redact_audit.rs` — JSONL appender, no external deps.
 
 ### Redaction Policy File
 
@@ -445,14 +446,14 @@ Create `.hematite/redact_policy.json` (workspace) or `~/.hematite/redact_policy.
 }
 ```
 
-- `blocked_topics` â€” MCP returns an error for these topics; the inspection never runs
-- `allowed_topics` â€” if non-empty, only these topics are served (whitelist mode)
-- `topic_redaction_level` â€” override redaction level per topic: `"none"`, `"regex"`, or `"semantic"`
-- `default_redaction_level` â€” fallback when no per-topic override exists
+- `blocked_topics` — MCP returns an error for these topics; the inspection never runs
+- `allowed_topics` — if non-empty, only these topics are served (whitelist mode)
+- `topic_redaction_level` — override redaction level per topic: `"none"`, `"regex"`, or `"semantic"`
+- `default_redaction_level` — fallback when no per-topic override exists
 
 See `.hematite/redact_policy.example.json` for a full template. Workspace config overrides global.
 
-**Implementation:** `src/agent/redact_policy.rs` â€” loaded once at MCP server startup.
+**Implementation:** `src/agent/redact_policy.rs` — loaded once at MCP server startup.
 
 ## MCP Configuration
 
@@ -471,7 +472,7 @@ Hematite defaults to LM Studio on `http://localhost:1234/v1`. To use a different
 "api_url": "http://localhost:11434/v1"
 ```
 
-This overrides the `--url` CLI flag. The value must be the base `/v1` path â€” Hematite appends `/chat/completions`, `/models`, and `/embeddings` automatically.
+This overrides the `--url` CLI flag. The value must be the base `/v1` path — Hematite appends `/chat/completions`, `/models`, and `/embeddings` automatically.
 
 Common values:
 - LM Studio (default): `http://localhost:1234/v1`
@@ -482,7 +483,7 @@ Common values:
 `.hematite/settings.json` (inside the project root) and the global `~/.hematite/settings.json`
 (in the user's home directory). Workspace values always win; global fills in any fields not set
 by the workspace. This means `api_url`, `model`, `voice`, and other preferences set globally apply
-in every directory â€” including non-project launches from the desktop or home folder. The workspace
+in every directory — including non-project launches from the desktop or home folder. The workspace
 config is created automatically on first run in a new directory.
 
 **Workspace profile.** Hematite writes `workspace_profile.json` into the active runtime-state
@@ -494,9 +495,9 @@ guessing about repo shape. Use `/workspace-profile` to inspect the current gener
 
 ## Model Compatibility Notes
 
-**Jinja template fix â€” `| safe` filter error:** Some bartowski quantizations (e.g. `qwen_qwen3.6-35b-a3b` IQ2_XXS) ship with a broken Jinja chat template that LM Studio cannot render. Symptom: `Unknown StringValue filter: safe` channel errors after the first tool call.
+**Jinja template fix — `| safe` filter error:** Some bartowski quantizations (e.g. `qwen_qwen3.6-35b-a3b` IQ2_XXS) ship with a broken Jinja chat template that LM Studio cannot render. Symptom: `Unknown StringValue filter: safe` channel errors after the first tool call.
 
-Fix: In LM Studio, open the model â†’ **Prompt Template â†’ Template (Jinja)** tab. Find this line:
+Fix: In LM Studio, open the model → **Prompt Template → Template (Jinja)** tab. Find this line:
 
 ```jinja
 {%- set args_value = args_value | string if args_value is string else args_value | tojson | safe %}
@@ -564,27 +565,27 @@ libs/
 ## Voice Engine
 
 Hematite ships a fully self-contained TTS pipeline using the vendored Kokoro engine. No cloud, no
-separate install, no Python â€” everything is baked into the binary at compile time.
+separate install, no Python — everything is baked into the binary at compile time.
 
 **How it works:**
 
 - The Kokoro ONNX model (`kokoro-v1.0.onnx`, 311 MB) and voice styles (`voices.bin`, 27 MB) are
   embedded in the binary via `include_bytes!` at compile time
-- ONNX Runtime 1.24.2 is **statically linked** via `ort`'s `download-binaries` feature â€” the
+- ONNX Runtime 1.24.2 is **statically linked** via `ort`'s `download-binaries` feature — the
   system `onnxruntime.dll` is never used, eliminating DLL version conflicts
-- `DirectML.dll` (GPU inference on Windows) ships alongside the binary â€” copied to `target/debug/`
+- `DirectML.dll` (GPU inference on Windows) ships alongside the binary — copied to `target/debug/`
   by the build, bundled in portable releases
 - 54 voices are available across English (American/British), Spanish, French, Hindi, Italian,
-  Japanese, and Chinese â€” all baked in, no downloads at runtime
-- Voice ID, speed (0.5â€“2.0Ã—), and volume (0.0â€“3.0Ã—) are configurable via `/voice` or `settings.json`
+  Japanese, and Chinese — all baked in, no downloads at runtime
+- Voice ID, speed (0.5–2.0×), and volume (0.0–3.0×) are configurable via `/voice` or `settings.json`
 
-**First-start note:** ONNX graph optimization runs on first load, which takes 10â€“30 seconds on an
+**First-start note:** ONNX graph optimization runs on first load, which takes 10–30 seconds on an
 RTX 4070-class system. Subsequent starts reuse the optimized graph. During loading, incoming speech
 tokens buffer (1024 capacity) so no audio is lost.
 
 **Why static linking matters:** Windows ships `onnxruntime.dll` 1.17 in System32. Kokoro's ONNX
 model uses opsets not supported by 1.17. Dynamic loading would silently crash inside C code before
-any Rust error handler could catch it. Static linking with 1.24.2 sidesteps this entirely â€” the
+any Rust error handler could catch it. Static linking with 1.24.2 sidesteps this entirely — the
 binary carries the exact runtime it was built against.
 
 **Runtime DLL footprint:** only `DirectML.dll` is needed alongside the binary. It ships with
@@ -600,7 +601,7 @@ Windows 10 1903+ and is also bundled in the Hematite portable release.
 - Hardware guard: `gpu_monitor.rs` watches VRAM and can force brief mode or reduce swarm fanout
 - Startup greeting prints active endpoint (`Endpoint: http://localhost:1234/v1`) so misconfigured providers are immediately visible
 
-## The Vein â€” Local RAG
+## The Vein — Local RAG
 
 The Vein is Hematite's retrieval-augmented generation layer. At the start of each turn it indexes
 any changed files and queries for context relevant to the user's message. Results are injected into
@@ -629,9 +630,9 @@ as a project workspace.
 
 **Two retrieval modes, hybrid-merged:**
 
-- **BM25** (always available) â€” SQLite FTS5 full-text search with Porter stemming. Fast, zero GPU
+- **BM25** (always available) — SQLite FTS5 full-text search with Porter stemming. Fast, zero GPU
   cost, works even when no embedding model is loaded.
-- **Semantic** (optional, higher quality) â€” Calls the active provider's embedding endpoint
+- **Semantic** (optional, higher quality) — Calls the active provider's embedding endpoint
   (`/v1/embeddings` on LM Studio, `/api/embed` on Ollama) to embed each chunk using the preferred
   embedding model. Understands synonyms and concept-level matches; finds "what renders on startup"
   even when no file uses the word "banner". Vectors are stored in SQLite so they survive restarts
@@ -646,7 +647,7 @@ indexing, and `VN:DOC` when only docs/session memory are active outside a projec
 **Automatic backfill:** if the embedding model is loaded after initial indexing, Hematite detects
 unembedded chunks and fills them gradually (20 per turn) without needing a reset or file-touch.
 
-**How hybrid ranking works:** semantic hits score 1.0â€“2.0 (preferred), BM25 fills to 0.0â€“1.0 for
+**How hybrid ranking works:** semantic hits score 1.0–2.0 (preferred), BM25 fills to 0.0–1.0 for
 paths not already covered. Results are deduplicated by file path and capped at 1500 chars total.
 
 **Active-room bias:** file edit heat is tracked per path. The hottest subsystem room gets a small
@@ -655,10 +656,10 @@ model stays oriented toward the part of the codebase you're actively editing.
 
 **L1 hot-files context:** the top 8 hottest files (by edit count) are grouped by room and injected
 as a compact block near the top of the system prompt every turn. This gives the model immediate
-structural orientation â€” which subsystems are active â€” before it reads any retrieval results or
+structural orientation — which subsystems are active — before it reads any retrieval results or
 repo map output. Returns `None` and injects nothing on a fresh project with no heat records.
 
-**PageRank Repo Maps:** at startup and after every file edit, Hematite builds a `tree-sitter` definition/reference graph across all source files and runs PageRank (via `petgraph`) to rank files by structural importance. The ranked map is injected into the system prompt so the model immediately knows which files are architecturally central â€” no tool calls needed for basic orientation. Hot-file personalization uses heat-weighted scores from The Vein: the hottest file gets a 100Ã— boost; others scale proportionally (e.g. half the edits â†’ 50Ã— boost). This means files that are both architecturally central *and* actively edited float to the top.
+**PageRank Repo Maps:** at startup and after every file edit, Hematite builds a `tree-sitter` definition/reference graph across all source files and runs PageRank (via `petgraph`) to rank files by structural importance. The ranked map is injected into the system prompt so the model immediately knows which files are architecturally central — no tool calls needed for basic orientation. Hot-file personalization uses heat-weighted scores from The Vein: the hottest file gets a 100× boost; others scale proportionally (e.g. half the edits → 50× boost). This means files that are both architecturally central *and* actively edited float to the top.
 
 **Ranking cues:** reranking adds small boosts for exact quoted phrases, standout tokens such as
 filenames/commands/tool IDs, "what did we decide earlier" style prompts that should prefer
@@ -668,7 +669,7 @@ explicit dates, "yesterday", or "last week" so the right session period outranks
 **Room taxonomy:** room detection is also rule-based across path segments and filenames now, so
 runtime/config/release/integration/doc files do not all collapse into generic folder labels.
 
-**Memory-type tagging:** session-room chunks (local session reports and imported chat exports) are classified by `detect_memory_type(text)` â€” a zero-cost regex pass in `src/memory/vein.rs` that tags each chunk as `decision`, `problem`, `milestone`, `preference`, or `""`. The tag is stored in `chunks_meta.memory_type`. `QuerySignals::from_query` sets `query_memory_type` by detecting intent words in the query. During retrieval, matching chunks receive a `+0.35` score boost via `retrieval_signal_boost`. This lets session memory surface by intent (an architectural decision vs. a reported bug vs. a style preference) without the operator using special syntax.
+**Memory-type tagging:** session-room chunks (local session reports and imported chat exports) are classified by `detect_memory_type(text)` — a zero-cost regex pass in `src/memory/vein.rs` that tags each chunk as `decision`, `problem`, `milestone`, `preference`, or `""`. The tag is stored in `chunks_meta.memory_type`. `QuerySignals::from_query` sets `query_memory_type` by detecting intent words in the query. During retrieval, matching chunks receive a `+0.35` score boost via `retrieval_signal_boost`. This lets session memory surface by intent (an architectural decision vs. a reported bug vs. a style preference) without the operator using special syntax.
 
 **Operator inspection:** `/vein-inspect` prints a compact report of the current Vein state:
 workspace mode, indexed source/docs/session counts, embedding availability, active room bias, and
@@ -700,14 +701,14 @@ fall back to a sliding window. This ensures each retrieved chunk is a coherent, 
 - Gemma 4: tool results are wrapped in `<|tool_response>response:{name}{...}<tool_response|>` native markup; controlled by `gemma_native_auto` / `gemma_native_formatting` config
 - Gemma 4: messages are wrapped with `<|turn>` markup before sending; non-Gemma models must NOT receive this wrapping
 - Standard models (Qwen, etc.): tool results use plain content; no model-specific markup applied
-- Standard models (Qwen, etc.): jinja templates require exactly one `system` role message â€” a second system message causes a 400 Channel Error; `loop_intervention` is merged into `history[0]` instead of appended
+- Standard models (Qwen, etc.): jinja templates require exactly one `system` role message — a second system message causes a 400 Channel Error; `loop_intervention` is merged into `history[0]` instead of appended
 - Turn-level transient retry budget (3 per turn) caps runaway retry loops on Channel Errors; budget resets on successful inference
 - Repeat guard: if the same `(tool_name, args)` is called 3+ times in a turn, a hard stop intervention is injected; `verify_build` and git tools are exempt (fix-verify loops are legitimate)
 - Naked reasoning prose leaked without `<think>` tags is stripped from visible output before it reaches chat; stray `</think>`, `</function>`, `</tool_call>`, and similar XML artifacts are also stripped
-- `edit_file` and `multi_search_replace` normalize CRLF â†’ LF before matching so model search strings (always LF) work correctly on Windows files; on exact-match failure, Hematite escalates through: (1) rstrip-only match â€” strips trailing whitespace, preserves indentation; (2) full-strip match â€” strips all surrounding whitespace; if both fail, scans up to 100 workspace source files for the search string and names the matching file in the error message (cross-file hint); on any fuzzy match, replace-string indentation is delta-corrected automatically
+- `edit_file` and `multi_search_replace` normalize CRLF → LF before matching so model search strings (always LF) work correctly on Windows files; on exact-match failure, Hematite escalates through: (1) rstrip-only match — strips trailing whitespace, preserves indentation; (2) full-strip match — strips all surrounding whitespace; if both fail, scans up to 100 workspace source files for the search string and names the matching file in the error message (cross-file hint); on any fuzzy match, replace-string indentation is delta-corrected automatically
 - Diff preview: before `edit_file`, `patch_hunk`, or `multi_search_replace` is applied, a coloured before/after diff modal is shown in the TUI; user presses Y to apply or N to skip; model is told "Edit declined by user." on N; bypassed in `--yolo` mode
 - Tool output overflow: when a tool result exceeds 8 KB, `cap_output_for_tool` writes the full text to `.hematite/scratch/<tool>_<timestamp>.txt` inside the active runtime-state directory and returns a truncation notice with the scratch path; the model recovers the full content with `read_file` without repeating the original tool call; large `read_file` results under compact-context mode follow the same scratch path
-- `read_file` satisfies the line-inspection grounding check so the model can go `read_file â†’ edit_file` without a separate `inspect_lines` call
+- `read_file` satisfies the line-inspection grounding check so the model can go `read_file → edit_file` without a separate `inspect_lines` call
 - Context compaction warnings fire as visible System messages at 70% and 90% context fill; the warning resets below 60% so it only fires once per pressure band
 - Embed model load/unload is detected mid-session: when the active provider swaps the embedding model (or unloads it), Hematite fires a System message in the TUI immediately so the operator knows semantic search state changed
 - Startup CWD guard: if Hematite is launched from an inaccessible system folder (e.g. via a Windows shortcut pointing to a system path), it silently relocates to the user's home directory before any workspace detection runs, preventing a hung startup
@@ -731,18 +732,18 @@ Hematite tracks token usage and session cost in real time.
 - Exit (Ctrl+C) and cancel (ESC) flows copy the session transcript to the clipboard
 - Session reports are written to `reports/session_YYYY-MM-DD_HH-MM-SS.json` under the active runtime-state directory on every exit and cancel
 - Report includes: session start timestamp, duration, model, context length, total tokens, estimated cost, turn count, and full transcript
-- The runtime-state `reports/` directory is gitignored when local â€” reports are local runtime artifacts
+- The runtime-state `reports/` directory is gitignored when local — reports are local runtime artifacts
 - The Vein indexes recent reports as local retrieval memory by exchange pair, capped to the last 5 sessions and 50 turns per session, tagged as `session` room memory so they do not pollute normal source-file status counts
 - `.hematite/imports/` is the manual cross-tool memory lane: drop useful exported chats there and
   Hematite will index them automatically as imported session exchanges on the next pass
 
 ## Sandboxed Code Execution
 
-Hematite exposes a `run_code` tool that lets the model write and run JavaScript/TypeScript or Python in a restricted subprocess. This is real execution â€” the model gets actual output, not training-data approximations.
+Hematite exposes a `run_code` tool that lets the model write and run JavaScript/TypeScript or Python in a restricted subprocess. This is real execution — the model gets actual output, not training-data approximations.
 
 **Deno sandbox (JS/TS):**
 - Flags: `--deny-net --deny-env --deny-sys --deny-run --deny-ffi --allow-read=. --allow-write=. --no-prompt`
-- Code fed via stdin â€” no temp file created or cleaned up
+- Code fed via stdin — no temp file created or cleaned up
 - `NO_COLOR=true` set so output is clean
 
 **Python sandbox:**
@@ -752,11 +753,11 @@ Hematite exposes a `run_code` tool that lets the model write and run JavaScript/
 **Both runtimes:**
 - Hard timeout: 10 seconds default, up to 60 seconds if the model passes `timeout_seconds`
 - 16 KB output cap (8 KB stdout + 8 KB stderr)
-- Clear error message if the runtime is not installed â€” no silent failure
+- Clear error message if the runtime is not installed — no silent failure
 
-**Runtime detection order for Deno:** `~/.lmstudio/.internal/utils/deno.exe` (LM Studio's bundled copy, present for all LM Studio users) â†’ system `deno` on PATH. Since Hematite requires LM Studio, JS/TS execution works with zero install for every user.
+**Runtime detection order for Deno:** `~/.lmstudio/.internal/utils/deno.exe` (LM Studio's bundled copy, present for all LM Studio users) → system `deno` on PATH. Since Hematite requires LM Studio, JS/TS execution works with zero install for every user.
 
-**Runtime detection for Python:** `python3` â†’ `python` on PATH. Python 3 ships with Windows 11 and most machines.
+**Runtime detection for Python:** `python3` → `python` on PATH. Python 3 ships with Windows 11 and most machines.
 
 **To install Deno system-wide** (optional, for use outside Hematite): `winget install DenoLand.Deno`.
 
@@ -768,9 +769,9 @@ Hematite supports attaching files to any conversation turn via hotkeys or slash 
 
 **Document attachment (`Ctrl+O` / `/attach <path>`):**
 - Supported types: PDF (text-based), markdown, plain text
-- PDF extraction is best-effort using pure-Rust `pdf-extract` â€” works for standard PDFs (Word exports, LaTeX, API docs); rejects with a clear error if words are smashed together or text is too short (common with academic publisher PDFs using custom embedded fonts like EBSCO, Elsevier, Springer)
+- PDF extraction is best-effort using pure-Rust `pdf-extract` — works for standard PDFs (Word exports, LaTeX, API docs); rejects with a clear error if words are smashed together or text is too short (common with academic publisher PDFs using custom embedded fonts like EBSCO, Elsevier, Springer)
 - Size feedback: after loading, Hematite estimates the token cost (chars/4) and warns if the attachment exceeds 40% of the active context window (yellow warning) or 75% (red warning), so the operator knows before sending
-- Permanent indexing: drop files in `.hematite/docs/` and the Vein indexes them alongside source code â€” hybrid BM25+semantic retrieval, no separate step required
+- Permanent indexing: drop files in `.hematite/docs/` and the Vein indexes them alongside source code — hybrid BM25+semantic retrieval, no separate step required
 - One-shot: `/attach` injects content as a context prefix on the next message then clears
 
 **Image attachment (`Ctrl+I` / `/image <path>`):**
@@ -793,21 +794,21 @@ Hematite follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`
 | `MINOR` (0.**2**.0) | New user-visible features, meaningful UX improvements, new tools |
 | `MAJOR` (**1**.0.0) | Breaking config/API changes, or the first stable public release |
 
-**Pre-1.0 rule:** while the version is `0.x.y`, minor bumps are used freely for new features. Don't stay on a patch version just because the change feels small â€” if a user would notice it, it's a minor bump.
+**Pre-1.0 rule:** while the version is `0.x.y`, minor bumps are used freely for new features. Don't stay on a patch version just because the change feels small — if a user would notice it, it's a minor bump.
 
 **When to bump:**
 - Never bump mid-development. Version numbers live in `Cargo.toml` and are baked into the binary at compile time.
 - `Cargo.toml` is the Rust package manifest and the release version source of truth. Other release surfaces are updated to match it.
 - For unreleased work, validate the change in a rebuilt local portable first: `pwsh ./scripts/package-windows.ps1 -AddToPath`, restart the terminal, and test the live behavior.
 - Bump only after the feature work is committed and the local portable has already proven the behavior. Do not bump just to test whether a fix might work.
-- Always use `bump-version.ps1` â€” never edit version strings by hand across files.
+- Always use `bump-version.ps1` — never edit version strings by hand across files.
 - `bump-version.ps1` now self-verifies the static release surfaces immediately after replacement. After `cargo build`, run `pwsh ./scripts/verify-version-sync.ps1 -Version X.Y.Z -RequireCargoLock` before committing the bump.
 - After bumping, run `cargo build` (this also regenerates `Cargo.lock`), then commit **exactly these five files** and nothing else:
   ```
   git add Cargo.toml Cargo.lock README.md CLAUDE.md installer/hematite.iss
   git commit -m "chore: bump version to X.Y.Z"
   ```
-  Never use `git add .` for a bump commit â€” it can sweep in unrelated changes. Never skip `Cargo.lock` â€” it must match `Cargo.toml`.
+  Never use `git add .` for a bump commit — it can sweep in unrelated changes. Never skip `Cargo.lock` — it must match `Cargo.toml`.
 
 **Commit message for a version bump:**
 ```
@@ -843,7 +844,7 @@ For crates.io automation:
 4. Restart the terminal, run the local portable, and test the live behavior.
 5. Commit the feature work as a normal commit.
 6. When the work is proven, run `pwsh ./release.ps1 -Version X.Y.Z -AddToPath -Push` or the appropriate `-Bump` variant from a clean tree.
-7. **Wait for CI to go green on both Windows and Linux** before publishing to crates.io. Pushing the tag triggers both release workflows. If either fails, push a patch fix first â€” never publish a crate from a state where CI is red on any platform.
+7. **Wait for CI to go green on both Windows and Linux** before publishing to crates.io. Pushing the tag triggers both release workflows. If either fails, push a patch fix first — never publish a crate from a state where CI is red on any platform.
 
 Do not bump just to test whether a feature works. For Hematite, the local portable is the pre-release smoke test. Public version bumps happen after the live local test passes.
 
@@ -882,14 +883,14 @@ cargo test --test diagnostics test_name_here -- --exact
 
 When a query routes to shell instead of `inspect_host`, the fix pattern is:
 
-1. Check `preferred_host_inspection_topic()` in `src/agent/routing.rs` â€” if the topic has no `asks_*` variable there, that's the root cause. `host_inspection_mode` is derived from this function; if it returns `None`, the HOST INSPECTION MODE system prompt is never injected and the model free-forms.
+1. Check `preferred_host_inspection_topic()` in `src/agent/routing.rs` — if the topic has no `asks_*` variable there, that's the root cause. `host_inspection_mode` is derived from this function; if it returns `None`, the HOST INSPECTION MODE system prompt is never injected and the model free-forms.
 2. Add the missing `asks_*` variable with natural-language phrases that cover the query shape.
 3. Add it to the dispatch chain (`if asks_X { Some("topic") }`).
 4. Update the HOST INSPECTION MODE bullet list in `src/agent/conversation.rs` to include the new topic so the model knows to use it.
-5. Add a `test_routing_detects_*_topic` test in `src/agent/conversation.rs` (the current tests live there) covering 2â€“3 representative phrases.
+5. Add a `test_routing_detects_*_topic` test in `src/agent/conversation.rs` (the current tests live there) covering 2–3 representative phrases.
 6. Run `cargo test --lib agent::conversation::tests`, rebuild portable, test the live query.
 
-Note: `all_host_inspection_topics()` (used for multi-topic harness pre-runs) is a separate table â€” a topic can be in one and not the other. Always check `preferred_host_inspection_topic()` specifically.
+Note: `all_host_inspection_topics()` (used for multi-topic harness pre-runs) is a separate table — a topic can be in one and not the other. Always check `preferred_host_inspection_topic()` specifically.
 
 Inside Hematite itself, explicit cleanup, local packaging, and scripted release requests should prefer the structured approval-gated Hematite maintainer workflow tool instead of falling back to raw shell. Use that path when the user is asking to run Hematite's own `clean.ps1`, `scripts/package-windows.ps1`, or `release.ps1` in natural language. Do not present it as a generic current-workspace script runner.
 
@@ -901,22 +902,22 @@ For normal project work, prefer the separate workspace workflow lane for the act
 
 For a new contributor or non-technical operator, the short explanation is: format the code, make sure it still compiles, make sure the behavior test passes, then rebuild the real app and try it live.
 
-**Step 1 â€” bump the version** (updates tracked release metadata and verifies the static surfaces):
+**Step 1 — bump the version** (updates tracked release metadata and verifies the static surfaces):
 
 ```powershell
 pwsh ./bump-version.ps1 -Version X.Y.Z
 ```
 
-Never edit version numbers by hand â€” they will drift across files.
+Never edit version numbers by hand — they will drift across files.
 
-**Step 2 â€” rebuild the lockfile and verify the full version state:**
+**Step 2 — rebuild the lockfile and verify the full version state:**
 
 ```powershell
 cargo build
 pwsh ./scripts/verify-version-sync.ps1 -Version X.Y.Z -RequireCargoLock
 ```
 
-**Step 3 â€” tag and push to trigger CI:**
+**Step 3 — tag and push to trigger CI:**
 
 ```powershell
 git tag -a vX.Y.Z -m "Release vX.Y.Z"
@@ -932,10 +933,10 @@ Pushing the tag triggers `windows-release.yml` and `unix-release.yml` on GitHub 
 pwsh ./scripts/package-windows.ps1
 ```
 
-- The ONNX model (311 MB) is baked into the binary at compile time â€” no separate download
+- The ONNX model (311 MB) is baked into the binary at compile time — no separate download
 - `DirectML.dll` is copied from `target/release/` automatically by the ORT build script
 - Output: `dist/windows/Hematite-X.Y.Z-portable.zip` (~336 MB)
-- `dist/` is gitignored â€” these are release artifacts, not tracked in source
+- `dist/` is gitignored — these are release artifacts, not tracked in source
 
 ## Cleanup
 
@@ -946,7 +947,7 @@ pwsh ./clean.ps1 -Deep -PruneDist   # + old dist/ artifacts, keeps only current 
 pwsh ./clean.ps1 -Reset   # + PLAN.md, TASK.md (full blank-slate, simulates new user)
 ```
 
-Regular clean removes runtime artifacts: ghost backups, scratch files, session memories, sandbox output, reports, and logs (`.hematite/logs/`). Deep also removes build outputs and the vein database. Note: session logs previously written to `.hematite_logs/` in the project root now live at `.hematite/logs/` â€” delete any leftover `.hematite_logs/` directories manually. `-PruneDist` is opt-in and removes stale packaged artifacts under `dist/` while keeping only the current `Cargo.toml` version. Reset goes further and wipes session state files â€” use this to simulate a first-run experience without touching `settings.json` or `mcp_servers.json`.
+Regular clean removes runtime artifacts: ghost backups, scratch files, session memories, sandbox output, reports, and logs (`.hematite/logs/`). Deep also removes build outputs and the vein database. Note: session logs previously written to `.hematite_logs/` in the project root now live at `.hematite/logs/` — delete any leftover `.hematite_logs/` directories manually. `-PruneDist` is opt-in and removes stale packaged artifacts under `dist/` while keeping only the current `Cargo.toml` version. Reset goes further and wipes session state files — use this to simulate a first-run experience without touching `settings.json` or `mcp_servers.json`.
 
 For Hematite, disk growth is a normal maintenance concern. This is a heavy native Rust project with release packaging, ORT/DirectML sidecars, tests, and repeated debug/release builds. `target/` can climb into the tens of gigabytes quickly, and after enough iteration it is believable to hit 50-100 GB of local build output. Treat periodic deep cleanup as part of the normal workflow. When disk pressure matters, run `pwsh ./clean.ps1 -Deep`; if you also want to keep only the latest packaged release artifacts, use `pwsh ./clean.ps1 -Deep -PruneDist`. Remember that the next full rebuild will be slower because you deliberately wiped cached build state.
 
@@ -958,73 +959,75 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 
 ### Shipped
 
-- **Streaming shell output** â€” âœ“ Done. `execute_streaming` streams each stdout/stderr line to the SPECULAR panel as it arrives via `InferenceEvent::ShellLine`. `verify_build` uses the same path. Background tasks fall back to blocking execution.
-- **Turn checkpointing** â€” âœ“ Done. `save_session()` writes `.hematite/session.json` after every turn. On next startup, `load_checkpoint()` surfaces the resume hint in SPECULAR and `running_summary` + `session_memory` are reinjected into the modelâ€™s system prompt. `/new` and `/forget` both clear the session cleanly via `save_empty_session()`.
-- **Computation integrity routing** â€” âœ“ Done. `needs_computation_sandbox()` in `routing.rs` detects math queries and injects a pre-turn nudge. Shell-to-run_code block recovery and Deno parse error recovery are wired in the tool result handler.
-- **Per-project rule and skill injection** â€” âœ“ Done. Hematite now natively checks for `.hematite/rules.md`, `HEMATITE.md`, `CLAUDE.md`, `SKILLS.md`, and `SKILL.md` as project guidance, and scans `.agents/skills/` plus `.hematite/skills/` for directory-based Agent Skills. This is additive guidance only; sovereign scaffold, `.hematite/PLAN.md`, `.hematite/TASK.md`, and resumable execution remain baked-in harness workflows. Includes `/rules` and `/skills` commands for inspecting the active guidance surface directly from the TUI.
-- **Ultra-Deterministic Teleportation** â€” âœ“ Done. Spawns fresh terminal sessions on workspace transitions with a specialized handshake greeting and origin-path propagation via `--teleported-from`. New window matches the originating windowâ€™s pixel size and position; launches without splash screen. Source terminal auto-closes via a background watcher on the parent `cmd.exe` (Windows Terminal excluded). Sovereign OS directories (Desktop, Downloads, Documents, Pictures, Videos, Music) redirect all runtime state to `~/.hematite/` â€” no `.hematite/` folders created in those locations. Bare name support: `/cd downloads`, `/cd desktop`, `/cd ~` all resolve without `@` prefix.
-- **Native Tool Mandate** â€” âœ“ Done. Triage hierarchy and system prompts now strictly prioritize native surgical tools over MCP mutations for local filesystem operations, enforced by `surgical_filesystem_mode` in `routing.rs`.
-- **Deep WSL / Docker filesystem auditing** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œdocker_filesystemsâ€)` and `inspect_host(topic: â€œwsl_filesystemsâ€)`. Covers bind mounts, named volumes, Docker Desktop disk-image growth, WSL rootfs usage, host-side `ext4.vhdx` sizing, and `/mnt/c` bridge checks, with output shaped as `finding -> impact -> exact fix steps`.
-- **Advanced LAN / UPnP / neighborhood inspection** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œlan_discoveryâ€)`. Covers neighborhood discovery summary, SMB/NetBIOS visibility, mDNS/SSDP/UPnP listener surface, gateway/device-discovery hints, and plain-English diagnosis for â€œdiscovery broken vs service missing vs firewall blockedâ€.
-- **Voltage telemetry for overclocker** â€” âœ“ Done. `overclocker` now reports real board-power context plus explicit GPU-voltage availability on the active NVIDIA driver path, and only shows CPU voltage when WMI exposes a decodable firmware-reported value. The wording stays strict: power draw is not presented as voltage telemetry.
-- **Audio + microphone troubleshooting** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œaudioâ€)`. Covers Windows Audio service health, playback and recording endpoint inventory, microphone and speaker path checks, Bluetooth-audio crossover, and plain-English diagnosis for â€œno sound / bad mic / cracklingâ€.
-- **Bluetooth troubleshooting** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œbluetoothâ€)`. Covers Bluetooth radio presence, service health, paired-device inventory, Bluetooth audio endpoint crossover, and plain-English diagnosis for â€œwonâ€™t pair / keeps disconnecting / wrong headset roleâ€.
-- **Camera + privacy-permission auditing** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œcameraâ€)`. Covers PnP camera/webcam device inventory, Windows camera privacy registry state, Windows Hello biometric camera detection, and plain-English diagnosis for â€œcamera not working / blocked by privacy settingsâ€.
-- **Windows Hello / sign-in recovery** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œsign_inâ€)`. Covers Windows Hello and biometric service state (WBioSrvc), recent logon failure events (EventID 4625), enrolled credential providers, and plain-English diagnosis for â€œPIN/fingerprint not working / canâ€™t sign inâ€.
-- **Search indexing diagnostics** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œsearch_indexâ€)`. Covers Windows Search (WSearch) service state, indexer registry configuration, indexed locations, recent indexer errors, and plain-English diagnosis for â€œsearch not finding files / indexer stoppedâ€.
-- **Display configuration** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œdisplay_configâ€)`. Covers active monitor resolution, refresh rate, bits-per-pixel, video adapter driver version, connected monitor PnP names, and DPI/scaling percentage via Win32 GDI.
-- **NTP / time sync** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œntpâ€)`. Covers Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers (registry fallback), and plain-English diagnosis for clock drift or sync failure.
-- **CPU power and frequency** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œcpu_powerâ€)`. Covers active power plan, processor min/max state and turbo boost mode, current CPU clock and load via WMI Win32_Processor, thermal zone temperatures, and diagnosis for â€œCPU stuck slow / boost disabled / power plan capping frequencyâ€.
-- **Credential Manager diagnostics** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œcredentialsâ€)`. Covers vault summary, credential target inventory, type counts, and hygiene warnings without exposing secret values.
-- **TPM / Secure Boot diagnostics** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œtpmâ€)`. Covers TPM presence/readiness/spec version, Secure Boot state, firmware mode, and plain-English diagnosis for Windows 11 or BitLocker security posture.
-- **Browser health diagnostics** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œbrowser_healthâ€)`. Covers Edge/Chrome/Firefox inventory, default browser and protocol associations, WebView2 runtime health, browser proxy/policy overrides, profile/cache pressure, and recent browser crash evidence.
-- **Microsoft 365 identity-auth diagnostics** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œidentity_authâ€)`. Covers TokenBroker / WAM / AAD Broker Plugin state, `dsregcmd` device-registration signals, Office/Teams/OneDrive account mismatch detection, WebView2 auth dependency state, and recent auth-related events.
-- **Outlook diagnostics** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œoutlookâ€)`. Covers classic Outlook and new Outlook for Windows install inventory, running process state and RAM usage, mail profile count, OST and PST file discovery with sizes, add-in inventory with load behavior and resiliency-disabled items, authentication and token broker cache state, and recent Outlook crash evidence from the Application event log.
-- **Teams diagnostics** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œteamsâ€)`. Covers classic Teams and new Teams (MSTeams MSIX) install inventory, running process state and RAM usage, cache directory sizing for both classic and new Teams, WebView2 runtime dependency check, account and sign-in state, audio/video device binding, and recent Teams crash evidence from the Application event log.
-- **Windows backup diagnostics** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œwindows_backupâ€)`. Covers File History service state and last backup date/target drive, Windows Backup (wbadmin) last successful backup versions and scheduled tasks, System Restore enabled state and most recent restore point, OneDrive Known Folder Move per-account protection state, and recent backup failure events from the Application event log.
-- **Hyper-V diagnostics** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œhypervâ€)`. Covers Hyper-V role state (VMMS service, feature installed), VM inventory with name, state, CPU%, RAM, and uptime, VM network switch inventory (External/Internal/Private with bound NIC), VM checkpoint listing with creation timestamps, and host RAM overcommit detection. Reports gracefully if Hyper-V is not installed.
-- **Application crash triage** â€” âœ“ Done. Shipped as `inspect_host(topic: â€œapp_crashesâ€)`. Faulting application name/version, faulting module, exception code, crash vs hang classification, WER archive count, crash frequency over 7 days. Accepts optional `process` arg to filter by app name. Distinct from `recent_crashes` (BSOD/kernel events); routing detects natural-language variants including plural/verb forms.
-- **MCP server mode** â€” âœ“ Done. `hematite --mcp-server` starts a JSON-RPC 2.0 newline-delimited stdio server exposing all 125+ `inspect_host` topics to any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) with no TUI, no local model required. Implemented in `src/agent/mcp_server.rs`.
-- **Edge redaction Tier 1** â€” âœ“ Done. `--edge-redact` applies compiled regex patterns post-inspect_host: strips usernames in paths, MAC addresses, serial numbers, hostnames, AWS key IDs, and credential-shaped env values. Each response includes a machine-readable receipt header with per-category counts. Implemented in `src/agent/edge_redact.rs`.
-- **Semantic redaction Tier 2 + privacy gateway** â€” âœ“ Done. `--semantic-redact` routes raw inspect_host output through the local LM Studio model with a hardened privacy prompt before any data leaves the machine. Fail-safe: unreachable model returns an error, never raw data. Jailbreak resistance: `<diagnostic_data>` delimiters, refusal detection, unknown MCP args stripped. Tier 1 runs after as safety net. Policy file (`.hematite/redact_policy.json`) provides per-topic block lists, whitelist mode, and redaction level overrides. Metadata-only audit trail written to `~/.hematite/redact_audit.jsonl`. Implemented across `src/agent/semantic_redact.rs`, `src/agent/redact_policy.rs`, `src/agent/redact_audit.rs`.
+- **Streaming shell output** — âœ“ Done. `execute_streaming` streams each stdout/stderr line to the SPECULAR panel as it arrives via `InferenceEvent::ShellLine`. `verify_build` uses the same path. Background tasks fall back to blocking execution.
+- **Turn checkpointing** — âœ“ Done. `save_session()` writes `.hematite/session.json` after every turn. On next startup, `load_checkpoint()` surfaces the resume hint in SPECULAR and `running_summary` + `session_memory` are reinjected into the model’s system prompt. `/new` and `/forget` both clear the session cleanly via `save_empty_session()`.
+- **Computation integrity routing** — âœ“ Done. `needs_computation_sandbox()` in `routing.rs` detects math queries and injects a pre-turn nudge. Shell-to-run_code block recovery and Deno parse error recovery are wired in the tool result handler.
+- **Per-project rule and skill injection** — âœ“ Done. Hematite now natively checks for `.hematite/rules.md`, `HEMATITE.md`, `CLAUDE.md`, `SKILLS.md`, and `SKILL.md` as project guidance, and scans `.agents/skills/` plus `.hematite/skills/` for directory-based Agent Skills. This is additive guidance only; sovereign scaffold, `.hematite/PLAN.md`, `.hematite/TASK.md`, and resumable execution remain baked-in harness workflows. Includes `/rules` and `/skills` commands for inspecting the active guidance surface directly from the TUI.
+- **Ultra-Deterministic Teleportation** — âœ“ Done. Spawns fresh terminal sessions on workspace transitions with a specialized handshake greeting and origin-path propagation via `--teleported-from`. New window matches the originating window’s pixel size and position; launches without splash screen. Source terminal auto-closes via a background watcher on the parent `cmd.exe` (Windows Terminal excluded). Sovereign OS directories (Desktop, Downloads, Documents, Pictures, Videos, Music) redirect all runtime state to `~/.hematite/` — no `.hematite/` folders created in those locations. Bare name support: `/cd downloads`, `/cd desktop`, `/cd ~` all resolve without `@` prefix.
+- **Native Tool Mandate** — âœ“ Done. Triage hierarchy and system prompts now strictly prioritize native surgical tools over MCP mutations for local filesystem operations, enforced by `surgical_filesystem_mode` in `routing.rs`.
+- **Deep WSL / Docker filesystem auditing** — âœ“ Done. Shipped as `inspect_host(topic: “docker_filesystems”)` and `inspect_host(topic: “wsl_filesystems”)`. Covers bind mounts, named volumes, Docker Desktop disk-image growth, WSL rootfs usage, host-side `ext4.vhdx` sizing, and `/mnt/c` bridge checks, with output shaped as `finding -> impact -> exact fix steps`.
+- **Advanced LAN / UPnP / neighborhood inspection** — âœ“ Done. Shipped as `inspect_host(topic: “lan_discovery”)`. Covers neighborhood discovery summary, SMB/NetBIOS visibility, mDNS/SSDP/UPnP listener surface, gateway/device-discovery hints, and plain-English diagnosis for “discovery broken vs service missing vs firewall blocked”.
+- **Voltage telemetry for overclocker** — âœ“ Done. `overclocker` now reports real board-power context plus explicit GPU-voltage availability on the active NVIDIA driver path, and only shows CPU voltage when WMI exposes a decodable firmware-reported value. The wording stays strict: power draw is not presented as voltage telemetry.
+- **Audio + microphone troubleshooting** — âœ“ Done. Shipped as `inspect_host(topic: “audio”)`. Covers Windows Audio service health, playback and recording endpoint inventory, microphone and speaker path checks, Bluetooth-audio crossover, and plain-English diagnosis for “no sound / bad mic / crackling”.
+- **Bluetooth troubleshooting** — âœ“ Done. Shipped as `inspect_host(topic: “bluetooth”)`. Covers Bluetooth radio presence, service health, paired-device inventory, Bluetooth audio endpoint crossover, and plain-English diagnosis for “won’t pair / keeps disconnecting / wrong headset role”.
+- **Camera + privacy-permission auditing** — âœ“ Done. Shipped as `inspect_host(topic: “camera”)`. Covers PnP camera/webcam device inventory, Windows camera privacy registry state, Windows Hello biometric camera detection, and plain-English diagnosis for “camera not working / blocked by privacy settings”.
+- **Windows Hello / sign-in recovery** — âœ“ Done. Shipped as `inspect_host(topic: “sign_in”)`. Covers Windows Hello and biometric service state (WBioSrvc), recent logon failure events (EventID 4625), enrolled credential providers, and plain-English diagnosis for “PIN/fingerprint not working / can’t sign in”.
+- **Search indexing diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “search_index”)`. Covers Windows Search (WSearch) service state, indexer registry configuration, indexed locations, recent indexer errors, and plain-English diagnosis for “search not finding files / indexer stopped”.
+- **Display configuration** — âœ“ Done. Shipped as `inspect_host(topic: “display_config”)`. Covers active monitor resolution, refresh rate, bits-per-pixel, video adapter driver version, connected monitor PnP names, and DPI/scaling percentage via Win32 GDI.
+- **NTP / time sync** — âœ“ Done. Shipped as `inspect_host(topic: “ntp”)`. Covers Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers (registry fallback), and plain-English diagnosis for clock drift or sync failure.
+- **CPU power and frequency** — âœ“ Done. Shipped as `inspect_host(topic: “cpu_power”)`. Covers active power plan, processor min/max state and turbo boost mode, current CPU clock and load via WMI Win32_Processor, thermal zone temperatures, and diagnosis for “CPU stuck slow / boost disabled / power plan capping frequency”.
+- **Credential Manager diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “credentials”)`. Covers vault summary, credential target inventory, type counts, and hygiene warnings without exposing secret values.
+- **TPM / Secure Boot diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “tpm”)`. Covers TPM presence/readiness/spec version, Secure Boot state, firmware mode, and plain-English diagnosis for Windows 11 or BitLocker security posture.
+- **Browser health diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “browser_health”)`. Covers Edge/Chrome/Firefox inventory, default browser and protocol associations, WebView2 runtime health, browser proxy/policy overrides, profile/cache pressure, and recent browser crash evidence.
+- **Microsoft 365 identity-auth diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “identity_auth”)`. Covers TokenBroker / WAM / AAD Broker Plugin state, `dsregcmd` device-registration signals, Office/Teams/OneDrive account mismatch detection, WebView2 auth dependency state, and recent auth-related events.
+- **Outlook diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “outlook”)`. Covers classic Outlook and new Outlook for Windows install inventory, running process state and RAM usage, mail profile count, OST and PST file discovery with sizes, add-in inventory with load behavior and resiliency-disabled items, authentication and token broker cache state, and recent Outlook crash evidence from the Application event log.
+- **Teams diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “teams”)`. Covers classic Teams and new Teams (MSTeams MSIX) install inventory, running process state and RAM usage, cache directory sizing for both classic and new Teams, WebView2 runtime dependency check, account and sign-in state, audio/video device binding, and recent Teams crash evidence from the Application event log.
+- **Windows backup diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “windows_backup”)`. Covers File History service state and last backup date/target drive, Windows Backup (wbadmin) last successful backup versions and scheduled tasks, System Restore enabled state and most recent restore point, OneDrive Known Folder Move per-account protection state, and recent backup failure events from the Application event log.
+- **Hyper-V diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “hyperv”)`. Covers Hyper-V role state (VMMS service, feature installed), VM inventory with name, state, CPU%, RAM, and uptime, VM network switch inventory (External/Internal/Private with bound NIC), VM checkpoint listing with creation timestamps, and host RAM overcommit detection. Reports gracefully if Hyper-V is not installed.
+- **Application crash triage** — âœ“ Done. Shipped as `inspect_host(topic: “app_crashes”)`. Faulting application name/version, faulting module, exception code, crash vs hang classification, WER archive count, crash frequency over 7 days. Accepts optional `process` arg to filter by app name. Distinct from `recent_crashes` (BSOD/kernel events); routing detects natural-language variants including plural/verb forms.
+- **MCP server mode** — âœ“ Done. `hematite --mcp-server` starts a JSON-RPC 2.0 newline-delimited stdio server exposing all 125+ `inspect_host` topics to any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) with no TUI, no local model required. Implemented in `src/agent/mcp_server.rs`.
+- **Edge redaction Tier 1** — âœ“ Done. `--edge-redact` applies compiled regex patterns post-inspect_host: strips usernames in paths, MAC addresses, serial numbers, hostnames, AWS key IDs, and credential-shaped env values. Each response includes a machine-readable receipt header with per-category counts. Implemented in `src/agent/edge_redact.rs`.
+- **Semantic redaction Tier 2 + privacy gateway** — âœ“ Done. `--semantic-redact` routes raw inspect_host output through the local LM Studio model with a hardened privacy prompt before any data leaves the machine. Fail-safe: unreachable model returns an error, never raw data. Jailbreak resistance: `<diagnostic_data>` delimiters, refusal detection, unknown MCP args stripped. Tier 1 runs after as safety net. Policy file (`.hematite/redact_policy.json`) provides per-topic block lists, whitelist mode, and redaction level overrides. Metadata-only audit trail written to `~/.hematite/redact_audit.jsonl`. Implemented across `src/agent/semantic_redact.rs`, `src/agent/redact_policy.rs`, `src/agent/redact_audit.rs`.
 
-### Next Up â€” highest-value missing support lanes
+### Next Up — highest-value missing support lanes
 
 Nothing currently queued. All roadmap items shipped.
 
 ### Recently Shipped (0.7.0 wave)
 
-- **Enterprise enrollment diagnostics** â€” âœ“ Done. `inspect_host(topic: â€œmdm_enrollmentâ€)` covers dsregcmd AAD/MDM join state, registry enrollment accounts with UPN/type/server URL, Intune Management Extension service health, recent MDM event log errors, and plain-English findings for enrolled/unenrolled/stalled states.
-- **Storage Spaces / Windows RAID diagnostics** â€” âœ“ Done. `inspect_host(topic: â€œstorage_spacesâ€)` covers Windows Storage Spaces pool inventory (pool name, health, operational status, resiliency type, virtual disk health, physical disk member count and media type). Linux fallback reads `/proc/mdstat` and `lvs`. Also aliases: `storage_pool`, `virtual_disk`, `windows_raid`. Routing detects natural-language variants including â€œstorage poolâ€, â€œvirtual disk healthâ€, â€œWindows RAID degradedâ€.
-- **Defender quarantine / threat history diagnostics** â€” âœ“ Done. `inspect_host(topic: â€œdefender_quarantineâ€)` covers Windows Defender threat detection history (threat name, severity, action taken, detection timestamp, affected file path, remediation status) via `Get-MpThreatDetection`/`Get-MpThreat`, plus recent scan and real-time protection activity from `Get-MpComputerStatus`. Linux fallback checks ClamAV quarantine log. Routing detects natural-language variants including â€œdefender quarantineâ€, â€œdefender found malwareâ€, â€œthreat historyâ€, â€œdetected threatsâ€.
-- **Domain health / DC connectivity** â€” âœ“ Done. `inspect_host(topic: â€œdomain_healthâ€)` covers domain controller discovery (nltest /dsgetdc), live LDAP/LDAPS/Kerberos/GC port tests to the DC, dsregcmd AAD and domain join state, and GPO last machine refresh time. Distinct from `domain` (basic join status) â€” this actively tests reachability.
-- **Service dependency graph** â€” âœ“ Done. `inspect_host(topic: â€œservice_dependenciesâ€)` lists which services require which other services and which services depend on a given one â€” restart cascade planning. Linux fallback uses `systemctl list-dependencies`.
-- **WMI repository health** â€” âœ“ Done. `inspect_host(topic: â€œwmi_healthâ€)` runs a live Win32_OperatingSystem query, `winmgmt /verifyrepository`, checks winmgmt service state and repository size, and includes recovery steps. WMI corruption is a classic hidden root cause on Windows.
-- **Local security policy** â€” âœ“ Done. `inspect_host(topic: â€œlocal_security_policyâ€)` covers local password/lockout policy via `net accounts`, LAN Manager / NTLM authentication level (LmCompatibilityLevel), and UAC enabled state and prompt behavior.
-- **USB device history** â€” âœ“ Done. `inspect_host(topic: â€œusb_historyâ€)` reads the USBSTOR registry key to list USB storage devices ever connected to this machine. Useful for security/forensics audits.
-- **Print Spooler / PrintNightmare check** â€” âœ“ Done. `inspect_host(topic: â€œprint_spoolerâ€)` covers Spooler service state, CVE-2021-34527 hardening (RpcAuthnLevelPrivacyEnabled and Point and Print policy), and pending print queue. Flags unmitigated configurations.
-- **IPv6 routing fix** â€” âœ“ Done. `ipv6` topic was orphaned in the routing engine (variable existed but was never dispatched). Now routes correctly for all IPv6/SLAAC/DHCPv6 queries.
-- **Shadow copies age** â€” âœ“ Done. `shadow_copies` topic now shows the most recent snapshot's creation date and age in days via `Get-WmiObject Win32_ShadowCopy`, making disaster recovery confidence visible at a glance.
-- **RDP security layer and encryption level** â€” âœ“ Done. `rdp` topic now includes Security Layer (RDP/Negotiate/SSL-TLS) and MinEncryptionLevel (Low/ClientCompat/High/FIPS) from the RDP-Tcp registry key.
-- **New fix recipes** â€” âœ“ Done. Added: service start failure, RDP disabled/unreachable, Windows Update service broken, and PrintNightmare not mitigated. Total: 29 recipes.
+- **Enterprise enrollment diagnostics** — âœ“ Done. `inspect_host(topic: “mdm_enrollment”)` covers dsregcmd AAD/MDM join state, registry enrollment accounts with UPN/type/server URL, Intune Management Extension service health, recent MDM event log errors, and plain-English findings for enrolled/unenrolled/stalled states.
+- **Storage Spaces / Windows RAID diagnostics** — âœ“ Done. `inspect_host(topic: “storage_spaces”)` covers Windows Storage Spaces pool inventory (pool name, health, operational status, resiliency type, virtual disk health, physical disk member count and media type). Linux fallback reads `/proc/mdstat` and `lvs`. Also aliases: `storage_pool`, `virtual_disk`, `windows_raid`. Routing detects natural-language variants including “storage pool”, “virtual disk health”, “Windows RAID degraded”.
+- **Defender quarantine / threat history diagnostics** — âœ“ Done. `inspect_host(topic: “defender_quarantine”)` covers Windows Defender threat detection history (threat name, severity, action taken, detection timestamp, affected file path, remediation status) via `Get-MpThreatDetection`/`Get-MpThreat`, plus recent scan and real-time protection activity from `Get-MpComputerStatus`. Linux fallback checks ClamAV quarantine log. Routing detects natural-language variants including “defender quarantine”, “defender found malware”, “threat history”, “detected threats”.
+- **Domain health / DC connectivity** — âœ“ Done. `inspect_host(topic: “domain_health”)` covers domain controller discovery (nltest /dsgetdc), live LDAP/LDAPS/Kerberos/GC port tests to the DC, dsregcmd AAD and domain join state, and GPO last machine refresh time. Distinct from `domain` (basic join status) — this actively tests reachability.
+- **Service dependency graph** — âœ“ Done. `inspect_host(topic: “service_dependencies”)` lists which services require which other services and which services depend on a given one — restart cascade planning. Linux fallback uses `systemctl list-dependencies`.
+- **WMI repository health** — âœ“ Done. `inspect_host(topic: “wmi_health”)` runs a live Win32_OperatingSystem query, `winmgmt /verifyrepository`, checks winmgmt service state and repository size, and includes recovery steps. WMI corruption is a classic hidden root cause on Windows.
+- **Local security policy** — âœ“ Done. `inspect_host(topic: “local_security_policy”)` covers local password/lockout policy via `net accounts`, LAN Manager / NTLM authentication level (LmCompatibilityLevel), and UAC enabled state and prompt behavior.
+- **USB device history** — âœ“ Done. `inspect_host(topic: “usb_history”)` reads the USBSTOR registry key to list USB storage devices ever connected to this machine. Useful for security/forensics audits.
+- **Print Spooler / PrintNightmare check** — âœ“ Done. `inspect_host(topic: “print_spooler”)` covers Spooler service state, CVE-2021-34527 hardening (RpcAuthnLevelPrivacyEnabled and Point and Print policy), and pending print queue. Flags unmitigated configurations.
+- **IPv6 routing fix** — âœ“ Done. `ipv6` topic was orphaned in the routing engine (variable existed but was never dispatched). Now routes correctly for all IPv6/SLAAC/DHCPv6 queries.
+- **Shadow copies age** — âœ“ Done. `shadow_copies` topic now shows the most recent snapshot's creation date and age in days via `Get-WmiObject Win32_ShadowCopy`, making disaster recovery confidence visible at a glance.
+- **RDP security layer and encryption level** — âœ“ Done. `rdp` topic now includes Security Layer (RDP/Negotiate/SSL-TLS) and MinEncryptionLevel (Low/ClientCompat/High/FIPS) from the RDP-Tcp registry key.
+- **New fix recipes** — âœ“ Done. Added: service start failure, RDP disabled/unreachable, Windows Update service broken, and PrintNightmare not mitigated. Total: 29 recipes.
 
-### Deferred â€” implement if users request it
+### Deferred — implement if users request it
 
-- **Per-workspace model profiles** â€” let `.hematite/settings.json` specify a preferred model, context ceiling, and embed model per project; useful when different repos need different size/speed tradeoffs. LM Studio makes manual model swaps easy and Hematite detects the active model automatically, so this is low priority until users hit the friction.
+- **Per-workspace model profiles** — let `.hematite/settings.json` specify a preferred model, context ceiling, and embed model per project; useful when different repos need different size/speed tradeoffs. LM Studio makes manual model swaps easy and Hematite detects the active model automatically, so this is low priority until users hit the friction.
 
-- **Whisper voice input** â€” closes the voice loop (TTS out already ships; this adds STT in). Deferred because Hematite's primary users are keyboard-comfortable developers where typing is faster and more accurate than voice for code-specific terminology. If you want to add it: use `whisper-rs` (Rust bindings to `whisper.cpp`, statically linked â€” no extra DLLs), `cpal` for audio capture, and embed the `tiny.en` or `base.en` GGUF model via `include_bytes!` at compile time following the same pattern as Kokoro's ONNX model. Wire a `Ctrl+M` hotkey in `tui.rs`, add a recording loop in `src/ui/voice.rs`, and pipe the transcript into the TUI input field. The result is a single self-contained binary with no install requirements â€” the binary just grows by ~75â€“150 MB depending on which model you embed. Enable it behind `--features embedded-whisper` so users who don't want the size increase can skip it.
+- **Whisper voice input** — closes the voice loop (TTS out already ships; this adds STT in). Deferred because Hematite's primary users are keyboard-comfortable developers where typing is faster and more accurate than voice for code-specific terminology. If you want to add it: use `whisper-rs` (Rust bindings to `whisper.cpp`, statically linked — no extra DLLs), `cpal` for audio capture, and embed the `tiny.en` or `base.en` GGUF model via `include_bytes!` at compile time following the same pattern as Kokoro's ONNX model. Wire a `Ctrl+M` hotkey in `tui.rs`, add a recording loop in `src/ui/voice.rs`, and pipe the transcript into the TUI input field. The result is a single self-contained binary with no install requirements — the binary just grows by ~75–150 MB depending on which model you embed. Enable it behind `--features embedded-whisper` so users who don't want the size increase can skip it.
 
-### Tier 2 â€” Worth doing when local models handle it reliably
+### Tier 2 — Worth doing when local models handle it reliably
 
-- **Workflow engine** â€” encode multi-step coding workflows (read â†’ edit â†’ verify â†’ commit) as explicit typed state machines that the harness drives, not the model re-plans each turn.
-- **Tool dependency graph** â€” before executing a plan, check whether its tool sequence is valid (no write before read, no verify before edit). Block impossible plans before they waste a turn.
-- **Context budget ledger** â€” track token cost per tool call and per turn; surface a real budget breakdown so the operator can see why a session hit the ceiling, not just that it did.
-- **Multi-model routing** â€” for tasks that need a faster or smaller model (search, classification, label generation), route specific tool calls to a lightweight model while keeping the main session on the primary coding model. The groundwork for this already exists: `--semantic-redact` accepts any `--url` endpoint, so a dedicated compact model (e.g. [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) at 1.15 GB) can run as the privacy summarizer alongside Qwen3.5 9B + nomic-embed on a single RTX 4070 with VRAM to spare. The next step is exposing a `swarm_url` config key so swarm workers can be dispatched to a separate lightweight endpoint â€” enabling a local agent web with no cloud required at any layer.
+- **Workflow engine** — encode multi-step coding workflows (read → edit → verify → commit) as explicit typed state machines that the harness drives, not the model re-plans each turn.
+- **Tool dependency graph** — before executing a plan, check whether its tool sequence is valid (no write before read, no verify before edit). Block impossible plans before they waste a turn.
+- **Context budget ledger** — track token cost per tool call and per turn; surface a real budget breakdown so the operator can see why a session hit the ceiling, not just that it did.
+- **Multi-model routing** — for tasks that need a faster or smaller model (search, classification, label generation), route specific tool calls to a lightweight model while keeping the main session on the primary coding model. The groundwork for this already exists: `--semantic-redact` accepts any `--url` endpoint, so a dedicated compact model (e.g. [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) at 1.15 GB) can run as the privacy summarizer alongside Qwen3.5 9B + nomic-embed on a single RTX 4070 with VRAM to spare. The next step is exposing a `swarm_url` config key so swarm workers can be dispatched to a separate lightweight endpoint — enabling a local agent web with no cloud required at any layer.
 
-### Tier 3 â€” Revisit when local 9B models catch frontier capability
+### Tier 3 — Revisit when local 9B models catch frontier capability
 
-- **The Vein as an explicit knowledge base** â€” manual `remember this` and `forget this` operator commands with durable, typed knowledge entries that survive `/new` and workspace resets.
-- **Hardware-aware autonomy** â€” let the harness self-limit swarm fanout, tool parallelism, and context depth based on live VRAM and context-pressure readings without requiring operator intervention.
-- **Privacy audit layer** â€” before `shell` or `run_code` runs, scan for credential patterns (API keys, tokens, env vars) in arguments and offer a redact-and-confirm path.
-- **Session continuity across restarts** â€” âœ“ Done (see Shipped above). Goal, working set, running summary, and last verification result all survive restarts via `.hematite/session.json`.
+- **The Vein as an explicit knowledge base** — manual `remember this` and `forget this` operator commands with durable, typed knowledge entries that survive `/new` and workspace resets.
+- **Hardware-aware autonomy** — let the harness self-limit swarm fanout, tool parallelism, and context depth based on live VRAM and context-pressure readings without requiring operator intervention.
+- **Privacy audit layer** — before `shell` or `run_code` runs, scan for credential patterns (API keys, tokens, env vars) in arguments and offer a redact-and-confirm path.
+- **Session continuity across restarts** — âœ“ Done (see Shipped above). Goal, working set, running summary, and last verification result all survive restarts via `.hematite/session.json`.
+
+
 

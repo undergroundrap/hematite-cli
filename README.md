@@ -1,16 +1,16 @@
-﻿# hematite
+# hematite
 
-**Your RTX 4070 is a serious machine. Hematite is its local AI layer â€” coding harness, SysAdmin, Network Admin, and host intelligence backend, all in one terminal binary.**
+**Your RTX 4070 is a serious machine. Hematite is its local AI layer — coding harness, SysAdmin, Network Admin, and host intelligence backend, all in one terminal binary.**
 
-Think of it as a **Senior SysAdmin, Network Admin, and Software Engineer living in your terminal** â€” running 100% on your own silicon for total privacy and speed.
+Think of it as a **Senior SysAdmin, Network Admin, and Software Engineer living in your terminal** — running 100% on your own silicon for total privacy and speed.
 
 ---
 
 ### Three ways to run it
 
-Cloud is optional at every layer. Hematite runs fully local, runs as a privacy gateway for cloud agents, or runs both at once. As local models get more capable and more compact, the local-only path keeps getting stronger â€” the cloud tier exists for those who want it, not because you need it.
+Cloud is optional at every layer. Hematite runs fully local, runs as a privacy gateway for cloud agents, or runs both at once. As local models get more capable and more compact, the local-only path keeps getting stronger — the cloud tier exists for those who want it, not because you need it.
 
-**1. Fully local â€” no cloud, total privacy**
+**1. Fully local — no cloud, total privacy**
 ```
 hematite
 ```
@@ -20,39 +20,39 @@ Runs in your terminal with a local model on LM Studio, Ollama, or another OpenAI
 ```
 hematite --mcp-server
 ```
-Claude Desktop, OpenClaw, Cursor, Windsurf â€” any MCP-capable agent â€” connects to Hematite over the Model Context Protocol and calls its 125+ host inspection tools directly. The cloud model handles the reasoning. Hematite handles the grounded local observation. No local model required on your end. The cloud agent gets real machine data â€” actual processes, live network state, hardware telemetry â€” and can reason about it with full frontier intelligence.
+Claude Desktop, OpenClaw, Cursor, Windsurf — any MCP-capable agent — connects to Hematite over the Model Context Protocol and calls its 125+ host inspection tools directly. The cloud model handles the reasoning. Hematite handles the grounded local observation. No local model required on your end. The cloud agent gets real machine data — actual processes, live network state, hardware telemetry — and can reason about it with full frontier intelligence.
 
-**3. Privacy gateway â€” grounded data in, identity never out**
+**3. Privacy gateway — grounded data in, identity never out**
 
 For cloud agents that value privacy. Hematite intercepts raw machine data before it leaves and strips identifying information so the cloud model gets diagnostic insight without seeing who you are or what your machine is called.
 
-Two tiers â€” use one or both:
+Two tiers — use one or both:
 
-**Tier 1 â€” `--edge-redact` (regex, no local model needed)**
+**Tier 1 — `--edge-redact` (regex, no local model needed)**
 ```
 hematite --mcp-server --edge-redact
 ```
 Fast compiled regex pass runs on every response before it leaves the machine. Replaces usernames, MAC addresses, hardware serial numbers, hostnames, and credential-shaped values with safe tokens (`[USER]`, `[MAC]`, `[SERIAL]`, `[HOSTNAME]`, `[REDACTED]`). Zero latency overhead. Works with no GPU and no local model loaded.
 
-**Tier 2 â€” `--semantic-redact` (local model summarizer + Tier 1 backstop)**
+**Tier 2 — `--semantic-redact` (local model summarizer + Tier 1 backstop)**
 ```
 hematite --mcp-server --semantic-redact --semantic-model <model-id>
 ```
-Routes raw inspect_host output through a local model with a hardened privacy prompt before anything leaves the machine. The local model produces an anonymous diagnostic summary â€” stripping usernames, hostnames, MACs, local IPs, serial numbers, and org names while preserving diagnostic value (versions, error codes, metrics, service states, findings). Tier 1 regex runs after as a final safety net to catch anything the model missed. Fail-safe: if the local model is unreachable, the tool returns an error â€” raw data is never forwarded.
+Routes raw inspect_host output through a local model with a hardened privacy prompt before anything leaves the machine. The local model produces an anonymous diagnostic summary — stripping usernames, hostnames, MACs, local IPs, serial numbers, and org names while preserving diagnostic value (versions, error codes, metrics, service states, findings). Tier 1 regex runs after as a final safety net to catch anything the model missed. Fail-safe: if the local model is unreachable, the tool returns an error — raw data is never forwarded.
 
-**`--semantic-model` â€” choose your summarizer based on your hardware**
+**`--semantic-model` — choose your summarizer based on your hardware**
 
-The `--semantic-model` flag tells Hematite which model in LM Studio to use for privacy summarization. This is separate from your main reasoning model â€” it runs independently and only activates when `--semantic-redact` is used. Your main model (Qwen, Gemma, etc.) handles all normal TUI work and is never involved in MCP privacy filtering.
+The `--semantic-model` flag tells Hematite which model in LM Studio to use for privacy summarization. This is separate from your main reasoning model — it runs independently and only activates when `--semantic-redact` is used. Your main model (Qwen, Gemma, etc.) handles all normal TUI work and is never involved in MCP privacy filtering.
 
 Choose a summarizer based on what your hardware can fit:
 
 | Hardware | Recommended summarizer | VRAM | Notes |
 |---|---|---|---|
 | RTX 4070 (12 GB) | [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) | 1.16 GB | Verified. Fits alongside Qwen3.5 9B + nomic-embed with headroom. |
-| RTX 4080/4090 (16â€“24 GB) | Qwen3 8B Q4_K_M or similar | 5â€“6 GB | Higher quality summarization, more VRAM available. |
+| RTX 4080/4090 (16–24 GB) | Qwen3 8B Q4_K_M or similar | 5–6 GB | Higher quality summarization, more VRAM available. |
 | Workstation / multi-GPU | Any 70B-class model | 40+ GB | Near-perfect identity stripping; Tier 1 backstop still runs. |
 
-Any model that follows instructions and can summarize text works. Bonsai is recommended for constrained setups because it fits in 1.16 GB â€” leaving room for your main model and embedding model on the same GPU â€” and its 70.5 benchmark average is sufficient for the summarization task. It is not used for code or reasoning.
+Any model that follows instructions and can summarize text works. Bonsai is recommended for constrained setups because it fits in 1.16 GB — leaving room for your main model and embedding model on the same GPU — and its 70.5 benchmark average is sufficient for the summarization task. It is not used for code or reasoning.
 
 **Verified three-model stack on a single RTX 4070 (12 GB VRAM):**
 
@@ -63,7 +63,7 @@ Any model that follows instructions and can summarize text works. Bonsai is reco
 | [Bonsai 8B Q1_0](https://huggingface.co/prism-ml/Bonsai-8B-gguf) | Privacy summarizer | 1.16 GB |
 | **Total** | | **8.22 GB / 12 GB** |
 
-Load all three in LM Studio. Run Hematite normally (`hematite`) for your daily work â€” it auto-detects Qwen as the main model and Bonsai sits dormant. When a cloud agent calls `inspect_host`, Bonsai wakes up, summarizes the output, and goes back to sleep. Qwen is never touched during MCP calls. Tested end-to-end: 805-token prompt, ~82 seconds, username and hostname clean in final output. No cloud at any layer.
+Load all three in LM Studio. Run Hematite normally (`hematite`) for your daily work — it auto-detects Qwen as the main model and Bonsai sits dormant. When a cloud agent calls `inspect_host`, Bonsai wakes up, summarizes the output, and goes back to sleep. Qwen is never touched during MCP calls. Tested end-to-end: 805-token prompt, ~82 seconds, username and hostname clean in final output. No cloud at any layer.
 
 ```
 # Full command for the verified stack
@@ -72,33 +72,33 @@ hematite --mcp-server --semantic-redact --semantic-model bonsai-8b
 
 A metadata-only audit trail (`~/.hematite/redact_audit.jsonl`) logs every tool call for compliance review. A policy file (`.hematite/redact_policy.json`) lets operators hard-block sensitive topics or set per-topic redaction levels.
 
-**The local agent web.** As local models get smaller and smarter, this stack keeps improving. Today a 1-bit 8B model fits in 1.16 GB and handles the privacy filtering job well enough. Tomorrow that threshold drops further. The architecture stays the same: Hematite is the grounded data layer, a dedicated compact model handles privacy filtering, a larger model handles reasoning â€” and cloud sits at the top only if you want it. The whole thing runs air-gapped if you don't.
+**The local agent web.** As local models get smaller and smarter, this stack keeps improving. Today a 1-bit 8B model fits in 1.16 GB and handles the privacy filtering job well enough. Tomorrow that threshold drops further. The architecture stays the same: Hematite is the grounded data layer, a dedicated compact model handles privacy filtering, a larger model handles reasoning — and cloud sits at the top only if you want it. The whole thing runs air-gapped if you don't.
 
 ---
 
-**Local AI agent harness for LM Studio, Ollama, and other OpenAI-compatible runtimes** â€” coding assistant, voice, RAG retrieval, and grounded diagnostic analysis. A precision SysAdmin and Network Admin assistant that runs entirely on your silicon. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, and inspects the machine it is running on â€” including full network state, hardware health, and workstation telemetry. All from a single binary that boots in seconds.
+**Local AI agent harness for LM Studio, Ollama, and other OpenAI-compatible runtimes** — coding assistant, voice, RAG retrieval, and grounded diagnostic analysis. A precision SysAdmin and Network Admin assistant that runs entirely on your silicon. No API key, no cloud, no per-token billing. Reads your repo, edits files, runs builds, fixes errors, and inspects the machine it is running on — including full network state, hardware health, and workstation telemetry. All from a single binary that boots in seconds.
 
 **What it actually does:**
-- **Automatic Workspace Detection**: Detects the workspace automaticallyâ€”coding project, document folder, or general directoryâ€”and adjusts its behavior accordingly. Now includes robust detection for web projects via `index.html`, `style.css`, and `.hematite` management markers. No flags, no config.
+- **Automatic Workspace Detection**: Detects the workspace automatically—coding project, document folder, or general directory—and adjusts its behavior accordingly. Now includes robust detection for web projects via `index.html`, `style.css`, and `.hematite` management markers. No flags, no config.
 - **Directory-Aware Autocomplete**: Includes folders in the autocomplete engine, prioritized alongside source files. Scan-roots automatically jump when using **Path Aliases** (e.g., `@DESKTOP`, `@DOWNLOADS`).
 - **Mouse-Enabled TUI**: The TUI is fully interactive. Use the **Mouse** to select files from the autocomplete picker or click on-screen status badges.
 - Reads any file, grepping for the right location before touching anything
-- Shows a coloured diff preview before every edit â€” press Y to apply, N to skip
-- Edits with exact-match precision, CRLF-safe on Windows; if exact match fails, applies three levels of fuzzy recovery (rstrip â†’ full-strip â†’ cross-file workspace scan hint).
+- Shows a coloured diff preview before every edit — press Y to apply, N to skip
+- Edits with exact-match precision, CRLF-safe on Windows; if exact match fails, applies three levels of fuzzy recovery (rstrip → full-strip → cross-file workspace scan hint).
 - Runs `verify_build` after every change and feeds errors back to the model automatically.
-- **Integrated host inspection suite**: 125+ read-only diagnostic topics providing 100% workstation visibility across **CPU/RAM load**, active processes, services, listening ports, **block storage**, hardware specifications, **security configuration**, event-log history, scheduled tasks, **Group Policy (GPO)**, certificate lifecycle, system integrity, **domain membership**, and first-class **audio/Bluetooth triage** â€” plus precision tools for **targeted Windows Event Log queries**, **Microsoft 365 identity-broker and device-registration truth**, **NTFS/ACL permissions**, authentication logs, UNC share accessibility, registry persistence auditing, Docker/WSL filesystem audits, LAN neighborhood discovery truth, installer-platform health, OneDrive sync posture, browser and WebView2 health, Credential Manager hygiene, TPM/Secure Boot posture, and mount/storage truth. Includes the high-fidelity **Silicon Historian** for absolute session history (Temp/Clocks/Power trends) and the **Precision Throttle Truth** engine to distinguish between Power, Thermal, and VRM casualties. [See the Master Diagnostic Manual](#the-hematite-diagnostic-manual).
+- **Integrated host inspection suite**: 125+ read-only diagnostic topics providing 100% workstation visibility across **CPU/RAM load**, active processes, services, listening ports, **block storage**, hardware specifications, **security configuration**, event-log history, scheduled tasks, **Group Policy (GPO)**, certificate lifecycle, system integrity, **domain membership**, and first-class **audio/Bluetooth triage** — plus precision tools for **targeted Windows Event Log queries**, **Microsoft 365 identity-broker and device-registration truth**, **NTFS/ACL permissions**, authentication logs, UNC share accessibility, registry persistence auditing, Docker/WSL filesystem audits, LAN neighborhood discovery truth, installer-platform health, OneDrive sync posture, browser and WebView2 health, Credential Manager hygiene, TPM/Secure Boot posture, and mount/storage truth. Includes the high-fidelity **Silicon Historian** for absolute session history (Temp/Clocks/Power trends) and the **Precision Throttle Truth** engine to distinguish between Power, Thermal, and VRM casualties. [See the Master Diagnostic Manual](#the-hematite-diagnostic-manual).
 - **Hardened Research Infrastructure**: Hematite can scaffold a private SearXNG stack for `research_web` using a safer technical-source profile by default. It favors developer-focused and lower-pressure engines instead of the older broad 12-engine mix, reducing unnecessary upstream blast radius while still giving Hematite grounded web research. Use it with Hematite, LM Studio, Ollama, or your browser. [See the Research Setup Guide](docs/SEARXNG_SETUP.md).
-- **Diagnostic Orchestration**: when you ask about multiple system topics or use common troubleshooting keywords (e.g., "slow", "lag"), Hematite automatically triggers the relevant `inspect_host` calls before the model turn and injects the telemetry as contextâ€”now with session-wide **Anomaly Detection** derived from in-memory history.
+- **Diagnostic Orchestration**: when you ask about multiple system topics or use common troubleshooting keywords (e.g., "slow", "lag"), Hematite automatically triggers the relevant `inspect_host` calls before the model turn and injects the telemetry as context—now with session-wide **Anomaly Detection** derived from in-memory history.
 - **Redirection Guards**: automatically intercepts raw shell commands for diagnostic topics and redirects them to structured native tools (e.g., `Get-Acl` -> `permissions`, `slmgr` -> `activation`), ensuring consistent telemetry format.
 - **Ultra-Deterministic Teleportation**: Seamlessly move between workspaces. Hematite automatically spawns a fresh, pre-navigated terminal and performs a context-aware **Teleportation Handshake** upon arrival.
 - **Self-Destruct Protocol**: To maintain workstation hygiene, the original terminal session automatically syncs and exits after successfully spawning the target workspace.
 - Ghost-snapshots every edit so `Ctrl+Z` restores the previous state instantly.
 - Indexes your codebase with hybrid BM25 + semantic search so the model starts each turn with the right code already in view; session memory is automatically classified by type (decision, problem, milestone, preference) and retrieval boosts matching chunks based on query intent
-- Writes large tool outputs to a scratch file and tells the model where to find them â€” nothing silently dropped, always recoverable via `read_file`
-- Attaches images and documents to any turn â€” vision-capable models see screenshots, diagrams, and specs directly
+- Writes large tool outputs to a scratch file and tells the model where to find them — nothing silently dropped, always recoverable via `read_file`
+- Attaches images and documents to any turn — vision-capable models see screenshots, diagrams, and specs directly
 - Runs JavaScript and Python in a zero-trust sandbox and returns real output, not training-data guesses
-- Speaks every response through a built-in 54-voice TTS engine â€” statically linked, zero install, works offline
-- Clean conversational chat mode alongside the full agent mode â€” terminal-native, no Electron, no browser
+- Speaks every response through a built-in 54-voice TTS engine — statically linked, zero install, works offline
+- Clean conversational chat mode alongside the full agent mode — terminal-native, no Electron, no browser
 
 `hematite` is not a chat wrapper bolted onto an agent. It is a complete local AI interface: coding harness when you need one, SysAdmin and Network Admin when you need one, clean conversation when you do not. A local OpenAI-compatible runtime handles model serving. Hematite handles the grounded local workflow around it.
 
@@ -149,17 +149,17 @@ Most local AI coding tools are either:
 
 Hematite is built around the opposite assumption: the best local coding agent should feel native on the machine you actually use, tell the truth about its runtime state, and survive the constraints of real consumer GPUs instead of pretending they do not exist.
 
-- **Proven tool loop** â€” read â†’ grep â†’ edit â†’ verify â†’ undo. Tested on real Rust codebases. The model finds the right line, makes the right change, catches its own errors, and recovers without prompting.
-- **Sandboxed code execution** â€” the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation â€” not training-data guesses. Hematite automatically uses Deno from LM Studio's install â€” no extra setup required. Not using LM Studio? Install Deno globally: `winget install DenoLand.Deno`.
-- **Grounded terminal execution** â€” Hematite can inspect the real machine through native shell tools, files, and project commands. That means it can answer from observed state â€” installed toolchains, active network adapters, running ports, desktop files, build output, repo status â€” instead of making generic guesses.
-- **Natural-language SysAdmin + Network Admin** â€” 125+ read-only inspection topics cover full workstation health (**telemetry, processes, hardware specs, audio/Bluetooth, identity/security posture, targeted event queries, Microsoft 365 identity-broker truth, GPO, certificates, integrity, browser/WebView2 health**) and complete network state (**connectivity, Wi-Fi, active connections, VPN, proxy, firewall rules, traceroute, DNS cache, ARP/routing tables, LAN neighborhood discovery**) â€” all derived from real tool output, not model guesses. Now features a **Zero-Overhead Silicon Historian** tracking high-fidelity hardware trends (Session Deltas/Anomalies) entirely in RAM. [See categories](#the-hematite-diagnostic-manual).
-- **Hybrid RAG built in** â€” The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, now with **Directory-Aware retrieval** that understands your project structure.
-- **Built-in voice, zero install** â€” 54-voice Kokoro TTS in the packaged releases. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run in the packaged builds.
-- **Windows-first** â€” CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
-- **Honest about hardware** â€” VRAM usage in the status bar, context budget visible, compaction triggered before you hit the ceiling. No silent failures.
-- **Zero ongoing cost** â€” no API key, no subscription, no per-token billing. Run it all day.
-- **Private by default** â€” nothing leaves your machine. No telemetry, no cloud fallback.
-- **Architected for local models, not cloud models** â€” cloud harnesses like Claude Code are designed around models with 200K token context that can hold complex multi-step plans in memory and call multiple tools simultaneously. Hematite is engineered for the opposite constraint: sequential tool execution by design gives a 9B model full context of each result before deciding the next step, harness-level orchestration (swarm, harness pre-run) handles parallelism without the model having to coordinate it, and tight scaffolding compensates for what a smaller model cannot reliably do on its own. A cloud-style harness on a local 9B model does not perform better â€” it performs worse, because the model is not large enough to benefit from the assumptions baked into it.
+- **Proven tool loop** — read → grep → edit → verify → undo. Tested on real Rust codebases. The model finds the right line, makes the right change, catches its own errors, and recovers without prompting.
+- **Sandboxed code execution** — the model can write and run JavaScript or Python in a zero-trust sandbox (no network, no filesystem escape, hard timeout). Real answers from real computation — not training-data guesses. Hematite automatically uses Deno from LM Studio's install — no extra setup required. Not using LM Studio? Install Deno globally: `winget install DenoLand.Deno`.
+- **Grounded terminal execution** — Hematite can inspect the real machine through native shell tools, files, and project commands. That means it can answer from observed state — installed toolchains, active network adapters, running ports, desktop files, build output, repo status — instead of making generic guesses.
+- **Natural-language SysAdmin + Network Admin** — 125+ read-only inspection topics cover full workstation health (**telemetry, processes, hardware specs, audio/Bluetooth, identity/security posture, targeted event queries, Microsoft 365 identity-broker truth, GPO, certificates, integrity, browser/WebView2 health**) and complete network state (**connectivity, Wi-Fi, active connections, VPN, proxy, firewall rules, traceroute, DNS cache, ARP/routing tables, LAN neighborhood discovery**) — all derived from real tool output, not model guesses. Now features a **Zero-Overhead Silicon Historian** tracking high-fidelity hardware trends (Session Deltas/Anomalies) entirely in RAM. [See categories](#the-hematite-diagnostic-manual).
+- **Hybrid RAG built in** — The Vein indexes your codebase with BM25 + semantic search (optional nomic-embed). The model starts each turn with the relevant code already loaded, now with **Directory-Aware retrieval** that understands your project structure.
+- **Built-in voice, zero install** — 54-voice Kokoro TTS in the packaged releases. No Python, no DLL hunting, no model downloads. Press `Ctrl+T`. Works on first run in the packaged builds.
+- **Windows-first** — CRLF-safe edits, PowerShell shell, Windows path handling, tested on RTX 4070. Not a Linux port with rough edges.
+- **Honest about hardware** — VRAM usage in the status bar, context budget visible, compaction triggered before you hit the ceiling. No silent failures.
+- **Zero ongoing cost** — no API key, no subscription, no per-token billing. Run it all day.
+- **Private by default** — nothing leaves your machine. No telemetry, no cloud fallback.
+- **Architected for local models, not cloud models** — cloud harnesses like Claude Code are designed around models with 200K token context that can hold complex multi-step plans in memory and call multiple tools simultaneously. Hematite is engineered for the opposite constraint: sequential tool execution by design gives a 9B model full context of each result before deciding the next step, harness-level orchestration (swarm, harness pre-run) handles parallelism without the model having to coordinate it, and tight scaffolding compensates for what a smaller model cannot reliably do on its own. A cloud-style harness on a local 9B model does not perform better — it performs worse, because the model is not large enough to benefit from the assumptions baked into it.
 
 **Windows is the primary development target.** PowerShell integration, path handling, shell behavior, and sandbox isolation receive the most polish there. Linux and macOS are supported.
 
@@ -172,23 +172,23 @@ Hematite is for developers who want a **local coding CLI that behaves like a ser
 - You want a **local coding agent for LM Studio or Ollama** that can read, edit, search, verify, and reason about a real repository.
 - You want a **Windows local AI coding assistant** that does not treat PowerShell or local pathing as second-class.
 - You want a **local coding harness** that survives tight context budgets instead of silently melting down near the ceiling.
-- You want a **local coding CLI** that admits real hardware limits and engineers around them â€” whether you're on a 4070 or a beast multi-GPU rig.
+- You want a **local coding CLI** that admits real hardware limits and engineers around them — whether you're on a 4070 or a beast multi-GPU rig.
 - You want a harness that exposes **runtime truth**: live model context, budget pressure, recovery steps, blocker states, session carry-forward, and observed workstation state.
-- You want a **developer workstation assistant** that covers the entire OS stack in plain English: PATH health, package managers, services, processes, ports, storage, hardware inventory, security posture, crash history, and grounded fix plans â€” all from real data.
-- You want a **network admin in your terminal**: inspect connectivity, Wi-Fi adapters, active connections, VPN state, proxy config, firewall rules, traceroute paths, DNS cache, ARP tables, routing tables, and LAN neighborhood discovery (SMB/NetBIOS/mDNS/UPnP visibility) without opening a separate toolâ€”including real-time Mbps throughput and network share accessibility tests.
+- You want a **developer workstation assistant** that covers the entire OS stack in plain English: PATH health, package managers, services, processes, ports, storage, hardware inventory, security posture, crash history, and grounded fix plans — all from real data.
+- You want a **network admin in your terminal**: inspect connectivity, Wi-Fi adapters, active connections, VPN state, proxy config, firewall rules, traceroute paths, DNS cache, ARP tables, routing tables, and LAN neighborhood discovery (SMB/NetBIOS/mDNS/UPnP visibility) without opening a separate tool—including real-time Mbps throughput and network share accessibility tests.
 - You want something that feels like a **SysAdmin and Network Admin** for your dev machine, not just another coding chatbot.
 
 If your goal is cloud-scale autonomous orchestration, Hematite is not trying to win that game. If your goal is the best practical local coding harness and host inspection interface for repo work on consumer hardware, that is exactly the category it is trying to own.
 
 **Real scenarios Hematite handles well:**
 
-- **You cloned a repo and have no idea how to run it.** Open Hematite in that folder and ask. It reads the README, Makefile, or config files and tells you exactly what to type â€” or runs it for you.
+- **You cloned a repo and have no idea how to run it.** Open Hematite in that folder and ask. It reads the README, Makefile, or config files and tells you exactly what to type — or runs it for you.
 - **You're learning a new codebase.** Ask "what does this function do" or "where is X called" and get an answer grounded in the actual files, not a hallucinated summary.
 - **You want to edit a file without breaking something.** Hematite reads before it writes, shows you the diff, and lets you approve or skip. If the build breaks it catches it and tries to fix it.
-- **You need to understand an error.** Paste the error or let Hematite see the build output â€” it traces the cause through your actual source files, not generic advice.
+- **You need to understand an error.** Paste the error or let Hematite see the build output — it traces the cause through your actual source files, not generic advice.
 - **You want the terminal to be queryable in plain English.** Ask it to count the icons on your desktop, list the biggest files in a folder, inspect your PATH, identify what is listening on a port, or summarize the output of a real shell command.
-- **You need a grounded walkthrough for a sysadmin task you've never done.** Type `/teach configure SSH key authentication` and Hematite inspects the real machine state first, then delivers a numbered step-by-step guide referencing the exact paths, commands, and values it actually observed â€” not a generic tutorial.
-- **You need precise math or a hash.** Ask it to compute compound interest, calculate a SHA-256 hash, or find the standard deviation of a dataset. Hematite runs the code in a sandboxed subprocess and returns the real answer â€” not a training-data guess.
+- **You need a grounded walkthrough for a sysadmin task you've never done.** Type `/teach configure SSH key authentication` and Hematite inspects the real machine state first, then delivers a numbered step-by-step guide referencing the exact paths, commands, and values it actually observed — not a generic tutorial.
+- **You need precise math or a hash.** Ask it to compute compound interest, calculate a SHA-256 hash, or find the standard deviation of a dataset. Hematite runs the code in a sandboxed subprocess and returns the real answer — not a training-data guess.
 - **You work with documents alongside code.** Drop PDFs, markdown specs, or architecture diagrams into the conversation with `Ctrl+O` or `/attach`. The model reads them as context for the next edit.
 - **You want voice feedback while you work.** Press `Ctrl+T` and every response is spoken aloud. Useful when you're reading logs, reviewing diffs, or just want your hands free.
 - **You care about privacy.** Everything stays on your machine. No usage data sent anywhere, no API key required, no cloud fallback. Your code never leaves.
@@ -199,9 +199,9 @@ If your goal is cloud-scale autonomous orchestration, Hematite is not trying to 
 
 Most local AI tools make you pay an installation tax before you get anything useful:
 
-- **AnythingLLM / Jan / Open WebUI** â€” Electron apps. 200â€“400 MB installers, a browser engine running in the background, Node.js or Python under the hood. They look like apps because they are apps â€” with all the RAM overhead and startup lag that comes with it.
-- **Python-based tools** â€” require a matching Python version, a virtual environment, pip dependencies that break across OS updates, and often a separate CUDA toolkit install.
-- **Docker-wrapped tools** â€” need Docker Desktop running, eat RAM on idle, and add a layer of indirection between you and your GPU.
+- **AnythingLLM / Jan / Open WebUI** — Electron apps. 200–400 MB installers, a browser engine running in the background, Node.js or Python under the hood. They look like apps because they are apps — with all the RAM overhead and startup lag that comes with it.
+- **Python-based tools** — require a matching Python version, a virtual environment, pip dependencies that break across OS updates, and often a separate CUDA toolkit install.
+- **Docker-wrapped tools** — need Docker Desktop running, eat RAM on idle, and add a layer of indirection between you and your GPU.
 
 Hematite is a single native binary written in Rust.
 
@@ -209,31 +209,31 @@ Hematite is a single native binary written in Rust.
 
 - **No runtime to install.** Drop the `.exe` in a folder and run it. That's the whole install.
 - **Boots in under a second.** No VM warmup, no Electron splash screen, no Node module loading.
-- **Uses ~30 MB of RAM at idle** instead of 300â€“600 MB for an Electron app doing the same job.
+- **Uses ~30 MB of RAM at idle** instead of 300–600 MB for an Electron app doing the same job.
 - **Won't break on Windows updates.** There's no Python interpreter to conflict, no Node version to mismatch, no DLL hell. The binary carries everything it needs except `DirectML.dll`, which Windows ships by default.
-- **The voice engine is inside the binary.** 311 MB ONNX model, 54 voices, ONNX Runtime 1.24.2 â€” all compiled in at build time. No model download on first run, no version mismatch, no separate TTS service.
-- **Smaller than most app installers.** The entire Hematite portable â€” binary + voice model + DirectML â€” is ~336 MB as a zip. AnythingLLM's installer alone is larger than that.
+- **The voice engine is inside the binary.** 311 MB ONNX model, 54 voices, ONNX Runtime 1.24.2 — all compiled in at build time. No model download on first run, no version mismatch, no separate TTS service.
+- **Smaller than most app installers.** The entire Hematite portable — binary + voice model + DirectML — is ~336 MB as a zip. AnythingLLM's installer alone is larger than that.
 
 Rust produces machine code that runs directly on your CPU, the same as C or C++, with no interpreter in between. You get the startup speed of a native app, the memory footprint of a CLI tool, and the reliability of software that can't silently crash a garbage collector mid-turn.
 
 ---
 
-## Terminal-Native Chat â€” Better Than a Browser UI
+## Terminal-Native Chat — Better Than a Browser UI
 
-Hematite runs in your terminal. That's not a limitation â€” it's a feature.
+Hematite runs in your terminal. That's not a limitation — it's a feature.
 
 Tools like AnythingLLM and Jan give you a browser UI because that's the fastest way to ship something that looks polished. But a browser UI means:
 
-- Electron eating 200â€“500 MB RAM before the model even loads
+- Electron eating 200–500 MB RAM before the model even loads
 - No keyboard-first workflow
 - Copy-paste friction between your editor and the AI
 - A separate window you're constantly Alt-Tabbing to
 
-Hematite lives where your code lives â€” in the terminal, inside your project folder. You open it, talk to it, and close it. No context switching, no separate app window, no mouse required.
+Hematite lives where your code lives — in the terminal, inside your project folder. You open it, talk to it, and close it. No context switching, no separate app window, no mouse required.
 
-**Agent mode** â€” full coding harness: reads files, edits with precision, runs builds, recovers from errors, indexes your repo with RAG.
+**Agent mode** — full coding harness: reads files, edits with precision, runs builds, recovers from errors, indexes your repo with RAG.
 
-**Chat mode** â€” clean conversational surface: no tool noise, no agent scaffolding, just a fast response loop with voice. The same Vein RAG runs underneath so the model still knows your codebase.
+**Chat mode** — clean conversational surface: no tool noise, no agent scaffolding, just a fast response loop with voice. The same Vein RAG runs underneath so the model still knows your codebase.
 
 Both modes. One binary. Voice in both. Switch with a command.
 
@@ -292,9 +292,9 @@ For structured workstation and network questions, prefer `inspect_host` first. I
 
 **Network Admin topics:** **internet connectivity** (`connectivity`), Wi-Fi adapters and signal (`wifi`), **active TCP/UDP connections** (`connections`), VPN adapter state (`vpn`), **system proxy config** (`proxy`), firewall rules (`firewall_rules`), **traceroute path** (`traceroute`), DNS cache (`dns_cache`), **live DNS record lookup / domain-to-IP resolution** (`dns_lookup`), configured **DNS nameservers** per adapter (`dns_servers`), ARP table (`arp`), **routing table** (`route_table`), **LAN neighborhood discovery** (`lan_discovery`), Real-time **Mbps throughput** (`network_stats`), Network share accessibility/reachability (`share_access`), **UDP listeners** (`udp_ports`), **ping RTT + packet loss** (`latency`), **NIC offload/link-speed/WoL** (`network_adapter`), **DHCP lease details** (`dhcp`), **per-adapter MTU + path MTU** (`mtu`), **IPv6 addresses/SLAAC/DHCPv6/tunnels** (`ipv6`), **TCP autotuning/congestion/ECN** (`tcp_params`), **saved WiFi profiles + security audit** (`wlan_profiles`), **IPSec SAs + IKE tunnel state** (`ipsec`), **NetBIOS/WINS config + nbtstat** (`netbios`), **NIC teaming/LACP/LBFO** (`nic_teaming`), **SNMP agent + community audit** (`snmp`), **TCP port reachability test** (`port_test`), and **Windows network location profile** (`network_profile`).
 
-**Developer tooling topics:** **environment variables** (`env`), hosts file (`hosts_file`), **Docker state** + containers + images (`docker`), WSL distros (`wsl`), **SSH config** + key inventory (`ssh`), installed software (`installed_software`), **global git config** (`git_config`), and running **local database engines** â€” PostgreSQL, MySQL, MongoDB, Redis, SQLite, SQL Server, and more (`databases`).
+**Developer tooling topics:** **environment variables** (`env`), hosts file (`hosts_file`), **Docker state** + containers + images (`docker`), WSL distros (`wsl`), **SSH config** + key inventory (`ssh`), installed software (`installed_software`), **global git config** (`git_config`), and running **local database engines** — PostgreSQL, MySQL, MongoDB, Redis, SQLite, SQL Server, and more (`databases`).
 
-**Harness pre-run:** when you ask about multiple topics in one message (e.g. "show me route table, ARP, DNS cache, and traceroute"), Hematite automatically runs all inspect_host calls before the model turn and injects the combined data as context. The model synthesizes a clear answer from real data â€” no redundant tool calls, no orchestration back-and-forth.
+**Harness pre-run:** when you ask about multiple topics in one message (e.g. "show me route table, ARP, DNS cache, and traceroute"), Hematite automatically runs all inspect_host calls before the model turn and injects the combined data as context. The model synthesizes a clear answer from real data — no redundant tool calls, no orchestration back-and-forth.
 
 New deep-audit topics: **Docker filesystem audit** for bind mounts, named volumes, and Docker Desktop disk usage (`docker_filesystems`), plus **WSL filesystem audit** for VHDX growth, rootfs usage, and `/mnt/c` bridge health (`wsl_filesystems`).
 
@@ -309,11 +309,11 @@ New deep-audit topics: **Docker filesystem audit** for bind mounts, named volume
 - `Count and name the items on my desktop.`
 - `Show me what is listening on port 3000 and whether anything unexpected is exposed.`
 - `Run a repo doctor on this workspace.`
-- `Show me full hardware inventory â€” CPU, RAM, GPU, and display config.`
+- `Show me full hardware inventory — CPU, RAM, GPU, and display config.`
 - `Run a system health check and give me a plain-English verdict.`
 - `Check for BSOD or crash events in the last week.`
 - `Show me all scheduled tasks and what they run.`
-- `Check for dev environment conflicts â€” Node version managers, Python ambiguity, Rust toolchain.`
+- `Check for dev environment conflicts — Node version managers, Python ambiguity, Rust toolchain.`
 - `Audit my workstation health: Check for any malfunctioning devices or yellow bangs, list my connected peripherals and USB tree, and show me everything that's set to run at startup.`
 
 **Network Admin prompts:**
@@ -325,23 +325,23 @@ New deep-audit topics: **Docker filesystem audit** for bind mounts, named volume
 - `List my firewall rules and show anything that allows inbound traffic.`
 - `Trace the path to 8.8.8.8 and tell me where latency spikes.`
 - `Show me my DNS cache.`
-- `Show me the ARP table â€” what devices is this machine aware of?`
+- `Show me the ARP table — what devices is this machine aware of?`
 - `Show me the routing table and tell me what route handles default traffic.`
-- `Show me route table, ARP, DNS cache, and traceroute.` â† harness pre-runs all four automatically
+- `Show me route table, ARP, DNS cache, and traceroute.` → harness pre-runs all four automatically
 
 **Developer tooling prompts:**
-- `Show me my environment variables â€” flag anything that looks like a secret.`
+- `Show me my environment variables — flag anything that looks like a secret.`
 - `Is JAVA_HOME set? What about GOPATH or CARGO_HOME?`
 - `Show me my hosts file and flag any custom entries.`
 - `Are any Docker containers running? Show me images too.`
 - `What WSL distros do I have installed?`
-- `Show me my SSH config â€” what hosts are configured, and do I have keys?`
+- `Show me my SSH config — what hosts are configured, and do I have keys?`
 - `Is sshd running on this machine?`
 - `Audit my Docker bind mounts and named volumes. Tell me which host paths are missing.`
 - `Check WSL storage growth and tell me if /mnt/c looks broken.`
 - `What software is installed on this machine?`
-- `Show me my global git config â€” user, signing, credential helper, push defaults.`
-- `Show me docker containers, my ssh config, and installed software.` â† harness pre-runs all three
+- `Show me my global git config — user, signing, credential helper, push defaults.`
+- `Show me docker containers, my ssh config, and installed software.` → harness pre-runs all three
 
 The shell path is still bounded like the rest of the harness: commands run through Hematite's tool layer with timeout limits, output capping, workspace awareness, and approval controls for risky actions.
 
@@ -373,14 +373,14 @@ Hematite achieves **100% Read-Only Grounding** of the Windows workstation. It no
 
 ![Intensity Report](assets/Intensity_Report.png)
 
-### v0.5.5 [Production Release] â€” Hardened Voice & Diagnostic Redirection
+### v0.5.5 [Production Release] — Hardened Voice & Diagnostic Redirection
 - **125+ unique diagnostic topics**: Technical triage coverage across OS subsystems (BitLocker, SMB, GPO, Hardware Telemetry, audio, Bluetooth, camera, sign-in, Microsoft 365 identity broker health, installer health, OneDrive sync, browser/WebView2 health, search indexing, display, time sync, credentials, TPM, Docker/WSL filesystem truth, LAN discovery truth).
 - **Automated Diagnostic Redirection**: Interception of raw PowerShell commands with redirection to internal tools to bypass shell prompts.
 - **Improved Identity Discovery**: Proactive SID and group lookup for local and active directory users during system audits.
 - **Voice Engine Resilience (Silicon Deep-Sense v0.5.5)**: Native ONNX synthesis error handling in `hematite-kokoros` to prevent stream termination.
 - **Manifest Synchronization**: Unified metadata auditing for production-ready packaging.
 
-### v0.5.6 [Target Release] â€” Diagnostic Expansion & Hardware Telemetry
+### v0.5.6 [Target Release] — Diagnostic Expansion & Hardware Telemetry
 - **Shell-to-inspect_host redirection**: raw diagnostic shell commands (`Get-Process`, `arp -a`, `netstat`) are silently redirected to the appropriate `inspect_host` topic. The model gets structured output instead of raw command text.
 - **Disk benchmark auto-fallback**: if the requested benchmark target path is missing, `inspect_host(topic: "disk_benchmark")` automatically benchmarks the running binary's drive instead of failing.
 
@@ -400,7 +400,7 @@ Because of Hematite's **Harness Pre-Run**, you can trigger an entire IT audit wi
 **Pro-Prompt (The "Audit Benchmark"):**
 > "Audit my workstation health: Check for any malfunctioning hardware, show me the BIOS and virtualization DNA, and tell me which processes are hitting the disk the most right now."
 
-**The Result:** Hematite pre-fetches your hardware state, audits your device health, pulls exact BIOS/SLAT metadata, and delivers a consolidated health verdict â€” grounded in real machine telemetry with zero hallucinations.
+**The Result:** Hematite pre-fetches your hardware state, audits your device health, pulls exact BIOS/SLAT metadata, and delivers a consolidated health verdict — grounded in real machine telemetry with zero hallucinations.
 
 ---
 
@@ -411,7 +411,7 @@ Because of Hematite's **Harness Pre-Run**, you can trigger an entire IT audit wi
 Hematite-CLI is a living research environment for local-first agentic systems orchestration. This section documents the grounded methodologies developed to minimize latency and eliminate hallucination vectors in sub-14B parameter model environments.
 
 ### Research Pilot 1.0: Deterministic Sequential Gating
-Empirical data from the v0.5.x branch confirms that local model reliability is highly sensitive to orchestration ambiguity. Hematite implements **Sequential Gating**â€”a strictly enforced `read â†’ grep â†’ edit â†’ verify` pipeline. By removing the model's ability to "jump" steps or call multiple destructive tools in a single turn, we have reduced "context-melt" regressions by a measured 42% on consumer hardware (RTX 4070).
+Empirical data from the v0.5.x branch confirms that local model reliability is highly sensitive to orchestration ambiguity. Hematite implements **Sequential Gating**—a strictly enforced `read → grep → edit → verify` pipeline. By removing the model's ability to "jump" steps or call multiple destructive tools in a single turn, we have reduced "context-melt" regressions by a measured 42% on consumer hardware (RTX 4070).
 
 ### Research Pilot 2.0: Zero-Latency Diagnostic Redirection
 To maximize the "Grounded Truth" of the system, Hematite implements an **In-Band Diagnostic Interception Matrix**. Raw natural language shell commands (e.g., `Get-Process`, `arp -a`) are intercepted by the harness and redirected to internal, high-precision native probes. By providing the model with structured JSON-derived telemetry instead of raw shell text, context efficiency is increased by an average of 1,200 tokens per diagnostic turn.
@@ -430,39 +430,39 @@ There are several tools in this space. Here is what each one actually requires a
 
 | | **Hematite** | **Claude Code** | **Aider** | **Continue** | **AnythingLLM / Jan** | **Open Interpreter** |
 |---|---|---|---|---|---|---|
-| **Install** | Single `.exe`, no runtime | `npm install -g @anthropic-ai/claude-code` | `pip install aider` + Python 3.10+ | VS Code/JetBrains extension | Electron installer (200â€“400 MB) | `pip install open-interpreter` + Python |
-| **Local models** | First-class (LM Studio, Ollama) | No â€” Anthropic API only | Supported but secondary | Supported | Supported | Supported but secondary |
-| **Cloud-first** | No | Yes â€” requires API key | Yes (GPT-4/Claude default) | No | No | Yes (GPT-4 default) |
+| **Install** | Single `.exe`, no runtime | `npm install -g @anthropic-ai/claude-code` | `pip install aider` + Python 3.10+ | VS Code/JetBrains extension | Electron installer (200–400 MB) | `pip install open-interpreter` + Python |
+| **Local models** | First-class (LM Studio, Ollama) | No — Anthropic API only | Supported but secondary | Supported | Supported | Supported but secondary |
+| **Cloud-first** | No | Yes — requires API key | Yes (GPT-4/Claude default) | No | No | Yes (GPT-4 default) |
 | **Cost** | Free, offline | Pay per token (Anthropic API) | Free tool, pay per token if cloud | Free | Free | Free tool, pay per token if cloud |
-| **Context window** | Scales with your hardware â€” 8K on budget kit, 128K+ on a beast rig | 200K (Claude) | Model-dependent | Model-dependent | Model-dependent | Model-dependent |
+| **Context window** | Scales with your hardware — 8K on budget kit, 128K+ on a beast rig | 200K (Claude) | Model-dependent | Model-dependent | Model-dependent | Model-dependent |
 | **Windows quality** | Native, tested, CRLF-safe | Good, cross-platform | Workable, Linux-first design | IDE-dependent | Electron (cross-platform) | Workable |
 | **Codebase RAG** | Built-in (BM25 + semantic) | No | No | Basic | Basic | No |
 | **SysAdmin / Network Admin** | 104+ inspection topics, built-in | No | No | No | No | No |
 | **Voice / TTS** | Built-in, 54 voices, offline | No | No | No | No | No |
 | **Chat mode** | Yes (agent + clean chat) | Yes | No (agent only) | Yes (IDE chat) | Yes (browser UI) | No |
-| **Idle RAM** | ~30 MB | ~150 MB | ~50 MB | IDE overhead | 200â€“500 MB (Electron) | ~80 MB |
+| **Idle RAM** | ~30 MB | ~150 MB | ~50 MB | IDE overhead | 200–500 MB (Electron) | ~80 MB |
 | **Build verification** | Built-in, error recovery loop | Built-in | Git-diff focused | No | No | Ad hoc shell |
 | **Code execution** | Sandboxed JS + Python (zero-trust) | Yes (via shell) | No | No | No | Yes (primary feature) |
 | **Image / doc attach** | Yes (`Ctrl+I`, `/image`, `/attach`) | Yes | No | No | Yes (UI upload) | No |
 | **PDF ingestion** | Best-effort (text PDFs) | No | No | No | Full (Electron + dependencies) | No |
-| **Diff preview** | Yes â€” Y/N before every edit | Yes | Yes (Aider's core feature) | No | No | No |
+| **Diff preview** | Yes — Y/N before every edit | Yes | Yes (Aider's core feature) | No | No | No |
 | **Undo / ghost backup** | Built-in (`Ctrl+Z`) | No | Git-based | No | No | No |
-| **Offline** | Fully offline | No â€” API required | Fully offline | Fully offline | Fully offline | Fully offline |
+| **Offline** | Fully offline | No — API required | Fully offline | Fully offline | Fully offline | Fully offline |
 | **Privacy** | Code never leaves machine | Sent to Anthropic | Sent to API provider | Sent to API provider | Local or sent to provider | Sent to API provider |
 
 ### The honest breakdown
 
-**Claude Code** is the most capable cloud harness in this category. It runs on Claude with 200K context, supports parallel tool calls within a single turn, and can spawn isolated subagents with git worktrees. If you have an Anthropic API key and your code can leave your machine, it is genuinely excellent at what it does. What it cannot do: run offline, use a local model, inspect your machine's hardware or network state, speak responses out loud, or run without per-token billing. It is also architected for large models â€” parallel tool dispatch and multi-agent coordination assume the model is big enough to plan and coordinate across simultaneous state. On a local 9B model, those assumptions work against you. Hematite's sequential tool loop and harness-level orchestration are deliberately designed for the local model constraint, not as a workaround for it.
+**Claude Code** is the most capable cloud harness in this category. It runs on Claude with 200K context, supports parallel tool calls within a single turn, and can spawn isolated subagents with git worktrees. If you have an Anthropic API key and your code can leave your machine, it is genuinely excellent at what it does. What it cannot do: run offline, use a local model, inspect your machine's hardware or network state, speak responses out loud, or run without per-token billing. It is also architected for large models — parallel tool dispatch and multi-agent coordination assume the model is big enough to plan and coordinate across simultaneous state. On a local 9B model, those assumptions work against you. Hematite's sequential tool loop and harness-level orchestration are deliberately designed for the local model constraint, not as a workaround for it.
 
 **Aider** is the closest real competitor in the terminal space. It's well-engineered and git-native. It does not have RAG, voice, a TUI, Windows-native polish, or built-in build verification. It assumes cloud models by default. If you're on Linux and already have Python, it's a solid choice for git-centric workflows. If you're on Windows, running local models, and want voice + codebase awareness, Hematite is the better fit.
 
 **Continue** lives inside your IDE. That's its strength (tight editor integration) and its ceiling (you're inside VS Code's Electron process, not a standalone agent). It has no build verification loop, no RAG of its own, and no voice.
 
-**AnythingLLM and Jan** are UI-first products built for document workflows. AnythingLLM has a more capable PDF pipeline than Hematite â€” it handles OCR, scanned documents, and complex font encodings that Hematite's best-effort extractor will reject. If document ingestion is your primary use case, it genuinely does that job better. The cost is the full Electron stack: 200â€“500 MB RAM at idle, a browser engine running in the background, and no real terminal or coding workflow. Hematite covers the common case â€” text-based PDFs, markdown, plain files, and images â€” in a single Rust binary with no runtime overhead and no install tax.
+**AnythingLLM and Jan** are UI-first products built for document workflows. AnythingLLM has a more capable PDF pipeline than Hematite — it handles OCR, scanned documents, and complex font encodings that Hematite's best-effort extractor will reject. If document ingestion is your primary use case, it genuinely does that job better. The cost is the full Electron stack: 200–500 MB RAM at idle, a browser engine running in the background, and no real terminal or coding workflow. Hematite covers the common case — text-based PDFs, markdown, plain files, and images — in a single Rust binary with no runtime overhead and no install tax.
 
-**Open Interpreter** is the closest thing to Hematite's ambition â€” a local agent that can run code and talk to your system. It requires Python and defaults to cloud. It has no codebase RAG, no voice, and no Windows-specific polish. Hematite matches its code execution capability with a sandboxed `run_code` tool (JS + Python, zero-trust, hard timeout) while adding everything Open Interpreter lacks.
+**Open Interpreter** is the closest thing to Hematite's ambition — a local agent that can run code and talk to your system. It requires Python and defaults to cloud. It has no codebase RAG, no voice, and no Windows-specific polish. Hematite matches its code execution capability with a sandboxed `run_code` tool (JS + Python, zero-trust, hard timeout) while adding everything Open Interpreter lacks.
 
-**The real gap:** none of these tools combine all of Hematite's differentiators in a single binary â€” offline codebase RAG, built-in voice, sandboxed code execution, image and document attachment, and a native Rust binary with no runtime dependency. That combination does not exist anywhere else in this category.
+**The real gap:** none of these tools combine all of Hematite's differentiators in a single binary — offline codebase RAG, built-in voice, sandboxed code execution, image and document attachment, and a native Rust binary with no runtime dependency. That combination does not exist anywhere else in this category.
 
 ---
 
@@ -529,7 +529,7 @@ That same pattern can be translated across the tool surface over time. The goal 
 
 **Primary hardware target:** a single RTX 4070-class GPU on a normal desktop Windows machine. Hematite is engineered around that constraint: limited local VRAM, one active consumer GPU, a local OpenAI-compatible serving layer, and open models that need strong tooling and context discipline instead of cloud-scale brute force.
 
-**Enthusiast note:** the 4070 is the design center and tested baseline â€” not a ceiling. If you're running a 3090, 5090, multi-GPU rig, or server hardware with a 70B or 200B model loaded, Hematite scales with you. Larger models naturally handle more complex plans; longer context windows mean less compaction pressure; swarm workers run truly in parallel across multiple GPUs. The harness stays the same â€” the hardware just removes constraints that a single consumer card has to work around.
+**Enthusiast note:** the 4070 is the design center and tested baseline — not a ceiling. If you're running a 3090, 5090, multi-GPU rig, or server hardware with a 70B or 200B model loaded, Hematite scales with you. Larger models naturally handle more complex plans; longer context windows mean less compaction pressure; swarm workers run truly in parallel across multiple GPUs. The harness stays the same — the hardware just removes constraints that a single consumer card has to work around.
 
 ### Tested Model Configuration
 
@@ -537,12 +537,12 @@ This is the setup Hematite is actively developed and tested against:
 
 | Role | Model | Size | VRAM |
 |---|---|---|---|
-| Coding agent | `Qwen/Qwen3.5-9B` (Q4_K_M quant) | ~5â€“6 GB | primary |
+| Coding agent | `Qwen/Qwen3.5-9B` (Q4_K_M quant) | ~5–6 GB | primary |
 | Semantic search | `nomic-embed-text-v2` Q8_0 | ~512 MB | secondary |
 
-Load both in LM Studio at the same time. The embedding model stays resident but is idle between turns â€” it doesn't compete with the coding model during inference.
+Load both in LM Studio at the same time. The embedding model stays resident but is idle between turns — it doesn't compete with the coding model during inference.
 
-**Why these two?** Qwen/Qwen3.5-9B Q4_K_M completed a full coding workflow (read â†’ inspect â†’ edit â†’ verify â†’ commit) in under 6000 tokens on RTX 4070 hardware. The nomic embedding model is small enough that both fit in 12 GB VRAM with room to spare, and it enables semantic retrieval in The Vein so Hematite can find the right file before the model even asks.
+**Why these two?** Qwen/Qwen3.5-9B Q4_K_M completed a full coding workflow (read → inspect → edit → verify → commit) in under 6000 tokens on RTX 4070 hardware. The nomic embedding model is small enough that both fit in 12 GB VRAM with room to spare, and it enables semantic retrieval in The Vein so Hematite can find the right file before the model even asks.
 
 **Gemma 4 is also supported** with a native protocol path (auto-detected by model name). The standard OpenAI-compatible path (Qwen and others) is the primary tested configuration.
 
@@ -646,7 +646,7 @@ When you ship a new Hematite release, update crates.io like this:
 
 1. Finish the feature work and test the local portable first.
 2. Bump and cut the normal Hematite release (`release.ps1`, tag, installers, GitHub release).
-3. **Wait for CI to go green on both Windows and Linux** before publishing the crate. Pushing the tag triggers both `windows-release.yml` and `unix-release.yml`. If either fails, fix it and push a patch before touching crates.io â€” a broken source publish means `cargo install hematite-cli` fails on that platform for everyone.
+3. **Wait for CI to go green on both Windows and Linux** before publishing the crate. Pushing the tag triggers both `windows-release.yml` and `unix-release.yml`. If either fails, fix it and push a patch before touching crates.io — a broken source publish means `cargo install hematite-cli` fails on that platform for everyone.
 4. Publish `hematite-cli` only after both CI jobs are green.
 5. Only publish `hematite-kokoros` again if the vendored voice fork itself changed.
 
@@ -658,7 +658,7 @@ Practical rule: you do **not** republish both crates every time. In normal use, 
 pwsh ./bump-version.ps1 -Version X.Y.Z
 ```
 
-Never edit version numbers by hand across files â€” they will drift.
+Never edit version numbers by hand across files — they will drift.
 
 After `cargo build`, run `pwsh ./scripts/verify-version-sync.ps1 -Version X.Y.Z -RequireCargoLock` before committing the bump so the lockfile and release metadata are checked together.
 
@@ -783,21 +783,21 @@ To add `hematite` to your user PATH so it works from any terminal or IDE:
 pwsh ./scripts/package-windows.ps1 -AddToPath
 ```
 
-Restart your terminal after running this. From then on, `cd` into any project folder and type `hematite` â€” it picks up your project root automatically via `.git` or `Cargo.toml`/`package.json`. Works in PowerShell, CMD, Windows Terminal, VS Code's integrated terminal, and JetBrains IDEs.
+Restart your terminal after running this. From then on, `cd` into any project folder and type `hematite` — it picks up your project root automatically via `.git` or `Cargo.toml`/`package.json`. Works in PowerShell, CMD, Windows Terminal, VS Code's integrated terminal, and JetBrains IDEs.
 
-**One workspace per session.** Hematite locks onto the directory it was launched in â€” that's what gets indexed, and that's where all file tools operate. `cd`-ing inside the terminal after launch doesn't move the workspace. To switch projects, exit and relaunch in the new folder or use `/cd` to teleport there in a fresh session. This is intentional: a single locked workspace keeps the model's context clean and prevents tools from operating on the wrong directory. It also means you can run Hematite in a non-project folder â€” a downloads folder, a scripts directory, anywhere â€” and it adapts to what's there. Outside a project directory, Hematite skips the source-file walk but still keeps The Vein alive in docs-only mode: `.hematite/docs/`, imported chats in `.hematite/imports/`, and recent local session reports remain searchable, and the status badge shows `VN:DOC`.
+**One workspace per session.** Hematite locks onto the directory it was launched in — that's what gets indexed, and that's where all file tools operate. `cd`-ing inside the terminal after launch doesn't move the workspace. To switch projects, exit and relaunch in the new folder or use `/cd` to teleport there in a fresh session. This is intentional: a single locked workspace keeps the model's context clean and prevents tools from operating on the wrong directory. It also means you can run Hematite in a non-project folder — a downloads folder, a scripts directory, anywhere — and it adapts to what's there. Outside a project directory, Hematite skips the source-file walk but still keeps The Vein alive in docs-only mode: `.hematite/docs/`, imported chats in `.hematite/imports/`, and recent local session reports remain searchable, and the status badge shows `VN:DOC`.
 
 **Home-directory note.** Launching Hematite from your user home directory is valid for workstation inspection, docs-only memory, and general machine questions. It is not a good default for project-specific build, test, script, or repo work. For those, launch Hematite in the target project directory first.
 
 For project-specific questions or commands, launch Hematite in that project's directory before you ask. Hematite's own maintainer workflows are a separate built-in path for working on Hematite itself; they do not mean "run whatever script exists in the current folder."
 
-**Global settings.** Hematite loads `~/.hematite/settings.json` as a fallback when no workspace-level `.hematite/settings.json` exists. This means your model preference, voice settings, API URL, and local-search settings work from any directory â€” not just from inside a project. Workspace settings always win when both exist. When you launch Hematite from **Path Alias** folders like Desktop, Downloads, Documents, Pictures, Videos, or Music, Hematite keeps its runtime state in `~/.hematite/` instead of creating a local `.hematite/` folder there.
+**Global settings.** Hematite loads `~/.hematite/settings.json` as a fallback when no workspace-level `.hematite/settings.json` exists. This means your model preference, voice settings, API URL, and local-search settings work from any directory — not just from inside a project. Workspace settings always win when both exist. When you launch Hematite from **Path Alias** folders like Desktop, Downloads, Documents, Pictures, Videos, or Music, Hematite keeps its runtime state in `~/.hematite/` instead of creating a local `.hematite/` folder there.
 
 **Local search stack.** Hematite can use a private SearXNG instance for `research_web`. By default it scaffolds and starts that stack under `~/.hematite/searxng-local` when `auto_start_searx` is enabled and the configured `searx_url` points at localhost. If the service is already reachable, Hematite reuses it instead of restarting it. If Docker Desktop is missing or the daemon is offline, Hematite now surfaces a compact startup note instead of failing silently. Set `HEMATITE_SEARX_ROOT` to relocate the stack, set `auto_start_searx` to `false` to disable auto-start, and set `auto_stop_searx` to `true` if you want Hematite to stop only the SearXNG instance it started when the session exits. The default scaffold now favors a safer technical-source engine pool rather than the older broad 12-engine profile.
 
 **Workspace profile.** On startup, Hematite also writes `workspace_profile.json` into its active runtime-state directory. In normal project workspaces that is `.hematite/workspace_profile.json`; in **Path Alias** folders it lands in `~/.hematite/workspace_profile.json` so Hematite does not litter Desktop/Downloads-style directories with workspace metadata. The file is auto-generated and gitignored when local. It captures the detected stack, package manager, important folders, ignored noise folders, and build/test hints so the harness starts with a grounded project profile instead of guessing from scratch every turn. Use `/workspace-profile` to inspect the current generated profile from inside the TUI.
 
-**Behavioral rules and project skills.** Drop a `.hematite/rules.md` file in any project and Hematite injects its contents into the system prompt on every turn â€” no restart needed. Use it to set project-specific agent behavior: coding conventions, files to avoid, architectural constraints, simplicity guidelines, anything. `/rules` shows which rule files are currently active. `/rules edit` opens your personal `.hematite/rules.local.md` (gitignored) in the system editor; `/rules edit shared` opens the shared `.hematite/rules.md` that can be committed with the repo. For larger projects, `.hematite/instructions/<topic>.md` files are injected only when the turn's context mentions that topic â€” zero token cost otherwise. Hematite also auto-discovers root `SKILLS.md` / `SKILL.md` guidance files, and now scans `.agents/skills/` plus `.hematite/skills/` for directory-based Agent Skills with `SKILL.md` frontmatter. Use `/skills` to inspect the discovered skill catalog. None of those skill layers replace the built-in workflow engine.
+**Behavioral rules and project skills.** Drop a `.hematite/rules.md` file in any project and Hematite injects its contents into the system prompt on every turn — no restart needed. Use it to set project-specific agent behavior: coding conventions, files to avoid, architectural constraints, simplicity guidelines, anything. `/rules` shows which rule files are currently active. `/rules edit` opens your personal `.hematite/rules.local.md` (gitignored) in the system editor; `/rules edit shared` opens the shared `.hematite/rules.md` that can be committed with the repo. For larger projects, `.hematite/instructions/<topic>.md` files are injected only when the turn's context mentions that topic — zero token cost otherwise. Hematite also auto-discovers root `SKILLS.md` / `SKILL.md` guidance files, and now scans `.agents/skills/` plus `.hematite/skills/` for directory-based Agent Skills with `SKILL.md` frontmatter. Use `/skills` to inspect the discovered skill catalog. None of those skill layers replace the built-in workflow engine.
 
 On macOS/Linux, the packaged archive includes an installer helper:
 
@@ -818,9 +818,9 @@ Linux note: Hematite's voice stack still depends on distro-provided `libsonic` a
 | `hematite` | ~320 MB | macOS/Linux binary with the same baked-in voice model |
 | `install.sh` | - | macOS/Linux helper that installs the bundle and links `hematite` into `~/.local/bin` |
 | shared libs / frameworks | varies | Any ONNX Runtime sidecars copied into `target/release` on macOS/Linux |
-| `README.txt` | â€” | Quick-start instructions |
+| `README.txt` | — | Quick-start instructions |
 
-`dist/` is gitignored â€” these are release artifacts, not tracked in source.
+`dist/` is gitignored — these are release artifacts, not tracked in source.
 
 ### Automated Releases
 
@@ -849,9 +849,9 @@ git push origin main
 git push origin vX.Y.Z
 ```
 
-Pushing the tag triggers both `windows-release.yml` and `unix-release.yml` automatically. When both go green, the portable zip, Windows installer, and Unix archives are attached to the GitHub Release â€” no manual upload needed.
+Pushing the tag triggers both `windows-release.yml` and `unix-release.yml` automatically. When both go green, the portable zip, Windows installer, and Unix archives are attached to the GitHub Release — no manual upload needed.
 
-For Hematite's release routine, the local Windows build is still the right final preflight because it refreshes the portable bundle you actually run, refreshes `Setup.exe`, and gives you a real smoke test before tagging. The macOS and Linux artifacts are then built remotely by GitHub Actions from the pushed tag Ã¢â‚¬â€ you do not need to package those locally first unless you want extra manual verification.
+For Hematite's release routine, the local Windows build is still the right final preflight because it refreshes the portable bundle you actually run, refreshes `Setup.exe`, and gives you a real smoke test before tagging. The macOS and Linux artifacts are then built remotely by GitHub Actions from the pushed tag — you do not need to package those locally first unless you want extra manual verification.
 
 Versioning still comes from `Cargo.toml`, so the package names and installer version stay aligned with the Rust crate version.
 
@@ -868,9 +868,9 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | Tool | Description |
 |---|---|
 | `read_file` | Read any file with offset/limit pagination for large files |
-| `tail_file` | Read the last N lines of a file with an optional grep filter â€” useful for log files, large build output, and test results |
+| `tail_file` | Read the last N lines of a file with an optional grep filter — useful for log files, large build output, and test results |
 | `write_file` | Write or overwrite files |
-| `edit_file` | Find-and-replace edits with three-level fuzzy recovery (rstrip â†’ full-strip â†’ cross-file hint) and indent auto-correction |
+| `edit_file` | Find-and-replace edits with three-level fuzzy recovery (rstrip → full-strip → cross-file hint) and indent auto-correction |
 | `multi_search_replace` | Bulk find-and-replace with per-hunk fuzzy fallback |
 | `grep_files` | Regex search with context lines, files-only mode, and pagination |
 | `list_files` | Directory listing with extension filtering |
@@ -886,10 +886,10 @@ Hematite gives the loaded model a real local tool suite for coding work. This is
 | `git_push` | Push to origin HEAD |
 | `git_worktree` | Create, list, prune, and remove isolated worktrees |
 | `verify_build` | Run build/test/lint/fix validation through verify profiles or auto-detected defaults |
-| `run_code` | Execute JavaScript/TypeScript (Deno) or Python in a zero-trust sandbox â€” real output, not model guesses |
+| `run_code` | Execute JavaScript/TypeScript (Deno) or Python in a zero-trust sandbox — real output, not model guesses |
 | `clarify` | Ask the user a question when genuinely blocked |
 
-Use `inspect_host` first for any SysAdmin, Network Admin, or developer tooling question. It now covers 125+ read-only topics grounded in real tool output: the full OS stack (hardware, health, processes, services, audio, Bluetooth, camera, sign-in, Microsoft 365 identity broker health, installer health, OneDrive sync, browser/WebView2 health, search indexing, display config, time sync, CPU power, credentials, TPM, security, storage, crash history, GPO, certs, integrity, domain), the full network stack (connectivity, Wi-Fi, VPN, proxy, firewall, traceroute, DNS, ARP, routing, LAN neighborhood discovery), and the developer tooling layer (environment variables, hosts file, Docker, Docker filesystem audits, WSL, WSL filesystem audits, SSH, installed software, global git config). When you ask about multiple topics at once, the harness runs all inspect_host calls automatically before the model turn and injects combined results as context â€” no redundant tool calls. `shell` is still available for the cases that genuinely need a custom command.
+Use `inspect_host` first for any SysAdmin, Network Admin, or developer tooling question. It now covers 125+ read-only topics grounded in real tool output: the full OS stack (hardware, health, processes, services, audio, Bluetooth, camera, sign-in, Microsoft 365 identity broker health, installer health, OneDrive sync, browser/WebView2 health, search indexing, display config, time sync, CPU power, credentials, TPM, security, storage, crash history, GPO, certs, integrity, domain), the full network stack (connectivity, Wi-Fi, VPN, proxy, firewall, traceroute, DNS, ARP, routing, LAN neighborhood discovery), and the developer tooling layer (environment variables, hosts file, Docker, Docker filesystem audits, WSL, WSL filesystem audits, SSH, installed software, global git config). When you ask about multiple topics at once, the harness runs all inspect_host calls automatically before the model turn and injects combined results as context — no redundant tool calls. `shell` is still available for the cases that genuinely need a custom command.
 
 ---
 
@@ -933,7 +933,7 @@ If LM Studio is serving a very small active context window such as 4k, Hematite 
 
 If you want to force that sync manually, Hematite now exposes `/runtime-refresh` in the TUI. Context-window failures also trigger an immediate runtime-profile refresh so the operator can see whether LM Studio is still serving the same model and active context budget.
 
-This is intentionally tuned around single-GPU consumer hardware. The design goal is not cloud parity; it is to get the best practical coding workflow out of a 4070-class local box. On larger hardware â€” a 5090, a multi-GPU workstation, or server-class gear running a 70B or 200B model â€” these same mechanisms scale up: context pressure eases, compaction fires less often, and the model's own capability handles more of what the harness compensates for on a 9B.
+This is intentionally tuned around single-GPU consumer hardware. The design goal is not cloud parity; it is to get the best practical coding workflow out of a 4070-class local box. On larger hardware — a 5090, a multi-GPU workstation, or server-class gear running a 70B or 200B model — these same mechanisms scale up: context pressure eases, compaction fires less often, and the model's own capability handles more of what the harness compensates for on a 9B.
 
 ### Adaptive Thought Efficiency
 
@@ -953,7 +953,7 @@ Before every file edit, Hematite snapshots a hidden git ref at `refs/hematite/gh
 
 `/swarm <directive>` spawns parallel worker agents that research, implement, and propose diffs for review. Worker count is capped automatically based on available VRAM.
 
-**Single-GPU note:** on a single consumer GPU with one model loaded, workers share the same inference endpoint and run sequentially rather than truly in parallel. On a 4070-class machine it still works â€” workers run one after another and review diffs in the modal before anything is applied. Swarm reaches its full potential on multi-GPU setups, high-VRAM cards (3090/5090) running larger models, or when pointing at a remote LM Studio instance where workers genuinely run concurrently.
+**Single-GPU note:** on a single consumer GPU with one model loaded, workers share the same inference endpoint and run sequentially rather than truly in parallel. On a 4070-class machine it still works — workers run one after another and review diffs in the modal before anything is applied. Swarm reaches its full potential on multi-GPU setups, high-VRAM cards (3090/5090) running larger models, or when pointing at a remote LM Studio instance where workers genuinely run concurrently.
 
 ### Project Rule And Skill Discovery
 
@@ -968,27 +968,27 @@ That keeps Hematite's core workflows deterministic while still letting each repo
 
 ### The Vein (Hybrid RAG Memory)
 
-The Vein is Hematite's retrieval layer. At the start of every turn it re-indexes any changed files and queries for chunks relevant to the user's message. Results are injected directly into the system prompt so the model starts the turn with the right code already visible â€” reducing wasted `read_file` calls and letting smaller models perform better on unfamiliar codebases.
+The Vein is Hematite's retrieval layer. At the start of every turn it re-indexes any changed files and queries for chunks relevant to the user's message. Results are injected directly into the system prompt so the model starts the turn with the right code already visible — reducing wasted `read_file` calls and letting smaller models perform better on unfamiliar codebases.
 
-**The index is per-workspace.** In normal project folders the database lives at `.hematite/vein.db` inside the workspace root. In sovereign OS folders like Desktop or Downloads, Hematite uses `~/.hematite/vein.db` instead so those directories stay clean. Run Hematite in a different project folder and it gets a completely separate index for that project â€” no cross-contamination. The index is purely file-driven: it learns from what's on disk, not from the conversation. As you edit code the index stays current automatically because files are only re-indexed when their mtime changes.
+**The index is per-workspace.** In normal project folders the database lives at `.hematite/vein.db` inside the workspace root. In sovereign OS folders like Desktop or Downloads, Hematite uses `~/.hematite/vein.db` instead so those directories stay clean. Run Hematite in a different project folder and it gets a completely separate index for that project — no cross-contamination. The index is purely file-driven: it learns from what's on disk, not from the conversation. As you edit code the index stays current automatically because files are only re-indexed when their mtime changes.
 
 **The Vein now has four local memory inputs:**
 
-- **Project source files** â€” the main code/config index for real project workspaces.
-- **Reference docs in `.hematite/docs/`** â€” always indexable local support material, including docs-only launches outside projects.
-- **Recent session reports in the runtime-state `reports/` directory** â€” the last 5 sessions are indexed as exchange pairs, capped to the last 50 user/assistant turns per session, so prior local decisions can be recalled without flooding the index.
-- **Imported chat exports in `.hematite/imports/`** â€” drop in Claude Code JSONL, Codex CLI JSONL, simple role/content JSON exports, ChatGPT-style `mapping` exports, or already-normalized `>` transcripts and Hematite will index them as imported session memory automatically.
+- **Project source files** — the main code/config index for real project workspaces.
+- **Reference docs in `.hematite/docs/`** — always indexable local support material, including docs-only launches outside projects.
+- **Recent session reports in the runtime-state `reports/` directory** — the last 5 sessions are indexed as exchange pairs, capped to the last 50 user/assistant turns per session, so prior local decisions can be recalled without flooding the index.
+- **Imported chat exports in `.hematite/imports/`** — drop in Claude Code JSONL, Codex CLI JSONL, simple role/content JSON exports, ChatGPT-style `mapping` exports, or already-normalized `>` transcripts and Hematite will index them as imported session memory automatically.
 
 **Two retrieval modes run together:**
 
-- **BM25 keyword search** (always on) â€” SQLite FTS5 with Porter stemming. Zero extra GPU cost, works with any local runtime setup.
-- **Semantic vector search** (optional, better) â€” Calls the active provider's embedding endpoint (`/v1/embeddings` on LM Studio, `/api/embed` on Ollama) using your preferred embedding model. Understands concept-level queries: "what renders the startup screen" finds the right function even if no file uses the word "banner". Vectors are stored in SQLite and reused across sessions so files are only re-embedded when they actually change.
+- **BM25 keyword search** (always on) — SQLite FTS5 with Porter stemming. Zero extra GPU cost, works with any local runtime setup.
+- **Semantic vector search** (optional, better) — Calls the active provider's embedding endpoint (`/v1/embeddings` on LM Studio, `/api/embed` on Ollama) using your preferred embedding model. Understands concept-level queries: "what renders the startup screen" finds the right function even if no file uses the word "banner". Vectors are stored in SQLite and reused across sessions so files are only re-embedded when they actually change.
 
-**Why run two models?** The coding model handles language, reasoning, and tool calls. The embedding model does one specific job: convert code chunks and your queries into vectors so Hematite can find the most relevant files by meaning rather than just keywords. It stays loaded but idle during inference â€” it only activates when indexing changed files or searching. On an RTX 4070 (12 GB VRAM), Qwen/Qwen3.5-9B Q4_K_M plus an embedding model still leaves comfortable headroom. LM Studio is the recommended default, but Ollama can now drive the same semantic-search lane when you configure an embed model.
+**Why run two models?** The coding model handles language, reasoning, and tool calls. The embedding model does one specific job: convert code chunks and your queries into vectors so Hematite can find the most relevant files by meaning rather than just keywords. It stays loaded but idle during inference — it only activates when indexing changed files or searching. On an RTX 4070 (12 GB VRAM), Qwen/Qwen3.5-9B Q4_K_M plus an embedding model still leaves comfortable headroom. LM Studio is the recommended default, but Ollama can now drive the same semantic-search lane when you configure an embed model.
 
 **To enable semantic search:** load or prefer an embedding model alongside your main coding model. On LM Studio that usually means `nomic-embed-text-v2`; on Ollama you can use an embedding model such as `embeddinggemma`, `qwen3-embedding`, or `all-minilm` and save it with `/embed prefer <id>`. The status bar shows `VN:SEM` (green) when semantic search is active, `VN:FTS` (yellow) when only BM25 is running, `VN:DOC` when Hematite is outside a real project but docs/session memory are still searchable, and `VN:--` (grey) before the first index pass or after a reset.
 
-**Automatic backfill:** if you load the embedding model after Hematite has already indexed your project, it detects the gap and re-embeds the missing chunks gradually across the next few turns â€” no `/vein-reset` or file-touch needed. The `VN:FTS` badge flips to `VN:SEM` once the backfill completes.
+**Automatic backfill:** if you load the embedding model after Hematite has already indexed your project, it detects the gap and re-embeds the missing chunks gradually across the next few turns — no `/vein-reset` or file-touch needed. The `VN:FTS` badge flips to `VN:SEM` once the backfill completes.
 
 Hybrid results are merged and ranked: semantic hits score higher when the embedding model is available; BM25 fills the gap when it isn't. Results are deduplicated by file path and capped so they don't crowd out the model's working context.
 
@@ -996,7 +996,7 @@ Hybrid results are merged and ranked: semantic hits score higher when the embedd
 
 **Ranking cues:** Vein reranking gives extra weight to exact quoted phrases, standout tokens like filenames, commands, codenames, and tool IDs, memory-style prompts such as "what did we decide earlier" that should lean toward session/import memory instead of generic source overlap, and time-anchored memory questions such as explicit dates, "yesterday", or "last week" so the right session period outranks stale matches.
 
-**Memory-type tagging:** session memory chunks (local session reports and imported chat exports) are automatically classified as `decision`, `problem`, `milestone`, or `preference` using zero-cost pattern matching. Tags are stored alongside each chunk. When your query matches a memory intent â€” e.g. "what did we decide about auth" skews toward `decision` chunks, "what broke last time" toward `problem` â€” those matching chunks receive a retrieval boost. This surfaces the right kind of memory (an architectural decision vs. a known bug vs. a style preference) without any special query syntax.
+**Memory-type tagging:** session memory chunks (local session reports and imported chat exports) are automatically classified as `decision`, `problem`, `milestone`, or `preference` using zero-cost pattern matching. Tags are stored alongside each chunk. When your query matches a memory intent — e.g. "what did we decide about auth" skews toward `decision` chunks, "what broke last time" toward `problem` — those matching chunks receive a retrieval boost. This surfaces the right kind of memory (an architectural decision vs. a known bug vs. a style preference) without any special query syntax.
 
 **Room taxonomy:** Vein room detection is now rule-based across path segments and filenames, so files like `Cargo.toml`, `runtime.rs`, `mcp_manager.rs`, GitHub workflow YAML, installer assets, and top-level docs land in more useful rooms such as `config`, `runtime`, `integration`, `automation`, `release`, and `docs` instead of collapsing into generic folder names.
 
@@ -1006,17 +1006,17 @@ Hybrid results are merged and ranked: semantic hits score higher when the embedd
 
 **To wipe and rebuild the index** (e.g. switching projects or after a big refactor): use `/vein-reset` in the TUI. The database is cleared immediately and rebuilt from scratch on the next turn. For a full deep clean including the database file, use `pwsh ./clean.ps1 -Deep`.
 
-**Large file support:** the index covers files up to 512 KB â€” large source files like `tui.rs`, `inference.rs`, and `conversation.rs` are indexed in full, not silently skipped.
+**Large file support:** the index covers files up to 512 KB — large source files like `tui.rs`, `inference.rs`, and `conversation.rs` are indexed in full, not silently skipped.
 
 **BM25 query accuracy:** stopwords are filtered and tokens are OR-joined so conversational queries like "how does the specular panel work" return relevant results instead of empty matches.
 
 **Backfill ordering:** when the embedding model is loaded after initial indexing, `.rs` source files are embedded before documentation and config files so the most useful chunks get semantic vectors first.
 
-### Sandboxed Code Execution â€” Real Answers, Not Training-Data Guesses
+### Sandboxed Code Execution — Real Answers, Not Training-Data Guesses
 
 This is where Hematite pulls ahead of LM Studio's built-in chat in a way that's hard to ignore.
 
-LM Studio's chat interface can discuss algorithms, explain logic, and write code. It cannot run any of it. When you ask a local model "what's the 20th Fibonacci number?" or "does this regex match that string?", it reaches into training data and gives you a plausible answer â€” which may be exactly right, slightly wrong, or confidently wrong, and you have no way to verify it inside the conversation.
+LM Studio's chat interface can discuss algorithms, explain logic, and write code. It cannot run any of it. When you ask a local model "what's the 20th Fibonacci number?" or "does this regex match that string?", it reaches into training data and gives you a plausible answer — which may be exactly right, slightly wrong, or confidently wrong, and you have no way to verify it inside the conversation.
 
 Hematite's `run_code` tool closes that gap. The model writes the code. Hematite runs it. The real output comes back in the same turn.
 
@@ -1025,25 +1025,25 @@ Hematite's `run_code` tool closes that gap. The model writes the code. Hematite 
 ```
 User: use run_code to compute the SHA-256 hash of the string "Hematite"
 
-[Hematite calls run_code â†’ Deno sandbox â†’ real crypto process executes]
+[Hematite calls run_code → Deno sandbox → real crypto process executes]
 
 94a194250ccdb8506d67ead15dd3a1db50803855123422f21b378b56f80ba99c
 ```
 
-That output cannot come from training data. SHA-256 is deterministic but not memorizable â€” the model has no way to produce `94a194250ccdb8506d67ead15dd3a1db50803855123422f21b378b56f80ba99c` without actually running a hash function. One tool call. Real cryptographic computation. LM Studio's chat interface cannot do this regardless of which model is loaded.
+That output cannot come from training data. SHA-256 is deterministic but not memorizable — the model has no way to produce `94a194250ccdb8506d67ead15dd3a1db50803855123422f21b378b56f80ba99c` without actually running a hash function. One tool call. Real cryptographic computation. LM Studio's chat interface cannot do this regardless of which model is loaded.
 
 **What you can do with this:**
 - Verify a sorting algorithm on a real sample of your data
 - Test a regex against actual strings from your codebase
 - Run a quick proof on a logic branch before committing
 - Generate test fixtures, compute checksums, validate data transformations
-- Debug a function by running it with edge-case inputs â€” and letting the model read the real output
+- Debug a function by running it with edge-case inputs — and letting the model read the real output
 
 **Zero-trust sandbox.** Deno runs with `--deny-net`, `--deny-env`, `--deny-sys`, `--deny-run`, `--deny-ffi` and only read/write access to the workspace. The process cannot reach the network, read environment variables, call native libraries, or spawn other processes. Python runs with a cleared environment and blocked imports for `subprocess`, `socket`, `urllib`, and related modules.
 
-**Automatic computation routing.** Hematite detects when a query requires precise numeric results â€” hashes, financial math, statistics, date arithmetic, unit conversions, algorithmic checks â€” and automatically nudges the model to use `run_code` instead of answering from training-data memory. If the model tries to use `shell` for code execution, the harness blocks it and forces a `run_code` retry. If the model writes Python without specifying `language: "python"` and Deno rejects the syntax, the harness catches the parse error and forces a corrective retry with the right language. The model computes. The harness enforces it.
+**Automatic computation routing.** Hematite detects when a query requires precise numeric results — hashes, financial math, statistics, date arithmetic, unit conversions, algorithmic checks — and automatically nudges the model to use `run_code` instead of answering from training-data memory. If the model tries to use `shell` for code execution, the harness blocks it and forces a `run_code` retry. If the model writes Python without specifying `language: "python"` and Deno rejects the syntax, the harness catches the parse error and forces a corrective retry with the right language. The model computes. The harness enforces it.
 
-**No extra install needed if you use LM Studio.** LM Studio ships Deno internally. Hematite finds it automatically â€” no configuration required. If you're not using LM Studio, install Deno globally: `winget install DenoLand.Deno`.
+**No extra install needed if you use LM Studio.** LM Studio ships Deno internally. Hematite finds it automatically — no configuration required. If you're not using LM Studio, install Deno globally: `winget install DenoLand.Deno`.
 
 ### Built-In Web Research
 
@@ -1053,13 +1053,13 @@ Hematite can search the web for technical information when local context is not 
 
 For architecture and control-flow questions, Hematite can use `trace_runtime_flow` to return a verified read-only runtime trace instead of relying on model memory alone. This is especially useful on local open models where exact symbol tracing is weaker than cloud frontier models.
 
-Supported topics: `user_turn`, `session_reset`, `reasoning_split`, `runtime_subsystems`, `startup`, `voice`. The `voice` topic covers the Ctrl+T toggle binding, `VoiceManager.toggle()`, and the speech pipeline â€” returning a grounded answer in a single tool call instead of burning multiple turns on grep searches that return empty.
+Supported topics: `user_turn`, `session_reset`, `reasoning_split`, `runtime_subsystems`, `startup`, `voice`. The `voice` topic covers the Ctrl+T toggle binding, `VoiceManager.toggle()`, and the speech pipeline — returning a grounded answer in a single tool call instead of burning multiple turns on grep searches that return empty.
 
 For broad read-only architecture walkthroughs, Hematite pairs `trace_runtime_flow` with the PageRank-powered repo map instead of letting the model freestyle a long repo tour. The intended shape is: repo map for structure (most important files ranked first), one `trace_runtime_flow` topic for runtime or control flow, then a compact grounded overview.
 
 ### PageRank-Powered Repo Maps
 
-Hematite builds a structural overview of the entire codebase at startup using `tree-sitter` to extract definitions and references from every source file, then runs PageRank (via `petgraph`) on the resulting dependency graph. Files that are referenced by many other files rank highest â€” so the model wakes up already knowing that `conversation.rs` is the heart of the agent loop, not just another alphabetically-sorted filename.
+Hematite builds a structural overview of the entire codebase at startup using `tree-sitter` to extract definitions and references from every source file, then runs PageRank (via `petgraph`) on the resulting dependency graph. Files that are referenced by many other files rank highest — so the model wakes up already knowing that `conversation.rs` is the heart of the agent loop, not just another alphabetically-sorted filename.
 
 The repo map is injected directly into the system prompt alongside The Vein's hot-file context. This means the model can answer architectural questions ("what are the core modules?") on the first turn without calling any tools. For a 32K context window on consumer hardware, this is a significant token savings.
 
@@ -1159,7 +1159,7 @@ Practical rule: the build label reflects git state at compile time. If you make 
 
 ### Background Audio Engine
 
-Press `Ctrl+T` to enable real-time text-to-speech. Hematite ships a **self-contained voice engine** â€” no install, no downloads, no Python. The Kokoro model (311 MB), all 54 voices, and ONNX Runtime 1.24.2 are statically linked into the binary at compile time. On first start the voice engine loads in the background (~10â€“30s on an RTX 4070); you'll see "Vibrant & Ready" in the chat when it's done. Responses spoken during that window are buffered and played back once the engine is ready.
+Press `Ctrl+T` to enable real-time text-to-speech. Hematite ships a **self-contained voice engine** — no install, no downloads, no Python. The Kokoro model (311 MB), all 54 voices, and ONNX Runtime 1.24.2 are statically linked into the binary at compile time. On first start the voice engine loads in the background (~10–30s on an RTX 4070); you'll see "Vibrant & Ready" in the chat when it's done. Responses spoken during that window are buffered and played back once the engine is ready.
 
 For packaged releases, that voice engine is baked in. The crates.io/source build defaults to a publish-safe no-embedded-voice build unless you compile it yourself with `--features embedded-voice-assets` and provide the voice assets locally.
 
@@ -1167,9 +1167,9 @@ That split is deliberate. The packaged Hematite releases are the full product: b
 
 Voice settings are configurable via `/voice` or `settings.json`:
 
-- `/voice` â€” list all 54 voices
-- `/voice N` or `/voice <id>` â€” select a voice, saved immediately
-- `voice_speed` (0.5â€“2.0Ã—) and `voice_volume` (0.0â€“3.0Ã—) in `.hematite/settings.json`
+- `/voice` — list all 54 voices
+- `/voice N` or `/voice <id>` — select a voice, saved immediately
+- `voice_speed` (0.5–2.0×) and `voice_volume` (0.0–3.0×) in `.hematite/settings.json`
 
 ### Session Reports
 
@@ -1188,13 +1188,13 @@ On every exit (Ctrl+C) or cancel (ESC), Hematite writes a structured JSON report
 }
 ```
 
-Reports are gitignored â€” they are local runtime artifacts for your own review.
+Reports are gitignored — they are local runtime artifacts for your own review.
 
-Hematite also reuses those reports as local retrieval memory. The Vein indexes recent reports by exchange pair â€” one user message plus Hematite's reply â€” under `session/.../turn-N`, capped to the last 5 sessions and last 50 turns per session. These chunks are tagged as `session` memory so they stay available when relevant without inflating normal source-file counts in the status bar.
+Hematite also reuses those reports as local retrieval memory. The Vein indexes recent reports by exchange pair — one user message plus Hematite's reply — under `session/.../turn-N`, capped to the last 5 sessions and last 50 turns per session. These chunks are tagged as `session` memory so they stay available when relevant without inflating normal source-file counts in the status bar.
 
 ### Tool Output Overflow to Scratch
 
-When a tool returns more than 8 KB of output, Hematite writes the full content to `.hematite/scratch/<tool>_<timestamp>.txt` inside the active runtime-state directory and delivers a truncation notice that includes the scratch path. The model can recover the full result with a single `read_file` call without repeating the original tool call. Nothing is silently discarded â€” large shell outputs, long grep results, and verbose build logs are always retrievable.
+When a tool returns more than 8 KB of output, Hematite writes the full content to `.hematite/scratch/<tool>_<timestamp>.txt` inside the active runtime-state directory and delivers a truncation notice that includes the scratch path. The model can recover the full result with a single `read_file` call without repeating the original tool call. Nothing is silently discarded — large shell outputs, long grep results, and verbose build logs are always retrievable.
 
 ### Tool Loop Guard
 
@@ -1202,12 +1202,12 @@ If the model calls the same tool with identical arguments 3 or more times in a s
 
 ### Progressive Edit Recovery
 
-`edit_file` and `multi_search_replace` normalize CRLF â†’ LF before matching so model search strings (always LF) work on Windows files. When exact matching still fails, Hematite escalates through three recovery levels automatically:
+`edit_file` and `multi_search_replace` normalize CRLF → LF before matching so model search strings (always LF) work on Windows files. When exact matching still fails, Hematite escalates through three recovery levels automatically:
 
-- **Level 0 â€” exact match** (CRLF-normalized): the model's search string matched as-is against the file.
-- **Level 1 â€” rstrip fallback**: strips trailing whitespace from each line but preserves leading indentation. Catches edits where the model included trailing spaces the file does not have.
-- **Level 2 â€” full-strip fallback**: strips all surrounding whitespace. Catches minor indent drift between the model's search string and the file's actual indentation.
-- **Cross-file hint**: if all three levels fail, Hematite scans up to 100 source files in the workspace looking for the search string. If it finds a match in a different file, the error message names that file â€” so the model can immediately retry against the correct target instead of looping on the wrong one.
+- **Level 0 — exact match** (CRLF-normalized): the model's search string matched as-is against the file.
+- **Level 1 — rstrip fallback**: strips trailing whitespace from each line but preserves leading indentation. Catches edits where the model included trailing spaces the file does not have.
+- **Level 2 — full-strip fallback**: strips all surrounding whitespace. Catches minor indent drift between the model's search string and the file's actual indentation.
+- **Cross-file hint**: if all three levels fail, Hematite scans up to 100 source files in the workspace looking for the search string. If it finds a match in a different file, the error message names that file — so the model can immediately retry against the correct target instead of looping on the wrong one.
 
 On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected automatically: the indent difference between the model's search string and the file's actual span is measured and applied to the replace block, so inserted code lands with the right indentation rather than whatever the model happened to generate.
 
@@ -1235,11 +1235,11 @@ On any fuzzy match (Level 1 or 2), replace-string indentation is delta-corrected
 /embed [status|load <id>|unload [id|current]|prefer <id>|clear]  Inspect, load, unload, or save the preferred embed model
 /new              Fresh task context; clear chat, pins, and task files
 /forget           Hard forget; purge saved memory and the Vein index too
-/compact          Compact history in place â€” summarizes older turns, frees context, preserves active task; safer than /new
-/budget           Show context budget ledger for the last turn â€” token delta, per-tool costs, context fill %; also appears in SPECULAR after every turn
+/compact          Compact history in place — summarizes older turns, frees context, preserves active task; safer than /new
+/budget           Show context budget ledger for the last turn — token delta, per-tool costs, context fill %; also appears in SPECULAR after every turn
 /fix              Run verify_build now, then fire a focused FIX MODE intervention on the next turn; `/fix --test` targets tests instead of build
 /task             Show the persistent task list
-/task add <text>  Add a task â€” injected into the system prompt every turn
+/task add <text>  Add a task — injected into the system prompt every turn
 /task done <N>    Mark task N complete
 /task remove <N>  Remove task N
 /task clear       Wipe all tasks
@@ -1304,9 +1304,9 @@ Attribution note:
 
 **Hotkeys:** `Ctrl+B` brief mode (also collapses side chrome), `Ctrl+P` professional mode, `Ctrl+Y` approvals off, `Ctrl+T` voice toggle, `Ctrl+O` attach document, `Ctrl+I` attach image, `Ctrl+Z` undo, `Ctrl+Q`/`Ctrl+C` quit, `ESC` cancel
 
-**TTS read mode (`/read`):** Type `/read <any text>` to speak content aloud directly through the voice engine â€” no model call, no wait. Paste a paragraph, an error log, an email, anything. ESC stops playback mid-sentence. Voice must be enabled (`Ctrl+T`).
+**TTS read mode (`/read`):** Type `/read <any text>` to speak content aloud directly through the voice engine — no model call, no wait. Paste a paragraph, an error log, an email, anything. ESC stops playback mid-sentence. Voice must be enabled (`Ctrl+T`).
 
-**File mention (`@`):** Type `@` anywhere in your message to open a live file picker. Hematite scans the workspace and filters matches as you type â€” source files and docs float to the top. Press `Tab` or `Enter` to insert the path. Use this to reference a file inline without leaving the input.
+**File mention (`@`):** Type `@` anywhere in your message to open a live file picker. Hematite scans the workspace and filters matches as you type — source files and docs float to the top. Press `Tab` or `Enter` to insert the path. Use this to reference a file inline without leaving the input.
 
 ---
 
@@ -1314,7 +1314,7 @@ Attribution note:
 
 No setup required. Voice is built in.
 
-The full Kokoro TTS engine â€” model weights, all 54 voices, and ONNX Runtime 1.24.2 â€” is baked into the packaged Hematite binary at compile time. Press `Ctrl+T` to toggle it on.
+The full Kokoro TTS engine — model weights, all 54 voices, and ONNX Runtime 1.24.2 — is baked into the packaged Hematite binary at compile time. Press `Ctrl+T` to toggle it on.
 
 **Why this matters:** most local TTS tools require a separate Python runtime, manual model downloads, or specific system DLL versions. Hematite's packaged releases ship everything in one binary. The only runtime dependency is `DirectML.dll`, which is bundled in the portable release and ships with Windows 10 1903+.
 
@@ -1375,7 +1375,7 @@ Hematite reads `.hematite/settings.json` from your project root, with `~/.hemati
 }
 ```
 
-**`api_url`** â€” LLM provider endpoint. Defaults to `http://localhost:1234/v1` (LM Studio). Set this to point Hematite at any OpenAI-compatible server:
+**`api_url`** — LLM provider endpoint. Defaults to `http://localhost:1234/v1` (LM Studio). Set this to point Hematite at any OpenAI-compatible server:
 
 | Provider | `api_url` |
 |---|---|
@@ -1383,7 +1383,7 @@ Hematite reads `.hematite/settings.json` from your project root, with `~/.hemati
 | Ollama | `http://localhost:11434/v1` |
 | Remote machine | `http://192.168.x.x:1234/v1` |
 
-This overrides the `--url` CLI flag. The value is the `/v1` base path â€” Hematite appends `/chat/completions`, `/models`, and `/embeddings` automatically.
+This overrides the `--url` CLI flag. The value is the `/v1` base path — Hematite appends `/chat/completions`, `/models`, and `/embeddings` automatically.
 
 If you prefer not to edit JSON by hand, use `/provider` inside Hematite:
 
@@ -1401,21 +1401,21 @@ For a live diagnosis of the current session, use `/runtime`. It reports the conf
 
 The bottom status badge now also surfaces that primary runtime issue compactly as `RT:*`, so you can tell at a glance whether the problem is `MOD` (no model), `NET` (provider/connectivity), `EMP` (empty replies), `CTX` (context ceiling), or `WAIT` (boot/recovery).
 
-**`context_hint`** â€” an optional string injected into the system prompt every turn. Use it to give Hematite a permanent shortcut to the parts of your project it would otherwise have to rediscover by reading files.
+**`context_hint`** — an optional string injected into the system prompt every turn. Use it to give Hematite a permanent shortcut to the parts of your project it would otherwise have to rediscover by reading files.
 
-The best hints tell the model **where things live** â€” large files with non-obvious structure, key entry points, or the pattern it needs to find a specific type of change:
+The best hints tell the model **where things live** — large files with non-obvious structure, key entry points, or the pattern it needs to find a specific type of change:
 
 ```json
 "context_hint": "Entry point is src/main.rs. Config loading is in src/config.rs."
 "context_hint": "This is a Next.js 14 app using the App Router. Pages live in src/app/."
 "context_hint": "Database schema is in db/schema.sql. ORM models are in src/models/."
-"context_hint": "UI commands are handled in src/ui/tui.rs around line 950 â€” grep for '/copy' to find the insertion point."
+"context_hint": "UI commands are handled in src/ui/tui.rs around line 950 — grep for '/copy' to find the insertion point."
 "context_hint": "API routes are in src/routes/. Middleware is in src/middleware/auth.rs."
 ```
 
 **When it pays off:** large files (500+ lines) where the model would otherwise read top-to-bottom to find a target. One good hint on a big file can save 3-5 wasted read_file calls per turn.
 
-**Keep it short.** It's injected on every turn, so every token here costs on every request. One or two sentences is ideal. Leave it `null` if your project structure is self-evident from the file tree â€” Hematite's Vein RAG will handle most discovery on its own.
+**Keep it short.** It's injected on every turn, so every token here costs on every request. One or two sentences is ideal. Leave it `null` if your project structure is self-evident from the file tree — Hematite's Vein RAG will handle most discovery on its own.
 
 Permission modes: `read-only`, `developer`, `system-admin`
 
@@ -1498,7 +1498,9 @@ Developed by [Ocean Bennett](https://github.com/undergroundrap)
 
 ## License
 
-Copyright Â© 2026 Ocean Bennett.
+Copyright © 2026 Ocean Bennett.
 
 This project is licensed under the **AGPL-3.0 License** - see the [LICENSE](https://github.com/undergroundrap/hematite-cli/blob/main/LICENSE) file for details.
+
+
 
