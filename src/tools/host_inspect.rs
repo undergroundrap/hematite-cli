@@ -4466,6 +4466,7 @@ fn health_check_network(
 
     #[cfg(not(target_os = "windows"))]
     {
+        let _ = watch;
         let ok = Command::new("ping")
             .args(["-c", "1", "-W", "2", "1.1.1.1"])
             .stdout(std::process::Stdio::null())
