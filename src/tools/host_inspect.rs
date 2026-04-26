@@ -4320,7 +4320,7 @@ fn probe_tool(cmd: &str, arg: &str) -> bool {
         let fallback: Option<String> = match cmd {
             "cargo" | "rustc" | "rustup" => Some(format!(r"{}\\.cargo\\bin\\{}.exe", home, cmd)),
             "node" => Some(r"C:\Program Files\nodejs\node.exe".to_string()),
-            "npm" => Some(format!(r"C:\Program Files\nodejs\npm.cmd")),
+            "npm" => Some("C:\\Program Files\\nodejs\\npm.cmd".to_string()),
             _ => None,
         };
         if let Some(path) = fallback {
@@ -6341,9 +6341,7 @@ fn inspect_dev_conflicts() -> Result<String, String> {
         .filter_map(|x| *x)
         .collect();
         if managers.len() > 1 {
-            conflicts.push(format!(
-                "Multiple Node.js version managers detected (nvm/fnm/volta). Only one should be active to avoid PATH conflicts."
-            ));
+            conflicts.push("Multiple Node.js version managers detected (nvm/fnm/volta). Only one should be active to avoid PATH conflicts.".to_string());
         } else if !managers.is_empty() {
             out.push_str(&format!("  Version manager: {}\n", managers[0]));
         }

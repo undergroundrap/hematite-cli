@@ -3392,7 +3392,7 @@ impl ConversationManager {
                         }
                         Err(e) => e,
                     },
-                    Err(_) => format!("Usage: /task done <number>  (e.g. `/task done 2`)"),
+                    Err(_) => "Usage: /task done <number>  (e.g. `/task done 2`)".to_string(),
                 };
                 for chunk in chunk_text(&msg, 8) {
                     let _ = tx.send(InferenceEvent::Token(chunk)).await;
@@ -3408,7 +3408,7 @@ impl ConversationManager {
                         Ok(_) => format!("Task {} removed.", n),
                         Err(e) => e,
                     },
-                    Err(_) => format!("Usage: /task remove <number>  (e.g. `/task remove 3`)"),
+                    Err(_) => "Usage: /task remove <number>  (e.g. `/task remove 3`)".to_string(),
                 };
                 for chunk in chunk_text(&msg, 8) {
                     let _ = tx.send(InferenceEvent::Token(chunk)).await;

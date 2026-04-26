@@ -1,8 +1,4 @@
-/// Fix recipe lookup table.
-///
-/// Maps finding patterns from health_report / inspect_host output to
-/// first-line action steps. No model required — this is curated knowledge,
-/// not inference. Covers ~80% of what an IT person sees in a normal day.
+/// Curated fix recipes mapping health/inspect findings to action steps.
 
 pub struct Recipe {
     pub severity: &'static str, // "ACTION", "INVESTIGATE", "MONITOR"

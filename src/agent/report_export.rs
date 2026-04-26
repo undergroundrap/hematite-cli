@@ -10,10 +10,7 @@ const REPORT_TOPICS: &[(&str, &str)] = &[
     ("toolchains", "Developer Toolchains"),
 ];
 
-/// IT-first-look topics: the five checks a tech runs on any machine they sit
-/// down at — health, security posture, connectivity, M365 identity, and
-/// pending updates. No developer-specific topics (toolchains, storage deep
-/// dive) — this is the triage lane, not the full workstation report.
+/// IT-first-look triage topics (health, security, connectivity, identity, updates).
 const TRIAGE_TOPICS: &[(&str, &str)] = &[
     ("health_report", "System Health"),
     ("security", "Security Posture"),
@@ -79,7 +76,6 @@ fn triage_preset_title(preset: &str) -> &'static str {
 }
 
 /// Map a plain-English issue description to the most relevant inspect_host topics.
-/// Covers ~90% of common IT problems — pure keyword matching, no model required.
 fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     let lower = issue.to_ascii_lowercase();
     let mut seen = std::collections::HashSet::new();
@@ -506,7 +502,10 @@ pub fn report_has_issues_in_content(content: &str) -> bool {
     for line in content.lines() {
         if line.contains("Health Score:") {
             if let Some(pos) = line.find("Score:") {
-                let after = line[pos + 6..].trim_start().trim_start_matches('*').trim_start();
+                let after = line[pos + 6..]
+                    .trim_start()
+                    .trim_start_matches('*')
+                    .trim_start();
                 return !after.starts_with('A');
             }
         }
