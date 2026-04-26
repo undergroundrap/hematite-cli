@@ -434,7 +434,7 @@ static ALL_RECIPES: &[RecipeEntry] = &[
 
     // ── Service start failure ─────────────────────────────────────────────────
     RecipeEntry {
-        triggers: &["service.*stopped unexpectedly", "failed to start", "service.*error 1067", "service.*error 1053", "service.*error 5", "service terminated", "service.*exited with code", "service.*failed to respond"],
+        triggers: &["stopped unexpectedly", "failed to start", "error 1067", "error 1053", "service terminated", "exited with code", "failed to respond"],
         recipe: Recipe {
             severity: "INVESTIGATE",
             title: "Service failed to start or stopped unexpectedly",
@@ -452,7 +452,7 @@ static ALL_RECIPES: &[RecipeEntry] = &[
 
     // ── RDP unreachable ───────────────────────────────────────────────────────
     RecipeEntry {
-        triggers: &["rdp.*disabled", "fdenytsconnections.*1", "remote desktop.*disabled", "no enabled rdp firewall", "rdp status: disabled"],
+        triggers: &["fdenytsconnections: 1", "no enabled rdp firewall", "rdp status: disabled"],
         recipe: Recipe {
             severity: "ACTION",
             title: "Remote Desktop (RDP) is disabled or blocked",
@@ -470,7 +470,7 @@ static ALL_RECIPES: &[RecipeEntry] = &[
 
     // ── Windows Update service broken ─────────────────────────────────────────
     RecipeEntry {
-        triggers: &["windows update.*stopped", "wuauserv.*stopped", "bits.*stopped", "update service.*not running", "update service.*error", "windows update service.*disabled"],
+        triggers: &["wuauserv: stopped", "wuauserv stopped", "windows update: stopped", "update service stopped", "bits: stopped", "bits stopped"],
         recipe: Recipe {
             severity: "ACTION",
             title: "Windows Update service is stopped or broken",
@@ -488,7 +488,7 @@ static ALL_RECIPES: &[RecipeEntry] = &[
 
     // ── PrintNightmare not mitigated ──────────────────────────────────────────
     RecipeEntry {
-        triggers: &["rpcauthnlevelprivacyenabled.*0", "printnightmare rpc mitigation not applied", "point and print allows silent", "finding: printnightmare"],
+        triggers: &["rpcauthnlevelprivacyenabled: 0", "printnightmare rpc mitigation not applied", "point and print allows silent", "finding: printnightmare"],
         recipe: Recipe {
             severity: "INVESTIGATE",
             title: "PrintNightmare (CVE-2021-34527) mitigation not applied",

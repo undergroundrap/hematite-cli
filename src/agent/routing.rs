@@ -1975,6 +1975,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("reach")
                 || lower.contains("health")));
     let asks_service_dependencies = lower.contains("service depend")
+        || lower.contains("services depend")
         || lower.contains("depends on")
         || lower.contains("service graph")
         || lower.contains("which services depend")

@@ -7562,7 +7562,7 @@ fn test_fix_recipes_match_system_file_corruption() {
 
 #[test]
 fn test_fix_recipes_total_count_expanded() {
-    // Phase 5: now expect at least 24 recipes — trigger all known patterns
+    // Phase 6: now expect at least 28 recipes — trigger all known patterns
     use hematite::agent::fix_recipes::match_recipes;
     let everything = "disk: very low free space\ndisk_health smart predictive failure\n\
         pending reboot required\ncritical error event\nnot running: windefend\n\
@@ -7573,7 +7573,158 @@ fn test_fix_recipes_total_count_expanded() {
         faulting application chrome.exe crash count: 5\n0xc000007b vcruntime140.dll not found\n\
         certificate expires in 15 days\nsignal: poor rssi: -88\n\
         time sync failed ntp source unreachable\nno page file configured\n\
-        autorepairrequired: true windows resource protection found corrupt files";
+        autorepairrequired: true windows resource protection found corrupt files\n\
+        service terminated\nrdp status: disabled\nwuauserv: stopped\nfinding: printnightmare";
     let recipes = match_recipes(everything);
-    assert!(recipes.len() >= 24, "expected at least 24 recipes, got {}", recipes.len());
+    assert!(recipes.len() >= 28, "expected at least 28 recipes, got {}", recipes.len());
+}
+
+// ── Routing: new 0.7.0 topics ───────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_domain_health_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Check DC connectivity and LDAP port",
+        "Is the domain controller reachable?",
+        "Run nltest and check GPO refresh",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("domain_health"), "Expected domain_health for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_detects_service_dependencies_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "What services depend on SQL Server?",
+        "Show service dependency graph",
+        "Which services are needed by WMI?",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("service_dependencies"), "Expected service_dependencies for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_detects_wmi_health_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Is the WMI repository corrupt?",
+        "Check WMI health",
+        "WMI repository repair steps",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("wmi_health"), "Expected wmi_health for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_detects_local_security_policy_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "What is the password policy on this machine?",
+        "Show account lockout threshold",
+        "Check LM compatibility level",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("local_security_policy"), "Expected local_security_policy for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_detects_usb_history_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Show USB device history from registry",
+        "USB forensic audit USBSTOR",
+        "What USB drives have ever been connected?",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("usb_history"), "Expected usb_history for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_detects_print_spooler_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "Is the print spooler vulnerable to PrintNightmare?",
+        "Check spooler service and CVE-2021-34527",
+        "Print spooler security status",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("print_spooler"), "Expected print_spooler for: {q}");
+    }
+}
+
+// ── Fix recipe trigger correctness ──────────────────────────────────────────
+
+#[test]
+fn test_fix_recipes_service_failure_triggers() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let cases = [
+        "service terminated with error",
+        "failed to start the service",
+        "error 1067 the process terminated unexpectedly",
+        "error 1053 service did not respond",
+        "exited with code 1",
+        "failed to respond to the start or control request",
+    ];
+    for c in &cases {
+        let r = match_recipes(c);
+        assert!(!r.is_empty(), "service failure recipe should fire for: {c}");
+    }
+}
+
+#[test]
+fn test_fix_recipes_rdp_disabled_triggers() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let cases = [
+        "rdp status: disabled",
+        "no enabled rdp firewall rule found",
+        "fdenytsconnections: 1",
+    ];
+    for c in &cases {
+        let r = match_recipes(c);
+        assert!(!r.is_empty(), "RDP disabled recipe should fire for: {c}");
+    }
+}
+
+#[test]
+fn test_fix_recipes_windows_update_service_triggers() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let cases = [
+        "wuauserv: stopped",
+        "wuauserv stopped — windows update disabled",
+        "windows update: stopped",
+        "bits: stopped",
+        "bits stopped",
+    ];
+    for c in &cases {
+        let r = match_recipes(c);
+        assert!(!r.is_empty(), "Windows Update service recipe should fire for: {c}");
+    }
+}
+
+#[test]
+fn test_fix_recipes_printnightmare_triggers() {
+    use hematite::agent::fix_recipes::match_recipes;
+    let cases = [
+        "rpcauthnlevelprivacyenabled: 0 — not hardened",
+        "printnightmare rpc mitigation not applied",
+        "point and print allows silent driver install",
+        "finding: printnightmare mitigation missing",
+    ];
+    for c in &cases {
+        let r = match_recipes(c);
+        assert!(!r.is_empty(), "PrintNightmare recipe should fire for: {c}");
+    }
 }

@@ -16174,6 +16174,35 @@ Get-NetAdapter | Sort-Object Status,Name | ForEach-Object {
         Err(e) => out.push_str(&format!("- Adapter query error: {e}\n")),
     }
 
+    out.push_str("\n=== Duplex and negotiated speed ===\n");
+    let ps_duplex = r#"
+Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
+    $name = $_.Name
+    $duplex = Get-NetAdapterAdvancedProperty -Name $name -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -match "Duplex|Speed" } |
+        Select-Object DisplayName, DisplayValue
+    if ($duplex) {
+        "--- $name ---"
+        $duplex | ForEach-Object { "  $($_.DisplayName): $($_.DisplayValue)" }
+    } else {
+        "--- $name --- (no duplex/speed property exposed by driver)"
+    }
+}
+"#;
+    match run_powershell(ps_duplex) {
+        Ok(o) => {
+            let lines: Vec<&str> = o
+                .lines()
+                .map(|l| l.trim())
+                .filter(|l| !l.is_empty())
+                .collect();
+            for l in &lines {
+                out.push_str(&format!("- {l}\n"));
+            }
+        }
+        Err(e) => out.push_str(&format!("- Duplex query error: {e}\n")),
+    }
+
     out.push_str("\n=== Offload and performance settings (Up adapters) ===\n");
     let ps_offload = r#"
 Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
