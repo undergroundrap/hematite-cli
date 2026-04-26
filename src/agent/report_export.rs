@@ -10,6 +10,18 @@ const REPORT_TOPICS: &[(&str, &str)] = &[
     ("toolchains", "Developer Toolchains"),
 ];
 
+/// IT-first-look topics: the five checks a tech runs on any machine they sit
+/// down at — health, security posture, connectivity, M365 identity, and
+/// pending updates. No developer-specific topics (toolchains, storage deep
+/// dive) — this is the triage lane, not the full workstation report.
+const TRIAGE_TOPICS: &[(&str, &str)] = &[
+    ("health_report", "System Health"),
+    ("security", "Security Posture"),
+    ("connectivity", "Connectivity"),
+    ("identity_auth", "Identity & Auth (M365/AAD)"),
+    ("updates", "Windows Updates"),
+];
+
 pub async fn generate_report_markdown() -> String {
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
@@ -354,6 +366,128 @@ fn build_html_document(
 
     let page_title = format!("{} — {}", he(title), he(hostname));
     build_html_shell(&page_title, version, &content)
+}
+
+// ── Triage report (IT-first-look, no model required) ─────────────────────────
+
+pub async fn generate_triage_report_markdown() -> String {
+    let timestamp = now_timestamp_string();
+    let mut hostname = hostname_from_env();
+    let version = env!("CARGO_PKG_VERSION");
+    let mut sections: Vec<(&str, String)> = Vec::new();
+
+    for (topic, label) in TRIAGE_TOPICS {
+        let args = serde_json::json!({"topic": topic});
+        let output = match crate::tools::host_inspect::inspect_host(&args).await {
+            Ok(s) => {
+                if *topic == "health_report" {
+                    for line in s.lines() {
+                        let ll = line.to_ascii_lowercase();
+                        if ll.contains("hostname") || ll.contains("computer name") {
+                            if let Some(val) = line.splitn(2, ':').nth(1) {
+                                let h = val.trim().to_string();
+                                if !h.is_empty() {
+                                    hostname = h;
+                                }
+                            }
+                        }
+                    }
+                }
+                s
+            }
+            Err(e) => format!("Error: {}", e),
+        };
+        sections.push((label, output));
+    }
+
+    let section_refs: Vec<(&str, &str)> = sections.iter().map(|(l, o)| (*l, o.as_str())).collect();
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
+    let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
+
+    let mut md = String::new();
+    md.push_str("# Hematite IT Triage Report\n\n");
+    md.push_str(&format!("**Generated:** {}  \n", timestamp));
+    md.push_str(&format!("**Host:** {}  \n", hostname));
+    md.push_str(&format!("**Hematite:** v{}  \n", version));
+    md.push_str(&format!(
+        "**Health Score:** {} — {}  \n\n",
+        score.grade, score.label
+    ));
+    md.push_str(&format!("> {}\n\n", score.summary_line()));
+    md.push_str("---\n\n## Action Plan\n\n");
+    md.push_str(&action_plan);
+    md.push_str("---\n\n");
+    for (label, output) in &sections {
+        md.push_str(&format!("## {}\n\n```\n", label));
+        md.push_str(output.trim_end());
+        md.push_str("\n```\n\n");
+    }
+    md
+}
+
+pub async fn generate_triage_report_html() -> String {
+    let timestamp = now_timestamp_string();
+    let mut hostname = hostname_from_env();
+    let version = env!("CARGO_PKG_VERSION");
+    let mut sections: Vec<(&str, String)> = Vec::new();
+
+    for (topic, label) in TRIAGE_TOPICS {
+        let args = serde_json::json!({"topic": topic});
+        let output = match crate::tools::host_inspect::inspect_host(&args).await {
+            Ok(s) => {
+                if *topic == "health_report" {
+                    for line in s.lines() {
+                        let ll = line.to_ascii_lowercase();
+                        if ll.contains("hostname") || ll.contains("computer name") {
+                            if let Some(val) = line.splitn(2, ':').nth(1) {
+                                let h = val.trim().to_string();
+                                if !h.is_empty() {
+                                    hostname = h;
+                                }
+                            }
+                        }
+                    }
+                }
+                s
+            }
+            Err(e) => format!("Error: {}", e),
+        };
+        sections.push((label, output));
+    }
+
+    let section_refs: Vec<(&str, &str)> = sections.iter().map(|(l, o)| (*l, o.as_str())).collect();
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
+    let action_plan_html = crate::agent::fix_recipes::format_action_plan_html(&section_refs);
+
+    build_html_document(
+        "Hematite IT Triage Report",
+        &timestamp,
+        &hostname,
+        version,
+        &score,
+        &action_plan_html,
+        &sections,
+    )
+}
+
+pub async fn save_triage_report() -> (String, PathBuf) {
+    let md = generate_triage_report_markdown().await;
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("triage-{}.md", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &md);
+    (md, path)
+}
+
+pub async fn save_triage_report_html() -> (String, PathBuf) {
+    let html = generate_triage_report_html().await;
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("triage-{}.html", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &html);
+    (html, path)
 }
 
 /// Save arbitrary markdown content as a dark-theme HTML page.

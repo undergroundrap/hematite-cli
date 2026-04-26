@@ -797,6 +797,7 @@ mod tests {
             report: false,
             report_format: "md".into(),
             diagnose: false,
+            triage: false,
             open: false,
             pdf_extract_helper: None,
             teleported_from: None,

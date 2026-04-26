@@ -104,6 +104,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if cockpit.triage {
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let path = match fmt.as_str() {
+            "html" => {
+                hematite::agent::report_export::save_triage_report_html()
+                    .await
+                    .1
+            }
+            _ => hematite::agent::report_export::save_triage_report().await.1,
+        };
+        println!("Triage saved: {}", path.display());
+        if cockpit.open {
+            open_path(&path);
+        }
+        return Ok(());
+    }
+
     if let Some(path) = cockpit.pdf_extract_helper.as_deref() {
         let code = hematite::memory::vein::run_pdf_extract_helper(std::path::Path::new(path));
         std::process::exit(code);

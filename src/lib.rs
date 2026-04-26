@@ -205,7 +205,13 @@ pub struct CliCockpit {
 
     #[arg(
         long,
-        help = "After generating a --report or --diagnose, open the saved file in the default application (browser for HTML, editor for Markdown)"
+        help = "IT-first-look triage — runs health, security, connectivity, identity, and update checks in one pass. No model required. Saves to .hematite/reports/triage-DATE. Add --open to launch immediately, --report-format html for a double-clickable report."
+    )]
+    pub triage: bool,
+
+    #[arg(
+        long,
+        help = "After generating a --report, --diagnose, or --triage, open the saved file in the default application (browser for HTML, editor for Markdown)"
     )]
     pub open: bool,
 

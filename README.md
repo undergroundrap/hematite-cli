@@ -571,6 +571,19 @@ Load both in LM Studio at the same time. The embedding model stays resident but 
 
 ## Quick Start
 
+### No-model entry points
+
+These three commands run entirely without a loaded model — no LM Studio, no Ollama, no API key. Useful for checking a machine before any AI infrastructure is set up, or for scripted IT workflows.
+
+```
+hematite --triage                          # IT-first-look: health + security + connectivity + identity + updates
+hematite --triage --report-format html --open   # same, saved as a double-clickable HTML report
+hematite --report                          # full workstation snapshot (health, hardware, storage, network, security, toolchains)
+hematite --diagnose                        # staged triage that fires deeper follow-up checks based on what health_report flags
+```
+
+`--triage` is the "sit-down command" for IT techs. `--report` is the developer workstation snapshot. `--diagnose` is the model-free staged triage that targets follow-up inspection at exactly what the health check flagged.
+
 ### Fastest Summary
 
 1. Install [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com/).
