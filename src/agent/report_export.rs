@@ -99,7 +99,12 @@ async fn run_diagnosis_phases() -> DiagnosisData {
         follow_up_outputs.push((*topic, output));
     }
 
-    DiagnosisData { timestamp, hostname, health_output, follow_up_outputs }
+    DiagnosisData {
+        timestamp,
+        hostname,
+        health_output,
+        follow_up_outputs,
+    }
 }
 
 /// Run a full staged diagnosis — health_report → triage → targeted follow-ups → fix recipes.
@@ -108,8 +113,7 @@ pub async fn generate_diagnosis_report() -> String {
     let version = env!("CARGO_PKG_VERSION");
     let data = run_diagnosis_phases().await;
 
-    let mut section_refs: Vec<(&str, &str)> =
-        vec![("health_report", data.health_output.as_str())];
+    let mut section_refs: Vec<(&str, &str)> = vec![("health_report", data.health_output.as_str())];
     for (topic, output) in &data.follow_up_outputs {
         section_refs.push((*topic, output.as_str()));
     }
@@ -121,7 +125,10 @@ pub async fn generate_diagnosis_report() -> String {
     md.push_str(&format!("**Generated:** {}  \n", data.timestamp));
     md.push_str(&format!("**Host:** {}  \n", data.hostname));
     md.push_str(&format!("**Hematite:** v{}  \n", version));
-    md.push_str(&format!("**Health Score:** {} — {}  \n\n", score.grade, score.label));
+    md.push_str(&format!(
+        "**Health Score:** {} — {}  \n\n",
+        score.grade, score.label
+    ));
     md.push_str(&format!("> {}\n\n", score.summary_line()));
     md.push_str("---\n\n");
     md.push_str("## Action Plan\n\n");
@@ -148,16 +155,14 @@ pub async fn generate_diagnosis_report_html() -> String {
     let version = env!("CARGO_PKG_VERSION");
     let data = run_diagnosis_phases().await;
 
-    let mut section_refs: Vec<(&str, &str)> =
-        vec![("health_report", data.health_output.as_str())];
+    let mut section_refs: Vec<(&str, &str)> = vec![("health_report", data.health_output.as_str())];
     for (topic, output) in &data.follow_up_outputs {
         section_refs.push((*topic, output.as_str()));
     }
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan_html = crate::agent::fix_recipes::format_action_plan_html(&section_refs);
 
-    let mut sections: Vec<(&str, String)> =
-        vec![("System Health", data.health_output.clone())];
+    let mut sections: Vec<(&str, String)> = vec![("System Health", data.health_output.clone())];
     for (topic, output) in &data.follow_up_outputs {
         sections.push((*topic, output.clone()));
     }
@@ -297,7 +302,7 @@ fn build_html_document(
     action_plan_html: &str,
     sections: &[(&str, String)],
 ) -> String {
-    use crate::agent::html_template::{he, build_html_shell, COPY_BUTTON_HTML};
+    use crate::agent::html_template::{build_html_shell, he, COPY_BUTTON_HTML};
 
     let mut sections_html = String::new();
     for (label, output) in sections {
@@ -355,7 +360,7 @@ fn build_html_document(
 /// Returns `(html_string, saved_path)`. Title defaults to a timestamp slug
 /// if empty. Saves to `.hematite/reports/research-DATE.html`.
 pub fn save_research_html(title: &str, body_md: &str) -> (String, PathBuf) {
-    use crate::agent::html_template::{he, markdown_to_html, build_html_shell, COPY_BUTTON_HTML};
+    use crate::agent::html_template::{build_html_shell, he, markdown_to_html, COPY_BUTTON_HTML};
     let version = env!("CARGO_PKG_VERSION");
     let timestamp = now_timestamp_string();
     let display_title = if title.trim().is_empty() {
@@ -408,7 +413,10 @@ fn ensure_parent(path: &PathBuf) {
 fn now_timestamp_string() -> String {
     let now = unix_now();
     let (y, mo, d, h, mi, s) = epoch_to_ymd_hms(now);
-    format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02} UTC", y, mo, d, h, mi, s)
+    format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02} UTC",
+        y, mo, d, h, mi, s
+    )
 }
 
 fn now_file_timestamp() -> String {

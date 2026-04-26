@@ -1,4 +1,4 @@
-# Hematite Capabilities
+﻿# Hematite Capabilities
 
 This document summarizes the technical strengths of **Hematite-CLI** as a local GPU-aware coding harness for LM Studio, Ollama, and other local OpenAI-compatible runtimes, with the strongest optimization focus on single-GPU consumer hardware such as the RTX 4070 class.
 
@@ -19,10 +19,10 @@ That is the lens for the capabilities below.
 - **Windows-first local quality**: PowerShell behavior, path handling, packaging, and terminal ergonomics are treated as first-class product concerns
 - **Agent-harness boundary**: the local runtime is the model server; Hematite owns the workflow, tooling, TUI, safety, retrieval, and orchestration layer
 - **Baked-in workflow core with additive skills**: teleportation, sovereign scaffold, `.hematite/PLAN.md`, `.hematite/TASK.md`, and resumable execution stay in the harness; root `SKILLS.md` / `SKILL.md` guidance plus directory-based Agent Skills under `.agents/skills/` or `.hematite/skills/` are additive layers, not replacements for core workflow control
-- **Full OS stack coverage**: 117+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
+- **Full OS stack coverage**: 125+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **MCP server mode**: `hematite --mcp-server` exposes all 116+ inspect_host topics to any MCP-capable agent (Claude Desktop, OpenClaw, Cursor, Windsurf) over stdio JSON-RPC 2.0. No TUI, no local model needed on the client side.
-- **Privacy gateway**: Two-tier identity stripping before any output leaves the machine. `--edge-redact` (Tier 1) is a fast compiled regex pass — no local model required — that replaces usernames, MACs, serials, hostnames, and credential-shaped values with safe tokens. `--semantic-redact` (Tier 2) routes raw inspect_host output through a dedicated local summarizer model before forwarding; Tier 1 runs after as a safety net. Fail-safe: if the summarizer is unreachable, the call errors — raw data is never sent. Jailbreak-resistant (hardened prompt, unknown MCP args stripped, refusal detection). Metadata-only audit trail at `~/.hematite/redact_audit.jsonl`. Per-topic policy file for hard-blocking sensitive topics or overriding redaction level per topic.
-- **Multi-model local stack**: `--semantic-model <id>` targets a specific model in LM Studio for privacy summarization, independent of the main reasoning model. Verified three-model setup on a single RTX 4070 (12 GB): Qwen3.5 9B Q4_K_M (coding, 6.55 GB) + nomic-embed-text-v2 (search, 0.51 GB) + Bonsai 8B Q1_0 (privacy summarizer, 1.16 GB) = 8.22 GB total. The main model and summarizer never interfere — Hematite sends explicit model IDs in every request. `--semantic-url` points the summarizer at a separate server endpoint for users running a second inference backend. As local models get smaller and smarter, the summarizer slot gets better without changing anything else.
+- **Privacy gateway**: Two-tier identity stripping before any output leaves the machine. `--edge-redact` (Tier 1) is a fast compiled regex pass â€” no local model required â€” that replaces usernames, MACs, serials, hostnames, and credential-shaped values with safe tokens. `--semantic-redact` (Tier 2) routes raw inspect_host output through a dedicated local summarizer model before forwarding; Tier 1 runs after as a safety net. Fail-safe: if the summarizer is unreachable, the call errors â€” raw data is never sent. Jailbreak-resistant (hardened prompt, unknown MCP args stripped, refusal detection). Metadata-only audit trail at `~/.hematite/redact_audit.jsonl`. Per-topic policy file for hard-blocking sensitive topics or overriding redaction level per topic.
+- **Multi-model local stack**: `--semantic-model <id>` targets a specific model in LM Studio for privacy summarization, independent of the main reasoning model. Verified three-model setup on a single RTX 4070 (12 GB): Qwen3.5 9B Q4_K_M (coding, 6.55 GB) + nomic-embed-text-v2 (search, 0.51 GB) + Bonsai 8B Q1_0 (privacy summarizer, 1.16 GB) = 8.22 GB total. The main model and summarizer never interfere â€” Hematite sends explicit model IDs in every request. `--semantic-url` points the summarizer at a separate server endpoint for users running a second inference backend. As local models get smaller and smarter, the summarizer slot gets better without changing anything else.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
@@ -70,7 +70,7 @@ Hematite continuously adapts to the machine it is running on.
 - **Typed operator checkpoints**: SPECULAR now receives explicit runtime checkpoint states for provider recovery, prompt-budget reduction, history compaction, blocked policy paths, blocked recent-file-evidence edits, blocked exact-line-window edits, and other recovery/blocker transitions
 - **Typed recovery recipes**: retries, runtime refreshes, prompt-budget reduction, history compaction, and proof-before-edit recovery are now described by named recovery scenarios and compact step recipes instead of only ad hoc branch logic
 - **Runtime bundle boundary**: startup assembly for engine, channels, watcher, voice, swarm, and runtime profile sync now lives behind a typed runtime bundle instead of being hand-wired directly in `main.rs`
-- **Real-time silicon tracking**: `overclocker` delivers high-fidelity telemetry informed by the **Zero-Overhead Silicon Historian**—a 10-point RAM-only buffer tracking session trends (Temp/Clocks/Power anomalies) without disk baggage.
+- **Real-time silicon tracking**: `overclocker` delivers high-fidelity telemetry informed by the **Zero-Overhead Silicon Historian**â€”a 10-point RAM-only buffer tracking session trends (Temp/Clocks/Power anomalies) without disk baggage.
 - **NVIDIA Deep-Sense**: precision GPU telemetry including real-time power draw and power-cap context (W), graphics/memory clocks (MHz), fan curves, and explicit GPU-voltage availability reporting, plus the **Precision Throttle Truth** engine to decode NVIDIA bitmasks into root-cause casualties (Power vs Thermal).
 - **Typed permission enforcement**: tool authorization now converges through one runtime decision layer for allow, ask, or deny outcomes instead of splitting shell rules, MCP approval defaults, safe-path bypasses, and shell-risk classification across ad hoc branches
 - **Workspace trust state**: the current repo root is resolved through a typed trust policy, so destructive or external actions can behave differently in trusted, unknown, or explicitly denied workspaces
@@ -84,112 +84,112 @@ Hematite continuously adapts to the machine it is running on.
 
 ## 4. SysAdmin and Network Admin
 
-Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
+Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only â€” the harness answers from real observed state, not model guesses.
 
 **SysAdmin topics (77+):**
 
-- **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
-- **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
-- **Services** (`services`) — running Windows services, startup types, and state
-- **Ports** (`ports`) — listening TCP/UDP ports with owning process
-- **Storage** (`storage`) — all-drives capacity with ASCII bar charts, developer cache sizing, and real-time Disk Intensity (Average Disk Queue Length)
-- **Hardware** (`hardware`) — full hardware DNA: CPU model/cores/clock, RAM total/speed/sticks/channel, GPU name/driver/resolution, motherboard/BIOS manufacturer/version, and Virtualization Health (Hypervisor status and SLAT/VT-x capability)
-- **Sessions** (`sessions`) — audits active and disconnected user logon sessions with terminal service info
-- **Health report** (`health_report`) — tiered plain-English verdict (ALL GOOD / WORTH A LOOK / ACTION REQUIRED) across disk, RAM, tools, and recent error events
-- **Windows Update** (`updates`) — last install date, pending update count, Windows Update service state
-- **Security** (`security`) — Defender real-time protection, last scan age, signature freshness, firewall profile states, Windows activation, UAC state
-- **Pending reboot** (`pending_reboot`) — detects queued restarts from Windows Update, CBS, and file rename operations
-- **Disk health** (`disk_health`) — physical drive health via Get-PhysicalDisk and SMART failure prediction
-- **Battery** (`battery`) — charge level, status, estimated runtime, wear level; reports gracefully on desktops
-- **Crash history** (`recent_crashes`) — BSOD/unexpected shutdown events and application crash/hang events from the Windows event log
-- **Application crashes** (`app_crashes`) — detailed application crash/hang triage: faulting app name, version, faulting module, exception code, crash frequency, WER archive count; optional `process` arg to filter by app name
-- **Scheduled tasks** (`scheduled_tasks`) — all non-disabled scheduled tasks with name, path, last run time, and executable
-- **Dev conflicts** (`dev_conflicts`) — cross-tool environment conflict detection: Node version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, duplicate PATH entries
-- **Path and toolchains** (`path`) — full PATH inspection with version detection for installed developer tools
-- **Log check** (`log_check`) — recent system error events from the Windows event log
-- **Event query** (`event_query`) — targeted Windows Event Log filtering by Event ID, provider/source, log name, severity level, and time window; answers plain-English Event Viewer questions without forcing the user into PowerShell
-- **Startup items** (`startup_items`) — boot-time programs and their startup types
-- **OS config** (`os_config`) — firewall profiles, power plan, and uptime
-- **User accounts** (`user_accounts`) — local user accounts (name, enabled, last logon, password required), Administrators group members, active logon sessions, and elevated process state; redirected from `Get-LocalUser` and `net user`
-- **Active Directory User** (`ad_user`) — precise user/group lookup via Get-ADUser or net user/domain; shows SID, enabled status, password expiry, and group memberships; includes **Self-Aware discovery** for 'Who am I?' queries
-- **Audit policy** (`audit_policy`) — Windows audit policy via auditpol; shows which event categories log Success/Failure; flags if no categories are enabled
-- **Hyper-V** (`hyperv`) — Hyper-V role and VMMS service state, VM inventory with name, state, CPU%, RAM assignment, and uptime, VM network switch inventory (External/Internal/Private) with bound NIC, VM checkpoint listing with creation timestamps (flags excessive checkpoints), and RAM overcommit detection vs host physical memory
-- **Shares** (`shares`) — SMB shares exposed by this machine (flags custom non-admin shares), SMB security settings (SMB1/SMB2 state, signing, encryption), and mapped network drives
-- **BitLocker** (`bitlocker`) — drive encryption state per volume (PROTECTED/UNPROTECTED), protection method, and SMB1 warning; LUKS on Linux
-- **RDP** (`rdp`) — Remote Desktop enabled state (registry fDenyTSConnections), port number, NLA/UserAuthentication, firewall group status, and active sessions
-- **Shadow copies** (`shadow_copies`) — VSS shadow copy count and storage allocation, System Restore points, and LVM snapshots on Linux
-- **Page file** (`pagefile`) — virtual memory allocated/current/peak MB, system-managed vs fixed config, RAM context, and high-usage warning
-- **Windows features** (`windows_features`) — enabled optional features with count, notable feature flags (Hyper-V, IIS, Telnet, TFTP, NFS), and quick-check for six key features
-- **Printers** (`printers`) — installed printers with default flag, active print jobs; CUPS on Linux
-- **WinRM** (`winrm`) — Windows Remote Management service state, listener config, TrustedHosts, and Test-WSMan connectivity check
-- **Device health** (`device_health`) — precision detection of malfunctioning hardware via PnP ConfigManager error codes (the "Yellow Bang" devices in Device Manager)
-- **Drivers** (`drivers`) — comprehensive audit of active system drivers with name, type, path, and operational state
-- **Peripherals** (`peripherals`) — deep-dive into USB controllers, HID devices (keyboard/mouse class), and connected monitors
-- **Audio** (`audio`) — Windows Audio service health, playback/recording endpoint inventory, microphone/speaker path checks, Bluetooth-audio crossover, and plain-English diagnosis for “no sound / bad mic / crackling”
-- **Bluetooth** (`bluetooth`) — Bluetooth radio state, service health, paired-device inventory, headset/audio endpoint crossover, and plain-English diagnosis for “won’t pair / keeps disconnecting / wrong headset role”
-- **Camera** (`camera`) — PnP camera/webcam device inventory, Windows camera privacy registry state, Windows Hello biometric camera detection, and plain-English diagnosis for “camera not working / blocked by privacy settings”
-- **Sign-In / Windows Hello** (`sign_in`) — Windows Hello and biometric service state, WBioSrvc health, recent logon failure events (EventID 4625), enrolled credential providers, and plain-English diagnosis for “PIN/fingerprint not working / can’t sign in”
-- **Installer Health** (`installer_health`) — Windows Installer (`msiserver`), AppX/Store install services, `winget`/Desktop App Installer presence, Microsoft Store package health, pending reboot or in-progress installer blockers, and recent MSI/AppX failure evidence
-- **OneDrive** (`onedrive`) — client install/running state, configured accounts, sync-root existence, OneDrive policy blockers, and Known Folder Backup/Desktop/Documents/Pictures redirection state
-- **Browser Health** (`browser_health`) — browser inventory and versions for Edge/Chrome/Firefox, default browser/protocol associations, runtime process and working-set pressure, WebView2 runtime health, browser proxy/policy overrides, profile/cache pressure, and recent browser crash evidence
-- **Identity Auth** (`identity_auth`) — Microsoft 365 identity-broker health across TokenBroker / WAM / AAD Broker Plugin, device registration (`dsregcmd`), token and identity cache hints, cross-app account mismatch detection for Office/Teams/OneDrive, WebView2 auth dependency state, and recent auth-related warning/error events
-- **Outlook** (`outlook`) — classic Outlook and new Outlook for Windows install inventory, running process state and RAM usage, mail profile count, OST and PST file discovery with sizes, add-in inventory with load behavior and resiliency-disabled items, authentication and token broker cache state, and recent Outlook crash evidence from the Application event log
-- **Teams** (`teams`) — classic Teams and new Teams (MSTeams MSIX) install inventory, running process state and RAM usage, cache directory sizing for both classic and new Teams, WebView2 runtime dependency check, account and sign-in state, audio/video device binding, and recent Teams crash evidence from the Application event log
-- **Windows Backup** (`windows_backup`) — File History service state and last backup date/target drive, Windows Backup (wbadmin) last successful backup versions and scheduled tasks, System Restore enabled state and most recent restore point, OneDrive Known Folder Move per-account protection state, and recent backup failure events from the Application event log
-- **Search Index** (`search_index`) — Windows Search (WSearch) service state, indexer registry configuration, indexed locations (shell namespaces + registry fallback), recent indexer errors, and plain-English diagnosis for “search not finding files / indexer stopped”
-- **Display Config** (`display_config`) — active monitor resolution, refresh rate, bits-per-pixel, video adapter driver version, connected monitor names/PnP IDs, and DPI/scaling percentage via Win32 GDI
-- **NTP / Time Sync** (`ntp`) — Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers/registry, and plain-English diagnosis for clock drift or sync failure
-- **CPU Power** (`cpu_power`) — active power plan, processor min/max state and turbo boost mode, current CPU clock and load via WMI Win32_Processor, thermal zone temperatures, and diagnosis for “CPU stuck slow / boost disabled / power plan capping frequency”
-- **Credentials** (`credentials`) — Windows Credential Manager vault summary, credential target inventory via cmdkey, type counts, and plain-English hygiene warnings without ever exposing secret values
-- **TPM / Secure Boot** (`tpm`) — TPM presence/readiness/spec version, Secure Boot state, firmware mode (UEFI vs legacy BIOS), and plain-English diagnosis for Windows 11 or BitLocker security posture
-- **Group Policy** (`gpo`) — applied Group Policy Objects (computer scope), filtering status; requires Administrator elevation on Windows
-- **Certificates** (`certificates`) — local personal certificates with subject, thumbprint, expiry date; flags certs expiring within 30 days
-- **Integrity** (`integrity`) — Windows component store health via SFC/DISM registry and log visibility; flags Corrupt or AutoRepairNeeded state
-- **Domain Context** (`domain`) — Active Directory and domain join status: Join Status (DOMAIN/WORKGROUP), Domain name, and NetBIOS name
-- **Permissions** (`permissions`) — Precision NTFS/ACL security audits; identifies non-admin write access and inheritance state
-- **Login History** (`login_history`) — Triage of recent successful and failed logon events from the security log (Event ID 4624)
-- **Registry Audit** (`registry_audit`) — Proactive security audit for persistence hijacks: IFEO debuggers, Winlogon Shell overrides, BootExecute, and Sticky Keys exploits
-- **Thermal Health** (`thermal`) — Precision telemetry for CPU temperature, thermal margins, and active throttling indicators
-- **Windows Activation** (`activation`) — Audits Windows license status, genuine status, and Product ID/Key metadata
-- **Patch History** (`patch_history`) — Windows HotFix and KB update audit (last 48h focus)
-- **Repo Doctor** (`repo_doctor`) — Workspaces health audit: git status, uncommitted changes, and build-file presence
-- **Disk Benchmark** (`disk_benchmark`) — Sequential read/write throughput and latency measurements on the workspace drive
-- **Overclocker Telemetry** (`overclocker`) — Precision real-time silicon performance: NVIDIA graphics/memory clocks, fan speeds, board power draw and power-cap context (W), explicit GPU-voltage availability reporting, firmware-reported CPU voltage when WMI exposes it, root-cause throttle decoding (Power vs Thermal), and **Session History** (in-memory trends/anomalies) identifying hardware drift since startup.
-- **Authoritative Directory Audit** (`directory`, `desktop`, `downloads`, `music`, `videos`, `pictures`) — High-precision directory listing using OS-level tokens; instantly routes to surgical tools via the deterministic intent engine.
-- **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths.
-- **Storage Spaces / Windows RAID** (`storage_spaces`) — Windows Storage Spaces pool inventory: pool name, health, operational status, resiliency type (Simple/Mirror/Parity), virtual disk health, physical disk member count and media type; Linux fallback reads `/proc/mdstat` and `lvs` for software RAID and LVM; reports gracefully when no pools exist
-- **Defender Quarantine / Threat History** (`defender_quarantine`) — Windows Defender threat detection history: threat name, severity, action taken (Quarantine/Remove/Allow), detection timestamp, affected file path, and current remediation status; also covers recent real-time protection and scan activity from `Get-MpComputerStatus`; Linux fallback checks ClamAV quarantine log
+- **Resource load** (`resource_load`) â€” live CPU and RAM usage with top consumers
+- **Processes** (`processes`) â€” per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
+- **Services** (`services`) â€” running Windows services, startup types, and state
+- **Ports** (`ports`) â€” listening TCP/UDP ports with owning process
+- **Storage** (`storage`) â€” all-drives capacity with ASCII bar charts, developer cache sizing, and real-time Disk Intensity (Average Disk Queue Length)
+- **Hardware** (`hardware`) â€” full hardware DNA: CPU model/cores/clock, RAM total/speed/sticks/channel, GPU name/driver/resolution, motherboard/BIOS manufacturer/version, and Virtualization Health (Hypervisor status and SLAT/VT-x capability)
+- **Sessions** (`sessions`) â€” audits active and disconnected user logon sessions with terminal service info
+- **Health report** (`health_report`) â€” tiered plain-English verdict (ALL GOOD / WORTH A LOOK / ACTION REQUIRED) across disk, RAM, tools, and recent error events
+- **Windows Update** (`updates`) â€” last install date, pending update count, Windows Update service state
+- **Security** (`security`) â€” Defender real-time protection, last scan age, signature freshness, firewall profile states, Windows activation, UAC state
+- **Pending reboot** (`pending_reboot`) â€” detects queued restarts from Windows Update, CBS, and file rename operations
+- **Disk health** (`disk_health`) â€” physical drive health via Get-PhysicalDisk and SMART failure prediction
+- **Battery** (`battery`) â€” charge level, status, estimated runtime, wear level; reports gracefully on desktops
+- **Crash history** (`recent_crashes`) â€” BSOD/unexpected shutdown events and application crash/hang events from the Windows event log
+- **Application crashes** (`app_crashes`) â€” detailed application crash/hang triage: faulting app name, version, faulting module, exception code, crash frequency, WER archive count; optional `process` arg to filter by app name
+- **Scheduled tasks** (`scheduled_tasks`) â€” all non-disabled scheduled tasks with name, path, last run time, and executable
+- **Dev conflicts** (`dev_conflicts`) â€” cross-tool environment conflict detection: Node version managers, Python 2/3 ambiguity, conda shadowing, Rust toolchain path conflicts, Git identity/signing, duplicate PATH entries
+- **Path and toolchains** (`path`) â€” full PATH inspection with version detection for installed developer tools
+- **Log check** (`log_check`) â€” recent system error events from the Windows event log
+- **Event query** (`event_query`) â€” targeted Windows Event Log filtering by Event ID, provider/source, log name, severity level, and time window; answers plain-English Event Viewer questions without forcing the user into PowerShell
+- **Startup items** (`startup_items`) â€” boot-time programs and their startup types
+- **OS config** (`os_config`) â€” firewall profiles, power plan, and uptime
+- **User accounts** (`user_accounts`) â€” local user accounts (name, enabled, last logon, password required), Administrators group members, active logon sessions, and elevated process state; redirected from `Get-LocalUser` and `net user`
+- **Active Directory User** (`ad_user`) â€” precise user/group lookup via Get-ADUser or net user/domain; shows SID, enabled status, password expiry, and group memberships; includes **Self-Aware discovery** for 'Who am I?' queries
+- **Audit policy** (`audit_policy`) â€” Windows audit policy via auditpol; shows which event categories log Success/Failure; flags if no categories are enabled
+- **Hyper-V** (`hyperv`) â€” Hyper-V role and VMMS service state, VM inventory with name, state, CPU%, RAM assignment, and uptime, VM network switch inventory (External/Internal/Private) with bound NIC, VM checkpoint listing with creation timestamps (flags excessive checkpoints), and RAM overcommit detection vs host physical memory
+- **Shares** (`shares`) â€” SMB shares exposed by this machine (flags custom non-admin shares), SMB security settings (SMB1/SMB2 state, signing, encryption), and mapped network drives
+- **BitLocker** (`bitlocker`) â€” drive encryption state per volume (PROTECTED/UNPROTECTED), protection method, and SMB1 warning; LUKS on Linux
+- **RDP** (`rdp`) â€” Remote Desktop enabled state (registry fDenyTSConnections), port number, NLA/UserAuthentication, firewall group status, and active sessions
+- **Shadow copies** (`shadow_copies`) â€” VSS shadow copy count and storage allocation, System Restore points, and LVM snapshots on Linux
+- **Page file** (`pagefile`) â€” virtual memory allocated/current/peak MB, system-managed vs fixed config, RAM context, and high-usage warning
+- **Windows features** (`windows_features`) â€” enabled optional features with count, notable feature flags (Hyper-V, IIS, Telnet, TFTP, NFS), and quick-check for six key features
+- **Printers** (`printers`) â€” installed printers with default flag, active print jobs; CUPS on Linux
+- **WinRM** (`winrm`) â€” Windows Remote Management service state, listener config, TrustedHosts, and Test-WSMan connectivity check
+- **Device health** (`device_health`) â€” precision detection of malfunctioning hardware via PnP ConfigManager error codes (the "Yellow Bang" devices in Device Manager)
+- **Drivers** (`drivers`) â€” comprehensive audit of active system drivers with name, type, path, and operational state
+- **Peripherals** (`peripherals`) â€” deep-dive into USB controllers, HID devices (keyboard/mouse class), and connected monitors
+- **Audio** (`audio`) â€” Windows Audio service health, playback/recording endpoint inventory, microphone/speaker path checks, Bluetooth-audio crossover, and plain-English diagnosis for â€œno sound / bad mic / cracklingâ€
+- **Bluetooth** (`bluetooth`) â€” Bluetooth radio state, service health, paired-device inventory, headset/audio endpoint crossover, and plain-English diagnosis for â€œwonâ€™t pair / keeps disconnecting / wrong headset roleâ€
+- **Camera** (`camera`) â€” PnP camera/webcam device inventory, Windows camera privacy registry state, Windows Hello biometric camera detection, and plain-English diagnosis for â€œcamera not working / blocked by privacy settingsâ€
+- **Sign-In / Windows Hello** (`sign_in`) â€” Windows Hello and biometric service state, WBioSrvc health, recent logon failure events (EventID 4625), enrolled credential providers, and plain-English diagnosis for â€œPIN/fingerprint not working / canâ€™t sign inâ€
+- **Installer Health** (`installer_health`) â€” Windows Installer (`msiserver`), AppX/Store install services, `winget`/Desktop App Installer presence, Microsoft Store package health, pending reboot or in-progress installer blockers, and recent MSI/AppX failure evidence
+- **OneDrive** (`onedrive`) â€” client install/running state, configured accounts, sync-root existence, OneDrive policy blockers, and Known Folder Backup/Desktop/Documents/Pictures redirection state
+- **Browser Health** (`browser_health`) â€” browser inventory and versions for Edge/Chrome/Firefox, default browser/protocol associations, runtime process and working-set pressure, WebView2 runtime health, browser proxy/policy overrides, profile/cache pressure, and recent browser crash evidence
+- **Identity Auth** (`identity_auth`) â€” Microsoft 365 identity-broker health across TokenBroker / WAM / AAD Broker Plugin, device registration (`dsregcmd`), token and identity cache hints, cross-app account mismatch detection for Office/Teams/OneDrive, WebView2 auth dependency state, and recent auth-related warning/error events
+- **Outlook** (`outlook`) â€” classic Outlook and new Outlook for Windows install inventory, running process state and RAM usage, mail profile count, OST and PST file discovery with sizes, add-in inventory with load behavior and resiliency-disabled items, authentication and token broker cache state, and recent Outlook crash evidence from the Application event log
+- **Teams** (`teams`) â€” classic Teams and new Teams (MSTeams MSIX) install inventory, running process state and RAM usage, cache directory sizing for both classic and new Teams, WebView2 runtime dependency check, account and sign-in state, audio/video device binding, and recent Teams crash evidence from the Application event log
+- **Windows Backup** (`windows_backup`) â€” File History service state and last backup date/target drive, Windows Backup (wbadmin) last successful backup versions and scheduled tasks, System Restore enabled state and most recent restore point, OneDrive Known Folder Move per-account protection state, and recent backup failure events from the Application event log
+- **Search Index** (`search_index`) â€” Windows Search (WSearch) service state, indexer registry configuration, indexed locations (shell namespaces + registry fallback), recent indexer errors, and plain-English diagnosis for â€œsearch not finding files / indexer stoppedâ€
+- **Display Config** (`display_config`) â€” active monitor resolution, refresh rate, bits-per-pixel, video adapter driver version, connected monitor names/PnP IDs, and DPI/scaling percentage via Win32 GDI
+- **NTP / Time Sync** (`ntp`) â€” Windows Time service (W32Time) health, NTP source and last sync via w32tm, configured NTP peers/registry, and plain-English diagnosis for clock drift or sync failure
+- **CPU Power** (`cpu_power`) â€” active power plan, processor min/max state and turbo boost mode, current CPU clock and load via WMI Win32_Processor, thermal zone temperatures, and diagnosis for â€œCPU stuck slow / boost disabled / power plan capping frequencyâ€
+- **Credentials** (`credentials`) â€” Windows Credential Manager vault summary, credential target inventory via cmdkey, type counts, and plain-English hygiene warnings without ever exposing secret values
+- **TPM / Secure Boot** (`tpm`) â€” TPM presence/readiness/spec version, Secure Boot state, firmware mode (UEFI vs legacy BIOS), and plain-English diagnosis for Windows 11 or BitLocker security posture
+- **Group Policy** (`gpo`) â€” applied Group Policy Objects (computer scope), filtering status; requires Administrator elevation on Windows
+- **Certificates** (`certificates`) â€” local personal certificates with subject, thumbprint, expiry date; flags certs expiring within 30 days
+- **Integrity** (`integrity`) â€” Windows component store health via SFC/DISM registry and log visibility; flags Corrupt or AutoRepairNeeded state
+- **Domain Context** (`domain`) â€” Active Directory and domain join status: Join Status (DOMAIN/WORKGROUP), Domain name, and NetBIOS name
+- **Permissions** (`permissions`) â€” Precision NTFS/ACL security audits; identifies non-admin write access and inheritance state
+- **Login History** (`login_history`) â€” Triage of recent successful and failed logon events from the security log (Event ID 4624)
+- **Registry Audit** (`registry_audit`) â€” Proactive security audit for persistence hijacks: IFEO debuggers, Winlogon Shell overrides, BootExecute, and Sticky Keys exploits
+- **Thermal Health** (`thermal`) â€” Precision telemetry for CPU temperature, thermal margins, and active throttling indicators
+- **Windows Activation** (`activation`) â€” Audits Windows license status, genuine status, and Product ID/Key metadata
+- **Patch History** (`patch_history`) â€” Windows HotFix and KB update audit (last 48h focus)
+- **Repo Doctor** (`repo_doctor`) â€” Workspaces health audit: git status, uncommitted changes, and build-file presence
+- **Disk Benchmark** (`disk_benchmark`) â€” Sequential read/write throughput and latency measurements on the workspace drive
+- **Overclocker Telemetry** (`overclocker`) â€” Precision real-time silicon performance: NVIDIA graphics/memory clocks, fan speeds, board power draw and power-cap context (W), explicit GPU-voltage availability reporting, firmware-reported CPU voltage when WMI exposes it, root-cause throttle decoding (Power vs Thermal), and **Session History** (in-memory trends/anomalies) identifying hardware drift since startup.
+- **Authoritative Directory Audit** (`directory`, `desktop`, `downloads`, `music`, `videos`, `pictures`) â€” High-precision directory listing using OS-level tokens; instantly routes to surgical tools via the deterministic intent engine.
+- **Share Access** (`share_access`) â€” Connectivity and readability test for network shares and UNC paths.
+- **Storage Spaces / Windows RAID** (`storage_spaces`) â€” Windows Storage Spaces pool inventory: pool name, health, operational status, resiliency type (Simple/Mirror/Parity), virtual disk health, physical disk member count and media type; Linux fallback reads `/proc/mdstat` and `lvs` for software RAID and LVM; reports gracefully when no pools exist
+- **Defender Quarantine / Threat History** (`defender_quarantine`) â€” Windows Defender threat detection history: threat name, severity, action taken (Quarantine/Remove/Allow), detection timestamp, affected file path, and current remediation status; also covers recent real-time protection and scan activity from `Get-MpComputerStatus`; Linux fallback checks ClamAV quarantine log
 
 **Network Admin topics (28+):**
 
-- **Latency** (`latency`) — ping RTT (min/avg/max) and packet loss to the default gateway, Cloudflare DNS (1.1.1.1), and Google DNS (8.8.8.8); findings for unreachable targets, high packet loss, and elevated latency
-- **Network Adapter** (`network_adapter`) — NIC inventory (link speed, MAC, driver version), offload settings (LSO/RSS/TCP checksum offload/jumbo frames) per adapter, error and discard counters, and wake-on-LAN / power management state
-- **DHCP Lease** (`dhcp`) — DHCP lease details per adapter: server IP, lease obtained, lease expires, subnet mask, DNS servers; findings for expired or imminently-expiring leases
-- **MTU** (`mtu`) — per-adapter IPv4/IPv6 MTU via `Get-NetIPInterface`; path MTU discovery test to 8.8.8.8 using DF-bit pings at 1472/1400/1280/576 bytes; findings for restricted MTU, VPN fragmentation, or blocked ICMP
-- **IPv6** (`ipv6`) — per-adapter IPv6 addresses (global/link-local/ULA) with prefix origin (SLAAC/DHCPv6/static), IPv6 default gateway, DHCPv6 lease assignments, privacy extension state (RFC 4941), and tunnel adapter inventory (Teredo/6to4/ISATAP); findings for no global address or missing gateway
-- **TCP Parameters** (`tcp_params`) — TCP autotuning level, congestion provider (CUBIC/NewReno), initial congestion window, scaling heuristics, dynamic port range, chimney offload state, and ECN capability; findings for disabled autotuning or non-standard congestion provider
-- **WLAN Profiles** (`wlan_profiles`) — saved wireless profiles with authentication type (WPA2/WPA3/WEP/Open), cipher, connection mode, and auto-connect state; currently connected SSID, BSSID, signal, and radio type; findings for profiles using weak/open authentication
-- **IPSec** (`ipsec`) — enabled IPSec connection security rules with mode and action; active main-mode and quick-mode SAs with local/remote address pairs; IKE Policy Agent service state; findings for active tunnels
-- **Connectivity** (`connectivity`) — internet reachability test (DNS + ICMP + HTTPS) with latency and failure diagnosis
-- **Wi-Fi** (`wifi`) — connected SSID, signal strength, channel, frequency band, and adapter details
-- **Active connections** (`connections`) — all established and listening TCP/UDP connections with owning process
-- **VPN** (`vpn`) — VPN adapter detection, state, and assigned IP address
-- **Proxy** (`proxy`) — system-level proxy settings (WinHTTP / per-user / environment variables)
-- **Firewall rules** (`firewall_rules`) — active Windows Firewall rules allowing inbound traffic
-- **Traceroute** (`traceroute`) — hop-by-hop path to a target with round-trip times and latency spikes
-- **DNS cache** (`dns_cache`) — current local DNS resolver cache entries
-- **ARP table** (`arp`) — local ARP cache mapping IP addresses to MAC addresses
-- **Routing table** (`route_table`) — full IP routing table with interface, next-hop, and metric
-- **LAN discovery** (`lan_discovery`) — neighborhood, NetBIOS/SMB visibility, mDNS/SSDP/UPnP listener surface, gateway hints, and plain-English diagnosis for “can’t see that NAS/printer/PC”
-- **Network stats** (`network_stats`) — per-adapter RX/TX throughput (MB), error counts, drop counts, link speed, and duplex; flags adapters with errors or drops
-- **UDP ports** (`udp_ports`) — active UDP listeners with owning process name and annotations for well-known ports (DNS, NTP, NetBIOS, mDNS, SSDP, IKE, SNMP)
-- **DNS Lookup** (`dns_lookup`) — specific high-precision DNS query for A/AAAA, MX, TXT, SRV, and other record types; now handles plain-English domain-to-IP questions and defaults to `A` when the user asks for a hostname/IP answer without naming a record type
-- **IP Configuration** (`ip_config`) — full adapter detail (ipconfig /all equivalent); surfaces DHCP server, lease times, and multi-IP interfaces
-- **NetBIOS** (`netbios`) — NetBIOS over TCP/IP state per adapter (enabled/disabled/DHCP), WINS server configuration, nbtstat registered names, and active NetBIOS sessions; flags enabled NetBIOS as a potential attack surface
-- **NIC Teaming** (`nic_teaming`) — LBFO team inventory (mode, load-balancing algorithm, status, link speed), team member detail and operational state; flags degraded teams or inactive members
-- **SNMP** (`snmp`) — Windows SNMP agent service state, community string presence audit (values redacted), permitted manager list, SNMP Trap service; flags running agents and the well-known 'public' community string as a risk
-- **Port Test** (`port_test`) — TCP port reachability test to any remote host and port via `Test-NetConnection`; returns OPEN/CLOSED/FILTERED with ICMP ping result, source address, and interface used. Use args `host` and `port`.
-- **Network Profile** (`network_profile`) — Windows network location profile per interface (Public/Private/DomainAuthenticated), IPv4/IPv6 connectivity state; flags Public-category interfaces and domain-authenticated connections
+- **Latency** (`latency`) â€” ping RTT (min/avg/max) and packet loss to the default gateway, Cloudflare DNS (1.1.1.1), and Google DNS (8.8.8.8); findings for unreachable targets, high packet loss, and elevated latency
+- **Network Adapter** (`network_adapter`) â€” NIC inventory (link speed, MAC, driver version), offload settings (LSO/RSS/TCP checksum offload/jumbo frames) per adapter, error and discard counters, and wake-on-LAN / power management state
+- **DHCP Lease** (`dhcp`) â€” DHCP lease details per adapter: server IP, lease obtained, lease expires, subnet mask, DNS servers; findings for expired or imminently-expiring leases
+- **MTU** (`mtu`) â€” per-adapter IPv4/IPv6 MTU via `Get-NetIPInterface`; path MTU discovery test to 8.8.8.8 using DF-bit pings at 1472/1400/1280/576 bytes; findings for restricted MTU, VPN fragmentation, or blocked ICMP
+- **IPv6** (`ipv6`) â€” per-adapter IPv6 addresses (global/link-local/ULA) with prefix origin (SLAAC/DHCPv6/static), IPv6 default gateway, DHCPv6 lease assignments, privacy extension state (RFC 4941), and tunnel adapter inventory (Teredo/6to4/ISATAP); findings for no global address or missing gateway
+- **TCP Parameters** (`tcp_params`) â€” TCP autotuning level, congestion provider (CUBIC/NewReno), initial congestion window, scaling heuristics, dynamic port range, chimney offload state, and ECN capability; findings for disabled autotuning or non-standard congestion provider
+- **WLAN Profiles** (`wlan_profiles`) â€” saved wireless profiles with authentication type (WPA2/WPA3/WEP/Open), cipher, connection mode, and auto-connect state; currently connected SSID, BSSID, signal, and radio type; findings for profiles using weak/open authentication
+- **IPSec** (`ipsec`) â€” enabled IPSec connection security rules with mode and action; active main-mode and quick-mode SAs with local/remote address pairs; IKE Policy Agent service state; findings for active tunnels
+- **Connectivity** (`connectivity`) â€” internet reachability test (DNS + ICMP + HTTPS) with latency and failure diagnosis
+- **Wi-Fi** (`wifi`) â€” connected SSID, signal strength, channel, frequency band, and adapter details
+- **Active connections** (`connections`) â€” all established and listening TCP/UDP connections with owning process
+- **VPN** (`vpn`) â€” VPN adapter detection, state, and assigned IP address
+- **Proxy** (`proxy`) â€” system-level proxy settings (WinHTTP / per-user / environment variables)
+- **Firewall rules** (`firewall_rules`) â€” active Windows Firewall rules allowing inbound traffic
+- **Traceroute** (`traceroute`) â€” hop-by-hop path to a target with round-trip times and latency spikes
+- **DNS cache** (`dns_cache`) â€” current local DNS resolver cache entries
+- **ARP table** (`arp`) â€” local ARP cache mapping IP addresses to MAC addresses
+- **Routing table** (`route_table`) â€” full IP routing table with interface, next-hop, and metric
+- **LAN discovery** (`lan_discovery`) â€” neighborhood, NetBIOS/SMB visibility, mDNS/SSDP/UPnP listener surface, gateway hints, and plain-English diagnosis for â€œcanâ€™t see that NAS/printer/PCâ€
+- **Network stats** (`network_stats`) â€” per-adapter RX/TX throughput (MB), error counts, drop counts, link speed, and duplex; flags adapters with errors or drops
+- **UDP ports** (`udp_ports`) â€” active UDP listeners with owning process name and annotations for well-known ports (DNS, NTP, NetBIOS, mDNS, SSDP, IKE, SNMP)
+- **DNS Lookup** (`dns_lookup`) â€” specific high-precision DNS query for A/AAAA, MX, TXT, SRV, and other record types; now handles plain-English domain-to-IP questions and defaults to `A` when the user asks for a hostname/IP answer without naming a record type
+- **IP Configuration** (`ip_config`) â€” full adapter detail (ipconfig /all equivalent); surfaces DHCP server, lease times, and multi-IP interfaces
+- **NetBIOS** (`netbios`) â€” NetBIOS over TCP/IP state per adapter (enabled/disabled/DHCP), WINS server configuration, nbtstat registered names, and active NetBIOS sessions; flags enabled NetBIOS as a potential attack surface
+- **NIC Teaming** (`nic_teaming`) â€” LBFO team inventory (mode, load-balancing algorithm, status, link speed), team member detail and operational state; flags degraded teams or inactive members
+- **SNMP** (`snmp`) â€” Windows SNMP agent service state, community string presence audit (values redacted), permitted manager list, SNMP Trap service; flags running agents and the well-known 'public' community string as a risk
+- **Port Test** (`port_test`) â€” TCP port reachability test to any remote host and port via `Test-NetConnection`; returns OPEN/CLOSED/FILTERED with ICMP ping result, source address, and interface used. Use args `host` and `port`.
+- **Network Profile** (`network_profile`) â€” Windows network location profile per interface (Public/Private/DomainAuthenticated), IPv4/IPv6 connectivity state; flags Public-category interfaces and domain-authenticated connections
 
 **Intent-based diagnostic orchestration:**
 
@@ -205,14 +205,14 @@ Hematite implements a definitive loop-breaker for auto-redirected shell calls. I
 
 **Developer tooling topics (10):**
 
-- **Environment variables** (`env`) — total count, developer/tool vars (CARGO_HOME, JAVA_HOME, GOPATH, VIRTUAL_ENV, DOCKER_HOST, etc.), secret-shaped vars shown as `[SET, N chars]` only — values never exposed; PATH entry count with pointer to the path topic
-- **Hosts file** (`hosts_file`) — reads `/etc/hosts` (Windows: `drivers\etc\hosts`); shows active entries, flags custom non-loopback entries, includes full file content
-- **Docker** (`docker`) — Docker Engine version, daemon health, running containers with status and ports, local images, Docker Compose projects, active context; reports gracefully if not installed or daemon is down
-- **WSL** (`wsl`) — Windows Subsystem for Linux distros with state (Running/Stopped), WSL version metadata; Windows-only feature, reports platform note on Linux/macOS
-- **SSH** (`ssh`) — SSH client version, sshd service state, `~/.ssh` inventory (known_hosts entry count, authorized_keys count, private key files present), `~/.ssh/config` host entries with hostname/user/port/identity details
-- **Installed software** (`installed_software`) — winget list on Windows (registry scan fallback); dpkg/rpm/pacman on Linux; brew + mas on macOS; paginated with max_entries
-- **Git config** (`git_config`) — global git config grouped by Identity, Core, Commit/Signing, Push/Pull, Credential, Branch sections; local repo config; git aliases; points at missing config if not set up
-- **Databases** (`databases`) — detects running local database engines: PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQLite, SQL Server, CouchDB, Cassandra, Elasticsearch — via CLI version check, TCP port probe, and OS service state; no credentials required
+- **Environment variables** (`env`) â€” total count, developer/tool vars (CARGO_HOME, JAVA_HOME, GOPATH, VIRTUAL_ENV, DOCKER_HOST, etc.), secret-shaped vars shown as `[SET, N chars]` only â€” values never exposed; PATH entry count with pointer to the path topic
+- **Hosts file** (`hosts_file`) â€” reads `/etc/hosts` (Windows: `drivers\etc\hosts`); shows active entries, flags custom non-loopback entries, includes full file content
+- **Docker** (`docker`) â€” Docker Engine version, daemon health, running containers with status and ports, local images, Docker Compose projects, active context; reports gracefully if not installed or daemon is down
+- **WSL** (`wsl`) â€” Windows Subsystem for Linux distros with state (Running/Stopped), WSL version metadata; Windows-only feature, reports platform note on Linux/macOS
+- **SSH** (`ssh`) â€” SSH client version, sshd service state, `~/.ssh` inventory (known_hosts entry count, authorized_keys count, private key files present), `~/.ssh/config` host entries with hostname/user/port/identity details
+- **Installed software** (`installed_software`) â€” winget list on Windows (registry scan fallback); dpkg/rpm/pacman on Linux; brew + mas on macOS; paginated with max_entries
+- **Git config** (`git_config`) â€” global git config grouped by Identity, Core, Commit/Signing, Push/Pull, Credential, Branch sections; local repo config; git aliases; points at missing config if not set up
+- **Databases** (`databases`) â€” detects running local database engines: PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQLite, SQL Server, CouchDB, Cassandra, Elasticsearch â€” via CLI version check, TCP port probe, and OS service state; no credentials required
 
 Additional deep-audit developer topics:
 
@@ -228,7 +228,7 @@ Additional deep-audit developer topics:
 Hematite is more than a chat shell around a local model.
 
 - **File and shell tools**: direct project reading, editing, search, and shell execution
-- **PageRank-powered Repo Maps**: Native context injection leverages `tree-sitter` for AST indexing and `petgraph` PageRank to surface the most structurally important files first — the model wakes up already knowing the architecture without burning tool calls
+- **PageRank-powered Repo Maps**: Native context injection leverages `tree-sitter` for AST indexing and `petgraph` PageRank to surface the most structurally important files first â€” the model wakes up already knowing the architecture without burning tool calls
 - **Git-aware workflows**: worktrees, commit helpers, and rollback via hidden ghost snapshots
 - **Configurable verification**: `verify_build` can now use per-project build, test, lint, and fix profiles from `.hematite/settings.json` instead of relying only on stack autodetection
 - **Project retrieval**: SQLite FTS-backed memory helps recover relevant local context each turn
@@ -258,7 +258,7 @@ Hematite is built for repeated project use, not one-off prompts.
 - **Instruction discovery**: project rules are loaded automatically from workspace instruction files
 - **Sticky workflow modes**: `/ask`, `/code`, `/architect`, `/read-only`, `/teach`, and `/auto` let the operator choose between analysis, implementation, plan-first, hard read-only, and grounded walkthrough behavior
 - **Ultra-Deterministic Teleportation**: Seamlessly transition between folders. When moving to a new workspace, Hematite spawns a fresh, pre-navigated terminal, preserves the source window's size and position, skips the splash screen, and gracefully closes the original shell or tab to maintain workstation hygiene. New sessions include a **Teleportation Handshake** greeting that confirms the origin context and transition reasoning.
-- **Teacher mode** (`/teach`) — inspects real machine state first via `inspect_host`, then delivers a numbered step-by-step walkthrough for any admin/config/system task; never executes write operations itself; covers driver installs, Group Policy, firewall rules, SSH key generation, WSL setup, service config, Windows activation, registry edits, scheduled tasks, and disk cleanup
+- **Teacher mode** (`/teach`) â€” inspects real machine state first via `inspect_host`, then delivers a numbered step-by-step walkthrough for any admin/config/system task; never executes write operations itself; covers driver installs, Group Policy, firewall rules, SSH key generation, WSL setup, service config, Windows activation, registry edits, scheduled tasks, and disk cleanup
 
 - **Grounded storage walkthroughs**: teacher mode can now build step-by-step remediation around `docker_filesystems` and `wsl_filesystems`, so mount/path/storage fixes start from observed bind mounts, VHDX growth, and bridge health rather than generic advice
 
@@ -267,36 +267,36 @@ Hematite is built for repeated project use, not one-off prompts.
 Hematite includes built-in operator experience features that are part of the product, not bolted on later.
 
 - **Integrated TUI**: dedicated chat, reasoning, status, and input surfaces
-- **Self-contained TTS**: Kokoro voice engine (311 MB model, 54 voices, ONNX Runtime 1.24.2) is statically linked into the binary — no install, no Python, no system DLL dependency; `Ctrl+T` to toggle, `/voice` to switch voices, speed/volume configurable in `settings.json`
+- **Self-contained TTS**: Kokoro voice engine (311 MB model, 54 voices, ONNX Runtime 1.24.2) is statically linked into the binary â€” no install, no Python, no system DLL dependency; `Ctrl+T` to toggle, `/voice` to switch voices, speed/volume configurable in `settings.json`
 - **Live diagnostics**: runtime state, GPU load, and tool activity are surfaced during use
 - **Hybrid thinking**: non-Gemma models (Qwen etc.) automatically use `/think` mode so the model decides how much reasoning each turn needs without user intervention
 
 ## 8. Sandboxed Code Execution
 
-Hematite can run code the model writes in a restricted subprocess — enabling real computation, not pattern-matched guesses from training data.
+Hematite can run code the model writes in a restricted subprocess â€” enabling real computation, not pattern-matched guesses from training data.
 
-**Why this matters vs. LM Studio's built-in chat:** LM Studio's chat interface can discuss algorithms, write code snippets, and explain how Fibonacci works. It cannot run any of it. When you ask a local model "what's Fibonacci(20)?", it reaches into training data and gives you a plausible answer — which may be right, may be slightly wrong, and cannot be verified without running it yourself. Hematite closes that gap: the model writes the code, Hematite executes it in a zero-trust sandbox, and the real output comes back in the same turn.
+**Why this matters vs. LM Studio's built-in chat:** LM Studio's chat interface can discuss algorithms, write code snippets, and explain how Fibonacci works. It cannot run any of it. When you ask a local model "what's Fibonacci(20)?", it reaches into training data and gives you a plausible answer â€” which may be right, may be slightly wrong, and cannot be verified without running it yourself. Hematite closes that gap: the model writes the code, Hematite executes it in a zero-trust sandbox, and the real output comes back in the same turn.
 
-**Proof of concept — SHA-256 hash via Web Crypto API:**
+**Proof of concept â€” SHA-256 hash via Web Crypto API:**
 
 ```
 User: compute the SHA-256 hash of the string "Hematite"
 
-→ run_code (javascript, Deno sandbox, crypto.subtle.digest)
+â†’ run_code (javascript, Deno sandbox, crypto.subtle.digest)
 
 94a194250ccdb8506d67ead15dd3a1db50803855123422f21b378b56f80ba99c
 ```
 
-That result cannot come from training data. SHA-256 is deterministic but not memorizable — no model can produce `94a194250ccdb8506d67ead15dd3a1db50803855123422f21b378b56f80ba99c` without actually running a hash function. It is real cryptographic computation in a sandboxed Deno process, returned in one tool call. LM Studio's chat UI — regardless of which model is loaded — cannot do this.
+That result cannot come from training data. SHA-256 is deterministic but not memorizable â€” no model can produce `94a194250ccdb8506d67ead15dd3a1db50803855123422f21b378b56f80ba99c` without actually running a hash function. It is real cryptographic computation in a sandboxed Deno process, returned in one tool call. LM Studio's chat UI â€” regardless of which model is loaded â€” cannot do this.
 
 - **`run_code` tool**: model writes JavaScript/TypeScript or Python, Hematite executes it and returns the actual output
-- **Deno sandbox (JS/TS)**: `--deny-net`, `--deny-env`, `--deny-sys`, `--deny-run`, `--deny-ffi`, `--allow-read/write=.` — zero-trust permission model; no network, no filesystem escape, no native library calls
+- **Deno sandbox (JS/TS)**: `--deny-net`, `--deny-env`, `--deny-sys`, `--deny-run`, `--deny-ffi`, `--allow-read/write=.` â€” zero-trust permission model; no network, no filesystem escape, no native library calls
 - **Python sandbox**: blocked socket, subprocess, and dangerous module imports; clean environment via `env_clear`
 - **Hard timeout**: 10 seconds by default, model-configurable up to 60 seconds; process killed on expiry
-- **Automatic Deno detection**: Hematite finds Deno automatically — checks `settings.json` override, `~/.deno/bin/`, WinGet package store, system PATH, then LM Studio's bundled copy as a last resort. If you have LM Studio installed, you likely already have Deno and JS/TS execution works out of the box with no extra setup
-- **Real math and logic**: the model can verify algorithms, run calculations, test data transformations, and fix errors from actual output — not training-data approximations
-- **Practical use cases**: check a sorting algorithm on a real dataset, verify a regex against real strings, compute checksums, generate test fixtures, run a quick proof — all without leaving the conversation
-- **Automatic computation routing**: Hematite detects when a query requires precise numeric results (hashes, financial math, statistics, date arithmetic, unit conversions, algorithmic checks) and automatically nudges the model to use `run_code` instead of guessing from training data. If the model tries to use `shell` for execution, the harness blocks it and forces a `run_code` retry. If the model writes Python without specifying `language: "python"` and Deno rejects the syntax, the harness catches the parse error and forces a corrective retry with the correct language — no manual intervention required.
+- **Automatic Deno detection**: Hematite finds Deno automatically â€” checks `settings.json` override, `~/.deno/bin/`, WinGet package store, system PATH, then LM Studio's bundled copy as a last resort. If you have LM Studio installed, you likely already have Deno and JS/TS execution works out of the box with no extra setup
+- **Real math and logic**: the model can verify algorithms, run calculations, test data transformations, and fix errors from actual output â€” not training-data approximations
+- **Practical use cases**: check a sorting algorithm on a real dataset, verify a regex against real strings, compute checksums, generate test fixtures, run a quick proof â€” all without leaving the conversation
+- **Automatic computation routing**: Hematite detects when a query requires precise numeric results (hashes, financial math, statistics, date arithmetic, unit conversions, algorithmic checks) and automatically nudges the model to use `run_code` instead of guessing from training data. If the model tries to use `shell` for execution, the harness blocks it and forces a `run_code` retry. If the model writes Python without specifying `language: "python"` and Deno rejects the syntax, the harness catches the parse error and forces a corrective retry with the correct language â€” no manual intervention required.
 
 ## 11. Unlimited Hardened Technical Research
     
@@ -311,4 +311,5 @@ Hematite transforms technical discovery into a privacy-first, grounded competenc
 
 ---
 
-Hematite is strongest when treated as a complete local AI workstation partner: a polished coding harness, a grounded SysAdmin and Network Admin, and a natural-language terminal interface — all GPU-aware, terminal-native, tool-rich, and tuned for serious work on single-GPU consumer hardware, especially RTX 4070-class machines.
+Hematite is strongest when treated as a complete local AI workstation partner: a polished coding harness, a grounded SysAdmin and Network Admin, and a natural-language terminal interface â€” all GPU-aware, terminal-native, tool-rich, and tuned for serious work on single-GPU consumer hardware, especially RTX 4070-class machines.
+

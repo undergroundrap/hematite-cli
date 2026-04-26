@@ -633,7 +633,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("disk pool")
         || lower.contains("resiliency")
         || (lower.contains("storage") && lower.contains("pool"))
-        || (lower.contains("mdadm") || lower.contains("software raid") || lower.contains("md array"));
+        || (lower.contains("mdadm")
+            || lower.contains("software raid")
+            || lower.contains("md array"));
     let asks_defender_quarantine = lower.contains("quarantine")
         || lower.contains("threat history")
         || lower.contains("malware history")
@@ -646,8 +648,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("virus found")
         || lower.contains("threats found")
         || lower.contains("threat detected")
-        || (lower.contains("defender") && (lower.contains("malware") || lower.contains("virus") || lower.contains("threat")))
-        || (lower.contains("defender") && lower.contains("scan") && (lower.contains("result") || lower.contains("history") || lower.contains("found")));
+        || (lower.contains("defender")
+            && (lower.contains("malware") || lower.contains("virus") || lower.contains("threat")))
+        || (lower.contains("defender")
+            && lower.contains("scan")
+            && (lower.contains("result") || lower.contains("history") || lower.contains("found")));
     let asks_event_query = lower.contains("event id")
         || lower.contains("event log query")
         || lower.contains("event_id")
@@ -1971,9 +1976,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("test")
                 || lower.contains("check")))
         || (lower.contains("active directory")
-            && (lower.contains("connect")
-                || lower.contains("reach")
-                || lower.contains("health")));
+            && (lower.contains("connect") || lower.contains("reach") || lower.contains("health")));
     let asks_service_dependencies = lower.contains("service depend")
         || lower.contains("services depend")
         || lower.contains("depends on")

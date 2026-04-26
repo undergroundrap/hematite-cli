@@ -4318,15 +4318,9 @@ fn probe_tool(cmd: &str, arg: &str) -> bool {
     {
         let home = std::env::var("USERPROFILE").unwrap_or_default();
         let fallback: Option<String> = match cmd {
-            "cargo" | "rustc" | "rustup" => {
-                Some(format!(r"{}\\.cargo\\bin\\{}.exe", home, cmd))
-            }
-            "node" => Some(
-                r"C:\Program Files\nodejs\node.exe".to_string(),
-            ),
-            "npm" => Some(format!(
-                r"C:\Program Files\nodejs\npm.cmd"
-            )),
+            "cargo" | "rustc" | "rustup" => Some(format!(r"{}\\.cargo\\bin\\{}.exe", home, cmd)),
+            "node" => Some(r"C:\Program Files\nodejs\node.exe".to_string()),
+            "npm" => Some(format!(r"C:\Program Files\nodejs\npm.cmd")),
             _ => None,
         };
         if let Some(path) = fallback {
@@ -4430,7 +4424,11 @@ fn health_check_recent_errors(watch: &mut Vec<String>, tips: &mut Vec<String>) {
     }
 }
 
-fn health_check_network(needs_fix: &mut Vec<String>, watch: &mut Vec<String>, good: &mut Vec<String>) {
+fn health_check_network(
+    needs_fix: &mut Vec<String>,
+    watch: &mut Vec<String>,
+    good: &mut Vec<String>,
+) {
     #[cfg(target_os = "windows")]
     {
         // Use .NET Ping directly — PS5.1 compatible, 2-second timeout.
@@ -4522,14 +4520,20 @@ fn health_check_pending_reboot(watch: &mut Vec<String>, good: &mut Vec<String>) 
     {
         // Linux: check if a kernel update is pending (requires reboot to take effect)
         if std::path::Path::new("/var/run/reboot-required").exists() {
-            watch.push("Pending reboot required — a kernel or package update needs a restart.".to_string());
+            watch.push(
+                "Pending reboot required — a kernel or package update needs a restart.".to_string(),
+            );
         } else {
             good.push("No pending reboot.".to_string());
         }
     }
 }
 
-fn health_check_services(needs_fix: &mut Vec<String>, watch: &mut Vec<String>, good: &mut Vec<String>) {
+fn health_check_services(
+    needs_fix: &mut Vec<String>,
+    watch: &mut Vec<String>,
+    good: &mut Vec<String>,
+) {
     #[cfg(not(target_os = "windows"))]
     let _ = (&needs_fix, &good);
     #[cfg(target_os = "windows")]
@@ -4606,11 +4610,11 @@ fn health_check_thermal(watch: &mut Vec<String>, good: &mut Vec<String>) {
                 if let Ok(temp) = text.parse::<f64>() {
                     let msg = format!("CPU thermal: {temp:.0}°C peak zone temperature");
                     if temp >= 90.0 {
-                        watch.push(format!(
-                            "{msg} — very high, check cooling and airflow."
-                        ));
+                        watch.push(format!("{msg} — very high, check cooling and airflow."));
                     } else if temp >= 75.0 {
-                        watch.push(format!("{msg} — elevated under load, monitor for throttling."));
+                        watch.push(format!(
+                            "{msg} — elevated under load, monitor for throttling."
+                        ));
                     } else {
                         good.push(format!("{msg} — normal."));
                     }
@@ -9843,23 +9847,43 @@ fn inspect_rdp() -> Result<String, String> {
             if nla == "1" { "Yes" } else { "No" }
         ));
 
-        let rdp_tcp_path = "HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp";
+        let rdp_tcp_path =
+            "HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp";
         let sec_layer = Command::new("powershell")
-            .args(["-NoProfile", "-Command", &format!("(Get-ItemProperty '{}').SecurityLayer", rdp_tcp_path)])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok())
-            .unwrap_or_default().trim().to_string();
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!("(Get-ItemProperty '{}').SecurityLayer", rdp_tcp_path),
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
         let sec_label = match sec_layer.as_str() {
             "0" => "RDP Security (no SSL)",
             "1" => "Negotiate (prefer TLS)",
             "2" => "SSL/TLS required",
             _ => &sec_layer,
         };
-        out.push_str(&format!("  Security Layer: {} ({})\n", sec_layer, sec_label));
+        out.push_str(&format!(
+            "  Security Layer: {} ({})\n",
+            sec_layer, sec_label
+        ));
 
         let enc_level = Command::new("powershell")
-            .args(["-NoProfile", "-Command", &format!("(Get-ItemProperty '{}').MinEncryptionLevel", rdp_tcp_path)])
-            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok())
-            .unwrap_or_default().trim().to_string();
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!("(Get-ItemProperty '{}').MinEncryptionLevel", rdp_tcp_path),
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
         let enc_label = match enc_level.as_str() {
             "1" => "Low",
             "2" => "Client Compatible",
@@ -9867,7 +9891,10 @@ fn inspect_rdp() -> Result<String, String> {
             "4" => "FIPS Compliant",
             _ => "Unknown",
         };
-        out.push_str(&format!("  Encryption Level: {} ({})\n", enc_level, enc_label));
+        out.push_str(&format!(
+            "  Encryption Level: {} ({})\n",
+            enc_level, enc_label
+        ));
 
         out.push_str("\n=== Active Sessions ===\n");
         let qwinsta = Command::new("qwinsta")
@@ -17668,7 +17695,10 @@ fn inspect_storage_spaces() -> Result<String, String> {
         out.push_str("No mdadm software RAID detected (/proc/mdstat not found or empty).\n");
     }
     // Check LVM
-    if let Ok(o) = Command::new("lvs").args(["--noheadings", "-o", "lv_name,vg_name,lv_size,lv_attr"]).output() {
+    if let Ok(o) = Command::new("lvs")
+        .args(["--noheadings", "-o", "lv_name,vg_name,lv_size,lv_attr"])
+        .output()
+    {
         let lvs = String::from_utf8_lossy(&o.stdout).to_string();
         if !lvs.trim().is_empty() {
             out.push_str("\n=== LVM Logical Volumes ===\n");
@@ -17683,7 +17713,8 @@ fn inspect_storage_spaces() -> Result<String, String> {
 #[cfg(windows)]
 fn inspect_defender_quarantine(max_entries: usize) -> Result<String, String> {
     let limit = max_entries.min(50);
-    let script = format!(r#"
+    let script = format!(
+        r#"
 $result = [System.Text.StringBuilder]::new()
 
 # Current threat detections (active + quarantined)
@@ -17746,7 +17777,9 @@ try {{
 }} catch {{}}
 
 Write-Output $result.ToString().TrimEnd()
-"#, limit = limit);
+"#,
+        limit = limit
+    );
     let out = run_powershell(&script)?;
     Ok(format!("Host inspection: defender_quarantine\n\n{out}"))
 }
@@ -17850,7 +17883,8 @@ fn inspect_domain_health() -> Result<String, String> {
 #[cfg(windows)]
 fn inspect_service_dependencies(max_entries: usize) -> Result<String, String> {
     let limit = max_entries.min(60);
-    let script = format!(r#"
+    let script = format!(
+        r#"
 $result = [System.Text.StringBuilder]::new()
 $result.AppendLine("=== Service Dependency Graph ===") | Out-Null
 $result.AppendLine("Format: [Status] ServiceName — requires: ... | needed by: ...") | Out-Null
@@ -17865,7 +17899,9 @@ foreach ($s in $svc) {{
     }}
 }}
 Write-Output $result.ToString().TrimEnd()
-"#, limit = limit);
+"#,
+        limit = limit
+    );
     let out = run_powershell(&script)?;
     Ok(format!("Host inspection: service_dependencies\n\n{out}"))
 }
@@ -17878,7 +17914,10 @@ fn inspect_service_dependencies(_max_entries: usize) -> Result<String, String> {
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .unwrap_or_else(|| "systemctl not available.\n".to_string());
-    Ok(format!("Host inspection: service_dependencies\n\n{}", out.trim_end()))
+    Ok(format!(
+        "Host inspection: service_dependencies\n\n{}",
+        out.trim_end()
+    ))
 }
 
 // ── inspect_wmi_health ────────────────────────────────────────────────────────
@@ -18009,7 +18048,8 @@ fn inspect_local_security_policy() -> Result<String, String> {
 #[cfg(windows)]
 fn inspect_usb_history(max_entries: usize) -> Result<String, String> {
     let limit = max_entries.min(50);
-    let script = format!(r#"
+    let script = format!(
+        r#"
 $result = [System.Text.StringBuilder]::new()
 $result.AppendLine("=== USB Device History (USBSTOR Registry) ===") | Out-Null
 $usbPath = 'HKLM:\SYSTEM\CurrentControlSet\Enum\USBSTOR'
@@ -18042,7 +18082,9 @@ if (Test-Path $usbPath) {{
     $result.AppendLine("  USBSTOR key not found. Requires elevation or USB storage policy may block it.") | Out-Null
 }}
 Write-Output $result.ToString().TrimEnd()
-"#, limit = limit);
+"#,
+        limit = limit
+    );
     let out = run_powershell(&script)?;
     Ok(format!("Host inspection: usb_history\n\n{out}"))
 }
@@ -18055,7 +18097,11 @@ fn inspect_usb_history(_max_entries: usize) -> Result<String, String> {
         .output()
     {
         let s = String::from_utf8_lossy(&o.stdout);
-        let usb_lines: Vec<&str> = s.lines().filter(|l| l.to_ascii_lowercase().contains("usb")).take(30).collect();
+        let usb_lines: Vec<&str> = s
+            .lines()
+            .filter(|l| l.to_ascii_lowercase().contains("usb"))
+            .take(30)
+            .collect();
         if !usb_lines.is_empty() {
             out.push_str("=== Recent USB kernel events (journalctl) ===\n");
             for line in usb_lines {

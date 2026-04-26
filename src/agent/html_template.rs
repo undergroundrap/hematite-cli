@@ -161,7 +161,10 @@ pub fn markdown_to_html(md: &str) -> String {
             list_items.push(inline_md(rest));
             continue;
         }
-        if let Some(rest) = line.strip_prefix("  - ").or_else(|| line.strip_prefix("  * ")) {
+        if let Some(rest) = line
+            .strip_prefix("  - ")
+            .or_else(|| line.strip_prefix("  * "))
+        {
             list_items.push(inline_md(rest));
             continue;
         }
@@ -235,7 +238,10 @@ fn linkify(s: &str) -> String {
             .find(|c: char| c.is_whitespace() || c == '<' || c == '>' || c == '"' || c == '\'')
             .unwrap_or(url_start.len());
         let url = &url_start[..end];
-        out.push_str(&format!("<a href=\"{}\" target=\"_blank\">{}</a>", url, url));
+        out.push_str(&format!(
+            "<a href=\"{}\" target=\"_blank\">{}</a>",
+            url, url
+        ));
         rest = &url_start[end..];
     }
     out.push_str(rest);

@@ -514,7 +514,11 @@ pub struct HealthScore {
 
 impl HealthScore {
     pub fn summary_line(&self) -> String {
-        match (self.action_count, self.investigate_count, self.monitor_count) {
+        match (
+            self.action_count,
+            self.investigate_count,
+            self.monitor_count,
+        ) {
             (0, 0, 0) => "No issues found — machine is healthy.".to_string(),
             (0, 0, m) => format!("{} item(s) to monitor.", m),
             (0, i, 0) => format!("{} item(s) need investigation.", i),

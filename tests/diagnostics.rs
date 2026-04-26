@@ -7150,7 +7150,11 @@ fn test_diagnose_triage_all_good() {
     use hematite::agent::diagnose::triage_follow_up_topics;
     let health = "System Health Report — ALL GOOD\n\nLooking good:\n  [+] Disk: 200 GB free\n  [+] RAM: 16 GB free\n  [+] Dev tools found: Git, Rust / Cargo";
     let topics = triage_follow_up_topics(health);
-    assert!(topics.is_empty(), "ALL GOOD should return no follow-up topics, got: {:?}", topics);
+    assert!(
+        topics.is_empty(),
+        "ALL GOOD should return no follow-up topics, got: {:?}",
+        topics
+    );
 }
 
 #[test]
@@ -7158,8 +7162,14 @@ fn test_diagnose_triage_disk_action_required() {
     use hematite::agent::diagnose::triage_follow_up_topics;
     let health = "System Health Report — ACTION REQUIRED\n\nNeeds fixing:\n  [!] Disk: 1 GB free on C: (0% available)";
     let topics = triage_follow_up_topics(health);
-    assert!(topics.contains(&"storage"), "disk [!] should trigger storage");
-    assert!(topics.contains(&"disk_health"), "disk [!] should trigger disk_health");
+    assert!(
+        topics.contains(&"storage"),
+        "disk [!] should trigger storage"
+    );
+    assert!(
+        topics.contains(&"disk_health"),
+        "disk [!] should trigger disk_health"
+    );
 }
 
 #[test]
@@ -7167,7 +7177,10 @@ fn test_diagnose_triage_event_log_errors() {
     use hematite::agent::diagnose::triage_follow_up_topics;
     let health = "System Health Report — WORTH A LOOK\n\nWorth watching:\n  [-] 68 critical/error events in Windows event logs in the last 24 hours.";
     let topics = triage_follow_up_topics(health);
-    assert!(topics.contains(&"log_check"), "event log errors should trigger log_check");
+    assert!(
+        topics.contains(&"log_check"),
+        "event log errors should trigger log_check"
+    );
 }
 
 #[test]
@@ -7176,8 +7189,14 @@ fn test_diagnose_triage_skips_toolchain_warnings() {
     let health = "System Health Report — WORTH A LOOK\n\nWorth watching:\n  [-] Not installed (or not on PATH): Python, npm — only matters if you need them";
     let topics = triage_follow_up_topics(health);
     // Dev tool "not installed" warnings should NOT trigger system health follow-up
-    assert!(!topics.contains(&"toolchains"), "toolchain warnings should not trigger follow-up");
-    assert!(!topics.contains(&"dev_conflicts"), "toolchain warnings should not trigger follow-up");
+    assert!(
+        !topics.contains(&"toolchains"),
+        "toolchain warnings should not trigger follow-up"
+    );
+    assert!(
+        !topics.contains(&"dev_conflicts"),
+        "toolchain warnings should not trigger follow-up"
+    );
 }
 
 #[test]
@@ -7186,10 +7205,22 @@ fn test_diagnose_instruction_names_exact_topics() {
     let health = "System Health Report — WORTH A LOOK\n\nWorth watching:\n  [-] 45 error events.";
     let topics = &["log_check", "services"];
     let instruction = build_diagnose_instruction(health, topics);
-    assert!(instruction.contains("log_check"), "instruction must name log_check");
-    assert!(instruction.contains("services"), "instruction must name services");
-    assert!(instruction.contains("PROTOCOL"), "instruction must include protocol header");
-    assert!(instruction.contains("numbered fix plan"), "instruction must request grounded fix plan");
+    assert!(
+        instruction.contains("log_check"),
+        "instruction must name log_check"
+    );
+    assert!(
+        instruction.contains("services"),
+        "instruction must name services"
+    );
+    assert!(
+        instruction.contains("PROTOCOL"),
+        "instruction must include protocol header"
+    );
+    assert!(
+        instruction.contains("numbered fix plan"),
+        "instruction must request grounded fix plan"
+    );
 }
 
 #[test]
@@ -7210,8 +7241,14 @@ fn test_html_report_action_plan_html_healthy() {
     use hematite::agent::fix_recipes::format_action_plan_html;
     let sections: &[(&str, &str)] = &[("health_report", "ALL GOOD system is healthy")];
     let html = format_action_plan_html(sections);
-    assert!(html.contains("healthy"), "healthy output should say 'healthy'");
-    assert!(!html.contains("<div class=\"recipe"), "no recipe cards for a clean machine");
+    assert!(
+        html.contains("healthy"),
+        "healthy output should say 'healthy'"
+    );
+    assert!(
+        !html.contains("<div class=\"recipe"),
+        "no recipe cards for a clean machine"
+    );
 }
 
 #[test]
@@ -7222,8 +7259,14 @@ fn test_html_report_action_plan_html_with_issues() {
         "disk: C: — very low free space\npending reboot required",
     )];
     let html = format_action_plan_html(sections);
-    assert!(html.contains("<div class=\"recipe"), "should contain recipe cards");
-    assert!(html.contains("b-action") || html.contains("b-investigate"), "should have severity badges");
+    assert!(
+        html.contains("<div class=\"recipe"),
+        "should contain recipe cards"
+    );
+    assert!(
+        html.contains("b-action") || html.contains("b-investigate"),
+        "should have severity badges"
+    );
     assert!(html.contains("<ol>"), "steps should be in an ordered list");
 }
 
@@ -7235,38 +7278,60 @@ fn test_html_report_escapes_special_chars() {
     let html = format_action_plan_html(sections);
     // Should not contain raw unescaped angle brackets from step content outside of real tags
     // (steps are in <li> tags so the step text itself must be escaped)
-    assert!(!html.contains("&lt;"), "no escaped content needed in these steps"); // steps don't have < in them
+    assert!(
+        !html.contains("&lt;"),
+        "no escaped content needed in these steps"
+    ); // steps don't have < in them
     assert!(html.contains("</ol>"), "ordered list must close");
 }
 
 #[test]
 fn test_html_report_format_flag() {
-    use hematite::CliCockpit;
     use clap::CommandFactory;
+    use hematite::CliCockpit;
     let cmd = CliCockpit::command();
     let format_arg = cmd
         .get_arguments()
         .find(|a| a.get_long() == Some("report-format"));
     assert!(format_arg.is_some(), "--report-format flag must exist");
-    let help = format_arg.unwrap().get_help().map(|h| h.to_string()).unwrap_or_default();
-    assert!(help.contains("html") || help.to_ascii_lowercase().contains("html"),
-        "--report-format help text should mention html: {}", help);
+    let help = format_arg
+        .unwrap()
+        .get_help()
+        .map(|h| h.to_string())
+        .unwrap_or_default();
+    assert!(
+        help.contains("html") || help.to_ascii_lowercase().contains("html"),
+        "--report-format help text should mention html: {}",
+        help
+    );
 }
 
 #[test]
 fn test_report_cli_flags_exist() {
     // Smoke-test that --report, --report-format, and --diagnose are valid CliCockpit fields.
-    use hematite::CliCockpit;
     use clap::CommandFactory;
+    use hematite::CliCockpit;
     let cmd = CliCockpit::command();
     let flag_names: Vec<&str> = cmd
         .get_arguments()
         .map(|a| a.get_long().unwrap_or(""))
         .collect();
-    assert!(flag_names.contains(&"report"), "--report flag missing from CliCockpit");
-    assert!(flag_names.contains(&"report-format"), "--report-format flag missing from CliCockpit");
-    assert!(flag_names.contains(&"diagnose"), "--diagnose flag missing from CliCockpit");
-    assert!(flag_names.contains(&"open"), "--open flag missing from CliCockpit");
+    assert!(
+        flag_names.contains(&"report"),
+        "--report flag missing from CliCockpit"
+    );
+    assert!(
+        flag_names.contains(&"report-format"),
+        "--report-format flag missing from CliCockpit"
+    );
+    assert!(
+        flag_names.contains(&"diagnose"),
+        "--diagnose flag missing from CliCockpit"
+    );
+    assert!(
+        flag_names.contains(&"open"),
+        "--open flag missing from CliCockpit"
+    );
 }
 
 #[test]
@@ -7283,7 +7348,10 @@ fn test_fix_recipes_match_low_disk() {
     let output = "disk: C: — very low free space (2 GB)";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match low disk recipe");
-    assert!(recipes.iter().any(|r| r.title.contains("disk")), "wrong recipe matched");
+    assert!(
+        recipes.iter().any(|r| r.title.contains("disk")),
+        "wrong recipe matched"
+    );
 }
 
 #[test]
@@ -7300,37 +7368,47 @@ fn test_fix_recipes_no_match_on_clean_output() {
     // A genuine health_report ALL GOOD output has no trigger words
     let output = "ALL GOOD — system is healthy\ncpu: 12%\nmemory: 4 GB used of 16 GB";
     let recipes = match_recipes(output);
-    assert!(recipes.is_empty(), "clean output should not trigger any recipes");
+    assert!(
+        recipes.is_empty(),
+        "clean output should not trigger any recipes"
+    );
 }
 
 #[test]
 fn test_fix_recipes_format_action_plan_healthy() {
     use hematite::agent::fix_recipes::format_action_plan;
-    let sections: &[(&str, &str)] = &[
-        ("health_report", "ALL GOOD — no issues found"),
-    ];
+    let sections: &[(&str, &str)] = &[("health_report", "ALL GOOD — no issues found")];
     let plan = format_action_plan(sections);
-    assert!(plan.contains("healthy") || plan.contains("healthy") || plan.to_ascii_lowercase().contains("no actionable"),
-        "healthy machine should produce 'no actionable findings' message");
+    assert!(
+        plan.contains("healthy")
+            || plan.contains("healthy")
+            || plan.to_ascii_lowercase().contains("no actionable"),
+        "healthy machine should produce 'no actionable findings' message"
+    );
 }
 
 #[test]
 fn test_fix_recipes_format_action_plan_with_issues() {
     use hematite::agent::fix_recipes::format_action_plan;
-    let sections: &[(&str, &str)] = &[
-        ("health_report", "[!] Disk: C: — very low free space\n[!] Pending reboot required"),
-    ];
+    let sections: &[(&str, &str)] = &[(
+        "health_report",
+        "[!] Disk: C: — very low free space\n[!] Pending reboot required",
+    )];
     let plan = format_action_plan(sections);
-    assert!(plan.contains("ACTION") || plan.contains("INVESTIGATE"), "should have severity badges");
+    assert!(
+        plan.contains("ACTION") || plan.contains("INVESTIGATE"),
+        "should have severity badges"
+    );
     assert!(!plan.is_empty(), "should have non-empty plan for issues");
 }
 
 #[test]
 fn test_fix_recipes_action_sorted_before_monitor() {
     use hematite::agent::fix_recipes::format_action_plan;
-    let sections: &[(&str, &str)] = &[
-        ("health_report", "high latency detected — ms rtt — high latency\ndisk: C: — very low free space"),
-    ];
+    let sections: &[(&str, &str)] = &[(
+        "health_report",
+        "high latency detected — ms rtt — high latency\ndisk: C: — very low free space",
+    )];
     let plan = format_action_plan(sections);
     let action_pos = plan.find("ACTION");
     let monitor_pos = plan.find("MONITOR");
@@ -7361,9 +7439,7 @@ fn test_health_score_clean_is_a() {
 #[test]
 fn test_health_score_one_action_is_d() {
     use hematite::agent::fix_recipes::score_health;
-    let sections: &[(&str, &str)] = &[
-        ("health_report", "disk: C: — very low free space"),
-    ];
+    let sections: &[(&str, &str)] = &[("health_report", "disk: C: — very low free space")];
     let score = score_health(sections);
     assert_eq!(score.grade, 'D');
     assert_eq!(score.action_count, 1);
@@ -7401,8 +7477,12 @@ fn test_health_score_summary_line_clean() {
     use hematite::agent::fix_recipes::score_health;
     let score = score_health(&[("h", "ALL GOOD system healthy")]);
     let summary = score.summary_line();
-    assert!(summary.to_ascii_lowercase().contains("healthy") || summary.to_ascii_lowercase().contains("no issues"),
-        "clean summary should mention healthy/no issues: {}", summary);
+    assert!(
+        summary.to_ascii_lowercase().contains("healthy")
+            || summary.to_ascii_lowercase().contains("no issues"),
+        "clean summary should mention healthy/no issues: {}",
+        summary
+    );
 }
 
 // ── New fix recipe coverage ───────────────────────────────────────────────────
@@ -7413,10 +7493,16 @@ fn test_fix_recipes_match_device_error() {
     let output = "Yellow Bang detected: USB Root Hub — Error Code 43";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match device error recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("device")),
-        "should match hardware device recipe");
-    assert!(recipes.iter().any(|r| r.severity == "ACTION"),
-        "device errors should be ACTION severity");
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("device")),
+        "should match hardware device recipe"
+    );
+    assert!(
+        recipes.iter().any(|r| r.severity == "ACTION"),
+        "device errors should be ACTION severity"
+    );
 }
 
 #[test]
@@ -7425,8 +7511,12 @@ fn test_fix_recipes_match_no_backup() {
     let output = "File History: Disabled\nNo restore points found";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match no backup recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("backup")),
-        "should match backup recipe");
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("backup")),
+        "should match backup recipe"
+    );
 }
 
 #[test]
@@ -7435,8 +7525,10 @@ fn test_fix_recipes_match_smb1() {
     let output = "SMB1 is enabled — security risk";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match SMB1 recipe");
-    assert!(recipes.iter().any(|r| r.severity == "ACTION"),
-        "SMB1 enabled should be ACTION severity");
+    assert!(
+        recipes.iter().any(|r| r.severity == "ACTION"),
+        "SMB1 enabled should be ACTION severity"
+    );
 }
 
 #[test]
@@ -7445,8 +7537,12 @@ fn test_fix_recipes_match_bitlocker_off() {
     let output = "Protection State: Off\nBitLocker: Off";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match BitLocker recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("encrypt")),
-        "should match encryption recipe");
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("encrypt")),
+        "should match encryption recipe"
+    );
 }
 
 #[test]
@@ -7455,10 +7551,16 @@ fn test_fix_recipes_match_dns_failure() {
     let output = "DNS Resolution: Failed — could not resolve google.com";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match DNS failure recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("dns")),
-        "should match DNS recipe");
-    assert!(recipes.iter().any(|r| r.severity == "ACTION"),
-        "DNS failure should be ACTION severity");
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("dns")),
+        "should match DNS recipe"
+    );
+    assert!(
+        recipes.iter().any(|r| r.severity == "ACTION"),
+        "DNS failure should be ACTION severity"
+    );
 }
 
 #[test]
@@ -7473,7 +7575,11 @@ fn test_fix_recipes_total_count() {
         windows update pending\nyellow bang pnp error\nfile history: disabled no restore points\n\
         smb1 is enabled\nprotection state: off bitlocker: off\ndns resolution: failed";
     let recipes = match_recipes(everything);
-    assert!(recipes.len() >= 17, "expected at least 17 recipes, got {}", recipes.len());
+    assert!(
+        recipes.len() >= 17,
+        "expected at least 17 recipes, got {}",
+        recipes.len()
+    );
 }
 
 #[test]
@@ -7482,10 +7588,16 @@ fn test_fix_recipes_match_app_crashes() {
     let output = "Faulting application: chrome.exe — crash count: 5 in last 7 days";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match app crash recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("crash")),
-        "should match crash recipe");
-    assert!(recipes.iter().any(|r| r.severity == "INVESTIGATE"),
-        "app crashes should be INVESTIGATE severity");
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("crash")),
+        "should match crash recipe"
+    );
+    assert!(
+        recipes.iter().any(|r| r.severity == "INVESTIGATE"),
+        "app crashes should be INVESTIGATE severity"
+    );
 }
 
 #[test]
@@ -7494,10 +7606,16 @@ fn test_fix_recipes_match_vcredist_missing() {
     let output = "Error: 0xc000007b — vcruntime140.dll not found";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match VC++ runtime recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("visual c++")),
-        "should match VC++ runtime recipe");
-    assert!(recipes.iter().any(|r| r.severity == "ACTION"),
-        "missing VC++ runtime should be ACTION severity");
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("visual c++")),
+        "should match VC++ runtime recipe"
+    );
+    assert!(
+        recipes.iter().any(|r| r.severity == "ACTION"),
+        "missing VC++ runtime should be ACTION severity"
+    );
 }
 
 #[test]
@@ -7505,11 +7623,20 @@ fn test_fix_recipes_match_certificate_expiring() {
     use hematite::agent::fix_recipes::match_recipes;
     let output = "Certificate: CN=example.com — expires in 15 days";
     let recipes = match_recipes(output);
-    assert!(!recipes.is_empty(), "should match certificate expiry recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("certificate")),
-        "should match certificate recipe");
-    assert!(recipes.iter().any(|r| r.severity == "INVESTIGATE"),
-        "expiring certificate should be INVESTIGATE severity");
+    assert!(
+        !recipes.is_empty(),
+        "should match certificate expiry recipe"
+    );
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("certificate")),
+        "should match certificate recipe"
+    );
+    assert!(
+        recipes.iter().any(|r| r.severity == "INVESTIGATE"),
+        "expiring certificate should be INVESTIGATE severity"
+    );
 }
 
 #[test]
@@ -7518,10 +7645,16 @@ fn test_fix_recipes_match_wifi_weak() {
     let output = "Signal: Poor — RSSI: -88 dBm";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match Wi-Fi weak signal recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("wi-fi")),
-        "should match Wi-Fi recipe");
-    assert!(recipes.iter().any(|r| r.severity == "MONITOR"),
-        "weak Wi-Fi should be MONITOR severity");
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("wi-fi")),
+        "should match Wi-Fi recipe"
+    );
+    assert!(
+        recipes.iter().any(|r| r.severity == "MONITOR"),
+        "weak Wi-Fi should be MONITOR severity"
+    );
 }
 
 #[test]
@@ -7530,10 +7663,16 @@ fn test_fix_recipes_match_ntp_failure() {
     let output = "Time Sync Failed — NTP source unreachable; clock drift detected";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match NTP failure recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("clock")),
-        "should match NTP/clock recipe");
-    assert!(recipes.iter().any(|r| r.severity == "INVESTIGATE"),
-        "NTP failure should be INVESTIGATE severity");
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("clock")),
+        "should match NTP/clock recipe"
+    );
+    assert!(
+        recipes.iter().any(|r| r.severity == "INVESTIGATE"),
+        "NTP failure should be INVESTIGATE severity"
+    );
 }
 
 #[test]
@@ -7542,10 +7681,16 @@ fn test_fix_recipes_match_pagefile_missing() {
     let output = "Pagefile: None — no page file configured on this system";
     let recipes = match_recipes(output);
     assert!(!recipes.is_empty(), "should match page file recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("page file")),
-        "should match page file recipe");
-    assert!(recipes.iter().any(|r| r.severity == "INVESTIGATE"),
-        "missing page file should be INVESTIGATE severity");
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("page file")),
+        "should match page file recipe"
+    );
+    assert!(
+        recipes.iter().any(|r| r.severity == "INVESTIGATE"),
+        "missing page file should be INVESTIGATE severity"
+    );
 }
 
 #[test]
@@ -7553,11 +7698,20 @@ fn test_fix_recipes_match_system_file_corruption() {
     use hematite::agent::fix_recipes::match_recipes;
     let output = "AutoRepairRequired: True — Windows Resource Protection found corrupt files";
     let recipes = match_recipes(output);
-    assert!(!recipes.is_empty(), "should match system file corruption recipe");
-    assert!(recipes.iter().any(|r| r.title.to_ascii_lowercase().contains("corrupt")),
-        "should match corruption recipe");
-    assert!(recipes.iter().any(|r| r.severity == "ACTION"),
-        "system file corruption should be ACTION severity");
+    assert!(
+        !recipes.is_empty(),
+        "should match system file corruption recipe"
+    );
+    assert!(
+        recipes
+            .iter()
+            .any(|r| r.title.to_ascii_lowercase().contains("corrupt")),
+        "should match corruption recipe"
+    );
+    assert!(
+        recipes.iter().any(|r| r.severity == "ACTION"),
+        "system file corruption should be ACTION severity"
+    );
 }
 
 #[test]
@@ -7576,7 +7730,11 @@ fn test_fix_recipes_total_count_expanded() {
         autorepairrequired: true windows resource protection found corrupt files\n\
         service terminated\nrdp status: disabled\nwuauserv: stopped\nfinding: printnightmare";
     let recipes = match_recipes(everything);
-    assert!(recipes.len() >= 28, "expected at least 28 recipes, got {}", recipes.len());
+    assert!(
+        recipes.len() >= 28,
+        "expected at least 28 recipes, got {}",
+        recipes.len()
+    );
 }
 
 // ── Routing: new 0.7.0 topics ───────────────────────────────────────────────
@@ -7591,7 +7749,11 @@ fn test_routing_detects_domain_health_topic() {
     ];
     for q in &queries {
         let topic = preferred_host_inspection_topic(q);
-        assert_eq!(topic, Some("domain_health"), "Expected domain_health for: {q}");
+        assert_eq!(
+            topic,
+            Some("domain_health"),
+            "Expected domain_health for: {q}"
+        );
     }
 }
 
@@ -7605,7 +7767,11 @@ fn test_routing_detects_service_dependencies_topic() {
     ];
     for q in &queries {
         let topic = preferred_host_inspection_topic(q);
-        assert_eq!(topic, Some("service_dependencies"), "Expected service_dependencies for: {q}");
+        assert_eq!(
+            topic,
+            Some("service_dependencies"),
+            "Expected service_dependencies for: {q}"
+        );
     }
 }
 
@@ -7633,7 +7799,11 @@ fn test_routing_detects_local_security_policy_topic() {
     ];
     for q in &queries {
         let topic = preferred_host_inspection_topic(q);
-        assert_eq!(topic, Some("local_security_policy"), "Expected local_security_policy for: {q}");
+        assert_eq!(
+            topic,
+            Some("local_security_policy"),
+            "Expected local_security_policy for: {q}"
+        );
     }
 }
 
@@ -7661,7 +7831,11 @@ fn test_routing_detects_print_spooler_topic() {
     ];
     for q in &queries {
         let topic = preferred_host_inspection_topic(q);
-        assert_eq!(topic, Some("print_spooler"), "Expected print_spooler for: {q}");
+        assert_eq!(
+            topic,
+            Some("print_spooler"),
+            "Expected print_spooler for: {q}"
+        );
     }
 }
 
@@ -7710,7 +7884,10 @@ fn test_fix_recipes_windows_update_service_triggers() {
     ];
     for c in &cases {
         let r = match_recipes(c);
-        assert!(!r.is_empty(), "Windows Update service recipe should fire for: {c}");
+        assert!(
+            !r.is_empty(),
+            "Windows Update service recipe should fire for: {c}"
+        );
     }
 }
 

@@ -64,7 +64,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let path = match fmt.as_str() {
                 "json" => hematite::agent::report_export::save_report_json().await.1,
                 "html" => hematite::agent::report_export::save_report_html().await.1,
-                _ => hematite::agent::report_export::save_report_markdown().await.1,
+                _ => {
+                    hematite::agent::report_export::save_report_markdown()
+                        .await
+                        .1
+                }
             };
             println!("Report saved: {}", path.display());
             open_path(&path);
@@ -82,8 +86,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if cockpit.diagnose {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let path = match fmt.as_str() {
-            "html" => hematite::agent::report_export::save_diagnosis_report_html().await.1,
-            _ => hematite::agent::report_export::save_diagnosis_report().await.1,
+            "html" => {
+                hematite::agent::report_export::save_diagnosis_report_html()
+                    .await
+                    .1
+            }
+            _ => {
+                hematite::agent::report_export::save_diagnosis_report()
+                    .await
+                    .1
+            }
         };
         println!("Diagnosis saved: {}", path.display());
         if cockpit.open {
@@ -234,11 +246,17 @@ fn open_path(path: &std::path::Path) {
     #[cfg(target_os = "windows")]
     {
         let s = path.to_string_lossy().into_owned();
-        let _ = std::process::Command::new("cmd").args(["/c", "start", "", &s]).spawn();
+        let _ = std::process::Command::new("cmd")
+            .args(["/c", "start", "", &s])
+            .spawn();
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+        let opener = if cfg!(target_os = "macos") {
+            "open"
+        } else {
+            "xdg-open"
+        };
         let _ = std::process::Command::new(opener).arg(path).spawn();
     }
 }

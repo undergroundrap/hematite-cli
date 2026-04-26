@@ -48,9 +48,7 @@ pub fn triage_follow_up_topics(health_output: &str) -> Vec<&'static str> {
 
     // Security / Defender issues
     if (lower.contains("[!]") || lower.contains("[-]"))
-        && (lower.contains("defender")
-            || lower.contains("firewall")
-            || lower.contains("security"))
+        && (lower.contains("defender") || lower.contains("firewall") || lower.contains("security"))
     {
         topics.push("security");
     }

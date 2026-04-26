@@ -75,7 +75,13 @@ fn find_docker_desktop_exe() -> Option<PathBuf> {
         PathBuf::from(r"C:\Program Files (x86)\Docker\Docker\Docker Desktop.exe"),
     ];
     if let Some(local) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) {
-        candidates.push(local.join("Programs").join("Docker").join("Docker").join("Docker Desktop.exe"));
+        candidates.push(
+            local
+                .join("Programs")
+                .join("Docker")
+                .join("Docker")
+                .join("Docker Desktop.exe"),
+        );
     }
     candidates.into_iter().find(|p| p.exists())
 }
@@ -237,7 +243,7 @@ pub async fn boot_searx_if_needed(config: &HematiteConfig) -> SearxRuntimeSessio
                         "Local search: Docker Desktop wasn't running — launching it now. \
                         SearXNG will auto-start once Docker is ready (~30–60s). \
                         Falling back to Jina until then."
-                        .to_string(),
+                            .to_string(),
                     );
                     return session;
                 }

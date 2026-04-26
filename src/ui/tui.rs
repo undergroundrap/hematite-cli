@@ -928,8 +928,7 @@ impl App {
     }
 
     fn sync_task_start_time(&mut self) {
-        self.task_start_time =
-            synced_task_start_time(self.agent_running, self.task_start_time);
+        self.task_start_time = synced_task_start_time(self.agent_running, self.task_start_time);
     }
 
     fn rebuild_formatted_messages(&mut self) {
