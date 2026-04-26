@@ -573,16 +573,32 @@ Load both in LM Studio at the same time. The embedding model stays resident but 
 
 ### No-model entry points
 
-These three commands run entirely without a loaded model — no LM Studio, no Ollama, no API key. Useful for checking a machine before any AI infrastructure is set up, or for scripted IT workflows.
+These commands run entirely without a loaded model — no LM Studio, no Ollama, no API key. Useful for checking a machine before any AI infrastructure is set up, for scripted IT workflows, or for handing someone a USB drive with a pre-built check.
 
 ```
-hematite --triage                          # IT-first-look: health + security + connectivity + identity + updates
-hematite --triage --report-format html --open   # same, saved as a double-clickable HTML report
-hematite --report                          # full workstation snapshot (health, hardware, storage, network, security, toolchains)
-hematite --diagnose                        # staged triage that fires deeper follow-up checks based on what health_report flags
+# IT-first-look (5 topics: health + security + connectivity + identity + updates)
+hematite --triage
+hematite --triage --report-format html --open
+
+# Named presets — focused domain checks, no model required
+hematite --triage network        # connectivity, Wi-Fi, latency, DNS, VPN, proxy
+hematite --triage security       # security posture, BitLocker, TPM, local policy, shares
+hematite --triage performance    # resource load, thermal, CPU power, startup items
+hematite --triage storage        # storage, disk health, shadow copies, Storage Spaces
+hematite --triage apps           # browser, Outlook, Teams, installer health, OneDrive
+
+# Targeted fix plan — describe your issue, get step-by-step fix steps
+hematite --fix "PC running slow"
+hematite --fix "can't connect to internet" --report-format html --open
+hematite --fix "BSOD after update"
+hematite --fix "Outlook not working"
+
+# Full workstation snapshot and staged deep-dive
+hematite --report                # health, hardware, storage, network, security, toolchains
+hematite --diagnose              # staged: health_report → targeted follow-ups → fix plan
 ```
 
-`--triage` is the "sit-down command" for IT techs. `--report` is the developer workstation snapshot. `--diagnose` is the model-free staged triage that targets follow-up inspection at exactly what the health check flagged.
+`--triage` is the "sit-down command" for IT techs. `--fix` is the natural-language problem-to-fix-plan lane. `--report` is the developer workstation snapshot. `--diagnose` is the staged triage that targets follow-up inspection at exactly what the health check flagged.
 
 ### Fastest Summary
 

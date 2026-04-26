@@ -104,17 +104,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    if cockpit.triage {
+    if let Some(ref preset) = cockpit.triage {
+        let preset_str = preset.as_str();
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let path = match fmt.as_str() {
             "html" => {
-                hematite::agent::report_export::save_triage_report_html()
+                hematite::agent::report_export::save_triage_report_html(preset_str)
                     .await
                     .1
             }
-            _ => hematite::agent::report_export::save_triage_report().await.1,
+            _ => {
+                hematite::agent::report_export::save_triage_report(preset_str)
+                    .await
+                    .1
+            }
         };
         println!("Triage saved: {}", path.display());
+        if cockpit.open {
+            open_path(&path);
+        }
+        return Ok(());
+    }
+
+    if let Some(ref issue) = cockpit.fix {
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let path = match fmt.as_str() {
+            "html" => {
+                hematite::agent::report_export::save_fix_plan_html(issue)
+                    .await
+                    .1
+            }
+            _ => hematite::agent::report_export::save_fix_plan(issue).await.1,
+        };
+        println!("Fix plan saved: {}", path.display());
         if cockpit.open {
             open_path(&path);
         }

@@ -205,13 +205,23 @@ pub struct CliCockpit {
 
     #[arg(
         long,
-        help = "IT-first-look triage — runs health, security, connectivity, identity, and update checks in one pass. No model required. Saves to .hematite/reports/triage-DATE. Add --open to launch immediately, --report-format html for a double-clickable report."
+        default_missing_value = "default",
+        num_args = 0..=1,
+        value_name = "PRESET",
+        help = "IT-first-look triage — no model required. Optional preset: network, security, performance, storage, apps. Plain --triage runs the IT-first-look default (health, security, connectivity, identity, updates). Saves to .hematite/reports/triage-DATE. Add --open for html."
     )]
-    pub triage: bool,
+    pub triage: Option<String>,
 
     #[arg(
         long,
-        help = "After generating a --report, --diagnose, or --triage, open the saved file in the default application (browser for HTML, editor for Markdown)"
+        value_name = "ISSUE",
+        help = "Generate a targeted fix plan for a stated issue — no model required. Keyword-matches your issue to the relevant inspect_host topics, runs them, and saves a step-by-step fix plan. Example: hematite --fix \"PC running slow\""
+    )]
+    pub fix: Option<String>,
+
+    #[arg(
+        long,
+        help = "After generating a --report, --diagnose, --triage, or --fix report, open the saved file in the default application (browser for HTML, editor for Markdown)"
     )]
     pub open: bool,
 

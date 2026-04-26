@@ -22,6 +22,404 @@ const TRIAGE_TOPICS: &[(&str, &str)] = &[
     ("updates", "Windows Updates"),
 ];
 
+fn triage_topics_for_preset(preset: &str) -> &'static [(&'static str, &'static str)] {
+    match preset {
+        "network" => &[
+            ("connectivity", "Connectivity"),
+            ("wifi", "Wi-Fi"),
+            ("latency", "Latency"),
+            ("dns_servers", "DNS Servers"),
+            ("vpn", "VPN"),
+            ("proxy", "Proxy"),
+            ("connections", "Active Connections"),
+        ],
+        "security" => &[
+            ("security", "Security Posture"),
+            ("bitlocker", "BitLocker"),
+            ("tpm", "TPM / Secure Boot"),
+            ("local_security_policy", "Local Security Policy"),
+            ("shares", "SMB Shares"),
+            ("print_spooler", "Print Spooler"),
+        ],
+        "performance" => &[
+            ("resource_load", "Resource Load"),
+            ("thermal", "Thermal"),
+            ("cpu_power", "CPU Power"),
+            ("processes", "Top Processes"),
+            ("pagefile", "Page File"),
+            ("startup_items", "Startup Items"),
+        ],
+        "storage" => &[
+            ("storage", "Storage"),
+            ("disk_health", "Disk Health"),
+            ("shadow_copies", "Shadow Copies"),
+            ("storage_spaces", "Storage Spaces"),
+            ("bitlocker", "BitLocker"),
+        ],
+        "apps" => &[
+            ("browser_health", "Browser Health"),
+            ("outlook", "Outlook"),
+            ("teams", "Teams"),
+            ("installer_health", "Installer Health"),
+            ("onedrive", "OneDrive"),
+        ],
+        _ => TRIAGE_TOPICS,
+    }
+}
+
+fn triage_preset_title(preset: &str) -> &'static str {
+    match preset {
+        "network" => "Hematite Network Triage Report",
+        "security" => "Hematite Security Triage Report",
+        "performance" => "Hematite Performance Triage Report",
+        "storage" => "Hematite Storage Triage Report",
+        "apps" => "Hematite App Health Triage Report",
+        _ => "Hematite IT Triage Report",
+    }
+}
+
+/// Map a plain-English issue description to the most relevant inspect_host topics.
+/// Covers ~90% of common IT problems — pure keyword matching, no model required.
+fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
+    let lower = issue.to_ascii_lowercase();
+    let mut seen = std::collections::HashSet::new();
+    let mut topics: Vec<(&'static str, &'static str)> = Vec::new();
+
+    macro_rules! add_if {
+        ($keywords:expr, $pairs:expr) => {
+            if $keywords.iter().any(|k: &&str| lower.contains(k)) {
+                for &pair in $pairs {
+                    if seen.insert(pair.0) {
+                        topics.push(pair);
+                    }
+                }
+            }
+        };
+    }
+
+    add_if!(
+        &[
+            "slow",
+            "lag",
+            "freeze",
+            "hang",
+            "sluggish",
+            "unresponsive",
+            "performance",
+            "high cpu",
+            "high ram",
+            "high memory",
+            "locking up"
+        ],
+        &[
+            ("resource_load", "Resource Load"),
+            ("thermal", "Thermal"),
+            ("cpu_power", "CPU Power"),
+            ("pagefile", "Page File"),
+            ("startup_items", "Startup Items")
+        ]
+    );
+    add_if!(
+        &[
+            "internet",
+            "network",
+            "wifi",
+            "wi-fi",
+            "wireless",
+            "offline",
+            "no web",
+            "can't browse",
+            "ping fails",
+            "no connection",
+            "can't connect"
+        ],
+        &[
+            ("connectivity", "Connectivity"),
+            ("wifi", "Wi-Fi"),
+            ("latency", "Latency"),
+            ("dns_servers", "DNS Servers")
+        ]
+    );
+    add_if!(
+        &["dns ", "dns:", "name resolution", "can't resolve"],
+        &[
+            ("dns_servers", "DNS Servers"),
+            ("connectivity", "Connectivity")
+        ]
+    );
+    add_if!(
+        &["vpn ", "vpn:", "tunnel", "remote access"],
+        &[
+            ("vpn", "VPN"),
+            ("connectivity", "Connectivity"),
+            ("proxy", "Proxy")
+        ]
+    );
+    add_if!(
+        &[
+            "disk full",
+            "out of space",
+            "low disk",
+            "disk space",
+            "drive full",
+            "storage full",
+            "no space"
+        ],
+        &[
+            ("storage", "Storage"),
+            ("disk_health", "Disk Health"),
+            ("shadow_copies", "Shadow Copies")
+        ]
+    );
+    add_if!(
+        &[
+            "disk fail",
+            "drive fail",
+            "smart error",
+            "disk error",
+            "bad sector",
+            "drive health"
+        ],
+        &[("disk_health", "Disk Health"), ("storage", "Storage")]
+    );
+    add_if!(
+        &[
+            "slow boot",
+            "boot slow",
+            "slow startup",
+            "startup slow",
+            "takes forever to boot"
+        ],
+        &[
+            ("startup_items", "Startup Items"),
+            ("services", "Services"),
+            ("disk_health", "Disk Health")
+        ]
+    );
+    add_if!(
+        &[
+            "crash",
+            "bsod",
+            "blue screen",
+            "unexpected restart",
+            "unexpected shutdown",
+            "kernel panic",
+            "stop error"
+        ],
+        &[
+            ("recent_crashes", "Crash History"),
+            ("log_check", "Event Log"),
+            ("thermal", "Thermal"),
+            ("disk_health", "Disk Health")
+        ]
+    );
+    add_if!(
+        &[
+            "app crash",
+            "application crash",
+            "program crash",
+            "program not opening",
+            "app not starting",
+            "not responding",
+            "application error"
+        ],
+        &[
+            ("app_crashes", "Application Crashes"),
+            ("log_check", "Event Log")
+        ]
+    );
+    add_if!(
+        &[
+            "update",
+            "windows update",
+            "patch",
+            "stuck on update",
+            "update fail"
+        ],
+        &[
+            ("updates", "Windows Updates"),
+            ("pending_reboot", "Pending Reboot"),
+            ("services", "Services")
+        ]
+    );
+    add_if!(
+        &[
+            "virus",
+            "malware",
+            "hacked",
+            "suspicious",
+            "threat",
+            "infected",
+            "ransomware"
+        ],
+        &[
+            ("security", "Security Posture"),
+            ("defender_quarantine", "Defender Quarantine"),
+            ("log_check", "Event Log")
+        ]
+    );
+    add_if!(
+        &[
+            "firewall",
+            "blocked port",
+            "blocked connection",
+            "port block"
+        ],
+        &[
+            ("security", "Security Posture"),
+            ("firewall_rules", "Firewall Rules")
+        ]
+    );
+    add_if!(
+        &[
+            "printer",
+            "printing",
+            "print queue",
+            "can't print",
+            "print fail"
+        ],
+        &[
+            ("printers", "Printers"),
+            ("print_spooler", "Print Spooler"),
+            ("drivers", "Drivers")
+        ]
+    );
+    add_if!(
+        &[
+            "sound",
+            "audio",
+            "speaker",
+            "no sound",
+            "headset",
+            "mic",
+            "microphone",
+            "crackling",
+            "audio fail"
+        ],
+        &[("audio", "Audio")]
+    );
+    add_if!(
+        &[
+            "bluetooth",
+            "headphones",
+            "airpods",
+            "wireless headset",
+            "bt "
+        ],
+        &[("bluetooth", "Bluetooth"), ("audio", "Audio")]
+    );
+    add_if!(
+        &[
+            "camera",
+            "webcam",
+            "video call",
+            "camera not working",
+            "can't see camera"
+        ],
+        &[("camera", "Camera")]
+    );
+    add_if!(
+        &["teams", "microsoft teams"],
+        &[
+            ("teams", "Teams"),
+            ("identity_auth", "Identity & Auth"),
+            ("browser_health", "Browser Health")
+        ]
+    );
+    add_if!(
+        &["outlook", "email not working", "mail not", "calendar not"],
+        &[("outlook", "Outlook"), ("identity_auth", "Identity & Auth")]
+    );
+    add_if!(
+        &[
+            "browser",
+            "chrome",
+            "edge ",
+            "firefox",
+            "slow browser",
+            "browser crash",
+            "browser not"
+        ],
+        &[("browser_health", "Browser Health")]
+    );
+    add_if!(
+        &[
+            "sign in",
+            "can't log in",
+            "login fail",
+            "password",
+            "pin not working",
+            "fingerprint",
+            "hello not",
+            "locked out",
+            "authentication fail"
+        ],
+        &[
+            ("sign_in", "Sign-In / Windows Hello"),
+            ("identity_auth", "Identity & Auth"),
+            ("credentials", "Credentials")
+        ]
+    );
+    add_if!(
+        &[
+            "rdp",
+            "remote desktop",
+            "can't connect remotely",
+            "remote desktop not"
+        ],
+        &[
+            ("rdp", "Remote Desktop"),
+            ("connectivity", "Connectivity"),
+            ("firewall_rules", "Firewall Rules")
+        ]
+    );
+    add_if!(
+        &[
+            "device not recognized",
+            "driver not",
+            "usb not working",
+            "device problem",
+            "yellow bang",
+            "hardware not"
+        ],
+        &[
+            ("device_health", "Device Health"),
+            ("drivers", "Drivers"),
+            ("peripherals", "Peripherals")
+        ]
+    );
+    add_if!(
+        &[
+            "time wrong",
+            "clock wrong",
+            "wrong time",
+            "time sync",
+            "time off"
+        ],
+        &[("ntp", "NTP / Time Sync")]
+    );
+    add_if!(
+        &[
+            "onedrive",
+            "one drive",
+            "file sync",
+            "not syncing",
+            "sync fail"
+        ],
+        &[("onedrive", "OneDrive")]
+    );
+    add_if!(
+        &["wmi error", "powershell wmi", "get-wmiobject fail"],
+        &[("wmi_health", "WMI Health")]
+    );
+
+    if topics.is_empty() {
+        topics.push(("health_report", "System Health"));
+        topics.push(("log_check", "Event Log"));
+    }
+    topics
+}
+
 pub async fn generate_report_markdown() -> String {
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
@@ -370,13 +768,15 @@ fn build_html_document(
 
 // ── Triage report (IT-first-look, no model required) ─────────────────────────
 
-pub async fn generate_triage_report_markdown() -> String {
+pub async fn generate_triage_report_markdown(preset: &str) -> String {
+    let topics = triage_topics_for_preset(preset);
+    let title = triage_preset_title(preset);
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
     let version = env!("CARGO_PKG_VERSION");
     let mut sections: Vec<(&str, String)> = Vec::new();
 
-    for (topic, label) in TRIAGE_TOPICS {
+    for (topic, label) in topics {
         let args = serde_json::json!({"topic": topic});
         let output = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(s) => {
@@ -405,7 +805,7 @@ pub async fn generate_triage_report_markdown() -> String {
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
     let mut md = String::new();
-    md.push_str("# Hematite IT Triage Report\n\n");
+    md.push_str(&format!("# {}\n\n", title));
     md.push_str(&format!("**Generated:** {}  \n", timestamp));
     md.push_str(&format!("**Host:** {}  \n", hostname));
     md.push_str(&format!("**Hematite:** v{}  \n", version));
@@ -425,13 +825,15 @@ pub async fn generate_triage_report_markdown() -> String {
     md
 }
 
-pub async fn generate_triage_report_html() -> String {
+pub async fn generate_triage_report_html(preset: &str) -> String {
+    let topics = triage_topics_for_preset(preset);
+    let title = triage_preset_title(preset);
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
     let version = env!("CARGO_PKG_VERSION");
     let mut sections: Vec<(&str, String)> = Vec::new();
 
-    for (topic, label) in TRIAGE_TOPICS {
+    for (topic, label) in topics {
         let args = serde_json::json!({"topic": topic});
         let output = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(s) => {
@@ -460,7 +862,7 @@ pub async fn generate_triage_report_html() -> String {
     let action_plan_html = crate::agent::fix_recipes::format_action_plan_html(&section_refs);
 
     build_html_document(
-        "Hematite IT Triage Report",
+        title,
         &timestamp,
         &hostname,
         version,
@@ -470,8 +872,8 @@ pub async fn generate_triage_report_html() -> String {
     )
 }
 
-pub async fn save_triage_report() -> (String, PathBuf) {
-    let md = generate_triage_report_markdown().await;
+pub async fn save_triage_report(preset: &str) -> (String, PathBuf) {
+    let md = generate_triage_report_markdown(preset).await;
     let path = crate::tools::file_ops::hematite_dir()
         .join("reports")
         .join(format!("triage-{}.md", now_file_timestamp()));
@@ -480,11 +882,178 @@ pub async fn save_triage_report() -> (String, PathBuf) {
     (md, path)
 }
 
-pub async fn save_triage_report_html() -> (String, PathBuf) {
-    let html = generate_triage_report_html().await;
+pub async fn save_triage_report_html(preset: &str) -> (String, PathBuf) {
+    let html = generate_triage_report_html(preset).await;
     let path = crate::tools::file_ops::hematite_dir()
         .join("reports")
         .join(format!("triage-{}.html", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &html);
+    (html, path)
+}
+
+// ── Fix Plan (--fix "<issue>", no model required) ─────────────────────────────
+
+pub async fn generate_fix_plan_markdown(issue: &str) -> String {
+    let topics = topics_for_issue(issue);
+    let timestamp = now_timestamp_string();
+    let mut hostname = hostname_from_env();
+    let version = env!("CARGO_PKG_VERSION");
+    let mut sections: Vec<(&str, String)> = Vec::new();
+
+    for (topic, label) in &topics {
+        let args = serde_json::json!({"topic": topic});
+        let output = match crate::tools::host_inspect::inspect_host(&args).await {
+            Ok(s) => {
+                if *topic == "health_report" {
+                    for line in s.lines() {
+                        let ll = line.to_ascii_lowercase();
+                        if ll.contains("hostname") || ll.contains("computer name") {
+                            if let Some(val) = line.splitn(2, ':').nth(1) {
+                                let h = val.trim().to_string();
+                                if !h.is_empty() {
+                                    hostname = h;
+                                }
+                            }
+                        }
+                    }
+                }
+                s
+            }
+            Err(e) => format!("Error: {}", e),
+        };
+        sections.push((label, output));
+    }
+
+    let section_refs: Vec<(&str, &str)> = sections.iter().map(|(l, o)| (*l, o.as_str())).collect();
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
+    let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
+
+    let mut md = String::new();
+    md.push_str("# Hematite Fix Plan\n\n");
+    md.push_str(&format!("**Issue:** {}  \n", issue));
+    md.push_str(&format!("**Generated:** {}  \n", timestamp));
+    md.push_str(&format!("**Host:** {}  \n", hostname));
+    md.push_str(&format!("**Hematite:** v{}  \n", version));
+    md.push_str(&format!(
+        "**Health Score:** {} — {}  \n\n",
+        score.grade, score.label
+    ));
+    md.push_str(&format!("> {}\n\n", score.summary_line()));
+    md.push_str("---\n\n## Fix Steps\n\n");
+    md.push_str(&action_plan);
+    md.push_str("---\n\n");
+    for (label, output) in &sections {
+        md.push_str(&format!("## {}\n\n```\n", label));
+        md.push_str(output.trim_end());
+        md.push_str("\n```\n\n");
+    }
+    md
+}
+
+pub async fn generate_fix_plan_html(issue: &str) -> String {
+    let topics = topics_for_issue(issue);
+    let timestamp = now_timestamp_string();
+    let mut hostname = hostname_from_env();
+    let version = env!("CARGO_PKG_VERSION");
+    let mut sections: Vec<(&str, String)> = Vec::new();
+
+    for (topic, label) in &topics {
+        let args = serde_json::json!({"topic": topic});
+        let output = match crate::tools::host_inspect::inspect_host(&args).await {
+            Ok(s) => {
+                if *topic == "health_report" {
+                    for line in s.lines() {
+                        let ll = line.to_ascii_lowercase();
+                        if ll.contains("hostname") || ll.contains("computer name") {
+                            if let Some(val) = line.splitn(2, ':').nth(1) {
+                                let h = val.trim().to_string();
+                                if !h.is_empty() {
+                                    hostname = h;
+                                }
+                            }
+                        }
+                    }
+                }
+                s
+            }
+            Err(e) => format!("Error: {}", e),
+        };
+        sections.push((label, output));
+    }
+
+    let section_refs: Vec<(&str, &str)> = sections.iter().map(|(l, o)| (*l, o.as_str())).collect();
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
+    let action_plan_html = crate::agent::fix_recipes::format_action_plan_html(&section_refs);
+
+    use crate::agent::html_template::{build_html_shell, he, COPY_BUTTON_HTML};
+
+    let mut sections_html = String::new();
+    for (label, output) in &sections {
+        sections_html.push_str(&format!(
+            "<details><summary>{}</summary><pre>{}</pre></details>\n",
+            he(label),
+            he(output.trim_end())
+        ));
+    }
+
+    let content = format!(
+        r#"<header>
+<h1>Fix Plan</h1>
+<p class="grade-intro" style="margin-bottom:.85rem">Issue: <strong>{issue}</strong></p>
+<div class="meta">
+  <span>Generated: {timestamp}</span>
+  <span>Host: {hostname}</span>
+  <span>Hematite v{version}</span>
+</div>
+<div class="score-row">
+  <div class="grade g{grade}">{grade}</div>
+  <div class="score-info">
+    <h2>Health Score: {grade} — {label}</h2>
+    <p>{summary}</p>
+  </div>
+</div>
+{copy_btn}
+</header>
+<section>
+<h2>Fix Steps</h2>
+{action_plan_html}
+</section>
+<section>
+<h2>Diagnostic Data</h2>
+{sections_html}
+</section>"#,
+        issue = he(issue),
+        hostname = he(&hostname),
+        timestamp = he(&timestamp),
+        version = he(version),
+        grade = score.grade,
+        label = he(score.label),
+        summary = he(&score.summary_line()),
+        copy_btn = COPY_BUTTON_HTML,
+        action_plan_html = action_plan_html,
+        sections_html = sections_html,
+    );
+
+    let page_title = format!("Fix Plan: {} — {}", he(issue), he(&hostname));
+    build_html_shell(&page_title, version, &content)
+}
+
+pub async fn save_fix_plan(issue: &str) -> (String, PathBuf) {
+    let md = generate_fix_plan_markdown(issue).await;
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("fix-{}.md", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &md);
+    (md, path)
+}
+
+pub async fn save_fix_plan_html(issue: &str) -> (String, PathBuf) {
+    let html = generate_fix_plan_html(issue).await;
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("fix-{}.html", now_file_timestamp()));
     ensure_parent(&path);
     let _ = std::fs::write(&path, &html);
     (html, path)
