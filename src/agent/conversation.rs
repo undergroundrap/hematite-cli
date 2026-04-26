@@ -3045,11 +3045,12 @@ impl ConversationManager {
                 ""
             };
             let preset = if preset.is_empty() { "default" } else { preset };
-            let _ = tx.send(InferenceEvent::Think("Running deterministic IT triage...".into())).await;
+            let _ = tx.send(InferenceEvent::Thought("Running deterministic IT triage...".into())).await;
             let report = generate_triage_report_markdown(preset).await;
             for chunk in chunk_text(&report, 8) {
-                let _ = tx.send(InferenceEvent::Text(chunk.to_string())).await;
+                let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
             }
+            let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
         }
 
@@ -3061,15 +3062,17 @@ impl ConversationManager {
                      list.push_str(&format!("  {:<22} {}\n", cat, keywords));
                  }
                  for chunk in chunk_text(&list, 8) {
-                     let _ = tx.send(InferenceEvent::Text(chunk.to_string())).await;
+                     let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
                  }
+                 let _ = tx.send(InferenceEvent::Done).await;
                  return Ok(());
             }
-            let _ = tx.send(InferenceEvent::Think(format!("Generating fix plan for '{}'...", issue))).await;
+            let _ = tx.send(InferenceEvent::Thought(format!("Generating fix plan for '{}'...", issue))).await;
             let plan = generate_fix_plan_markdown(issue).await;
             for chunk in chunk_text(&plan, 8) {
-                let _ = tx.send(InferenceEvent::Text(chunk.to_string())).await;
+                let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
             }
+            let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
         }
 
@@ -3077,16 +3080,18 @@ impl ConversationManager {
             let topic = user_input.strip_prefix("/inspect").unwrap_or("").trim();
             if topic.is_empty() {
                 for chunk in chunk_text(&build_inspect_inventory(), 8) {
-                    let _ = tx.send(InferenceEvent::Text(chunk.to_string())).await;
+                    let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
                 }
+                let _ = tx.send(InferenceEvent::Done).await;
                 return Ok(());
             }
-            let _ = tx.send(InferenceEvent::Think(format!("Inspecting host topic: {}...", topic))).await;
+            let _ = tx.send(InferenceEvent::Thought(format!("Inspecting host topic: {}...", topic))).await;
             let args = serde_json::json!({"topic": topic});
             let output = inspect_host(&args).await.unwrap_or_else(|e| format!("Error: {}", e));
             for chunk in chunk_text(&output, 8) {
-                let _ = tx.send(InferenceEvent::Text(chunk.to_string())).await;
+                let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
             }
+            let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
         }
 
@@ -4187,6 +4192,12 @@ impl ConversationManager {
                     let response = plan.to_markdown();
                     let _ = crate::tools::plan::save_plan_handoff(&plan);
                     self.session_memory.current_plan = Some(plan);
+                    self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
+                        .await;
+                    return Ok(());
+                }
+                DirectAnswerKind::Help => {
+                    let response = build_help_answer();
                     self.emit_direct_response(&tx, user_input, &effective_user_input, &response)
                         .await;
                     return Ok(());
