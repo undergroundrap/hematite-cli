@@ -79,7 +79,7 @@ function copyReport() {
     lines.push('--- Diagnostic Data ---');
     dets.forEach(function(d) {
       var s = d.querySelector('summary'); if (s) lines.push('\n[' + s.innerText.trim() + ']');
-      var pre = d.querySelector('pre'); if (pre) lines.push(pre.innerText.trim());
+      var pre = d.querySelector('pre'); if (pre) lines.push(pre.textContent.trim());
     });
   } else {
     document.querySelectorAll('section').forEach(function(sec) {
