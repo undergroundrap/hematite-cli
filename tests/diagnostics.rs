@@ -7908,3 +7908,55 @@ fn test_fix_recipes_printnightmare_triggers() {
         assert!(!r.is_empty(), "PrintNightmare recipe should fire for: {c}");
     }
 }
+
+// ── --fix list / exit-code helpers ──────────────────────────────────────────
+
+#[test]
+fn test_fix_issue_categories_count() {
+    let cats = hematite::agent::report_export::fix_issue_categories();
+    assert!(
+        cats.len() >= 20,
+        "expected at least 20 issue categories, got {}",
+        cats.len()
+    );
+    // Every entry must have non-empty label and keywords
+    for (label, keywords) in cats {
+        assert!(!label.is_empty(), "category label must not be empty");
+        assert!(!keywords.is_empty(), "category keywords must not be empty");
+    }
+}
+
+#[test]
+fn test_report_indicates_issues_markdown() {
+    // Grade A = no issues
+    let clean = "**Health Score:** A — Excellent  \n\nAll good.";
+    assert!(
+        !hematite::agent::report_export::report_has_issues_in_content(clean),
+        "Grade A should not indicate issues"
+    );
+
+    // Grade B and worse = issues
+    for grade in &["B", "C", "D", "F"] {
+        let flagged = format!("**Health Score:** {} — Something  \n\n", grade);
+        assert!(
+            hematite::agent::report_export::report_has_issues_in_content(&flagged),
+            "Grade {} should indicate issues",
+            grade
+        );
+    }
+}
+
+#[test]
+fn test_report_indicates_issues_html() {
+    let clean_html = "<h2>Health Score: A — Excellent</h2>";
+    assert!(
+        !hematite::agent::report_export::report_has_issues_in_content(clean_html),
+        "HTML grade A should not indicate issues"
+    );
+
+    let flagged_html = "<h2>Health Score: D — Poor</h2>";
+    assert!(
+        hematite::agent::report_export::report_has_issues_in_content(flagged_html),
+        "HTML grade D should indicate issues"
+    );
+}

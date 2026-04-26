@@ -16,6 +16,10 @@ fn wants_version_report(args: &[String]) -> bool {
     args.len() == 2 && matches!(args[1].as_str(), "--version" | "-V")
 }
 
+fn report_indicates_issues(content: &str) -> bool {
+    hematite::agent::report_export::report_has_issues_in_content(content)
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     hematite::tools::hardening::pre_main_hardening();
@@ -85,62 +89,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if cockpit.diagnose {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
-        let path = match fmt.as_str() {
+        let (content, path) = match fmt.as_str() {
             "html" => {
-                hematite::agent::report_export::save_diagnosis_report_html()
-                    .await
-                    .1
+                hematite::agent::report_export::save_diagnosis_report_html().await
             }
             _ => {
-                hematite::agent::report_export::save_diagnosis_report()
-                    .await
-                    .1
+                hematite::agent::report_export::save_diagnosis_report().await
             }
         };
         println!("Diagnosis saved: {}", path.display());
         if cockpit.open {
             open_path(&path);
         }
-        return Ok(());
+        std::process::exit(if report_indicates_issues(&content) { 1 } else { 0 });
     }
 
     if let Some(ref preset) = cockpit.triage {
         let preset_str = preset.as_str();
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
-        let path = match fmt.as_str() {
+        let (content, path) = match fmt.as_str() {
             "html" => {
-                hematite::agent::report_export::save_triage_report_html(preset_str)
-                    .await
-                    .1
+                hematite::agent::report_export::save_triage_report_html(preset_str).await
             }
             _ => {
-                hematite::agent::report_export::save_triage_report(preset_str)
-                    .await
-                    .1
+                hematite::agent::report_export::save_triage_report(preset_str).await
             }
         };
         println!("Triage saved: {}", path.display());
         if cockpit.open {
             open_path(&path);
         }
-        return Ok(());
+        std::process::exit(if report_indicates_issues(&content) { 1 } else { 0 });
     }
 
     if let Some(ref issue) = cockpit.fix {
-        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
-        let path = match fmt.as_str() {
-            "html" => {
-                hematite::agent::report_export::save_fix_plan_html(issue)
-                    .await
-                    .1
+        let issue_str = issue.trim();
+        if issue_str.eq_ignore_ascii_case("list") || issue_str.eq_ignore_ascii_case("help") {
+            println!("hematite --fix: supported issue categories\n");
+            for (category, keywords) in hematite::agent::report_export::fix_issue_categories() {
+                println!("  {:<22} {}", category, keywords);
             }
-            _ => hematite::agent::report_export::save_fix_plan(issue).await.1,
+            println!("\nExamples:");
+            println!("  hematite --fix \"PC running slow\"");
+            println!("  hematite --fix \"can't connect to internet\" --report-format html --open");
+            println!("  hematite --fix \"BSOD after update\"");
+            println!("  hematite --fix \"Outlook not opening\"");
+            return Ok(());
+        }
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let (content, path) = match fmt.as_str() {
+            "html" => hematite::agent::report_export::save_fix_plan_html(issue).await,
+            _ => hematite::agent::report_export::save_fix_plan(issue).await,
         };
         println!("Fix plan saved: {}", path.display());
         if cockpit.open {
             open_path(&path);
         }
-        return Ok(());
+        std::process::exit(if report_indicates_issues(&content) { 1 } else { 0 });
     }
 
     if let Some(path) = cockpit.pdf_extract_helper.as_deref() {

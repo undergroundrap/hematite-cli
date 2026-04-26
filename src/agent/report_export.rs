@@ -420,6 +420,52 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     topics
 }
 
+/// Returns true when report content indicates actionable findings (health grade != A).
+/// Works for both markdown ("**Health Score:** B") and HTML ("Health Score: B") formats.
+pub fn report_has_issues_in_content(content: &str) -> bool {
+    for line in content.lines() {
+        if line.contains("Health Score:") {
+            if let Some(pos) = line.find("Score:") {
+                let after = line[pos + 6..].trim_start().trim_start_matches('*').trim_start();
+                return !after.starts_with('A');
+            }
+        }
+    }
+    false
+}
+
+/// Human-readable category table for `--fix list`.
+/// Each entry: (category_label, example_keywords).
+pub fn fix_issue_categories() -> &'static [(&'static str, &'static str)] {
+    &[
+        ("Performance",      "slow, lag, freeze, hang, high cpu, high ram, unresponsive"),
+        ("Network",          "internet, wifi, offline, no connection, can't browse"),
+        ("DNS",              "dns, name resolution, can't resolve"),
+        ("VPN",              "vpn, tunnel, remote access"),
+        ("Disk Space",       "disk full, out of space, low disk, drive full"),
+        ("Disk Health",      "disk fail, smart error, bad sector, drive health"),
+        ("Slow Boot",        "slow boot, startup slow, takes forever to boot"),
+        ("Crash / BSOD",     "crash, bsod, blue screen, stop error, kernel panic"),
+        ("App Crashes",      "app crash, not responding, application error"),
+        ("Windows Update",   "update, windows update, patch, stuck on update"),
+        ("Virus / Malware",  "virus, malware, hacked, threat, infected, ransomware"),
+        ("Firewall",         "firewall, blocked port, blocked connection"),
+        ("Printer",          "printer, printing, print queue, can't print"),
+        ("Audio",            "sound, audio, no sound, speaker, mic, microphone"),
+        ("Bluetooth",        "bluetooth, headphones, wireless headset"),
+        ("Camera",           "camera, webcam, video call"),
+        ("Teams",            "teams, microsoft teams"),
+        ("Outlook / Email",  "outlook, email not working, calendar not"),
+        ("Browser",          "browser, chrome, edge, firefox, slow browser"),
+        ("Sign-In / PIN",    "sign in, can't log in, pin not working, fingerprint, locked out"),
+        ("Remote Desktop",   "rdp, remote desktop, can't connect remotely"),
+        ("Driver / Device",  "device not recognized, driver not, usb not working, yellow bang"),
+        ("Clock / Time",     "time wrong, clock wrong, time sync"),
+        ("OneDrive",         "onedrive, file sync, not syncing"),
+        ("WMI",              "wmi error, powershell wmi"),
+    ]
+}
+
 pub async fn generate_report_markdown() -> String {
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
