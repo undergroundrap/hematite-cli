@@ -90,36 +90,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if cockpit.diagnose {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let (content, path) = match fmt.as_str() {
-            "html" => {
-                hematite::agent::report_export::save_diagnosis_report_html().await
-            }
-            _ => {
-                hematite::agent::report_export::save_diagnosis_report().await
-            }
+            "html" => hematite::agent::report_export::save_diagnosis_report_html().await,
+            _ => hematite::agent::report_export::save_diagnosis_report().await,
         };
         println!("Diagnosis saved: {}", path.display());
         if cockpit.open {
             open_path(&path);
         }
-        std::process::exit(if report_indicates_issues(&content) { 1 } else { 0 });
+        std::process::exit(if report_indicates_issues(&content) {
+            1
+        } else {
+            0
+        });
     }
 
     if let Some(ref preset) = cockpit.triage {
         let preset_str = preset.as_str();
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let (content, path) = match fmt.as_str() {
-            "html" => {
-                hematite::agent::report_export::save_triage_report_html(preset_str).await
-            }
-            _ => {
-                hematite::agent::report_export::save_triage_report(preset_str).await
-            }
+            "html" => hematite::agent::report_export::save_triage_report_html(preset_str).await,
+            _ => hematite::agent::report_export::save_triage_report(preset_str).await,
         };
         println!("Triage saved: {}", path.display());
         if cockpit.open {
             open_path(&path);
         }
-        std::process::exit(if report_indicates_issues(&content) { 1 } else { 0 });
+        std::process::exit(if report_indicates_issues(&content) {
+            1
+        } else {
+            0
+        });
     }
 
     if let Some(ref issue) = cockpit.fix {
@@ -192,7 +192,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        std::process::exit(if report_indicates_issues(&content) { 1 } else { 0 });
+        std::process::exit(if report_indicates_issues(&content) {
+            1
+        } else {
+            0
+        });
+    }
+
+    if let Some(ref cadence) = cockpit.schedule {
+        let cadence_str = cadence.trim();
+
+        if cadence_str == "status" {
+            println!("{}", hematite::agent::scheduler::query_scheduled_task());
+            return Ok(());
+        }
+
+        if cadence_str == "remove" {
+            match hematite::agent::scheduler::remove_scheduled_task() {
+                Ok(msg) => println!("{}", msg),
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            return Ok(());
+        }
+
+        let exe_path = std::env::current_exe()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "hematite".to_string());
+
+        match hematite::agent::scheduler::register_scheduled_task(cadence_str, &exe_path) {
+            Ok(msg) => println!("{}", msg),
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
     }
 
     if let Some(path) = cockpit.pdf_extract_helper.as_deref() {

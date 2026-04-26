@@ -237,6 +237,18 @@ pub struct CliCockpit {
     )]
     pub execute: bool,
 
+    #[arg(
+        long,
+        default_missing_value = "weekly",
+        num_args = 0..=1,
+        value_name = "CADENCE",
+        help = "Register a Windows scheduled task that runs --triage automatically. \
+                CADENCE: weekly (default, Monday 08:00), daily (08:00), \
+                remove (unregister), status (show current state). \
+                Example: hematite --schedule  or  hematite --schedule daily"
+    )]
+    pub schedule: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

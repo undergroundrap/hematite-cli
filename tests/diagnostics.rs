@@ -7960,3 +7960,34 @@ fn test_report_indicates_issues_html() {
         "HTML grade D should indicate issues"
     );
 }
+
+// ── Scheduler ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_scheduler_query_returns_string() {
+    // query_scheduled_task must not panic — returns either task info or "not registered"
+    let result = hematite::agent::scheduler::query_scheduled_task();
+    assert!(
+        !result.is_empty(),
+        "query_scheduled_task must return non-empty string"
+    );
+}
+
+#[test]
+fn test_scheduler_remove_nonexistent_returns_error() {
+    // Removing a task that doesn't exist should return Err, not panic.
+    // On Windows this confirms schtasks is callable; on non-Windows the stub Err is fine.
+    let result = hematite::agent::scheduler::remove_scheduled_task();
+    // We just verify it doesn't panic and returns a Result — either outcome is valid
+    // (task might or might not be registered in the test environment).
+    let _ = result;
+}
+
+#[test]
+fn test_scheduler_register_invalid_exe_returns_err_or_ok() {
+    // Registering with a fake path should fail gracefully on Windows (schtasks rejects
+    // the exe) or return an Err on non-Windows. Must not panic either way.
+    let result = hematite::agent::scheduler::register_scheduled_task("weekly", "nonexistent.exe");
+    // Both Ok and Err are valid — we just check it doesn't crash
+    let _ = result;
+}

@@ -802,6 +802,7 @@ mod tests {
             open: false,
             dry_run: false,
             execute: false,
+            schedule: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

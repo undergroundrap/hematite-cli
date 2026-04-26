@@ -35,6 +35,7 @@ pub mod redact_audit;
 pub mod redact_policy;
 pub mod report_export;
 pub mod routing;
+pub mod scheduler;
 pub mod searx_lifecycle;
 pub mod semantic_redact;
 pub mod shell_history;
