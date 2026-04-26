@@ -165,6 +165,27 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 
 ---
 
+## The Math of Triage
+
+A senior IT tech's real workflow is not "type every command from scratch." It is "find the right snippet, edit the parameters for this machine, run it, parse the wall of text, alt-tab to look up the Event ID, repeat." That cycle takes 15–30 minutes per issue.
+
+Hematite eliminates the hunt, the edit, and the parse entirely.
+
+**The manual path for a single M365 identity issue:**
+- Find the `dsregcmd /status` snippet (2–3 min)
+- Edit it to include the current user's SID (1 min)
+- Run it, scroll the output looking for the one `False` entry (2–5 min)
+- Alt-tab to look up what TokenBroker is and whether it matters (5 min)
+- Repeat for the WAM registry key, the AAD Broker Plugin state, and the WebView2 dependency
+
+**The Hematite path:** `inspect_host(topic: "identity_auth")` — one call that runs `dsregcmd`, reads the TokenBroker service state, checks the AAD Broker Plugin registry key, tests the WebView2 auth dependency, and correlates recent auth-related events from the event log. The model gets a synthesized verdict, not a wall of text.
+
+This is not prompt engineering on top of a generic shell. Each of the 125+ topics is a purpose-built collector that knows which registry keys, WMI classes, and service states actually matter for that domain. `identity_auth` queries things a senior tech would not type manually because the command sequence is too obscure and too long. `overclocker` reads NVIDIA telemetry, board power context, and thermal margin history from a single call. `domain_health` fires live TCP port tests to the domain controller alongside `dsregcmd` — not sequentially, before the model turn starts.
+
+That last point is the architectural one: when a query touches multiple diagnostic topics, Hematite fires all relevant `inspect_host` calls in parallel before the model sees anything. A human is sequential by nature. Hematite is not.
+
+---
+
 ## Why People Actually Use It
 
 Hematite is for developers who want a **local coding CLI that behaves like a serious tool**, not a toy shell around a model server.
