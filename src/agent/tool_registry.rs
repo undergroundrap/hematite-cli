@@ -182,14 +182,20 @@ pub fn get_tools() -> Vec<ToolDefinition> {
              topic=disk_benchmark for high-performance silicon-aware stress testing, \
              topic=storage_spaces for Windows Storage Spaces pools, virtual disks, physical disk health, and Linux mdadm/LVM, \
              topic=defender_quarantine for Windows Defender threat detections, quarantine history, and scan summary, \
+             topic=domain_health for domain controller connectivity, LDAP port tests, dsregcmd join state, and GPO last refresh, \
+             topic=service_dependencies for service dependency graph (what requires what, restart cascade planning), \
+             topic=wmi_health for WMI repository integrity, winmgmt verify, and repair steps, \
+             topic=local_security_policy for password/lockout policy, LM compatibility level, and UAC settings, \
+             topic=usb_history for USB device connection history from the USBSTOR registry, \
+             topic=print_spooler for Print Spooler state, PrintNightmare (CVE-2021-34527) hardening check, and print queue, \
              and topic=directory or topic=disk for arbitrary paths.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "updates", "security", "pending_reboot", "disk_health", "battery", "recent_crashes", "scheduled_tasks", "dev_conflicts", "os_config", "bitlocker", "rdp", "shadow_copies", "pagefile", "windows_features", "printers", "winrm", "network_stats", "udp_ports", "gpo", "certificates", "integrity", "domain", "device_health", "drivers", "peripherals", "disk_benchmark", "permissions", "login_history", "registry_audit", "share_access", "thermal", "activation", "patch_history", "ad_user", "dns_lookup", "hyperv", "ip_config", "mdm_enrollment", "storage_spaces", "defender_quarantine"],
-                        "description": "Which structured host inspection to run. Use topic=ad_user for domain identity audit, topic=dns_lookup for SRV/MX records, topic=hyperv for VM load, topic=ip_config for detailed adapter info, topic=mdm_enrollment for Intune/MDM enrollment state, topic=storage_spaces for Windows Storage Spaces/RAID pools, and topic=defender_quarantine for Defender threat history."
+                        "enum": ["summary", "toolchains", "path", "env_doctor", "fix_plan", "network", "services", "processes", "desktop", "downloads", "directory", "disk", "ports", "repo_doctor", "log_check", "startup_items", "health_report", "storage", "hardware", "updates", "security", "pending_reboot", "disk_health", "battery", "recent_crashes", "scheduled_tasks", "dev_conflicts", "os_config", "bitlocker", "rdp", "shadow_copies", "pagefile", "windows_features", "printers", "winrm", "network_stats", "udp_ports", "gpo", "certificates", "integrity", "domain", "domain_health", "device_health", "drivers", "peripherals", "disk_benchmark", "permissions", "login_history", "registry_audit", "share_access", "thermal", "activation", "patch_history", "ad_user", "dns_lookup", "hyperv", "ip_config", "mdm_enrollment", "storage_spaces", "defender_quarantine", "service_dependencies", "wmi_health", "local_security_policy", "usb_history", "print_spooler"],
+                        "description": "Which structured host inspection to run. Use topic=ad_user for domain identity audit, topic=dns_lookup for SRV/MX records, topic=hyperv for VM load, topic=ip_config for detailed adapter info, topic=mdm_enrollment for Intune/MDM enrollment state, topic=storage_spaces for Windows Storage Spaces/RAID pools, topic=defender_quarantine for Defender threat history, topic=domain_health for DC connectivity and LDAP tests, topic=service_dependencies for restart cascade planning, topic=wmi_health for WMI repository integrity, topic=local_security_policy for password/lockout/NTLMv2 policy, topic=usb_history for USB forensics, and topic=print_spooler for PrintNightmare check."
                     },
                     "name": {
                         "type": "string",

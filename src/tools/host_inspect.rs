@@ -246,8 +246,26 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "defender_quarantine" | "quarantine" | "threat_history" | "malware_history" | "defender_history" | "detected_threats" => {
             inspect_defender_quarantine(max_entries)
         }
+        "domain_health" | "dc_connectivity" | "ad_connectivity" | "kerberos_health" => {
+            inspect_domain_health()
+        }
+        "service_dependencies" | "svc_deps" | "service_deps" => {
+            inspect_service_dependencies(max_entries)
+        }
+        "wmi_health" | "wmi_repository" | "wmi_status" => {
+            inspect_wmi_health()
+        }
+        "local_security_policy" | "password_policy" | "account_policy" | "ntlm_policy" | "lm_policy" => {
+            inspect_local_security_policy()
+        }
+        "usb_history" | "usb_devices" | "usb_forensics" | "usbstor" => {
+            inspect_usb_history(max_entries)
+        }
+        "print_spooler" | "spooler" | "printnightmare" | "print_security" | "printer_security" => {
+            inspect_print_spooler()
+        }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query, mdm_enrollment, storage_spaces, defender_quarantine.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, domain_health, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query, mdm_enrollment, storage_spaces, defender_quarantine, service_dependencies, wmi_health, local_security_policy, usb_history, print_spooler.",
             other
         )),
 
@@ -9825,6 +9843,32 @@ fn inspect_rdp() -> Result<String, String> {
             if nla == "1" { "Yes" } else { "No" }
         ));
 
+        let rdp_tcp_path = "HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp";
+        let sec_layer = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &format!("(Get-ItemProperty '{}').SecurityLayer", rdp_tcp_path)])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default().trim().to_string();
+        let sec_label = match sec_layer.as_str() {
+            "0" => "RDP Security (no SSL)",
+            "1" => "Negotiate (prefer TLS)",
+            "2" => "SSL/TLS required",
+            _ => &sec_layer,
+        };
+        out.push_str(&format!("  Security Layer: {} ({})\n", sec_layer, sec_label));
+
+        let enc_level = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &format!("(Get-ItemProperty '{}').MinEncryptionLevel", rdp_tcp_path)])
+            .output().ok().and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default().trim().to_string();
+        let enc_label = match enc_level.as_str() {
+            "1" => "Low",
+            "2" => "Client Compatible",
+            "3" => "High",
+            "4" => "FIPS Compliant",
+            _ => "Unknown",
+        };
+        out.push_str(&format!("  Encryption Level: {} ({})\n", enc_level, enc_label));
+
         out.push_str("\n=== Active Sessions ===\n");
         let qwinsta = Command::new("qwinsta")
             .output()
@@ -9897,6 +9941,30 @@ fn inspect_shadow_copies() -> Result<String, String> {
                 {
                     out.push_str(&format!("  {}\n", line.trim()));
                 }
+            }
+        }
+
+        // Most recent snapshot age
+        let age_script = r#"
+try {
+    $snaps = Get-WmiObject Win32_ShadowCopy -ErrorAction SilentlyContinue | Sort-Object InstallDate -Descending
+    if ($snaps) {
+        $newest = $snaps[0]
+        $created = [Management.ManagementDateTimeConverter]::ToDateTime($newest.InstallDate)
+        $age = [math]::Round(([datetime]::Now - $created).TotalDays, 1)
+        $count = @($snaps).Count
+        "Most recent snapshot: $($created.ToString('yyyy-MM-dd HH:mm'))  ($age days ago)  — $count total snapshots"
+    } else { "No snapshots found via WMI." }
+} catch { "WMI snapshot query unavailable: $_" }
+"#;
+        if let Ok(age_out) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", age_script])
+            .output()
+        {
+            let age_text = String::from_utf8_lossy(&age_out.stdout).trim().to_string();
+            if !age_text.is_empty() {
+                out.push_str("\n=== Snapshot Age ===\n");
+                out.push_str(&format!("  {}\n", age_text));
             }
         }
 
@@ -17652,6 +17720,404 @@ Write-Output $result.ToString().TrimEnd()
 "#, limit = limit);
     let out = run_powershell(&script)?;
     Ok(format!("Host inspection: defender_quarantine\n\n{out}"))
+}
+
+// ── inspect_domain_health ─────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_domain_health() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+# Domain membership
+try {
+    $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+    $joined = $cs.PartOfDomain
+    $domain = $cs.Domain
+    $result.AppendLine("=== Domain Membership ===") | Out-Null
+    $result.AppendLine("  Join Status : $(if ($joined) { 'DOMAIN JOINED' } else { 'WORKGROUP' })") | Out-Null
+    if ($joined) { $result.AppendLine("  Domain      : $domain") | Out-Null }
+    $result.AppendLine("  Computer    : $($cs.Name)") | Out-Null
+} catch {
+    $result.AppendLine("  Domain membership check failed: $_") | Out-Null
+}
+
+# dsregcmd device registration state
+try {
+    $dsreg = dsregcmd /status 2>&1 | Where-Object { $_ -match '(AzureAdJoined|DomainJoined|WorkplaceJoined|TenantName|DeviceId|MdmUrl)' }
+    if ($dsreg) {
+        $result.AppendLine("") | Out-Null
+        $result.AppendLine("=== Device Registration (dsregcmd) ===") | Out-Null
+        foreach ($line in $dsreg) { $result.AppendLine("  $($line.Trim())") | Out-Null }
+    }
+} catch {}
+
+# DC discovery via nltest
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Domain Controller Discovery ===") | Out-Null
+try {
+    $nl = nltest /dsgetdc:. 2>&1
+    $dc_name = $null
+    foreach ($line in $nl) {
+        if ($line -match '(DC:|Address:|Dom Guid|DomainName)') {
+            $result.AppendLine("  $($line.Trim())") | Out-Null
+        }
+        if ($line -match 'DC: \\\\(.+)') { $dc_name = $Matches[1].Trim() }
+    }
+    if ($dc_name) {
+        $result.AppendLine("") | Out-Null
+        $result.AppendLine("=== DC Port Connectivity (DC: $dc_name) ===") | Out-Null
+        foreach ($entry in @(@{p=389;n='LDAP'},@{p=636;n='LDAPS'},@{p=88;n='Kerberos'},@{p=3268;n='GC-LDAP'})) {
+            try {
+                $tcp = New-Object System.Net.Sockets.TcpClient
+                $conn = $tcp.BeginConnect($dc_name, $entry.p, $null, $null)
+                $ok = $conn.AsyncWaitHandle.WaitOne(1200, $false)
+                $tcp.Close()
+                $status = if ($ok) { 'OPEN' } else { 'TIMEOUT' }
+            } catch { $status = 'FAILED' }
+            $result.AppendLine("  Port $($entry.p) ($($entry.n)): $status") | Out-Null
+        }
+    }
+} catch {
+    $result.AppendLine("  nltest unavailable (not domain-joined or missing RSAT): $_") | Out-Null
+}
+
+# Last GPO machine refresh time
+try {
+    $gpoKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy\State\Machine\Extension-List\{00000000-0000-0000-0000-000000000000}'
+    if (Test-Path $gpoKey) {
+        $gpo = Get-ItemProperty $gpoKey -ErrorAction SilentlyContinue
+        $result.AppendLine("") | Out-Null
+        $result.AppendLine("=== Group Policy Last Refresh ===") | Out-Null
+        $result.AppendLine("  Machine GPO last applied: $($gpo.EndTime)") | Out-Null
+    }
+} catch {}
+
+Write-Output $result.ToString().TrimEnd()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: domain_health\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_domain_health() -> Result<String, String> {
+    let mut out = String::from("Host inspection: domain_health\n\n");
+    for cmd_args in &[vec!["realm", "list"], vec!["sssd", "--version"]] {
+        if let Ok(o) = Command::new(cmd_args[0]).args(&cmd_args[1..]).output() {
+            let s = String::from_utf8_lossy(&o.stdout);
+            if !s.trim().is_empty() {
+                out.push_str(&format!("$ {}\n{}\n", cmd_args.join(" "), s.trim_end()));
+            }
+        }
+    }
+    if out.trim_end().ends_with("domain_health") {
+        out.push_str("Not domain-joined or realm/sssd not installed.\n");
+    }
+    Ok(out)
+}
+
+// ── inspect_service_dependencies ─────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_service_dependencies(max_entries: usize) -> Result<String, String> {
+    let limit = max_entries.min(60);
+    let script = format!(r#"
+$result = [System.Text.StringBuilder]::new()
+$result.AppendLine("=== Service Dependency Graph ===") | Out-Null
+$result.AppendLine("Format: [Status] ServiceName — requires: ... | needed by: ...") | Out-Null
+$result.AppendLine("") | Out-Null
+$svc = Get-Service | Where-Object {{ $_.DependentServices.Count -gt 0 -or $_.RequiredServices.Count -gt 0 }} | Sort-Object Name | Select-Object -First {limit}
+foreach ($s in $svc) {{
+    $req  = if ($s.RequiredServices.Count  -gt 0) {{ "requires: $($s.RequiredServices.Name  -join ', ')" }} else {{ "" }}
+    $dep  = if ($s.DependentServices.Count -gt 0) {{ "needed by: $($s.DependentServices.Name -join ', ')" }} else {{ "" }}
+    $parts = @($req, $dep) | Where-Object {{ $_ }}
+    if ($parts) {{
+        $result.AppendLine("  [$($s.Status)] $($s.Name) — $($parts -join ' | ')") | Out-Null
+    }}
+}}
+Write-Output $result.ToString().TrimEnd()
+"#, limit = limit);
+    let out = run_powershell(&script)?;
+    Ok(format!("Host inspection: service_dependencies\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_service_dependencies(_max_entries: usize) -> Result<String, String> {
+    let out = Command::new("systemctl")
+        .args(["list-dependencies", "--no-pager", "--plain"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .unwrap_or_else(|| "systemctl not available.\n".to_string());
+    Ok(format!("Host inspection: service_dependencies\n\n{}", out.trim_end()))
+}
+
+// ── inspect_wmi_health ────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_wmi_health() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+$result.AppendLine("=== WMI Repository Health ===") | Out-Null
+
+# Basic WMI query test
+try {
+    $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+    $result.AppendLine("  Query (Win32_OperatingSystem): OK") | Out-Null
+    $result.AppendLine("  OS: $($os.Caption) Build $($os.BuildNumber)") | Out-Null
+} catch {
+    $result.AppendLine("  Query FAILED: $_") | Out-Null
+    $result.AppendLine("  FINDING: WMI may be corrupt. Run winmgmt /verifyrepository") | Out-Null
+}
+
+# Repository integrity
+try {
+    $verify = & winmgmt /verifyrepository 2>&1
+    $result.AppendLine("  winmgmt /verifyrepository: $verify") | Out-Null
+} catch {
+    $result.AppendLine("  winmgmt check unavailable: $_") | Out-Null
+}
+
+# WMI service state
+$svc = Get-Service winmgmt -ErrorAction SilentlyContinue
+if ($svc) {
+    $result.AppendLine("  Service (winmgmt): $($svc.Status) / $($svc.StartType)") | Out-Null
+}
+
+# Repository folder size
+$repPath = "$env:SystemRoot\System32\wbem\Repository"
+if (Test-Path $repPath) {
+    $bytes = (Get-ChildItem $repPath -Recurse -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
+    $mb = [math]::Round($bytes / 1MB, 1)
+    $result.AppendLine("  Repository size: $mb MB  ($repPath)") | Out-Null
+    if ($mb -gt 200) {
+        $result.AppendLine("  FINDING: Repository is unusually large (>200 MB). May indicate corruption or bloat.") | Out-Null
+    }
+}
+
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Recovery Steps (if corrupt) ===") | Out-Null
+$result.AppendLine("  1. net stop winmgmt") | Out-Null
+$result.AppendLine("  2. winmgmt /salvagerepository   (try first)") | Out-Null
+$result.AppendLine("  3. winmgmt /resetrepository     (last resort — loses custom namespaces)") | Out-Null
+$result.AppendLine("  4. net start winmgmt") | Out-Null
+
+Write-Output $result.ToString().TrimEnd()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: wmi_health\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_wmi_health() -> Result<String, String> {
+    Ok("Host inspection: wmi_health\n\nWMI is Windows-only. On Linux use 'systemctl status' for service health.\n".to_string())
+}
+
+// ── inspect_local_security_policy ────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_local_security_policy() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+$result.AppendLine("=== Local Account & Password Policy ===") | Out-Null
+$na = net accounts 2>&1
+foreach ($line in $na) {
+    if ($line -match '(password|lockout|observation|force|maximum|minimum|length|duration)') {
+        $result.AppendLine("  $($line.Trim())") | Out-Null
+    }
+}
+
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== LAN Manager / NTLM Authentication Level ===") | Out-Null
+try {
+    $lmLevel = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa' -Name LmCompatibilityLevel -ErrorAction SilentlyContinue).LmCompatibilityLevel
+    if ($null -eq $lmLevel) { $lmLevel = 3 }
+    $map = @{0='Send LM+NTLM'; 1='LM+NTLMv2 if negotiated'; 2='Send NTLM only'; 3='Send NTLMv2 only (default)'; 4='DC refuses LM'; 5='DC refuses LM+NTLM'}
+    $result.AppendLine("  LmCompatibilityLevel: $lmLevel — $($map[$lmLevel])") | Out-Null
+    if ($lmLevel -lt 3) {
+        $result.AppendLine("  FINDING: LmCompatibilityLevel < 3 allows weak LM/NTLM. Recommend level 3 or higher.") | Out-Null
+    }
+} catch {}
+
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== UAC Settings ===") | Out-Null
+try {
+    $uac = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -ErrorAction SilentlyContinue
+    if ($uac) {
+        $result.AppendLine("  UAC Enabled             : $($uac.EnableLUA)   (1=on, 0=disabled)") | Out-Null
+        $behavMap = @{0='No prompt (risk)'; 1='Prompt for creds'; 2='Prompt for consent'; 5='Secure consent (default)'}
+        $bval = $uac.ConsentPromptBehaviorAdmin
+        $result.AppendLine("  Admin Prompt Behavior   : $bval — $($behavMap[$bval])") | Out-Null
+        if ($uac.EnableLUA -eq 0) {
+            $result.AppendLine("  FINDING: UAC is disabled. Processes run with full admin rights without prompting.") | Out-Null
+        }
+    }
+} catch {}
+
+Write-Output $result.ToString().TrimEnd()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: local_security_policy\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_local_security_policy() -> Result<String, String> {
+    let mut out = String::from("Host inspection: local_security_policy\n\n");
+    if let Ok(content) = std::fs::read_to_string("/etc/login.defs") {
+        out.push_str("=== /etc/login.defs ===\n");
+        for line in content.lines() {
+            let t = line.trim();
+            if !t.is_empty() && !t.starts_with('#') {
+                out.push_str(&format!("  {t}\n"));
+            }
+        }
+    }
+    Ok(out)
+}
+
+// ── inspect_usb_history ───────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_usb_history(max_entries: usize) -> Result<String, String> {
+    let limit = max_entries.min(50);
+    let script = format!(r#"
+$result = [System.Text.StringBuilder]::new()
+$result.AppendLine("=== USB Device History (USBSTOR Registry) ===") | Out-Null
+$usbPath = 'HKLM:\SYSTEM\CurrentControlSet\Enum\USBSTOR'
+if (Test-Path $usbPath) {{
+    $count = 0
+    $seen = @{{}}
+    $classes = Get-ChildItem $usbPath -ErrorAction SilentlyContinue
+    foreach ($class in $classes) {{
+        $instances = Get-ChildItem $class.PSPath -ErrorAction SilentlyContinue
+        foreach ($inst in $instances) {{
+            if ($count -ge {limit}) {{ break }}
+            try {{
+                $props = Get-ItemProperty $inst.PSPath -ErrorAction SilentlyContinue
+                $fn = if ($props.FriendlyName) {{ $props.FriendlyName }} else {{ $class.PSChildName }}
+                if (-not $seen[$fn]) {{
+                    $seen[$fn] = $true
+                    $result.AppendLine("  $fn") | Out-Null
+                    $count++
+                }}
+            }} catch {{}}
+        }}
+    }}
+    if ($count -eq 0) {{
+        $result.AppendLine("  No USB storage devices found in registry.") | Out-Null
+    }} else {{
+        $result.AppendLine("") | Out-Null
+        $result.AppendLine("  ($count unique devices; requires elevation for full history)") | Out-Null
+    }}
+}} else {{
+    $result.AppendLine("  USBSTOR key not found. Requires elevation or USB storage policy may block it.") | Out-Null
+}}
+Write-Output $result.ToString().TrimEnd()
+"#, limit = limit);
+    let out = run_powershell(&script)?;
+    Ok(format!("Host inspection: usb_history\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_usb_history(_max_entries: usize) -> Result<String, String> {
+    let mut out = String::from("Host inspection: usb_history\n\n");
+    if let Ok(o) = Command::new("journalctl")
+        .args(["-k", "--no-pager", "-q", "--since", "30 days ago"])
+        .output()
+    {
+        let s = String::from_utf8_lossy(&o.stdout);
+        let usb_lines: Vec<&str> = s.lines().filter(|l| l.to_ascii_lowercase().contains("usb")).take(30).collect();
+        if !usb_lines.is_empty() {
+            out.push_str("=== Recent USB kernel events (journalctl) ===\n");
+            for line in usb_lines {
+                out.push_str(&format!("  {line}\n"));
+            }
+        }
+    } else {
+        out.push_str("USB history via journalctl not available.\n");
+    }
+    Ok(out)
+}
+
+// ── inspect_print_spooler ─────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn inspect_print_spooler() -> Result<String, String> {
+    let script = r#"
+$result = [System.Text.StringBuilder]::new()
+
+$svc = Get-Service Spooler -ErrorAction SilentlyContinue
+$result.AppendLine("=== Print Spooler Service ===") | Out-Null
+if ($svc) {
+    $result.AppendLine("  Status     : $($svc.Status)") | Out-Null
+    $result.AppendLine("  Start Type : $($svc.StartType)") | Out-Null
+} else {
+    $result.AppendLine("  Spooler service not found.") | Out-Null
+}
+
+# PrintNightmare mitigations (CVE-2021-34527)
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== PrintNightmare Hardening (CVE-2021-34527) ===") | Out-Null
+try {
+    $val = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Print' -Name RpcAuthnLevelPrivacyEnabled -ErrorAction SilentlyContinue).RpcAuthnLevelPrivacyEnabled
+    if ($val -eq 1) {
+        $result.AppendLine("  RpcAuthnLevelPrivacyEnabled: 1 — HARDENED (good)") | Out-Null
+    } else {
+        $result.AppendLine("  RpcAuthnLevelPrivacyEnabled: $val — NOT hardened") | Out-Null
+        $result.AppendLine("  FINDING: PrintNightmare RPC mitigation not applied. Set to 1 via registry.") | Out-Null
+    }
+} catch { $result.AppendLine("  Mitigation key not readable: $_") | Out-Null }
+
+try {
+    $pnpPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint'
+    if (Test-Path $pnpPath) {
+        $pnp = Get-ItemProperty $pnpPath -ErrorAction SilentlyContinue
+        $result.AppendLine("  RestrictDriverInstallationToAdministrators: $($pnp.RestrictDriverInstallationToAdministrators)") | Out-Null
+        $result.AppendLine("  NoWarningNoElevationOnInstall              : $($pnp.NoWarningNoElevationOnInstall)") | Out-Null
+        if ($pnp.NoWarningNoElevationOnInstall -eq 1) {
+            $result.AppendLine("  FINDING: Point and Print allows silent driver install without elevation (risk).") | Out-Null
+        }
+    } else {
+        $result.AppendLine("  No Point and Print policy (using Windows defaults).") | Out-Null
+    }
+} catch {}
+
+# Pending print jobs
+$result.AppendLine("") | Out-Null
+$result.AppendLine("=== Print Queue ===") | Out-Null
+try {
+    $jobs = Get-PrintJob -ErrorAction SilentlyContinue
+    if ($jobs) {
+        foreach ($j in $jobs | Select-Object -First 5) {
+            $result.AppendLine("  $($j.DocumentName) — $($j.JobStatus)") | Out-Null
+        }
+    } else {
+        $result.AppendLine("  No pending print jobs.") | Out-Null
+    }
+} catch {
+    $result.AppendLine("  Print queue check requires elevation.") | Out-Null
+}
+
+Write-Output $result.ToString().TrimEnd()
+"#;
+    let out = run_powershell(script)?;
+    Ok(format!("Host inspection: print_spooler\n\n{out}"))
+}
+
+#[cfg(not(windows))]
+fn inspect_print_spooler() -> Result<String, String> {
+    let mut out = String::from("Host inspection: print_spooler\n\n");
+    if let Ok(o) = Command::new("lpstat").args(["-s"]).output() {
+        let s = String::from_utf8_lossy(&o.stdout);
+        if !s.trim().is_empty() {
+            out.push_str("=== CUPS Status (lpstat -s) ===\n");
+            out.push_str(s.trim_end());
+            out.push('\n');
+        }
+    } else {
+        out.push_str("CUPS not detected (lpstat not found).\n");
+    }
+    Ok(out)
 }
 
 #[cfg(not(windows))]

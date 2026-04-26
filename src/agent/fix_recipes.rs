@@ -431,6 +431,77 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("integrity"),
         },
     },
+
+    // ── Service start failure ─────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["service.*stopped unexpectedly", "failed to start", "service.*error 1067", "service.*error 1053", "service.*error 5", "service terminated", "service.*exited with code", "service.*failed to respond"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Service failed to start or stopped unexpectedly",
+            steps: &[
+                "Find the failing service name in the report, then check its status: PowerShell → Get-Service <ServiceName>",
+                "Read the specific error from the Application/System event log: Event Viewer → Windows Logs → System → filter for Service Control Manager (Event ID 7034 or 7031)",
+                "Try to start it manually: PowerShell (admin) → Start-Service <ServiceName> — note any error message",
+                "Check if the service account has the right permissions: Services console (services.msc) → right-click → Properties → Log On tab",
+                "Look for a dependent service that failed first — a service won't start if something it requires is stopped",
+                "If the service EXE is missing or corrupt, reinstall the application that owns it",
+            ],
+            dig_deeper: Some("services"),
+        },
+    },
+
+    // ── RDP unreachable ───────────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["rdp.*disabled", "fdenytsconnections.*1", "remote desktop.*disabled", "no enabled rdp firewall", "rdp status: disabled"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Remote Desktop (RDP) is disabled or blocked",
+            steps: &[
+                "Enable RDP: Settings → System → Remote Desktop → Enable Remote Desktop (or PowerShell admin: Set-ItemProperty 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server' fDenyTSConnections 0)",
+                "Ensure the RDP firewall rule is enabled: PowerShell (admin) → Enable-NetFirewallRule -DisplayGroup 'Remote Desktop'",
+                "Verify port 3389 is listening after enabling: PowerShell → netstat -an | findstr 3389",
+                "If NLA is required, make sure the connecting user account has the right to log in remotely (must be in Remote Desktop Users group or Administrators)",
+                "Check that Windows Firewall is not blocking the connection — on the host, temporarily allow pings to confirm network path is open",
+                "For cloud VMs: check the security group / NSG allows inbound TCP 3389 from your IP",
+            ],
+            dig_deeper: Some("rdp"),
+        },
+    },
+
+    // ── Windows Update service broken ─────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["windows update.*stopped", "wuauserv.*stopped", "bits.*stopped", "update service.*not running", "update service.*error", "windows update service.*disabled"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Windows Update service is stopped or broken",
+            steps: &[
+                "Run the Windows Update Troubleshooter: Settings → Update & Security → Troubleshoot → Additional troubleshooters → Windows Update",
+                "Manually restart the update services: PowerShell (admin) → Stop-Service wuauserv, bits, cryptsvc, msiserver → Start-Service wuauserv, bits, cryptsvc",
+                "Clear the update cache if stuck: PowerShell (admin) → Stop-Service wuauserv → Remove-Item C:\\Windows\\SoftwareDistribution\\* -Recurse -Force → Start-Service wuauserv",
+                "Check for conflicting 3rd-party update tools (WSUS, SCCM, Intune policies) that may be disabling updates",
+                "Run the System Update Readiness Tool: DISM /Online /Cleanup-Image /RestoreHealth",
+                "If the service keeps stopping, check Event Viewer → Windows Logs → System for Windows Update Agent errors around the same time",
+            ],
+            dig_deeper: Some("updates"),
+        },
+    },
+
+    // ── PrintNightmare not mitigated ──────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["rpcauthnlevelprivacyenabled.*0", "printnightmare rpc mitigation not applied", "point and print allows silent", "finding: printnightmare"],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "PrintNightmare (CVE-2021-34527) mitigation not applied",
+            steps: &[
+                "Apply the RPC authentication hardening fix: PowerShell (admin) → Set-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Print' -Name RpcAuthnLevelPrivacyEnabled -Value 1 -Type DWord",
+                "Restrict Point and Print driver installs to administrators: PowerShell (admin) → Set-ItemProperty 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Printers\\PointAndPrint' -Name RestrictDriverInstallationToAdministrators -Value 1 -Type DWord",
+                "If the Print Spooler is not needed (e.g. server, workstation that never prints remotely): PowerShell (admin) → Stop-Service Spooler → Set-Service Spooler -StartupType Disabled",
+                "Verify patch KB5004945 or later is installed: check Windows Update history for July 2021 security updates",
+                "Restart the Spooler service after registry changes: PowerShell (admin) → Restart-Service Spooler",
+            ],
+            dig_deeper: Some("print_spooler"),
+        },
+    },
 ];
 
 pub struct HealthScore {

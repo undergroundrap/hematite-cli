@@ -1951,6 +1951,105 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("udp")
             && (lower.contains("port") || lower.contains("listen") || lower.contains("open")));
 
+    let asks_domain_health = lower.contains("domain health")
+        || lower.contains("dc connectivity")
+        || lower.contains("dc reachab")
+        || lower.contains("can reach dc")
+        || lower.contains("ldap port")
+        || lower.contains("kerberos health")
+        || lower.contains("kerberos connectivity")
+        || lower.contains("ad connectivity")
+        || lower.contains("active directory health")
+        || lower.contains("domain controller connectivity")
+        || lower.contains("domain controller reachab")
+        || lower.contains("nltest")
+        || lower.contains("dsgetdc")
+        || lower.contains("gpo refresh")
+        || (lower.contains("domain controller")
+            && (lower.contains("reach")
+                || lower.contains("connect")
+                || lower.contains("test")
+                || lower.contains("check")))
+        || (lower.contains("active directory")
+            && (lower.contains("connect")
+                || lower.contains("reach")
+                || lower.contains("health")));
+    let asks_service_dependencies = lower.contains("service depend")
+        || lower.contains("depends on")
+        || lower.contains("service graph")
+        || lower.contains("which services depend")
+        || lower.contains("what depends on")
+        || lower.contains("restart cascade")
+        || lower.contains("svc dep")
+        || (lower.contains("service")
+            && (lower.contains("dependency")
+                || lower.contains("dependencies")
+                || lower.contains("required by")
+                || lower.contains("needed by")));
+    let asks_wmi_health = lower.contains("wmi health")
+        || lower.contains("wmi corrupt")
+        || lower.contains("wmi repository")
+        || lower.contains("wmi broken")
+        || lower.contains("winmgmt")
+        || lower.contains("wmi query fail")
+        || lower.contains("wmi not working")
+        || (lower.contains("wmi")
+            && (lower.contains("health")
+                || lower.contains("status")
+                || lower.contains("repair")
+                || lower.contains("reset")
+                || lower.contains("broken")));
+    let asks_local_security_policy = lower.contains("password policy")
+        || lower.contains("account lockout")
+        || lower.contains("lockout policy")
+        || lower.contains("lockout threshold")
+        || lower.contains("lm compatibility")
+        || lower.contains("ntlm level")
+        || lower.contains("ntlm policy")
+        || lower.contains("local security policy")
+        || lower.contains("account policy")
+        || lower.contains("uac level")
+        || lower.contains("uac policy")
+        || lower.contains("uac disabled")
+        || lower.contains("lmcompatibilitylevel")
+        || lower.contains("net accounts")
+        || (lower.contains("password")
+            && (lower.contains("minimum")
+                || lower.contains("maximum age")
+                || lower.contains("complexity")
+                || lower.contains("history")
+                || lower.contains("policy")));
+    let asks_usb_history = lower.contains("usb history")
+        || lower.contains("usb devices connected")
+        || lower.contains("usb forensic")
+        || lower.contains("usbstor")
+        || lower.contains("usb registry")
+        || lower.contains("what usb")
+        || lower.contains("ever connected usb")
+        || lower.contains("usb devices ever")
+        || (lower.contains("usb")
+            && (lower.contains("history")
+                || lower.contains("forensic")
+                || lower.contains("audit")
+                || lower.contains("ever connected")
+                || lower.contains("registry")));
+    let asks_print_spooler = lower.contains("print spooler")
+        || lower.contains("spooler service")
+        || lower.contains("printnightmare")
+        || lower.contains("print nightmar")
+        || lower.contains("cve-2021-34527")
+        || lower.contains("cve-2021-1675")
+        || lower.contains("print security")
+        || lower.contains("printer security")
+        || lower.contains("point and print")
+        || lower.contains("rpcauthnlevel")
+        || (lower.contains("print") && lower.contains("vulnerab"))
+        || (lower.contains("spooler")
+            && (lower.contains("status")
+                || lower.contains("running")
+                || lower.contains("security")
+                || lower.contains("hardening")));
+
     // If the user has a clear mutation intent (create folder, edit file),
     // we should NOT route to a read-only host inspection topic, as that would
     // trigger a pre-run crash. The main LLM turn will handle the mutation.
@@ -1989,6 +2088,20 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("dhcp")
     } else if asks_mtu {
         Some("mtu")
+    } else if asks_ipv6 {
+        Some("ipv6")
+    } else if asks_domain_health {
+        Some("domain_health")
+    } else if asks_service_dependencies {
+        Some("service_dependencies")
+    } else if asks_wmi_health {
+        Some("wmi_health")
+    } else if asks_local_security_policy {
+        Some("local_security_policy")
+    } else if asks_usb_history {
+        Some("usb_history")
+    } else if asks_print_spooler {
+        Some("print_spooler")
     } else if asks_latency {
         Some("latency")
     } else if asks_nic_teaming {
@@ -3234,6 +3347,63 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("hypervisor")
                 || l.contains("vt-x")
                 || l.contains("slat")
+        }),
+        ("ipv6", |l| {
+            l.contains("ipv6")
+                || l.contains("slaac")
+                || l.contains("dhcpv6")
+                || l.contains("ipv6 address")
+                || l.contains("privacy extension")
+                || l.contains("link-local address")
+        }),
+        ("domain_health", |l| {
+            l.contains("domain health")
+                || l.contains("dc connectivity")
+                || l.contains("domain controller")
+                || l.contains("kerberos health")
+                || l.contains("nltest")
+                || l.contains("ldap port")
+                || l.contains("ad connectivity")
+                || (l.contains("active directory") && l.contains("connect"))
+        }),
+        ("service_dependencies", |l| {
+            l.contains("service depend")
+                || l.contains("depends on")
+                || l.contains("what depends on")
+                || l.contains("restart cascade")
+                || (l.contains("service") && l.contains("dependenc"))
+        }),
+        ("wmi_health", |l| {
+            l.contains("wmi")
+                && (l.contains("health")
+                    || l.contains("corrupt")
+                    || l.contains("reposit")
+                    || l.contains("broken")
+                    || l.contains("repair"))
+        }),
+        ("local_security_policy", |l| {
+            l.contains("password policy")
+                || l.contains("account lockout")
+                || l.contains("lm compatibility")
+                || l.contains("ntlm policy")
+                || l.contains("local security policy")
+                || l.contains("uac policy")
+                || l.contains("uac disabled")
+        }),
+        ("usb_history", |l| {
+            l.contains("usb history")
+                || l.contains("usb forensic")
+                || l.contains("usbstor")
+                || (l.contains("usb") && l.contains("ever connected"))
+                || (l.contains("usb") && l.contains("audit"))
+        }),
+        ("print_spooler", |l| {
+            l.contains("print spooler")
+                || l.contains("printnightmare")
+                || l.contains("spooler service")
+                || l.contains("print security")
+                || l.contains("cve-2021-34527")
+                || (l.contains("print") && l.contains("vulnerab"))
         }),
     ];
 
