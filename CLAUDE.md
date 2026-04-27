@@ -4,7 +4,7 @@
 
 Hematite is a local AI coding harness and natural-language Senior SysAdmin and Network Admin assistant built in Rust. It runs on your machine and uses any OpenAI-compatible local model server. The default target is LM Studio on `localhost:1234`, but the endpoint is configurable. The terminal TUI is one interface layer of the product, not the whole product. The main engineering target is a single-GPU consumer Windows setup, especially RTX 4070-class hardware.
 The codebase itself follows an **AI-Native** philosophy: source files are optimized for signal density and "Clippy-Clean" standards to minimize token overhead when reasoning about the architecture.
-It features a high-fidelity integrated host inspection suite covering **127+ read-only diagnostic topics** for precision triage.
+It features a high-fidelity integrated host inspection suite covering **128+ read-only diagnostic topics** for precision triage.
 
 Hematite supports two model protocol paths:
 
@@ -101,8 +101,8 @@ pwsh ./clean.ps1
 - /triage [preset]: run zero-latency deterministic IT triage (e.g. `/triage network`, `/triage security`)
 - /health: run zero-latency diagnostic health check
 - /fix <issue>: generate a deterministic fix plan for a specific system issue
-- /inspect <topic>: run a specific diagnostic topic from the 127+ available (e.g. `/inspect storage`)
-- /inventory: show the full list of 127+ available diagnostic topics
+- /inspect <topic>: run a specific diagnostic topic from the 128+ available (e.g. `/inspect storage`)
+- /inventory: show the full list of 128+ available diagnostic topics
 - /help: show categorized TUI help (IT, Agent, Navigation, etc.)
 - `/model [status|list [available|loaded]|load <id> [--ctx N]|unload [id|current|all]|prefer <id>|clear]`: inspect, list, load, unload, or save the preferred coding model from inside Hematite (`--ctx` uses LM Studio context length or Ollama `num_ctx`)
 - `/embed [status|load <id>|unload [id|current]|prefer <id>|clear]`: inspect, load, unload, or save the preferred embedding model for semantic search
@@ -362,7 +362,7 @@ When a local model gets uncertain, the answer is usually not "give it more freed
 
 ## MCP Server Mode
 
-Hematite can run as an MCP server, exposing its 127+ host inspection tools to any MCP-capable agent over the stdio transport.
+Hematite can run as an MCP server, exposing its 128+ host inspection tools to any MCP-capable agent over the stdio transport.
 
 ```powershell
 hematite --mcp-server
@@ -382,7 +382,7 @@ This starts a JSON-RPC 2.0 newline-delimited stdio server. No TUI launches. Prot
 }
 ```
 
-**Tool exposed:** `inspect_host` — all 127+ topics, same as the TUI. Any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) can call it directly and get grounded machine state with no cloud, no API key, and no prompt guessing.
+**Tool exposed:** `inspect_host` — all 128+ topics, same as the TUI. Any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) can call it directly and get grounded machine state with no cloud, no API key, and no prompt guessing.
 
 **Implementation:** `src/agent/mcp_server.rs` — stdio reader loop, JSON-RPC dispatch, delegates to `crate::tools::host_inspect::inspect_host()`.
 
@@ -1003,7 +1003,7 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 - **Windows backup diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “windows_backup”)`. Covers File History service state and last backup date/target drive, Windows Backup (wbadmin) last successful backup versions and scheduled tasks, System Restore enabled state and most recent restore point, OneDrive Known Folder Move per-account protection state, and recent backup failure events from the Application event log.
 - **Hyper-V diagnostics** — âœ“ Done. Shipped as `inspect_host(topic: “hyperv”)`. Covers Hyper-V role state (VMMS service, feature installed), VM inventory with name, state, CPU%, RAM, and uptime, VM network switch inventory (External/Internal/Private with bound NIC), VM checkpoint listing with creation timestamps, and host RAM overcommit detection. Reports gracefully if Hyper-V is not installed.
 - **Application crash triage** — âœ“ Done. Shipped as `inspect_host(topic: “app_crashes”)`. Faulting application name/version, faulting module, exception code, crash vs hang classification, WER archive count, crash frequency over 7 days. Accepts optional `process` arg to filter by app name. Distinct from `recent_crashes` (BSOD/kernel events); routing detects natural-language variants including plural/verb forms.
-- **MCP server mode** — âœ“ Done. `hematite --mcp-server` starts a JSON-RPC 2.0 newline-delimited stdio server exposing all 127+ `inspect_host` topics to any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) with no TUI, no local model required. Implemented in `src/agent/mcp_server.rs`.
+- **MCP server mode** — âœ“ Done. `hematite --mcp-server` starts a JSON-RPC 2.0 newline-delimited stdio server exposing all 128+ `inspect_host` topics to any MCP-capable client (Claude Desktop, OpenClaw, Cursor, Windsurf) with no TUI, no local model required. Implemented in `src/agent/mcp_server.rs`.
 - **Edge redaction Tier 1** — âœ“ Done. `--edge-redact` applies compiled regex patterns post-inspect_host: strips usernames in paths, MAC addresses, serial numbers, hostnames, AWS key IDs, and credential-shaped env values. Each response includes a machine-readable receipt header with per-category counts. Implemented in `src/agent/edge_redact.rs`.
 - **Semantic redaction Tier 2 + privacy gateway** — âœ“ Done. `--semantic-redact` routes raw inspect_host output through the local LM Studio model with a hardened privacy prompt before any data leaves the machine. Fail-safe: unreachable model returns an error, never raw data. Jailbreak resistance: `<diagnostic_data>` delimiters, refusal detection, unknown MCP args stripped. Tier 1 runs after as safety net. Policy file (`.hematite/redact_policy.json`) provides per-topic block lists, whitelist mode, and redaction level overrides. Metadata-only audit trail written to `~/.hematite/redact_audit.jsonl`. Implemented across `src/agent/semantic_redact.rs`, `src/agent/redact_policy.rs`, `src/agent/redact_audit.rs`.
 

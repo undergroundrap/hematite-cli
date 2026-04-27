@@ -90,6 +90,22 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "required": ["language", "code"]
             }),
         ),
+        make_tool(
+            "query_data",
+            "Execute an analytical SQL query against a local file (CSV, JSON, or SQLite .db) using SQLite semantics. \
+             Use this for high-precision data analysis, aggregation, and filtering without writing custom scripts. \
+             For CSV and JSON files, the table name is always 'source'. \
+             For SQLite (.db) files, use the actual table names defined in the schema. \
+             Results are returned as a formatted table (max 100 rows).",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "sql": { "type": "string", "description": "The SQL query to run (e.g. SELECT count(*), category FROM source GROUP BY category;)" },
+                    "path": { "type": "string", "description": "Relative path to the data file (CSV, JSON, or .db) inside the project root." }
+                },
+                "required": ["sql", "path"]
+            }),
+        ),
 
         make_tool(
             "trace_runtime_flow",
@@ -945,6 +961,7 @@ pub async fn dispatch_builtin_tool(
     match name {
         "shell" => crate::tools::shell::execute(args, budget_tokens).await,
         "run_code" => crate::tools::code_sandbox::execute(args).await,
+        "query_data" => crate::tools::data_query::query_data(args).await,
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
         "inspect_host" => crate::tools::host_inspect::inspect_host(args).await,

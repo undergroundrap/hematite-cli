@@ -97,7 +97,7 @@ pub(crate) fn build_architect_session_reset_plan() -> crate::tools::plan::PlanHa
 pub(crate) fn build_inspect_inventory() -> String {
     let mut inventory = "Available Host Inspection Topics:\n\n".to_string();
     inventory.push_str("System:\n");
-    inventory.push_str("  summary, health_report, updates, security, hardware, storage, battery, recent_crashes, pending_reboot, disk_health, scheduled_tasks, startup_items\n\n");
+    inventory.push_str("  summary, health_report, updates, security, hardware, storage, battery, recent_crashes, pending_reboot, disk_health, scheduled_tasks, startup_items, data_audit\n\n");
     inventory.push_str("Network:\n");
     inventory.push_str("  connectivity, wifi, internet_check, network, connections, vpn, proxy, firewall_rules, ports, lan_discovery, traceroute, dns_servers, ipconfig, latency, public_ip, ssl_cert\n\n");
     inventory.push_str("Identity & Access:\n");

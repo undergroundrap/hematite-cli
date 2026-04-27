@@ -24,4 +24,5 @@ pub mod tool_schema_cache;
 pub mod toolchain;
 pub mod verify_build;
 pub mod vision;
+pub mod data_query;
 pub mod workspace_workflow;

@@ -148,6 +148,10 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "drivers" | "system_drivers" | "driver_list" => inspect_drivers(max_entries),
         "peripherals" | "usb" | "input_devices" | "connected_hardware" => inspect_peripherals(max_entries),
         "sessions" | "logins" | "active_sessions" => inspect_sessions(max_entries),
+        "data_audit" | "csv_audit" | "file_audit" => {
+            let path = resolve_optional_path(args)?;
+            inspect_data_audit(path, max_entries).await
+        }
         "repo_doctor" => {
             let path = resolve_optional_path(args)?;
             inspect_repo_doctor(path, max_entries)
@@ -270,7 +274,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_print_spooler()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, public_ip, ssl_cert, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, domain_health, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query, mdm_enrollment, storage_spaces, defender_quarantine, service_dependencies, wmi_health, local_security_policy, usb_history, print_spooler.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, public_ip, ssl_cert, data_audit, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, domain_health, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query, mdm_enrollment, storage_spaces, defender_quarantine, service_dependencies, wmi_health, local_security_policy, usb_history, print_spooler.",
             other
         )),
 
@@ -6698,6 +6702,88 @@ try {{
         out.push_str("Note: Deep SSL inspection currently optimized for Windows (PowerShell/SslStream).\n");
     }
     
+    Ok(out)
+}
+
+async fn inspect_data_audit(path: PathBuf, max_entries: usize) -> Result<String, String> {
+    let mut out = format!("Host inspection: data_audit (Path: {:?})\n\n", path);
+    
+    if !path.exists() {
+        return Err(format!("File not found: {:?}", path));
+    }
+    if !path.is_file() {
+        return Err(format!("Not a file: {:?}", path));
+    }
+
+    let file_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+    out.push_str(&format!("File Size: {} bytes ({:.2} MB)\n", file_size, file_size as f64 / 1_048_576.0));
+
+    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+    out.push_str(&format!("Format:    {}\n\n", ext.to_uppercase()));
+
+    match ext.as_str() {
+        "csv" | "tsv" | "txt" | "log" => {
+            let content = std::fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+            let lines: Vec<&str> = content.lines().collect();
+            out.push_str(&format!("Row Count: {} (total lines)\n", lines.len()));
+            
+            if let Some(header) = lines.get(0) {
+                out.push_str("Columns (Guessed from header):\n");
+                let delimiter = if ext == "tsv" { "\t" } else if header.contains(',') { "," } else { " " };
+                let cols: Vec<&str> = header.split(delimiter).map(|s| s.trim()).collect();
+                for (i, col) in cols.iter().enumerate() {
+                    out.push_str(&format!("  {}. {}\n", i + 1, col));
+                }
+            }
+            
+            out.push_str("\nSample Data (First 5 rows):\n");
+            for line in lines.iter().take(6) {
+                out.push_str(&format!("  {}\n", line));
+            }
+        }
+        "json" => {
+            let content = std::fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+            if let Ok(json) = serde_json::from_str::<Value>(&content) {
+                if let Some(arr) = json.as_array() {
+                    out.push_str(&format!("Record Count: {}\n", arr.len()));
+                    if let Some(first) = arr.get(0) {
+                        if let Some(obj) = first.as_object() {
+                            out.push_str("Fields (from first record):\n");
+                            for k in obj.keys() {
+                                out.push_str(&format!("  - {}\n", k));
+                            }
+                        }
+                    }
+                    out.push_str("\nSample Record:\n");
+                    out.push_str(&serde_json::to_string_pretty(&arr.get(0)).unwrap_or_default());
+                } else if let Some(obj) = json.as_object() {
+                    out.push_str("Top-level Keys:\n");
+                    for k in obj.keys() {
+                        out.push_str(&format!("  - {}\n", k));
+                    }
+                }
+            } else {
+                out.push_str("Error: Failed to parse as JSON.\n");
+            }
+        }
+        "db" | "sqlite" | "sqlite3" => {
+            out.push_str("SQLite Database detected.\n");
+            // We could run a PRAGMA table_list or similar here
+            #[cfg(feature = "rusqlite")]
+            {
+                 // Logic to list tables using rusqlite
+            }
+            out.push_str("Use `query_data` to execute SQL against this database.\n");
+        }
+        _ => {
+            out.push_str("Unsupported format for deep audit. Showing first 10 lines:\n\n");
+            let content = std::fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+            for line in content.lines().take(10) {
+                out.push_str(&format!("  {}\n", line));
+            }
+        }
+    }
+
     Ok(out)
 }
 
