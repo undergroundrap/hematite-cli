@@ -59,6 +59,9 @@ pub struct HematiteConfig {
     /// If unset, Hematite checks LM Studio's bundled Deno, then system PATH.
     /// Example: "C:/Users/you/.deno/bin/deno.exe"
     pub deno_path: Option<String>,
+    /// Override path to the Python executable for the run_code sandbox.
+    /// If unset, Hematite checks system PATH (including 'py' launcher on Windows).
+    pub python_path: Option<String>,
     /// Per-project verification commands for build/test/lint/fix workflows.
     #[serde(default)]
     pub verify: VerifyProfilesConfig,
@@ -94,6 +97,7 @@ impl Default for HematiteConfig {
             voice_volume: None,
             context_hint: None,
             deno_path: None,
+            python_path: None,
             verify: VerifyProfilesConfig::default(),
             hooks: crate::agent::hooks::RuntimeHookConfig::default(),
             searx_url: None,
@@ -183,9 +187,15 @@ pub fn load_config() -> HematiteConfig {
     let path = settings_path();
 
     let workspace: Option<HematiteConfig> = if path.exists() {
-        std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|d| serde_json::from_str(&d).ok())
+        let content = std::fs::read_to_string(&path).ok();
+        if let Some(d) = content {
+            match serde_json::from_str(&d) {
+                Ok(cfg) => Some(cfg),
+                Err(_) => None,
+            }
+        } else {
+            None
+        }
     } else {
         write_default_config(&path);
         None
@@ -210,6 +220,8 @@ pub fn load_config() -> HematiteConfig {
                 voice_speed: ws.voice_speed.or(gb.voice_speed),
                 voice_volume: ws.voice_volume.or(gb.voice_volume),
                 context_hint: ws.context_hint.or(gb.context_hint),
+                deno_path: ws.deno_path.or(gb.deno_path),
+                python_path: ws.python_path.or(gb.python_path),
                 searx_url: ws.searx_url.or(gb.searx_url),
                 auto_start_searx: ws.auto_start_searx, // Workspace setting always takes priority.
                 auto_stop_searx: ws.auto_stop_searx,   // Workspace setting always takes priority.

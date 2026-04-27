@@ -103,20 +103,13 @@ pub(crate) fn build_inspect_inventory() -> String {
     inventory.push_str("Identity & Access:\n");
     inventory.push_str("  sign_in, user_accounts, ad_user, identity_auth, outlook, teams, browser_health, installer_health, onedrive, search_index, event_query\n\n");
     inventory.push_str("Developer:\n");
-    inventory.push_str("  toolchains, env_doctor, dev_conflicts, path, registry_audit, msi, git_state\n\n");
+    inventory.push_str(
+        "  toolchains, env_doctor, dev_conflicts, path, registry_audit, msi, git_state\n\n",
+    );
     inventory.push_str("Usage: /inspect <topic>");
     inventory
 }
 
-pub(crate) fn build_remediation_help() -> String {
-    "Hematite Remediation Commands (0-Model Mode):\n\n\
-    /triage [preset] - run IT triage logic (health, security, connectivity, identity, updates)\n\
-    /health          - alias for /triage (deterministic report)\n\
-    /fix <issue>     - generate a targeted fix plan for a specific issue\n\
-    /inspect <topic> - run a specific host inspection topic\n\
-    /diagnose        - run staged health triage with agent handoff\n\n\
-    These commands run pure logic and do not require a local model to be loaded.".to_string()
-}
 
 pub(crate) fn build_help_answer() -> String {
     "Hematite TUI Command Categories:\n\n\
@@ -130,5 +123,6 @@ pub(crate) fn build_help_answer() -> String {
     /new, /forget, /clear, /attach, /image, /detach, /vein-inspect, /vein-reset\n\n\
     [System & Model]\n\
     /runtime, /model, /embed, /lsp, /think, /no_think, /version, /about\n\n\
-    Type /help for the full, detailed command list and hotkeys.".to_string()
+    Type /help for the full, detailed command list and hotkeys."
+        .to_string()
 }

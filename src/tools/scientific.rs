@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 /// Performs advanced scientific and computational research tasks.
-/// 
+///
 /// Modes:
 /// - `symbolic`: Solve algebraic equations or simplify expressions using SymPy.
 /// - `units`: Perform calculations with dimensional consistency checks.
@@ -9,7 +9,9 @@ use serde_json::Value;
 /// - `ledger`: Persist or read derivations from the scientific memory file.
 /// - `dataset`: Perform advanced math/stats on a SQL-queried dataset.
 pub async fn scientific_compute(args: &Value) -> Result<String, String> {
-    let mode = args["mode"].as_str().ok_or("Missing 'mode' (symbolic, units, complexity, ledger, dataset)")?;
+    let mode = args["mode"]
+        .as_str()
+        .ok_or("Missing 'mode' (symbolic, units, complexity, ledger, dataset)")?;
 
     match mode {
         "symbolic" => solve_symbolic(args).await,
@@ -22,7 +24,9 @@ pub async fn scientific_compute(args: &Value) -> Result<String, String> {
 }
 
 async fn solve_symbolic(args: &Value) -> Result<String, String> {
-    let expr = args["expr"].as_str().ok_or("Missing 'expr' for symbolic mode")?;
+    let expr = args["expr"]
+        .as_str()
+        .ok_or("Missing 'expr' for symbolic mode")?;
     let target = args["target"].as_str().unwrap_or("solve"); // solve, simplify, integrate, diff
     let latex = args["latex"].as_bool().unwrap_or(false);
 
@@ -61,8 +65,10 @@ async fn solve_symbolic(args: &Value) -> Result<String, String> {
 }
 
 async fn verify_units(args: &Value) -> Result<String, String> {
-    let calculation = args["calculation"].as_str().ok_or("Missing 'calculation' for units mode")?;
-    
+    let calculation = args["calculation"]
+        .as_str()
+        .ok_or("Missing 'calculation' for units mode")?;
+
     // Basic dimensional analysis wrapper for Python
     let python_script = format!(
         "try:\n\
@@ -107,8 +113,10 @@ async fn verify_units(args: &Value) -> Result<String, String> {
 }
 
 async fn audit_complexity(args: &Value) -> Result<String, String> {
-    let snippet = args["snippet"].as_str().ok_or("Missing 'snippet' for complexity mode")?;
-    
+    let snippet = args["snippet"]
+        .as_str()
+        .ok_or("Missing 'snippet' for complexity mode")?;
+
     let python_script = format!(
         "import time\n\
          import math\n\
@@ -152,13 +160,15 @@ async fn execute_in_sandbox(script: &str) -> Result<String, String> {
         "language": "python",
         "code": script
     });
-    
+
     // We use the internal tool call to execute
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
 async fn manage_ledger(args: &Value) -> Result<String, String> {
-    let action = args["action"].as_str().ok_or("Missing 'action' (read, append)")?;
+    let action = args["action"]
+        .as_str()
+        .ok_or("Missing 'action' (read, append)")?;
     let ledger_path = std::path::Path::new(".hematite/docs/scientific_ledger.md");
 
     // Ensure directory exists
@@ -174,19 +184,27 @@ async fn manage_ledger(args: &Value) -> Result<String, String> {
             std::fs::read_to_string(ledger_path).map_err(|e| e.to_string())
         }
         "append" => {
-            let content = args["content"].as_str().ok_or("Missing 'content' to append")?;
+            let content = args["content"]
+                .as_str()
+                .ok_or("Missing 'content' to append")?;
             let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-            let entry = format!("\n### [{}] Scientific Derivation\n{}\n---\n", timestamp, content);
-            
+            let entry = format!(
+                "\n### [{}] Scientific Derivation\n{}\n---\n",
+                timestamp, content
+            );
+
             use std::io::Write;
             let mut file = std::fs::OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(ledger_path)
                 .map_err(|e| e.to_string())?;
-            
-            file.write_all(entry.as_bytes()).map_err(|e| e.to_string())?;
-            Ok(format!("Derivation successfully persisted to Scientific Ledger (RAG-indexed)."))
+
+            file.write_all(entry.as_bytes())
+                .map_err(|e| e.to_string())?;
+            Ok(format!(
+                "Derivation successfully persisted to Scientific Ledger (RAG-indexed)."
+            ))
         }
         _ => Err(format!("Unknown ledger action: {}", action)),
     }
@@ -195,10 +213,12 @@ async fn manage_ledger(args: &Value) -> Result<String, String> {
 async fn calculate_on_dataset(args: &Value) -> Result<String, String> {
     let path_str = args["path"].as_str().ok_or("Missing 'path' to dataset")?;
     let sql = args["sql"].as_str().ok_or("Missing 'sql' to fetch data")?;
-    let python_op = args["python_op"].as_str().ok_or("Missing 'python_op' (e.g. 'sum(vals)/len(vals)')")?;
+    let python_op = args["python_op"]
+        .as_str()
+        .ok_or("Missing 'python_op' (e.g. 'sum(vals)/len(vals)')")?;
 
     let path = std::path::PathBuf::from(path_str);
-    
+
     // Use the SQL bridge logic from data_query
     // We'll simulate the data fetching here or use the helper if available
     // For simplicity, we use the analyze_trends pattern

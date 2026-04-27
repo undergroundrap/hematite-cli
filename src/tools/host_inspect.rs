@@ -3394,6 +3394,20 @@ fn bool_label(value: bool) -> &'static str {
 }
 
 fn collect_toolchains() -> ToolchainReport {
+    let config = crate::agent::config::load_config();
+    let mut python_probes = Vec::new();
+    let _ = if let Some(ref path) = config.python_path {
+        python_probes.push(CommandProbe::new(path, &["--version"]));
+    } else {
+    };
+
+    python_probes.extend([
+        CommandProbe::new("python3", &["--version"]),
+        CommandProbe::new("python", &["--version"]),
+        CommandProbe::new("py", &["-3", "--version"]),
+        CommandProbe::new("py", &["--version"]),
+    ]);
+
     let checks = [
         ToolCheck::new("git", &[CommandProbe::new("git", &["--version"])]),
         ToolCheck::new("rustc", &[CommandProbe::new("rustc", &["--version"])]),
@@ -3413,15 +3427,7 @@ fn collect_toolchains() -> ToolchainReport {
                 CommandProbe::new("pnpm.cmd", &["--version"]),
             ],
         ),
-        ToolCheck::new(
-            "python",
-            &[
-                CommandProbe::new("python", &["--version"]),
-                CommandProbe::new("python3", &["--version"]),
-                CommandProbe::new("py", &["-3", "--version"]),
-                CommandProbe::new("py", &["--version"]),
-            ],
-        ),
+        ToolCheck::new("python", &python_probes),
         ToolCheck::new("deno", &[CommandProbe::new("deno", &["--version"])]),
         ToolCheck::new("go", &[CommandProbe::new("go", &["version"])]),
         ToolCheck::new("dotnet", &[CommandProbe::new("dotnet", &["--version"])]),
@@ -3442,6 +3448,19 @@ fn collect_toolchains() -> ToolchainReport {
 }
 
 fn collect_package_managers() -> PackageManagerReport {
+    let config = crate::agent::config::load_config();
+    let mut pip_probes = Vec::new();
+    if let Some(ref path) = config.python_path {
+        pip_probes.push(CommandProbe::new(path, &["-m", "pip", "--version"]));
+    }
+    pip_probes.extend([
+        CommandProbe::new("python3", &["-m", "pip", "--version"]),
+        CommandProbe::new("python", &["-m", "pip", "--version"]),
+        CommandProbe::new("py", &["-3", "-m", "pip", "--version"]),
+        CommandProbe::new("py", &["-m", "pip", "--version"]),
+        CommandProbe::new("pip", &["--version"]),
+    ]);
+
     let checks = [
         ToolCheck::new("cargo", &[CommandProbe::new("cargo", &["--version"])]),
         ToolCheck::new(
@@ -3458,16 +3477,7 @@ fn collect_package_managers() -> PackageManagerReport {
                 CommandProbe::new("pnpm.cmd", &["--version"]),
             ],
         ),
-        ToolCheck::new(
-            "pip",
-            &[
-                CommandProbe::new("python", &["-m", "pip", "--version"]),
-                CommandProbe::new("python3", &["-m", "pip", "--version"]),
-                CommandProbe::new("py", &["-3", "-m", "pip", "--version"]),
-                CommandProbe::new("py", &["-m", "pip", "--version"]),
-                CommandProbe::new("pip", &["--version"]),
-            ],
-        ),
+        ToolCheck::new("pip", &pip_probes),
         ToolCheck::new("pipx", &[CommandProbe::new("pipx", &["--version"])]),
         ToolCheck::new("uv", &[CommandProbe::new("uv", &["--version"])]),
         ToolCheck::new("winget", &[CommandProbe::new("winget", &["--version"])]),
@@ -3508,7 +3518,7 @@ impl ToolCheck {
 
     fn detect(&self) -> Option<String> {
         for probe in &self.probes {
-            if let Some(output) = capture_first_line(probe.program, probe.args) {
+            if let Some(output) = capture_first_line(&probe.program, &probe.args) {
                 return Some(output);
             }
         }
@@ -3516,15 +3526,18 @@ impl ToolCheck {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct CommandProbe {
-    program: &'static str,
-    args: &'static [&'static str],
+    program: String,
+    args: Vec<String>,
 }
 
 impl CommandProbe {
-    const fn new(program: &'static str, args: &'static [&'static str]) -> Self {
-        Self { program, args }
+    fn new(program: &str, args: &[&str]) -> Self {
+        Self {
+            program: program.to_string(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+        }
     }
 }
 
@@ -3603,9 +3616,9 @@ fn build_env_doctor_findings(
     findings
 }
 
-fn capture_first_line(program: &str, args: &[&str]) -> Option<String> {
+fn capture_first_line<S: AsRef<str>>(program: &str, args: &[S]) -> Option<String> {
     let output = std::process::Command::new(program)
-        .args(args)
+        .args(args.iter().map(|s| s.as_ref()))
         .output()
         .ok()?;
     if !output.status.success() {
@@ -6576,7 +6589,7 @@ fn inspect_dev_conflicts() -> Result<String, String> {
 
 async fn inspect_public_ip() -> Result<String, String> {
     let mut out = String::from("Host inspection: public_ip\n\n");
-    
+
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
         .build()
@@ -6587,19 +6600,26 @@ async fn inspect_public_ip() -> Result<String, String> {
             if let Ok(json) = resp.json::<serde_json::Value>().await {
                 let ip = json.get("ip").and_then(|v| v.as_str()).unwrap_or("Unknown");
                 out.push_str(&format!("Public IP: {}\n", ip));
-                
+
                 // Geo info
-                if let Ok(geo_resp) = client.get(format!("http://ip-api.com/json/{}", ip)).send().await {
+                if let Ok(geo_resp) = client
+                    .get(format!("http://ip-api.com/json/{}", ip))
+                    .send()
+                    .await
+                {
                     if let Ok(geo_json) = geo_resp.json::<serde_json::Value>().await {
-                         if let (Some(city), Some(region), Some(country), Some(isp)) = (
-                             geo_json.get("city").and_then(|v| v.as_str()),
-                             geo_json.get("regionName").and_then(|v| v.as_str()),
-                             geo_json.get("country").and_then(|v| v.as_str()),
-                             geo_json.get("isp").and_then(|v| v.as_str()),
-                         ) {
-                             out.push_str(&format!("Location:  {}, {} ({})\n", city, region, country));
-                             out.push_str(&format!("ISP:       {}\n", isp));
-                         }
+                        if let (Some(city), Some(region), Some(country), Some(isp)) = (
+                            geo_json.get("city").and_then(|v| v.as_str()),
+                            geo_json.get("regionName").and_then(|v| v.as_str()),
+                            geo_json.get("country").and_then(|v| v.as_str()),
+                            geo_json.get("isp").and_then(|v| v.as_str()),
+                        ) {
+                            out.push_str(&format!(
+                                "Location:  {}, {} ({})\n",
+                                city, region, country
+                            ));
+                            out.push_str(&format!("ISP:       {}\n", isp));
+                        }
                     }
                 }
             } else {
@@ -6607,16 +6627,19 @@ async fn inspect_public_ip() -> Result<String, String> {
             }
         }
         Err(e) => {
-            out.push_str(&format!("Error: Failed to fetch public IP ({}). Check internet connectivity.\n", e));
+            out.push_str(&format!(
+                "Error: Failed to fetch public IP ({}). Check internet connectivity.\n",
+                e
+            ));
         }
     }
-    
+
     Ok(out)
 }
 
 fn inspect_ssl_cert(host: &str) -> Result<String, String> {
     let mut out = format!("Host inspection: ssl_cert (Target: {})\n\n", host);
-    
+
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
@@ -6638,76 +6661,96 @@ try {{
     "ERROR:" + $_.Exception.Message
 }}"#
         );
-        
+
         let ps_out = Command::new("powershell")
             .args(["-NoProfile", "-NonInteractive", "-Command", &script])
             .output()
             .map_err(|e| format!("powershell launch failed: {e}"))?;
-            
+
         let text = String::from_utf8_lossy(&ps_out.stdout).trim().to_string();
         if text.starts_with("ERROR:") {
-             out.push_str(&format!("Error: {}\n", text.trim_start_matches("ERROR:")));
+            out.push_str(&format!("Error: {}\n", text.trim_start_matches("ERROR:")));
         } else if text == "null" || text.is_empty() {
-             out.push_str("Error: Could not retrieve certificate. Target may be unreachable or not using SSL.\n");
+            out.push_str("Error: Could not retrieve certificate. Target may be unreachable or not using SSL.\n");
         } else {
-             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
-                 if let Some(obj) = json.as_object() {
-                     for (k, v) in obj {
-                         let val_str = v.as_str().unwrap_or("");
-                         out.push_str(&format!("{:<12}: {}\n", k, val_str));
-                     }
-                     
-                     // Check expiry
-                     if let Some(not_after_raw) = obj.get("NotAfter").and_then(|v| v.as_str()) {
-                         // PowerShell dates in JSON usually look like "/Date(1745678900000)/" or ISO string
-                         // If it's "/Date(...)/", we need to parse it.
-                         // But ConvertTo-Json often produces ISO if it's a raw string from Select-Object.
-                         if not_after_raw.starts_with("/Date(") {
-                             // Extract timestamp
-                             let ts = not_after_raw.trim_start_matches("/Date(").trim_end_matches(")/").parse::<i64>().unwrap_or(0);
-                             let expiry = chrono::DateTime::from_timestamp(ts / 1000, 0).unwrap_or_default();
-                             let now = chrono::Utc::now();
-                             let days_left = expiry.signed_duration_since(now).num_days();
-                             if days_left < 0 {
-                                 out.push_str("\nSTATUS: [!!] EXPIRED\n");
-                             } else if days_left < 30 {
-                                 out.push_str(&format!("\nSTATUS: [!] EXPIRING SOON ({} days left)\n", days_left));
-                             } else {
-                                 out.push_str(&format!("\nSTATUS: Valid ({} days left)\n", days_left));
-                             }
-                         } else {
-                             // Try ISO
-                             if let Ok(expiry) = chrono::DateTime::parse_from_rfc3339(not_after_raw) {
-                                 let now = chrono::Utc::now();
-                                 let days_left = expiry.signed_duration_since(now).num_days();
-                                 if days_left < 0 {
-                                     out.push_str("\nSTATUS: [!!] EXPIRED\n");
-                                 } else if days_left < 30 {
-                                     out.push_str(&format!("\nSTATUS: [!] EXPIRING SOON ({} days left)\n", days_left));
-                                 } else {
-                                     out.push_str(&format!("\nSTATUS: Valid ({} days left)\n", days_left));
-                                 }
-                             }
-                         }
-                     }
-                 }
-             } else {
-                 out.push_str(&format!("Raw Output: {}\n", text));
-             }
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                if let Some(obj) = json.as_object() {
+                    for (k, v) in obj {
+                        let val_str = v.as_str().unwrap_or("");
+                        out.push_str(&format!("{:<12}: {}\n", k, val_str));
+                    }
+
+                    // Check expiry
+                    if let Some(not_after_raw) = obj.get("NotAfter").and_then(|v| v.as_str()) {
+                        // PowerShell dates in JSON usually look like "/Date(1745678900000)/" or ISO string
+                        // If it's "/Date(...)/", we need to parse it.
+                        // But ConvertTo-Json often produces ISO if it's a raw string from Select-Object.
+                        if not_after_raw.starts_with("/Date(") {
+                            // Extract timestamp
+                            let ts = not_after_raw
+                                .trim_start_matches("/Date(")
+                                .trim_end_matches(")/")
+                                .parse::<i64>()
+                                .unwrap_or(0);
+                            let expiry =
+                                chrono::DateTime::from_timestamp(ts / 1000, 0).unwrap_or_default();
+                            let now = chrono::Utc::now();
+                            let days_left = expiry.signed_duration_since(now).num_days();
+                            if days_left < 0 {
+                                out.push_str("\nSTATUS: [!!] EXPIRED\n");
+                            } else if days_left < 30 {
+                                out.push_str(&format!(
+                                    "\nSTATUS: [!] EXPIRING SOON ({} days left)\n",
+                                    days_left
+                                ));
+                            } else {
+                                out.push_str(&format!(
+                                    "\nSTATUS: Valid ({} days left)\n",
+                                    days_left
+                                ));
+                            }
+                        } else {
+                            // Try ISO
+                            if let Ok(expiry) = chrono::DateTime::parse_from_rfc3339(not_after_raw)
+                            {
+                                let now = chrono::Utc::now();
+                                let days_left = expiry.signed_duration_since(now).num_days();
+                                if days_left < 0 {
+                                    out.push_str("\nSTATUS: [!!] EXPIRED\n");
+                                } else if days_left < 30 {
+                                    out.push_str(&format!(
+                                        "\nSTATUS: [!] EXPIRING SOON ({} days left)\n",
+                                        days_left
+                                    ));
+                                } else {
+                                    out.push_str(&format!(
+                                        "\nSTATUS: Valid ({} days left)\n",
+                                        days_left
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                out.push_str(&format!("Raw Output: {}\n", text));
+            }
         }
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
-        out.push_str("Note: Deep SSL inspection currently optimized for Windows (PowerShell/SslStream).\n");
+        out.push_str(
+            "Note: Deep SSL inspection currently optimized for Windows (PowerShell/SslStream).\n",
+        );
     }
-    
+
     Ok(out)
 }
 
-async fn inspect_data_audit(path: PathBuf, max_entries: usize) -> Result<String, String> {
+async fn inspect_data_audit(path: PathBuf, _max_entries: usize) -> Result<String, String> {
     let mut out = format!("Host inspection: data_audit (Path: {:?})\n\n", path);
-    
+
     if !path.exists() {
         return Err(format!("File not found: {:?}", path));
     }
@@ -6716,33 +6759,49 @@ async fn inspect_data_audit(path: PathBuf, max_entries: usize) -> Result<String,
     }
 
     let file_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-    out.push_str(&format!("File Size: {} bytes ({:.2} MB)\n", file_size, file_size as f64 / 1_048_576.0));
+    out.push_str(&format!(
+        "File Size: {} bytes ({:.2} MB)\n",
+        file_size,
+        file_size as f64 / 1_048_576.0
+    ));
 
-    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+    let ext = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
     out.push_str(&format!("Format:    {}\n\n", ext.to_uppercase()));
 
     match ext.as_str() {
         "csv" | "tsv" | "txt" | "log" => {
-            let content = std::fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| format!("Failed to read file: {}", e))?;
             let lines: Vec<&str> = content.lines().collect();
             out.push_str(&format!("Row Count: {} (total lines)\n", lines.len()));
-            
+
             if let Some(header) = lines.get(0) {
                 out.push_str("Columns (Guessed from header):\n");
-                let delimiter = if ext == "tsv" { "\t" } else if header.contains(',') { "," } else { " " };
+                let delimiter = if ext == "tsv" {
+                    "\t"
+                } else if header.contains(',') {
+                    ","
+                } else {
+                    " "
+                };
                 let cols: Vec<&str> = header.split(delimiter).map(|s| s.trim()).collect();
                 for (i, col) in cols.iter().enumerate() {
                     out.push_str(&format!("  {}. {}\n", i + 1, col));
                 }
             }
-            
+
             out.push_str("\nSample Data (First 5 rows):\n");
             for line in lines.iter().take(6) {
                 out.push_str(&format!("  {}\n", line));
             }
         }
         "json" => {
-            let content = std::fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| format!("Failed to read file: {}", e))?;
             if let Ok(json) = serde_json::from_str::<Value>(&content) {
                 if let Some(arr) = json.as_array() {
                     out.push_str(&format!("Record Count: {}\n", arr.len()));
@@ -6769,15 +6828,13 @@ async fn inspect_data_audit(path: PathBuf, max_entries: usize) -> Result<String,
         "db" | "sqlite" | "sqlite3" => {
             out.push_str("SQLite Database detected.\n");
             // We could run a PRAGMA table_list or similar here
-            #[cfg(feature = "rusqlite")]
-            {
-                 // Logic to list tables using rusqlite
-            }
+            // Logic to list tables using rusqlite would go here
             out.push_str("Use `query_data` to execute SQL against this database.\n");
         }
         _ => {
             out.push_str("Unsupported format for deep audit. Showing first 10 lines:\n\n");
-            let content = std::fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| format!("Failed to read file: {}", e))?;
             for line in content.lines().take(10) {
                 out.push_str(&format!("  {}\n", line));
             }

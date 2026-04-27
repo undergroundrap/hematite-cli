@@ -1,19 +1,24 @@
-use std::fs;
-use std::path::PathBuf;
 use serde_json::json;
+use std::fs;
 
 #[tokio::test]
 async fn test_sql_csv_ingestion_and_query() {
     let workspace = tempfile::tempdir().expect("temp workspace");
     let csv_path = workspace.path().join("test.csv");
-    fs::write(&csv_path, "id,name,value\n1,alice,10.5\n2,bob,20.0\n3,charlie,30.5").expect("write csv");
+    fs::write(
+        &csv_path,
+        "id,name,value\n1,alice,10.5\n2,bob,20.0\n3,charlie,30.5",
+    )
+    .expect("write csv");
 
     let args = json!({
         "sql": "SELECT count(*) as total, sum(value) as sum_val FROM source",
         "path": csv_path.to_str().unwrap()
     });
 
-    let result = hematite::tools::data_query::query_data(&args).await.expect("query failed");
+    let result = hematite::tools::data_query::query_data(&args)
+        .await
+        .expect("query failed");
     assert!(result.contains("total"));
     assert!(result.contains("3"));
     assert!(result.contains("61.0"));
@@ -33,7 +38,9 @@ async fn test_export_as_table_sqlite() {
         "format": "sqlite"
     });
 
-    let result = hematite::tools::data_query::export_as_table(&args).await.expect("export failed");
+    let result = hematite::tools::data_query::export_as_table(&args)
+        .await
+        .expect("export failed");
     assert!(result.contains("Successfully exported 2 items"));
     assert!(db_path.exists());
 
@@ -42,7 +49,9 @@ async fn test_export_as_table_sqlite() {
         "sql": "SELECT name FROM data WHERE val > 150",
         "path": db_path.to_str().unwrap()
     });
-    let query_res = hematite::tools::data_query::query_data(&query_args).await.expect("query failed");
+    let query_res = hematite::tools::data_query::query_data(&query_args)
+        .await
+        .expect("query failed");
     assert!(query_res.contains("y"));
     assert!(!query_res.contains("x"));
 }
@@ -60,14 +69,18 @@ async fn test_analyze_trends_logic() {
         "path": db_path.to_str().unwrap(),
         "format": "sqlite"
     });
-    hematite::tools::data_query::export_as_table(&setup_args).await.expect("setup failed");
+    hematite::tools::data_query::export_as_table(&setup_args)
+        .await
+        .expect("setup failed");
 
     let args = json!({
         "sql": "SELECT val FROM data",
         "path": db_path.to_str().unwrap()
     });
 
-    let result = hematite::tools::data_query::analyze_trends(&args).await.expect("analysis failed");
+    let result = hematite::tools::data_query::analyze_trends(&args)
+        .await
+        .expect("analysis failed");
     assert!(result.contains("Mean:   30.0000"));
     assert!(result.contains("Distribution (ASCII Histogram)"));
     assert!(result.contains("█"));

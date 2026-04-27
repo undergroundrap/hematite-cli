@@ -9,7 +9,7 @@ async fn test_scientific_symbolic_solve() {
         "expr": "x**2 - 4 = 0",
         "target": "solve"
     });
-    
+
     let result = scientific_compute(&args).await;
     if let Ok(res) = result {
         assert!(res.contains("RESULT") || res.contains("ERROR"));
@@ -43,7 +43,7 @@ async fn test_scientific_complexity() {
 #[tokio::test]
 async fn test_scientific_ledger_append_read() {
     let test_content = "Integration by parts formula: Integral u dv = uv - Integral v du";
-    
+
     // 1. Append
     let append_args = json!({
         "mode": "ledger",
@@ -78,7 +78,7 @@ async fn test_scientific_symbolic_latex() {
         "target": "simplify",
         "latex": true
     });
-    
+
     let result = scientific_compute(&args).await;
     if let Ok(res) = result {
         assert!(res.contains("RESULT") || res.contains("ERROR"));

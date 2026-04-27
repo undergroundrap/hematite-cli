@@ -984,8 +984,13 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("inspect file")
         || lower.contains("profile data")
         || lower.contains("data distribution")
-        || (lower.contains("audit") && (lower.contains("csv") || lower.contains("json") || lower.contains("file") || lower.contains("data")))
-        || (lower.contains("schema") && (lower.contains("csv") || lower.contains("json") || lower.contains("data")));
+        || (lower.contains("audit")
+            && (lower.contains("csv")
+                || lower.contains("json")
+                || lower.contains("file")
+                || lower.contains("data")))
+        || (lower.contains("schema")
+            && (lower.contains("csv") || lower.contains("json") || lower.contains("data")));
     let asks_ntp = lower.contains("ntp")
         || lower.contains("time sync")
         || lower.contains("clock sync")
@@ -3894,7 +3899,11 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
             || mentions_broad_system_walkthrough(&lower)
     };
 
-    let direct_answer = if lower == "/help" || lower == "help" || lower == "/inventory" || lower == "/commands" {
+    let direct_answer = if lower == "/help"
+        || lower == "help"
+        || lower == "/inventory"
+        || lower == "/commands"
+    {
         Some(DirectAnswerKind::Help)
     } else if lower == "/about" || lower == "/version" || lower == "about" || lower == "version" {
         Some(DirectAnswerKind::About)

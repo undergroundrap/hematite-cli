@@ -4307,9 +4307,18 @@ fn test_inspect_host_git_config_reports_version_and_config() {
 #[test]
 fn test_routing_detects_data_audit_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("audit this csv file"), Some("data_audit"));
-    assert_eq!(preferred_host_inspection_topic("what is the schema of this data?"), Some("data_audit"));
-    assert_eq!(preferred_host_inspection_topic("inspect file profile data"), Some("data_audit"));
+    assert_eq!(
+        preferred_host_inspection_topic("audit this csv file"),
+        Some("data_audit")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is the schema of this data?"),
+        Some("data_audit")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("inspect file profile data"),
+        Some("data_audit")
+    );
 }
 
 #[test]

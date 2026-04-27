@@ -5,13 +5,13 @@ use crate::agent::architecture_summary::{
 };
 use crate::agent::direct_answers::{
     build_about_answer, build_architect_session_reset_plan, build_authorization_policy_answer,
-    build_gemma_native_answer, build_gemma_native_settings_answer, build_identity_answer,
-    build_language_capability_answer, build_mcp_lifecycle_answer, build_product_surface_answer,
-    build_reasoning_split_answer, build_recovery_recipes_answer, build_session_memory_answer,
+    build_gemma_native_answer, build_gemma_native_settings_answer, build_help_answer,
+    build_identity_answer, build_inspect_inventory, build_language_capability_answer,
+    build_mcp_lifecycle_answer, build_product_surface_answer, build_reasoning_split_answer,
+    build_recovery_recipes_answer, build_session_memory_answer,
     build_session_reset_semantics_answer, build_tool_classes_answer,
     build_tool_registry_ownership_answer, build_unsafe_workflow_pressure_answer,
-    build_verify_profiles_answer, build_workflow_modes_answer, build_help_answer,
-    build_inspect_inventory, build_remediation_help,
+    build_verify_profiles_answer, build_workflow_modes_answer,
 };
 use crate::agent::inference::InferenceEngine;
 use crate::agent::policy::{
@@ -37,7 +37,7 @@ use crate::agent::types::{
 // SystemPromptBuilder is no longer used — InferenceEngine::build_system_prompt() is canonical.
 use crate::agent::compaction::{self, CompactionConfig};
 use crate::agent::report_export::{
-    generate_triage_report_markdown, generate_fix_plan_markdown, fix_issue_categories
+    fix_issue_categories, generate_fix_plan_markdown, generate_triage_report_markdown,
 };
 use crate::tools::host_inspect::inspect_host;
 use crate::ui::gpu_monitor::GpuState;
@@ -3045,7 +3045,11 @@ impl ConversationManager {
                 ""
             };
             let preset = if preset.is_empty() { "default" } else { preset };
-            let _ = tx.send(InferenceEvent::Thought("Running deterministic IT triage...".into())).await;
+            let _ = tx
+                .send(InferenceEvent::Thought(
+                    "Running deterministic IT triage...".into(),
+                ))
+                .await;
             let report = generate_triage_report_markdown(preset).await;
             for chunk in chunk_text(&report, 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
@@ -3057,17 +3061,22 @@ impl ConversationManager {
         if user_input.starts_with("/fix") {
             let issue = user_input.strip_prefix("/fix").unwrap_or("").trim();
             if issue.is_empty() || issue == "list" || issue == "help" {
-                 let mut list = "Supported issue categories:\n\n".to_string();
-                 for (cat, keywords) in fix_issue_categories() {
-                     list.push_str(&format!("  {:<22} {}\n", cat, keywords));
-                 }
-                 for chunk in chunk_text(&list, 8) {
-                     let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
-                 }
-                 let _ = tx.send(InferenceEvent::Done).await;
-                 return Ok(());
+                let mut list = "Supported issue categories:\n\n".to_string();
+                for (cat, keywords) in fix_issue_categories() {
+                    list.push_str(&format!("  {:<22} {}\n", cat, keywords));
+                }
+                for chunk in chunk_text(&list, 8) {
+                    let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
+                }
+                let _ = tx.send(InferenceEvent::Done).await;
+                return Ok(());
             }
-            let _ = tx.send(InferenceEvent::Thought(format!("Generating fix plan for '{}'...", issue))).await;
+            let _ = tx
+                .send(InferenceEvent::Thought(format!(
+                    "Generating fix plan for '{}'...",
+                    issue
+                )))
+                .await;
             let plan = generate_fix_plan_markdown(issue).await;
             for chunk in chunk_text(&plan, 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
@@ -3085,9 +3094,16 @@ impl ConversationManager {
                 let _ = tx.send(InferenceEvent::Done).await;
                 return Ok(());
             }
-            let _ = tx.send(InferenceEvent::Thought(format!("Inspecting host topic: {}...", topic))).await;
+            let _ = tx
+                .send(InferenceEvent::Thought(format!(
+                    "Inspecting host topic: {}...",
+                    topic
+                )))
+                .await;
             let args = serde_json::json!({"topic": topic});
-            let output = inspect_host(&args).await.unwrap_or_else(|e| format!("Error: {}", e));
+            let output = inspect_host(&args)
+                .await
+                .unwrap_or_else(|e| format!("Error: {}", e));
             for chunk in chunk_text(&output, 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
             }

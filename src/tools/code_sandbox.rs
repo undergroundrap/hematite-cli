@@ -81,10 +81,19 @@ fn run_deno(code: &str, timeout_secs: u64) -> Result<String, String> {
 /// Python has no built-in permission flags like Deno, so we restrict the
 /// environment and use a short timeout as the primary safety net.
 fn run_python(code: &str, timeout_secs: u64) -> Result<String, String> {
-    let python = find_executable(&["python3", "python"])
-        .ok_or_else(|| "Python is not installed or not on PATH.".to_string())?;
+    let python = find_python().ok_or_else(|| {
+        "Python not found. Hematite checks (in order): settings.json `python_path`, \
+         system PATH (python3, python), and 'py' launcher on Windows. \
+         To install Python: https://python.org or `winget install Python.Python.3`. \
+         Or set `python_path` in .hematite/settings.json to point to any Python binary."
+            .to_string()
+    })?;
 
-    let child = Command::new(&python)
+    let mut cmd = Command::new(&python);
+    if python == "py" {
+        cmd.arg("-3");
+    }
+    let child = cmd
         .args([
             "-c",
             // Wrap the code: block network imports and dangerous builtins before running.
@@ -286,6 +295,24 @@ fn find_deno() -> Option<String> {
 
     // 5. LM Studio bundled copy — last resort
     find_lmstudio_deno()
+}
+
+/// Locate Python with a priority-ordered search:
+/// 1. `python_path` in .hematite/settings.json (explicit user pin)
+/// 2. System PATH: python3
+/// 3. System PATH: python
+/// 4. System PATH: py (Windows launcher)
+fn find_python() -> Option<String> {
+    // 1. settings.json override
+    let config = crate::agent::config::load_config();
+    if let Some(path) = config.python_path {
+        if std::path::Path::new(&path).exists() {
+            return Some(path);
+        }
+    }
+
+    // 2-4. System PATH
+    find_executable(&["python3", "python", "py"])
 }
 
 /// Find the first available executable from a list of candidates.
