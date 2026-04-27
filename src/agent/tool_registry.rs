@@ -122,6 +122,20 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "required": ["items", "path"]
             }),
         ),
+        make_tool(
+            "analyze_trends",
+            "Perform statistical analysis and generate an ASCII histogram from a SQL query result. \
+             This tool pipes SQL data into a Python sandbox to calculate Mean, Median, StdDev, and distribution. \
+             Use this to find patterns, anomalies, or trends in large datasets without manual calculation.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "sql": { "type": "string", "description": "The SQL query to run (must return at least one numeric column)." },
+                    "path": { "type": "string", "description": "Relative path to the data file (.db, .csv, or .json)." }
+                },
+                "required": ["sql", "path"]
+            }),
+        ),
 
         make_tool(
             "trace_runtime_flow",
@@ -979,6 +993,7 @@ pub async fn dispatch_builtin_tool(
         "run_code" => crate::tools::code_sandbox::execute(args).await,
         "query_data" => crate::tools::data_query::query_data(args).await,
         "export_as_table" => crate::tools::data_query::export_as_table(args).await,
+        "analyze_trends" => crate::tools::data_query::analyze_trends(args).await,
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
         "inspect_host" => crate::tools::host_inspect::inspect_host(args).await,

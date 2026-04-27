@@ -301,3 +301,117 @@ fn execute_and_format(conn: &Connection, sql: &str) -> Result<String, String> {
     Ok(out)
 }
 
+pub async fn analyze_trends(args: &Value) -> Result<String, String> {
+    let sql = args.get("sql").and_then(|v| v.as_str()).ok_or("Missing 'sql' argument")?;
+    let path_str = args.get("path").and_then(|v| v.as_str()).ok_or("Missing 'path' argument")?;
+    let path = PathBuf::from(path_str);
+
+    // 1. Get raw data from SQL
+    let data = query_to_json(&path, sql).await?;
+    if data.is_empty() {
+        return Ok("No data found to analyze.".into());
+    }
+
+    // 2. Prepare Python script for statistical analysis and ASCII charting
+    let python_code = format!(r#"
+import math
+data = {data_json}
+
+def get_stats(vals):
+    if not vals: return None
+    vals.sort()
+    n = len(vals)
+    mean = sum(vals) / n
+    median = vals[n // 2] if n % 2 != 0 else (vals[n // 2 - 1] + vals[n // 2]) / 2
+    variance = sum((x - mean) ** 2 for x in vals) / n
+    std_dev = math.sqrt(variance)
+    return {{"min": vals[0], "max": vals[-1], "mean": mean, "median": median, "std_dev": std_dev}}
+
+# Extract first numeric column
+column_name = None
+values = []
+for row in data:
+    for k, v in row.items():
+        try:
+            val = float(v)
+            if column_name is None: column_name = k
+            if k == column_name: values.append(val)
+        except:
+            continue
+
+if not values:
+    print("Error: No numeric columns found in the result set.")
+    sys.exit(0)
+
+stats = get_stats(values)
+print(f"--- Statistical Analysis for '{{column_name}}' ---")
+print(f"Count:  {{len(values)}}")
+print(f"Min:    {{stats['min']:.4f}}")
+print(f"Max:    {{stats['max']:.4f}}")
+print(f"Mean:   {{stats['mean']:.4f}}")
+print(f"Median: {{stats['median']:.4f}}")
+print(f"StdDev: {{stats['std_dev']:.4f}}")
+print("\n--- Distribution (ASCII Histogram) ---")
+
+bins = 10
+range_val = stats['max'] - stats['min']
+if range_val == 0: range_val = 1
+bin_size = range_val / bins
+hist = [0] * bins
+
+for v in values:
+    idx = int((v - stats['min']) / bin_size)
+    if idx >= bins: idx = bins - 1
+    hist[idx] += 1
+
+max_count = max(hist) if hist else 1
+for i in range(bins):
+    b_min = stats['min'] + (i * bin_size)
+    b_max = b_min + bin_size
+    bar = "█" * int((hist[i] / max_count) * 20)
+    print(f"{{b_min:8.2f}} - {{b_max:8.2f}} | {{bar:<20}} ({{hist[i]}})")
+"#, data_json = serde_json::to_string(&data).unwrap());
+
+    // 3. Execute in Python sandbox
+    crate::tools::code_sandbox::execute(&serde_json::json!({
+        "language": "python",
+        "code": python_code
+    })).await
+}
+
+async fn query_to_json(path: &PathBuf, sql: &str) -> Result<Vec<Value>, String> {
+    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+    let conn = match ext.as_str() {
+        "db" | "sqlite" | "sqlite3" => Connection::open(path).map_err(|e| e.to_string())?,
+        "csv" | "json" => {
+            // For now, reuse the ingestion logic by calling query_data and then we'd need to extract.
+            // Actually, it's better to implement a proper "get_connection" helper.
+            return Err("Streaming SQL results to Python currently requires a local .db file or a pre-audited CSV. Please use query_data to create a .db file first, or run analyze_trends directly on the file.".into());
+        }
+        _ => return Err("Unsupported format".into()),
+    };
+
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let col_names: Vec<String> = stmt.column_names().into_iter().map(|s| s.to_string()).collect();
+    let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
+    
+    let mut results = Vec::new();
+    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        let mut map = serde_json::Map::new();
+        for (i, name) in col_names.iter().enumerate() {
+            let val: SqlValue = row.get(i).unwrap_or(SqlValue::Null);
+            let json_val = match val {
+                SqlValue::Null => Value::Null,
+                SqlValue::Integer(i) => Value::Number(i.into()),
+                SqlValue::Real(f) => serde_json::Number::from_f64(f).map(Value::Number).unwrap_or(Value::Null),
+                SqlValue::Text(s) => Value::String(s),
+                SqlValue::Blob(_) => Value::String("<BLOB>".into()),
+            };
+            map.insert(name.clone(), json_val);
+        }
+        results.push(Value::Object(map));
+        if results.len() >= 1000 { break; } // FAANG Signal: Safety limit
+    }
+    Ok(results)
+}
+
