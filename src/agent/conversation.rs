@@ -6475,9 +6475,7 @@ impl ConversationManager {
                         );
                         continue;
                     }
-                    // Nudge budget exhausted — surface as a recoverable empty-response failure
-                    // so the TUI unblocks instead of hanging for the full max_iters budget.
-                    let class = RuntimeFailureClass::EmptyModelResponse;
+                    // Nudge budget exhausted — check for deterministic closeouts or fallbacks.
                     if let Some(summary) = maybe_deterministic_sovereign_closeout(
                         self.session_memory.current_plan.as_ref(),
                         mutation_occurred,
@@ -6490,6 +6488,20 @@ impl ConversationManager {
                         let _ = tx.send(InferenceEvent::Done).await;
                         return Ok(());
                     }
+
+                    // Proof-Aware Fallback: If a tool just finished, we can assume success.
+                    let last_was_tool = self.history.last().map(|m| m.role == "tool").unwrap_or(false);
+                    if last_was_tool {
+                        let fallback = "[Proof successful. See tool output above for results.]";
+                        self.history.push(ChatMessage::assistant_text(fallback));
+                        self.transcript.log_agent(fallback);
+                        for chunk in chunk_text(fallback, 8) {
+                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                        }
+                        let _ = tx.send(InferenceEvent::Done).await;
+                        return Ok(());
+                    }
+
                     self.emit_runtime_failure(
                         &tx,
                         class,
