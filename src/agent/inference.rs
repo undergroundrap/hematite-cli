@@ -649,6 +649,7 @@ impl InferenceEngine {
                       - EMPIRICAL AUDITING: All algorithmic performance claims must be verified with `scientific_compute(mode='complexity')` before being finalized.\n\
                       - SCIENTIFIC MEMORY (LEDGER): Use `scientific_compute(mode='ledger')` to persist long-form derivations, constants, and theorem steps to `.hematite/docs/scientific_ledger.md`. This ledger is RAG-indexed by The Vein, giving you persistent cross-session memory for project math.\n\
                       - DATASET COMPUTATION: Use `scientific_compute(mode='dataset')` to perform high-precision calculations on SQL results (CSV/DB/JSON). This bridges data science and formal research.\n\
+                      - LIGHTWEIGHT SANDBOX: Prioritize pure Python implementations for all research tasks. Do NOT attempt to import heavy external libraries like 'numpy', 'scipy', or 'pandas' unless you have verified they are available or the user explicitly asks to work in a specific heavy environment or venv.\n\
                       - Every result must be backed by the executable logic used to prove it.\n\n");
 
         // Consolidated: All directives are now handled by the authoritative prompt.rs builder.

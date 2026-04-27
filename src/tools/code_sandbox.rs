@@ -102,8 +102,8 @@ fn run_python(code: &str, timeout_secs: u64) -> Result<String, String> {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        // Strip PATH so the script can't find other executables easily
-        .env_clear()
+        // Limit PATH so the script can't find other executables easily
+        .env("PATH", "")
         .env("PYTHONDONTWRITEBYTECODE", "1")
         .env("PYTHONIOENCODING", "utf-8")
         .spawn()
@@ -139,7 +139,11 @@ import builtins
 builtins.__import__ = _safe_import
 
 # Run the actual code
-exec(compile(r"""{code}""", "<sandbox>", "exec"))
+try:
+    exec(compile(r"""{code}""", "<sandbox>", "exec"))
+except Exception as e:
+    print(f"\nSandbox Execution Error: {{e}}", file=sys.stderr)
+    sys.exit(1)
 "#,
         code = code.replace(r#"""""#, r#"\" \" \""#)
     )
