@@ -307,7 +307,7 @@ pub async fn analyze_trends(args: &Value) -> Result<String, String> {
     let path = PathBuf::from(path_str);
 
     // 1. Get raw data from SQL
-    let data = query_to_json(&path, sql).await?;
+    let data = query_to_json_helper(&path, sql).await?;
     if data.is_empty() {
         return Ok("No data found to analyze.".into());
     }
@@ -379,7 +379,7 @@ for i in range(bins):
     })).await
 }
 
-async fn query_to_json(path: &PathBuf, sql: &str) -> Result<Vec<Value>, String> {
+pub async fn query_to_json_helper(path: &std::path::PathBuf, sql: &str) -> Result<Vec<Value>, String> {
     let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
     let conn = match ext.as_str() {
         "db" | "sqlite" | "sqlite3" => Connection::open(path).map_err(|e| e.to_string())?,

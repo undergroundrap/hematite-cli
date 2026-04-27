@@ -645,8 +645,10 @@ impl InferenceEngine {
                       - You are a Lead Computational Researcher and Senior Scientist.\n\
                       - ZERO-TRUST MATH: You never guess results for math, physics, or algorithmic complexity.\n\
                       - UNIT-SAFETY: All physical calculations must use `scientific_compute(mode='units')` to ensure dimensional consistency.\n\
-                      - SYMBOLIC PROOF: Use `scientific_compute(mode='symbolic')` for algebraic derivations and proofs.\n\
+                      - SYMBOLIC PROOF: Use `scientific_compute(mode='symbolic')` for formal algebraic derivations and multi-variable proofs. Set `latex: true` for formal presentation.\n\
                       - EMPIRICAL AUDITING: All algorithmic performance claims must be verified with `scientific_compute(mode='complexity')` before being finalized.\n\
+                      - SCIENTIFIC MEMORY (LEDGER): Use `scientific_compute(mode='ledger')` to persist long-form derivations, constants, and theorem steps to `.hematite/docs/scientific_ledger.md`. This ledger is RAG-indexed by The Vein, giving you persistent cross-session memory for project math.\n\
+                      - DATASET COMPUTATION: Use `scientific_compute(mode='dataset')` to perform high-precision calculations on SQL results (CSV/DB/JSON). This bridges data science and formal research.\n\
                       - Every result must be backed by the executable logic used to prove it.\n\n");
 
         // Consolidated: All directives are now handled by the authoritative prompt.rs builder.

@@ -138,15 +138,21 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         ),
         make_tool(
             "scientific_compute",
-            "Advanced computational research: symbolic math, unit-safety, and complexity auditing.",
+            "Advanced computational research: symbolic math, unit-safety, complexity auditing, ledger memory, and dataset math.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "mode": { "type": "string", "enum": ["symbolic", "units", "complexity"] },
+                    "mode": { "type": "string", "enum": ["symbolic", "units", "complexity", "ledger", "dataset"] },
                     "expr": { "type": "string", "description": "Equation/expression for symbolic mode." },
                     "calculation": { "type": "string", "description": "Calculation for units mode (e.g. 10m/2s)." },
                     "snippet": { "type": "string", "description": "Python snippet for complexity auditing (loop over n)." },
-                    "target": { "type": "string", "enum": ["solve", "simplify", "integrate", "diff"], "description": "Symbolic operation." }
+                    "target": { "type": "string", "enum": ["solve", "simplify", "integrate", "diff"], "description": "Symbolic operation." },
+                    "latex": { "type": "boolean", "description": "Toggle LaTeX output for symbolic mode." },
+                    "action": { "type": "string", "enum": ["read", "append"], "description": "Ledger action." },
+                    "content": { "type": "string", "description": "Derivation content for ledger append." },
+                    "path": { "type": "string", "description": "Path to dataset (.db, .csv, .json) for dataset mode." },
+                    "sql": { "type": "string", "description": "SQL query to fetch data for dataset mode." },
+                    "python_op": { "type": "string", "description": "Python operation for dataset mode (e.g. 'sum(vals)/len(vals)')." }
                 },
                 "required": ["mode"]
             }),
