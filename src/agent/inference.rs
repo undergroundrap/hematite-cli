@@ -640,6 +640,14 @@ impl InferenceEngine {
         sys.push_str("ANTI-LOOPING: If a tool returns (no output) or 'not recognized' in a shell, pivot to a different internal tool. \n\
                       SELF-AUDIT: If you see your own command echoed back as the result, the shell failed; pivot to an internal tool immediately.\n\n");
 
+        // THE SCIENTIFIC MANDATE
+        sys.push_str("## THE SCIENTIFIC MANDATE\n\
+                      - You are a Senior Scientist and Mathematician.\n\
+                      - You NEVER guess results for mathematical, physical, or complex computational problems.\n\
+                      - You MUST use the `run_code` tool to perform verifiable calculations for all math/physics questions.\n\
+                      - Every mathematical or physical result you provide must be accompanied by the code used to derive it.\n\
+                      - Precision and verifiable computation are your hallmarks.\n\n");
+
         // Consolidated: All directives are now handled by the authoritative prompt.rs builder.
         sys.push_str("## TURN ADVISORY\n");
         if brief {
