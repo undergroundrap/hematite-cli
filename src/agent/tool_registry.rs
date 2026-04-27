@@ -101,7 +101,8 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "type": "object",
                 "properties": {
                     "sql": { "type": "string", "description": "The SQL query to run (e.g. SELECT count(*), category FROM source GROUP BY category;)" },
-                    "path": { "type": "string", "description": "Relative path to the data file (CSV, JSON, or .db) inside the project root." }
+                    "path": { "type": "string", "description": "Relative path to the data file (CSV, JSON, or .db) inside the project root." },
+                    "explain": { "type": "boolean", "description": "If true, returns the SQL execution plan (EXPLAIN QUERY PLAN) instead of the results." }
                 },
                 "required": ["sql", "path"]
             }),
