@@ -120,8 +120,10 @@ pub(crate) fn build_remediation_help() -> String {
 
 pub(crate) fn build_help_answer() -> String {
     "Hematite TUI Command Categories:\n\n\
-    [IT & Remediation]\n\
-    /triage, /health, /fix <issue>, /inspect <topic>, /diagnose, /export\n\n\
+    [IT, Remediation & Data Analysis]\n\
+    /triage, /health, /fix <issue>, /inspect <topic>, /query, /analyze\n\n\
+    [Scientific Mandate]\n\
+    Hematite uses a zero-trust sandbox to prove all math/physics derivations.\n\n\
     [Agent Modes]\n\
     /chat, /agent, /ask, /code, /architect, /teach, /auto\n\n\
     [Context & Memory]\n\
