@@ -977,6 +977,15 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("multi-monitor")
         || lower.contains("second screen")
         || lower.contains("external display");
+    let asks_data_audit = lower.contains("data audit")
+        || lower.contains("audit data")
+        || lower.contains("csv schema")
+        || lower.contains("data schema")
+        || lower.contains("inspect file")
+        || lower.contains("profile data")
+        || lower.contains("data distribution")
+        || (lower.contains("audit") && (lower.contains("csv") || lower.contains("json") || lower.contains("file") || lower.contains("data")))
+        || (lower.contains("schema") && (lower.contains("csv") || lower.contains("json") || lower.contains("data")));
     let asks_ntp = lower.contains("ntp")
         || lower.contains("time sync")
         || lower.contains("clock sync")
@@ -2195,6 +2204,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("storage")
     } else if asks_gpo {
         Some("gpo")
+    } else if asks_data_audit {
+        Some("data_audit")
     } else if asks_certificates {
         Some("certificates")
     } else if asks_integrity {
@@ -2371,6 +2382,16 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                         || l.contains("bottleneck")
                         || l.contains("performance")
                         || l.contains("overheating")))
+        }),
+        ("data_audit", |l| {
+            l.contains("data audit")
+                || l.contains("audit data")
+                || l.contains("csv schema")
+                || l.contains("data schema")
+                || l.contains("inspect file")
+                || l.contains("profile data")
+                || l.contains("data distribution")
+                || (l.contains("schema") && (l.contains("csv") || l.contains("json")))
         }),
         ("directory", |l| {
             (l.contains("make")
