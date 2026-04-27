@@ -1,4 +1,4 @@
-﻿# Hematite Capabilities
+# Hematite Capabilities
 
 This document summarizes the technical strengths of **Hematite-CLI** as a local GPU-aware coding harness for LM Studio, Ollama, and other local OpenAI-compatible runtimes, with the strongest optimization focus on single-GPU consumer hardware such as the RTX 4070 class.
 
@@ -27,6 +27,7 @@ That is the lens for the capabilities below.
 - **Automated Identity Retrieval**: Proactive SID and group membership lookup for local and active directory users to prevent diagnostic loops.
 - **Voice Engine error handling**: Native ONNX synthesis error suppression in `hematite-kokoros` to maintain stream stability.
 - **Hardware telemetry integration**: Uses live disk queue depth, VRAM usage, and I/O metrics to inform architectural grounding.
+- **Zero-Latency IT Diagnostic Lane**: Direct TUI slash commands (`/triage`, `/health`, `/inspect`) that bypass the LLM for instantaneous, deterministic workstation diagnostics. 100% reliable even under extreme VRAM pressure or offline conditions.
 - **Deterministic Workstation Routing**: Hardened intent classification that surgically routes workstation requests to precise filesystem tools, pruning risky shell and workflow paths.
 - **Authoritative Path Resolution**: Core-level support for sovereign path tokens and bare directory aliases (`downloads`, `desktop`, `docs`, `pictures`, `videos`, `music`, `home`, `temp`, `~`, `@DESKTOP`, `@DOCUMENTS`, `@MUSIC`, `@VIDEOS`, `@PICTURES`, etc.) using OS-authoritative shell folder hooks.
 - **Runtime-state anchoring**: Hematite resolves its runtime-state directory centrally so sovereign OS folders such as Desktop and Downloads fall back to `~/.hematite/` instead of accumulating local workspace artifacts.

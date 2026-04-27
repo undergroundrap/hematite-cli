@@ -98,6 +98,12 @@ pwsh ./clean.ps1
 - `/runtime`: show the configured provider, live session provider/endpoint, coding model, embedding state, reachable alternatives, and shortest fix path
 - `/runtime fix`: run the shortest safe runtime recovery step without silently changing provider settings
 - `/runtime-refresh`: force a resync of the active provider model profile and context window size
+- /triage [preset]: run zero-latency deterministic IT triage (e.g. `/triage network`, `/triage security`)
+- /health: run zero-latency diagnostic health check
+- /fix <issue>: generate a deterministic fix plan for a specific system issue
+- /inspect <topic>: run a specific diagnostic topic from the 125+ available (e.g. `/inspect storage`)
+- /inventory: show the full list of 125+ available diagnostic topics
+- /help: show categorized TUI help (IT, Agent, Navigation, etc.)
 - `/model [status|list [available|loaded]|load <id> [--ctx N]|unload [id|current|all]|prefer <id>|clear]`: inspect, list, load, unload, or save the preferred coding model from inside Hematite (`--ctx` uses LM Studio context length or Ollama `num_ctx`)
 - `/embed [status|load <id>|unload [id|current]|prefer <id>|clear]`: inspect, load, unload, or save the preferred embedding model for semantic search
 - Bottom status badges now include `RT:*` for the primary runtime issue: `MOD` (no model), `NET` (provider/connectivity), `EMP` (empty replies), `CTX` (context ceiling), or `WAIT` (boot/recovery)

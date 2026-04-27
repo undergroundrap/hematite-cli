@@ -167,18 +167,15 @@ Hematite is built around the opposite assumption: the best local coding agent sh
 
 ---
 
-## The Math of Triage
+### The Math of Triage
 
 A senior IT tech's real workflow is not "type every command from scratch." It is "find the right snippet, edit the parameters for this machine, run it, parse the wall of text, alt-tab to look up the Event ID, repeat." That cycle takes 15–30 minutes per issue.
 
-Hematite eliminates the hunt, the edit, and the parse entirely.
+Hematite eliminates the hunt, the edit, and the parse entirely through two complementary lanes:
 
-**The manual path for a single M365 identity issue:**
-- Find the `dsregcmd /status` snippet (2–3 min)
-- Edit it to include the current user's SID (1 min)
-- Run it, scroll the output looking for the one `False` entry (2–5 min)
-- Alt-tab to look up what TokenBroker is and whether it matters (5 min)
-- Repeat for the WAM registry key, the AAD Broker Plugin state, and the WebView2 dependency
+**1. The Deterministic Lane (Zero-Latency)**: High-speed slash commands like `/triage`, `/health`, and `/inspect` bypass the LLM entirely. They run native Rust/PowerShell probes and stream the results directly to the TUI. No waiting for inference, no token cost, and 100% reliability even when the model is busy or the GPU is at 99% load.
+
+**2. The Agentic Lane (Reasoning)**: For complex "why" questions, the Agent uses the same 125+ topics as tools. It correlates data, reasons across domains, and generates grounded fix plans.
 
 **The Hematite path:** `inspect_host(topic: "identity_auth")` — one call that runs `dsregcmd`, reads the TokenBroker service state, checks the AAD Broker Plugin registry key, tests the WebView2 auth dependency, and correlates recent auth-related events from the event log. The model gets a synthesized verdict, not a wall of text.
 
@@ -417,7 +414,7 @@ Hematite is engineered and tested against a concrete hardware baseline: **RTX 40
 - The agent can verify VRAM footprint of a build or sandbox process against the known 12GB ceiling.
 - When a test fails, the agent can inspect Hardware DNA (Hyper-V/SLAT state, thermal state) to distinguish a code bug from an environment constraint.
 
-### Flex Your Capabilities
+### Multi-Topic Diagnostic Audit
 Because of Hematite's **Harness Pre-Run**, you can trigger an entire IT audit with a single sentence. Hematite will execute multiple precision tools in parallel before it even starts its reasoning turn.
 
 **Pro-Prompt (The "Audit Benchmark"):**
@@ -1316,6 +1313,12 @@ hematite --version Show the same build report from the CLI
 /voice            List all available TTS voices
 /voice N          Select a voice by number
 /read <text>      Speak text aloud directly through the TTS engine
+/triage [preset]  Run zero-latency deterministic IT triage (e.g., `/triage network`, `/triage security`)
+/health           Run a zero-latency diagnostic health check
+/fix <issue>      Generate a deterministic fix plan for a specific system issue
+/inspect <topic>  Run a specific diagnostic topic from the 125+ available (e.g., `/inspect storage`)
+/inventory        Show the full list of 125+ available diagnostic topics
+/help             Show categorized TUI help (IT, Agent, Navigation, etc.)
 /lsp              Start language servers manually
 /worktree list    List all git worktrees
 /worktree add <path> [branch]  Create isolated worktree
