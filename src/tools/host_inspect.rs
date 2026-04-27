@@ -95,6 +95,11 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "wifi" | "wi-fi" | "wireless" | "wlan" => inspect_wifi(),
         "connections" | "tcp_connections" | "active_connections" => inspect_connections(max_entries),
         "vpn" => inspect_vpn(),
+        "public_ip" | "external_ip" | "myip" => inspect_public_ip().await,
+        "ssl_cert" | "tls_cert" | "cert_audit" | "website_cert" => {
+            let host = args.get("host").and_then(|v| v.as_str()).unwrap_or("google.com");
+            inspect_ssl_cert(host)
+        }
         "proxy" | "proxy_settings" => inspect_proxy(),
         "firewall_rules" | "firewall-rules" => inspect_firewall_rules(max_entries),
         "traceroute" | "tracert" | "trace_route" | "trace" => {
@@ -265,7 +270,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_print_spooler()
         }
         other => Err(format!(
-            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, domain_health, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query, mdm_enrollment, storage_spaces, defender_quarantine, service_dependencies, wmi_health, local_security_policy, usb_history, print_spooler.",
+            "Unknown inspect_host topic '{}'. Use one of: summary, toolchains, path, env_doctor, fix_plan, network, lan_discovery, audio, bluetooth, camera, sign_in, installer_health, onedrive, browser_health, identity_auth, outlook, teams, windows_backup, search_index, display_config, ntp, cpu_power, credentials, tpm, latency, network_adapter, dhcp, mtu, ipv6, tcp_params, wlan_profiles, ipsec, netbios, nic_teaming, snmp, port_test, public_ip, ssl_cert, network_profile, services, processes, desktop, downloads, directory, disk_benchmark, disk, ports, repo_doctor, log_check, startup_items, health_report, storage, hardware, updates, security, pending_reboot, disk_health, battery, recent_crashes, app_crashes, scheduled_tasks, dev_conflicts, connectivity, wifi, connections, vpn, proxy, firewall_rules, traceroute, dns_cache, arp, route_table, os_config, resource_load, env, hosts_file, docker, docker_filesystems, wsl, wsl_filesystems, ssh, installed_software, git_config, databases, user_accounts, audit_policy, shares, dns_servers, bitlocker, rdp, shadow_copies, pagefile, windows_features, printers, winrm, network_stats, udp_ports, gpo, certificates, integrity, domain, domain_health, device_health, drivers, peripherals, sessions, permissions, login_history, share_access, registry_audit, thermal, activation, patch_history, ad_user, dns_lookup, hyperv, ip_config, overclocker, event_query, mdm_enrollment, storage_spaces, defender_quarantine, service_dependencies, wmi_health, local_security_policy, usb_history, print_spooler.",
             other
         )),
 
@@ -6564,6 +6569,137 @@ fn inspect_dev_conflicts() -> Result<String, String> {
 }
 
 // ── connectivity ──────────────────────────────────────────────────────────────
+
+async fn inspect_public_ip() -> Result<String, String> {
+    let mut out = String::from("Host inspection: public_ip\n\n");
+    
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    match client.get("https://api.ipify.org?format=json").send().await {
+        Ok(resp) => {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                let ip = json.get("ip").and_then(|v| v.as_str()).unwrap_or("Unknown");
+                out.push_str(&format!("Public IP: {}\n", ip));
+                
+                // Geo info
+                if let Ok(geo_resp) = client.get(format!("http://ip-api.com/json/{}", ip)).send().await {
+                    if let Ok(geo_json) = geo_resp.json::<serde_json::Value>().await {
+                         if let (Some(city), Some(region), Some(country), Some(isp)) = (
+                             geo_json.get("city").and_then(|v| v.as_str()),
+                             geo_json.get("regionName").and_then(|v| v.as_str()),
+                             geo_json.get("country").and_then(|v| v.as_str()),
+                             geo_json.get("isp").and_then(|v| v.as_str()),
+                         ) {
+                             out.push_str(&format!("Location:  {}, {} ({})\n", city, region, country));
+                             out.push_str(&format!("ISP:       {}\n", isp));
+                         }
+                    }
+                }
+            } else {
+                out.push_str("Error: Failed to parse public IP response.\n");
+            }
+        }
+        Err(e) => {
+            out.push_str(&format!("Error: Failed to fetch public IP ({}). Check internet connectivity.\n", e));
+        }
+    }
+    
+    Ok(out)
+}
+
+fn inspect_ssl_cert(host: &str) -> Result<String, String> {
+    let mut out = format!("Host inspection: ssl_cert (Target: {})\n\n", host);
+    
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        let script = format!(
+            r#"$domain = "{host}"
+try {{
+    $tcpClient = New-Object System.Net.Sockets.TcpClient($domain, 443)
+    $sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, ({{ $true }} -as [System.Net.Security.RemoteCertificateValidationCallback]))
+    $sslStream.AuthenticateAsClient($domain)
+    $cert = $sslStream.RemoteCertificate
+    $tcpClient.Close()
+    if ($cert) {{
+        $cert2 = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($cert)
+        $cert2 | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber | ConvertTo-Json
+    }} else {{
+        "null"
+    }}
+}} catch {{
+    "ERROR:" + $_.Exception.Message
+}}"#
+        );
+        
+        let ps_out = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output()
+            .map_err(|e| format!("powershell launch failed: {e}"))?;
+            
+        let text = String::from_utf8_lossy(&ps_out.stdout).trim().to_string();
+        if text.starts_with("ERROR:") {
+             out.push_str(&format!("Error: {}\n", text.trim_start_matches("ERROR:")));
+        } else if text == "null" || text.is_empty() {
+             out.push_str("Error: Could not retrieve certificate. Target may be unreachable or not using SSL.\n");
+        } else {
+             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                 if let Some(obj) = json.as_object() {
+                     for (k, v) in obj {
+                         let val_str = v.as_str().unwrap_or("");
+                         out.push_str(&format!("{:<12}: {}\n", k, val_str));
+                     }
+                     
+                     // Check expiry
+                     if let Some(not_after_raw) = obj.get("NotAfter").and_then(|v| v.as_str()) {
+                         // PowerShell dates in JSON usually look like "/Date(1745678900000)/" or ISO string
+                         // If it's "/Date(...)/", we need to parse it.
+                         // But ConvertTo-Json often produces ISO if it's a raw string from Select-Object.
+                         if not_after_raw.starts_with("/Date(") {
+                             // Extract timestamp
+                             let ts = not_after_raw.trim_start_matches("/Date(").trim_end_matches(")/").parse::<i64>().unwrap_or(0);
+                             let expiry = chrono::DateTime::from_timestamp(ts / 1000, 0).unwrap_or_default();
+                             let now = chrono::Utc::now();
+                             let days_left = expiry.signed_duration_since(now).num_days();
+                             if days_left < 0 {
+                                 out.push_str("\nSTATUS: [!!] EXPIRED\n");
+                             } else if days_left < 30 {
+                                 out.push_str(&format!("\nSTATUS: [!] EXPIRING SOON ({} days left)\n", days_left));
+                             } else {
+                                 out.push_str(&format!("\nSTATUS: Valid ({} days left)\n", days_left));
+                             }
+                         } else {
+                             // Try ISO
+                             if let Ok(expiry) = chrono::DateTime::parse_from_rfc3339(not_after_raw) {
+                                 let now = chrono::Utc::now();
+                                 let days_left = expiry.signed_duration_since(now).num_days();
+                                 if days_left < 0 {
+                                     out.push_str("\nSTATUS: [!!] EXPIRED\n");
+                                 } else if days_left < 30 {
+                                     out.push_str(&format!("\nSTATUS: [!] EXPIRING SOON ({} days left)\n", days_left));
+                                 } else {
+                                     out.push_str(&format!("\nSTATUS: Valid ({} days left)\n", days_left));
+                                 }
+                             }
+                         }
+                     }
+                 }
+             } else {
+                 out.push_str(&format!("Raw Output: {}\n", text));
+             }
+        }
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    {
+        out.push_str("Note: Deep SSL inspection currently optimized for Windows (PowerShell/SslStream).\n");
+    }
+    
+    Ok(out)
+}
 
 fn inspect_connectivity() -> Result<String, String> {
     let mut out = String::from("Host inspection: connectivity\n\n");

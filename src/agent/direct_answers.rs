@@ -99,7 +99,7 @@ pub(crate) fn build_inspect_inventory() -> String {
     inventory.push_str("System:\n");
     inventory.push_str("  summary, health_report, updates, security, hardware, storage, battery, recent_crashes, pending_reboot, disk_health, scheduled_tasks, startup_items\n\n");
     inventory.push_str("Network:\n");
-    inventory.push_str("  connectivity, wifi, internet_check, network, connections, vpn, proxy, firewall_rules, ports, lan_discovery, traceroute, dns_servers, ipconfig, latency\n\n");
+    inventory.push_str("  connectivity, wifi, internet_check, network, connections, vpn, proxy, firewall_rules, ports, lan_discovery, traceroute, dns_servers, ipconfig, latency, public_ip, ssl_cert\n\n");
     inventory.push_str("Identity & Access:\n");
     inventory.push_str("  sign_in, user_accounts, ad_user, identity_auth, outlook, teams, browser_health, installer_health, onedrive, search_index, event_query\n\n");
     inventory.push_str("Developer:\n");
