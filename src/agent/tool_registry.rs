@@ -107,6 +107,21 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "required": ["sql", "path"]
             }),
         ),
+        make_tool(
+            "export_as_table",
+            "Persist a structured list of objects (JSON array) to a local CSV or SQLite file. \
+             Use this to save research results, system snapshots, or data analysis outputs for later use. \
+             Hematite will automatically create the table schema or CSV header based on the object keys.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "items": { "type": "array", "items": { "type": "object" }, "description": "The list of JSON objects to export." },
+                    "path": { "type": "string", "description": "Relative path to save the file (e.g. 'results.csv' or 'audit.db')." },
+                    "format": { "type": "string", "enum": ["csv", "sqlite"], "description": "The output format (default: csv)." }
+                },
+                "required": ["items", "path"]
+            }),
+        ),
 
         make_tool(
             "trace_runtime_flow",
@@ -963,6 +978,7 @@ pub async fn dispatch_builtin_tool(
         "shell" => crate::tools::shell::execute(args, budget_tokens).await,
         "run_code" => crate::tools::code_sandbox::execute(args).await,
         "query_data" => crate::tools::data_query::query_data(args).await,
+        "export_as_table" => crate::tools::data_query::export_as_table(args).await,
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
         "inspect_host" => crate::tools::host_inspect::inspect_host(args).await,

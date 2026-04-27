@@ -170,6 +170,89 @@ fn query_json_optimized(path: &PathBuf, sql: &str, explain: bool) -> Result<Stri
     execute_and_format(&conn, &sql_to_run)
 }
 
+pub async fn export_as_table(args: &Value) -> Result<String, String> {
+    let items = args.get("items").and_then(|v| v.as_array()).ok_or("Missing 'items' array")?;
+    let path_str = args.get("path").and_then(|v| v.as_str()).ok_or("Missing 'path' argument")?;
+    let format = args.get("format").and_then(|v| v.as_str()).unwrap_or("csv").to_lowercase();
+    let path = PathBuf::from(path_str);
+
+    if items.is_empty() {
+        return Err("No items to export".into());
+    }
+
+    match format.as_str() {
+        "sqlite" | "db" => export_to_sqlite(&path, items),
+        "csv" => export_to_csv(&path, items),
+        _ => Err(format!("Unsupported export format: {}", format))
+    }
+}
+
+fn export_to_sqlite(path: &PathBuf, items: &[Value]) -> Result<String, String> {
+    let first = items[0].as_object().ok_or("Items must be objects")?;
+    let cols: Vec<String> = first.keys().cloned().collect();
+
+    let conn = Connection::open(path).map_err(|e| format!("Failed to create DB: {}", e))?;
+    
+    let mut create_sql = format!("CREATE TABLE IF NOT EXISTS data (");
+    for (i, col) in cols.iter().enumerate() {
+        create_sql.push_str(&format!("{} TEXT", col));
+        if i < cols.len() - 1 { create_sql.push_str(", "); }
+    }
+    create_sql.push_str(")");
+
+    conn.execute(&create_sql, []).map_err(|e| format!("DDL Error: {}", e))?;
+
+    {
+        let mut tx = Connection::open(path).map_err(|e| e.to_string())?;
+        let tx = tx.transaction().map_err(|e| e.to_string())?;
+        let placeholders = vec!["?"; cols.len()].join(",");
+        let insert_sql = format!("INSERT INTO data VALUES ({})", placeholders);
+        
+        {
+            let mut stmt = tx.prepare(&insert_sql).map_err(|e| e.to_string())?;
+            for item in items {
+                if let Some(obj) = item.as_object() {
+                    let mut vals = Vec::new();
+                    for col in &cols {
+                        vals.push(obj.get(col).map(|v| v.to_string()).unwrap_or_default());
+                    }
+                    stmt.execute(rusqlite::params_from_iter(vals)).ok();
+                }
+            }
+        }
+        tx.commit().map_err(|e| e.to_string())?;
+    }
+
+    Ok(format!("Successfully exported {} items to SQLite: {:?}", items.len(), path))
+}
+
+fn export_to_csv(path: &PathBuf, items: &[Value]) -> Result<String, String> {
+    let first = items[0].as_object().ok_or("Items must be objects")?;
+    let cols: Vec<String> = first.keys().cloned().collect();
+
+    let mut content = cols.join(",") + "\n";
+    for item in items {
+        if let Some(obj) = item.as_object() {
+            let mut row = Vec::new();
+            for col in &cols {
+                let val = obj.get(col).map(|v| {
+                    let s = v.to_string();
+                    if s.contains(',') || s.contains('"') {
+                        format!("\"{}\"", s.replace("\"", "\"\""))
+                    } else {
+                        s
+                    }
+                }).unwrap_or_default();
+                row.push(val);
+            }
+            content.push_str(&(row.join(",") + "\n"));
+        }
+    }
+
+    std::fs::write(path, content).map_err(|e| format!("Failed to write CSV: {}", e))?;
+    Ok(format!("Successfully exported {} items to CSV: {:?}", items.len(), path))
+}
+
 fn execute_and_format(conn: &Connection, sql: &str) -> Result<String, String> {
     let mut stmt = conn.prepare(sql).map_err(|e| format!("SQL Error: {}", e))?;
     let col_count = stmt.column_count();
