@@ -136,6 +136,21 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "required": ["sql", "path"]
             }),
         ),
+        make_tool(
+            "scientific_compute",
+            "Advanced computational research: symbolic math, unit-safety, and complexity auditing.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "mode": { "type": "string", "enum": ["symbolic", "units", "complexity"] },
+                    "expr": { "type": "string", "description": "Equation/expression for symbolic mode." },
+                    "calculation": { "type": "string", "description": "Calculation for units mode (e.g. 10m/2s)." },
+                    "snippet": { "type": "string", "description": "Python snippet for complexity auditing (loop over n)." },
+                    "target": { "type": "string", "enum": ["solve", "simplify", "integrate", "diff"], "description": "Symbolic operation." }
+                },
+                "required": ["mode"]
+            }),
+        ),
 
         make_tool(
             "trace_runtime_flow",
@@ -994,6 +1009,7 @@ pub async fn dispatch_builtin_tool(
         "query_data" => crate::tools::data_query::query_data(args).await,
         "export_as_table" => crate::tools::data_query::export_as_table(args).await,
         "analyze_trends" => crate::tools::data_query::analyze_trends(args).await,
+        "scientific_compute" => crate::tools::scientific::scientific_compute(args).await,
         "trace_runtime_flow" => crate::tools::runtime_trace::trace_runtime_flow(args).await,
         "describe_toolchain" => crate::tools::toolchain::describe_toolchain(args).await,
         "inspect_host" => crate::tools::host_inspect::inspect_host(args).await,
