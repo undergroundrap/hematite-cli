@@ -303,6 +303,8 @@ That result cannot come from training data. SHA-256 is deterministic but not mem
 - **Symbolic Solver**: Integrated SymPy-based engine for algebraic derivations, calculus, and equation solving.
 - **Unit-Aware Physics**: Dimensional analysis engine that prevents category errors (e.g., adding meters to seconds) and handles automatic unit conversion.
 - **Empirical Big-O Auditor**: Verifies algorithmic complexity claims by running performance regressions against varying input sizes ($N$).
+- **Computational Ledger (Scientific Memory)**: A persistent, RAG-indexed notebook (`.hematite/docs/scientific_ledger.md`) where Hematite stores derivations, constants, and multi-step theorem proofs. This allows the model to recall previous project math in future turns without eating context.
+- **Dataset Bridge**: Seamless integration between SQL data (CSV/DB/JSON) and high-precision scientific solvers, enabling statistical analysis and formal math on production datasets.
 
 ## 11. Unlimited Hardened Technical Research
     
