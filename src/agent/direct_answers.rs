@@ -110,7 +110,6 @@ pub(crate) fn build_inspect_inventory() -> String {
     inventory
 }
 
-
 pub(crate) fn build_help_answer() -> String {
     "Hematite TUI Command Categories:\n\n\
     [IT, Remediation & Data Analysis]\n\
