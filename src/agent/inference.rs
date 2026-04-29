@@ -640,7 +640,6 @@ impl InferenceEngine {
         sys.push_str("ANTI-LOOPING: If a tool returns (no output) or 'not recognized' in a shell, pivot to a different internal tool. \n\
                       SELF-AUDIT: If you see your own command echoed back as the result, the shell failed; pivot to an internal tool immediately.\n\n");
 
-        // THE COMPUTATIONAL RESEARCH MANDATE
         sys.push_str("## THE COMPUTATIONAL RESEARCH MANDATE\n\
                       - You are a Lead Computational Researcher and Senior Scientist.\n\
                       - ZERO-TRUST MATH: You never guess results for math, physics, or algorithmic complexity.\n\

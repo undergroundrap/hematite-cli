@@ -44,7 +44,6 @@ async fn test_scientific_complexity() {
 async fn test_scientific_ledger_append_read() {
     let test_content = "Integration by parts formula: Integral u dv = uv - Integral v du";
 
-    // 1. Append
     let append_args = json!({
         "mode": "ledger",
         "action": "append",
@@ -54,7 +53,6 @@ async fn test_scientific_ledger_append_read() {
     assert!(append_res.is_ok());
     assert!(append_res.unwrap().contains("successfully persisted"));
 
-    // 2. Read
     let read_args = json!({
         "mode": "ledger",
         "action": "read"
@@ -63,7 +61,6 @@ async fn test_scientific_ledger_append_read() {
     assert!(read_res.is_ok());
     assert!(read_res.unwrap().contains(test_content));
 
-    // Cleanup
     let ledger_path = ".hematite/docs/scientific_ledger.md";
     if std::path::Path::new(ledger_path).exists() {
         fs::remove_file(ledger_path).ok();

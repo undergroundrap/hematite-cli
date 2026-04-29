@@ -44,7 +44,6 @@ async fn test_export_as_table_sqlite() {
     assert!(result.contains("Successfully exported 2 items"));
     assert!(db_path.exists());
 
-    // Verify we can query it back
     let query_args = json!({
         "sql": "SELECT name FROM data WHERE val > 150",
         "path": db_path.to_str().unwrap()
@@ -61,7 +60,6 @@ async fn test_analyze_trends_logic() {
     let workspace = tempfile::tempdir().expect("temp workspace");
     let db_path = workspace.path().join("trends.db");
 
-    // Create a small DB for analysis
     let setup_args = json!({
         "items": [
             {"val": 10}, {"val": 20}, {"val": 30}, {"val": 40}, {"val": 50}

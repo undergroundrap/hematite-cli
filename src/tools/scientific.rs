@@ -1,13 +1,5 @@
 use serde_json::Value;
 
-/// Performs advanced scientific and computational research tasks.
-///
-/// Modes:
-/// - `symbolic`: Solve algebraic equations or simplify expressions using SymPy.
-/// - `units`: Perform calculations with dimensional consistency checks.
-/// - `complexity`: Empirically audit the Big-O complexity of a code block.
-/// - `ledger`: Persist or read derivations from the scientific memory file.
-/// - `dataset`: Perform advanced math/stats on a SQL-queried dataset.
 pub async fn scientific_compute(args: &Value) -> Result<String, String> {
     let mode = args["mode"]
         .as_str()
@@ -69,7 +61,6 @@ async fn verify_units(args: &Value) -> Result<String, String> {
         .as_str()
         .ok_or("Missing 'calculation' for units mode")?;
 
-    // Basic dimensional analysis wrapper for Python
     let python_script = format!(
         "try:\n\
          # Simple Unit System (SI focus)\n\
@@ -161,7 +152,6 @@ async fn execute_in_sandbox(script: &str) -> Result<String, String> {
         "code": script
     });
 
-    // We use the internal tool call to execute
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
@@ -171,7 +161,6 @@ async fn manage_ledger(args: &Value) -> Result<String, String> {
         .ok_or("Missing 'action' (read, append)")?;
     let ledger_path = std::path::Path::new(".hematite/docs/scientific_ledger.md");
 
-    // Ensure directory exists
     if let Some(parent) = ledger_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -219,9 +208,6 @@ async fn calculate_on_dataset(args: &Value) -> Result<String, String> {
 
     let path = std::path::PathBuf::from(path_str);
 
-    // Use the SQL bridge logic from data_query
-    // We'll simulate the data fetching here or use the helper if available
-    // For simplicity, we use the analyze_trends pattern
     let data = crate::tools::data_query::query_to_json_helper(&path, sql).await?;
     let data_json = serde_json::to_string(&data).map_err(|e| e.to_string())?;
 
