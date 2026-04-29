@@ -1273,30 +1273,34 @@ pub fn strip_think_blocks(text: &str) -> String {
     // If the model outputs 'naked' reasoning without tags:
     // Strip leading sentences like "The user asked..." or "I should present..."
     // if they appear before actual answer content.
-    let naked_reasoning_phrases: &[&str] = &[
-        "the user asked",
-        "the user is asking",
-        "the user wants",
-        "i will structure",
-        "i should provide",
-        "i should give",
-        "i should avoid",
-        "i should note",
-        "i should focus",
-        "i should keep",
-        "i should respond",
-        "i should present",
-        "i should display",
-        "i should show",
-        "i need to",
-        "i can see from",
-        "without being overly",
-        "let me ",
-        "necessary information in my identity",
-        "was computed successfully",
-        "computed successfully",
-    ];
-    let is_naked_reasoning = naked_reasoning_phrases.iter().any(|p| lower.contains(p));
+    static NAKED_AC: std::sync::OnceLock<aho_corasick::AhoCorasick> = std::sync::OnceLock::new();
+    let naked_ac = NAKED_AC.get_or_init(|| {
+        aho_corasick::AhoCorasick::new([
+            "the user asked",
+            "the user is asking",
+            "the user wants",
+            "i will structure",
+            "i should provide",
+            "i should give",
+            "i should avoid",
+            "i should note",
+            "i should focus",
+            "i should keep",
+            "i should respond",
+            "i should present",
+            "i should display",
+            "i should show",
+            "i need to",
+            "i can see from",
+            "without being overly",
+            "let me ",
+            "necessary information in my identity",
+            "was computed successfully",
+            "computed successfully",
+        ])
+        .expect("valid patterns")
+    });
+    let is_naked_reasoning = naked_ac.find(&lower).is_some();
     if is_naked_reasoning {
         let lines: Vec<&str> = text.lines().collect();
         if !lines.is_empty() {
@@ -1305,8 +1309,7 @@ pub fn strip_think_blocks(text: &str) -> String {
             let mut start_idx = 0;
             for (i, line) in lines.iter().enumerate() {
                 let l = line.to_lowercase();
-                let is_reasoning_line =
-                    naked_reasoning_phrases.iter().any(|p| l.contains(p)) || l.trim().is_empty();
+                let is_reasoning_line = naked_ac.find(&l).is_some() || l.trim().is_empty();
                 if is_reasoning_line {
                     start_idx = i + 1;
                 } else {

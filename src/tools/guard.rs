@@ -1,6 +1,52 @@
 use super::tool::RiskLevel;
 use std::path::{Path, PathBuf};
 
+struct ProtectedEntry {
+    normalized: String,
+    is_system: bool,
+    original: &'static str,
+}
+
+static PROTECTED_ENTRIES: std::sync::OnceLock<Vec<ProtectedEntry>> = std::sync::OnceLock::new();
+
+fn protected_entries() -> &'static Vec<ProtectedEntry> {
+    PROTECTED_ENTRIES.get_or_init(|| {
+        PROTECTED_FILES
+            .iter()
+            .map(|&p| ProtectedEntry {
+                normalized: p.to_lowercase().replace('\\', "/"),
+                is_system: !p.starts_with('.') && (p.contains(':') || p.starts_with('/')),
+                original: p,
+            })
+            .collect()
+    })
+}
+
+static DESTRUCTIVE_AC: std::sync::OnceLock<aho_corasick::AhoCorasick> = std::sync::OnceLock::new();
+
+fn destructive_ac() -> &'static aho_corasick::AhoCorasick {
+    DESTRUCTIVE_AC.get_or_init(|| {
+        aho_corasick::AhoCorasick::new([
+            "rm ",
+            "del ",
+            "erase ",
+            "rd ",
+            "rmdir ",
+            "mv ",
+            "move ",
+            "rename ",
+            ">",
+            ">>",
+            "git config",
+            "git init",
+            "git remote",
+            "chmod ",
+            "chown ",
+        ])
+        .expect("valid patterns")
+    })
+}
+
 #[allow(dead_code)]
 pub const PROTECTED_FILES: &[&str] = &[
     // Windows System
@@ -47,12 +93,11 @@ pub fn path_is_safe(workspace_root: &Path, target: &Path) -> Result<PathBuf, Str
         .replace("%5c", "/");
 
     // Early evaluation covering read-only "Ghosting" on target secrets explicitly
-    for protected in PROTECTED_FILES {
-        let prot_lower = protected.to_lowercase().replace("\\", "/");
-        if target_str.contains(&prot_lower) {
+    for entry in protected_entries() {
+        if target_str.contains(&entry.normalized) {
             return Err(format!(
                 "AccessDenied: Path {} hits the Hematite Security Blacklist natively: {}",
-                target_str, protected
+                target_str, entry.original
             ));
         }
     }
@@ -78,12 +123,11 @@ pub fn path_is_safe(workspace_root: &Path, target: &Path) -> Result<PathBuf, Str
         .to_string()
         .to_lowercase()
         .replace("\\", "/");
-    for protected in PROTECTED_FILES {
-        let prot_lower = protected.to_lowercase().replace("\\", "/");
-        if resolved_str.contains(&prot_lower) {
+    for entry in protected_entries() {
+        if resolved_str.contains(&entry.normalized) {
             return Err(format!(
                 "AccessDenied: Canonicalized Sandbox resolution natively hits Blacklist bounds: {}",
-                protected
+                entry.original
             ));
         }
     }
@@ -130,20 +174,17 @@ pub fn bash_is_safe(cmd: &str) -> Result<(), String> {
     // Catastrophic patterns: hard block regardless of any other context.
     catastrophic_bash_check(&lower)?;
 
-    for protected in PROTECTED_FILES {
-        let prot_lower = protected.to_lowercase().replace("\\", "/");
-        if lower.contains(&prot_lower) {
+    for entry in protected_entries() {
+        if lower.contains(&entry.normalized) {
             // EXCEPTION: Allow READ-ONLY commands (ls, cat, type) for internal state
             // if they aren't system paths. System paths are ALWAYS blocked.
-            let is_system = !protected.starts_with('.')
-                && (protected.contains(':') || protected.starts_with('/'));
-            if is_system {
-                return Err(format!("AccessDenied: Bash command structurally attempts to manipulate blacklisted system area: {}", protected));
+            if entry.is_system {
+                return Err(format!("AccessDenied: Bash command structurally attempts to manipulate blacklisted system area: {}", entry.original));
             }
 
             // For internal files (.hematite, .git), we only block if it looks like a mutation.
             if is_destructive_bash_payload(&lower) {
-                return Err(format!("AccessDenied: Bash mutation blocked on internal state directory: {}. Use native tools or git_commit instead.", protected));
+                return Err(format!("AccessDenied: Bash mutation blocked on internal state directory: {}. Use native tools or git_commit instead.", entry.original));
             }
         }
     }
@@ -240,24 +281,7 @@ fn catastrophic_bash_check(lower: &str) -> Result<(), String> {
 }
 
 fn is_destructive_bash_payload(lower_cmd: &str) -> bool {
-    let dangerous = [
-        "rm ",
-        "del ",
-        "erase ",
-        "rd ",
-        "rmdir ",
-        "mv ",
-        "move ",
-        "rename ",
-        ">",
-        ">>",
-        "git config",
-        "git init",
-        "git remote",
-        "chmod ",
-        "chown ",
-    ];
-    dangerous.iter().any(|&p| lower_cmd.contains(p))
+    destructive_ac().find(lower_cmd).is_some()
 }
 
 /// Three-tier risk classifier for shell commands.
