@@ -102,6 +102,13 @@ const CODE_KEYWORDS: &[&str] = &[
     "script",
 ];
 
+static CODE_KW_AC: std::sync::OnceLock<aho_corasick::AhoCorasick> = std::sync::OnceLock::new();
+
+fn code_kw_ac() -> &'static aho_corasick::AhoCorasick {
+    CODE_KW_AC
+        .get_or_init(|| aho_corasick::AhoCorasick::new(CODE_KEYWORDS).expect("valid patterns"))
+}
+
 fn mentions_reset_commands(lower: &str) -> bool {
     contains_all(lower, &["/clear", "/new", "/forget"])
 }
@@ -1492,7 +1499,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             || lower.contains("css")
             || lower.contains("styles")
             || lower.contains("script")
-            || contains_any(&lower, CODE_KEYWORDS));
+            || code_kw_ac().find(&lower).is_some());
     let asks_broad_readiness = lower.contains("local development")
         || lower.contains("ready for local development")
         || (lower.contains("machine") && lower.contains("ready"))
@@ -3830,7 +3837,7 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
         )
     });
 
-    let host_inspection_allowed = if is_coding_workflow && contains_any(&lower, CODE_KEYWORDS) {
+    let host_inspection_allowed = if is_coding_workflow && code_kw_ac().find(&lower).is_some() {
         // High-barrier: if we are clearly in a code task, only allow diagnostic
         // if they use an authoritative hardware noun.
         has_authoritative_hardware_noun

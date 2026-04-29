@@ -435,10 +435,9 @@ fn is_destructive_mutation(tokens: &[String]) -> bool {
 
     // 3. Sensitive Dirs/Files (from blacklist)
     for tok in tokens {
-        let lower = tok.to_lowercase().replace("\\", "/");
-        for protected in PROTECTED_FILES {
-            let prot_lower = protected.to_lowercase().replace("\\", "/");
-            if lower.contains(&prot_lower) {
+        let lower = tok.to_lowercase().replace('\\', "/");
+        for entry in protected_entries() {
+            if lower.contains(&entry.normalized) {
                 return true;
             }
         }
@@ -515,40 +514,46 @@ fn is_known_safe_command(tokens: &[String]) -> bool {
         .and_then(|s| s.to_str())
         .unwrap_or(&exe);
 
-    // Read-only tools
-    let safe_tools = [
-        "ls",
-        "dir",
-        "cat",
-        "type",
-        "grep",
-        "rg",
-        "find",
-        "head",
-        "tail",
-        "wc",
-        "sort",
-        "uniq",
-        "git",
-        "cargo",
-        "rustc",
-        "rustfmt",
-        "npm",
-        "node",
-        "python",
-        "python3",
-        "whoami",
-        "pwd",
-        "mkdir",
-        "echo",
-        "where",
-        "which",
-        "test-path",
-        "get-childitem",
-        "get-content",
-    ];
+    static SAFE_TOOLS: std::sync::OnceLock<std::collections::HashSet<&'static str>> =
+        std::sync::OnceLock::new();
+    let safe_set = SAFE_TOOLS.get_or_init(|| {
+        [
+            "ls",
+            "dir",
+            "cat",
+            "type",
+            "grep",
+            "rg",
+            "find",
+            "head",
+            "tail",
+            "wc",
+            "sort",
+            "uniq",
+            "git",
+            "cargo",
+            "rustc",
+            "rustfmt",
+            "npm",
+            "node",
+            "python",
+            "python3",
+            "whoami",
+            "pwd",
+            "mkdir",
+            "echo",
+            "where",
+            "which",
+            "test-path",
+            "get-childitem",
+            "get-content",
+        ]
+        .iter()
+        .copied()
+        .collect()
+    });
 
-    if !safe_tools.contains(&exe_name) {
+    if !safe_set.contains(exe_name) {
         return false;
     }
 
