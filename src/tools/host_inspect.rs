@@ -6680,13 +6680,8 @@ try {{
                         out.push_str(&format!("{:<12}: {}\n", k, val_str));
                     }
 
-                    // Check expiry
                     if let Some(not_after_raw) = obj.get("NotAfter").and_then(|v| v.as_str()) {
-                        // PowerShell dates in JSON usually look like "/Date(1745678900000)/" or ISO string
-                        // If it's "/Date(...)/", we need to parse it.
-                        // But ConvertTo-Json often produces ISO if it's a raw string from Select-Object.
                         if not_after_raw.starts_with("/Date(") {
-                            // Extract timestamp
                             let ts = not_after_raw
                                 .trim_start_matches("/Date(")
                                 .trim_end_matches(")/")
@@ -6710,7 +6705,6 @@ try {{
                                 ));
                             }
                         } else {
-                            // Try ISO
                             if let Ok(expiry) = chrono::DateTime::parse_from_rfc3339(not_after_raw)
                             {
                                 let now = chrono::Utc::now();
@@ -6827,8 +6821,6 @@ async fn inspect_data_audit(path: PathBuf, _max_entries: usize) -> Result<String
         }
         "db" | "sqlite" | "sqlite3" => {
             out.push_str("SQLite Database detected.\n");
-            // We could run a PRAGMA table_list or similar here
-            // Logic to list tables using rusqlite would go here
             out.push_str("Use `query_data` to execute SQL against this database.\n");
         }
         _ => {

@@ -6475,7 +6475,6 @@ impl ConversationManager {
                         );
                         continue;
                     }
-                    // Nudge budget exhausted — check for deterministic closeouts or fallbacks.
                     if let Some(summary) = maybe_deterministic_sovereign_closeout(
                         self.session_memory.current_plan.as_ref(),
                         mutation_occurred,
@@ -6489,7 +6488,6 @@ impl ConversationManager {
                         return Ok(());
                     }
 
-                    // Proof-Aware Fallback: If a tool just finished, we can assume success.
                     let last_was_tool = self
                         .history
                         .last()

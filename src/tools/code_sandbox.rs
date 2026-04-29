@@ -102,7 +102,6 @@ fn run_python(code: &str, timeout_secs: u64) -> Result<String, String> {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        // Limit PATH so the script can't find other executables easily
         .env("PATH", "")
         .env("PYTHONDONTWRITEBYTECODE", "1")
         .env("PYTHONIOENCODING", "utf-8")
@@ -235,7 +234,6 @@ fn truncate(s: &str, max: usize) -> String {
 /// 4. System PATH via where/which
 /// 5. LM Studio's bundled copy — automatic fallback for all LM Studio users
 fn find_deno() -> Option<String> {
-    // 1. settings.json override
     let config = crate::agent::config::load_config();
     if let Some(path) = config.deno_path {
         if std::path::Path::new(&path).exists() {
@@ -301,21 +299,13 @@ fn find_deno() -> Option<String> {
     find_lmstudio_deno()
 }
 
-/// Locate Python with a priority-ordered search:
-/// 1. `python_path` in .hematite/settings.json (explicit user pin)
-/// 2. System PATH: python3
-/// 3. System PATH: python
-/// 4. System PATH: py (Windows launcher)
 fn find_python() -> Option<String> {
-    // 1. settings.json override
     let config = crate::agent::config::load_config();
     if let Some(path) = config.python_path {
         if std::path::Path::new(&path).exists() {
             return Some(path);
         }
     }
-
-    // 2-4. System PATH
     find_executable(&["python3", "python", "py"])
 }
 

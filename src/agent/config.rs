@@ -59,8 +59,6 @@ pub struct HematiteConfig {
     /// If unset, Hematite checks LM Studio's bundled Deno, then system PATH.
     /// Example: "C:/Users/you/.deno/bin/deno.exe"
     pub deno_path: Option<String>,
-    /// Override path to the Python executable for the run_code sandbox.
-    /// If unset, Hematite checks system PATH (including 'py' launcher on Windows).
     pub python_path: Option<String>,
     /// Per-project verification commands for build/test/lint/fix workflows.
     #[serde(default)]

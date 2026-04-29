@@ -283,22 +283,18 @@ fn autodetect_command(
 fn resolve_python_cmd(cwd: &std::path::Path) -> String {
     let config = config::load_config();
 
-    // 1. settings.json override (project or global)
     if let Some(path) = config.python_path {
         if std::path::Path::new(&path).exists() {
             return path;
         }
     }
 
-    // 2. Poetry check
     if cwd.join("poetry.lock").exists() {
         return "poetry run python".to_string();
     }
-    // 3. Pipenv check
     if cwd.join("Pipfile.lock").exists() || cwd.join("Pipfile").exists() {
         return "pipenv run python".to_string();
     }
-    // 4. Local venv check
     let venv_folders = [".venv", "venv", "env"];
     for folder in venv_folders {
         if cwd.join(folder).is_dir() {
@@ -313,9 +309,7 @@ fn resolve_python_cmd(cwd: &std::path::Path) -> String {
         }
     }
 
-    // 5. Fallback to PATH-based detection
     if cfg!(windows) {
-        // On Windows, 'py' is more reliable than 'python'
         let check = Command::new("where").arg("py").output();
         if check.map(|o| o.status.success()).unwrap_or(false) {
             return "py -3".to_string();
