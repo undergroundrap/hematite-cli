@@ -420,86 +420,109 @@ pub fn fix_plan_topics(issue: &str) -> Vec<(&'static str, &'static str)> {
     topics_for_issue(issue)
 }
 
-pub fn fix_plan_auto_commands(combined_output: &str) -> Vec<(&'static str, &'static str)> {
-    const SAFE: &[(&str, &str, &str)] = &[
-        ("dns: failed", "Flush DNS cache", "ipconfig /flushdns"),
-        (
-            "dns resolution: failed",
-            "Flush DNS cache",
-            "ipconfig /flushdns",
-        ),
-        (
-            "wsearch",
-            "Restart Windows Search",
-            "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
-        ),
-        (
-            "windows search",
-            "Restart Windows Search",
-            "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
-        ),
-        (
-            "spooler",
-            "Restart Print Spooler",
-            "powershell -Command \"Restart-Service Spooler -Force\"",
-        ),
-        (
-            "print spooler",
-            "Restart Print Spooler",
-            "powershell -Command \"Restart-Service Spooler -Force\"",
-        ),
-        (
-            "ntp source unreachable",
-            "Resync system clock",
-            "w32tm /resync /force",
-        ),
-        (
-            "time sync failed",
-            "Resync system clock",
-            "w32tm /resync /force",
-        ),
-        (
-            "bits",
-            "Restart BITS service",
-            "powershell -Command \"Restart-Service BITS -Force\"",
-        ),
-        (
-            "wuauserv",
-            "Restart Windows Update service",
-            "powershell -Command \"Restart-Service wuauserv -Force\"",
-        ),
-        (
-            "windows update service",
-            "Restart Windows Update service",
-            "powershell -Command \"Restart-Service wuauserv -Force\"",
-        ),
-        (
-            "audiosrv",
-            "Restart Audio service",
-            "powershell -Command \"Restart-Service Audiosrv -Force\"",
-        ),
-        (
-            "windows audio",
-            "Restart Audio service",
-            "powershell -Command \"Restart-Service Audiosrv -Force\"",
-        ),
-        (
-            "low disk",
-            "Empty Recycle Bin",
-            "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
-        ),
-        (
-            "free up space",
-            "Empty Recycle Bin",
-            "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
-        ),
-    ];
+struct AutoCmdAc {
+    ac: aho_corasick::AhoCorasick,
+    entries: Vec<(&'static str, &'static str)>,
+}
 
+static AUTO_CMD_AC: std::sync::OnceLock<AutoCmdAc> = std::sync::OnceLock::new();
+
+fn auto_cmd_ac() -> &'static AutoCmdAc {
+    AUTO_CMD_AC.get_or_init(|| {
+        const SAFE: &[(&'static str, &'static str, &'static str)] = &[
+            ("dns: failed", "Flush DNS cache", "ipconfig /flushdns"),
+            (
+                "dns resolution: failed",
+                "Flush DNS cache",
+                "ipconfig /flushdns",
+            ),
+            (
+                "wsearch",
+                "Restart Windows Search",
+                "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
+            ),
+            (
+                "windows search",
+                "Restart Windows Search",
+                "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
+            ),
+            (
+                "spooler",
+                "Restart Print Spooler",
+                "powershell -Command \"Restart-Service Spooler -Force\"",
+            ),
+            (
+                "print spooler",
+                "Restart Print Spooler",
+                "powershell -Command \"Restart-Service Spooler -Force\"",
+            ),
+            (
+                "ntp source unreachable",
+                "Resync system clock",
+                "w32tm /resync /force",
+            ),
+            (
+                "time sync failed",
+                "Resync system clock",
+                "w32tm /resync /force",
+            ),
+            (
+                "bits",
+                "Restart BITS service",
+                "powershell -Command \"Restart-Service BITS -Force\"",
+            ),
+            (
+                "wuauserv",
+                "Restart Windows Update service",
+                "powershell -Command \"Restart-Service wuauserv -Force\"",
+            ),
+            (
+                "windows update service",
+                "Restart Windows Update service",
+                "powershell -Command \"Restart-Service wuauserv -Force\"",
+            ),
+            (
+                "audiosrv",
+                "Restart Audio service",
+                "powershell -Command \"Restart-Service Audiosrv -Force\"",
+            ),
+            (
+                "windows audio",
+                "Restart Audio service",
+                "powershell -Command \"Restart-Service Audiosrv -Force\"",
+            ),
+            (
+                "low disk",
+                "Empty Recycle Bin",
+                "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
+            ),
+            (
+                "free up space",
+                "Empty Recycle Bin",
+                "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
+            ),
+        ];
+        let mut patterns: Vec<&str> = Vec::new();
+        let mut entries: Vec<(&'static str, &'static str)> = Vec::new();
+        for &(trigger, label, cmd) in SAFE {
+            patterns.push(trigger);
+            entries.push((label, cmd));
+        }
+        AutoCmdAc {
+            ac: aho_corasick::AhoCorasick::new(&patterns).expect("valid patterns"),
+            entries,
+        }
+    })
+}
+
+pub fn fix_plan_auto_commands(combined_output: &str) -> Vec<(&'static str, &'static str)> {
     let lower = combined_output.to_ascii_lowercase();
+    let state = auto_cmd_ac();
     let mut seen_labels = std::collections::HashSet::new();
     let mut result: Vec<(&'static str, &'static str)> = Vec::new();
-    for &(trigger, label, cmd) in SAFE {
-        if lower.contains(trigger) && seen_labels.insert(label) {
+    for mat in state.ac.find_iter(&lower) {
+        let (label, cmd) = state.entries[mat.pattern().as_usize()];
+        if seen_labels.insert(label) {
             result.push((label, cmd));
         }
     }

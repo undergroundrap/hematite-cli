@@ -1,24 +1,45 @@
-/// Curated fix recipes mapping health/inspect findings to action steps.
-
 pub struct Recipe {
-    pub severity: &'static str, // "ACTION", "INVESTIGATE", "MONITOR"
+    pub severity: &'static str,
     pub title: &'static str,
     pub steps: &'static [&'static str],
-    pub dig_deeper: Option<&'static str>, // inspect_host topic to run for more detail
+    pub dig_deeper: Option<&'static str>,
 }
 
-/// Match a health_report or inspect_host output line against known recipes.
-/// Returns all recipes that apply, in priority order.
+struct RecipeAc {
+    ac: aho_corasick::AhoCorasick,
+    recipe_indices: Vec<usize>,
+}
+
+static RECIPE_AC: std::sync::OnceLock<RecipeAc> = std::sync::OnceLock::new();
+
+fn recipe_ac() -> &'static RecipeAc {
+    RECIPE_AC.get_or_init(|| {
+        let mut patterns: Vec<&str> = Vec::new();
+        let mut recipe_indices: Vec<usize> = Vec::new();
+        for (i, entry) in ALL_RECIPES.iter().enumerate() {
+            for &trigger in entry.triggers {
+                patterns.push(trigger);
+                recipe_indices.push(i);
+            }
+        }
+        RecipeAc {
+            ac: aho_corasick::AhoCorasick::new(&patterns).expect("valid patterns"),
+            recipe_indices,
+        }
+    })
+}
+
 pub fn match_recipes(output: &str) -> Vec<&'static Recipe> {
     let lower = output.to_ascii_lowercase();
+    let state = recipe_ac();
+    let mut seen = std::collections::HashSet::new();
     let mut matches: Vec<&'static Recipe> = Vec::new();
-
-    for recipe in ALL_RECIPES {
-        if recipe.triggers.iter().any(|t| lower.contains(t)) {
-            matches.push(&recipe.recipe);
+    for mat in state.ac.find_iter(&lower) {
+        let idx = state.recipe_indices[mat.pattern().as_usize()];
+        if seen.insert(idx) {
+            matches.push(&ALL_RECIPES[idx].recipe);
         }
     }
-
     matches
 }
 

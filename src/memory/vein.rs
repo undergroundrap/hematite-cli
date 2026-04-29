@@ -551,13 +551,19 @@ impl Vein {
         // Strip common English stopwords so FTS5 MATCH gets meaningful tokens only.
         // FTS5 uses implicit AND by default — passing stopwords like "how", "does",
         // "the" causes zero results because source code never contains those phrases.
-        const STOPWORDS: &[&str] = &[
-            "how", "does", "do", "did", "what", "where", "when", "why", "which", "who", "is",
-            "are", "was", "were", "be", "been", "being", "have", "has", "had", "a", "an", "the",
-            "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by", "from", "get",
-            "gets", "got", "work", "works", "make", "makes", "use", "uses", "into", "that", "this",
-            "it", "its",
-        ];
+        static STOPWORDS: std::sync::OnceLock<HashSet<&'static str>> = std::sync::OnceLock::new();
+        let stopwords = STOPWORDS.get_or_init(|| {
+            [
+                "how", "does", "do", "did", "what", "where", "when", "why", "which", "who", "is",
+                "are", "was", "were", "be", "been", "being", "have", "has", "had", "a", "an",
+                "the", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by",
+                "from", "get", "gets", "got", "work", "works", "make", "makes", "use", "uses",
+                "into", "that", "this", "it", "its",
+            ]
+            .iter()
+            .copied()
+            .collect()
+        });
 
         let safe_query: String = query
             .chars()
@@ -573,7 +579,7 @@ impl Vein {
         // Build an OR query from non-stopword tokens so any relevant term matches.
         let fts_query = safe_query
             .split_whitespace()
-            .filter(|w| w.len() >= 3 && !STOPWORDS.contains(&w.to_lowercase().as_str()))
+            .filter(|w| w.len() >= 3 && !stopwords.contains(w.to_lowercase().as_str()))
             .collect::<Vec<_>>()
             .join(" OR ");
 
@@ -1585,12 +1591,18 @@ fn extract_exact_phrases(query: &str) -> Vec<String> {
 }
 
 fn extract_standout_terms(query: &str) -> Vec<String> {
-    const STOPWORDS: &[&str] = &[
-        "about", "after", "before", "change", "changed", "decide", "decided", "does", "earlier",
-        "flow", "from", "have", "into", "just", "last", "local", "make", "more", "remember",
-        "should", "that", "their", "there", "these", "they", "this", "those", "what", "when",
-        "where", "which", "why", "with", "work",
-    ];
+    static STANDOUT_SW: std::sync::OnceLock<HashSet<&'static str>> = std::sync::OnceLock::new();
+    let stopwords = STANDOUT_SW.get_or_init(|| {
+        [
+            "about", "after", "before", "change", "changed", "decide", "decided", "does",
+            "earlier", "flow", "from", "have", "into", "just", "last", "local", "make", "more",
+            "remember", "should", "that", "their", "there", "these", "they", "this", "those",
+            "what", "when", "where", "which", "why", "with", "work",
+        ]
+        .iter()
+        .copied()
+        .collect()
+    });
 
     let mut standout = Vec::new();
     for token in query.split(|ch: char| {
@@ -1601,7 +1613,7 @@ fn extract_standout_terms(query: &str) -> Vec<String> {
             continue;
         }
         let lower = trimmed.to_ascii_lowercase();
-        if STOPWORDS.contains(&lower.as_str()) {
+        if stopwords.contains(lower.as_str()) {
             continue;
         }
 
