@@ -65,8 +65,6 @@ pub fn triage_follow_up_topics(health_output: &str) -> Vec<&'static str> {
     topics
 }
 
-/// Examine the combined output from a --fix phase-1 topic run and return
-/// additional topics to drill into. Caps at 3 to keep the command fast.
 pub fn fix_follow_up_topics(
     combined_output: &str,
     already_ran: &[&str],

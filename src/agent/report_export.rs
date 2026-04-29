@@ -416,16 +416,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     topics
 }
 
-/// Public alias for --fix --dry-run: returns the inspection topics that would
-/// run for a given issue description without executing anything.
 pub fn fix_plan_topics(issue: &str) -> Vec<(&'static str, &'static str)> {
     topics_for_issue(issue)
 }
 
-/// Safe non-destructive commands that can be auto-executed with --execute.
-/// Each entry: (trigger_substring_in_output, display_label, command_to_run).
-/// Only single-service restarts and DNS/clock operations — nothing that
-/// modifies files, accounts, firewall rules, or requires a reboot.
 pub fn fix_plan_auto_commands(combined_output: &str) -> Vec<(&'static str, &'static str)> {
     const SAFE: &[(&str, &str, &str)] = &[
         ("dns: failed", "Flush DNS cache", "ipconfig /flushdns"),
@@ -512,8 +506,6 @@ pub fn fix_plan_auto_commands(combined_output: &str) -> Vec<(&'static str, &'sta
     result
 }
 
-/// Returns true when report content indicates actionable findings (health grade != A).
-/// Works for both markdown ("**Health Score:** B") and HTML ("Health Score: B") formats.
 pub fn report_has_issues_in_content(content: &str) -> bool {
     for line in content.lines() {
         if line.contains("Health Score:") {
@@ -529,8 +521,6 @@ pub fn report_has_issues_in_content(content: &str) -> bool {
     false
 }
 
-/// Human-readable category table for `--fix list`.
-/// Each entry: (category_label, example_keywords).
 pub fn fix_issue_categories() -> &'static [(&'static str, &'static str)] {
     &[
         (
@@ -1096,9 +1086,6 @@ struct FixPlanData {
     sections: Vec<(&'static str, String)>,
 }
 
-/// Two-phase fix plan collection.
-/// Phase 1: keyword-match issue → initial topics.
-/// Phase 2: read phase-1 output, detect signals, run up to 3 follow-up topics.
 async fn run_fix_plan_phases(issue: &str) -> FixPlanData {
     let initial_topics = topics_for_issue(issue);
     let total = initial_topics.len();
@@ -1131,7 +1118,6 @@ async fn run_fix_plan_phases(issue: &str) -> FixPlanData {
         sections.push((label, output));
     }
 
-    // Phase 2: self-chain — read what was found and drill deeper
     let combined: String = sections
         .iter()
         .map(|(_, o)| o.as_str())
