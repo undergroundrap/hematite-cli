@@ -6490,7 +6490,11 @@ impl ConversationManager {
                     }
 
                     // Proof-Aware Fallback: If a tool just finished, we can assume success.
-                    let last_was_tool = self.history.last().map(|m| m.role == "tool").unwrap_or(false);
+                    let last_was_tool = self
+                        .history
+                        .last()
+                        .map(|m| m.role == "tool")
+                        .unwrap_or(false);
                     if last_was_tool {
                         let fallback = "[Proof successful. See tool output above for results.]";
                         self.history.push(ChatMessage::assistant_text(fallback));
@@ -6504,7 +6508,7 @@ impl ConversationManager {
 
                     self.emit_runtime_failure(
                         &tx,
-                        class,
+                        RuntimeFailureClass::EmptyModelResponse,
                         "Model returned empty content after 2 nudge attempts.",
                     )
                     .await;
