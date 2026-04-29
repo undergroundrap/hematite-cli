@@ -1011,7 +1011,7 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 
 Nothing currently queued. All roadmap items shipped.
 
-### Recently Shipped (0.7.1 wave)
+### Recently Shipped (0.8.0 wave)
 
 - **Enterprise enrollment diagnostics** — âœ“ Done. `inspect_host(topic: “mdm_enrollment”)` covers dsregcmd AAD/MDM join state, registry enrollment accounts with UPN/type/server URL, Intune Management Extension service health, recent MDM event log errors, and plain-English findings for enrolled/unenrolled/stalled states.
 - **Storage Spaces / Windows RAID diagnostics** — âœ“ Done. `inspect_host(topic: “storage_spaces”)` covers Windows Storage Spaces pool inventory (pool name, health, operational status, resiliency type, virtual disk health, physical disk member count and media type). Linux fallback reads `/proc/mdstat` and `lvs`. Also aliases: `storage_pool`, `virtual_disk`, `windows_raid`. Routing detects natural-language variants including “storage pool”, “virtual disk health”, “Windows RAID degraded”.
