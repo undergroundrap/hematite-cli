@@ -4,7 +4,7 @@
 
 Think of it as a **Senior SysAdmin, Network Admin, Data Analyst, and Software Engineer living in your terminal** — running 100% on your own silicon for total privacy and speed.
 
-**AI-Native Architecture**: Hematite is built for the agentic era. The source code is signal-dense, "Clippy-Clean," and optimized for LLM context windows to ensure AI assistants can reason about the codebase with maximum precision and minimum token noise.
+**AI-Native Architecture**: Hematite is built for the agentic era. The source code is signal-dense, "Clippy-Clean," and optimized for LLM context windows to ensure AI assistants can reason about the codebase with maximum precision and minimum token noise. The codebase historically had inline comments; they are being progressively removed — well-named identifiers carry the meaning, and eliminating redundant prose reduces token overhead for every AI-assisted workflow.
 
 ---
 
