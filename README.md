@@ -1,5 +1,8 @@
 # hematite
 
+<!-- demo gif — swap src when ready -->
+![Hematite demo](assets/demo.gif)
+
 **Your RTX 4070 is a serious machine. Hematite is its local AI layer — coding harness, SysAdmin, Network Admin, Data Analyst, and host intelligence backend, all in one terminal binary.**
 
 Think of it as a **Senior SysAdmin, Network Admin, Data Analyst, and Software Engineer living in your terminal** — running 100% on your own silicon for total privacy and speed.
