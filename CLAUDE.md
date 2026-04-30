@@ -1,4 +1,4 @@
-# Hematite CLI Documentation
+﻿# Hematite CLI Documentation
 
 ## What this project is
 
@@ -883,13 +883,18 @@ Why these exist:
 - `pwsh ./scripts/package-windows.ps1 -AddToPath`
   Rebuilds the actual portable build you run locally, updates the PATH-backed copy, and gives you the real pre-release smoke test.
 
-**Mojibake check (run before every publish):** After any README or doc edit, scan for encoding corruption before committing or publishing to crates.io. PowerShell's `Set-Content` with `-Encoding utf8` and the bump-version script both write UTF-8 correctly, but copying text from browsers or other tools can introduce Windows-1252 sequences. Common symptoms: `â€"` instead of `—`, `â€™` instead of `'`, `16â€"24` instead of `16–24`. Quick check:
+**Mojibake check (run before every publish):** After any README or doc edit, scan for encoding corruption before committing or publishing to crates.io. PowerShell's `Set-Content` with `-Encoding utf8` and the bump-version script both write UTF-8 correctly, but copying text from browsers or other tools can introduce Windows-1252 sequences. Common symptoms: `â€"` instead of `—`, `â€™` instead of `'`, `16â€"24` instead of `16–24`, `âœ"` instead of `✓`. Quick check:
 
 ```powershell
-Select-String -Path README.md,CLAUDE.md,CAPABILITIES.md -Pattern "â€|Ã |â„¢" | Select-Object Line
+$pat = [string][char]0x00E2 + "|" + [string][char]0x00C3
+Get-ChildItem -Path . -Include *.md -Recurse |
+  Where-Object { $_.FullName -notmatch "\\(target|dist)\\" } |
+  Select-String -Pattern $pat -Encoding UTF8 |
+  Select-Object Filename, LineNumber, Line
+# Expected: 1 hit in CLAUDE.md itself (the example line above). Any other hits are real corruption.
 ```
 
-If any matches appear, re-save the affected file as UTF-8 without BOM and replace the corrupt sequences with their correct Unicode equivalents before committing.
+If any files other than CLAUDE.md appear in the results, re-save the affected file as UTF-8 without BOM and replace the corrupt sequences with their correct Unicode equivalents before committing.
 
 When the change is narrow, prefer a targeted diagnostics test instead of the full file:
 
