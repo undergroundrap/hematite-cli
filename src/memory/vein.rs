@@ -769,13 +769,22 @@ impl Vein {
         ];
         const SKIP_DIRS: &[&str] = &["target", ".git", "node_modules", ".hematite"];
 
+        // O(1) membership tests for the per-file extension check and the per-dir
+        // name check inside the walkdir iterator, built once via OnceLock.
+        static INDEXABLE_SET: std::sync::OnceLock<std::collections::HashSet<&'static str>> =
+            std::sync::OnceLock::new();
+        static SKIP_DIRS_SET: std::sync::OnceLock<std::collections::HashSet<&'static str>> =
+            std::sync::OnceLock::new();
+        let indexable = INDEXABLE_SET.get_or_init(|| INDEXABLE.iter().copied().collect());
+        let skip_dirs = SKIP_DIRS_SET.get_or_init(|| SKIP_DIRS.iter().copied().collect());
+
         for entry in walkdir::WalkDir::new(&root)
             .follow_links(false)
             .into_iter()
             .filter_entry(|e| {
                 if e.file_type().is_dir() {
                     let name = e.file_name().to_string_lossy();
-                    return !SKIP_DIRS.contains(&name.as_ref());
+                    return !skip_dirs.contains(name.as_ref());
                 }
                 true
             })
@@ -784,7 +793,7 @@ impl Vein {
         {
             let path = entry.path();
             let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-            if !INDEXABLE.contains(&ext) {
+            if !indexable.contains(ext) {
                 continue;
             }
 

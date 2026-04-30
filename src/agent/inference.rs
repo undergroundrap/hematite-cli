@@ -1337,6 +1337,9 @@ pub fn strip_think_blocks(text: &str) -> String {
 /// Remove stray XML tool-call closing/opening tags that local models occasionally
 /// leak into visible output when they start-then-abandon a tool call.
 fn strip_xml_tool_call_artifacts(text: &str) -> String {
+    use aho_corasick::AhoCorasick;
+    use std::sync::OnceLock;
+
     // Tags to remove (both open and close forms, case-insensitive).
     const XML_ARTIFACTS: &[&str] = &[
         "</tool_call>",
@@ -1368,14 +1371,31 @@ fn strip_xml_tool_call_artifacts(text: &str) -> String {
         "<|im_end|>",
         "<|endoftext|>",
     ];
-    let mut out = text.to_string();
-    for tag in XML_ARTIFACTS {
-        // Case-insensitive replace
-        while let Some(pos) = out.to_lowercase().find(&tag.to_lowercase()) {
-            out.drain(pos..pos + tag.len());
-        }
+
+    // Build AC automaton once from pre-lowercased patterns; zero-cost on every
+    // subsequent call.  All patterns are ASCII so byte positions are stable after
+    // lowercasing (no multi-byte expansion).
+    static ARTIFACT_AC: OnceLock<AhoCorasick> = OnceLock::new();
+    let ac = ARTIFACT_AC.get_or_init(|| {
+        let lowered: Vec<String> = XML_ARTIFACTS.iter().map(|s| s.to_lowercase()).collect();
+        AhoCorasick::new(&lowered).expect("valid XML artifact patterns")
+    });
+
+    // Lowercase once for searching.
+    let lower = text.to_lowercase();
+
+    // Fast path: nothing to strip (common case for clean model output).
+    if ac.find(&lower).is_none() {
+        return text.to_string();
     }
-    // Collapse any blank lines left behind
+
+    // Collect all match spans in a single left-to-right AC scan, then drain
+    // in reverse so earlier byte offsets stay valid as we shorten the string.
+    let spans: Vec<(usize, usize)> = ac.find_iter(&lower).map(|m| (m.start(), m.end())).collect();
+    let mut out = text.to_string();
+    for (start, end) in spans.into_iter().rev() {
+        out.drain(start..end);
+    }
     out
 }
 
