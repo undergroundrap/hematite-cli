@@ -24,7 +24,7 @@ A collection of prompts designed to get the most out of Hematite's native capabi
 **Security posture**
 > "Check my security posture: Defender state, last scan age, firewall profiles, Windows activation, and UAC level."
 
-**Silicon Deep-Sense (v0.5.6)**
+**Silicon Deep-Sense**
 > "How's my silicon health looking? I want to see real-time GPU clocks, power draw, fan speed, and high-fidelity CPU frequency averages."
 > *(Triggers Zero-Shot Redirection to: overclocker)*
 

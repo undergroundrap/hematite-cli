@@ -22,7 +22,7 @@ That is the lens for the capabilities below.
 - **Full OS stack coverage**: 128+ read-only diagnostic topics covering SysAdmin and Network Admin domains.
 - **Analytical SQL & Data Science**: A first-class data engine for local files. Streaming SQL ingestion, transactional batching, and automated statistical discovery (Histograms/Regressions) via a secure Python sandbox.
 - **Lead Computational Researcher**: A core identity directive that enforces verifiable computation. Hematite refuses to guess results for math/physics/CS problems, instead using high-precision symbolic solvers (`symbolic`), unit-aware physics (`units`), and empirical Big-O auditing (`complexity`) to provide proven answers. It prioritizes **Pure Python resilience**, implementing math logic manually when heavy libraries are missing, but automatically scaling to use `numpy`, `scipy`, and `pandas` if they are available in the configured Python environment.
-- **MCP server mode**: `hematite --mcp-server` exposes all 116+ inspect_host topics to any MCP-capable agent (Claude Desktop, OpenClaw, Cursor, Windsurf) over stdio JSON-RPC 2.0. No TUI, no local model needed on the client side.
+- **MCP server mode**: `hematite --mcp-server` exposes all 128+ inspect_host topics to any MCP-capable agent (Claude Desktop, OpenClaw, Cursor, Windsurf) over stdio JSON-RPC 2.0. No TUI, no local model needed on the client side.
 - **Privacy gateway**: Two-tier identity stripping before any output leaves the machine. `--edge-redact` (Tier 1) is a fast compiled regex pass — no local model required — that replaces usernames, MACs, serials, hostnames, and credential-shaped values with safe tokens. `--semantic-redact` (Tier 2) routes raw inspect_host output through a dedicated local summarizer model before forwarding; Tier 1 runs after as a safety net. Fail-safe: if the summarizer is unreachable, the call errors — raw data is never sent. Jailbreak-resistant (hardened prompt, unknown MCP args stripped, refusal detection). Metadata-only audit trail at `~/.hematite/redact_audit.jsonl`. Per-topic policy file for hard-blocking sensitive topics or overriding redaction level per topic.
 - **Multi-model local stack**: `--semantic-model <id>` targets a specific model in LM Studio for privacy summarization, independent of the main reasoning model. Verified three-model setup on a single RTX 4070 (12 GB): Qwen3.5 9B Q4_K_M (coding, 6.55 GB) + nomic-embed-text-v2 (search, 0.51 GB) + Bonsai 8B Q1_0 (privacy summarizer, 1.16 GB) = 8.22 GB total. The main model and summarizer never interfere — Hematite sends explicit model IDs in every request. `--semantic-url` points the summarizer at a separate server endpoint for users running a second inference backend. As local models get smaller and smarter, the summarizer slot gets better without changing anything else.
 - **Diagnostic Command Redirection**: Automated redirection of raw diagnostic shell commands to structured `inspect_host` topics to minimize operator prompts.
@@ -89,7 +89,7 @@ Hematite continuously adapts to the machine it is running on.
 
 Hematite ships a complete workstation inspection layer that covers the full OS stack in plain English. All topics are read-only — the harness answers from real observed state, not model guesses.
 
-**SysAdmin topics (77+):**
+**SysAdmin topics (84+):**
 
 - **Resource load** (`resource_load`) — live CPU and RAM usage with top consumers
 - **Processes** (`processes`) — per-process CPU time, memory, [I/O R:N/W:N] operation counts, and PID analytics
@@ -162,6 +162,13 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **Share Access** (`share_access`) — Connectivity and readability test for network shares and UNC paths.
 - **Storage Spaces / Windows RAID** (`storage_spaces`) — Windows Storage Spaces pool inventory: pool name, health, operational status, resiliency type (Simple/Mirror/Parity), virtual disk health, physical disk member count and media type; Linux fallback reads `/proc/mdstat` and `lvs` for software RAID and LVM; reports gracefully when no pools exist
 - **Defender Quarantine / Threat History** (`defender_quarantine`) — Windows Defender threat detection history: threat name, severity, action taken (Quarantine/Remove/Allow), detection timestamp, affected file path, and current remediation status; also covers recent real-time protection and scan activity from `Get-MpComputerStatus`; Linux fallback checks ClamAV quarantine log
+- **MDM / Intune Enrollment** (`mdm_enrollment`) — Intune/MDM enrollment state: dsregcmd AAD and MDM join flags, registry enrollment accounts with UPN/type/server URL, Intune Management Extension service health, recent MDM event log errors, and plain-English findings for enrolled/unenrolled/stalled states
+- **Domain Health / DC Connectivity** (`domain_health`) — active domain controller reachability: nltest /dsgetdc discovery, live LDAP/LDAPS/Kerberos/GC port tests to the DC, dsregcmd AAD and domain join state, GPO last machine refresh time; answers "can my machine reach its DC?" and "are LDAP ports open?" — distinct from `domain` (basic join status)
+- **Service Dependencies** (`service_dependencies`) — service dependency graph: which services require which other services to run, and which services will break if a given one is stopped — essential for restart cascade planning; Linux fallback uses `systemctl list-dependencies`
+- **WMI Health** (`wmi_health`) — WMI repository integrity: live Win32_OperatingSystem query, `winmgmt /verifyrepository`, winmgmt service state, repository size, and recovery steps; WMI corruption is a classic hidden root cause of cascading failures on Windows
+- **Local Security Policy** (`local_security_policy`) — local account/password/lockout policy via `net accounts`, LAN Manager / NTLM authentication level (LmCompatibilityLevel — flags if below 3), and UAC enabled state and admin prompt behavior
+- **USB Device History** (`usb_history`) — USB storage device connection history from the USBSTOR registry key: lists all USB storage devices ever connected to this machine by friendly name; useful for security/forensics audits; requires elevation for full history; Linux fallback queries journalctl
+- **Print Spooler / PrintNightmare** (`print_spooler`) — Print Spooler service state, PrintNightmare (CVE-2021-34527) hardening check (RpcAuthnLevelPrivacyEnabled and Point and Print driver installation policy), and pending print queue; flags unmitigated configurations; Linux fallback checks CUPS via lpstat
 
 **Network Admin topics (28+):**
 
@@ -307,15 +314,14 @@ That result cannot come from training data. SHA-256 is deterministic but not mem
 - **Dataset Bridge**: Seamless integration between SQL data (CSV/DB/JSON) and high-precision scientific solvers, enabling statistical analysis and formal math on production datasets.
 
 ## 11. Unlimited Hardened Technical Research
-    
-Hematite transforms technical discovery into a privacy-first, grounded competency using a **hardened, self-healing search infrastructure.** We take the liberty of pre-configuring a pro-grade 12-engine array so you don't have to spend hours tuning YAML files.
 
-- **12-Engine Hardened Array**: Aggregates results from Google, DuckDuckGo, Bing, Brave, Qwant, Startpage, Mojeek, Wikipedia, GitHub, StackExchange, NPM, and Crates.io. This metadata-rich stream ensures that even if one source rate-limits you, the research continues.
+Hematite transforms technical discovery into a privacy-first, grounded competency using a **hardened, self-healing search infrastructure** — a curated technical-source engine pool with no cloud API keys or rate limits.
+
 - **Privacy-First Research**: Research queries never leave the machine or are tracked by third-party search providers. All searches are routed through your local SearXNG container.
 - **Unlimited Volume**: By hosting the search backend locally, Hematite bypasses the rate limits and per-search costs associated with cloud research APIs.
-- **Proactive Verification Mandate**: The model is explicitly instructed (Rule #16) to verify its own technical uncertainty. Instead of hallucinating versions or API specs, it proactively uses the research tool for grounding via your hardened backend.
-- **Self-Healing Lifecycle**: Hematite manages the search engine's health autonomously, performing heartbeat checks during the runtime boot sequence and auto-booting the container if it's offline.
-- **Intent-Aware Routing**: The system's intent classifier intelligently distinguishes between "Research" (external web discovery) and "Analysis" (local codebase exploration), ensuring that "search" queries meant for the repository don't wander to the internet.
+- **Proactive Verification Mandate**: The model is explicitly instructed to verify its own technical uncertainty. Instead of hallucinating versions or API specs, it proactively uses the research tool for grounding via your local backend.
+- **Self-Healing Lifecycle**: Hematite manages the search engine's health autonomously, performing heartbeat checks during the runtime boot sequence and auto-booting the container if it's offline. If Docker is unavailable, Hematite surfaces a compact startup note with the fix instead of silently failing.
+- **Intent-Aware Routing**: The system's intent classifier distinguishes between "Research" (external web discovery) and "Analysis" (local codebase exploration), ensuring that "search" queries meant for the repository don't wander to the internet.
 
 ---
 
