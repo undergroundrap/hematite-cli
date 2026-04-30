@@ -1405,8 +1405,9 @@ fn inspect_windows_activation_fix_plan(issue: &str) -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     let activation_status = String::new();
 
-    let is_licensed = activation_status.to_lowercase().contains("licensed")
-        && !activation_status.to_lowercase().contains("not licensed");
+    let activation_lower = activation_status.to_lowercase();
+    let is_licensed =
+        activation_lower.contains("licensed") && !activation_lower.contains("not licensed");
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
     out.push_str(&format!("- Requested issue: {}\n", issue));
@@ -13133,9 +13134,10 @@ async fn inspect_overclocker() -> Result<String, String> {
                 out.push_str("=== SILICON CORE (CPU) ===\n");
                 for line in stdout.lines() {
                     if let Some((path, val)) = line.split_once(':') {
-                        if path.to_lowercase().contains("processor frequency") {
+                        let path_lower = path.to_lowercase();
+                        if path_lower.contains("processor frequency") {
                             out.push_str(&format!("- Current Freq:  {} MHz (2s Avg)\n", val));
-                        } else if path.to_lowercase().contains("% of maximum frequency") {
+                        } else if path_lower.contains("% of maximum frequency") {
                             out.push_str(&format!("- Throttling:     {}% of Max Capacity\n", val));
                             let throttle_num = val.parse::<f64>().unwrap_or(100.0);
                             if throttle_num < 95.0 {

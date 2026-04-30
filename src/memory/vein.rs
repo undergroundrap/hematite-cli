@@ -565,11 +565,13 @@ impl Vein {
             .collect()
         });
 
+        // Lowercase once so stopword matching below needs no per-token allocation.
+        // FTS5 is case-insensitive, so lowercased tokens match correctly.
         let safe_query: String = query
             .chars()
             .map(|c| {
                 if c.is_alphanumeric() || c == ' ' || c == '_' {
-                    c
+                    c.to_ascii_lowercase()
                 } else {
                     ' '
                 }
@@ -579,7 +581,7 @@ impl Vein {
         // Build an OR query from non-stopword tokens so any relevant term matches.
         let fts_query = safe_query
             .split_whitespace()
-            .filter(|w| w.len() >= 3 && !stopwords.contains(w.to_lowercase().as_str()))
+            .filter(|w| w.len() >= 3 && !stopwords.contains(*w))
             .collect::<Vec<_>>()
             .join(" OR ");
 

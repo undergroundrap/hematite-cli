@@ -205,13 +205,13 @@ pub fn activate_matching_skills<'a>(
             continue;
         }
 
-        // 2. All significant hyphen/underscore parts appear in query
-        let parts: Vec<&str> = skill
-            .name
+        // 2. All significant hyphen/underscore parts appear in query.
+        // Split the already-lowercased name to avoid a per-part allocation.
+        let parts: Vec<&str> = name_lower
             .split(['-', '_', ' '])
             .filter(|p| p.len() > 3)
             .collect();
-        if parts.len() >= 2 && parts.iter().all(|p| q.contains(&p.to_lowercase())) {
+        if parts.len() >= 2 && parts.iter().all(|p| q.contains(*p)) {
             matched.push(skill);
             continue;
         }
