@@ -1,7 +1,8 @@
 # hematite
 
-<!-- demo gif — swap src when ready -->
-![Hematite demo](assets/demo.gif)
+<p align="center">
+  <img src="assets/demo.gif" alt="Hematite demo" />
+</p>
 
 **Your RTX 4070 is a serious machine. Hematite is its local AI layer — coding harness, SysAdmin, Network Admin, Data Analyst, and host intelligence backend, all in one terminal binary.**
 
