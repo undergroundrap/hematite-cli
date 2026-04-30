@@ -1498,11 +1498,12 @@ fn room_bias(active_room: Option<&str>, result: &SearchResult) -> f32 {
 
 fn retrieval_signal_boost(signals: &QuerySignals, result: &SearchResult) -> f32 {
     let mut boost = 0.0f32;
-    let haystack = format!(
-        "{}\n{}",
-        result.path.to_ascii_lowercase(),
-        result.content.to_ascii_lowercase()
-    );
+
+    // Lowercase once; reuse for both the phrase-match haystack and the
+    // per-term standout loop — avoids one allocation per standout term.
+    let lower_path = result.path.to_ascii_lowercase();
+    let lower_content = result.content.to_ascii_lowercase();
+    let haystack = format!("{}\n{}", lower_path, lower_content);
 
     let phrase_matches = signals
         .exact_phrases
@@ -1515,10 +1516,10 @@ fn retrieval_signal_boost(signals: &QuerySignals, result: &SearchResult) -> f32 
 
     let mut standout_matches = 0;
     for term in &signals.standout_terms {
-        if result.path.to_ascii_lowercase().contains(term.as_str()) {
+        if lower_path.contains(term.as_str()) {
             boost += 0.40;
             standout_matches += 1;
-        } else if result.content.to_ascii_lowercase().contains(term.as_str()) {
+        } else if lower_content.contains(term.as_str()) {
             boost += 0.12;
             standout_matches += 1;
         }

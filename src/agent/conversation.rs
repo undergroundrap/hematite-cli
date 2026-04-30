@@ -7590,10 +7590,26 @@ fn should_rewrite_shell_to_fix_plan(
 }
 
 fn extract_release_arg(command: &str, flag: &str) -> Option<String> {
-    let pattern = format!(r#"(?i){}\s+['"]?([^'" \r\n]+)['"]?"#, regex::escape(flag));
-    let regex = regex::Regex::new(&pattern).ok()?;
-    let captures = regex.captures(command)?;
-    captures.get(1).map(|m| m.as_str().to_string())
+    use std::sync::OnceLock;
+    static RE_VERSION: OnceLock<regex::Regex> = OnceLock::new();
+    static RE_BUMP: OnceLock<regex::Regex> = OnceLock::new();
+    let re = match flag {
+        "-Version" => RE_VERSION.get_or_init(|| {
+            regex::Regex::new(r#"(?i)-Version\s+['"]?([^'" \r\n]+)['"]?"#).expect("valid")
+        }),
+        "-Bump" => RE_BUMP.get_or_init(|| {
+            regex::Regex::new(r#"(?i)-Bump\s+['"]?([^'" \r\n]+)['"]?"#).expect("valid")
+        }),
+        other => {
+            let pattern = format!(r#"(?i){}\s+['"]?([^'" \r\n]+)['"]?"#, regex::escape(other));
+            return regex::Regex::new(&pattern).ok().and_then(|re| {
+                re.captures(command)
+                    .and_then(|c| c.get(1))
+                    .map(|m| m.as_str().to_string())
+            });
+        }
+    };
+    re.captures(command)?.get(1).map(|m| m.as_str().to_string())
 }
 
 fn clean_shell_dns_token(token: &str) -> String {
@@ -7652,14 +7668,32 @@ fn looks_like_dns_target(token: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | ':' | '%' | '*'))
 }
 
+fn dns_quoted_re() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| regex::Regex::new(r#"['"]([^'"]+)['"]"#).expect("valid"))
+}
+
 fn extract_dns_lookup_target_from_shell(command: &str) -> Option<String> {
-    for pattern in [
-        r#"(?i)-name\s+['"]?([^'"\s;()]+)['"]?"#,
-        r#"(?i)(?:gethostaddresses|gethostentry)\s*\(\s*['"]([^'"]+)['"]\s*\)"#,
-        r#"(?i)\b(?:resolve-dnsname|nslookup|host|dig)\s+['"]?([^'"\s;()]+)['"]?"#,
-    ] {
-        let regex = regex::Regex::new(pattern).ok()?;
-        if let Some(value) = regex
+    use std::sync::OnceLock;
+    static RE1: OnceLock<regex::Regex> = OnceLock::new();
+    static RE2: OnceLock<regex::Regex> = OnceLock::new();
+    static RE3: OnceLock<regex::Regex> = OnceLock::new();
+    let re1 = RE1.get_or_init(|| {
+        regex::Regex::new(r#"(?i)-name\s+['"]?([^'"\s;()]+)['"]?"#).expect("valid")
+    });
+    let re2 = RE2.get_or_init(|| {
+        regex::Regex::new(r#"(?i)(?:gethostaddresses|gethostentry)\s*\(\s*['"]([^'"]+)['"]\s*\)"#)
+            .expect("valid")
+    });
+    let re3 = RE3.get_or_init(|| {
+        regex::Regex::new(
+            r#"(?i)\b(?:resolve-dnsname|nslookup|host|dig)\s+['"]?([^'"\s;()]+)['"]?"#,
+        )
+        .expect("valid")
+    });
+    for re in [re1, re2, re3] {
+        if let Some(value) = re
             .captures(command)
             .and_then(|captures| captures.get(1).map(|m| clean_shell_dns_token(m.as_str())))
             .filter(|value| looks_like_dns_target(value))
@@ -7668,7 +7702,7 @@ fn extract_dns_lookup_target_from_shell(command: &str) -> Option<String> {
         }
     }
 
-    let quoted = regex::Regex::new(r#"['"]([^'"]+)['"]"#).ok()?;
+    let quoted = dns_quoted_re();
     for captures in quoted.captures_iter(command) {
         let candidate = clean_shell_dns_token(captures.get(1)?.as_str());
         if looks_like_dns_target(&candidate) {
@@ -7683,7 +7717,7 @@ fn extract_dns_lookup_target_from_shell(command: &str) -> Option<String> {
 }
 
 fn extract_dns_lookup_target_from_text(text: &str) -> Option<String> {
-    let quoted = regex::Regex::new(r#"['"]([^'"]+)['"]"#).ok()?;
+    let quoted = dns_quoted_re();
     for captures in quoted.captures_iter(text) {
         let candidate = clean_shell_dns_token(captures.get(1)?.as_str());
         if looks_like_dns_target(&candidate) {
@@ -7723,7 +7757,11 @@ fn extract_dns_record_type_from_text(text: &str) -> Option<&'static str> {
 }
 
 fn extract_event_query_event_id_from_text(text: &str) -> Option<u32> {
-    let re = regex::Regex::new(r"(?i)\bevent(?:\s*_?\s*id)?\s*[:#]?\s*(\d{2,5})\b").ok()?;
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| {
+        regex::Regex::new(r"(?i)\bevent(?:\s*_?\s*id)?\s*[:#]?\s*(\d{2,5})\b").expect("valid")
+    });
     re.captures(text)
         .and_then(|captures| captures.get(1))
         .and_then(|m| m.as_str().parse::<u32>().ok())
@@ -7763,8 +7801,13 @@ fn extract_event_query_level_from_text(text: &str) -> Option<&'static str> {
 }
 
 fn extract_event_query_hours_from_text(text: &str) -> Option<u32> {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
     let lower = text.to_ascii_lowercase();
-    let re = regex::Regex::new(r"(?i)\b(?:last|past)\s+(\d{1,3})\s*(hour|hours|hr|hrs)\b").ok()?;
+    let re = RE.get_or_init(|| {
+        regex::Regex::new(r"(?i)\b(?:last|past)\s+(\d{1,3})\s*(hour|hours|hr|hrs)\b")
+            .expect("valid")
+    });
     if let Some(hours) = re
         .captures(&lower)
         .and_then(|captures| captures.get(1))
@@ -7868,9 +7911,11 @@ fn infer_maintainer_workflow_args_from_prompt(prompt: &str) -> Option<Value> {
                 || lower.contains("refresh path"),
         })),
         "release" => {
-            let version = regex::Regex::new(r#"(?i)\b(\d+\.\d+\.\d+)\b"#)
-                .ok()
-                .and_then(|re| re.captures(prompt))
+            use std::sync::OnceLock;
+            static SEMVER_RE: OnceLock<regex::Regex> = OnceLock::new();
+            let version = SEMVER_RE
+                .get_or_init(|| regex::Regex::new(r#"(?i)\b(\d+\.\d+\.\d+)\b"#).expect("valid"))
+                .captures(prompt)
                 .and_then(|captures| captures.get(1).map(|m| m.as_str().to_string()));
             let bump = if lower.contains("patch") {
                 Some("patch")

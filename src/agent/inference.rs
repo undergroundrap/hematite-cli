@@ -1399,17 +1399,102 @@ fn strip_xml_tool_call_artifacts(text: &str) -> String {
     out
 }
 
+// ── Cached regex accessors for tool-call parsing ─────────────────────────────
+// Each regex is compiled once via OnceLock; subsequent calls are zero-cost.
+
+fn re_gemma_call() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(r#"(?s)<\|?tool_call\|?>\s*call:([A-Za-z_][A-Za-z0-9_]*)\{(.*?)\}(?:<\|?tool_call\|?>|\[END_TOOL_REQUEST\])"#)
+            .expect("valid gemma call regex")
+    })
+}
+fn re_gemma_arg() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(r#"(\w+):(?:<\|"\|>(.*?)<\|"\|>|([^,}]*))"#)
+            .expect("valid gemma arg regex")
+    })
+}
+fn re_xml_call() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(r#"(?s)<tool_call>\s*<function=([A-Za-z_][A-Za-z0-9_]*)>(.*?)(?:</function>)?\s*</tool_call>"#)
+            .expect("valid xml call regex")
+    })
+}
+fn re_xml_param() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(r#"(?s)<parameter=([A-Za-z_][A-Za-z0-9_]*)>(.*?)</parameter>"#)
+            .expect("valid xml param regex")
+    })
+}
+fn re_short_call() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(r#"(?s)<tool_call>\s*([A-Za-z_][A-Za-z0-9_]*)\((.*?)\)\s*</tool_call>"#)
+            .expect("valid short call regex")
+    })
+}
+fn re_short_arg() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(
+            r#"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:"((?:\\.|[^"])*)"|'((?:\\.|[^'])*)'|([^,\)]+))"#,
+        )
+        .expect("valid short arg regex")
+    })
+}
+fn re_strip_gemma_call() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(r#"(?s)<\|?tool_call\|?>\s*call:[A-Za-z_][A-Za-z0-9_]*\{.*?\}(?:<\|?tool_call\|?>|\[END_TOOL_REQUEST\])"#)
+            .expect("valid strip gemma call regex")
+    })
+}
+fn re_strip_xml() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(r#"(?s)<tool_call>\s*<function=.*?>.*?</tool_call>"#)
+            .expect("valid strip xml regex")
+    })
+}
+fn re_strip_short() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(r#"(?s)<tool_call>\s*[A-Za-z_][A-Za-z0-9_]*\(.*?\)\s*</tool_call>"#)
+            .expect("valid strip short regex")
+    })
+}
+fn re_strip_response() -> &'static regex::Regex {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(
+            r#"(?s)<\|tool_response\|?>.*?(?:<\|tool_response\|?>|<tool_response\|>)"#,
+        )
+        .expect("valid strip response regex")
+    })
+}
+
 /// Extract native Gemma-4 <|tool_call|> tags from text.
 /// Format: <|tool_call|>call:func_name{key:<|"|>value<|"|>, key2:value2}<tool_call|>
 pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
-    use regex::Regex;
     let mut results = Vec::new();
 
     // -- Format 1: Gemma 4 Native (call:name{args}) --
-    let re_call = Regex::new(
-        r#"(?s)<\|?tool_call\|?>\s*call:([A-Za-z_][A-Za-z0-9_]*)\{(.*?)\}(?:<\|?tool_call\|?>|\[END_TOOL_REQUEST\])"#
-    ).unwrap();
-    let re_arg = Regex::new(r#"(\w+):(?:<\|"\|>(.*?)<\|"\|>|([^,}]*))"#).unwrap();
+    let re_call = re_gemma_call();
+    let re_arg = re_gemma_arg();
 
     for cap in re_call.captures_iter(text) {
         let name = cap[1].to_string();
@@ -1457,18 +1542,12 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
     }
 
     // -- Format 2: XML (Qwen/Claude style) --
-    let re_xml_call = Regex::new(
-        r#"(?s)<tool_call>\s*<function=([A-Za-z_][A-Za-z0-9_]*)>(.*?)(?:</function>)?\s*</tool_call>"#
-    ).unwrap();
-    let re_xml_param =
-        Regex::new(r#"(?s)<parameter=([A-Za-z_][A-Za-z0-9_]*)>(.*?)</parameter>"#).unwrap();
-
-    for cap in re_xml_call.captures_iter(text) {
+    for cap in re_xml_call().captures_iter(text) {
         let name = cap[1].to_string();
         let body = &cap[2];
         let mut arguments = serde_json::Map::new();
 
-        for p_cap in re_xml_param.captures_iter(body) {
+        for p_cap in re_xml_param().captures_iter(body) {
             let key = p_cap[1].to_string();
             let val_raw = p_cap[2].trim();
             let val = if val_raw == "true" {
@@ -1497,20 +1576,12 @@ pub fn extract_native_tool_calls(text: &str) -> Vec<ToolCallResponse> {
     }
 
     // -- Format 3: shorthand XML wrapper (<tool_call>name(key="value")</tool_call>) --
-    let re_short_call =
-        Regex::new(r#"(?s)<tool_call>\s*([A-Za-z_][A-Za-z0-9_]*)\((.*?)\)\s*</tool_call>"#)
-            .unwrap();
-    let re_short_arg = Regex::new(
-        r#"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:"((?:\\.|[^"])*)"|'((?:\\.|[^'])*)'|([^,\)]+))"#,
-    )
-    .unwrap();
-
-    for cap in re_short_call.captures_iter(text) {
+    for cap in re_short_call().captures_iter(text) {
         let name = cap[1].to_string();
         let args_str = cap[2].trim();
         let mut arguments = serde_json::Map::new();
 
-        for arg_cap in re_short_arg.captures_iter(args_str) {
+        for arg_cap in re_short_arg().captures_iter(args_str) {
             let key = arg_cap[1].to_string();
             let val_raw = arg_cap
                 .get(2)
@@ -1692,23 +1763,10 @@ fn strip_legacy_turn_wrappers(text: &str) -> String {
 }
 
 pub fn strip_native_tool_call_text(text: &str) -> String {
-    use regex::Regex;
-    // Format 1: Gemma 4 Native
-    let re_call = Regex::new(
-        r#"(?s)<\|?tool_call\|?>\s*call:[A-Za-z_][A-Za-z0-9_]*\{.*?\}(?:<\|?tool_call\|?>|\[END_TOOL_REQUEST\])"#
-    ).unwrap();
-    // Format 2: XML (Qwen/Claude style)
-    let re_xml = Regex::new(r#"(?s)<tool_call>\s*<function=.*?>.*?</tool_call>"#).unwrap();
-    // Format 3: shorthand XML wrapper
-    let re_short =
-        Regex::new(r#"(?s)<tool_call>\s*[A-Za-z_][A-Za-z0-9_]*\(.*?\)\s*</tool_call>"#).unwrap();
-    let re_response =
-        Regex::new(r#"(?s)<\|tool_response\|?>.*?(?:<\|tool_response\|?>|<tool_response\|>)"#)
-            .unwrap();
-    let without_calls = re_call.replace_all(text, "");
-    let without_xml = re_xml.replace_all(without_calls.as_ref(), "");
-    let without_short = re_short.replace_all(without_xml.as_ref(), "");
-    re_response
+    let without_calls = re_strip_gemma_call().replace_all(text, "");
+    let without_xml = re_strip_xml().replace_all(without_calls.as_ref(), "");
+    let without_short = re_strip_short().replace_all(without_xml.as_ref(), "");
+    re_strip_response()
         .replace_all(without_short.as_ref(), "")
         .trim()
         .to_string()
