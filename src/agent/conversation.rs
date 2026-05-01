@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use crate::agent::architecture_summary::{
     build_architecture_overview_answer, prune_architecture_trace_batch,
     prune_authoritative_tool_batch, prune_read_only_context_bloat_batch,
@@ -1686,7 +1688,7 @@ impl ConversationManager {
             by_room.entry(file.room.as_str()).or_default().push(file);
         }
         for (room, files) in by_room {
-            out.push_str(&format!("[{}]\n", room));
+            let _ = write!(out, "[{}]\n", room);
             for file in files {
                 out.push_str(&format!(
                     "- {} [{} edit{}]\n",
@@ -2954,22 +2956,22 @@ impl ConversationManager {
         }
 
         let mut receipt = String::from("[ACTION RECEIPT]\n");
-        receipt.push_str(&format!("- tool: {}\n", name));
+        let _ = write!(receipt, "- tool: {}\n", name);
         if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
-            receipt.push_str(&format!("- target: {}\n", path));
+            let _ = write!(receipt, "- target: {}\n", path);
         }
         if name == "shell" {
             if let Some(command) = args.get("command").and_then(|v| v.as_str()) {
-                receipt.push_str(&format!("- command: {}\n", command));
+                let _ = write!(receipt, "- command: {}\n", command);
             }
             if let Some(reason) = args.get("reason").and_then(|v| v.as_str()) {
                 if !reason.trim().is_empty() {
-                    receipt.push_str(&format!("- reason: {}\n", reason.trim()));
+                    let _ = write!(receipt, "- reason: {}\n", reason.trim());
                 }
             }
         }
         let first_line = output.lines().next().unwrap_or(output).trim();
-        receipt.push_str(&format!("- outcome: {}\n", first_line));
+        let _ = write!(receipt, "- outcome: {}\n", first_line);
         Some(ChatMessage::system(&receipt))
     }
 
@@ -3071,7 +3073,7 @@ impl ConversationManager {
             if issue.is_empty() || issue == "list" || issue == "help" {
                 let mut list = "Supported issue categories:\n\n".to_string();
                 for (cat, keywords) in fix_issue_categories() {
-                    list.push_str(&format!("  {:<22} {}\n", cat, keywords));
+                    let _ = write!(list, "  {:<22} {}\n", cat, keywords);
                 }
                 for chunk in chunk_text(&list, 8) {
                     let _ = tx.send(InferenceEvent::Token(chunk)).await;
@@ -3210,7 +3212,7 @@ impl ConversationManager {
                     }
                     match std::fs::read_to_string(&path) {
                         Ok(content) => {
-                            combined.push_str(&format!("## {}\n\n{}\n\n", name, content.trim()));
+                            let _ = write!(combined, "## {}\n\n{}\n\n", name, content.trim());
                         }
                         Err(e) => {
                             combined.push_str(&format!(
@@ -3877,7 +3879,7 @@ impl ConversationManager {
             let mut message =
                 "Workflow mode: CODE. Make changes when needed, but keep proof-before-action and verification discipline.".to_string();
             if let Some(plan) = self.current_plan_summary() {
-                message.push_str(&format!(" Current plan: {plan}."));
+                let _ = write!(message, " Current plan: {plan}.");
             }
             for chunk in chunk_text(&message, 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
@@ -3891,7 +3893,7 @@ impl ConversationManager {
             let mut message =
                 "Workflow mode: ARCHITECT. Plan, inspect, and shape the approach first. Do not mutate code unless the user explicitly asks to implement. When the handoff is ready, use `/implement-plan` or switch to `/code` to execute it.".to_string();
             if let Some(plan) = self.current_plan_summary() {
-                message.push_str(&format!(" Existing plan: {plan}."));
+                let _ = write!(message, " Existing plan: {plan}.");
             }
             for chunk in chunk_text(&message, 8) {
                 let _ = tx.send(InferenceEvent::Token(chunk)).await;
@@ -4376,21 +4378,21 @@ impl ConversationManager {
             if let Some(profile_block) = crate::agent::workspace_profile::profile_prompt_block(
                 &crate::tools::file_ops::workspace_root(),
             ) {
-                base_prompt.push_str(&format!("\n\n{}", profile_block));
+                let _ = write!(base_prompt, "\n\n{}", profile_block);
             }
             if let Some(strategy_block) =
                 crate::agent::workspace_profile::profile_strategy_prompt_block(
                     &crate::tools::file_ops::workspace_root(),
                 )
             {
-                base_prompt.push_str(&format!("\n\n{}", strategy_block));
+                let _ = write!(base_prompt, "\n\n{}", strategy_block);
             }
             // L1: inject hot-files block if available (persists across sessions via vein.db).
             if let Some(ref l1) = self.l1_context {
-                base_prompt.push_str(&format!("\n\n{}", l1));
+                let _ = write!(base_prompt, "\n\n{}", l1);
             }
             if let Some(ref repo_map_block) = self.repo_map {
-                base_prompt.push_str(&format!("\n\n{}", repo_map_block));
+                let _ = write!(base_prompt, "\n\n{}", repo_map_block);
             }
         }
         let grounded_trace_mode = intent.grounded_trace_mode
@@ -4528,7 +4530,7 @@ impl ConversationManager {
                 &effective_user_input,
                 8_000,
             ) {
-                system_msg.push_str(&format!("\n\n{}", bodies));
+                let _ = write!(system_msg, "\n\n{}", bodies);
             }
             // Inject any explicitly force-loaded skill from /skill <name>, then clear it.
             if let Some(forced_body) = self.pending_skill_inject.take() {
@@ -4552,7 +4554,7 @@ impl ConversationManager {
                 if !plan.target_files.is_empty() {
                     system_msg.push_str("\n# CURRENT PLAN TARGET FILES\n");
                     for path in &plan.target_files {
-                        system_msg.push_str(&format!("- {}\n", path));
+                        let _ = write!(system_msg, "- {}\n", path);
                     }
                 }
             }
@@ -4563,7 +4565,7 @@ impl ConversationManager {
                 system_msg.push_str("\n\n# ACTIVE CONTEXT (PINNED FILES)\n");
                 system_msg.push_str("The following files are locked in your active memory for prioritized reference.\n\n");
                 for (path, content) in pinned.iter() {
-                    system_msg.push_str(&format!("## FILE: {}\n```\n{}\n```\n\n", path, content));
+                    let _ = write!(system_msg, "## FILE: {}\n```\n{}\n```\n\n", path, content);
                 }
             }
         }
@@ -7200,7 +7202,7 @@ impl ConversationManager {
             } else {
                 r.content.clone()
             };
-            ctx.push_str(&format!("--- {} ---\n{}\n\n", r.path, snippet));
+            let _ = write!(ctx, "--- {} ---\n{}\n\n", r.path, snippet);
             total += snippet.len() + r.path.len() + 10;
             if !paths.contains(&r.path) {
                 paths.push(r.path);
@@ -9700,7 +9702,7 @@ fn build_system_with_corrections(
         crate::agent::config::PermissionMode::Developer => "DEVELOPER",
         crate::agent::config::PermissionMode::SystemAdmin => "SYSTEM-ADMIN (UNRESTRICTED)",
     };
-    system_msg.push_str(&format!("CURRENT MODE: {}\n", mode_label));
+    let _ = write!(system_msg, "CURRENT MODE: {}\n", mode_label);
 
     if config.mode == crate::agent::config::PermissionMode::ReadOnly {
         system_msg.push_str("PERMISSION: You are restricted to READ-ONLY access. Do NOT attempt to use write_file, edit_file, or shell for any modification. Focus entirely on analysis, indexing, and reporting.\n");
@@ -9761,7 +9763,7 @@ fn build_system_with_corrections(
     system_msg.push_str("\n\n# Formatting Corrections\n");
     system_msg.push_str("You previously failed formatting checks on these files. Ensure your whitespace/indentation perfectly matches the original file exactly on your next attempt:\n");
     for hint in hints {
-        system_msg.push_str(&format!("- {}\n", hint));
+        let _ = write!(system_msg, "- {}\n", hint);
     }
     system_msg
 }

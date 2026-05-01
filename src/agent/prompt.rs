@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 
@@ -213,7 +214,7 @@ impl SystemPromptBuilder {
         }
 
         if let Some(mem) = memory {
-            prompt.push_str(&format!("\n# SESSION MEMORY\n{mem}"));
+            let _ = write!(prompt, "\n# SESSION MEMORY\n{mem}");
         }
 
         prompt.push_str("\n# ENVIRONMENT");
@@ -226,16 +227,16 @@ impl SystemPromptBuilder {
             crate::hematite_version_display()
         ));
         if let Ok(user) = std::env::var("USERPROFILE") {
-            prompt.push_str(&format!("\n- USERPROFILE (Authoritative): {user}"));
+            let _ = write!(prompt, "\n- USERPROFILE (Authoritative): {user}");
         }
         if let Ok(comp) = std::env::var("COMPUTERNAME") {
-            prompt.push_str(&format!("\n- COMPUTERNAME (Authoritative): {comp}"));
+            let _ = write!(prompt, "\n- COMPUTERNAME (Authoritative): {comp}");
         }
         prompt.push_str("\n- Operating System: Windows (User workspace)");
 
         if git::is_git_repo(&self.workspace_root) {
             if let Ok(branch) = git::get_active_branch(&self.workspace_root) {
-                prompt.push_str(&format!("\n- Git Branch: {branch}"));
+                let _ = write!(prompt, "\n- Git Branch: {branch}");
             }
         }
 
@@ -254,7 +255,7 @@ impl SystemPromptBuilder {
             }
             if !list.is_empty() {
                 list.sort();
-                prompt.push_str(&format!("\n- Workspace Files (Root): {}", list.join(", ")));
+                let _ = write!(prompt, "\n- Workspace Files (Root): {}", list.join(", "));
             }
         }
 
@@ -285,15 +286,15 @@ impl SystemPromptBuilder {
             for tool in mcp_tools {
                 let raw = tool.description.as_deref().unwrap_or("No description provided.");
                 if raw.len() > 180 {
-                    prompt.push_str(&format!("\n- {}: {}...", tool.name, &raw[..180]));
+                    let _ = write!(prompt, "\n- {}: {}...", tool.name, &raw[..180]);
                 } else {
-                    prompt.push_str(&format!("\n- {}: {}", tool.name, raw));
+                    let _ = write!(prompt, "\n- {}: {}", tool.name, raw);
                 }
             }
         }
 
         if let Some(hint) = &config.context_hint {
-            prompt.push_str(&format!("\n## PROJECT CONTEXT HINT\n{}\n", hint));
+            let _ = write!(prompt, "\n## PROJECT CONTEXT HINT\n{}\n", hint);
         }
 
         prompt.push_str("\n## HEMATITE OPERATIONAL PROTOCOL\n");

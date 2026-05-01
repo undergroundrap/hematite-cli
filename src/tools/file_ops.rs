@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use serde_json::Value;
 use std::fs;
 use std::io;
@@ -193,7 +195,7 @@ pub async fn read_file(args: &Value, budget_tokens: usize) -> Result<String, Str
             .push_str("To see more, use `read_file` with a higher `offset` and a smaller `limit`.");
     } else if end < total {
         content.push_str("\n\n--- [TRUNCATION WARNING] ---\n");
-        content.push_str(&format!("This file has {} more lines below. ", total - end));
+        let _ = write!(content, "This file has {} more lines below. ", total - end);
         content.push_str("To read more, use `read_file` with a higher `offset` OR use `inspect_lines` to find relevant blocks. \
                          Do NOT attempt to read the entire large file at once if it keeps truncating.");
     }
@@ -245,7 +247,7 @@ pub async fn inspect_lines(args: &Value) -> Result<String, String> {
         total_lines
     );
     for i in start..end {
-        output.push_str(&format!("[{:>4}] | {}\n", i + 1, lines[i]));
+        let _ = write!(output, "[{:>4}] | {}\n", i + 1, lines[i]);
     }
 
     Ok(output)
@@ -304,7 +306,7 @@ pub async fn tail_file(args: &Value) -> Result<String, String> {
         "[tail_file: {path} — lines {first_abs}–{last_abs} of {total} (last {n} of {total_filtered} matched)]\n"
     );
     for (abs_idx, line) in window {
-        out.push_str(&format!("[{:>5}] {}\n", abs_idx + 1, line));
+        let _ = write!(out, "[{:>5}] {}\n", abs_idx + 1, line);
     }
 
     Ok(out)
@@ -436,10 +438,10 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
     let mut diff_block = String::new();
     diff_block.push_str("\n--- DIFF \n");
     for line in effective_search.lines() {
-        diff_block.push_str(&format!("- {}\n", line));
+        let _ = write!(diff_block, "- {}\n", line);
     }
     for line in effective_replace.lines() {
-        diff_block.push_str(&format!("+ {}\n", line));
+        let _ = write!(diff_block, "+ {}\n", line);
     }
 
     Ok(format!(
@@ -495,10 +497,10 @@ pub async fn patch_hunk(args: &Value) -> Result<String, String> {
     let mut diff = String::new();
     diff.push_str("\n--- HUNK DIFF ---\n");
     for i in s_idx..e_idx {
-        diff.push_str(&format!("- {}\n", lines[i].trim_end()));
+        let _ = write!(diff, "- {}\n", lines[i].trim_end());
     }
     for line in replacement.lines() {
-        diff.push_str(&format!("+ {}\n", line.trim_end()));
+        let _ = write!(diff, "+ {}\n", line.trim_end());
     }
 
     Ok(format!(
@@ -578,12 +580,12 @@ pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
             ));
         };
 
-        diff.push_str(&format!("\n@@ Hunk {} @@\n", i + 1));
+        let _ = write!(diff, "\n@@ Hunk {} @@\n", i + 1);
         for line in effective_search.lines() {
-            diff.push_str(&format!("- {}\n", line.trim_end()));
+            let _ = write!(diff, "- {}\n", line.trim_end());
         }
         for line in effective_replace.lines() {
-            diff.push_str(&format!("+ {}\n", line.trim_end()));
+            let _ = write!(diff, "+ {}\n", line.trim_end());
         }
 
         current_content = current_content.replacen(&effective_search, &effective_replace, 1);
@@ -915,9 +917,9 @@ pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
         }
         for (lineno, text, is_match) in &hunk.lines {
             if *is_match {
-                hunk_out.push_str(&format!("{}:{}:{}\n", hunk.path, lineno, text));
+                let _ = write!(hunk_out, "{}:{}:{}\n", hunk.path, lineno, text);
             } else {
-                hunk_out.push_str(&format!("{}: {}-{}\n", hunk.path, lineno, text));
+                let _ = write!(hunk_out, "{}: {}-{}\n", hunk.path, lineno, text);
             }
         }
 
@@ -1530,10 +1532,10 @@ pub fn compute_edit_file_diff(args: &Value) -> Result<String, String> {
 
     let mut diff = String::new();
     for line in effective_search.lines() {
-        diff.push_str(&format!("- {}\n", line));
+        let _ = write!(diff, "- {}\n", line);
     }
     for line in effective_replace.lines() {
-        diff.push_str(&format!("+ {}\n", line));
+        let _ = write!(diff, "+ {}\n", line);
     }
     Ok(diff)
 }
@@ -1562,10 +1564,10 @@ pub fn compute_patch_hunk_diff(args: &Value) -> Result<String, String> {
 
     let mut diff = format!("@@ lines {}-{} @@\n", start_line, end_line);
     for i in s_idx..e_idx {
-        diff.push_str(&format!("- {}\n", lines[i].trim_end()));
+        let _ = write!(diff, "- {}\n", lines[i].trim_end());
     }
     for line in replacement.lines() {
-        diff.push_str(&format!("+ {}\n", line.trim_end()));
+        let _ = write!(diff, "+ {}\n", line.trim_end());
     }
     Ok(diff)
 }
@@ -1587,13 +1589,13 @@ pub fn compute_msr_diff(args: &Value) -> Result<String, String> {
     let mut diff = String::new();
     for (i, hunk) in hunks.iter().enumerate() {
         if hunks.len() > 1 {
-            diff.push_str(&format!("@@ hunk {} @@\n", i + 1));
+            let _ = write!(diff, "@@ hunk {} @@\n", i + 1);
         }
         for line in hunk.search.lines() {
-            diff.push_str(&format!("- {}\n", line.trim_end()));
+            let _ = write!(diff, "- {}\n", line.trim_end());
         }
         for line in hunk.replace.lines() {
-            diff.push_str(&format!("+ {}\n", line.trim_end()));
+            let _ = write!(diff, "+ {}\n", line.trim_end());
         }
     }
     Ok(diff)
@@ -1613,11 +1615,11 @@ pub fn compute_write_file_diff(args: &Value) -> Result<String, String> {
     let mut diff = String::new();
     if !old_content.is_empty() {
         for line in old_content.lines() {
-            diff.push_str(&format!("- {}\n", line));
+            let _ = write!(diff, "- {}\n", line);
         }
     }
     for line in new_content.lines() {
-        diff.push_str(&format!("+ {}\n", line));
+        let _ = write!(diff, "+ {}\n", line);
     }
     if diff.is_empty() {
         return Err("empty content — diff preview unavailable".into());

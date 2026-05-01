@@ -736,14 +736,14 @@ pub async fn generate_diagnosis_report() -> String {
 
     let mut md = String::new();
     md.push_str("# Hematite Staged Diagnosis Report\n\n");
-    md.push_str(&format!("**Generated:** {}  \n", data.timestamp));
-    md.push_str(&format!("**Host:** {}  \n", data.hostname));
-    md.push_str(&format!("**Hematite:** v{}  \n", version));
+    let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
+    let _ = write!(md, "**Host:** {}  \n", data.hostname);
+    let _ = write!(md, "**Hematite:** v{}  \n", version);
     md.push_str(&format!(
         "**Health Score:** {} — {}  \n\n",
         score.grade, score.label
     ));
-    md.push_str(&format!("> {}\n\n", score.summary_line()));
+    let _ = write!(md, "> {}\n\n", score.summary_line());
     md.push_str("---\n\n");
     md.push_str("## Action Plan\n\n");
     md.push_str(&action_plan);
@@ -755,7 +755,7 @@ pub async fn generate_diagnosis_report() -> String {
     if !data.follow_up_outputs.is_empty() {
         md.push_str("## Targeted Investigation\n\n");
         for (topic, output) in &data.follow_up_outputs {
-            md.push_str(&format!("### {}\n\n```\n", topic));
+            let _ = write!(md, "### {}\n\n```\n", topic);
             md.push_str(output.trim_end());
             md.push_str("\n```\n\n");
         }
@@ -1035,20 +1035,20 @@ pub async fn generate_triage_report_markdown(preset: &str) -> String {
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
     let mut md = String::new();
-    md.push_str(&format!("# {}\n\n", title));
-    md.push_str(&format!("**Generated:** {}  \n", data.timestamp));
-    md.push_str(&format!("**Host:** {}  \n", data.hostname));
-    md.push_str(&format!("**Hematite:** v{}  \n", version));
+    let _ = write!(md, "# {}\n\n", title);
+    let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
+    let _ = write!(md, "**Host:** {}  \n", data.hostname);
+    let _ = write!(md, "**Hematite:** v{}  \n", version);
     md.push_str(&format!(
         "**Health Score:** {} — {}  \n\n",
         score.grade, score.label
     ));
-    md.push_str(&format!("> {}\n\n", score.summary_line()));
+    let _ = write!(md, "> {}\n\n", score.summary_line());
     md.push_str("---\n\n## Action Plan\n\n");
     md.push_str(&action_plan);
     md.push_str("---\n\n");
     for (label, output) in &data.sections {
-        md.push_str(&format!("## {}\n\n```\n", label));
+        let _ = write!(md, "## {}\n\n```\n", label);
         md.push_str(output.trim_end());
         md.push_str("\n```\n\n");
     }
@@ -1189,20 +1189,20 @@ pub async fn generate_fix_plan_markdown(issue: &str) -> String {
 
     let mut md = String::new();
     md.push_str("# Hematite Fix Plan\n\n");
-    md.push_str(&format!("**Issue:** {}  \n", issue));
-    md.push_str(&format!("**Generated:** {}  \n", data.timestamp));
-    md.push_str(&format!("**Host:** {}  \n", data.hostname));
-    md.push_str(&format!("**Hematite:** v{}  \n", version));
+    let _ = write!(md, "**Issue:** {}  \n", issue);
+    let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
+    let _ = write!(md, "**Host:** {}  \n", data.hostname);
+    let _ = write!(md, "**Hematite:** v{}  \n", version);
     md.push_str(&format!(
         "**Health Score:** {} — {}  \n\n",
         score.grade, score.label
     ));
-    md.push_str(&format!("> {}\n\n", score.summary_line()));
+    let _ = write!(md, "> {}\n\n", score.summary_line());
     md.push_str("---\n\n## Fix Steps\n\n");
     md.push_str(&action_plan);
     md.push_str("---\n\n");
     for (label, output) in &data.sections {
-        md.push_str(&format!("## {}\n\n```\n", label));
+        let _ = write!(md, "## {}\n\n```\n", label);
         md.push_str(output.trim_end());
         md.push_str("\n```\n\n");
     }

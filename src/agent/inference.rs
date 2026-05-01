@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::{mpsc, Semaphore};
@@ -511,7 +513,7 @@ impl InferenceEngine {
                     .description
                     .as_deref()
                     .unwrap_or("No description provided.");
-                sys.push_str(&format!("- {}: {}\n", tool.name, description));
+                let _ = write!(sys, "- {}: {}\n", tool.name, description);
             }
         }
 
@@ -691,7 +693,7 @@ impl InferenceEngine {
                     "<|tool>declaration:{}{}{}<tool|>\n",
                     tool.function.name, "{", schema
                 ));
-                sys.push_str(&format!("// {})\n", tool.function.description));
+                let _ = write!(sys, "// {})\n", tool.function.description);
             }
         }
 
@@ -738,7 +740,7 @@ impl InferenceEngine {
                 os
             ));
         } else {
-            sys.push_str(&format!("OS: {}. Use native Unix shell.\n", os));
+            let _ = write!(sys, "OS: {}. Use native Unix shell.\n", os);
         }
         if brief {
             sys.push_str("BRIEF MODE: one concise sentence unless code is required.\n");
@@ -758,7 +760,7 @@ impl InferenceEngine {
             sys.push_str("\n# AVAILABLE TOOLS\n");
             for tool in tools {
                 let desc: String = tool.function.description.chars().take(120).collect();
-                sys.push_str(&format!("- {}: {}\n", tool.function.name, desc));
+                let _ = write!(sys, "- {}: {}\n", tool.function.name, desc);
             }
         }
 
@@ -1181,7 +1183,7 @@ fn load_instruction_files() -> String {
                 break;
             }
             total_chars += truncated.len();
-            result.push_str(&format!("\n--- {} ---\n{}\n", path.display(), truncated));
+            let _ = write!(result, "\n--- {} ---\n{}\n", path.display(), truncated);
         }
         match dir.parent().map(|p| p.to_owned()) {
             Some(p) => dir = p,
