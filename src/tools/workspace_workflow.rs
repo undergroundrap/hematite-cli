@@ -1095,7 +1095,7 @@ fn website_log_path(root: &Path, label: &str) -> PathBuf {
 }
 
 fn slugify_label(input: &str) -> String {
-    let mut slug = String::new();
+    let mut slug = String::with_capacity(input.len());
     let mut last_dash = false;
     for ch in input.chars() {
         let lower = ch.to_ascii_lowercase();
@@ -1168,7 +1168,7 @@ fn read_log_tail(path: &Path) -> Result<String, String> {
     let start = len.saturating_sub(WEBSITE_LOG_TAIL_BYTES);
     file.seek(SeekFrom::Start(start))
         .map_err(|e| format!("failed to seek {}: {}", path.display(), e))?;
-    let mut buffer = String::new();
+    let mut buffer = String::with_capacity(WEBSITE_LOG_TAIL_BYTES as usize);
     file.read_to_string(&mut buffer)
         .map_err(|e| format!("failed to read {}: {}", path.display(), e))?;
     Ok(buffer.trim().to_string())

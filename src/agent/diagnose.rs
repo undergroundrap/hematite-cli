@@ -173,12 +173,18 @@ pub fn build_diagnose_instruction(health_output: &str, follow_up_topics: &[&str]
         );
     }
 
-    let topic_list = follow_up_topics
-        .iter()
-        .enumerate()
-        .map(|(i, t)| format!("{}. inspect_host(topic=\"{}\")", i + 1, t))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let topic_list = {
+        let mut s = String::with_capacity(follow_up_topics.len() * 40);
+        for (i, t) in follow_up_topics.iter().enumerate() {
+            if i > 0 { s.push('\n'); }
+            s.push_str(&(i + 1).to_string());
+            s.push_str(". inspect_host(topic=\"");
+            s.push_str(t);
+            s.push('"');
+            s.push(')');
+        }
+        s
+    };
 
     format!(
         "DIAGNOSE MODE — harness triage identified {} area(s) to investigate.\n\n\
