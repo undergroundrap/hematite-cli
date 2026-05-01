@@ -1,4 +1,5 @@
 use serde_json::json;
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 const REPORT_TOPICS: &[(&str, &str)] = &[
@@ -649,16 +650,13 @@ pub async fn generate_report_markdown() -> String {
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
-    let mut md = String::new();
+    let mut md = String::with_capacity(action_plan.len() + sections.len() * 512 + 256);
     md.push_str("# Hematite Diagnostic Report\n\n");
-    md.push_str(&format!("**Generated:** {}  \n", timestamp));
-    md.push_str(&format!("**Host:** {}  \n", hostname));
-    md.push_str(&format!("**Hematite:** v{}  \n", version));
-    md.push_str(&format!(
-        "**Health Score:** {} — {}  \n\n",
-        score.grade, score.label
-    ));
-    md.push_str(&format!("> {}\n\n", score.summary_line()));
+    let _ = write!(md, "**Generated:** {}  \n", timestamp);
+    let _ = write!(md, "**Host:** {}  \n", hostname);
+    let _ = write!(md, "**Hematite:** v{}  \n", version);
+    let _ = write!(md, "**Health Score:** {} — {}  \n\n", score.grade, score.label);
+    let _ = write!(md, "> {}\n\n", score.summary_line());
     md.push_str("---\n\n");
 
     md.push_str("## Action Plan\n\n");
@@ -666,7 +664,7 @@ pub async fn generate_report_markdown() -> String {
     md.push_str("---\n\n");
 
     for (label, output) in &sections {
-        md.push_str(&format!("## {}\n\n", label));
+        let _ = write!(md, "## {}\n\n", label);
         md.push_str("```\n");
         md.push_str(output.trim_end());
         md.push_str("\n```\n\n");
@@ -1141,11 +1139,15 @@ async fn run_fix_plan_phases(issue: &str) -> FixPlanData {
         sections.push((label, output));
     }
 
-    let combined: String = sections
-        .iter()
-        .map(|(_, o)| o.as_str())
-        .collect::<Vec<_>>()
-        .join("\n");
+    let combined: String = {
+        let total = sections.iter().map(|(_, o)| o.len()).sum::<usize>() + sections.len();
+        let mut s = String::with_capacity(total);
+        for (i, (_, o)) in sections.iter().enumerate() {
+            if i > 0 { s.push('\n'); }
+            s.push_str(o);
+        }
+        s
+    };
     let ran: Vec<&str> = initial_topics.iter().map(|&(t, _)| t).collect();
     let follow_ups = crate::agent::diagnose::fix_follow_up_topics(&combined, &ran);
 

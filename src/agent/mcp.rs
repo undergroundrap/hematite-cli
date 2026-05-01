@@ -245,7 +245,14 @@ impl McpProcess {
         if lines.is_empty() {
             None
         } else {
-            Some(lines.iter().cloned().collect::<Vec<_>>().join(" | "))
+            Some({
+                let mut out = String::new();
+                for (i, line) in lines.iter().enumerate() {
+                    if i > 0 { out.push_str(" | "); }
+                    out.push_str(line);
+                }
+                out
+            })
         }
     }
 

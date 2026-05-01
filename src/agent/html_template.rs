@@ -3,10 +3,28 @@
 /// look everywhere, CSS and JS defined in one place.
 
 pub fn he(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&#34;")
+    let mut out: Option<String> = None;
+    let mut last = 0usize;
+    for (i, b) in s.bytes().enumerate() {
+        let esc = match b {
+            b'&' => "&amp;",
+            b'<' => "&lt;",
+            b'>' => "&gt;",
+            b'"' => "&#34;",
+            _ => continue,
+        };
+        let buf = out.get_or_insert_with(|| String::with_capacity(s.len() + 8));
+        buf.push_str(&s[last..i]);
+        buf.push_str(esc);
+        last = i + 1;
+    }
+    match out {
+        None => s.to_string(),
+        Some(mut buf) => {
+            buf.push_str(&s[last..]);
+            buf
+        }
+    }
 }
 
 const CSS: &str = r#":root{--bg:#000;--fg:#fff;--dim:#6b6b6b;--line:#1a1a1a;--line-2:#262626}
@@ -104,9 +122,9 @@ pub const COPY_BUTTON_HTML: &str = r#"<button class="copy-btn" id="copyBtn" oncl
 /// Handles: ATX headings, fenced code blocks, inline code, bold, bullet lists,
 /// blank-line-separated paragraphs, and bare URLs as links.
 pub fn markdown_to_html(md: &str) -> String {
-    let mut out = String::new();
+    let mut out = String::with_capacity(md.len());
     let mut in_code_block = false;
-    let mut code_buf = String::new();
+    let mut code_buf = String::with_capacity(256);
     let mut list_items: Vec<String> = Vec::new();
 
     let flush_list = |items: &mut Vec<String>, out: &mut String| {
