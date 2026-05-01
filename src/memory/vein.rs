@@ -136,10 +136,21 @@ pub fn detect_room(path: &str) -> String {
         }
     };
 
-    let is_component = |segment: &str| {
-        lower == segment
-            || lower.starts_with(&format!("{segment}/"))
-            || lower.contains(&format!("/{segment}/"))
+    let is_component = |segment: &str| -> bool {
+        if lower == segment {
+            return true;
+        }
+        let seg = segment.as_bytes();
+        let lo = lower.as_bytes();
+        let slen = seg.len();
+        // starts_with("{segment}/")
+        if lo.len() > slen && &lo[..slen] == seg && lo[slen] == b'/' {
+            return true;
+        }
+        // contains("/{segment}/")
+        lo.len() >= slen + 2
+            && lo.windows(slen + 2)
+                .any(|w| w[0] == b'/' && &w[1..slen + 1] == seg && w[slen + 1] == b'/')
     };
 
     if lower.starts_with("session/")
@@ -1506,7 +1517,10 @@ fn retrieval_signal_boost(signals: &QuerySignals, result: &SearchResult) -> f32 
     // per-term standout loop — avoids one allocation per standout term.
     let lower_path = result.path.to_ascii_lowercase();
     let lower_content = result.content.to_ascii_lowercase();
-    let haystack = format!("{}\n{}", lower_path, lower_content);
+    let mut haystack = String::with_capacity(lower_path.len() + 1 + lower_content.len());
+    haystack.push_str(&lower_path);
+    haystack.push('\n');
+    haystack.push_str(&lower_content);
 
     let phrase_matches = signals
         .exact_phrases
