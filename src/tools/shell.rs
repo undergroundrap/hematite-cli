@@ -28,7 +28,7 @@ pub async fn execute(args: &Value, budget_tokens: usize) -> Result<String, Strin
     // Expand @path/to/file into the absolute workspace path before execution.
     if command.contains('@') {
         let root = crate::tools::file_ops::workspace_root();
-        let root_str = root.to_string_lossy().to_string().replace("\\", "/");
+        let root_str = root.to_string_lossy().replace('\\', "/");
         command = command.replace('@', &format!("{}/", root_str.trim_end_matches('/')));
     }
 

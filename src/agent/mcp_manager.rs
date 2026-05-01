@@ -357,8 +357,9 @@ fn summarize_runtime_error(first_error: Option<&str>) -> String {
     };
 
     const MAX_CHARS: usize = 160;
-    let mut truncated = error.chars().take(MAX_CHARS).collect::<String>();
-    if error.chars().count() > MAX_CHARS {
+    let mut chars = error.chars();
+    let mut truncated: String = chars.by_ref().take(MAX_CHARS).collect();
+    if chars.next().is_some() {
         truncated.push_str("...");
     }
     format!(" First issue: {truncated}")
