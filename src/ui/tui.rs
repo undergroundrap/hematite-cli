@@ -5276,17 +5276,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                     .add_modifier(Modifier::BOLD),
             )]));
             // Show last 300 chars of current thought, split by line.
-            let preview = if app.current_thought.chars().count() > 300 {
-                app.current_thought
-                    .chars()
-                    .rev()
-                    .take(300)
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .collect::<String>()
-            } else {
-                app.current_thought.clone()
+            let preview = {
+                let thought = &app.current_thought;
+                let char_count = thought.chars().count();
+                if char_count > 300 {
+                    thought.chars().skip(char_count - 300).collect::<String>()
+                } else {
+                    thought.clone()
+                }
             };
             for raw in preview.lines() {
                 let raw = raw.trim();
@@ -6098,7 +6095,7 @@ fn strip_ghost_prefix(s: &str) -> &str {
 }
 
 fn first_n_chars(s: &str, n: usize) -> String {
-    let mut result = String::new();
+    let mut result = String::with_capacity(n.min(s.len()));
     let mut count = 0;
     for c in s.chars() {
         if count >= n {
@@ -6191,7 +6188,7 @@ fn render_markdown_line(raw: &str) -> Vec<Line<'static>> {
 
 /// Inline markdown for The Core chat window (brighter palette than SPECULAR).
 fn inline_markdown_core(text: &str) -> Vec<Span<'static>> {
-    let mut spans = Vec::new();
+    let mut spans = Vec::with_capacity(4);
     let mut remaining = text;
 
     while !remaining.is_empty() {
@@ -6235,7 +6232,7 @@ fn inline_markdown_core(text: &str) -> Vec<Span<'static>> {
 
 /// Parse inline `**bold**` and `` `code` `` — shared by SPECULAR and Core renderers.
 fn inline_markdown(text: &str) -> Vec<Span<'static>> {
-    let mut spans = Vec::new();
+    let mut spans = Vec::with_capacity(4);
     let mut remaining = text;
 
     while !remaining.is_empty() {
