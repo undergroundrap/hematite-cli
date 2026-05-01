@@ -209,8 +209,16 @@ impl SessionMemory {
             }
         }
         if !self.working_set.is_empty() {
-            let files: Vec<_> = self.working_set.iter().cloned().collect();
-            s.push_str(&format!("- **Working Set**: {}\n", files.join(", ")));
+            s.push_str("- **Working Set**: ");
+            let mut first = true;
+            for f in &self.working_set {
+                if !first {
+                    s.push_str(", ");
+                }
+                s.push_str(f);
+                first = false;
+            }
+            s.push('\n');
         }
         if !self.learnings.is_empty() {
             s.push_str("- **Key Learnings**:\n");

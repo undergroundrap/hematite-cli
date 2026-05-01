@@ -2373,7 +2373,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     // All topic detectors in priority order — ordered so more specific topics come
     // before generic fallbacks (e.g. traceroute before network).
     let lower = user_input.to_lowercase();
-    let mut topics: Vec<&'static str> = Vec::new();
+    let mut topics: Vec<&'static str> = Vec::with_capacity(4);
 
     let detectors: &[(&str, fn(&str) -> bool)] = &[
         ("overclocker", |l| {
