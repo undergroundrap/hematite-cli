@@ -715,7 +715,8 @@ impl Vein {
 
         // Merge: semantic results win ties (scored 1.0–2.0 range after boost).
         // BM25 results land in 0.0–1.0 range.
-        let mut merged_by_path: HashMap<String, SearchResult> = HashMap::new();
+        let mut merged_by_path: HashMap<String, SearchResult> =
+            HashMap::with_capacity(semantic.len() + bm25.len());
 
         for r in semantic {
             let score = reranked_score(&signals, active_room.as_deref(), &r, true);

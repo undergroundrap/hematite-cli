@@ -2300,12 +2300,19 @@ impl ConversationManager {
     }
 
     fn refresh_session_memory(&mut self) {
-        let current_plan = self.session_memory.current_plan.clone();
-        let previous_memory = self.session_memory.clone();
+        let current_plan = self.session_memory.current_plan.take();
+        let last_checkpoint = self.session_memory.last_checkpoint.take();
+        let last_blocker = self.session_memory.last_blocker.take();
+        let last_recovery = self.session_memory.last_recovery.take();
+        let last_verification = self.session_memory.last_verification.take();
+        let last_compaction = self.session_memory.last_compaction.take();
         self.session_memory = compaction::extract_memory(&self.history);
         self.session_memory.current_plan = current_plan;
-        self.session_memory
-            .inherit_runtime_ledger_from(&previous_memory);
+        self.session_memory.last_checkpoint = last_checkpoint;
+        self.session_memory.last_blocker = last_blocker;
+        self.session_memory.last_recovery = last_recovery;
+        self.session_memory.last_verification = last_verification;
+        self.session_memory.last_compaction = last_compaction;
     }
 
     fn build_chat_system_prompt(&self) -> String {
@@ -2847,17 +2854,16 @@ impl ConversationManager {
 
                 // Surgical Argument Extraction for redirected shell payloads.
                 if topic == "dns_lookup" {
-                    if let Some(identity) = extract_dns_lookup_target_from_shell(command) {
-                        redirect_args
-                            .as_object_mut()
-                            .unwrap()
-                            .insert("name".to_string(), serde_json::Value::String(identity));
-                    }
-                    if let Some(record_type) = extract_dns_record_type_from_shell(command) {
-                        redirect_args.as_object_mut().unwrap().insert(
-                            "type".to_string(),
-                            serde_json::Value::String(record_type.to_string()),
-                        );
+                    if let Some(obj) = redirect_args.as_object_mut() {
+                        if let Some(identity) = extract_dns_lookup_target_from_shell(command) {
+                            obj.insert("name".to_string(), serde_json::Value::String(identity));
+                        }
+                        if let Some(record_type) = extract_dns_record_type_from_shell(command) {
+                            obj.insert(
+                                "type".to_string(),
+                                serde_json::Value::String(record_type.to_string()),
+                            );
+                        }
                     }
                 } else if topic == "ad_user" {
                     let cmd_lower = command.to_lowercase();
@@ -2900,10 +2906,12 @@ impl ConversationManager {
                     }
 
                     if !identity.is_empty() {
-                        redirect_args.as_object_mut().unwrap().insert(
-                            "name_filter".to_string(),
-                            serde_json::Value::String(identity),
-                        );
+                        if let Some(obj) = redirect_args.as_object_mut() {
+                            obj.insert(
+                                "name_filter".to_string(),
+                                serde_json::Value::String(identity),
+                            );
+                        }
                     }
                 }
 
@@ -3382,10 +3390,17 @@ impl ConversationManager {
             let removed = before_len.saturating_sub(result.messages.len());
             self.history = result.messages;
             self.running_summary = result.summary;
-            let previous_memory = self.session_memory.clone();
+            let last_checkpoint = self.session_memory.last_checkpoint.take();
+            let last_blocker = self.session_memory.last_blocker.take();
+            let last_recovery = self.session_memory.last_recovery.take();
+            let last_verification = self.session_memory.last_verification.take();
+            let last_compaction = self.session_memory.last_compaction.take();
             self.session_memory = compaction::extract_memory(&self.history);
-            self.session_memory
-                .inherit_runtime_ledger_from(&previous_memory);
+            self.session_memory.last_checkpoint = last_checkpoint;
+            self.session_memory.last_blocker = last_blocker;
+            self.session_memory.last_recovery = last_recovery;
+            self.session_memory.last_verification = last_verification;
+            self.session_memory.last_compaction = last_compaction;
             self.session_memory.record_compaction(
                 removed,
                 format!(
@@ -4721,10 +4736,9 @@ impl ConversationManager {
                     let call_id = format!("prerun_{topic}");
                     let mut args_val =
                         host_inspection_args_from_prompt(topic, &effective_user_input);
-                    args_val
-                        .as_object_mut()
-                        .unwrap()
-                        .insert("max_entries".to_string(), Value::from(20));
+                    if let Some(obj) = args_val.as_object_mut() {
+                        obj.insert("max_entries".to_string(), Value::from(20));
+                    }
                     let _args_str = serde_json::to_string(&args_val).unwrap_or_default();
 
                     tool_calls.push(crate::agent::types::ToolCallResponse {
@@ -7080,10 +7094,17 @@ impl ConversationManager {
         self.running_summary = result.summary;
 
         // Layer 6: Memory Synthesis (Task Context Persistence)
-        let previous_memory = self.session_memory.clone();
+        let last_checkpoint = self.session_memory.last_checkpoint.take();
+        let last_blocker = self.session_memory.last_blocker.take();
+        let last_recovery = self.session_memory.last_recovery.take();
+        let last_verification = self.session_memory.last_verification.take();
+        let last_compaction = self.session_memory.last_compaction.take();
         self.session_memory = compaction::extract_memory(&self.history);
-        self.session_memory
-            .inherit_runtime_ledger_from(&previous_memory);
+        self.session_memory.last_checkpoint = last_checkpoint;
+        self.session_memory.last_blocker = last_blocker;
+        self.session_memory.last_recovery = last_recovery;
+        self.session_memory.last_verification = last_verification;
+        self.session_memory.last_compaction = last_compaction;
         self.session_memory.record_compaction(
             removed_message_count,
             format!(
@@ -7849,38 +7870,32 @@ fn extract_dns_record_type_from_shell(command: &str) -> Option<&'static str> {
 
 fn host_inspection_args_from_prompt(topic: &str, prompt: &str) -> Value {
     let mut args = serde_json::json!({ "topic": topic });
-    if topic == "dns_lookup" {
-        if let Some(name) = extract_dns_lookup_target_from_text(prompt) {
-            args.as_object_mut()
-                .unwrap()
-                .insert("name".to_string(), Value::String(name));
-        }
-        let record_type = extract_dns_record_type_from_text(prompt).unwrap_or("A");
-        args.as_object_mut()
-            .unwrap()
-            .insert("type".to_string(), Value::String(record_type.to_string()));
-    } else if topic == "event_query" {
-        if let Some(event_id) = extract_event_query_event_id_from_text(prompt) {
-            args.as_object_mut().unwrap().insert(
-                "event_id".to_string(),
-                Value::Number(serde_json::Number::from(event_id)),
-            );
-        }
-        if let Some(log_name) = extract_event_query_log_from_text(prompt) {
-            args.as_object_mut()
-                .unwrap()
-                .insert("log".to_string(), Value::String(log_name.to_string()));
-        }
-        if let Some(level) = extract_event_query_level_from_text(prompt) {
-            args.as_object_mut()
-                .unwrap()
-                .insert("level".to_string(), Value::String(level.to_string()));
-        }
-        if let Some(hours) = extract_event_query_hours_from_text(prompt) {
-            args.as_object_mut().unwrap().insert(
-                "hours".to_string(),
-                Value::Number(serde_json::Number::from(hours)),
-            );
+    if let Some(obj) = args.as_object_mut() {
+        if topic == "dns_lookup" {
+            if let Some(name) = extract_dns_lookup_target_from_text(prompt) {
+                obj.insert("name".to_string(), Value::String(name));
+            }
+            let record_type = extract_dns_record_type_from_text(prompt).unwrap_or("A");
+            obj.insert("type".to_string(), Value::String(record_type.to_string()));
+        } else if topic == "event_query" {
+            if let Some(event_id) = extract_event_query_event_id_from_text(prompt) {
+                obj.insert(
+                    "event_id".to_string(),
+                    Value::Number(serde_json::Number::from(event_id)),
+                );
+            }
+            if let Some(log_name) = extract_event_query_log_from_text(prompt) {
+                obj.insert("log".to_string(), Value::String(log_name.to_string()));
+            }
+            if let Some(level) = extract_event_query_level_from_text(prompt) {
+                obj.insert("level".to_string(), Value::String(level.to_string()));
+            }
+            if let Some(hours) = extract_event_query_hours_from_text(prompt) {
+                obj.insert(
+                    "hours".to_string(),
+                    Value::Number(serde_json::Number::from(hours)),
+                );
+            }
         }
     }
     args
