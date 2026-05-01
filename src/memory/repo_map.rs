@@ -2,6 +2,7 @@ use anyhow::Result;
 use ignore::WalkBuilder;
 use petgraph::graph::DiGraph;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 use tree_sitter::{Language, Parser, Query, QueryCursor};
@@ -379,7 +380,7 @@ impl RepoMapGenerator {
             .collect();
         ranked_files.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        let mut output = String::new();
+        let mut output = String::with_capacity(self.max_symbols * 40 + 64);
         output.push_str("=== Repository Map (Structural Overview) ===\n");
         let mut total_symbols = 0;
 
@@ -390,9 +391,9 @@ impl RepoMapGenerator {
             }
 
             if let Some(defs) = definitions_display.get(rel_path) {
-                output.push_str(&format!("{}:\n", rel_path));
+                let _ = write!(output, "{}:\n", rel_path);
                 for def in defs {
-                    output.push_str(&format!("  - {}\n", def));
+                    let _ = write!(output, "  - {}\n", def);
                     total_symbols += 1;
                     if total_symbols >= self.max_symbols {
                         break;
