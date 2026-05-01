@@ -782,7 +782,14 @@ fn is_core_summary_detail(line: &str) -> bool {
 }
 
 fn collapse_inline_whitespace(line: &str) -> String {
-    line.split_whitespace().collect::<Vec<_>>().join(" ")
+    let mut out = String::with_capacity(line.len());
+    for word in line.split_whitespace() {
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        out.push_str(word);
+    }
+    out
 }
 
 fn truncate_summary_line(line: &str, max_chars: usize) -> String {

@@ -1275,32 +1275,34 @@ pub fn strip_think_blocks(text: &str) -> String {
     // if they appear before actual answer content.
     static NAKED_AC: std::sync::OnceLock<aho_corasick::AhoCorasick> = std::sync::OnceLock::new();
     let naked_ac = NAKED_AC.get_or_init(|| {
-        aho_corasick::AhoCorasick::new([
-            "the user asked",
-            "the user is asking",
-            "the user wants",
-            "i will structure",
-            "i should provide",
-            "i should give",
-            "i should avoid",
-            "i should note",
-            "i should focus",
-            "i should keep",
-            "i should respond",
-            "i should present",
-            "i should display",
-            "i should show",
-            "i need to",
-            "i can see from",
-            "without being overly",
-            "let me ",
-            "necessary information in my identity",
-            "was computed successfully",
-            "computed successfully",
-        ])
-        .expect("valid patterns")
+        aho_corasick::AhoCorasick::builder()
+            .ascii_case_insensitive(true)
+            .build([
+                "the user asked",
+                "the user is asking",
+                "the user wants",
+                "i will structure",
+                "i should provide",
+                "i should give",
+                "i should avoid",
+                "i should note",
+                "i should focus",
+                "i should keep",
+                "i should respond",
+                "i should present",
+                "i should display",
+                "i should show",
+                "i need to",
+                "i can see from",
+                "without being overly",
+                "let me ",
+                "necessary information in my identity",
+                "was computed successfully",
+                "computed successfully",
+            ])
+            .expect("valid patterns")
     });
-    let is_naked_reasoning = naked_ac.find(&lower).is_some();
+    let is_naked_reasoning = naked_ac.find(text).is_some();
     if is_naked_reasoning {
         let lines: Vec<&str> = text.lines().collect();
         if !lines.is_empty() {
@@ -1308,8 +1310,7 @@ pub fn strip_think_blocks(text: &str) -> String {
             // Stop skipping at the first line that looks like real answer content.
             let mut start_idx = 0;
             for (i, line) in lines.iter().enumerate() {
-                let l = line.to_lowercase();
-                let is_reasoning_line = naked_ac.find(&l).is_some() || l.trim().is_empty();
+                let is_reasoning_line = naked_ac.find(line).is_some() || line.trim().is_empty();
                 if is_reasoning_line {
                     start_idx = i + 1;
                 } else {
@@ -1753,11 +1754,18 @@ fn prepare_gemma_native_messages(messages: &[ChatMessage]) -> Vec<ChatMessage> {
 }
 
 fn strip_legacy_turn_wrappers(text: &str) -> String {
-    text.replace("<|turn>system\n", "")
-        .replace("<|turn>user\n", "")
-        .replace("<|turn>assistant\n", "")
-        .replace("<|turn>tool\n", "")
-        .replace("<turn|>", "")
+    static AC: std::sync::OnceLock<aho_corasick::AhoCorasick> = std::sync::OnceLock::new();
+    let ac = AC.get_or_init(|| {
+        aho_corasick::AhoCorasick::new([
+            "<|turn>system\n",
+            "<|turn>user\n",
+            "<|turn>assistant\n",
+            "<|turn>tool\n",
+            "<turn|>",
+        ])
+        .expect("valid turn wrapper patterns")
+    });
+    ac.replace_all(text, &["", "", "", "", ""])
         .trim()
         .to_string()
 }
