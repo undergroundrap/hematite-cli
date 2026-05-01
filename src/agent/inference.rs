@@ -1234,7 +1234,7 @@ pub fn strip_think_blocks(text: &str) -> String {
     // allocation so it can't slip through any branch below.
     let text = {
         let t = text.trim_start();
-        if t.to_lowercase().starts_with("</think>") {
+        if t.len() >= 8 && t[..8].eq_ignore_ascii_case("</think>") {
             &t[8..]
         } else {
             text
@@ -1680,21 +1680,24 @@ fn unwrap_json_string_once(input: &str) -> Option<String> {
 }
 
 fn normalize_string_arg(input: &str) -> String {
-    let mut out = input.trim().to_string();
-    while out.len() >= 2 {
-        let mut changed = false;
-        for (start, end) in [("\"", "\""), ("'", "'"), ("`", "`")] {
-            if out.starts_with(start) && out.ends_with(end) {
-                out = out[start.len()..out.len() - end.len()].trim().to_string();
-                changed = true;
-                break;
-            }
+    let mut s = input.trim();
+    loop {
+        let len = s.len();
+        if len < 2 {
+            break;
         }
-        if !changed {
+        let first = s.as_bytes()[0];
+        let last = s.as_bytes()[len - 1];
+        if (first == b'"' && last == b'"')
+            || (first == b'\'' && last == b'\'')
+            || (first == b'`' && last == b'`')
+        {
+            s = s[1..len - 1].trim();
+        } else {
             break;
         }
     }
-    out
+    s.to_string()
 }
 
 fn normalize_regex_pattern(input: &str) -> String {

@@ -136,16 +136,15 @@ pub fn path_is_safe(workspace_root: &Path, target: &Path) -> Result<PathBuf, Str
 
     // 3) Assess Physical Traversal Limits strictly against the Root Environment Prefix
     // Normalize UNC prefixes for Windows compatibility in starts_with checks.
-    let norm_path = resolved_path
+    // \\?\ after lowercase+backslash-replace becomes //?/ — trim that instead of
+    // re-lowercasing resolved_path from scratch.
+    let norm_path = resolved_str.trim_start_matches("//?/");
+    let norm_workspace_owned = resolved_workspace
         .to_string_lossy()
-        .trim_start_matches(r"\\?\")
+        .to_string()
         .to_lowercase()
         .replace("\\", "/");
-    let norm_workspace = resolved_workspace
-        .to_string_lossy()
-        .trim_start_matches(r"\\?\")
-        .to_lowercase()
-        .replace("\\", "/");
+    let norm_workspace = norm_workspace_owned.trim_start_matches("//?/");
 
     if !norm_path.starts_with(&norm_workspace) {
         // RELAXED SANDBOX: Allow absolute paths IF they passed the blacklist checks above.
