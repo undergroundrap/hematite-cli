@@ -85,7 +85,7 @@ pub async fn execute_remote(args: &Value) -> Result<String, String> {
                 .arg("-v")
                 .output()
                 .map_err(|e| format!("Failed to list remotes: {e}"))?;
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+            Ok(String::from_utf8_lossy(&output.stdout).into_owned())
         }
         "add" => {
             let name = args
@@ -150,7 +150,7 @@ pub async fn execute_worktree(args: &Value) -> Result<String, String> {
                 .args(["worktree", "list"])
                 .output()
                 .map_err(|e| format!("Failed to list worktrees: {e}"))?;
-            let out = String::from_utf8_lossy(&output.stdout).to_string();
+            let out = String::from_utf8_lossy(&output.stdout).into_owned();
             if out.trim().is_empty() {
                 Ok("No worktrees (only main working tree)".to_string())
             } else {
@@ -239,7 +239,7 @@ pub async fn execute_worktree(args: &Value) -> Result<String, String> {
                 .args(["worktree", "prune", "-v"])
                 .output()
                 .map_err(|e| format!("Failed to prune worktrees: {e}"))?;
-            let out = String::from_utf8_lossy(&output.stdout).to_string();
+            let out = String::from_utf8_lossy(&output.stdout).into_owned();
             Ok(if out.trim().is_empty() {
                 "Nothing to prune.".to_string()
             } else {

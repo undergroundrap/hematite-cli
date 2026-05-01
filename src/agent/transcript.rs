@@ -29,32 +29,36 @@ impl TranscriptLogger {
 
     /// Appends a timestamped user turn to the daily log.
     pub fn log_user(&self, input: &str) {
-        self.append(&format!("[USER] {}", input));
+        self.append_two("[USER] ", input);
     }
 
     /// Appends a timestamped AI response to the daily log.
     pub fn log_agent(&self, output: &str) {
-        // Truncate long responses to keep logs scannable for DeepReflect
-        let truncated = if output.len() > 500 {
-            format!("{}... [TRUNCATED {} bytes]", &output[..500], output.len())
-        } else {
-            output.to_string()
-        };
-        self.append(&format!("[AGENT] {}", truncated));
-    }
-
-    /// Appends a system event (Vigil tick, Swarm dispatch, etc.)
-    pub fn log_system(&self, event: &str) {
-        self.append(&format!("[SYSTEM] {}", event));
-    }
-
-    fn append(&self, line: &str) {
         if let Ok(mut file) = OpenOptions::new()
             .create(true)
             .append(true)
             .open(&self.session_file)
         {
-            let _ = writeln!(file, "{}", line);
+            if output.len() > 500 {
+                let _ = write!(file, "[AGENT] {}... [TRUNCATED {} bytes]\n", &output[..500], output.len());
+            } else {
+                let _ = write!(file, "[AGENT] {}\n", output);
+            }
+        }
+    }
+
+    /// Appends a system event (Vigil tick, Swarm dispatch, etc.)
+    pub fn log_system(&self, event: &str) {
+        self.append_two("[SYSTEM] ", event);
+    }
+
+    fn append_two(&self, prefix: &str, body: &str) {
+        if let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.session_file)
+        {
+            let _ = write!(file, "{}{}\n", prefix, body);
         }
     }
 }

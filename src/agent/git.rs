@@ -234,7 +234,7 @@ mod tests {
             .arg("--porcelain")
             .output()
             .unwrap();
-        let status_before_str = String::from_utf8_lossy(&status_before.stdout).to_string();
+        let status_before_str = String::from_utf8_lossy(&status_before.stdout).into_owned();
 
         // Take ghost snapshot
         create_ghost_snapshot(repo_path).unwrap();
@@ -247,7 +247,7 @@ mod tests {
             .arg("--porcelain")
             .output()
             .unwrap();
-        let status_after_str = String::from_utf8_lossy(&status_after.stdout).to_string();
+        let status_after_str = String::from_utf8_lossy(&status_after.stdout).into_owned();
 
         assert_eq!(
             status_before_str, status_after_str,
