@@ -91,7 +91,7 @@ impl SystemPromptBuilder {
         mcp_tools: &[crate::agent::mcp::McpTool],
     ) -> String {
         let config = crate::agent::config::load_config();
-        let mut static_sections = Vec::new();
+        let mut static_sections = Vec::with_capacity(10);
 
         let workspace_framing = match detect_workspace_mode(&self.workspace_root) {
             WorkspaceMode::Coding => "- **Authoritative Identity**: You are a Senior SysAdmin, Network Admin, and Software Engineer. Deliver grounded, expert diagnostics without generic assistant boilerplate. You have 100% workstation visibility via native tools.\n\
@@ -169,16 +169,16 @@ impl SystemPromptBuilder {
 
         let instructions_dir = crate::tools::file_ops::hematite_dir().join("instructions");
         if instructions_dir.exists() && instructions_dir.is_dir() {
+            let mem_lower = memory.map(|m| m.to_lowercase());
             if let Ok(entries) = fs::read_dir(instructions_dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.extension().map(|e| e == "md").unwrap_or(false) {
                         let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-                        let include = if let Some(mem) = memory {
-                            mem.to_lowercase().contains(&stem.to_lowercase())
-                        } else {
-                            false
-                        };
+                        let include = mem_lower
+                            .as_deref()
+                            .map(|m_lower| m_lower.contains(&stem.to_lowercase()))
+                            .unwrap_or(false);
 
                         if include {
                             if let Ok(content) = fs::read_to_string(&path) {
@@ -283,15 +283,12 @@ impl SystemPromptBuilder {
         if !mcp_tools.is_empty() {
             prompt.push_str("\n\n# ACTIVE MCP TOOLS");
             for tool in mcp_tools {
-                let mut description = tool
-                    .description
-                    .clone()
-                    .unwrap_or_else(|| "No description provided.".to_string());
-                if description.len() > 180 {
-                    description.truncate(180);
-                    description.push_str("...");
+                let raw = tool.description.as_deref().unwrap_or("No description provided.");
+                if raw.len() > 180 {
+                    prompt.push_str(&format!("\n- {}: {}...", tool.name, &raw[..180]));
+                } else {
+                    prompt.push_str(&format!("\n- {}: {}", tool.name, raw));
                 }
-                prompt.push_str(&format!("\n- {}: {}", tool.name, description));
             }
         }
 

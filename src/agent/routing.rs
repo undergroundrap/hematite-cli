@@ -3797,7 +3797,6 @@ pub(crate) fn is_sovereign_mutation(user_input: &str) -> bool {
 
 pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> QueryIntent {
     let lower = user_input.to_lowercase();
-    let trimmed = user_input.trim().to_ascii_lowercase();
 
     let mentions_runtime_trace = contains_any(
         &lower,
@@ -3917,7 +3916,7 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
     } else if mentions_creator_question(&lower) {
         Some(DirectAnswerKind::About)
     } else if matches!(
-        trimmed.as_str(),
+        lower.trim(),
         "who are you"
             | "who are you?"
             | "what are you"
