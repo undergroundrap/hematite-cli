@@ -1,5 +1,6 @@
 use serde_json::Value;
 use std::collections::HashSet;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -429,11 +430,11 @@ fn inspect_summary(max_entries: usize) -> Result<String, String> {
     let toolchains = collect_toolchains();
 
     let mut out = String::from("Host inspection: summary\n\n");
-    out.push_str(&format!("- OS: {}\n", std::env::consts::OS));
-    out.push_str(&format!("- Current directory: {}\n", current_dir.display()));
-    out.push_str(&format!("- Workspace root: {}\n", workspace_root.display()));
-    out.push_str(&format!("- Workspace mode: {}\n", workspace_mode));
-    out.push_str(&format!("- Preferred shell: {}\n", preferred_shell_label()));
+    let _ = write!(out, "- OS: {}\n", std::env::consts::OS);
+    let _ = write!(out, "- Current directory: {}\n", current_dir.display());
+    let _ = write!(out, "- Workspace root: {}\n", workspace_root.display());
+    let _ = write!(out, "- Workspace mode: {}\n", workspace_mode);
+    let _ = write!(out, "- Preferred shell: {}\n", preferred_shell_label());
     out.push_str(&format!(
         "- PATH entries: {} total, {} unique, {} duplicates, {} missing\n",
         path_stats.total_entries,
@@ -449,7 +450,7 @@ fn inspect_summary(max_entries: usize) -> Result<String, String> {
     } else {
         out.push_str("- Toolchains found:\n");
         for (label, version) in toolchains.found.iter().take(max_entries.min(8)) {
-            out.push_str(&format!("  - {}: {}\n", label, version));
+            let _ = write!(out, "  - {}: {}\n", label, version);
         }
         if toolchains.found.len() > max_entries.min(8) {
             out.push_str(&format!(
@@ -503,14 +504,14 @@ fn inspect_toolchains() -> Result<String, String> {
     } else {
         out.push_str("Detected developer tools:\n");
         for (label, version) in report.found {
-            out.push_str(&format!("- {}: {}\n", label, version));
+            let _ = write!(out, "- {}: {}\n", label, version);
         }
     }
 
     if !report.missing.is_empty() {
         out.push_str("\nNot detected on PATH:\n");
         for label in report.missing {
-            out.push_str(&format!("- {}\n", label));
+            let _ = write!(out, "- {}\n", label);
         }
     }
 
@@ -520,7 +521,7 @@ fn inspect_toolchains() -> Result<String, String> {
 fn inspect_path(max_entries: usize) -> Result<String, String> {
     let path_stats = analyze_path_env();
     let mut out = String::from("Host inspection: PATH\n\n");
-    out.push_str(&format!("- Total entries: {}\n", path_stats.total_entries));
+    let _ = write!(out, "- Total entries: {}\n", path_stats.total_entries);
     out.push_str(&format!(
         "- Unique entries: {}\n",
         path_stats.unique_entries
@@ -536,7 +537,7 @@ fn inspect_path(max_entries: usize) -> Result<String, String> {
 
     out.push_str("\nPATH entries:\n");
     for entry in path_stats.entries.iter().take(max_entries) {
-        out.push_str(&format!("- {}\n", entry));
+        let _ = write!(out, "- {}\n", entry);
     }
     if path_stats.entries.len() > max_entries {
         out.push_str(&format!(
@@ -548,7 +549,7 @@ fn inspect_path(max_entries: usize) -> Result<String, String> {
     if !path_stats.duplicate_entries.is_empty() {
         out.push_str("\nDuplicate entries:\n");
         for entry in path_stats.duplicate_entries.iter().take(max_entries) {
-            out.push_str(&format!("- {}\n", entry));
+            let _ = write!(out, "- {}\n", entry);
         }
         if path_stats.duplicate_entries.len() > max_entries {
             out.push_str(&format!(
@@ -561,7 +562,7 @@ fn inspect_path(max_entries: usize) -> Result<String, String> {
     if !path_stats.missing_entries.is_empty() {
         out.push_str("\nMissing directories:\n");
         for entry in path_stats.missing_entries.iter().take(max_entries) {
-            out.push_str(&format!("- {}\n", entry));
+            let _ = write!(out, "- {}\n", entry);
         }
         if path_stats.missing_entries.len() > max_entries {
             out.push_str(&format!(
@@ -586,7 +587,7 @@ fn inspect_env_doctor(max_entries: usize) -> Result<String, String> {
         path_stats.duplicate_entries.len(),
         path_stats.missing_entries.len()
     ));
-    out.push_str(&format!("- Toolchains found: {}\n", toolchains.found.len()));
+    let _ = write!(out, "- Toolchains found: {}\n", toolchains.found.len());
     out.push_str(&format!(
         "- Package managers found: {}\n",
         package_managers.found.len()
@@ -595,7 +596,7 @@ fn inspect_env_doctor(max_entries: usize) -> Result<String, String> {
     if !package_managers.found.is_empty() {
         out.push_str("\nPackage managers:\n");
         for (label, version) in package_managers.found.iter().take(max_entries) {
-            out.push_str(&format!("- {}: {}\n", label, version));
+            let _ = write!(out, "- {}: {}\n", label, version);
         }
         if package_managers.found.len() > max_entries {
             out.push_str(&format!(
@@ -608,7 +609,7 @@ fn inspect_env_doctor(max_entries: usize) -> Result<String, String> {
     if !path_stats.duplicate_entries.is_empty() {
         out.push_str("\nDuplicate PATH entries:\n");
         for entry in path_stats.duplicate_entries.iter().take(max_entries.min(5)) {
-            out.push_str(&format!("- {}\n", entry));
+            let _ = write!(out, "- {}\n", entry);
         }
         if path_stats.duplicate_entries.len() > max_entries.min(5) {
             out.push_str(&format!(
@@ -621,7 +622,7 @@ fn inspect_env_doctor(max_entries: usize) -> Result<String, String> {
     if !path_stats.missing_entries.is_empty() {
         out.push_str("\nMissing PATH entries:\n");
         for entry in path_stats.missing_entries.iter().take(max_entries.min(5)) {
-            out.push_str(&format!("- {}\n", entry));
+            let _ = write!(out, "- {}\n", entry);
         }
         if path_stats.missing_entries.len() > max_entries.min(5) {
             out.push_str(&format!(
@@ -634,7 +635,7 @@ fn inspect_env_doctor(max_entries: usize) -> Result<String, String> {
     if !findings.is_empty() {
         out.push_str("\nFindings:\n");
         for finding in findings.iter().take(max_entries.max(5)) {
-            out.push_str(&format!("- {}\n", finding));
+            let _ = write!(out, "- {}\n", finding);
         }
         if findings.len() > max_entries.max(5) {
             out.push_str(&format!(
@@ -847,14 +848,14 @@ fn inspect_env_fix_plan(issue: &str, max_entries: usize) -> Result<String, Strin
         .collect::<HashSet<_>>();
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: environment/path\n");
     out.push_str(&format!(
         "- PATH health: {} duplicates, {} missing entries\n",
         path_stats.duplicate_entries.len(),
         path_stats.missing_entries.len()
     ));
-    out.push_str(&format!("- Toolchains found: {}\n", toolchains.found.len()));
+    let _ = write!(out, "- Toolchains found: {}\n", toolchains.found.len());
     out.push_str(&format!(
         "- Package managers found: {}\n",
         package_managers.found.len()
@@ -871,7 +872,7 @@ fn inspect_env_fix_plan(issue: &str, max_entries: usize) -> Result<String, Strin
         && !findings.is_empty()
     {
         for finding in findings.iter().take(max_entries.max(4)) {
-            out.push_str(&format!("- {}\n", finding));
+            let _ = write!(out, "- {}\n", finding);
         }
     } else {
         if !path_stats.duplicate_entries.is_empty() {
@@ -922,13 +923,13 @@ fn inspect_env_fix_plan(issue: &str, max_entries: usize) -> Result<String, Strin
     if !path_stats.duplicate_entries.is_empty() {
         out.push_str("\nExample duplicate PATH rows:\n");
         for entry in path_stats.duplicate_entries.iter().take(max_entries.min(5)) {
-            out.push_str(&format!("- {}\n", entry));
+            let _ = write!(out, "- {}\n", entry);
         }
     }
     if !path_stats.missing_entries.is_empty() {
         out.push_str("\nExample missing PATH rows:\n");
         for entry in path_stats.missing_entries.iter().take(max_entries.min(5)) {
-            out.push_str(&format!("- {}\n", entry));
+            let _ = write!(out, "- {}\n", entry);
         }
     }
 
@@ -952,14 +953,14 @@ fn inspect_port_fix_plan(
     let processes = collect_processes().unwrap_or_default();
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: port_conflict\n");
     if let Some(port) = requested_port {
-        out.push_str(&format!("- Requested port: {}\n", port));
+        let _ = write!(out, "- Requested port: {}\n", port);
     } else {
         out.push_str("- Requested port: not parsed from the issue text\n");
     }
-    out.push_str(&format!("- Matching listeners found: {}\n", matching.len()));
+    let _ = write!(out, "- Matching listeners found: {}\n", matching.len());
 
     if !matching.is_empty() {
         out.push_str("\nCurrent listeners:\n");
@@ -1008,10 +1009,10 @@ async fn inspect_lm_studio_fix_plan(issue: &str, max_entries: usize) -> Result<S
     let embed_model = detect_loaded_embed_model(&configured_api).await;
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: lm_studio\n");
-    out.push_str(&format!("- Configured API URL: {}\n", configured_api));
-    out.push_str(&format!("- Probe URL: {}\n", models_url));
+    let _ = write!(out, "- Configured API URL: {}\n", configured_api);
+    let _ = write!(out, "- Probe URL: {}\n", models_url);
     match &reachability {
         EndpointProbe::Reachable(status) => {
             out.push_str(&format!("- Endpoint reachable: yes (HTTP {})\n", status))
@@ -1073,10 +1074,10 @@ fn inspect_driver_install_fix_plan(issue: &str) -> Result<String, String> {
     let gpu_info = String::from("(GPU detection not available on this platform)");
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: driver_install\n");
     if !gpu_info.is_empty() {
-        out.push_str(&format!("\nDetected GPU(s):\n{}\n", gpu_info));
+        let _ = write!(out, "\nDetected GPU(s):\n{}\n", gpu_info);
     }
     out.push_str("\nFix plan — Installing or updating GPU drivers:\n");
     out.push_str("1. Identify your GPU make from the detection above (NVIDIA, AMD, or Intel).\n");
@@ -1121,7 +1122,7 @@ fn inspect_group_policy_fix_plan(issue: &str) -> Result<String, String> {
     let is_home = edition.to_lowercase().contains("home");
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: group_policy\n");
     out.push_str(&format!(
         "- Windows edition detected: {}\n",
@@ -1179,10 +1180,10 @@ fn inspect_firewall_rule_fix_plan(issue: &str) -> Result<String, String> {
     let profile_state = String::new();
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: firewall_rule\n");
     if !profile_state.is_empty() {
-        out.push_str(&format!("\nFirewall profile state:\n{}\n", profile_state));
+        let _ = write!(out, "\nFirewall profile state:\n{}\n", profile_state);
     }
     out.push_str("\nFix plan — Creating or modifying a Windows Firewall rule (PowerShell, run as Administrator):\n");
     out.push_str("\nTo ALLOW inbound traffic on a port:\n");
@@ -1210,11 +1211,11 @@ fn inspect_ssh_key_fix_plan(issue: &str) -> Result<String, String> {
     let has_authorized_keys = ssh_dir.join("authorized_keys").exists();
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: ssh_key\n");
-    out.push_str(&format!("- ~/.ssh directory exists: {}\n", has_ssh_dir));
-    out.push_str(&format!("- id_ed25519 key found: {}\n", has_ed25519));
-    out.push_str(&format!("- id_rsa key found: {}\n", has_rsa));
+    let _ = write!(out, "- ~/.ssh directory exists: {}\n", has_ssh_dir);
+    let _ = write!(out, "- id_ed25519 key found: {}\n", has_ed25519);
+    let _ = write!(out, "- id_rsa key found: {}\n", has_rsa);
     out.push_str(&format!(
         "- authorized_keys found: {}\n",
         has_authorized_keys
@@ -1276,11 +1277,11 @@ fn inspect_wsl_setup_fix_plan(issue: &str) -> Result<String, String> {
         !wsl_status.is_empty() && !wsl_status.to_lowercase().contains("not installed");
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: wsl_setup\n");
-    out.push_str(&format!("- WSL already installed: {}\n", wsl_installed));
+    let _ = write!(out, "- WSL already installed: {}\n", wsl_installed);
     if !wsl_status.is_empty() {
-        out.push_str(&format!("- WSL status:\n{}\n", wsl_status));
+        let _ = write!(out, "- WSL status:\n{}\n", wsl_status);
     }
 
     if wsl_installed {
@@ -1351,13 +1352,13 @@ fn inspect_service_config_fix_plan(issue: &str) -> Result<String, String> {
     let service_state = String::new();
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: service_config\n");
     if let Some(svc) = service_hint {
-        out.push_str(&format!("- Service detected in request: {}\n", svc));
+        let _ = write!(out, "- Service detected in request: {}\n", svc);
     }
     if !service_state.is_empty() {
-        out.push_str(&format!("- Current state: {}\n", service_state));
+        let _ = write!(out, "- Current state: {}\n", service_state);
     }
 
     out.push_str("\nFix plan — Managing Windows services (PowerShell, run as Administrator):\n");
@@ -1410,7 +1411,7 @@ fn inspect_windows_activation_fix_plan(issue: &str) -> Result<String, String> {
         activation_lower.contains("licensed") && !activation_lower.contains("not licensed");
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: windows_activation\n");
     if !activation_status.is_empty() {
         out.push_str(&format!(
@@ -1452,7 +1453,7 @@ fn inspect_windows_activation_fix_plan(issue: &str) -> Result<String, String> {
 
 fn inspect_registry_edit_fix_plan(issue: &str) -> Result<String, String> {
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: registry_edit\n");
     out.push_str(
         "\nCAUTION: Registry edits affect core Windows behavior. Always back up before editing.\n",
@@ -1487,7 +1488,7 @@ fn inspect_registry_edit_fix_plan(issue: &str) -> Result<String, String> {
 
 fn inspect_scheduled_task_fix_plan(issue: &str) -> Result<String, String> {
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: scheduled_task_create\n");
     out.push_str("\nFix plan — Creating a Scheduled Task (PowerShell, run as Administrator):\n");
     out.push_str("\nExample: Run a script at 9 AM every day\n");
@@ -1537,10 +1538,10 @@ fn inspect_disk_cleanup_fix_plan(issue: &str) -> Result<String, String> {
     let disk_info = String::new();
 
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: disk_cleanup\n");
     if !disk_info.is_empty() {
-        out.push_str(&format!("\nCurrent drive usage:\n{}\n", disk_info));
+        let _ = write!(out, "\nCurrent drive usage:\n{}\n", disk_info);
     }
     out.push_str("\nFix plan — Reclaiming disk space (ordered by impact):\n");
     out.push_str("\n1. Run Windows Disk Cleanup (built-in, GUI):\n");
@@ -1576,7 +1577,7 @@ fn inspect_disk_cleanup_fix_plan(issue: &str) -> Result<String, String> {
 
 fn inspect_generic_fix_plan(issue: &str) -> Result<String, String> {
     let mut out = String::from("Host inspection: fix_plan\n\n");
-    out.push_str(&format!("- Requested issue: {}\n", issue));
+    let _ = write!(out, "- Requested issue: {}\n", issue);
     out.push_str("- Fix-plan type: generic\n");
     out.push_str(
         "\nGuidance:\n- Use `fix_plan` with a descriptive issue string to get a grounded, machine-specific walkthrough.\n\
@@ -1632,7 +1633,7 @@ fn inspect_resource_load() -> Result<String, String> {
 
         let mut out = String::from("Host inspection: resource_load\n\n");
         out.push_str("**System Performance Summary:**\n");
-        out.push_str(&format!("- CPU Load: {}%\n", cpu_load));
+        let _ = write!(out, "- CPU Load: {}%\n", cpu_load);
         out.push_str(&format!(
             "- Memory Usage: {} / {} ({}%)\n",
             human_bytes(used_kb * 1024),
@@ -1761,9 +1762,9 @@ fn inspect_processes(name_filter: Option<String>, max_entries: usize) -> Result<
 
     let mut out = String::from("Host inspection: processes\n\n");
     if let Some(filter) = name_filter.as_deref() {
-        out.push_str(&format!("- Filter name: {}\n", filter));
+        let _ = write!(out, "- Filter name: {}\n", filter);
     }
-    out.push_str(&format!("- Processes found: {}\n", processes.len()));
+    let _ = write!(out, "- Processes found: {}\n", processes.len());
     out.push_str(&format!(
         "- Total reported working set: {}\n",
         human_bytes(total_memory)
@@ -1819,8 +1820,8 @@ fn inspect_network(max_entries: usize) -> Result<String, String> {
     let exposure = listener_exposure_summary(collect_listening_ports().ok().unwrap_or_default());
 
     let mut out = String::from("Host inspection: network\n\n");
-    out.push_str(&format!("- Adapters found: {}\n", adapters.len()));
-    out.push_str(&format!("- Active adapters: {}\n", active_count));
+    let _ = write!(out, "- Adapters found: {}\n", adapters.len());
+    let _ = write!(out, "- Active adapters: {}\n", active_count);
     out.push_str(&format!(
         "- Listener exposure: {} loopback-only, {} wildcard/public, {} specific-bind\n",
         exposure.loopback_only, exposure.wildcard_public, exposure.specific_bind
@@ -1853,7 +1854,7 @@ fn inspect_network(max_entries: usize) -> Result<String, String> {
         if !adapter.dns_servers.is_empty() {
             details.push(format!("dns {}", adapter.dns_servers.join(", ")));
         }
-        out.push_str(&format!("- {} - {}\n", adapter.name, details.join(" | ")));
+        let _ = write!(out, "- {} - {}\n", adapter.name, details.join(" | "));
     }
     if adapters.len() > max_entries {
         out.push_str(&format!(
@@ -2053,9 +2054,9 @@ Get-SmbConnection -ErrorAction SilentlyContinue |
             out.push_str("  Fix: If one device still cannot be seen, test the specific host/share/printer path next to separate name resolution from service reachability.\n");
         } else {
             for finding in &findings {
-                out.push_str(&format!("- Finding: {}\n", finding.finding));
-                out.push_str(&format!("  Impact: {}\n", finding.impact));
-                out.push_str(&format!("  Fix: {}\n", finding.fix));
+                let _ = write!(out, "- Finding: {}\n", finding.finding);
+                let _ = write!(out, "  Impact: {}\n", finding.impact);
+                let _ = write!(out, "  Fix: {}\n", finding.fix);
             }
         }
 
@@ -2082,7 +2083,7 @@ Get-SmbConnection -ErrorAction SilentlyContinue |
         }
 
         out.push_str("\n=== Neighborhood evidence ===\n");
-        out.push_str(&format!("- Gateway count: {}\n", gateways.len()));
+        let _ = write!(out, "- Gateway count: {}\n", gateways.len());
         out.push_str(&format!(
             "- Neighbor entries observed: {}\n",
             neighbors.len()
@@ -2145,7 +2146,7 @@ Get-SmbConnection -ErrorAction SilentlyContinue |
                 for mapping in smb_mappings.iter().take(n) {
                     let parts: Vec<&str> = mapping.split('|').collect();
                     if parts.len() >= 2 {
-                        out.push_str(&format!("  - {} -> {}\n", parts[0], parts[1]));
+                        let _ = write!(out, "  - {} -> {}\n", parts[0], parts[1]);
                     }
                 }
             }
@@ -2222,7 +2223,7 @@ Get-SmbConnection -ErrorAction SilentlyContinue |
             out.push_str("- No neighbor entries detected.\n");
         } else {
             for line in neighbors {
-                out.push_str(&format!("- {}\n", line.trim()));
+                let _ = write!(out, "- {}\n", line.trim());
             }
         }
     }
@@ -2270,11 +2271,11 @@ fn inspect_services(name_filter: Option<String>, max_entries: usize) -> Result<S
 
     let mut out = String::from("Host inspection: services\n\n");
     if let Some(filter) = name_filter.as_deref() {
-        out.push_str(&format!("- Filter name: {}\n", filter));
+        let _ = write!(out, "- Filter name: {}\n", filter);
     }
-    out.push_str(&format!("- Services found: {}\n", services.len()));
-    out.push_str(&format!("- Running/active: {}\n", running));
-    out.push_str(&format!("- Failed/stopped: {}\n", failed));
+    let _ = write!(out, "- Services found: {}\n", services.len());
+    let _ = write!(out, "- Running/active: {}\n", running);
+    let _ = write!(out, "- Failed/stopped: {}\n", failed);
 
     if services.is_empty() {
         out.push_str("\nNo services matched.");
@@ -2368,7 +2369,7 @@ fn inspect_ports(port_filter: Option<u16>, max_entries: usize) -> Result<String,
 
     let mut out = String::from("Host inspection: ports\n\n");
     if let Some(port) = port_filter {
-        out.push_str(&format!("- Filter port: {}\n", port));
+        let _ = write!(out, "- Filter port: {}\n", port);
     }
     out.push_str(&format!(
         "- Listening endpoints found: {}\n",
@@ -2421,7 +2422,7 @@ fn inspect_repo_doctor(path: PathBuf, max_entries: usize) -> Result<String, Stri
     let release_state = inspect_release_artifacts(&path);
 
     let mut out = String::from("Host inspection: repo_doctor\n\n");
-    out.push_str(&format!("- Path: {}\n", path.display()));
+    let _ = write!(out, "- Path: {}\n", path.display());
     out.push_str(&format!(
         "- Workspace mode: {}\n",
         workspace_mode_for_path(&path)
@@ -2432,15 +2433,15 @@ fn inspect_repo_doctor(path: PathBuf, max_entries: usize) -> Result<String, Stri
     } else {
         out.push_str("- Project markers:\n");
         for marker in markers.iter().take(max_entries) {
-            out.push_str(&format!("  - {}\n", marker));
+            let _ = write!(out, "  - {}\n", marker);
         }
     }
 
     match git_state {
         Some(git) => {
-            out.push_str(&format!("- Git root: {}\n", git.root.display()));
-            out.push_str(&format!("- Git branch: {}\n", git.branch));
-            out.push_str(&format!("- Git status: {}\n", git.status_label()));
+            let _ = write!(out, "- Git root: {}\n", git.root.display());
+            let _ = write!(out, "- Git branch: {}\n", git.branch);
+            let _ = write!(out, "- Git status: {}\n", git.status_label());
         }
         None => out.push_str("- Git: not inside a detected work tree\n"),
     }
@@ -2456,7 +2457,7 @@ fn inspect_repo_doctor(path: PathBuf, max_entries: usize) -> Result<String, Stri
     }
 
     if let Some(release) = release_state {
-        out.push_str(&format!("- Cargo version: {}\n", release.version));
+        let _ = write!(out, "- Cargo version: {}\n", release.version);
         out.push_str(&format!(
             "- Windows artifacts for current version: {}/{}/{}\n",
             bool_label(release.portable_dir),
@@ -2535,9 +2536,9 @@ fn inspect_directory_sync(label: &str, path: &Path, max_entries: usize) -> Resul
     largest_entries.sort_by(|a, b| b.bytes.cmp(&a.bytes).then_with(|| a.name.cmp(&b.name)));
 
     let mut out = format!("Directory inspection: {}\n\n", label);
-    out.push_str(&format!("- Path: {}\n", path.display()));
-    out.push_str(&format!("- Top-level items: {}\n", top_level_count));
-    out.push_str(&format!("- Recursive files: {}\n", aggregate.file_count));
+    let _ = write!(out, "- Path: {}\n", path.display());
+    let _ = write!(out, "- Top-level items: {}\n", top_level_count);
+    let _ = write!(out, "- Recursive files: {}\n", aggregate.file_count);
     out.push_str(&format!(
         "- Recursive directories: {}\n",
         aggregate.dir_count
@@ -2573,7 +2574,7 @@ fn inspect_directory_sync(label: &str, path: &Path, max_entries: usize) -> Resul
     if !sample_names.is_empty() {
         out.push_str("\nSample names:\n");
         for name in sample_names {
-            out.push_str(&format!("- {}\n", name));
+            let _ = write!(out, "- {}\n", name);
         }
     }
 
@@ -4144,28 +4145,28 @@ fn inspect_health_report() -> Result<String, String> {
     if !needs_fix.is_empty() {
         out.push_str("Needs fixing:\n");
         for item in &needs_fix {
-            out.push_str(&format!("  [!] {item}\n"));
+            let _ = write!(out, "  [!] {item}\n");
         }
         out.push('\n');
     }
     if !watch.is_empty() {
         out.push_str("Worth watching:\n");
         for item in &watch {
-            out.push_str(&format!("  [-] {item}\n"));
+            let _ = write!(out, "  [-] {item}\n");
         }
         out.push('\n');
     }
     if !good.is_empty() {
         out.push_str("Looking good:\n");
         for item in &good {
-            out.push_str(&format!("  [+] {item}\n"));
+            let _ = write!(out, "  [+] {item}\n");
         }
         out.push('\n');
     }
     if !tips.is_empty() {
         out.push_str("To dig deeper:\n");
         for tip in &tips {
-            out.push_str(&format!("  {tip}\n"));
+            let _ = write!(out, "  {tip}\n");
         }
     }
 
@@ -4714,7 +4715,7 @@ fn inspect_log_check(lookback_hours: Option<u32>, max_entries: usize) -> Result<
             return Ok(out.trim_end().to_string());
         }
         if text.starts_with("ERROR:") {
-            out.push_str(&format!("Warning: event log query returned: {text}\n"));
+            let _ = write!(out, "Warning: event log query returned: {text}\n");
             return Ok(out.trim_end().to_string());
         }
 
@@ -4723,7 +4724,7 @@ fn inspect_log_check(lookback_hours: Option<u32>, max_entries: usize) -> Result<
             let parts: Vec<&str> = line.splitn(4, '|').collect();
             if parts.len() == 4 {
                 let (time, level, source, msg) = (parts[0], parts[1], parts[2], parts[3]);
-                out.push_str(&format!("[{time}] [{level}] {source}: {msg}\n"));
+                let _ = write!(out, "[{time}] [{level}] {source}: {msg}\n");
                 count += 1;
             }
         }
@@ -4774,7 +4775,7 @@ fn inspect_log_check(lookback_hours: Option<u32>, max_entries: usize) -> Result<
                             .rev()
                             .collect();
                         if !tail.is_empty() {
-                            out.push_str(&format!("Source: {log_path}\n"));
+                            let _ = write!(out, "Source: {log_path}\n");
                             for l in &tail {
                                 out.push_str(l);
                                 out.push('\n');
@@ -4851,7 +4852,7 @@ foreach ($h in $hives) {
             let mut last_hive = String::new();
             for (hive, name, value) in &entries {
                 if *hive != last_hive {
-                    out.push_str(&format!("[{}]\n", hive));
+                    let _ = write!(out, "[{}]\n", hive);
                     last_hive = hive.clone();
                 }
                 // Truncate very long values (paths with many args)
@@ -4860,9 +4861,9 @@ foreach ($h in $hives) {
                 } else {
                     value.clone()
                 };
-                out.push_str(&format!("  {name}: {display}\n"));
+                let _ = write!(out, "  {name}: {display}\n");
             }
-            out.push_str(&format!("\nTotal startup entries: {}\n", entries.len()));
+            let _ = write!(out, "\nTotal startup entries: {}\n", entries.len());
         }
 
         // 3. Unified Startup Command check (Task Manager style)
@@ -4908,7 +4909,7 @@ foreach ($h in $hives) {
                 } else {
                     out.push_str("Enabled systemd services (run at boot):\n\n");
                     for s in &services {
-                        out.push_str(&format!("  {s}\n"));
+                        let _ = write!(out, "  {s}\n");
                     }
                     out.push_str(&format!(
                         "\nShowing {} of enabled services.\n",
@@ -4933,7 +4934,7 @@ foreach ($h in $hives) {
             if !reboot_entries.is_empty() {
                 out.push_str("\nCron @reboot entries:\n");
                 for e in reboot_entries {
-                    out.push_str(&format!("  {e}\n"));
+                    let _ = write!(out, "  {e}\n");
                 }
             }
         }
@@ -5163,7 +5164,7 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
                 out.push_str("\nReal-time Disk Intensity:\n");
                 let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
                 if !text.is_empty() {
-                    out.push_str(&format!("  Average Disk Queue Length: {text}\n"));
+                    let _ = write!(out, "  Average Disk Queue Length: {text}\n");
                     if let Ok(q) = text.parse::<f64>() {
                         if q > 2.0 {
                             out.push_str(
@@ -5244,7 +5245,7 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
                     .ok()
                     .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
                     .unwrap_or_else(|| "?".to_string());
-                out.push_str(&format!("  {label}: {size_mb} MB  ({full})\n"));
+                let _ = write!(out, "  {label}: {size_mb} MB  ({full})\n");
                 found_any = true;
             }
         }
@@ -5278,7 +5279,7 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
                         s.split_whitespace().next().unwrap_or("?").to_string()
                     })
                     .unwrap_or_else(|| "?".to_string());
-                out.push_str(&format!("  {label}: {size}  ({full})\n"));
+                let _ = write!(out, "  {label}: {size}  ({full})\n");
                 found_any = true;
             }
         }
@@ -5317,7 +5318,7 @@ fn inspect_hardware() -> Result<String, String> {
                     parts[3].parse::<f32>().unwrap_or(0.0)
                 ));
             } else {
-                out.push_str(&format!("CPU: {text}\n\n"));
+                let _ = write!(out, "CPU: {text}\n\n");
             }
         }
 
@@ -5331,7 +5332,7 @@ $speed = ($sticks | Select-Object -First 1).Speed
             .output()
         {
             let text = String::from_utf8_lossy(&o.stdout);
-            out.push_str(&format!("RAM: {}\n\n", text.trim().trim_matches('"')));
+            let _ = write!(out, "RAM: {}\n\n", text.trim().trim_matches('"'));
         }
 
         // GPU(s)
@@ -5359,7 +5360,7 @@ $speed = ($sticks | Select-Object -First 1).Speed
                             parts[0], parts[1], res
                         ));
                     } else {
-                        out.push_str(&format!("  {}\n", line.trim()));
+                        let _ = write!(out, "  {}\n", line.trim());
                     }
                 }
                 out.push('\n');
@@ -5406,7 +5407,7 @@ $virt = "Hypervisor: $($cs.HypervisorPresent)|SLAT: $($proc.SecondLevelAddressTr
                 for line in &lines {
                     let parts: Vec<&str> = line.trim().split('|').collect();
                     if parts.len() == 2 {
-                        out.push_str(&format!("  {} — {}\n", parts[0].trim(), parts[1]));
+                        let _ = write!(out, "  {} — {}\n", parts[0].trim(), parts[1]);
                     }
                 }
             }
@@ -5427,7 +5428,7 @@ $virt = "Hypervisor: $($cs.HypervisorPresent)|SLAT: $($proc.SecondLevelAddressTr
                 .lines()
                 .filter(|l| l.starts_with("processor"))
                 .count();
-            out.push_str(&format!("CPU: {model}\n  {cores} logical processors\n\n"));
+            let _ = write!(out, "CPU: {model}\n  {cores} logical processors\n\n");
         }
 
         // RAM
@@ -5439,7 +5440,7 @@ $virt = "Hypervisor: $($cs.HypervisorPresent)|SLAT: $($proc.SecondLevelAddressTr
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(0);
             let total_gb = total_kb / 1_048_576;
-            out.push_str(&format!("RAM: {total_gb} GB total\n\n"));
+            let _ = write!(out, "RAM: {total_gb} GB total\n\n");
         }
 
         // GPU via lspci
@@ -5452,7 +5453,7 @@ $virt = "Hypervisor: $($cs.HypervisorPresent)|SLAT: $($proc.SecondLevelAddressTr
             if !gpu_lines.is_empty() {
                 out.push_str("GPU(s):\n");
                 for l in gpu_lines {
-                    out.push_str(&format!("  {l}\n"));
+                    let _ = write!(out, "  {l}\n");
                 }
                 out.push('\n');
             }
@@ -5474,7 +5475,7 @@ $virt = "Hypervisor: $($cs.HypervisorPresent)|SLAT: $($proc.SecondLevelAddressTr
                 })
                 .take(6)
             {
-                out.push_str(&format!("  {}\n", line.trim()));
+                let _ = write!(out, "  {}\n", line.trim());
             }
         }
     }
@@ -5513,7 +5514,7 @@ try {
                 out.push_str("Last update install: No update history found\n");
             } else {
                 let date = text.replace("|LAST_INSTALL", "");
-                out.push_str(&format!("Last update install: {date}\n"));
+                let _ = write!(out, "Last update install: {date}\n");
             }
         }
 
@@ -5539,7 +5540,7 @@ try {
                 if count == 0 {
                     out.push_str("Pending updates: Up to date — no updates waiting\n");
                 } else if count > 0 {
-                    out.push_str(&format!("Pending updates: {count} update(s) available\n"));
+                    let _ = write!(out, "Pending updates: {count} update(s) available\n");
                     out.push_str(
                         "  → Open Windows Update (Settings > Windows Update) to install\n",
                     );
@@ -5558,7 +5559,7 @@ if ($svc) { $svc.Status.ToString() } else { "NOT_FOUND" }
         {
             let raw = String::from_utf8_lossy(&o.stdout);
             let status = raw.trim();
-            out.push_str(&format!("Windows Update service: {status}\n"));
+            let _ = write!(out, "Windows Update service: {status}\n");
         }
     }
 
@@ -5592,7 +5593,7 @@ if ($svc) { $svc.Status.ToString() } else { "NOT_FOUND" }
                     .filter(|l| !l.is_empty() && !l.starts_with('!'))
                     .count();
                 if count > 0 {
-                    out.push_str(&format!("{count} package(s) can be upgraded (dnf)\n"));
+                    let _ = write!(out, "{count} package(s) can be upgraded (dnf)\n");
                     out.push_str("  → Run: sudo dnf upgrade\n");
                 } else {
                     out.push_str("System is up to date.\n");
@@ -5627,7 +5628,7 @@ try {
             let raw = String::from_utf8_lossy(&o.stdout);
             let text = raw.trim();
             if text.starts_with("ERROR:") {
-                out.push_str(&format!("Windows Defender: unable to query — {text}\n"));
+                let _ = write!(out, "Windows Defender: unable to query — {text}\n");
             } else {
                 let get = |key: &str| -> String {
                     text.split('|')
@@ -5656,8 +5657,8 @@ try {
                 out.push_str(&format!(
                     "Windows Defender real-time protection: {rtp_label}\n"
                 ));
-                out.push_str(&format!("Last quick scan: {last_scan}\n"));
-                out.push_str(&format!("Signature version: {def_ver}\n"));
+                let _ = write!(out, "Last quick scan: {last_scan}\n");
+                let _ = write!(out, "Signature version: {def_ver}\n");
                 if age_days >= 0 {
                     let freshness = if age_days == 0 {
                         "up to date".to_string()
@@ -5668,7 +5669,7 @@ try {
                     } else {
                         format!("{age_days} day(s) old — [!] STALE, run Windows Update")
                     };
-                    out.push_str(&format!("Signature age: {freshness}\n"));
+                    let _ = write!(out, "Signature age: {freshness}\n");
                 }
                 if rtp != "True" {
                     out.push_str(
@@ -5704,7 +5705,7 @@ try {
                         } else {
                             "OFF [!]"
                         };
-                        out.push_str(&format!("  {name}: {state}\n"));
+                        let _ = write!(out, "  {name}: {state}\n");
                     }
                 }
                 out.push('\n');
@@ -5746,7 +5747,7 @@ if ($val -eq 1) { "ON" } else { "OFF" }
             } else {
                 "DISABLED [!] — recommended to re-enable via secpol.msc"
             };
-            out.push_str(&format!("UAC (User Account Control): {label}\n"));
+            let _ = write!(out, "UAC (User Account Control): {label}\n");
         }
     }
 
@@ -5761,7 +5762,7 @@ if ($val -eq 1) { "ON" } else { "OFF" }
         }
         if let Ok(cfg) = std::fs::read_to_string("/etc/selinux/config") {
             if let Some(line) = cfg.lines().find(|l| l.starts_with("SELINUX=")) {
-                out.push_str(&format!("{line}\n"));
+                let _ = write!(out, "{line}\n");
             }
         }
     }
@@ -5805,7 +5806,7 @@ if ($reasons.Count -eq 0) { "NO_REBOOT_NEEDED" } else { $reasons -join "|REASON|
         } else {
             out.push_str("[!] A system restart is pending:\n\n");
             for reason in text.split("|REASON|") {
-                out.push_str(&format!("  • {}\n", reason.trim()));
+                let _ = write!(out, "  • {}\n", reason.trim());
             }
             out.push_str("\nRecommendation: Save your work and restart when convenient.\n");
         }
@@ -5818,7 +5819,7 @@ if ($reasons.Count -eq 0) { "NO_REBOOT_NEEDED" } else { $reasons -join "|REASON|
             if let Ok(pkgs) = std::fs::read_to_string("/var/run/reboot-required.pkgs") {
                 out.push_str("Packages requiring restart:\n");
                 for p in pkgs.lines().take(10) {
-                    out.push_str(&format!("  • {p}\n"));
+                    let _ = write!(out, "  • {p}\n");
                 }
             }
         } else {
@@ -5854,7 +5855,7 @@ try {
         let text = raw.trim();
 
         if text.starts_with("ERROR:") {
-            out.push_str(&format!("Unable to query disk health: {text}\n"));
+            let _ = write!(out, "Unable to query disk health: {text}\n");
             out.push_str("This may require running as administrator.\n");
         } else if text.is_empty() {
             out.push_str("No physical disks found.\n");
@@ -5874,11 +5875,11 @@ try {
                         "Unhealthy" => "[!!] UNHEALTHY — BACK UP YOUR DATA NOW",
                         other => other,
                     };
-                    out.push_str(&format!("  {name}\n"));
-                    out.push_str(&format!("    Type: {media} | Size: {size}\n"));
-                    out.push_str(&format!("    Health: {health_label}\n"));
+                    let _ = write!(out, "  {name}\n");
+                    let _ = write!(out, "    Type: {media} | Size: {size}\n");
+                    let _ = write!(out, "    Health: {health_label}\n");
                     if !op_status.is_empty() {
-                        out.push_str(&format!("    Status: {op_status}\n"));
+                        let _ = write!(out, "    Status: {op_status}\n");
                     }
                     out.push('\n');
                 }
@@ -5906,7 +5907,7 @@ try {
                     out.push_str("[!!] SMART failure predicted on one or more drives:\n");
                     for f in failures {
                         let name = f.split('|').next().unwrap_or(f);
-                        out.push_str(&format!("  • {name}\n"));
+                        let _ = write!(out, "  • {name}\n");
                     }
                     out.push_str(
                         "\nBack up your data immediately and replace the failing drive.\n",
@@ -5938,7 +5939,7 @@ try {
                     let health = String::from_utf8_lossy(&o.stdout);
                     if let Some(line) = health.lines().find(|l| l.contains("SMART overall-health"))
                     {
-                        out.push_str(&format!("{dev}: {}\n", line.trim()));
+                        let _ = write!(out, "{dev}: {}\n", line.trim());
                     }
                 }
             }
@@ -5997,7 +5998,7 @@ try {
             return Ok(out.trim_end().to_string());
         }
         if text.starts_with("ERROR:") {
-            out.push_str(&format!("Unable to query battery: {text}\n"));
+            let _ = write!(out, "Unable to query battery: {text}\n");
             return Ok(out.trim_end().to_string());
         }
 
@@ -6010,7 +6011,7 @@ try {
                 let cycles = parts[3];
                 let health = parts[4];
 
-                out.push_str(&format!("Battery: {name}\n"));
+                let _ = write!(out, "Battery: {name}\n");
                 if charge >= 0 {
                     let bar_filled = (charge as usize * 20) / 100;
                     out.push_str(&format!(
@@ -6020,8 +6021,8 @@ try {
                         charge
                     ));
                 }
-                out.push_str(&format!("  Status: {state}\n"));
-                out.push_str(&format!("  Cycles: {cycles}\n"));
+                let _ = write!(out, "  Status: {state}\n");
+                let _ = write!(out, "  Cycles: {cycles}\n");
                 out.push_str(&format!(
                     "  Health: {health}% (Actual vs Design Capacity)\n\n"
                 ));
@@ -6045,17 +6046,17 @@ try {
                                 .unwrap_or_default()
                                 .to_string_lossy()
                                 .to_string();
-                            out.push_str(&format!("Battery: {name}\n"));
+                            let _ = write!(out, "Battery: {name}\n");
                             let read = |f: &str| {
                                 std::fs::read_to_string(p.join(f))
                                     .ok()
                                     .map(|s| s.trim().to_string())
                             };
                             if let Some(cap) = read("capacity") {
-                                out.push_str(&format!("  Charge: {cap}%\n"));
+                                let _ = write!(out, "  Charge: {cap}%\n");
                             }
                             if let Some(status) = read("status") {
-                                out.push_str(&format!("  Status: {status}\n"));
+                                let _ = write!(out, "  Status: {status}\n");
                             }
                             if let (Some(full), Some(design)) =
                                 (read("energy_full"), read("energy_full_design"))
@@ -6127,7 +6128,7 @@ try {{
                         } else {
                             "BSOD (BugCheck)"
                         };
-                        out.push_str(&format!("  [{time}] {label}: {msg}\n"));
+                        let _ = write!(out, "  [{time}] {label}: {msg}\n");
                     }
                 }
                 out.push('\n');
@@ -6162,7 +6163,7 @@ try {{
                 for line in text.lines().take(n) {
                     let parts: Vec<&str> = line.splitn(2, '|').collect();
                     if parts.len() >= 2 {
-                        out.push_str(&format!("  [{}] {}\n", parts[0], parts[1]));
+                        let _ = write!(out, "  [{}] {}\n", parts[0], parts[1]);
                     }
                 }
             }
@@ -6242,11 +6243,11 @@ try {{
         let text = raw.trim();
 
         if text.starts_with("ERROR:") {
-            out.push_str(&format!("Unable to query scheduled tasks: {text}\n"));
+            let _ = write!(out, "Unable to query scheduled tasks: {text}\n");
         } else if text.is_empty() {
             out.push_str("No active scheduled tasks found.\n");
         } else {
-            out.push_str(&format!("Active scheduled tasks (up to {n}):\n\n"));
+            let _ = write!(out, "Active scheduled tasks (up to {n}):\n\n");
             for line in text.lines() {
                 let parts: Vec<&str> = line.splitn(6, '|').collect();
                 if parts.len() >= 5 {
@@ -6262,13 +6263,13 @@ try {{
                     } else {
                         display_path
                     };
-                    out.push_str(&format!("  {name} [{display_path}]\n"));
+                    let _ = write!(out, "  {name} [{display_path}]\n");
                     out.push_str(&format!(
                         "    State: {state} | Last run: {last} | Result: {res}\n"
                     ));
                     if !exec.is_empty() && exec != "(no exec)" {
                         let short = if exec.len() > 80 { &exec[..80] } else { exec };
-                        out.push_str(&format!("    Runs: {short}\n"));
+                        let _ = write!(out, "    Runs: {short}\n");
                     }
                 }
             }
@@ -6290,7 +6291,7 @@ try {{
                 })
                 .take(n)
             {
-                out.push_str(&format!("  {l}\n"));
+                let _ = write!(out, "  {l}\n");
             }
             out.push('\n');
         }
@@ -6303,7 +6304,7 @@ try {{
             if !jobs.is_empty() {
                 out.push_str("User crontab:\n");
                 for j in jobs.iter().take(n) {
-                    out.push_str(&format!("  {j}\n"));
+                    let _ = write!(out, "  {j}\n");
                 }
             }
         }
@@ -6351,7 +6352,7 @@ fn inspect_dev_conflicts() -> Result<String, String> {
 
         out.push_str("Node.js:\n");
         if let Some(ref v) = node_ver {
-            out.push_str(&format!("  Active: {v}\n"));
+            let _ = write!(out, "  Active: {v}\n");
         } else {
             out.push_str("  Not installed\n");
         }
@@ -6366,7 +6367,7 @@ fn inspect_dev_conflicts() -> Result<String, String> {
         if managers.len() > 1 {
             conflicts.push("Multiple Node.js version managers detected (nvm/fnm/volta). Only one should be active to avoid PATH conflicts.".to_string());
         } else if !managers.is_empty() {
-            out.push_str(&format!("  Version manager: {}\n", managers[0]));
+            let _ = write!(out, "  Version manager: {}\n", managers[0]);
         }
         out.push('\n');
     }
@@ -6413,7 +6414,7 @@ fn inspect_dev_conflicts() -> Result<String, String> {
         out.push_str("Python:\n");
         match (&py3, &py) {
             (Some(v3), Some(v)) if v3 != v => {
-                out.push_str(&format!("  python3: {v3}\n  python:  {v}\n"));
+                let _ = write!(out, "  python3: {v3}\n  python:  {v}\n");
                 if v.contains("2.") {
                     conflicts.push(
                         "python and python3 point to different major versions (2.x vs 3.x). Scripts using 'python' may break unexpectedly.".to_string()
@@ -6430,13 +6431,13 @@ fn inspect_dev_conflicts() -> Result<String, String> {
             (None, None) => out.push_str("  Not installed\n"),
         }
         if let Some(ref pe) = pyenv {
-            out.push_str(&format!("  pyenv: {pe}\n"));
+            let _ = write!(out, "  pyenv: {pe}\n");
         }
         if let Some(env) = conda_env {
             if env == "base" {
                 notes.push("Conda base environment is active — may shadow system Python. Run 'conda deactivate' if unexpected.".to_string());
             } else {
-                out.push_str(&format!("  conda env: {env}\n"));
+                let _ = write!(out, "  conda env: {env}\n");
             }
         }
         out.push('\n');
@@ -6466,13 +6467,13 @@ fn inspect_dev_conflicts() -> Result<String, String> {
 
         out.push_str("Rust:\n");
         if let Some(ref t) = toolchain {
-            out.push_str(&format!("  Active toolchain: {t}\n"));
+            let _ = write!(out, "  Active toolchain: {t}\n");
         }
         if let Some(ref c) = cargo_ver {
-            out.push_str(&format!("  {c}\n"));
+            let _ = write!(out, "  {c}\n");
         }
         if let Some(ref r) = rustc_ver {
-            out.push_str(&format!("  {r}\n"));
+            let _ = write!(out, "  {r}\n");
         }
         if cargo_ver.is_none() && rustc_ver.is_none() {
             out.push_str("  Not installed\n");
@@ -6501,7 +6502,7 @@ fn inspect_dev_conflicts() -> Result<String, String> {
             .map(|s| s.trim().to_string());
         out.push_str("Git:\n");
         if let Some(ref v) = git_ver {
-            out.push_str(&format!("  {v}\n"));
+            let _ = write!(out, "  {v}\n");
             let email = Command::new("git")
                 .args(["config", "--global", "user.email"])
                 .output()
@@ -6512,7 +6513,7 @@ fn inspect_dev_conflicts() -> Result<String, String> {
                 if e.is_empty() {
                     notes.push("Git user.email is not configured globally — commits may fail or use wrong identity.".to_string());
                 } else {
-                    out.push_str(&format!("  user.email: {e}\n"));
+                    let _ = write!(out, "  user.email: {e}\n");
                 }
             }
             let gpg_sign = Command::new("git")
@@ -6571,14 +6572,14 @@ fn inspect_dev_conflicts() -> Result<String, String> {
         if !conflicts.is_empty() {
             out.push_str("CONFLICTS:\n");
             for c in &conflicts {
-                out.push_str(&format!("  [!] {c}\n"));
+                let _ = write!(out, "  [!] {c}\n");
             }
             out.push('\n');
         }
         if !notes.is_empty() {
             out.push_str("NOTES:\n");
             for n in &notes {
-                out.push_str(&format!("  [-] {n}\n"));
+                let _ = write!(out, "  [-] {n}\n");
             }
         }
     }
@@ -6600,7 +6601,7 @@ async fn inspect_public_ip() -> Result<String, String> {
         Ok(resp) => {
             if let Ok(json) = resp.json::<serde_json::Value>().await {
                 let ip = json.get("ip").and_then(|v| v.as_str()).unwrap_or("Unknown");
-                out.push_str(&format!("Public IP: {}\n", ip));
+                let _ = write!(out, "Public IP: {}\n", ip);
 
                 // Geo info
                 if let Ok(geo_resp) = client
@@ -6619,7 +6620,7 @@ async fn inspect_public_ip() -> Result<String, String> {
                                 "Location:  {}, {} ({})\n",
                                 city, region, country
                             ));
-                            out.push_str(&format!("ISP:       {}\n", isp));
+                            let _ = write!(out, "ISP:       {}\n", isp);
                         }
                     }
                 }
@@ -6670,7 +6671,7 @@ try {{
 
         let text = String::from_utf8_lossy(&ps_out.stdout).trim().to_string();
         if text.starts_with("ERROR:") {
-            out.push_str(&format!("Error: {}\n", text.trim_start_matches("ERROR:")));
+            let _ = write!(out, "Error: {}\n", text.trim_start_matches("ERROR:"));
         } else if text == "null" || text.is_empty() {
             out.push_str("Error: Could not retrieve certificate. Target may be unreachable or not using SSL.\n");
         } else {
@@ -6678,7 +6679,7 @@ try {{
                 if let Some(obj) = json.as_object() {
                     for (k, v) in obj {
                         let val_str = v.as_str().unwrap_or("");
-                        out.push_str(&format!("{:<12}: {}\n", k, val_str));
+                        let _ = write!(out, "{:<12}: {}\n", k, val_str);
                     }
 
                     if let Some(not_after_raw) = obj.get("NotAfter").and_then(|v| v.as_str()) {
@@ -6728,7 +6729,7 @@ try {{
                     }
                 }
             } else {
-                out.push_str(&format!("Raw Output: {}\n", text));
+                let _ = write!(out, "Raw Output: {}\n", text);
             }
         }
     }
@@ -6765,14 +6766,14 @@ async fn inspect_data_audit(path: PathBuf, _max_entries: usize) -> Result<String
         .and_then(|s| s.to_str())
         .unwrap_or("")
         .to_lowercase();
-    out.push_str(&format!("Format:    {}\n\n", ext.to_uppercase()));
+    let _ = write!(out, "Format:    {}\n\n", ext.to_uppercase());
 
     match ext.as_str() {
         "csv" | "tsv" | "txt" | "log" => {
             let content = std::fs::read_to_string(&path)
                 .map_err(|e| format!("Failed to read file: {}", e))?;
             let lines: Vec<&str> = content.lines().collect();
-            out.push_str(&format!("Row Count: {} (total lines)\n", lines.len()));
+            let _ = write!(out, "Row Count: {} (total lines)\n", lines.len());
 
             if let Some(header) = lines.get(0) {
                 out.push_str("Columns (Guessed from header):\n");
@@ -6785,13 +6786,13 @@ async fn inspect_data_audit(path: PathBuf, _max_entries: usize) -> Result<String
                 };
                 let cols: Vec<&str> = header.split(delimiter).map(|s| s.trim()).collect();
                 for (i, col) in cols.iter().enumerate() {
-                    out.push_str(&format!("  {}. {}\n", i + 1, col));
+                    let _ = write!(out, "  {}. {}\n", i + 1, col);
                 }
             }
 
             out.push_str("\nSample Data (First 5 rows):\n");
             for line in lines.iter().take(6) {
-                out.push_str(&format!("  {}\n", line));
+                let _ = write!(out, "  {}\n", line);
             }
         }
         "json" => {
@@ -6799,12 +6800,12 @@ async fn inspect_data_audit(path: PathBuf, _max_entries: usize) -> Result<String
                 .map_err(|e| format!("Failed to read file: {}", e))?;
             if let Ok(json) = serde_json::from_str::<Value>(&content) {
                 if let Some(arr) = json.as_array() {
-                    out.push_str(&format!("Record Count: {}\n", arr.len()));
+                    let _ = write!(out, "Record Count: {}\n", arr.len());
                     if let Some(first) = arr.get(0) {
                         if let Some(obj) = first.as_object() {
                             out.push_str("Fields (from first record):\n");
                             for k in obj.keys() {
-                                out.push_str(&format!("  - {}\n", k));
+                                let _ = write!(out, "  - {}\n", k);
                             }
                         }
                     }
@@ -6813,7 +6814,7 @@ async fn inspect_data_audit(path: PathBuf, _max_entries: usize) -> Result<String
                 } else if let Some(obj) = json.as_object() {
                     out.push_str("Top-level Keys:\n");
                     for k in obj.keys() {
-                        out.push_str(&format!("  - {}\n", k));
+                        let _ = write!(out, "  - {}\n", k);
                     }
                 }
             } else {
@@ -6829,7 +6830,7 @@ async fn inspect_data_audit(path: PathBuf, _max_entries: usize) -> Result<String
             let content = std::fs::read_to_string(&path)
                 .map_err(|e| format!("Failed to read file: {}", e))?;
             for line in content.lines().take(10) {
-                out.push_str(&format!("  {}\n", line));
+                let _ = write!(out, "  {}\n", line);
             }
         }
     }
@@ -6878,7 +6879,7 @@ try {
                 out.push_str("DNS: resolving correctly\n");
             } else {
                 let detail = text.trim_start_matches("DNS:fail:").trim();
-                out.push_str(&format!("DNS: failed — {}\n", detail));
+                let _ = write!(out, "DNS: failed — {}\n", detail);
             }
         }
 
@@ -6891,7 +6892,7 @@ try {
         {
             let gw = String::from_utf8_lossy(&o.stdout).trim().to_string();
             if !gw.is_empty() && gw != "0.0.0.0" {
-                out.push_str(&format!("Default gateway: {}\n", gw));
+                let _ = write!(out, "Default gateway: {}\n", gw);
             }
         }
     }
@@ -6924,7 +6925,7 @@ try {
         {
             let text = String::from_utf8_lossy(&o.stdout);
             if let Some(line) = text.lines().next() {
-                out.push_str(&format!("Default gateway: {}\n", line.trim()));
+                let _ = write!(out, "Default gateway: {}\n", line.trim());
             }
         }
     }
@@ -6969,7 +6970,7 @@ fn inspect_wifi() -> Result<String, String> {
                 if trimmed.starts_with(key) && trimmed.contains(':') {
                     let val = trimmed.splitn(2, ':').nth(1).unwrap_or("").trim();
                     if !val.is_empty() {
-                        out.push_str(&format!("  {label}: {val}\n"));
+                        let _ = write!(out, "  {label}: {val}\n");
                         any = true;
                     }
                 }
@@ -6992,7 +6993,7 @@ fn inspect_wifi() -> Result<String, String> {
                 out.push_str("No Wi-Fi devices found.\n");
             } else {
                 for l in lines {
-                    out.push_str(&format!("  {l}\n"));
+                    let _ = write!(out, "  {l}\n");
                 }
             }
         } else if let Ok(o) = Command::new("iwconfig").output() {
@@ -7041,7 +7042,7 @@ try {{
         let text = raw.trim();
 
         if text.starts_with("ERROR:") {
-            out.push_str(&format!("Unable to query connections: {text}\n"));
+            let _ = write!(out, "Unable to query connections: {text}\n");
         } else {
             let mut total = 0usize;
             let mut rows = Vec::new();
@@ -7052,7 +7053,7 @@ try {{
                     rows.push(line);
                 }
             }
-            out.push_str(&format!("Established TCP connections: {total}\n\n"));
+            let _ = write!(out, "Established TCP connections: {total}\n\n");
             for row in &rows {
                 let parts: Vec<&str> = row.splitn(4, '|').collect();
                 if parts.len() == 4 {
@@ -7083,12 +7084,12 @@ try {{
                 .skip(1)
                 .filter(|l| !l.trim().is_empty())
                 .collect();
-            out.push_str(&format!("Established TCP connections: {}\n\n", lines.len()));
+            let _ = write!(out, "Established TCP connections: {}\n\n", lines.len());
             for line in lines.iter().take(n) {
-                out.push_str(&format!("  {}\n", line.trim()));
+                let _ = write!(out, "  {}\n", line.trim());
             }
             if lines.len() > n {
-                out.push_str(&format!("\n  ... {} more not shown\n", lines.len() - n));
+                let _ = write!(out, "\n  ... {} more not shown\n", lines.len() - n);
             }
         } else {
             out.push_str("ss not available — install iproute2\n");
@@ -7129,7 +7130,7 @@ try {
         if text == "NONE" {
             out.push_str("No VPN adapters detected — no active VPN connection found.\n");
         } else if text.starts_with("ERROR:") {
-            out.push_str(&format!("Unable to query adapters: {text}\n"));
+            let _ = write!(out, "Unable to query adapters: {text}\n");
         } else {
             out.push_str("VPN adapters:\n\n");
             for line in text.lines() {
@@ -7172,7 +7173,7 @@ try {
                         let name = parts[0];
                         let status = parts[1];
                         let server = parts.get(2).unwrap_or(&"");
-                        out.push_str(&format!("  {name} → {server} [{status}]\n"));
+                        let _ = write!(out, "  {name} → {server} [{status}]\n");
                     }
                 }
             }
@@ -7192,9 +7193,9 @@ try {
             if vpn_ifaces.is_empty() {
                 out.push_str("No VPN interfaces (tun/tap/wg/ppp) detected.\n");
             } else {
-                out.push_str(&format!("VPN-like interfaces ({}):\n", vpn_ifaces.len()));
+                let _ = write!(out, "VPN-like interfaces ({}):\n", vpn_ifaces.len());
                 for l in vpn_ifaces {
-                    out.push_str(&format!("  {}\n", l.trim()));
+                    let _ = write!(out, "  {}\n", l.trim());
                 }
             }
         }
@@ -7238,10 +7239,10 @@ if ($ie) {
                     if enabled == "1" { "yes" } else { "no" }
                 ));
                 if !server.is_empty() && server != "None" {
-                    out.push_str(&format!("  Proxy server: {server}\n"));
+                    let _ = write!(out, "  Proxy server: {server}\n");
                 }
                 if !overrides.is_empty() && overrides != "None" {
-                    out.push_str(&format!("  Bypass list: {overrides}\n"));
+                    let _ = write!(out, "  Bypass list: {overrides}\n");
                 }
                 out.push('\n');
             }
@@ -7256,7 +7257,7 @@ if ($ie) {
             for line in text.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("  {l}\n"));
+                    let _ = write!(out, "  {l}\n");
                 }
             }
             out.push('\n');
@@ -7276,7 +7277,7 @@ if ($ie) {
                     out.push_str("Environment proxy variables:\n");
                     env_found = true;
                 }
-                out.push_str(&format!("  {var}: {val}\n"));
+                let _ = write!(out, "  {var}: {val}\n");
             }
         }
         if !env_found {
@@ -7302,7 +7303,7 @@ if ($ie) {
                     out.push_str("Proxy environment variables:\n");
                     found = true;
                 }
-                out.push_str(&format!("  {var}: {val}\n"));
+                let _ = write!(out, "  {var}: {val}\n");
             }
         }
         if !found {
@@ -7316,7 +7317,7 @@ if ($ie) {
             if !proxy_lines.is_empty() {
                 out.push_str("\nSystem proxy (/etc/environment):\n");
                 for l in proxy_lines {
-                    out.push_str(&format!("  {l}\n"));
+                    let _ = write!(out, "  {l}\n");
                 }
             }
         }
@@ -7408,7 +7409,7 @@ try {{
         {
             let text = String::from_utf8_lossy(&o.stdout);
             for l in text.lines().take(n * 2) {
-                out.push_str(&format!("  {l}\n"));
+                let _ = write!(out, "  {l}\n");
             }
         } else {
             out.push_str("ufw and iptables not available or insufficient permissions.\n");
@@ -7436,9 +7437,9 @@ fn inspect_traceroute(host: &str, max_entries: usize) -> Result<String, String> 
             let trimmed = line.trim();
             if trimmed.starts_with(|c: char| c.is_ascii_digit()) {
                 hop_count += 1;
-                out.push_str(&format!("  {trimmed}\n"));
+                let _ = write!(out, "  {trimmed}\n");
             } else if trimmed.starts_with("Tracing") || trimmed.starts_with("Trace complete") {
-                out.push_str(&format!("{trimmed}\n"));
+                let _ = write!(out, "{trimmed}\n");
             }
         }
         if hop_count == 0 {
@@ -7465,7 +7466,7 @@ fn inspect_traceroute(host: &str, max_entries: usize) -> Result<String, String> 
             let trimmed = line.trim();
             if !trimmed.is_empty() {
                 hop_count += 1;
-                out.push_str(&format!("  {trimmed}\n"));
+                let _ = write!(out, "  {trimmed}\n");
             }
         }
         if hop_count == 0 {
@@ -7511,12 +7512,12 @@ fn inspect_dns_cache(max_entries: usize) -> Result<String, String> {
                     let rtype = cols[1].trim_matches('"');
                     let data = cols[2].trim_matches('"');
                     let ttl = cols.get(3).map(|s| s.trim_matches('"')).unwrap_or("?");
-                    out.push_str(&format!("  {entry:<45} {rtype:<6} {data}  (TTL {ttl}s)\n"));
+                    let _ = write!(out, "  {entry:<45} {rtype:<6} {data}  (TTL {ttl}s)\n");
                     shown += 1;
                 }
             }
             if total > shown {
-                out.push_str(&format!("\n  ... and {} more entries\n", total - shown));
+                let _ = write!(out, "\n  ... and {} more entries\n", total - shown);
             }
         }
     }
@@ -7528,7 +7529,7 @@ fn inspect_dns_cache(max_entries: usize) -> Result<String, String> {
             if !text.is_empty() {
                 out.push_str("systemd-resolved statistics:\n");
                 for line in text.lines().take(n) {
-                    out.push_str(&format!("  {line}\n"));
+                    let _ = write!(out, "  {line}\n");
                 }
                 out.push('\n');
             }
@@ -7541,7 +7542,7 @@ fn inspect_dns_cache(max_entries: usize) -> Result<String, String> {
             if !text.is_empty() {
                 out.push_str("DNS cache (macOS dscacheutil):\n");
                 for line in text.lines().take(n) {
-                    out.push_str(&format!("  {line}\n"));
+                    let _ = write!(out, "  {line}\n");
                 }
             } else {
                 out.push_str("DNS cache is empty or not accessible on this platform.\n");
@@ -7574,12 +7575,12 @@ fn inspect_arp() -> Result<String, String> {
             if t.is_empty() {
                 continue;
             }
-            out.push_str(&format!("  {t}\n"));
+            let _ = write!(out, "  {t}\n");
             if t.contains("dynamic") || t.contains("static") {
                 count += 1;
             }
         }
-        out.push_str(&format!("\nTotal entries: {count}\n"));
+        let _ = write!(out, "\nTotal entries: {count}\n");
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -7590,22 +7591,22 @@ fn inspect_arp() -> Result<String, String> {
             for line in raw.lines() {
                 let t = line.trim();
                 if !t.is_empty() {
-                    out.push_str(&format!("  {t}\n"));
+                    let _ = write!(out, "  {t}\n");
                     count += 1;
                 }
             }
-            out.push_str(&format!("\nTotal entries: {}\n", count.saturating_sub(1)));
+            let _ = write!(out, "\nTotal entries: {}\n", count.saturating_sub(1));
         } else if let Ok(o) = Command::new("ip").args(["neigh"]).output() {
             let raw = String::from_utf8_lossy(&o.stdout);
             let mut count = 0usize;
             for line in raw.lines() {
                 let t = line.trim();
                 if !t.is_empty() {
-                    out.push_str(&format!("  {t}\n"));
+                    let _ = write!(out, "  {t}\n");
                     count += 1;
                 }
             }
-            out.push_str(&format!("\nTotal entries: {count}\n"));
+            let _ = write!(out, "\nTotal entries: {count}\n");
         } else {
             out.push_str("arp and ip neigh not available.\n");
         }
@@ -7658,7 +7659,7 @@ try {
                         "  {:<22} {:<18} {:>8}  Interface\n",
                         "Destination", "Next Hop", "Metric"
                     ));
-                    out.push_str(&format!("  {}\n", "-".repeat(70)));
+                    let _ = write!(out, "  {}\n", "-".repeat(70));
                 } else if shown < n {
                     let parts: Vec<&str> = line.splitn(4, '|').collect();
                     if parts.len() == 4 {
@@ -7671,7 +7672,7 @@ try {
                             };
                         let metric = parts[2];
                         let iface = parts[3];
-                        out.push_str(&format!("  {dest:<22} {hop:<18} {metric:>8}  {iface}\n"));
+                        let _ = write!(out, "  {dest:<22} {hop:<18} {metric:>8}  {iface}\n");
                         shown += 1;
                     }
                 }
@@ -7689,15 +7690,15 @@ try {
                 "Routing table (showing up to {n} of {total} routes):\n\n"
             ));
             for line in lines.iter().take(n) {
-                out.push_str(&format!("  {line}\n"));
+                let _ = write!(out, "  {line}\n");
             }
             if total > n {
-                out.push_str(&format!("\n  ... and {} more routes\n", total - n));
+                let _ = write!(out, "\n  ... and {} more routes\n", total - n);
             }
         } else if let Ok(o) = Command::new("netstat").args(["-rn"]).output() {
             let raw = String::from_utf8_lossy(&o.stdout);
             for line in raw.lines().take(n) {
-                out.push_str(&format!("  {line}\n"));
+                let _ = write!(out, "  {line}\n");
             }
         } else {
             out.push_str("ip route and netstat not available.\n");
@@ -7829,7 +7830,7 @@ fn inspect_env(max_entries: usize) -> Result<String, String> {
         }
     }
 
-    out.push_str(&format!("Total environment variables: {total}\n\n"));
+    let _ = write!(out, "Total environment variables: {total}\n\n");
 
     if let Ok(p) = std::env::var("PATH") {
         let sep = if cfg!(target_os = "windows") {
@@ -7849,7 +7850,7 @@ fn inspect_env(max_entries: usize) -> Result<String, String> {
             secret_found.len()
         ));
         for s in secret_found.iter().take(n) {
-            out.push_str(&format!("  {s}\n"));
+            let _ = write!(out, "  {s}\n");
         }
         out.push('\n');
     }
@@ -7860,7 +7861,7 @@ fn inspect_env(max_entries: usize) -> Result<String, String> {
             dev_found.len()
         ));
         for d in dev_found.iter().take(n) {
-            out.push_str(&format!("  {d}\n"));
+            let _ = write!(out, "  {d}\n");
         }
         out.push('\n');
     }
@@ -7895,7 +7896,7 @@ fn inspect_hosts_file() -> Result<String, String> {
         std::path::PathBuf::from("/etc/hosts")
     };
 
-    out.push_str(&format!("Path: {}\n\n", hosts_path.display()));
+    let _ = write!(out, "Path: {}\n\n", hosts_path.display());
 
     match fs::read_to_string(&hosts_path) {
         Ok(content) => {
@@ -7928,7 +7929,7 @@ fn inspect_hosts_file() -> Result<String, String> {
             } else {
                 out.push_str("=== Active entries ===\n");
                 for entry in &active_entries {
-                    out.push_str(&format!("  {entry}\n"));
+                    let _ = write!(out, "  {entry}\n");
                 }
                 out.push('\n');
 
@@ -7945,7 +7946,7 @@ fn inspect_hosts_file() -> Result<String, String> {
                         custom.len()
                     ));
                     for e in &custom {
-                        out.push_str(&format!("  {e}\n"));
+                        let _ = write!(out, "  {e}\n");
                     }
                 } else {
                     out.push_str("All active entries are standard loopback or block entries.\n");
@@ -7954,11 +7955,11 @@ fn inspect_hosts_file() -> Result<String, String> {
 
             out.push_str("\n=== Full file ===\n");
             for line in content.lines() {
-                out.push_str(&format!("  {line}\n"));
+                let _ = write!(out, "  {line}\n");
             }
         }
         Err(e) => {
-            out.push_str(&format!("Could not read hosts file: {e}\n"));
+            let _ = write!(out, "Could not read hosts file: {e}\n");
             if cfg!(target_os = "windows") {
                 out.push_str(
                     "On Windows, run Hematite as Administrator if permission is denied.\n",
@@ -8300,13 +8301,13 @@ fn inspect_docker(max_entries: usize) -> Result<String, String> {
                 out.push_str("Docker: installed but daemon is NOT running.\n");
                 out.push_str("Start Docker Desktop or run: sudo systemctl start docker\n");
             } else {
-                out.push_str(&format!("Docker: error — {}\n", stderr.trim()));
+                let _ = write!(out, "Docker: error — {}\n", stderr.trim());
             }
             return Ok(out.trim_end().to_string());
         }
         Ok(o) => {
             let version = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            out.push_str(&format!("Docker Engine: {version}\n"));
+            let _ = write!(out, "Docker Engine: {version}\n");
         }
     }
 
@@ -8322,7 +8323,7 @@ fn inspect_docker(max_entries: usize) -> Result<String, String> {
         for line in info.lines() {
             let t = line.trim();
             if !t.is_empty() {
-                out.push_str(&format!("  {t}\n"));
+                let _ = write!(out, "  {t}\n");
             }
         }
         out.push('\n');
@@ -8346,10 +8347,10 @@ fn inspect_docker(max_entries: usize) -> Result<String, String> {
                 lines.len().saturating_sub(1)
             ));
             for line in lines.iter().take(n + 1) {
-                out.push_str(&format!("  {line}\n"));
+                let _ = write!(out, "  {line}\n");
             }
             if lines.len() > n + 1 {
-                out.push_str(&format!("  ... and {} more\n", lines.len() - n - 1));
+                let _ = write!(out, "  ... and {} more\n", lines.len() - n - 1);
             }
             out.push('\n');
         }
@@ -8371,10 +8372,10 @@ fn inspect_docker(max_entries: usize) -> Result<String, String> {
                 lines.len().saturating_sub(1)
             ));
             for line in lines.iter().take(n + 1) {
-                out.push_str(&format!("  {line}\n"));
+                let _ = write!(out, "  {line}\n");
             }
             if lines.len() > n + 1 {
-                out.push_str(&format!("  ... and {} more\n", lines.len() - n - 1));
+                let _ = write!(out, "  ... and {} more\n", lines.len() - n - 1);
             }
             out.push('\n');
         }
@@ -8397,7 +8398,7 @@ fn inspect_docker(max_entries: usize) -> Result<String, String> {
                 lines.len().saturating_sub(1)
             ));
             for line in lines.iter().take(n + 1) {
-                out.push_str(&format!("  {line}\n"));
+                let _ = write!(out, "  {line}\n");
             }
             out.push('\n');
         }
@@ -8406,7 +8407,7 @@ fn inspect_docker(max_entries: usize) -> Result<String, String> {
     if let Ok(o) = Command::new("docker").args(["context", "show"]).output() {
         let ctx = String::from_utf8_lossy(&o.stdout).trim().to_string();
         if !ctx.is_empty() {
-            out.push_str(&format!("Active context: {ctx}\n"));
+            let _ = write!(out, "Active context: {ctx}\n");
         }
     }
 
@@ -8430,7 +8431,7 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
     if let Ok(o) = Command::new("docker").args(["context", "show"]).output() {
         let ctx = String::from_utf8_lossy(&o.stdout).trim().to_string();
         if !ctx.is_empty() {
-            out.push_str(&format!("Active context: {ctx}\n"));
+            let _ = write!(out, "Active context: {ctx}\n");
         }
     }
     out.push('\n');
@@ -8534,9 +8535,9 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
         out.push_str("  Fix: If a workload still cannot see files, compare the mount destinations below against the app's expected paths.\n");
     } else {
         for finding in &findings {
-            out.push_str(&format!("- Finding: {}\n", finding.finding));
-            out.push_str(&format!("  Impact: {}\n", finding.impact));
-            out.push_str(&format!("  Fix: {}\n", finding.fix));
+            let _ = write!(out, "- Finding: {}\n", finding.finding);
+            let _ = write!(out, "  Impact: {}\n", finding.impact);
+            let _ = write!(out, "  Fix: {}\n", finding.fix);
         }
     }
 
@@ -8589,12 +8590,12 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
         for volume in &volumes {
             let mut detail = format!("- {} (driver: {})", volume.name, volume.driver);
             if let Some(scope) = &volume.scope {
-                detail.push_str(&format!(", scope: {scope}"));
+                let _ = write!(detail, ", scope: {scope}");
             }
             if let Some(mountpoint) = &volume.mountpoint {
-                detail.push_str(&format!(", mountpoint: {mountpoint}"));
+                let _ = write!(detail, ", mountpoint: {mountpoint}");
             }
-            out.push_str(&format!("{detail}\n"));
+            let _ = write!(out, "{detail}\n");
         }
     }
 
@@ -8622,7 +8623,7 @@ fn inspect_wsl() -> Result<String, String> {
             for line in cleaned.lines().take(4) {
                 let t = line.trim();
                 if !t.is_empty() {
-                    out.push_str(&format!("  {t}\n"));
+                    let _ = write!(out, "  {t}\n");
                 }
             }
             out.push('\n');
@@ -8631,13 +8632,13 @@ fn inspect_wsl() -> Result<String, String> {
         let list_output = Command::new("wsl").args(["--list", "--verbose"]).output();
         match list_output {
             Err(e) => {
-                out.push_str(&format!("WSL: wsl.exe error: {e}\n"));
+                let _ = write!(out, "WSL: wsl.exe error: {e}\n");
                 out.push_str("WSL may not be installed. Enable with: wsl --install\n");
             }
             Ok(o) if !o.status.success() => {
                 let stderr = String::from_utf8_lossy(&o.stderr);
                 let cleaned: String = stderr.chars().filter(|c| *c != '\0').collect();
-                out.push_str(&format!("WSL: error — {}\n", cleaned.trim()));
+                let _ = write!(out, "WSL: error — {}\n", cleaned.trim());
                 out.push_str("Run: wsl --install\n");
             }
             Ok(o) => {
@@ -8661,9 +8662,9 @@ fn inspect_wsl() -> Result<String, String> {
                 } else {
                     out.push_str("=== WSL Distributions ===\n");
                     for line in &lines {
-                        out.push_str(&format!("  {}\n", line.trim()));
+                        let _ = write!(out, "  {}\n", line.trim());
                     }
-                    out.push_str(&format!("\nTotal distributions: {}\n", distro_lines.len()));
+                    let _ = write!(out, "\nTotal distributions: {}\n", distro_lines.len());
                 }
             }
         }
@@ -8679,7 +8680,7 @@ fn inspect_wsl() -> Result<String, String> {
             if !status_lines.is_empty() {
                 out.push_str("\n=== WSL status ===\n");
                 for line in status_lines {
-                    out.push_str(&format!("  {}\n", line.trim()));
+                    let _ = write!(out, "  {}\n", line.trim());
                 }
             }
         }
@@ -8705,20 +8706,20 @@ fn inspect_wsl_filesystems(max_entries: usize) -> Result<String, String> {
         let list_output = Command::new("wsl").args(["--list", "--verbose"]).output();
         let distros = match list_output {
             Err(e) => {
-                out.push_str(&format!("WSL: wsl.exe error: {e}\n"));
+                let _ = write!(out, "WSL: wsl.exe error: {e}\n");
                 out.push_str("WSL may not be installed. Enable with: wsl --install\n");
                 return Ok(out.trim_end().to_string());
             }
             Ok(o) if !o.status.success() => {
                 let cleaned = clean_wsl_text(&o.stderr);
-                out.push_str(&format!("WSL: error - {}\n", cleaned.trim()));
+                let _ = write!(out, "WSL: error - {}\n", cleaned.trim());
                 out.push_str("Run: wsl --install\n");
                 return Ok(out.trim_end().to_string());
             }
             Ok(o) => parse_wsl_distros(&clean_wsl_text(&o.stdout)),
         };
 
-        out.push_str(&format!("Distributions detected: {}\n\n", distros.len()));
+        let _ = write!(out, "Distributions detected: {}\n\n", distros.len());
 
         let vhdx_files = collect_wsl_vhdx_files();
         let mut findings = Vec::new();
@@ -8779,9 +8780,9 @@ fn inspect_wsl_filesystems(max_entries: usize) -> Result<String, String> {
             out.push_str("  Fix: If a specific project path still fails, inspect the per-distro bridge and disk details below.\n");
         } else {
             for finding in &findings {
-                out.push_str(&format!("- Finding: {}\n", finding.finding));
-                out.push_str(&format!("  Impact: {}\n", finding.impact));
-                out.push_str(&format!("  Fix: {}\n", finding.fix));
+                let _ = write!(out, "- Finding: {}\n", finding.finding);
+                let _ = write!(out, "  Impact: {}\n", finding.impact);
+                let _ = write!(out, "  Fix: {}\n", finding.fix);
             }
         }
 
@@ -8858,7 +8859,7 @@ fn inspect_ssh() -> Result<String, String> {
             String::from_utf8_lossy(&o.stdout).trim().to_string()
         };
         if !ver.is_empty() {
-            out.push_str(&format!("SSH client: {ver}\n"));
+            let _ = write!(out, "SSH client: {ver}\n");
         }
     } else {
         out.push_str("SSH client: not found on PATH.\n");
@@ -8894,13 +8895,13 @@ else { "SSHD:not_installed" }
             .output()
         {
             let status = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            out.push_str(&format!("SSH server (sshd): {status}\n"));
+            let _ = write!(out, "SSH server (sshd): {status}\n");
         } else if let Ok(o) = Command::new("systemctl")
             .args(["is-active", "ssh"])
             .output()
         {
             let status = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            out.push_str(&format!("SSH server (ssh): {status}\n"));
+            let _ = write!(out, "SSH server (ssh): {status}\n");
         }
     }
 
@@ -8908,7 +8909,7 @@ else { "SSHD:not_installed" }
 
     if let Some(ssh_dir) = dirs_home().map(|h| h.join(".ssh")) {
         if ssh_dir.exists() {
-            out.push_str(&format!("~/.ssh: {}\n", ssh_dir.display()));
+            let _ = write!(out, "~/.ssh: {}\n", ssh_dir.display());
 
             let kh = ssh_dir.join("known_hosts");
             if kh.exists() {
@@ -8919,7 +8920,7 @@ else { "SSHD:not_installed" }
                             .count()
                     })
                     .unwrap_or(0);
-                out.push_str(&format!("  known_hosts: {count} entries\n"));
+                let _ = write!(out, "  known_hosts: {count} entries\n");
             } else {
                 out.push_str("  known_hosts: not present\n");
             }
@@ -8933,7 +8934,7 @@ else { "SSHD:not_installed" }
                             .count()
                     })
                     .unwrap_or(0);
-                out.push_str(&format!("  authorized_keys: {count} public keys\n"));
+                let _ = write!(out, "  authorized_keys: {count} public keys\n");
             } else {
                 out.push_str("  authorized_keys: not present\n");
             }
@@ -8952,7 +8953,7 @@ else { "SSHD:not_installed" }
                 .copied()
                 .collect();
             if !found_keys.is_empty() {
-                out.push_str(&format!("  Private keys: {}\n", found_keys.join(", ")));
+                let _ = write!(out, "  Private keys: {}\n", found_keys.join(", "));
             } else {
                 out.push_str("  Private keys: none found\n");
             }
@@ -8994,7 +8995,7 @@ else { "SSHD:not_installed" }
                         } else {
                             for (h, details) in &hosts {
                                 if details.is_empty() {
-                                    out.push_str(&format!("  Host {h}\n"));
+                                    let _ = write!(out, "  Host {h}\n");
                                 } else {
                                     out.push_str(&format!(
                                         "  Host {h}  [{}]\n",
@@ -9002,7 +9003,7 @@ else { "SSHD:not_installed" }
                                     ));
                                 }
                             }
-                            out.push_str(&format!("\n  Total configured hosts: {}\n", hosts.len()));
+                            let _ = write!(out, "\n  Total configured hosts: {}\n", hosts.len());
                         }
                     }
                     Err(e) => out.push_str(&format!("  Could not read config: {e}\n")),
@@ -9050,10 +9051,10 @@ fn inspect_installed_software(max_entries: usize) -> Result<String, String> {
                     "=== Installed software via winget ({total} packages) ===\n\n"
                 ));
                 for line in packages.iter().take(n) {
-                    out.push_str(&format!("  {line}\n"));
+                    let _ = write!(out, "  {line}\n");
                 }
                 if total > n {
-                    out.push_str(&format!("\n  ... and {} more packages\n", total - n));
+                    let _ = write!(out, "\n  ... and {} more packages\n", total - n);
                 }
                 out.push_str("\nFor full list: winget list\n");
                 return Ok(out.trim_end().to_string());
@@ -9089,18 +9090,18 @@ $sorted | Select-Object -First {n} | ForEach-Object {{
         {
             let raw = String::from_utf8_lossy(&o.stdout);
             out.push_str("=== Installed software (registry scan) ===\n");
-            out.push_str(&format!("  {:<50} {:<18} Publisher\n", "Name", "Version"));
-            out.push_str(&format!("  {}\n", "-".repeat(90)));
+            let _ = write!(out, "  {:<50} {:<18} Publisher\n", "Name", "Version");
+            let _ = write!(out, "  {}\n", "-".repeat(90));
             for line in raw.lines() {
                 if let Some(rest) = line.strip_prefix("TOTAL:") {
                     let total: usize = rest.trim().parse().unwrap_or(0);
-                    out.push_str(&format!("  (Total: {total}, showing first {n})\n\n"));
+                    let _ = write!(out, "  (Total: {total}, showing first {n})\n\n");
                 } else if !line.trim().is_empty() {
                     let parts: Vec<&str> = line.splitn(3, '|').collect();
                     let name = parts.first().map(|s| s.trim()).unwrap_or("");
                     let ver = parts.get(1).map(|s| s.trim()).unwrap_or("");
                     let pub_ = parts.get(2).map(|s| s.trim()).unwrap_or("");
-                    out.push_str(&format!("  {:<50} {:<18} {pub_}\n", name, ver));
+                    let _ = write!(out, "  {:<50} {:<18} {pub_}\n", name, ver);
                 }
             }
         } else {
@@ -9118,12 +9119,12 @@ $sorted | Select-Object -First {n} | ForEach-Object {{
                 let raw = String::from_utf8_lossy(&o.stdout);
                 let installed: Vec<&str> = raw.lines().filter(|l| l.contains("install")).collect();
                 let total = installed.len();
-                out.push_str(&format!("=== Installed packages via dpkg ({total}) ===\n"));
+                let _ = write!(out, "=== Installed packages via dpkg ({total}) ===\n");
                 for line in installed.iter().take(n) {
-                    out.push_str(&format!("  {}\n", line.trim()));
+                    let _ = write!(out, "  {}\n", line.trim());
                 }
                 if total > n {
-                    out.push_str(&format!("  ... and {} more\n", total - n));
+                    let _ = write!(out, "  ... and {} more\n", total - n);
                 }
                 out.push_str("\nFor full list: dpkg --get-selections | grep install\n");
                 found = true;
@@ -9138,12 +9139,12 @@ $sorted | Select-Object -First {n} | ForEach-Object {{
                     let raw = String::from_utf8_lossy(&o.stdout);
                     let lines: Vec<&str> = raw.lines().collect();
                     let total = lines.len();
-                    out.push_str(&format!("=== Installed packages via rpm ({total}) ===\n"));
+                    let _ = write!(out, "=== Installed packages via rpm ({total}) ===\n");
                     for line in lines.iter().take(n) {
-                        out.push_str(&format!("  {line}\n"));
+                        let _ = write!(out, "  {line}\n");
                     }
                     if total > n {
-                        out.push_str(&format!("  ... and {} more\n", total - n));
+                        let _ = write!(out, "  ... and {} more\n", total - n);
                     }
                     found = true;
                 }
@@ -9159,10 +9160,10 @@ $sorted | Select-Object -First {n} | ForEach-Object {{
                         "=== Installed packages via pacman ({total}) ===\n"
                     ));
                     for line in lines.iter().take(n) {
-                        out.push_str(&format!("  {line}\n"));
+                        let _ = write!(out, "  {line}\n");
                     }
                     if total > n {
-                        out.push_str(&format!("  ... and {} more\n", total - n));
+                        let _ = write!(out, "  ... and {} more\n", total - n);
                     }
                     found = true;
                 }
@@ -9180,12 +9181,12 @@ $sorted | Select-Object -First {n} | ForEach-Object {{
                 let raw = String::from_utf8_lossy(&o.stdout);
                 let lines: Vec<&str> = raw.lines().collect();
                 let total = lines.len();
-                out.push_str(&format!("=== Homebrew packages ({total}) ===\n"));
+                let _ = write!(out, "=== Homebrew packages ({total}) ===\n");
                 for line in lines.iter().take(n) {
-                    out.push_str(&format!("  {line}\n"));
+                    let _ = write!(out, "  {line}\n");
                 }
                 if total > n {
-                    out.push_str(&format!("  ... and {} more\n", total - n));
+                    let _ = write!(out, "  ... and {} more\n", total - n);
                 }
                 out.push_str("\nFor full list: brew list --versions\n");
             }
@@ -9196,9 +9197,9 @@ $sorted | Select-Object -First {n} | ForEach-Object {{
             if o.status.success() {
                 let raw = String::from_utf8_lossy(&o.stdout);
                 let lines: Vec<&str> = raw.lines().collect();
-                out.push_str(&format!("\n=== Mac App Store apps ({}) ===\n", lines.len()));
+                let _ = write!(out, "\n=== Mac App Store apps ({}) ===\n", lines.len());
                 for line in lines.iter().take(n) {
-                    out.push_str(&format!("  {line}\n"));
+                    let _ = write!(out, "  {line}\n");
                 }
             }
         }
@@ -9214,7 +9215,7 @@ fn inspect_git_config() -> Result<String, String> {
 
     if let Ok(o) = Command::new("git").args(["--version"]).output() {
         let ver = String::from_utf8_lossy(&o.stdout).trim().to_string();
-        out.push_str(&format!("Git: {ver}\n\n"));
+        let _ = write!(out, "Git: {ver}\n\n");
     } else {
         out.push_str("Git: not found on PATH.\n");
         return Ok(out.trim_end().to_string());
@@ -9283,9 +9284,9 @@ fn inspect_git_config() -> Result<String, String> {
                     }
                 }
                 if !section_lines.is_empty() {
-                    out.push_str(&format!("\n[{section}]\n"));
+                    let _ = write!(out, "\n[{section}]\n");
                     for line in section_lines {
-                        out.push_str(&format!("{line}\n"));
+                        let _ = write!(out, "{line}\n");
                     }
                 }
             }
@@ -9297,14 +9298,14 @@ fn inspect_git_config() -> Result<String, String> {
             if !other.is_empty() {
                 out.push_str("\n[Other]\n");
                 for (k, v) in other.iter().take(20) {
-                    out.push_str(&format!("  {k} = {v}\n"));
+                    let _ = write!(out, "  {k} = {v}\n");
                 }
                 if other.len() > 20 {
-                    out.push_str(&format!("  ... and {} more\n", other.len() - 20));
+                    let _ = write!(out, "  ... and {} more\n", other.len() - 20);
                 }
             }
 
-            out.push_str(&format!("\nTotal global config keys: {}\n", pairs.len()));
+            let _ = write!(out, "\nTotal global config keys: {}\n", pairs.len());
         } else {
             out.push_str("No global git config found.\n");
             out.push_str("Set up with:\n");
@@ -9326,10 +9327,10 @@ fn inspect_git_config() -> Result<String, String> {
                     lines.len()
                 ));
                 for line in lines.iter().take(15) {
-                    out.push_str(&format!("  {line}\n"));
+                    let _ = write!(out, "  {line}\n");
                 }
                 if lines.len() > 15 {
-                    out.push_str(&format!("  ... and {} more\n", lines.len() - 15));
+                    let _ = write!(out, "  ... and {} more\n", lines.len() - 15);
                 }
             }
         }
@@ -9343,12 +9344,12 @@ fn inspect_git_config() -> Result<String, String> {
             let raw = String::from_utf8_lossy(&o.stdout);
             let aliases: Vec<&str> = raw.lines().filter(|l| !l.trim().is_empty()).collect();
             if !aliases.is_empty() {
-                out.push_str(&format!("\n=== Git aliases ({}) ===\n", aliases.len()));
+                let _ = write!(out, "\n=== Git aliases ({}) ===\n", aliases.len());
                 for a in aliases.iter().take(20) {
-                    out.push_str(&format!("  {a}\n"));
+                    let _ = write!(out, "  {a}\n");
                 }
                 if aliases.len() > 20 {
-                    out.push_str(&format!("  ... and {} more\n", aliases.len() - 20));
+                    let _ = write!(out, "  ... and {} more\n", aliases.len() - 20);
                 }
             }
         }
@@ -9556,9 +9557,9 @@ fn inspect_databases() -> Result<String, String> {
             } else {
                 format!("{} (file-based, no port)", engine.name)
             };
-            out.push_str(&format!("[FOUND] {label}\n"));
+            let _ = write!(out, "[FOUND] {label}\n");
             for part in &status_parts {
-                out.push_str(&format!("  {part}\n"));
+                let _ = write!(out, "  {part}\n");
             }
             out.push('\n');
         }
@@ -9646,7 +9647,7 @@ fn inspect_user_accounts(max_entries: usize) -> Result<String, String> {
         } else {
             for line in sessions_out.lines().take(max_entries) {
                 if !line.trim().is_empty() {
-                    out.push_str(&format!("  {}\n", line));
+                    let _ = write!(out, "  {}\n", line);
                 }
             }
         }
@@ -9685,7 +9686,7 @@ fn inspect_user_accounts(max_entries: usize) -> Result<String, String> {
             out.push_str("  (none)\n");
         } else {
             for line in who_out.lines().take(max_entries) {
-                out.push_str(&format!("  {}\n", line));
+                let _ = write!(out, "  {}\n", line);
             }
         }
         let id_out = Command::new("id")
@@ -9693,7 +9694,7 @@ fn inspect_user_accounts(max_entries: usize) -> Result<String, String> {
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .unwrap_or_default();
-        out.push_str(&format!("\n=== Current User ===\n  {}\n", id_out.trim()));
+        let _ = write!(out, "\n=== Current User ===\n  {}\n", id_out.trim());
     }
 
     Ok(out.trim_end().to_string())
@@ -9729,10 +9730,10 @@ fn inspect_audit_policy() -> Result<String, String> {
                     continue;
                 }
                 if trimmed.contains("Success") || trimmed.contains("Failure") {
-                    out.push_str(&format!("  [ENABLED] {}\n", trimmed));
+                    let _ = write!(out, "  [ENABLED] {}\n", trimmed);
                     any_enabled = true;
                 } else {
-                    out.push_str(&format!("  {}\n", trimmed));
+                    let _ = write!(out, "  {}\n", trimmed);
                 }
             }
             if !any_enabled {
@@ -9791,7 +9792,7 @@ fn inspect_audit_policy() -> Result<String, String> {
                 out.push_str("  No rules configured.\n");
             } else {
                 for line in rules.lines() {
-                    out.push_str(&format!("  {}\n", line));
+                    let _ = write!(out, "  {}\n", line);
                 }
             }
         }
@@ -9829,9 +9830,9 @@ fn inspect_shares(max_entries: usize) -> Result<String, String> {
             for line in &smb_lines {
                 let name = line.trim().split('|').next().unwrap_or("").trim();
                 if name.ends_with('$') {
-                    out.push_str(&format!("  {}\n", line.trim()));
+                    let _ = write!(out, "  {}\n", line.trim());
                 } else {
-                    out.push_str(&format!("  [CUSTOM] {}\n", line.trim()));
+                    let _ = write!(out, "  [CUSTOM] {}\n", line.trim());
                 }
             }
         }
@@ -9888,7 +9889,7 @@ fn inspect_shares(max_entries: usize) -> Result<String, String> {
             out.push_str("  Not found or Samba not installed.\n");
         } else {
             for line in smb_conf.lines().take(max_entries) {
-                out.push_str(&format!("  {}\n", line));
+                let _ = write!(out, "  {}\n", line);
             }
         }
         let nfs_exports = std::fs::read_to_string("/etc/exports").unwrap_or_default();
@@ -9897,7 +9898,7 @@ fn inspect_shares(max_entries: usize) -> Result<String, String> {
             out.push_str("  Not configured.\n");
         } else {
             for line in nfs_exports.lines().take(max_entries) {
-                out.push_str(&format!("  {}\n", line));
+                let _ = write!(out, "  {}\n", line);
             }
         }
     }
@@ -9990,7 +9991,7 @@ fn inspect_dns_servers() -> Result<String, String> {
         } else {
             for line in resolv.lines() {
                 if !line.trim().is_empty() && !line.starts_with('#') {
-                    out.push_str(&format!("  {}\n", line));
+                    let _ = write!(out, "  {}\n", line);
                 }
             }
         }
@@ -10003,7 +10004,7 @@ fn inspect_dns_servers() -> Result<String, String> {
         if !resolved_out.is_empty() {
             out.push_str("\n=== systemd-resolved ===\n");
             for line in resolved_out.lines().take(30) {
-                out.push_str(&format!("  {}\n", line));
+                let _ = write!(out, "  {}\n", line);
             }
         }
     }
@@ -10028,7 +10029,7 @@ fn inspect_bitlocker() -> Result<String, String> {
         if !stdout.trim().is_empty() {
             out.push_str("=== BitLocker Volumes ===\n");
             for line in stdout.lines() {
-                out.push_str(&format!("  {}\n", line));
+                let _ = write!(out, "  {}\n", line);
             }
         } else if !stderr.trim().is_empty() {
             if stderr.contains("Access is denied") {
@@ -10058,7 +10059,7 @@ fn inspect_bitlocker() -> Result<String, String> {
         if lsblk.contains("crypto_LUKS") {
             out.push_str("=== LUKS Encrypted Volumes ===\n");
             for line in lsblk.lines().filter(|l| l.contains("crypto_LUKS")) {
-                out.push_str(&format!("  {}\n", line));
+                let _ = write!(out, "  {}\n", line);
             }
         } else {
             out.push_str("No LUKS encrypted volumes detected via lsblk.\n");
@@ -10088,7 +10089,7 @@ fn inspect_rdp() -> Result<String, String> {
             .to_string();
 
         let status = if f_deny == "0" { "ENABLED" } else { "DISABLED" };
-        out.push_str(&format!("=== RDP Status: {} ===\n", status));
+        let _ = write!(out, "=== RDP Status: {} ===\n", status);
 
         let port = Command::new("powershell").args(["-NoProfile", "-Command", "Get-ItemProperty 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name PortNumber | Select-Object -ExpandProperty PortNumber"])
             .output().ok().and_then(|o| String::from_utf8(o.stdout).ok()).unwrap_or_default().trim().to_string();
@@ -10177,7 +10178,7 @@ fn inspect_rdp() -> Result<String, String> {
             out.push_str("  No active sessions listed.\n");
         } else {
             for line in qwinsta.lines() {
-                out.push_str(&format!("  {}\n", line));
+                let _ = write!(out, "  {}\n", line);
             }
         }
 
@@ -10209,7 +10210,7 @@ fn inspect_rdp() -> Result<String, String> {
             out.push_str("  No RDP/VNC listeners detected via 'ss'.\n");
         } else {
             for m in matches {
-                out.push_str(&format!("  {}\n", m));
+                let _ = write!(out, "  {}\n", m);
             }
         }
     }
@@ -10237,7 +10238,7 @@ fn inspect_shadow_copies() -> Result<String, String> {
                     || line.contains("Contents:")
                     || line.contains("Volume Name:")
                 {
-                    out.push_str(&format!("  {}\n", line.trim()));
+                    let _ = write!(out, "  {}\n", line.trim());
                 }
             }
         }
@@ -10262,7 +10263,7 @@ try {
             let age_text = String::from_utf8_lossy(&age_out.stdout).trim().to_string();
             if !age_text.is_empty() {
                 out.push_str("\n=== Snapshot Age ===\n");
-                out.push_str(&format!("  {}\n", age_text));
+                let _ = write!(out, "  {}\n", age_text);
             }
         }
 
@@ -10277,7 +10278,7 @@ try {
                 if line.contains("Used Shadow Copy Storage space:")
                     || line.contains("Max Shadow Copy Storage space:")
                 {
-                    out.push_str(&format!("  {}\n", line.trim()));
+                    let _ = write!(out, "  {}\n", line.trim());
                 }
             }
         }
@@ -10329,7 +10330,7 @@ fn inspect_pagefile() -> Result<String, String> {
                 .unwrap_or_default()
                 .trim()
                 .to_string();
-            out.push_str(&format!("Automatic Managed Pagefile: {}\n", managed));
+            let _ = write!(out, "Automatic Managed Pagefile: {}\n", managed);
         } else {
             out.push_str("=== Page File Usage ===\n");
             out.push_str(&output);
@@ -10379,7 +10380,7 @@ fn inspect_windows_features(max_entries: usize) -> Result<String, String> {
 
             if !stdout.trim().is_empty() {
                 for f in stdout.lines() {
-                    out.push_str(&format!("  [ENABLED] {}\n", f));
+                    let _ = write!(out, "  [ENABLED] {}\n", f);
                 }
             } else if stderr.contains("Access is denied") || stderr.contains("requires elevation") {
                 out.push_str("  Error: Access denied. Listing Windows Features requires Administrator elevation.\n");
@@ -10584,9 +10585,9 @@ $sound = @(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue |
             out.push_str("  Fix: If a specific app still has no sound or mic input, compare the endpoint inventory below against that app's selected input/output devices.\n");
         } else {
             for finding in &findings {
-                out.push_str(&format!("- Finding: {}\n", finding.finding));
-                out.push_str(&format!("  Impact: {}\n", finding.impact));
-                out.push_str(&format!("  Fix: {}\n", finding.fix));
+                let _ = write!(out, "- Finding: {}\n", finding.finding);
+                let _ = write!(out, "  Impact: {}\n", finding.impact);
+                let _ = write!(out, "  Fix: {}\n", finding.fix);
             }
         }
 
@@ -10823,9 +10824,9 @@ $audio = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue |
             out.push_str("  Fix: If one specific device still fails, focus next on that device's pairing history, driver node, and audio endpoint role.\n");
         } else {
             for finding in &findings {
-                out.push_str(&format!("- Finding: {}\n", finding.finding));
-                out.push_str(&format!("  Impact: {}\n", finding.impact));
-                out.push_str(&format!("  Fix: {}\n", finding.fix));
+                let _ = write!(out, "- Finding: {}\n", finding.finding);
+                let _ = write!(out, "  Impact: {}\n", finding.impact);
+                let _ = write!(out, "  Fix: {}\n", finding.fix);
             }
         }
 
@@ -10993,7 +10994,7 @@ fn inspect_winrm() -> Result<String, String> {
                         || line.contains("Transport =")
                         || line.contains("Port =")
                     {
-                        out.push_str(&format!("  {}\n", line.trim()));
+                        let _ = write!(out, "  {}\n", line.trim());
                     }
                 }
             } else if stderr.contains("Access is denied") {
@@ -11138,7 +11139,7 @@ fn inspect_udp_ports(max_entries: usize) -> Result<String, String> {
                         note = " [mDNS]";
                     }
 
-                    out.push_str(&format!("{}{}\n", line, note));
+                    let _ = write!(out, "{}{}\n", line, note);
                 }
             } else if stderr.contains("Access is denied") {
                 out.push_str("Error: Access denied. Full UDP listener details require Administrator elevation.\n");
@@ -11168,12 +11169,12 @@ fn inspect_udp_ports(max_entries: usize) -> Result<String, String> {
                 out.push_str("  Neither 'ss' nor 'netstat' available.\n");
             } else {
                 for line in netstat_out.lines().take(max_entries) {
-                    out.push_str(&format!("  {}\n", line));
+                    let _ = write!(out, "  {}\n", line);
                 }
             }
         } else {
             for line in ss_out.lines().take(max_entries) {
-                out.push_str(&format!("  {}\n", line));
+                let _ = write!(out, "  {}\n", line);
             }
         }
     }
@@ -11205,7 +11206,7 @@ fn inspect_gpo() -> Result<String, String> {
                         break;
                     }
                     if capture && !line.trim().is_empty() {
-                        out.push_str(&format!("  {}\n", line.trim()));
+                        let _ = write!(out, "  {}\n", line.trim());
                     }
                 }
             } else if stderr.contains("Access is denied") || stdout.contains("Access is denied") {
@@ -11260,7 +11261,7 @@ fn inspect_certificates(max_entries: usize) -> Result<String, String> {
         // Check standard cert locations
         for path in ["/etc/ssl/certs", "/etc/pki/tls/certs"] {
             if Path::new(path).exists() {
-                out.push_str(&format!("  Cert directory found: {}\n", path));
+                let _ = write!(out, "  Cert directory found: {}\n", path);
             }
         }
     }
@@ -11303,7 +11304,7 @@ fn inspect_integrity() -> Result<String, String> {
                 ));
 
                 if let Some(last) = val.get("LastRepairAttempted").and_then(|v| v.as_u64()) {
-                    out.push_str(&format!("  Last Repair Attempt: (Raw code: {})\n", last));
+                    let _ = write!(out, "  Last Repair Attempt: (Raw code: {})\n", last);
                 }
             } else {
                 out.push_str("Could not retrieve CBS health from registry. System may be healthy or state is unknown.\n");
@@ -11373,13 +11374,13 @@ fn inspect_domain() -> Result<String, String> {
                     }
                 ));
                 if part_of_domain {
-                    out.push_str(&format!("  Active Directory Domain: {}\n", domain));
+                    let _ = write!(out, "  Active Directory Domain: {}\n", domain);
                 } else {
-                    out.push_str(&format!("  Workgroup Name: {}\n", workgroup));
+                    let _ = write!(out, "  Workgroup Name: {}\n", workgroup);
                 }
 
                 if let Some(name) = val.get("Name").and_then(|v| v.as_str()) {
-                    out.push_str(&format!("  NetBIOS Name: {}\n", name));
+                    let _ = write!(out, "  NetBIOS Name: {}\n", name);
                 }
             } else {
                 out.push_str("  Domain identity data unavailable from WMI.\n");
@@ -11398,7 +11399,7 @@ fn inspect_domain() -> Result<String, String> {
             .unwrap_or_default();
         out.push_str("=== Linux Domain Identity ===\n");
         if !domainname.trim().is_empty() && domainname.trim() != "(none)" {
-            out.push_str(&format!("  NIS/YP Domain: {}\n", domainname.trim()));
+            let _ = write!(out, "  NIS/YP Domain: {}\n", domainname.trim());
         } else {
             out.push_str("  No NIS domain configured.\n");
         }
@@ -11637,7 +11638,7 @@ async fn inspect_disk_benchmark(path: PathBuf) -> Result<String, String> {
         final_path
     };
 
-    out.push_str(&format!("Target: {}\n", target.display()));
+    let _ = write!(out, "Target: {}\n", target.display());
     out.push_str("Running diagnostic stress test (5s read-thrash + kernel counter trace)...\n\n");
 
     #[cfg(target_os = "windows")]
@@ -11717,9 +11718,9 @@ $avgR = if ($readStats) {{ ($readStats | Measure-Object -Average).Average }} els
             }
 
             out.push_str("=== WORKSTATION INTENSITY REPORT ===\n");
-            out.push_str(&format!("- Active Disk Queue (Avg): {}\n", avg_q));
-            out.push_str(&format!("- Active Disk Queue (Max): {}\n", max_q));
-            out.push_str(&format!("- Disk Throughput (Avg):  {} reads/sec\n", avg_r));
+            let _ = write!(out, "- Active Disk Queue (Avg): {}\n", avg_q);
+            let _ = write!(out, "- Active Disk Queue (Max): {}\n", max_q);
+            let _ = write!(out, "- Disk Throughput (Avg):  {} reads/sec\n", avg_r);
             out.push_str("\nVerdict: ");
             let q_num = avg_q.parse::<f64>().unwrap_or(0.0);
             if q_num > 1.0 {
@@ -11812,7 +11813,7 @@ fn inspect_login_history(max_entries: usize) -> Result<String, String> {
 
         let text = String::from_utf8_lossy(&output.stdout);
         if text.starts_with("ERROR:") {
-            out.push_str(&format!("Unable to query Security Log: {}\n", text));
+            let _ = write!(out, "Unable to query Security Log: {}\n", text);
         } else if text.trim().is_empty() {
             out.push_str("No recent logon events found or access denied.\n");
         } else {
@@ -11836,7 +11837,7 @@ fn inspect_login_history(max_entries: usize) -> Result<String, String> {
 
 fn inspect_share_access(path: PathBuf) -> Result<String, String> {
     let mut out = String::from("Host inspection: share_access\n\n");
-    out.push_str(&format!("Testing accessibility of: {}\n\n", path.display()));
+    let _ = write!(out, "Testing accessibility of: {}\n\n", path.display());
 
     #[cfg(target_os = "windows")]
     {
@@ -11879,7 +11880,7 @@ if (Test-Connection -ComputerName ($p.Split('\')[2]) -Count 1 -Quiet -ErrorActio
 
 fn inspect_dns_fix_plan(issue: &str) -> Result<String, String> {
     let mut out = String::from("Host inspection: fix_plan (DNS Resolution)\n\n");
-    out.push_str(&format!("Issue: {}\n\n", issue));
+    let _ = write!(out, "Issue: {}\n\n", issue);
     out.push_str("Proposed Remediation Steps:\n");
     out.push_str("1. **Flush DNS Cache**: Clear local resolver cache.\n");
     out.push_str("   `ipconfig /flushdns` (Windows) or `sudo resolvectl flush-caches` (Linux)\n");
@@ -12138,7 +12139,7 @@ fn inspect_dns_lookup(name: &str, record_type: &str) -> Result<String, String> {
         if let Some(o) = output {
             let stdout = String::from_utf8_lossy(&o.stdout);
             if stdout.trim().is_empty() {
-                out.push_str(&format!("No {record_type} records found for {target}.\n"));
+                let _ = write!(out, "No {record_type} records found for {target}.\n");
             } else {
                 out.push_str(&stdout);
             }
@@ -12196,7 +12197,7 @@ foreach ($line in $raw) {
                 for line in o.lines() {
                     let l = line.trim();
                     if !l.is_empty() {
-                        out.push_str(&format!("- {l}\n"));
+                        let _ = write!(out, "- {l}\n");
                     }
                 }
             }
@@ -12238,7 +12239,7 @@ if (Test-Path $base) {
                 for line in o.lines() {
                     let l = line.trim();
                     if !l.is_empty() {
-                        out.push_str(&format!("- {l}\n"));
+                        let _ = write!(out, "- {l}\n");
                     }
                 }
             }
@@ -12259,7 +12260,7 @@ foreach ($n in $names) {
                 for line in o.lines() {
                     let l = line.trim();
                     if !l.is_empty() {
-                        out.push_str(&format!("- {l}\n"));
+                        let _ = write!(out, "- {l}\n");
                     }
                 }
             }
@@ -12291,7 +12292,7 @@ if (-not $found) { "No MDM warning/error events in the last 24 hours" }
                 for line in o.lines() {
                     let l = line.trim();
                     if !l.is_empty() {
-                        out.push_str(&format!("- {l}\n"));
+                        let _ = write!(out, "- {l}\n");
                     }
                 }
             }
@@ -12372,7 +12373,7 @@ $ram = (Get-CimInstance Win32_PhysicalMemory -ErrorAction SilentlyContinue | Mea
             let hyperv_installed = feature_state.eq_ignore_ascii_case("enabled");
             vmms_running = vmms_status.starts_with("Running");
 
-            out.push_str(&format!("- Host: {host_name}\n"));
+            let _ = write!(out, "- Host: {host_name}\n");
             out.push_str(&format!(
                 "- Hyper-V feature: {}\n",
                 if hyperv_installed {
@@ -12381,7 +12382,7 @@ $ram = (Get-CimInstance Win32_PhysicalMemory -ErrorAction SilentlyContinue | Mea
                     "Not installed"
                 }
             ));
-            out.push_str(&format!("- VMMS service: {vmms_status}\n"));
+            let _ = write!(out, "- VMMS service: {vmms_status}\n");
             if host_ram_bytes > 0 {
                 out.push_str(&format!(
                     "- Host physical RAM: {} GB\n",
@@ -12450,11 +12451,11 @@ Get-VM -ErrorAction SilentlyContinue | ForEach-Object {
                         "- {name} | State: {state} | CPU: {cpu}% | RAM: {ram} GB | Uptime: {uptime} | Gen{gen}\n"
                     ));
                     if !status.is_empty() && !status.eq_ignore_ascii_case("Operating normally") {
-                        out.push_str(&format!("  Status: {status}\n"));
+                        let _ = write!(out, "  Status: {status}\n");
                     }
                 }
 
-                out.push_str(&format!("\n- Total VMs: {}\n", vm_lines.len()));
+                let _ = write!(out, "\n- Total VMs: {}\n", vm_lines.len());
                 if total_ram_bytes > 0 && host_ram_bytes > 0 {
                     let pct = (total_ram_bytes * 100) / host_ram_bytes;
                     out.push_str(&format!(
@@ -12508,7 +12509,7 @@ Get-VMSwitch -ErrorAction SilentlyContinue | ForEach-Object {
                     let name = kv.get("Switch").copied().unwrap_or("Unknown");
                     let sw_type = kv.get("Type").copied().unwrap_or("Unknown");
                     let adapter = kv.get("Adapter").copied().unwrap_or("N/A");
-                    out.push_str(&format!("- {name} | Type: {sw_type} | NIC: {adapter}\n"));
+                    let _ = write!(out, "- {name} | Type: {sw_type} | NIC: {adapter}\n");
                 }
             }
         } else {
@@ -12575,7 +12576,7 @@ if ($all) {
             result.push_str("- No Hyper-V health issues detected.\n");
         } else {
             for f in &findings {
-                result.push_str(&format!("- Finding: {f}\n"));
+                let _ = write!(result, "- Finding: {f}\n");
             }
         }
         result.push('\n');
@@ -12698,16 +12699,16 @@ try {{
         // Build query description for header
         let mut query_desc = format!("last {hours}h");
         if let Some(id) = event_id {
-            query_desc.push_str(&format!(", Event ID {id}"));
+            let _ = write!(query_desc, ", Event ID {id}");
         }
         if let Some(src) = source {
-            query_desc.push_str(&format!(", source '{src}'"));
+            let _ = write!(query_desc, ", source '{src}'");
         }
         if log != "*" {
-            query_desc.push_str(&format!(", log '{log}'"));
+            let _ = write!(query_desc, ", log '{log}'");
         }
         if let Some(l) = level {
-            query_desc.push_str(&format!(", level '{l}'"));
+            let _ = write!(query_desc, ", level '{l}'");
         }
 
         let mut out = format!("=== Event query: {query_desc} ===\n");
@@ -12722,7 +12723,7 @@ try {{
             if is_event_query_no_results_message(msg) {
                 out.push_str("- No matching events found.\n");
             } else {
-                out.push_str(&format!("- Query error: {msg}\n"));
+                let _ = write!(out, "- Query error: {msg}\n");
                 findings.push(format!("Event query failed: {msg}"));
             }
         } else {
@@ -12793,7 +12794,7 @@ try {{
             result.push_str("- No actionable findings from this event query.\n");
         } else {
             for f in &findings {
-                result.push_str(&format!("- Finding: {f}\n"));
+                let _ = write!(result, "- Finding: {f}\n");
             }
         }
         result.push('\n');
@@ -12935,16 +12936,16 @@ $count
                     } else {
                         String::new()
                     };
-                    sections.push_str(&format!("  [{time}] {kind}: {app}{ver_note}\n"));
+                    let _ = write!(sections, "  [{time}] {kind}: {app}{ver_note}\n");
                     if !module.is_empty() && module != "?" {
                         let exc_note = if !exc.is_empty() {
                             format!(" (exc {exc})")
                         } else {
                             String::new()
                         };
-                        sections.push_str(&format!("    faulting module: {module}{exc_note}\n"));
+                        let _ = write!(sections, "    faulting module: {module}{exc_note}\n");
                     } else if !exc.is_empty() {
-                        sections.push_str(&format!("    exception: {exc}\n"));
+                        let _ = write!(sections, "    exception: {exc}\n");
                     }
                 }
             }
@@ -12971,7 +12972,7 @@ $count
         result.push_str("- No actionable findings.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -13046,30 +13047,30 @@ async fn inspect_overclocker() -> Result<String, String> {
                 out.push_str("=== GPU SENSE (NVIDIA) ===\n");
                 let parts: Vec<&str> = stdout.trim().split(',').map(|s| s.trim()).collect();
                 if parts.len() >= 10 {
-                    out.push_str(&format!("- Model:      {}\n", parts[0]));
-                    out.push_str(&format!("- Graphics:   {} MHz\n", parts[1]));
-                    out.push_str(&format!("- Memory:     {} MHz\n", parts[2]));
-                    out.push_str(&format!("- Fan Speed:  {}%\n", parts[3]));
-                    out.push_str(&format!("- Power Draw: {} W\n", parts[4]));
+                    let _ = write!(out, "- Model:      {}\n", parts[0]);
+                    let _ = write!(out, "- Graphics:   {} MHz\n", parts[1]);
+                    let _ = write!(out, "- Memory:     {} MHz\n", parts[2]);
+                    let _ = write!(out, "- Fan Speed:  {}%\n", parts[3]);
+                    let _ = write!(out, "- Power Draw: {} W\n", parts[4]);
                     if !parts[6].eq_ignore_ascii_case("[N/A]") {
-                        out.push_str(&format!("- Power Avg:  {} W\n", parts[6]));
+                        let _ = write!(out, "- Power Avg:  {} W\n", parts[6]);
                     }
                     if !parts[7].eq_ignore_ascii_case("[N/A]") {
-                        out.push_str(&format!("- Power Inst: {} W\n", parts[7]));
+                        let _ = write!(out, "- Power Inst: {} W\n", parts[7]);
                     }
                     if !parts[8].eq_ignore_ascii_case("[N/A]") {
-                        out.push_str(&format!("- Power Cap:  {} W requested\n", parts[8]));
+                        let _ = write!(out, "- Power Cap:  {} W requested\n", parts[8]);
                     }
                     if !parts[9].eq_ignore_ascii_case("[N/A]") {
-                        out.push_str(&format!("- Power Enf:  {} W enforced\n", parts[9]));
+                        let _ = write!(out, "- Power Enf:  {} W enforced\n", parts[9]);
                     }
-                    out.push_str(&format!("- Temperature: {}°C\n", parts[5]));
+                    let _ = write!(out, "- Temperature: {}°C\n", parts[5]);
 
                     if parts.len() > 10 {
                         let throttle_hex = parts[10];
                         let reasons = decode_nvidia_throttle_reasons(throttle_hex);
                         if !reasons.is_empty() {
-                            out.push_str(&format!("- Throttling:  YES [Reason: {}]\n", reasons));
+                            let _ = write!(out, "- Throttling:  YES [Reason: {}]\n", reasons);
                         } else {
                             out.push_str("- Throttling:  None (Performance State: Max)\n");
                         }
@@ -13136,9 +13137,9 @@ async fn inspect_overclocker() -> Result<String, String> {
                     if let Some((path, val)) = line.split_once(':') {
                         let path_lower = path.to_lowercase();
                         if path_lower.contains("processor frequency") {
-                            out.push_str(&format!("- Current Freq:  {} MHz (2s Avg)\n", val));
+                            let _ = write!(out, "- Current Freq:  {} MHz (2s Avg)\n", val);
                         } else if path_lower.contains("% of maximum frequency") {
-                            out.push_str(&format!("- Throttling:     {}% of Max Capacity\n", val));
+                            let _ = write!(out, "- Throttling:     {}% of Max Capacity\n", val);
                             let throttle_num = val.parse::<f64>().unwrap_or(100.0);
                             if throttle_num < 95.0 {
                                 out.push_str(
@@ -13168,7 +13169,7 @@ async fn inspect_overclocker() -> Result<String, String> {
                     v.get("Temp").and_then(|x| x.as_f64()).unwrap_or(0.0)
                 };
                 if temp > 1.0 {
-                    out.push_str(&format!("- CPU Package:   {}°C (ACPI Zone)\n", temp));
+                    let _ = write!(out, "- CPU Package:   {}°C (ACPI Zone)\n", temp);
                 }
             }
         }
@@ -13193,7 +13194,7 @@ async fn inspect_overclocker() -> Result<String, String> {
                 match v.get("CurrentVoltage").and_then(|x| x.as_u64()) {
                     Some(raw) => {
                         if let Some(decoded) = decode_wmi_processor_voltage(raw) {
-                            out.push_str(&format!("- CPU Voltage:   {}\n", decoded));
+                            let _ = write!(out, "- CPU Voltage:   {}\n", decoded);
                         } else {
                             out.push_str(
                                 "- CPU Voltage:   Unavailable or non-telemetry WMI value on this firmware path\n",
@@ -13290,7 +13291,7 @@ ForEach-Object {
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13316,7 +13317,7 @@ $apps
             for line in o.lines().take(max_entries) {
                 let l = line.trim_end();
                 if !l.is_empty() {
-                    out.push_str(&format!("{l}\n"));
+                    let _ = write!(out, "{l}\n");
                 }
             }
         }
@@ -13334,7 +13335,7 @@ ForEach-Object { "$($_.FriendlyName) | Status: $($_.Status)" }
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13356,7 +13357,7 @@ ForEach-Object { "$($_.FriendlyName) | Status: $($_.Status)" }
         result.push_str("  If an app still can't see the camera, check its individual permission in Settings > Privacy > Camera.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -13389,7 +13390,7 @@ $faceConfigured = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\Wbi
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13423,11 +13424,11 @@ ForEach-Object {
     match run_powershell(ps_events) {
         Ok(o) if !o.trim().is_empty() => {
             let count = o.lines().filter(|l| !l.trim().is_empty()).count();
-            out.push_str(&format!("- {count} recent logon failure(s) detected:\n"));
+            let _ = write!(out, "- {count} recent logon failure(s) detected:\n");
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("  {l}\n"));
+                    let _ = write!(out, "  {l}\n");
                 }
             }
         }
@@ -13448,7 +13449,7 @@ ForEach-Object {
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13469,7 +13470,7 @@ ForEach-Object {
         result.push_str("  If Hello is prompting for PIN or won't recognize you, try Settings > Accounts > Sign-in options > Repair.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -13511,7 +13512,7 @@ if (Test-Path "$env:WINDIR\System32\msiexec.exe") {
             for line in o.lines().take(max_entries + 6) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13541,7 +13542,7 @@ if ($appInstaller) {
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13562,7 +13563,7 @@ if ($store) {
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13596,7 +13597,7 @@ if (-not $pending) { "No pending reboot or installer-in-progress flag detected" 
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13624,7 +13625,7 @@ if ($all.Count -eq 0) {
             for line in o.lines().take(max_entries + 2) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13668,7 +13669,7 @@ if ($all.Count -eq 0) {
         result.push_str("- No obvious installer-platform blocker detected.\n");
     } else {
         for finding in &findings {
-            result.push_str(&format!("- Finding: {finding}\n"));
+            let _ = write!(result, "- Finding: {finding}\n");
         }
     }
     result.push('\n');
@@ -13716,7 +13717,7 @@ if ($proc) {
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13755,7 +13756,7 @@ if (Test-Path $base) {
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13795,7 +13796,7 @@ if (-not $found) { "No OneDrive policy overrides detected" }
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13844,7 +13845,7 @@ if (Test-Path $shell) {
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13897,7 +13898,7 @@ if (Test-Path $shell) {
         result.push_str("- No obvious OneDrive client, account, or policy blocker detected.\n");
     } else {
         for finding in &findings {
-            result.push_str(&format!("- Finding: {finding}\n"));
+            let _ = write!(result, "- Finding: {finding}\n");
         }
     }
     result.push('\n');
@@ -13952,7 +13953,7 @@ $startMenuInternet = (Get-ItemProperty 'HKLM:\SOFTWARE\Clients\StartMenuInternet
             for line in o.lines().take(max_entries + 6) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -13978,7 +13979,7 @@ foreach ($name in $targets) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14014,7 +14015,7 @@ $proc = Get-Process msedgewebview2 -ErrorAction SilentlyContinue
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14064,7 +14065,7 @@ foreach ($policy in $policyTargets) {
             for line in o.lines().take(max_entries + 8) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14110,7 +14111,7 @@ foreach ($profile in $profiles) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14143,7 +14144,7 @@ if ($events) {
             for line in o.lines().take(max_entries + 2) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14254,7 +14255,7 @@ if ($events) {
         result.push_str("- No obvious browser, proxy, or WebView2 health blocker detected.\n");
     } else {
         for finding in &findings {
-            result.push_str(&format!("- Finding: {finding}\n"));
+            let _ = write!(result, "- Finding: {finding}\n");
         }
     }
     result.push('\n');
@@ -14303,7 +14304,7 @@ if ($newOutlook) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14327,7 +14328,7 @@ if ($proc) {
             for line in o.lines().take(4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14357,7 +14358,7 @@ if (Test-Path $profileKey) {
             for line in o.lines().take(max_entries + 2) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14391,7 +14392,7 @@ if ($files) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14443,7 +14444,7 @@ if (Test-Path $disabledByResiliency) {
             for line in o.lines().take(max_entries + 8) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14479,7 +14480,7 @@ if (Test-Path $outlookReg) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14511,7 +14512,7 @@ if ($events) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14604,7 +14605,7 @@ if ($events) {
         result.push_str("- No obvious Outlook health blocker detected.\n");
     } else {
         for finding in &findings {
-            result.push_str(&format!("- Finding: {finding}\n"));
+            let _ = write!(result, "- Finding: {finding}\n");
         }
     }
     result.push('\n');
@@ -14666,7 +14667,7 @@ if ($mwi) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14692,7 +14693,7 @@ foreach ($name in $targets) {
             for line in o.lines().take(6) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14723,7 +14724,7 @@ foreach ($entry in $cachePaths) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14755,7 +14756,7 @@ if ($runtimeDir) {
             for line in o.lines().take(4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14796,7 +14797,7 @@ $teamsRun = (Get-ItemProperty $startupKey -ErrorAction SilentlyContinue) | Selec
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14843,7 +14844,7 @@ if (-not $found) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14875,7 +14876,7 @@ if ($events) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -14955,7 +14956,7 @@ if ($events) {
         result.push_str("- No obvious Teams health blocker detected.\n");
     } else {
         for finding in &findings {
-            result.push_str(&format!("- Finding: {finding}\n"));
+            let _ = write!(result, "- Finding: {finding}\n");
         }
     }
     result.push('\n');
@@ -14991,7 +14992,7 @@ foreach ($name in $serviceNames) {
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15029,7 +15030,7 @@ if ($dsreg) {
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15061,7 +15062,7 @@ $oneAuthCount = if (Test-Path $oneAuth) { @(Get-ChildItem $oneAuth -File -Recurs
             for line in o.lines().take(max_entries + 4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15131,7 +15132,7 @@ if ($distinct.Count -gt 0) {
             for line in o.lines().take(max_entries + 6) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15163,7 +15164,7 @@ if ($runtimeDir) {
             for line in o.lines().take(4) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15211,7 +15212,7 @@ try {
             for line in o.lines().take(max_entries + 8) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15289,7 +15290,7 @@ try {
         result.push_str("- No obvious Microsoft 365 identity broker, token cache, or device-registration blocker detected.\n");
     } else {
         for finding in &findings {
-            result.push_str(&format!("- Finding: {finding}\n"));
+            let _ = write!(result, "- Finding: {finding}\n");
         }
     }
     result.push('\n');
@@ -15337,7 +15338,7 @@ if (Test-Path $fhUser) {
             for line in o.lines().take(6) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15369,7 +15370,7 @@ foreach ($t in $task) {
             for line in o.lines().take(8) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15413,7 +15414,7 @@ $srEnabled = try {
             for line in o.lines().take(8) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15442,7 +15443,7 @@ if (Test-Path $kfmKey) {
             for line in o.lines().take(6) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15474,7 +15475,7 @@ if ($events) {
             for line in o.lines().take(8) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15527,7 +15528,7 @@ if ($events) {
         result.push_str("- No obvious backup health blocker detected.\n");
     } else {
         for finding in &findings {
-            result.push_str(&format!("- Finding: {finding}\n"));
+            let _ = write!(result, "- Finding: {finding}\n");
         }
     }
     result.push('\n');
@@ -15571,7 +15572,7 @@ if ($props) {
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15601,7 +15602,7 @@ if ($comObj) {
             for line in o.lines() {
                 let l = line.trim_end();
                 if !l.is_empty() {
-                    out.push_str(&format!("{l}\n"));
+                    let _ = write!(out, "{l}\n");
                 }
             }
         }
@@ -15616,7 +15617,7 @@ ForEach-Object { "  $($_.PSChildName)" } | Select-Object -First 20
                     for line in o.lines() {
                         let l = line.trim_end();
                         if !l.is_empty() {
-                            out.push_str(&format!("{l}\n"));
+                            let _ = write!(out, "{l}\n");
                         }
                     }
                 }
@@ -15637,7 +15638,7 @@ ForEach-Object { "$($_.TimeCreated.ToString('HH:mm')) [$($_.LevelDisplayName)] $
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15668,7 +15669,7 @@ ForEach-Object { "$($_.TimeCreated.ToString('HH:mm')) [$($_.LevelDisplayName)] $
         result.push_str("  If search still feels slow, the index may just be catching up — check indexing status in Settings > Search > Searching Windows.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -15701,7 +15702,7 @@ ForEach-Object {
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15724,7 +15725,7 @@ ForEach-Object {
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15742,7 +15743,7 @@ ForEach-Object { "$($_.Name) | Status: $($_.Status) | PnP: $($_.PNPDeviceID)" }
             for line in o.lines().take(max_entries) {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15771,7 +15772,7 @@ try {
 "#;
     match run_powershell(ps_dpi) {
         Ok(o) if !o.trim().is_empty() => {
-            out.push_str(&format!("- {}\n", o.trim()));
+            let _ = write!(out, "- {}\n", o.trim());
         }
         _ => out.push_str("- DPI info unavailable\n"),
     }
@@ -15786,7 +15787,7 @@ try {
         result.push_str("- Display configuration appears normal.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -15828,7 +15829,7 @@ if ($q) { $q } else { "w32tm query unavailable" }
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("  {l}\n"));
+                    let _ = write!(out, "  {l}\n");
                 }
             }
         }
@@ -15845,7 +15846,7 @@ w32tm /query /peers 2>$null | Select-Object -First 10
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("  {l}\n"));
+                    let _ = write!(out, "  {l}\n");
                 }
             }
         }
@@ -15856,7 +15857,7 @@ w32tm /query /peers 2>$null | Select-Object -First 10
 "#;
             match run_powershell(ps_reg) {
                 Ok(o) if !o.trim().is_empty() => {
-                    out.push_str(&format!("  NtpServer (registry): {}\n", o.trim()));
+                    let _ = write!(out, "  NtpServer (registry): {}\n", o.trim());
                 }
                 _ => out.push_str("  - Could not enumerate NTP peers\n"),
             }
@@ -15876,7 +15877,7 @@ w32tm /query /peers 2>$null | Select-Object -First 10
         result.push_str("- Windows Time service and NTP sync appear healthy.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -15903,7 +15904,7 @@ fn inspect_ntp() -> Result<String, String> {
         for line in text.lines() {
             let l = line.trim();
             if !l.is_empty() {
-                out.push_str(&format!("  {l}\n"));
+                let _ = write!(out, "  {l}\n");
             }
         }
         return Ok(out);
@@ -15960,7 +15961,7 @@ if ($boost) {
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -15983,7 +15984,7 @@ ForEach-Object {
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16006,7 +16007,7 @@ if ($pwr) {
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16029,7 +16030,7 @@ if ($pwr) {
         result.push_str("- CPU power and frequency settings appear normal.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -16059,7 +16060,7 @@ $cert    = ($lines | Where-Object { $_ -match "Type: Certificate" }).Count
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16091,7 +16092,7 @@ $entries | Select-Object -Last 20 | ForEach-Object {
                 out.push_str("- No credential entries found\n");
             } else {
                 for l in &lines {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16118,7 +16119,7 @@ $entries | Select-Object -Last 20 | ForEach-Object {
         result.push_str("- Credential store looks normal.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -16158,7 +16159,7 @@ if ($t) {
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16181,7 +16182,7 @@ if ($wmi) {
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16209,7 +16210,7 @@ try {
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16234,7 +16235,7 @@ switch ($fw) {
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16286,7 +16287,7 @@ switch ($fw) {
         result.push_str("- TPM and Secure Boot appear healthy.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -16330,7 +16331,7 @@ if ($gw) { $gw } else { "" }
     let mut findings: Vec<String> = Vec::new();
 
     for (label, host) in &targets {
-        out.push_str(&format!("\n=== Ping: {label} ({host}) ===\n"));
+        let _ = write!(out, "\n=== Ping: {label} ({host}) ===\n");
         // Test-NetConnection gives RTT; -InformationLevel Quiet just returns bool, so use ping
         let ps_ping = format!(
             r#"
@@ -16355,7 +16356,7 @@ if ($r) {{
                 for line in body.lines() {
                     let l = line.trim();
                     if !l.is_empty() {
-                        out.push_str(&format!("- {l}\n"));
+                        let _ = write!(out, "- {l}\n");
                     }
                 }
                 if body.contains("UNREACHABLE") {
@@ -16396,7 +16397,7 @@ if ($r) {{
         result.push_str("- Latency and reachability look normal.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -16411,7 +16412,7 @@ fn inspect_latency() -> Result<String, String> {
     let mut findings: Vec<String> = Vec::new();
 
     for (label, host) in &targets {
-        out.push_str(&format!("\n=== Ping: {label} ({host}) ===\n"));
+        let _ = write!(out, "\n=== Ping: {label} ({host}) ===\n");
         let ping = std::process::Command::new("ping")
             .args(["-c", "4", "-W", "2", host])
             .output();
@@ -16421,7 +16422,7 @@ fn inspect_latency() -> Result<String, String> {
                 for line in body.lines() {
                     let l = line.trim();
                     if l.contains("ms") || l.contains("loss") || l.contains("transmitted") {
-                        out.push_str(&format!("- {l}\n"));
+                        let _ = write!(out, "- {l}\n");
                     }
                 }
                 if body.contains("100% packet loss") || body.contains("100.0% packet loss") {
@@ -16440,7 +16441,7 @@ fn inspect_latency() -> Result<String, String> {
     } else {
         let mut prefix = String::new();
         for f in &findings {
-            prefix.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(prefix, "- Finding: {f}\n");
         }
         out.insert_str(
             "Host inspection: latency\n\n=== Findings ===\n".len(),
@@ -16466,7 +16467,7 @@ Get-NetAdapter | Sort-Object Status,Name | ForEach-Object {
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16496,7 +16497,7 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
                 .filter(|l| !l.is_empty())
                 .collect();
             for l in &lines {
-                out.push_str(&format!("- {l}\n"));
+                let _ = write!(out, "- {l}\n");
             }
         }
         Err(e) => out.push_str(&format!("- Duplex query error: {e}\n")),
@@ -16528,7 +16529,7 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
                 );
             } else {
                 for l in &lines {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16555,7 +16556,7 @@ Get-NetAdapterStatistics | ForEach-Object {
                 out.push_str("- No adapter errors or discards detected.\n");
             } else {
                 for l in &lines {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16582,7 +16583,7 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
                 out.push_str("- Power management data unavailable for active adapters.\n");
             } else {
                 for l in &lines {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16605,7 +16606,7 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
         result.push_str("- Network adapter configuration looks normal.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -16625,7 +16626,7 @@ fn inspect_network_adapter() -> Result<String, String> {
         for line in String::from_utf8_lossy(&o.stdout).lines() {
             let l = line.trim();
             if !l.is_empty() {
-                out.push_str(&format!("- {l}\n"));
+                let _ = write!(out, "- {l}\n");
             }
         }
     }
@@ -16639,7 +16640,7 @@ fn inspect_network_adapter() -> Result<String, String> {
             let l = line.trim();
             if l.contains("RX") || l.contains("TX") || l.contains("errors") || l.contains("dropped")
             {
-                out.push_str(&format!("- {l}\n"));
+                let _ = write!(out, "- {l}\n");
             }
         }
     }
@@ -16677,7 +16678,7 @@ foreach ($a in $adapters) {
             for line in o.lines() {
                 let l = line.trim_end();
                 if !l.is_empty() {
-                    out.push_str(&format!("{l}\n"));
+                    let _ = write!(out, "{l}\n");
                 }
             }
         }
@@ -16716,7 +16717,7 @@ foreach ($a in $adapters) {
         result.push_str("- DHCP leases look healthy.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -16742,7 +16743,7 @@ fn inspect_dhcp() -> Result<String, String> {
                         || l.contains("server")
                         || l.contains("address")
                     {
-                        out.push_str(&format!("- {l}\n"));
+                        let _ = write!(out, "- {l}\n");
                     }
                 }
             }
@@ -16757,7 +16758,7 @@ fn inspect_dhcp() -> Result<String, String> {
         for line in String::from_utf8_lossy(&o.stdout).lines() {
             let l = line.trim();
             if l.starts_with("inet") || l.contains("dynamic") {
-                out.push_str(&format!("- {l}\n"));
+                let _ = write!(out, "- {l}\n");
             }
         }
     }
@@ -16781,7 +16782,7 @@ Get-NetIPInterface | Where-Object { $_.AddressFamily -eq "IPv4" } |
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16801,7 +16802,7 @@ Get-NetIPInterface | Where-Object { $_.AddressFamily -eq "IPv6" } |
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16825,7 +16826,7 @@ else { "All test sizes failed — path MTU may be very restricted or ICMP is blo
             for line in o.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16851,7 +16852,7 @@ else { "All test sizes failed — path MTU may be very restricted or ICMP is blo
         result.push_str("- MTU configuration looks normal.\n");
     } else {
         for f in &findings {
-            result.push_str(&format!("- Finding: {f}\n"));
+            let _ = write!(result, "- Finding: {f}\n");
         }
     }
     result.push('\n');
@@ -16873,7 +16874,7 @@ fn inspect_mtu() -> Result<String, String> {
         for line in String::from_utf8_lossy(&o.stdout).lines() {
             let l = line.trim();
             if l.contains("mtu") || l.starts_with("\\d") {
-                out.push_str(&format!("- {l}\n"));
+                let _ = write!(out, "- {l}\n");
             }
         }
     }
@@ -16888,7 +16889,7 @@ fn inspect_mtu() -> Result<String, String> {
             for line in body.lines() {
                 let l = line.trim();
                 if !l.is_empty() {
-                    out.push_str(&format!("- {l}\n"));
+                    let _ = write!(out, "- {l}\n");
                 }
             }
         }
@@ -16912,7 +16913,7 @@ fn inspect_cpu_power() -> Result<String, String> {
             .parse()
             .unwrap_or(0);
         if khz > 0 {
-            out.push_str(&format!("- Current: {} MHz\n", khz / 1000));
+            let _ = write!(out, "- Current: {} MHz\n", khz / 1000);
         }
     }
     let cat_max = std::process::Command::new("cat")
@@ -16924,7 +16925,7 @@ fn inspect_cpu_power() -> Result<String, String> {
             .parse()
             .unwrap_or(0);
         if khz > 0 {
-            out.push_str(&format!("- Max: {} MHz\n", khz / 1000));
+            let _ = write!(out, "- Max: {} MHz\n", khz / 1000);
         }
     }
     let governor = std::process::Command::new("cat")
@@ -16934,7 +16935,7 @@ fn inspect_cpu_power() -> Result<String, String> {
         let g = String::from_utf8_lossy(&o.stdout);
         let g = g.trim();
         if !g.is_empty() {
-            out.push_str(&format!("- Governor: {g}\n"));
+            let _ = write!(out, "- Governor: {g}\n");
         }
     }
     Ok(out)
@@ -17253,7 +17254,7 @@ fn inspect_wlan_profiles() -> Result<String, String> {
     {
         for line in String::from_utf8_lossy(&o.stdout).lines() {
             if line.contains("wireless") || line.contains("wifi") {
-                out.push_str(&format!("  {line}\n"));
+                let _ = write!(out, "  {line}\n");
             }
         }
     } else {
@@ -17679,7 +17680,7 @@ fn inspect_snmp() -> Result<String, String> {
             .output()
         {
             let status = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            out.push_str(&format!("  {svc}: {status}\n"));
+            let _ = write!(out, "  {svc}: {status}\n");
         }
     }
     out.push_str("\n=== snmpd.conf community strings (presence check) ===\n");
@@ -17689,7 +17690,7 @@ fn inspect_snmp() -> Result<String, String> {
     {
         if o.status.success() {
             for line in String::from_utf8_lossy(&o.stdout).lines() {
-                out.push_str(&format!("  {line}\n"));
+                let _ = write!(out, "  {line}\n");
             }
         } else {
             out.push_str("  /etc/snmp/snmpd.conf not found or no community lines.\n");
@@ -17765,10 +17766,10 @@ fn inspect_port_test(host: Option<&str>, port: Option<u16>) -> Result<String, St
             } else {
                 stderr.as_ref()
             };
-            out.push_str(&format!("  {}\n", body.trim()));
+            let _ = write!(out, "  {}\n", body.trim());
             out.push_str("\n=== Findings ===\n");
             if o.status.success() {
-                out.push_str(&format!("- Port {target_port} on {target_host} is OPEN.\n"));
+                let _ = write!(out, "- Port {target_port} on {target_host} is OPEN.\n");
             } else {
                 out.push_str(&format!(
                     "- Port {target_port} on {target_host} is CLOSED or FILTERED.\n"
@@ -18140,7 +18141,7 @@ fn inspect_domain_health() -> Result<String, String> {
         if let Ok(o) = Command::new(cmd_args[0]).args(&cmd_args[1..]).output() {
             let s = String::from_utf8_lossy(&o.stdout);
             if !s.trim().is_empty() {
-                out.push_str(&format!("$ {}\n{}\n", cmd_args.join(" "), s.trim_end()));
+                let _ = write!(out, "$ {}\n{}\n", cmd_args.join(" "), s.trim_end());
             }
         }
     }
@@ -18308,7 +18309,7 @@ fn inspect_local_security_policy() -> Result<String, String> {
         for line in content.lines() {
             let t = line.trim();
             if !t.is_empty() && !t.starts_with('#') {
-                out.push_str(&format!("  {t}\n"));
+                let _ = write!(out, "  {t}\n");
             }
         }
     }
@@ -18377,7 +18378,7 @@ fn inspect_usb_history(_max_entries: usize) -> Result<String, String> {
         if !usb_lines.is_empty() {
             out.push_str("=== Recent USB kernel events (journalctl) ===\n");
             for line in usb_lines {
-                out.push_str(&format!("  {line}\n"));
+                let _ = write!(out, "  {line}\n");
             }
         }
     } else {
@@ -18478,7 +18479,7 @@ fn inspect_defender_quarantine(_max_entries: usize) -> Result<String, String> {
             if let Ok(log) = std::fs::read_to_string("/var/log/clamav/clamav.log") {
                 out.push_str("\n=== ClamAV Recent Log ===\n");
                 for line in log.lines().rev().take(20) {
-                    out.push_str(&format!("  {line}\n"));
+                    let _ = write!(out, "  {line}\n");
                 }
             }
         }
