@@ -132,10 +132,22 @@ pub fn parse_scratchpad_diffs(raw_content: &str, worker_id: String) -> Vec<Hunk>
     let mut current_pos = 0;
 
     fn parse_attr(attr_str: &str, key: &str) -> Option<usize> {
-        let key_match = format!("{}=\"", key);
-        let start = attr_str.find(&key_match)? + key_match.len();
-        let end = attr_str[start..].find('"')? + start;
-        attr_str[start..end].parse().ok()
+        let klen = key.len();
+        let bytes = attr_str.as_bytes();
+        let mut pos = 0;
+        while let Some(rel) = attr_str[pos..].find(key) {
+            let abs = pos + rel;
+            let after = abs + klen;
+            if bytes.get(after).copied() == Some(b'=')
+                && bytes.get(after + 1).copied() == Some(b'"')
+            {
+                let val_start = after + 2;
+                let end = attr_str[val_start..].find('"')? + val_start;
+                return attr_str[val_start..end].parse().ok();
+            }
+            pos = abs + 1;
+        }
+        None
     }
 
     while let Some(start_idx) = raw_content[current_pos..].find("<patch") {

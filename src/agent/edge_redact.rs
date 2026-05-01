@@ -110,13 +110,17 @@ pub fn redact(input: &str) -> RedactResult {
     let summary_header = if total == 0 {
         String::from("[edge-redact: no sensitive patterns detected]")
     } else {
-        let detail: Vec<String> = counts
-            .iter()
-            .map(|(label, n)| format!("{label} \u{00d7}{n}"))
-            .collect();
+        let mut detail = String::new();
+        for (i, (label, n)) in counts.iter().enumerate() {
+            if i > 0 {
+                detail.push_str(", ");
+            }
+            detail.push_str(label);
+            detail.push_str(" \u{00d7}");
+            detail.push_str(&n.to_string());
+        }
         format!(
-            "[edge-redact: {total} substitution(s) — {} — values replaced before leaving this machine]",
-            detail.join(", ")
+            "[edge-redact: {total} substitution(s) — {detail} — values replaced before leaving this machine]"
         )
     };
 

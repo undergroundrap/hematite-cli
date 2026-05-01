@@ -43,6 +43,19 @@ pub fn match_recipes(output: &str) -> Vec<&'static Recipe> {
     matches
 }
 
+fn collect_unique_recipes(outputs: &[(&str, &str)]) -> Vec<&'static Recipe> {
+    let mut all_recipes: Vec<&'static Recipe> = Vec::new();
+    let mut seen_titles = std::collections::HashSet::new();
+    for (_label, output) in outputs {
+        for recipe in match_recipes(output) {
+            if seen_titles.insert(recipe.title) {
+                all_recipes.push(recipe);
+            }
+        }
+    }
+    all_recipes
+}
+
 struct RecipeEntry {
     triggers: &'static [&'static str],
     recipe: Recipe,
@@ -707,16 +720,7 @@ impl HealthScore {
 
 /// Compute a health grade (A–F) from diagnostic output sections.
 pub fn score_health(outputs: &[(&str, &str)]) -> HealthScore {
-    let mut all_recipes: Vec<&Recipe> = Vec::new();
-    let mut seen_titles = std::collections::HashSet::new();
-
-    for (_label, output) in outputs {
-        for recipe in match_recipes(output) {
-            if seen_titles.insert(recipe.title) {
-                all_recipes.push(recipe);
-            }
-        }
-    }
+    let all_recipes = collect_unique_recipes(outputs);
 
     let action_count = all_recipes
         .iter()
@@ -755,16 +759,7 @@ pub fn score_health(outputs: &[(&str, &str)]) -> HealthScore {
 /// Format all matching recipes for a given diagnostic output into a
 /// human-readable action plan section suitable for a Markdown report.
 pub fn format_action_plan(outputs: &[(&str, &str)]) -> String {
-    let mut all_recipes: Vec<&Recipe> = Vec::new();
-    let mut seen_titles = std::collections::HashSet::new();
-
-    for (_label, output) in outputs {
-        for recipe in match_recipes(output) {
-            if seen_titles.insert(recipe.title) {
-                all_recipes.push(recipe);
-            }
-        }
-    }
+    let mut all_recipes = collect_unique_recipes(outputs);
 
     if all_recipes.is_empty() {
         return "No actionable findings — machine appears healthy.\n".to_string();
@@ -777,16 +772,24 @@ pub fn format_action_plan(outputs: &[(&str, &str)]) -> String {
         _ => 2,
     });
 
-    let mut out = String::new();
+    let mut out = String::with_capacity(all_recipes.len() * 200);
     for (i, recipe) in all_recipes.iter().enumerate() {
         let badge = match recipe.severity {
             "ACTION" => "⚠ ACTION REQUIRED",
             "INVESTIGATE" => "🔍 INVESTIGATE",
             _ => "📊 MONITOR",
         };
-        out.push_str(&format!("### {}. {} — {}\n\n", i + 1, badge, recipe.title));
+        out.push_str("### ");
+        out.push_str(&(i + 1).to_string());
+        out.push_str(". ");
+        out.push_str(badge);
+        out.push_str(" — ");
+        out.push_str(recipe.title);
+        out.push_str("\n\n");
         for step in recipe.steps {
-            out.push_str(&format!("- {}\n", step));
+            out.push_str("- ");
+            out.push_str(step);
+            out.push('\n');
         }
         if let Some(_topic) = recipe.dig_deeper {
             out.push_str("\n*Run `hematite --diagnose` for a deeper automated investigation.*\n");
@@ -799,16 +802,7 @@ pub fn format_action_plan(outputs: &[(&str, &str)]) -> String {
 
 /// Format all matching recipes as an HTML fragment for embedding in a report page.
 pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
-    let mut all_recipes: Vec<&Recipe> = Vec::new();
-    let mut seen_titles = std::collections::HashSet::new();
-
-    for (_label, output) in outputs {
-        for recipe in match_recipes(output) {
-            if seen_titles.insert(recipe.title) {
-                all_recipes.push(recipe);
-            }
-        }
-    }
+    let mut all_recipes = collect_unique_recipes(outputs);
 
     if all_recipes.is_empty() {
         return "<p class=\"healthy\">No actionable findings — machine appears healthy.</p>\n"
