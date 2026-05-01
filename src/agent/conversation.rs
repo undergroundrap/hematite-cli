@@ -3060,7 +3060,7 @@ impl ConversationManager {
                 .await;
             let report = generate_triage_report_markdown(preset).await;
             for chunk in chunk_text(&report, 8) {
-                let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
             let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
@@ -3074,7 +3074,7 @@ impl ConversationManager {
                     list.push_str(&format!("  {:<22} {}\n", cat, keywords));
                 }
                 for chunk in chunk_text(&list, 8) {
-                    let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
                 }
                 let _ = tx.send(InferenceEvent::Done).await;
                 return Ok(());
@@ -3087,7 +3087,7 @@ impl ConversationManager {
                 .await;
             let plan = generate_fix_plan_markdown(issue).await;
             for chunk in chunk_text(&plan, 8) {
-                let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
             let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
@@ -3097,7 +3097,7 @@ impl ConversationManager {
             let topic = user_input.strip_prefix("/inspect").unwrap_or("").trim();
             if topic.is_empty() {
                 for chunk in chunk_text(&build_inspect_inventory(), 8) {
-                    let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
                 }
                 let _ = tx.send(InferenceEvent::Done).await;
                 return Ok(());
@@ -3113,7 +3113,7 @@ impl ConversationManager {
                 .await
                 .unwrap_or_else(|e| format!("Error: {}", e));
             for chunk in chunk_text(&output, 8) {
-                let _ = tx.send(InferenceEvent::Token(chunk.to_string())).await;
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
             }
             let _ = tx.send(InferenceEvent::Done).await;
             return Ok(());
@@ -8859,11 +8859,10 @@ fn is_code_like_path(path: &str) -> bool {
 // ── Display helpers ───────────────────────────────────────────────────────────
 
 pub fn format_tool_display(name: &str, args: &Value) -> String {
-    let get = |key: &str| {
+    let get = |key: &str| -> &str {
         args.get(key)
             .and_then(|v| v.as_str())
             .unwrap_or("")
-            .to_string()
     };
     match name {
         "shell" | "bash" | "powershell" => format!("$ {}", get("command")),
