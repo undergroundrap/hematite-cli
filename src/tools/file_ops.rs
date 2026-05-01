@@ -44,28 +44,19 @@ fn prune_ghost_backups(ghost_dir: &Path) {
         return;
     };
 
-    let filtered_lines: Vec<String> = content
-        .lines()
-        .filter_map(|line| {
-            let parts: Vec<&str> = line.splitn(2, '|').collect();
-            if parts.len() != 2 {
-                return None;
+    let mut rewritten = String::new();
+    for line in content.lines() {
+        let mut parts = line.splitn(2, '|');
+        if parts.next().is_some() {
+            if let Some(rest) = parts.next() {
+                let backup_path = rest.replace('\\', "/");
+                if retained.contains(&backup_path) {
+                    rewritten.push_str(line);
+                    rewritten.push('\n');
+                }
             }
-
-            let backup_path = parts[1].replace('\\', "/");
-            if retained.contains(&backup_path) {
-                Some(line.to_string())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    let rewritten = if filtered_lines.is_empty() {
-        String::new()
-    } else {
-        filtered_lines.join("\n") + "\n"
-    };
+        }
+    }
     let _ = fs::write(ledger_path, rewritten);
 }
 

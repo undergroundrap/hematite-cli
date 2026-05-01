@@ -281,8 +281,8 @@ pub fn preferred_coding_model(config: &HematiteConfig) -> Option<String> {
     config
         .think_model
         .clone()
-        .or(config.model.clone())
-        .or(config.fast_model.clone())
+        .or_else(|| config.model.clone())
+        .or_else(|| config.fast_model.clone())
 }
 
 pub fn set_preferred_coding_model(model_id: Option<&str>) -> Result<(), String> {

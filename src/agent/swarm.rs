@@ -178,10 +178,13 @@ impl SwarmCoordinator {
         mut hunks: Vec<Hunk>,
         progression_tx: tokio::sync::mpsc::Sender<SwarmMessage>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut lines: Vec<String> = fs::read_to_string(file_path)?
-            .lines()
-            .map(|s| s.to_string())
-            .collect();
+        let content = fs::read_to_string(file_path)?;
+        let mut lines: Vec<String> = {
+            let n = content.matches('\n').count() + 1;
+            let mut v = Vec::with_capacity(n);
+            v.extend(content.lines().map(|s| s.to_string()));
+            v
+        };
 
         // The Golden Rule: Sort Descending natively
         hunks.sort_by_key(|h| h.sort_key());
