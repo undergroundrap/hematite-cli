@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use crate::agent::lsp::manager::LspManager;
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -290,7 +291,7 @@ pub async fn lsp_get_diagnostics(
                     3 => "[INFO]",
                     _ => "[HINT]",
                 };
-                out.push_str(&format!("{} Line {}: {}\n", sev_label, start_line + 1, msg));
+                let _ = write!(out, "{} Line {}: {}\n", sev_label, start_line + 1, msg);
             }
             Ok(out)
         }

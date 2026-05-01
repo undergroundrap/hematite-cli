@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -172,10 +173,10 @@ pub fn render_skill_catalog(discovery: &SkillDiscovery, max_chars: usize) -> Opt
             skill.skill_md_path.display()
         );
         if !skill.triggers.is_empty() {
-            line.push_str(&format!(" | auto-activates: {}", skill.triggers.join(", ")));
+            let _ = write!(line, " | auto-activates: {}", skill.triggers.join(", "));
         }
         if let Some(compatibility) = &skill.compatibility {
-            line.push_str(&format!(" | compatibility: {}", compatibility));
+            let _ = write!(line, " | compatibility: {}", compatibility);
         }
         remaining = remaining.saturating_sub(line.len());
         output.push(line);
@@ -393,7 +394,7 @@ pub fn render_skills_report(discovery: &SkillDiscovery) -> String {
             ));
         }
         if let Some(compatibility) = &skill.compatibility {
-            report.push_str(&format!("  compatibility: {}\n", compatibility));
+            let _ = write!(report, "  compatibility: {}\n", compatibility);
         }
     }
     report

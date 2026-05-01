@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 pub struct Recipe {
     pub severity: &'static str,
     pub title: &'static str,
@@ -822,7 +824,7 @@ pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
             "INVESTIGATE" => ("sev-investigate", "b-investigate", "INVESTIGATE"),
             _ => ("sev-monitor", "b-monitor", "MONITOR"),
         };
-        out.push_str(&format!("<div class=\"recipe {}\">\n", sev_class));
+        let _ = write!(out, "<div class=\"recipe {}\">\n", sev_class);
         out.push_str(&format!(
             "<h3><span class=\"badge {}\">{}</span> {}. {}</h3>\n",
             badge_class,
@@ -832,7 +834,7 @@ pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
         ));
         out.push_str("<ol>\n");
         for step in recipe.steps {
-            out.push_str(&format!("<li>{}</li>\n", he(step)));
+            let _ = write!(out, "<li>{}</li>\n", he(step));
         }
         out.push_str("</ol>\n");
         if let Some(_topic) = recipe.dig_deeper {

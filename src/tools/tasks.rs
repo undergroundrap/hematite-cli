@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use crate::tools::file_ops::hematite_dir;
 use serde_json::{json, Value};
 use std::fs;
@@ -64,7 +65,7 @@ fn add_task(path: &PathBuf, title: &str) -> Result<String, String> {
     if !tasks.is_empty() && !tasks.ends_with('\n') {
         tasks.push('\n');
     }
-    tasks.push_str(&format!("- [ ] {}\n", title));
+    let _ = write!(tasks, "- [ ] {}\n", title);
 
     fs::create_dir_all(path.parent().expect("Invalid task path")).map_err(|e| e.to_string())?;
     fs::write(path, &tasks).map_err(|e| format!("Failed to write task: {e}"))?;

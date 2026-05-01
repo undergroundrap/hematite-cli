@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use super::modal_review::{draw_diff_review, ActiveReview};
 use crate::agent::conversation::{AttachedDocument, AttachedImage, UserTurn};
 use crate::agent::inference::{McpRuntimeState, OperatorCheckpointState, ProviderRuntimeState};
@@ -1664,8 +1665,8 @@ impl App {
         }
 
         history.push_str("\nSession Stats\n");
-        history.push_str(&format!("Tokens: {}\n", self.total_tokens));
-        history.push_str(&format!("Cost: ${:.4}\n", self.current_session_cost));
+        let _ = write!(history, "Tokens: {}\n", self.total_tokens);
+        let _ = write!(history, "Cost: ${:.4}\n", self.current_session_cost);
 
         copy_text_to_clipboard(&history);
     }
@@ -1685,8 +1686,8 @@ impl App {
         }
 
         history.push_str("\nSession Stats\n");
-        history.push_str(&format!("Tokens: {}\n", self.total_tokens));
-        history.push_str(&format!("Cost: ${:.4}\n", self.current_session_cost));
+        let _ = write!(history, "Tokens: {}\n", self.total_tokens);
+        let _ = write!(history, "Cost: ${:.4}\n", self.current_session_cost);
 
         copy_text_to_clipboard(&history);
     }
@@ -3698,7 +3699,7 @@ pub async fn run_app<B: Backend>(
                                                         output.push_str("Common locations:\n");
                                                         for (label, pb) in &valid {
                                                             entries.push(pb.clone());
-                                                            output.push_str(&format!("  {:>2}.  {:<12}  {}\n", entries.len(), label, pb.display()));
+                                                            let _ = write!(output, "  {:>2}.  {:<12}  {}\n", entries.len(), label, pb.display());
                                                         }
                                                     }
                                                 }
@@ -3717,11 +3718,11 @@ pub async fn run_app<B: Backend>(
                                                         .collect();
                                                     dirs_found.sort();
                                                     if !dirs_found.is_empty() {
-                                                        output.push_str(&format!("\n{}:\n", cwd_label.display()));
+                                                        let _ = write!(output, "\n{}:\n", cwd_label.display());
                                                         for pb in &dirs_found {
                                                             entries.push(pb.clone());
                                                             let name = pb.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-                                                            output.push_str(&format!("  {:>2}.  {}\n", entries.len(), name));
+                                                            let _ = write!(output, "  {:>2}.  {}\n", entries.len(), name);
                                                         }
                                                     }
                                                 }
@@ -3833,7 +3834,7 @@ pub async fn run_app<B: Backend>(
                                                     let mut list = format!("Available voices (current: {}):\n", current);
                                                     for (i, &(id, label)) in VOICE_LIST.iter().enumerate() {
                                                         let marker = if id == current.as_str() { " ◀" } else { "" };
-                                                        list.push_str(&format!("  {:>2}. {}{}\n", i + 1, label, marker));
+                                                        let _ = write!(list, "  {:>2}. {}{}\n", i + 1, label, marker);
                                                     }
                                                     list.push_str("\nUse /voice N or /voice <id> to select.");
                                                     app.push_message("System", &list);
@@ -4075,7 +4076,7 @@ pub async fn run_app<B: Backend>(
                                                             let p = crate::agent::instructions::resolve_guidance_path(&ws_root, cand);
                                                             if p.exists() {
                                                                 if let Ok(c) = std::fs::read_to_string(&p) {
-                                                                    combined.push_str(&format!("--- [{}] ---\n", cand));
+                                                                    let _ = write!(combined, "--- [{}] ---\n", cand);
                                                                     combined.push_str(&c);
                                                                     combined.push_str("\n\n");
                                                                 }
@@ -4111,7 +4112,7 @@ pub async fn run_app<B: Backend>(
                                                               let p = crate::agent::instructions::resolve_guidance_path(&ws_root, cand);
                                                               let icon = if p.exists() { "[v]" } else { "[ ]" };
                                                               let label = crate::agent::instructions::guidance_status_label(cand);
-                                                              status.push_str(&format!("  {} {:<25} {}\n", icon, cand, label));
+                                                              let _ = write!(status, "  {} {:<25} {}\n", icon, cand, label);
                                                         }
                                                         status.push_str("\nUsage:\n  /rules view        - View combined guidance\n  /rules edit        - Edit personal local rules (ignored by git)\n  /rules edit shared - Edit project-wide shared rules");
                                                         app.push_message("System", &status);

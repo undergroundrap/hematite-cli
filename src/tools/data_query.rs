@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use rusqlite::{types::Value as SqlValue, Connection};
 use serde_json::Value;
 use std::fs::File;
@@ -120,7 +121,7 @@ fn query_csv_streaming(path: &PathBuf, sql: &str, explain: bool) -> Result<Strin
 
     let mut create_sql = format!("CREATE TABLE source (");
     for (i, col) in clean_cols.iter().enumerate() {
-        create_sql.push_str(&format!("{} {}", col, col_types[i]));
+        let _ = write!(create_sql, "{} {}", col, col_types[i]);
         if i < clean_cols.len() - 1 {
             create_sql.push_str(", ");
         }
@@ -257,7 +258,7 @@ fn export_to_sqlite(path: &PathBuf, items: &[Value]) -> Result<String, String> {
 
     let mut create_sql = format!("CREATE TABLE IF NOT EXISTS data (");
     for (i, col) in cols.iter().enumerate() {
-        create_sql.push_str(&format!("{} TEXT", col));
+        let _ = write!(create_sql, "{} TEXT", col);
         if i < cols.len() - 1 {
             create_sql.push_str(", ");
         }
@@ -343,7 +344,7 @@ fn execute_and_format(conn: &Connection, sql: &str) -> Result<String, String> {
     let mut out = String::new();
     // Header
     for name in &col_names {
-        out.push_str(&format!("{:<15} ", name));
+        let _ = write!(out, "{:<15} ", name);
     }
     out.push_str("\n");
     out.push_str(&"-".repeat(col_names.len() * 16));
@@ -366,7 +367,7 @@ fn execute_and_format(conn: &Connection, sql: &str) -> Result<String, String> {
             } else {
                 val_str
             };
-            out.push_str(&format!("{:<15} ", truncated));
+            let _ = write!(out, "{:<15} ", truncated);
         }
         out.push_str("\n");
         count += 1;
@@ -379,7 +380,7 @@ fn execute_and_format(conn: &Connection, sql: &str) -> Result<String, String> {
     if count == 0 {
         out.push_str("(No results found)\n");
     } else if !sql.to_uppercase().contains("EXPLAIN") {
-        out.push_str(&format!("\nReturned {} rows.\n", count));
+        let _ = write!(out, "\nReturned {} rows.\n", count);
     }
 
     Ok(out)

@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -76,7 +77,7 @@ pub fn render_prompt_block(tasks: &[HematiteTask]) -> Option<String> {
     let mut out = String::from("## Active Task List\n");
     for t in tasks {
         let mark = if t.done { "[x]" } else { "[ ]" };
-        out.push_str(&format!("{} {}. {}\n", mark, t.id, t.text));
+        let _ = write!(out, "{} {}. {}\n", mark, t.id, t.text);
     }
     out.push_str(
         "\nWhen you complete a task, let the user know and suggest running `/task done <N>`.",
@@ -92,7 +93,7 @@ pub fn render_list(tasks: &[HematiteTask]) -> String {
     let mut out = String::from("## Task List\n\n");
     for t in tasks {
         let mark = if t.done { "[x]" } else { "[ ]" };
-        out.push_str(&format!("{} **{}**. {}\n", mark, t.id, t.text));
+        let _ = write!(out, "{} **{}**. {}\n", mark, t.id, t.text);
     }
     out
 }

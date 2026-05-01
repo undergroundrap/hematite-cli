@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 /// Reads recent shell command history from the host and returns a compact
 /// context block for injection into the system prompt.
 ///
@@ -18,7 +20,7 @@ pub fn load_shell_history_block() -> Option<String> {
     }
     let mut block = String::from("## Recent Shell History (last session commands)\n");
     for cmd in &commands {
-        block.push_str(&format!("  $ {}\n", cmd));
+        let _ = write!(block, "  $ {}\n", cmd);
     }
     block.push_str("Use this context to understand what the user was recently working on.\n");
     Some(block)

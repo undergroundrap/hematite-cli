@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
@@ -317,7 +318,7 @@ fn cap_bytes(bytes: &[u8], max: usize) -> String {
         String::from_utf8_lossy(bytes).into_owned()
     } else {
         let mut s = String::from_utf8_lossy(&bytes[..max]).into_owned();
-        s.push_str(&format!("\n... [truncated - {} bytes total]", bytes.len()));
+        let _ = write!(s, "\n... [truncated - {} bytes total]", bytes.len());
         s
     }
 }

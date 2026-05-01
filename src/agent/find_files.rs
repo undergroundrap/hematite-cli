@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use crate::agent::fuzzy::fuzzy_match;
 use serde_json::Value;
 use walkdir::WalkDir;
@@ -53,7 +54,7 @@ pub async fn find_files_fuzzy(args: &Value) -> Result<String, String> {
         } else {
             "Low"
         };
-        output.push_str(&format!("- {} (Confidence: {})\n", path, confidence));
+        let _ = write!(output, "- {} (Confidence: {})\n", path, confidence);
     }
 
     Ok(output)

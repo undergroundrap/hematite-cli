@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use crate::tools::file_ops::{hematite_dir, is_project_workspace, workspace_root};
 use serde_json::{json, Value};
 use std::fs;
@@ -48,7 +49,7 @@ impl PlanHandoff {
     pub fn to_prompt(&self) -> String {
         let mut out = String::new();
         if !self.goal.trim().is_empty() {
-            out.push_str(&format!("  - Goal: {}\n", self.goal.trim()));
+            let _ = write!(out, "  - Goal: {}\n", self.goal.trim());
         }
         if !self.target_files.is_empty() {
             out.push_str(&format!(
@@ -59,22 +60,22 @@ impl PlanHandoff {
         if !self.ordered_steps.is_empty() {
             out.push_str("  - Ordered Steps:\n");
             for step in &self.ordered_steps {
-                out.push_str(&format!("    - {}\n", step));
+                let _ = write!(out, "    - {}\n", step);
             }
         }
         if !self.verification.trim().is_empty() {
-            out.push_str(&format!("  - Verification: {}\n", self.verification.trim()));
+            let _ = write!(out, "  - Verification: {}\n", self.verification.trim());
         }
         if !self.risks.is_empty() {
             out.push_str("  - Risks:\n");
             for risk in &self.risks {
-                out.push_str(&format!("    - {}\n", risk));
+                let _ = write!(out, "    - {}\n", risk);
             }
         }
         if !self.open_questions.is_empty() {
             out.push_str("  - Open Questions:\n");
             for question in &self.open_questions {
-                out.push_str(&format!("    - {}\n", question));
+                let _ = write!(out, "    - {}\n", question);
             }
         }
         out
@@ -89,7 +90,7 @@ impl PlanHandoff {
             out.push_str("- none specified");
         } else {
             for path in &self.target_files {
-                out.push_str(&format!("- {path}\n"));
+                let _ = write!(out, "- {path}\n");
             }
             if out.ends_with('\n') {
                 out.pop();
@@ -100,7 +101,7 @@ impl PlanHandoff {
             out.push_str("1. clarify implementation steps");
         } else {
             for (idx, step) in self.ordered_steps.iter().enumerate() {
-                out.push_str(&format!("{}. {}\n", idx + 1, step));
+                let _ = write!(out, "{}. {}\n", idx + 1, step);
             }
             if out.ends_with('\n') {
                 out.pop();
@@ -117,7 +118,7 @@ impl PlanHandoff {
             out.push_str("- none noted");
         } else {
             for risk in &self.risks {
-                out.push_str(&format!("- {risk}\n"));
+                let _ = write!(out, "- {risk}\n");
             }
             if out.ends_with('\n') {
                 out.pop();
@@ -128,7 +129,7 @@ impl PlanHandoff {
             out.push_str("- none");
         } else {
             for question in &self.open_questions {
-                out.push_str(&format!("- {question}\n"));
+                let _ = write!(out, "- {question}\n");
             }
             if out.ends_with('\n') {
                 out.pop();
@@ -302,9 +303,9 @@ fn current_or_new_active_plan_slug_for_root(root: &Path, title_hint: &str) -> St
 
 fn render_structured_execution_plan(plan: &PlanHandoff, slug: &str, status: &str) -> String {
     let mut out = String::new();
-    out.push_str(&format!("# Execution Plan: {}\n\n", plan.summary_line()));
-    out.push_str(&format!("- Plan ID: `{slug}`\n"));
-    out.push_str(&format!("- Status: {status}\n"));
+    let _ = write!(out, "# Execution Plan: {}\n\n", plan.summary_line());
+    let _ = write!(out, "- Plan ID: `{slug}`\n");
+    let _ = write!(out, "- Status: {status}\n");
     out.push_str("- Source: `.hematite/PLAN.md`\n\n");
     out.push_str(&plan.to_markdown());
     out
@@ -319,9 +320,9 @@ fn render_blueprint_execution_plan(blueprint: &str, slug: &str, status: &str) ->
         .unwrap_or("Strategic Blueprint");
 
     let mut out = String::new();
-    out.push_str(&format!("# Execution Plan: {title}\n\n"));
-    out.push_str(&format!("- Plan ID: `{slug}`\n"));
-    out.push_str(&format!("- Status: {status}\n"));
+    let _ = write!(out, "# Execution Plan: {title}\n\n");
+    let _ = write!(out, "- Plan ID: `{slug}`\n");
+    let _ = write!(out, "- Status: {status}\n");
     out.push_str("- Source: `.hematite/PLAN.md`\n\n");
     out.push_str("## Blueprint\n");
     out.push_str(blueprint.trim());
@@ -422,9 +423,9 @@ fn append_unchecked_tasks_to_tech_debt_tracker(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    content.push_str(&format!("\n## Carry Forward from `{slug}` ({stamp})\n"));
+    let _ = write!(content, "\n## Carry Forward from `{slug}` ({stamp})\n");
     for task in unchecked_tasks {
-        content.push_str(&format!("- [ ] {task}\n"));
+        let _ = write!(content, "- [ ] {task}\n");
     }
 
     fs::write(&debt_path, content).map_err(|e| format!("Failed to update tech debt tracker: {e}"))
@@ -461,7 +462,7 @@ fn archive_active_execution_plan_for_root(
     if !unchecked_tasks.is_empty() {
         archived.push_str("\n## Carry Forward\n");
         for task in &unchecked_tasks {
-            archived.push_str(&format!("- [ ] {task}\n"));
+            let _ = write!(archived, "- [ ] {task}\n");
         }
     }
 
@@ -711,7 +712,7 @@ pub async fn maintain_plan(args: &Value) -> Result<String, String> {
     if should_sync_current_workspace_exec_plans() {
         let root = workspace_root();
         if let Ok(path) = sync_blueprint_execution_plan_for_root(&root, blueprint) {
-            detail.push_str(&format!("\nMirrored to {}", path.display()));
+            let _ = write!(detail, "\nMirrored to {}", path.display());
         }
     }
 

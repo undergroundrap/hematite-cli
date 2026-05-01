@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use rusqlite::{params, Connection};
 use serde::Deserialize;
 use serde_json::Value;
@@ -1365,7 +1366,7 @@ impl Vein {
 
         let mut out = String::from("# Hot Files (most edited — grouped by subsystem)\n");
         for (room, entries) in &by_room {
-            out.push_str(&format!("[{}]\n", room));
+            let _ = write!(out, "[{}]\n", room);
             for (path, heat, mtime) in entries {
                 let age_secs = now - mtime;
                 let age = if age_secs < 3600 {

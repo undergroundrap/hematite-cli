@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use lazy_static::lazy_static;
 use reqwest::header::USER_AGENT;
 use serde_json::Value;
@@ -166,7 +167,7 @@ async fn perform_searx_search(query: &str, base_url: &str) -> Result<String, Str
 
     let mut output = String::new();
     output.push_str("[Source: SearXNG (Local/Auto-Detected)]\n\n");
-    output.push_str(&format!("# Search results for: {}\n\n", query));
+    let _ = write!(output, "# Search results for: {}\n\n", query);
 
     if let Some(results) = json.get("results").and_then(|r| r.as_array()) {
         for (i, res) in results.iter().take(10).enumerate() {

@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -180,8 +181,8 @@ pub fn profile_report(root: &Path) -> String {
 
     let mut out = String::new();
     out.push_str("Workspace Profile\n");
-    out.push_str(&format!("Path: {}\n", path.display()));
-    out.push_str(&format!("Mode: {}\n", profile.workspace_mode));
+    let _ = write!(out, "Path: {}\n", path.display());
+    let _ = write!(out, "Mode: {}\n", profile.workspace_mode);
     out.push_str(&format!(
         "Primary stack: {}\n",
         profile.primary_stack.as_deref().unwrap_or("unknown")
@@ -199,22 +200,22 @@ pub fn profile_report(root: &Path) -> String {
         ));
     }
     if let Some(profile_name) = &profile.verify_profile {
-        out.push_str(&format!("Verify profile: {}\n", profile_name));
+        let _ = write!(out, "Verify profile: {}\n", profile_name);
     }
     if let Some(build_hint) = &profile.build_hint {
-        out.push_str(&format!("Build hint: {}\n", build_hint));
+        let _ = write!(out, "Build hint: {}\n", build_hint);
     }
     if let Some(test_hint) = &profile.test_hint {
-        out.push_str(&format!("Test hint: {}\n", test_hint));
+        let _ = write!(out, "Test hint: {}\n", test_hint);
     }
     if let Some(contract) = &profile.runtime_contract {
-        out.push_str(&format!("Loop family: {}\n", contract.loop_family));
-        out.push_str(&format!("App kind: {}\n", contract.app_kind));
+        let _ = write!(out, "Loop family: {}\n", contract.loop_family);
+        let _ = write!(out, "App kind: {}\n", contract.app_kind);
         if let Some(framework) = &contract.framework_hint {
-            out.push_str(&format!("Framework hint: {}\n", framework));
+            let _ = write!(out, "Framework hint: {}\n", framework);
         }
         if let Some(url) = &contract.local_url_hint {
-            out.push_str(&format!("Local URL hint: {}\n", url));
+            let _ = write!(out, "Local URL hint: {}\n", url);
         }
         if !contract.preferred_workflows.is_empty() {
             out.push_str(&format!(
@@ -259,7 +260,7 @@ pub fn profile_report(root: &Path) -> String {
             profile.ignored_paths.join(", ")
         ));
     }
-    out.push_str(&format!("Summary: {}", profile.summary));
+    let _ = write!(out, "Summary: {}", profile.summary);
     out
 }
 

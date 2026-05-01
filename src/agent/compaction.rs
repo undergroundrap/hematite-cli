@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use crate::agent::inference::ChatMessage;
 use std::collections::{BTreeSet, HashSet};
 
@@ -223,12 +224,12 @@ impl SessionMemory {
         if !self.learnings.is_empty() {
             s.push_str("- **Key Learnings**:\n");
             for l in &self.learnings {
-                s.push_str(&format!("  - {l}\n"));
+                let _ = write!(s, "  - {l}\n");
             }
         }
         if let Some(checkpoint) = &self.last_checkpoint {
             if checkpoint.summary.trim().is_empty() {
-                s.push_str(&format!("- **Latest Checkpoint**: {}\n", checkpoint.state));
+                let _ = write!(s, "- **Latest Checkpoint**: {}\n", checkpoint.state);
             } else {
                 s.push_str(&format!(
                     "- **Latest Checkpoint**: {} - {}\n",
@@ -238,7 +239,7 @@ impl SessionMemory {
         }
         if let Some(blocker) = &self.last_blocker {
             if blocker.summary.trim().is_empty() {
-                s.push_str(&format!("- **Latest Blocker**: {}\n", blocker.state));
+                let _ = write!(s, "- **Latest Blocker**: {}\n", blocker.state);
             } else {
                 s.push_str(&format!(
                     "- **Latest Blocker**: {} - {}\n",
@@ -248,7 +249,7 @@ impl SessionMemory {
         }
         if let Some(recovery) = &self.last_recovery {
             if recovery.summary.trim().is_empty() {
-                s.push_str(&format!("- **Latest Recovery**: {}\n", recovery.state));
+                let _ = write!(s, "- **Latest Recovery**: {}\n", recovery.state);
             } else {
                 s.push_str(&format!(
                     "- **Latest Recovery**: {} - {}\n",

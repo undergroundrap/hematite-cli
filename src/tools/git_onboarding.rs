@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use serde_json::Value;
 use std::process::Command;
 
@@ -64,7 +65,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         if push.status.success() {
             status.push_str("\nInitial push complete. Branch tracking established.");
         } else {
-            status.push_str(&format!("\nWarning: Push failed: {}. You may need to authenticate or handle branch conflicts manually.", String::from_utf8_lossy(&push.stderr)));
+            let _ = write!(status, "\nWarning: Push failed: {}. You may need to authenticate or handle branch conflicts manually.", String::from_utf8_lossy(&push.stderr));
         }
     }
 
