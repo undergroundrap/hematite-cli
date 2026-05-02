@@ -3746,7 +3746,7 @@ pub async fn run_app<B: Backend>(
                                                         .current_dir(ws)
                                                         .output();
                                                     if let Ok(out) = output {
-                                                        let stat = String::from_utf8_lossy(&out.stdout).to_string();
+                                                        let stat = String::from_utf8_lossy(&out.stdout).into_owned();
                                                         app.push_message("System", if stat.is_empty() { "No changes detected." } else { &stat });
                                                     }
                                                 } else {

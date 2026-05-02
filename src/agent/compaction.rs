@@ -726,15 +726,17 @@ fn select_summary_line_indexes(lines: &[String], budget: SummaryCompressionBudge
             if selected.contains(&index) || summary_line_priority(line) != priority {
                 continue;
             }
-            let candidate = selected
-                .iter()
-                .map(|selected_index| lines[*selected_index].as_str())
-                .chain(std::iter::once(line.as_str()))
-                .collect::<Vec<_>>();
-            if candidate.len() > budget.max_lines {
+            let new_len = selected.len() + 1;
+            if new_len > budget.max_lines {
                 continue;
             }
-            if joined_summary_char_count(&candidate) > budget.max_chars {
+            let char_count: usize = selected
+                .iter()
+                .map(|si| lines[*si].chars().count())
+                .sum::<usize>()
+                + line.chars().count()
+                + new_len.saturating_sub(1);
+            if char_count > budget.max_chars {
                 continue;
             }
             selected.insert(index);
@@ -749,21 +751,18 @@ fn push_summary_line_with_budget(
     line: String,
     budget: SummaryCompressionBudget,
 ) {
-    let candidate = lines
-        .iter()
-        .map(String::as_str)
-        .chain(std::iter::once(line.as_str()))
-        .collect::<Vec<_>>();
-    if candidate.len() <= budget.max_lines
-        && joined_summary_char_count(&candidate) <= budget.max_chars
-    {
+    let new_len = lines.len() + 1;
+    if new_len > budget.max_lines {
+        return;
+    }
+    let char_count: usize = lines.iter().map(|l| l.chars().count()).sum::<usize>()
+        + line.chars().count()
+        + new_len.saturating_sub(1);
+    if char_count <= budget.max_chars {
         lines.push(line);
     }
 }
 
-fn joined_summary_char_count(lines: &[&str]) -> usize {
-    lines.iter().map(|line| line.chars().count()).sum::<usize>() + lines.len().saturating_sub(1)
-}
 
 fn summary_line_priority(line: &str) -> usize {
     if line == "Conversation summary:" || is_core_summary_detail(line) {
@@ -802,16 +801,21 @@ fn collapse_inline_whitespace(line: &str) -> String {
 }
 
 fn truncate_summary_line(line: &str, max_chars: usize) -> String {
-    if max_chars == 0 || line.chars().count() <= max_chars {
+    if max_chars == 0 {
         return line.to_string();
     }
     if max_chars == 1 {
         return ".".to_string();
     }
-    let mut truncated = line
-        .chars()
-        .take(max_chars.saturating_sub(3))
-        .collect::<String>();
-    truncated.push_str("...");
-    truncated
+    let take_n = max_chars.saturating_sub(3);
+    let mut chars = line.chars();
+    let mut head = String::with_capacity(take_n);
+    head.extend(chars.by_ref().take(take_n));
+    // If 4+ chars remain, total > max_chars — truncate. Otherwise return original.
+    if chars.take(4).count() >= 4 {
+        head.push_str("...");
+        head
+    } else {
+        line.to_string()
+    }
 }

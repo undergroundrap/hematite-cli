@@ -1015,10 +1015,10 @@ async fn inspect_lm_studio_fix_plan(issue: &str, max_entries: usize) -> Result<S
     let _ = write!(out, "- Probe URL: {}\n", models_url);
     match &reachability {
         EndpointProbe::Reachable(status) => {
-            out.push_str(&format!("- Endpoint reachable: yes (HTTP {})\n", status))
+            let _ = write!(out, "- Endpoint reachable: yes (HTTP {})\n", status);
         }
         EndpointProbe::Unreachable(detail) => {
-            out.push_str(&format!("- Endpoint reachable: no ({})\n", detail))
+            let _ = write!(out, "- Endpoint reachable: no ({})\n", detail);
         }
     }
     let _ = write!(out,
@@ -6944,7 +6944,7 @@ fn inspect_wifi() -> Result<String, String> {
             .args(["wlan", "show", "interfaces"])
             .output()
             .map_err(|e| format!("wifi: {e}"))?;
-        let text = String::from_utf8_lossy(&output.stdout).to_string();
+        let text = String::from_utf8_lossy(&output.stdout).into_owned();
 
         if text.contains("There is no wireless interface") || text.trim().is_empty() {
             out.push_str("No wireless interface detected on this machine.\n");
@@ -6987,7 +6987,7 @@ fn inspect_wifi() -> Result<String, String> {
             .args(["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"])
             .output()
         {
-            let text = String::from_utf8_lossy(&o.stdout).to_string();
+            let text = String::from_utf8_lossy(&o.stdout).into_owned();
             let lines: Vec<&str> = text.lines().filter(|l| l.contains(":wifi:")).collect();
             if lines.is_empty() {
                 out.push_str("No Wi-Fi devices found.\n");
@@ -6997,7 +6997,7 @@ fn inspect_wifi() -> Result<String, String> {
                 }
             }
         } else if let Ok(o) = Command::new("iwconfig").output() {
-            let text = String::from_utf8_lossy(&o.stdout).to_string();
+            let text = String::from_utf8_lossy(&o.stdout).into_owned();
             if !text.trim().is_empty() {
                 out.push_str(text.trim());
                 out.push('\n');
@@ -17972,7 +17972,7 @@ fn inspect_storage_spaces() -> Result<String, String> {
         .args(["--noheadings", "-o", "lv_name,vg_name,lv_size,lv_attr"])
         .output()
     {
-        let lvs = String::from_utf8_lossy(&o.stdout).to_string();
+        let lvs = String::from_utf8_lossy(&o.stdout).into_owned();
         if !lvs.trim().is_empty() {
             out.push_str("\n=== LVM Logical Volumes ===\n");
             out.push_str(&lvs);

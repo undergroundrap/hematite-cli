@@ -80,8 +80,9 @@ fn truncate_provider_error_body(body: &str) -> String {
     if trimmed.is_empty() {
         return String::new();
     }
-    let compact: String = trimmed.chars().take(240).collect();
-    if trimmed.chars().count() > 240 {
+    let mut chars = trimmed.chars();
+    let compact: String = chars.by_ref().take(240).collect();
+    if chars.next().is_some() {
         format!("{}...", compact)
     } else {
         compact

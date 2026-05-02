@@ -187,7 +187,7 @@ fn query_json_optimized(path: &PathBuf, sql: &str, explain: bool) -> Result<Stri
 
     let mut create_sql = format!("CREATE TABLE source (");
     for (i, col) in cols.iter().enumerate() {
-        create_sql.push_str(&format!("{} TEXT", col)); // JSON is dynamic, default to TEXT
+        let _ = write!(create_sql, "{} TEXT", col); // JSON is dynamic, default to TEXT
         if i < cols.len() - 1 {
             create_sql.push_str(", ");
         }

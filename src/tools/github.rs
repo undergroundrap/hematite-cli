@@ -19,8 +19,8 @@ fn run_gh(args: &[&str]) -> Result<String, String> {
         .args(args)
         .output()
         .map_err(|e| format!("gh exec failed: {e}"))?;
-    let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
     if out.status.success() {
         Ok(stdout)
     } else if !stderr.is_empty() {
