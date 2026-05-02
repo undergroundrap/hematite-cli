@@ -1790,7 +1790,7 @@ fn load_session_exchanges(report_path: &Path, last_modified: i64) -> Vec<Session
         .unwrap_or_else(|| session_key.split('_').next().unwrap_or("unknown-date"))
         .to_string();
 
-    let mut exchanges = Vec::new();
+    let mut exchanges = Vec::with_capacity(report.transcript.len() / 2);
     let mut pending_user: Option<String> = None;
     let mut turn_index = 0usize;
 
@@ -1853,7 +1853,7 @@ fn load_imported_session_exchanges(
         .strip_prefix(imports_root)
         .unwrap_or(import_path);
     let rel_slug = slugify_import_path(rel);
-    let mut exchanges = Vec::new();
+    let mut exchanges = Vec::with_capacity(messages.len() / 2);
     let mut pending_user: Option<String> = None;
     let mut turn_index = 0usize;
 
@@ -2048,7 +2048,7 @@ fn parse_jsonl_messages(raw: &str) -> Option<Vec<(String, String)>> {
 fn parse_session_report_messages(value: &Value) -> Option<Vec<(String, String)>> {
     let report = value.as_object()?;
     let transcript = report.get("transcript")?.as_array()?;
-    let mut messages = Vec::new();
+    let mut messages = Vec::with_capacity(transcript.len());
 
     for entry in transcript {
         let Some(obj) = entry.as_object() else {
@@ -2094,7 +2094,7 @@ fn parse_simple_role_messages(value: &Value) -> Option<Vec<(String, String)>> {
 }
 
 fn collect_role_messages(items: &[Value]) -> Vec<(String, String)> {
-    let mut messages = Vec::new();
+    let mut messages = Vec::with_capacity(items.len());
     for item in items {
         let Some(obj) = item.as_object() else {
             continue;
@@ -2121,7 +2121,7 @@ fn parse_chatgpt_mapping_messages(value: &Value) -> Option<Vec<(String, String)>
         (obj.get("parent").is_some_and(|parent| parent.is_null())).then_some(node_id.clone())
     })?;
 
-    let mut messages = Vec::new();
+    let mut messages = Vec::with_capacity(mapping.len());
     let mut visited = std::collections::HashSet::new();
 
     while visited.insert(current_id.clone()) {
