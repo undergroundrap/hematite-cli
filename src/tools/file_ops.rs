@@ -435,7 +435,7 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
         ""
     };
 
-    let mut diff_block = String::new();
+    let mut diff_block = String::with_capacity(effective_search.len() + effective_replace.len() + 32);
     diff_block.push_str("\n--- DIFF \n");
     for line in effective_search.lines() {
         let _ = write!(diff_block, "- {}\n", line);
@@ -494,7 +494,7 @@ pub async fn patch_hunk(args: &Value) -> Result<String, String> {
     let updated_content = updated_lines.join("\n");
     fs::write(&abs, &updated_content).map_err(|e| format!("patch_hunk: write failed: {e}"))?;
 
-    let mut diff = String::new();
+    let mut diff = String::with_capacity(replacement.len() + (e_idx - s_idx) * 64 + 32);
     diff.push_str("\n--- HUNK DIFF ---\n");
     for i in s_idx..e_idx {
         let _ = write!(diff, "- {}\n", lines[i].trim_end());
@@ -543,7 +543,7 @@ pub async fn multi_search_replace(args: &Value) -> Result<String, String> {
     save_ghost_backup(path, &original);
 
     let mut current_content = original.clone();
-    let mut diff = String::new();
+    let mut diff = String::with_capacity(hunks.len() * 128 + 32);
     diff.push_str("\n--- SEARCH & REPLACE DIFF ---\n");
 
     let mut patched_hunks = 0;
@@ -911,7 +911,7 @@ pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
     let mut truncated_by_budget = false;
 
     for (i, hunk) in page_hunks.iter().enumerate() {
-        let mut hunk_out = String::new();
+        let mut hunk_out = String::with_capacity(hunk.lines.len() * 64 + 8);
         if i > 0 {
             hunk_out.push_str("\n--\n");
         }
@@ -1536,7 +1536,7 @@ pub fn compute_edit_file_diff(args: &Value) -> Result<String, String> {
         }
     };
 
-    let mut diff = String::new();
+    let mut diff = String::with_capacity(effective_search.len() + effective_replace.len() + 16);
     for line in effective_search.lines() {
         let _ = write!(diff, "- {}\n", line);
     }
@@ -1592,7 +1592,7 @@ pub fn compute_msr_diff(args: &Value) -> Result<String, String> {
     let hunks: Vec<PreviewHunk> = serde_json::from_value(hunks_val.clone())
         .map_err(|e| format!("compute_msr_diff: invalid hunks: {e}"))?;
 
-    let mut diff = String::new();
+    let mut diff = String::with_capacity(hunks.len() * 128 + 16);
     for (i, hunk) in hunks.iter().enumerate() {
         if hunks.len() > 1 {
             let _ = write!(diff, "@@ hunk {} @@\n", i + 1);
@@ -1618,7 +1618,7 @@ pub fn compute_write_file_diff(args: &Value) -> Result<String, String> {
         .map(|s| s.replace("\r\n", "\n"))
         .unwrap_or_default();
 
-    let mut diff = String::new();
+    let mut diff = String::with_capacity(old_content.len() + new_content.len() + 16);
     if !old_content.is_empty() {
         for line in old_content.lines() {
             let _ = write!(diff, "- {}\n", line);

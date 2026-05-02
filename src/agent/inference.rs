@@ -1713,7 +1713,7 @@ fn normalize_regex_pattern(input: &str) -> String {
 
 fn prepare_gemma_native_messages(messages: &[ChatMessage]) -> Vec<ChatMessage> {
     let mut system_blocks = Vec::new();
-    let mut prepared = Vec::new();
+    let mut prepared = Vec::with_capacity(messages.len());
     let mut seeded = false;
 
     for message in messages {

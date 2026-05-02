@@ -737,7 +737,7 @@ fn read_file_preview_for_retry(path: &str, max_lines: usize) -> String {
 }
 
 fn transcript_user_turn_text(user_turn: &UserTurn, prompt: &str) -> String {
-    let mut prefixes = Vec::new();
+    let mut prefixes = Vec::with_capacity(2);
     if let Some(doc) = user_turn.attached_document.as_ref() {
         prefixes.push(format!("[Attached document: {}]", doc.name));
     }
@@ -4721,8 +4721,8 @@ impl ConversationManager {
                      Use the tool results in context to answer. Do NOT repeat these tool calls.\n\n"
                 );
 
-                let mut tool_calls = Vec::new();
-                let mut tool_msgs = Vec::new();
+                let mut tool_calls = Vec::with_capacity(topics.len());
+                let mut tool_msgs = Vec::with_capacity(topics.len());
 
                 for topic in &topics {
                     let call_id = format!("prerun_{topic}");
@@ -5458,12 +5458,12 @@ impl ConversationManager {
                 ));
 
                 // ── LAYER 4: Parallel Tool Orchestration (Batching) ────────────────────
-                let mut results = Vec::new();
+                let mut results = Vec::with_capacity(calls.len());
                 let gemma4_model =
                     crate::agent::inference::is_hematite_native_model(&self.engine.current_model());
                 let latest_user_prompt = self.latest_user_prompt();
                 let mut seen_call_keys = std::collections::HashSet::new();
-                let mut deduped_calls = Vec::new();
+                let mut deduped_calls = Vec::with_capacity(calls.len());
                 for call in calls.clone() {
                     let (normalized_name, normalized_args) = normalized_tool_call_for_execution(
                         &call.function.name,
