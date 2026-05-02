@@ -303,7 +303,7 @@ fn export_to_csv(path: &PathBuf, items: &[Value]) -> Result<String, String> {
     let mut content = cols.join(",") + "\n";
     for item in items {
         if let Some(obj) = item.as_object() {
-            let mut row = Vec::new();
+            let mut row = Vec::with_capacity(cols.len());
             for col in &cols {
                 let val = obj
                     .get(col)
@@ -318,7 +318,11 @@ fn export_to_csv(path: &PathBuf, items: &[Value]) -> Result<String, String> {
                     .unwrap_or_default();
                 row.push(val);
             }
-            content.push_str(&(row.join(",") + "\n"));
+            for (i, val) in row.iter().enumerate() {
+                if i > 0 { content.push(','); }
+                content.push_str(val);
+            }
+            content.push('\n');
         }
     }
 

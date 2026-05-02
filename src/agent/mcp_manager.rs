@@ -129,7 +129,7 @@ impl McpManager {
         let mut servers: Vec<_> = config.servers.iter().collect();
         servers.sort_by(|a, b| a.0.cmp(b.0));
 
-        let mut signature = String::new();
+        let mut signature = String::with_capacity(config.servers.len() * 80);
         for (name, server) in servers {
             signature.push_str(name);
             signature.push('|');

@@ -154,16 +154,17 @@ fn format_location_result(res: Value) -> Result<String, String> {
         return Ok("No results found.".to_string());
     }
 
-    let mut output = Vec::new();
+    let mut output = String::new();
     if let Some(arr) = res.as_array() {
-        for loc in arr {
-            output.push(format_location(loc));
+        for (i, loc) in arr.iter().enumerate() {
+            if i > 0 { output.push('\n'); }
+            output.push_str(&format_location(loc));
         }
     } else {
-        output.push(format_location(&res));
+        output.push_str(&format_location(&res));
     }
 
-    Ok(output.join("\n"))
+    Ok(output)
 }
 
 fn format_location(loc: &Value) -> String {

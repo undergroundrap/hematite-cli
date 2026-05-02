@@ -17,6 +17,7 @@
 
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::fmt::Write as _;
 use std::collections::BTreeMap;
 
 pub struct RedactResult {
@@ -110,14 +111,13 @@ pub fn redact(input: &str) -> RedactResult {
     let summary_header = if total == 0 {
         String::from("[edge-redact: no sensitive patterns detected]")
     } else {
-        let mut detail = String::new();
+        let mut detail = String::with_capacity(counts.len() * 20);
         for (i, (label, n)) in counts.iter().enumerate() {
             if i > 0 {
                 detail.push_str(", ");
             }
             detail.push_str(label);
-            detail.push_str(" \u{00d7}");
-            detail.push_str(&n.to_string());
+            let _ = write!(detail, " \u{00d7}{n}");
         }
         format!(
             "[edge-redact: {total} substitution(s) — {detail} — values replaced before leaving this machine]"

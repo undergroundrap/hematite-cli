@@ -246,7 +246,8 @@ impl McpProcess {
             None
         } else {
             Some({
-                let mut out = String::new();
+                let cap = lines.iter().map(|l| l.len()).sum::<usize>() + lines.len().saturating_sub(1) * 3;
+                let mut out = String::with_capacity(cap);
                 for (i, line) in lines.iter().enumerate() {
                     if i > 0 { out.push_str(" | "); }
                     out.push_str(line);

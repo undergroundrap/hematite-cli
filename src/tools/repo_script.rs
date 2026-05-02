@@ -269,7 +269,7 @@ async fn execute_powershell_file(
         None => "\n[process terminated by signal]".to_string(),
     };
 
-    let mut result = String::new();
+    let mut result = String::with_capacity(stdout.len() + stderr.len() + 50);
     if !stdout.is_empty() {
         result.push_str(&stdout);
     }

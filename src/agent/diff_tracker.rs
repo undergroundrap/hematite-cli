@@ -43,7 +43,7 @@ impl TurnDiffTracker {
             return Ok(String::new());
         }
 
-        let mut aggregated = String::new();
+        let mut aggregated = String::with_capacity(self.baselines.len() * 512);
         let mut sorted_paths: Vec<_> = self.baselines.keys().collect();
         sorted_paths.sort();
 
