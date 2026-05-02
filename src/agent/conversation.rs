@@ -721,13 +721,11 @@ fn read_file_preview_for_retry(path: &str, max_lines: usize) -> String {
         Err(e) => return format!("[could not read {path}: {e}]"),
     };
     let total = content.lines().count();
-    let lines: String = content
-        .lines()
-        .enumerate()
-        .take(max_lines)
-        .map(|(i, line)| format!("{:>4}  {}", i + 1, line))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let mut lines = String::with_capacity(max_lines * 60);
+    for (i, line) in content.lines().enumerate().take(max_lines) {
+        if i > 0 { lines.push('\n'); }
+        let _ = write!(lines, "{:>4}  {}", i + 1, line);
+    }
     if total > max_lines {
         format!(
             "{lines}\n... [{} more lines — use inspect_lines to see the rest]",
@@ -1947,12 +1945,11 @@ impl ConversationManager {
                 scope_label, role_label, provider
             ));
         }
-        let lines = models
-            .iter()
-            .enumerate()
-            .map(|(idx, model)| format!("{}. {}", idx + 1, model))
-            .collect::<Vec<_>>()
-            .join("\n");
+        let mut lines = String::with_capacity(models.len() * 40);
+        for (idx, model) in models.iter().enumerate() {
+            if idx > 0 { lines.push('\n'); }
+            let _ = write!(lines, "{}. {}", idx + 1, model);
+        }
         Ok(format!(
             "{} {} on {}:\n{}",
             if loaded_only { "Loaded" } else { "Available" },

@@ -100,10 +100,13 @@ pub fn compress_summary(
     }
 
     let selected = select_summary_line_indexes(&normalized.lines, budget);
-    let mut compressed_lines = selected
-        .iter()
-        .map(|index| normalized.lines[*index].clone())
-        .collect::<Vec<_>>();
+    let mut compressed_lines = {
+        let mut v = Vec::with_capacity(selected.len());
+        for index in &selected {
+            v.push(normalized.lines[*index].clone());
+        }
+        v
+    };
     if compressed_lines.is_empty() {
         compressed_lines.push(truncate_summary_line(
             &normalized.lines[0],
@@ -643,16 +646,16 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
                 .map(|c| !c.is_empty())
                 .unwrap_or(false)
         {
-            format!(
-                "Executing: {}",
-                m.tool_calls
-                    .as_ref()
-                    .unwrap()
-                    .iter()
-                    .map(|c| c.function.name.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
+            {
+                let calls = m.tool_calls.as_ref().unwrap();
+                let mut s = String::with_capacity(14 + calls.iter().map(|c| c.function.name.len()).sum::<usize>() + calls.len().saturating_sub(1) * 2);
+                s.push_str("Executing: ");
+                for (i, c) in calls.iter().enumerate() {
+                    if i > 0 { s.push_str(", "); }
+                    s.push_str(&c.function.name);
+                }
+                s
+            }
         } else {
             content_str.to_string()
         };

@@ -1239,12 +1239,12 @@ fn nearest_lines(content: &str, search: &str) -> String {
 
     let start = best_idx.saturating_sub(3);
     let end = (best_idx + 5).min(lines.len());
-    let snippet = lines[start..end]
-        .iter()
-        .enumerate()
-        .map(|(i, l)| format!("{:>4} | {}", start + i + 1, l))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let count = end - start;
+    let mut snippet = String::with_capacity(count * 60);
+    for (i, l) in lines[start..end].iter().enumerate() {
+        if i > 0 { snippet.push('\n'); }
+        let _ = write!(snippet, "{:>4} | {}", start + i + 1, l);
+    }
 
     format!(
         "Nearest matching lines ({}:{}):\n{}",

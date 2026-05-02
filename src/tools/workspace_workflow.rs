@@ -524,11 +524,14 @@ fn detect_website_script_name(scripts: &Map<String, Value>, mode: &str) -> Resul
 
 fn infer_website_framework(package: &Value) -> String {
     let deps = dependency_names(package);
-    let script_text = package_scripts(package)
-        .into_values()
-        .filter_map(|value| value.as_str().map(|text| text.to_ascii_lowercase()))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let script_text = {
+        let mut s = String::new();
+        for text in package_scripts(package).into_values().filter_map(|value| value.as_str().map(|t| t.to_ascii_lowercase())) {
+            if !s.is_empty() { s.push('\n'); }
+            s.push_str(&text);
+        }
+        s
+    };
 
     if deps.contains("next") || script_text.contains("next ") {
         "next".to_string()

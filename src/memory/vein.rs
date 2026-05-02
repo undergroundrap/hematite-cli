@@ -591,11 +591,14 @@ impl Vein {
             .collect();
 
         // Build an OR query from non-stopword tokens so any relevant term matches.
-        let fts_query = safe_query
-            .split_whitespace()
-            .filter(|w| w.len() >= 3 && !stopwords.contains(*w))
-            .collect::<Vec<_>>()
-            .join(" OR ");
+        let fts_query = {
+            let mut q = String::new();
+            for w in safe_query.split_whitespace().filter(|w| w.len() >= 3 && !stopwords.contains(*w)) {
+                if !q.is_empty() { q.push_str(" OR "); }
+                q.push_str(w);
+            }
+            q
+        };
 
         if fts_query.is_empty() {
             return Ok(Vec::new());
@@ -2162,12 +2165,11 @@ fn extract_text_content(value: &Value) -> Option<String> {
     }
 
     if let Some(array) = value.as_array() {
-        let joined = array
-            .iter()
-            .filter_map(extract_text_content)
-            .filter(|part| !part.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n");
+        let mut joined = String::new();
+        for part in array.iter().filter_map(extract_text_content).filter(|p| !p.is_empty()) {
+            if !joined.is_empty() { joined.push('\n'); }
+            joined.push_str(&part);
+        }
         return (!joined.is_empty()).then_some(joined);
     }
 
@@ -2187,12 +2189,11 @@ fn extract_text_content(value: &Value) -> Option<String> {
     }
 
     if let Some(parts) = obj.get("parts").and_then(|v| v.as_array()) {
-        let joined = parts
-            .iter()
-            .filter_map(|part| part.as_str().map(|s| s.trim().to_string()))
-            .filter(|part| !part.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n");
+        let mut joined = String::new();
+        for part in parts.iter().filter_map(|p| p.as_str().map(|s| s.trim().to_string())).filter(|p| !p.is_empty()) {
+            if !joined.is_empty() { joined.push('\n'); }
+            joined.push_str(&part);
+        }
         if !joined.is_empty() {
             return Some(joined);
         }
@@ -2388,11 +2389,14 @@ fn extract_pdf_text_with_lopdf(path: &std::path::Path) -> Result<Option<String>,
     }
 
     if !page_errors.is_empty() {
-        let sample_errors = page_errors
-            .into_iter()
-            .take(3)
-            .collect::<Vec<_>>()
-            .join("; ");
+        let sample_errors = {
+            let mut s = String::new();
+            for e in page_errors.into_iter().take(3) {
+                if !s.is_empty() { s.push_str("; "); }
+                s.push_str(&e);
+            }
+            s
+        };
         return Err(format!(
             "lopdf could not extract usable page text ({sample_errors})"
         ));

@@ -81,11 +81,14 @@ pub struct RecoveryRecipe {
 
 impl RecoveryRecipe {
     pub fn steps_summary(&self) -> String {
-        self.steps
-            .iter()
-            .map(|step| step.label())
-            .collect::<Vec<_>>()
-            .join(" -> ")
+        let cap = self.steps.iter().map(|s| s.label().len()).sum::<usize>()
+            + self.steps.len().saturating_sub(1) * 4;
+        let mut s = String::with_capacity(cap);
+        for (i, step) in self.steps.iter().enumerate() {
+            if i > 0 { s.push_str(" -> "); }
+            s.push_str(step.label());
+        }
+        s
     }
 }
 

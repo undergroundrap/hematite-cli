@@ -787,12 +787,12 @@ fn package_scripts(package: &Value) -> serde_json::Map<String, Value> {
 }
 
 fn package_script_text(scripts: &serde_json::Map<String, Value>) -> String {
-    scripts
-        .values()
-        .filter_map(|value| value.as_str())
-        .map(|value| value.to_ascii_lowercase())
-        .collect::<Vec<_>>()
-        .join("\n")
+    let mut result = String::new();
+    for value in scripts.values().filter_map(|v| v.as_str()) {
+        if !result.is_empty() { result.push('\n'); }
+        result.push_str(&value.to_ascii_lowercase());
+    }
+    result
 }
 
 fn package_dependency_names(package: &Value) -> BTreeSet<String> {

@@ -34,8 +34,11 @@ pub async fn execute_search(args: &Value, searx_url: Option<String>) -> Result<S
         .replace("2026", "")
         .replace("crate", "")
         .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
+        .fold(String::new(), |mut s, w| {
+            if !s.is_empty() { s.push(' '); }
+            s.push_str(w);
+            s
+        });
 
     if tier2 != query {
         let second_results = perform_search(&tier2, searx_url.as_deref()).await?;
