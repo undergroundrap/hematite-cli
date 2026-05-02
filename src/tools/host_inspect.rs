@@ -12302,7 +12302,7 @@ if (-not $found) { "No MDM warning/error events in the last 24 hours" }
 fn inspect_hyperv() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        let mut findings: Vec<String> = Vec::new();
+        let mut findings: Vec<String> = Vec::with_capacity(4);
         let mut out = String::with_capacity(2048);
 
         // --- Hyper-V role / VMMS service state ---
@@ -12608,7 +12608,7 @@ fn inspect_event_query(
 ) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        let mut findings: Vec<String> = Vec::new();
+        let mut findings: Vec<String> = Vec::with_capacity(4);
 
         // Build the PowerShell filter hash
         let log = log_name.unwrap_or("*");
@@ -12783,7 +12783,7 @@ try {{
 fn inspect_app_crashes(process_filter: Option<&str>, max_entries: usize) -> Result<String, String> {
     let n = max_entries.clamp(5, 50);
     #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
     let mut sections = String::with_capacity(2048);
 
@@ -13309,7 +13309,7 @@ ForEach-Object { "$($_.FriendlyName) | Status: $($_.Status)" }
     }
 
     // Findings
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("Status: Error") || out.contains("Status: Unknown") {
         findings.push("One or more camera devices report a non-OK status — check Device Manager for driver errors.".into());
     }
@@ -13422,7 +13422,7 @@ ForEach-Object {
         _ => out.push_str("- Could not enumerate credential providers\n"),
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("WbioSrvc | Status: Stopped") {
         findings.push("Windows Biometric Service is stopped — Windows Hello face/fingerprint will not work until it is running.".into());
     }
@@ -13598,7 +13598,7 @@ if ($all.Count -eq 0) {
         _ => out.push_str("- Could not inspect recent installer failure events\n"),
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("msiserver | Status: Stopped | StartType: Disabled") {
         findings.push("Windows Installer service (msiserver) is disabled - MSI installs cannot start until it is re-enabled.".into());
     }
@@ -13818,7 +13818,7 @@ if (Test-Path $shell) {
         _ => out.push_str("- Could not inspect Known Folder Backup state\n"),
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("Installed: Unknown") && !out.contains("Process: Running") {
         findings.push("OneDrive client installation could not be confirmed from standard paths in this session.".into());
     }
@@ -14117,7 +14117,7 @@ if ($events) {
         _ => out.push_str("- Could not inspect recent browser failure events\n"),
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("Edge | Installed: No")
         && out.contains("Chrome | Installed: No")
         && out.contains("Firefox | Installed: No")
@@ -14485,7 +14485,7 @@ if ($events) {
         _ => out.push_str("- Could not inspect Outlook event log evidence\n"),
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
 
     if out.contains("- Installed: No") && out.contains("- NewOutlook: Not installed") {
         findings.push(
@@ -14849,7 +14849,7 @@ if ($events) {
         _ => out.push_str("- Could not inspect Teams event log evidence\n"),
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
 
     let classic_installed = out.contains("- ClassicTeams: Installed");
     let new_installed = out.contains("- NewTeams: Installed");
@@ -15197,7 +15197,7 @@ try {
     let distinct_identity_count = parse_count("- DistinctIdentityCount: ").unwrap_or(0);
     let auth_event_count = parse_count("- AuthEventCount: ").unwrap_or(0);
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("TokenBroker | Status: Stopped")
         || out.contains("wlidsvc | Status: Stopped")
         || out.contains("OneAuth | Status: Stopped")
@@ -15448,7 +15448,7 @@ if ($events) {
         _ => out.push_str("- Could not inspect backup failure events\n"),
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
 
     let fh_enabled = out.contains("- Enabled: Enabled");
     let fh_never =
@@ -15611,7 +15611,7 @@ ForEach-Object { "$($_.TimeCreated.ToString('HH:mm')) [$($_.LevelDisplayName)] $
         _ => out.push_str("- No recent indexer errors found\n"),
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("Status: Stopped") {
         findings.push("Windows Search (WSearch) is stopped — search results will be slow or empty. Start the service: `Start-Service WSearch`.".into());
     }
@@ -15743,7 +15743,7 @@ try {
         _ => out.push_str("- DPI info unavailable\n"),
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("0x0") || out.contains("@ 0 Hz") {
         findings.push("One or more adapters report zero resolution or refresh rate — display may be asleep or misconfigured.".into());
     }
@@ -15830,7 +15830,7 @@ w32tm /query /peers 2>$null | Select-Object -First 10
         }
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("W32Time | Status: Stopped") {
         findings.push("Windows Time service is stopped — system clock will drift and may cause authentication or certificate failures. Start with: `Start-Service W32Time`.".into());
     }
@@ -15980,7 +15980,7 @@ if ($pwr) {
         _ => out.push_str("- Thermal zone info unavailable\n"),
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("Max processor state:  0%") || out.contains("Max processor state:  1%") {
         findings.push("Max processor state is near 0% — CPU is being hard-capped by the power plan. Check power plan settings.".into());
     }
@@ -16073,7 +16073,7 @@ $entries | Select-Object -Last 20 | ForEach-Object {
             .unwrap_or(0)
     };
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if total_creds > 30 {
         findings.push(format!(
             "{total_creds} stored credentials found — consider auditing for stale entries."
@@ -16208,7 +16208,7 @@ switch ($fw) {
         Err(e) => { let _ = write!(out, "- Firmware type error: {e}\n"); }
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     let mut indeterminate = false;
     if out.contains("TpmPresent:          False") {
         findings.push("No TPM detected — BitLocker hardware encryption and Windows 11 security features unavailable.".into());
@@ -16285,7 +16285,7 @@ if ($gw) { $gw } else { "" }
         .filter(|s| !s.is_empty());
 
     let targets: Vec<(&str, String)> = {
-        let mut t = Vec::new();
+        let mut t = Vec::with_capacity(3);
         if let Some(ref gw) = gateway {
             t.push(("Default gateway", gw.clone()));
         }
@@ -16294,7 +16294,7 @@ if ($gw) { $gw } else { "" }
         t
     };
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
 
     for (label, host) in &targets {
         let _ = write!(out, "\n=== Ping: {label} ({host}) ===\n");
@@ -16374,7 +16374,7 @@ if ($r) {{
 fn inspect_latency() -> Result<String, String> {
     let mut out = String::from("Host inspection: latency\n\n=== Findings ===\n");
     let targets = [("Cloudflare DNS", "1.1.1.1"), ("Google DNS", "8.8.8.8")];
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
 
     for (label, host) in &targets {
         let _ = write!(out, "\n=== Ping: {label} ({host}) ===\n");
@@ -16555,7 +16555,7 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
         Err(e) => { let _ = write!(out, "- WoL query error: {e}\n"); }
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     // Check for error-prone adapters
     if out.contains("RX errors:") || out.contains("TX errors:") {
         findings
@@ -16651,7 +16651,7 @@ foreach ($a in $adapters) {
     }
 
     // Findings: check for expired or very-soon-expiring leases
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     let ps_expiry = r#"
 $adapters = Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { $_.DHCPEnabled -and $_.IPEnabled }
 foreach ($a in $adapters) {
@@ -16798,7 +16798,7 @@ else { "All test sizes failed — path MTU may be very restricted or ICMP is blo
         Err(e) => { let _ = write!(out, "- Path MTU test error: {e}\n"); }
     }
 
-    let mut findings: Vec<String> = Vec::new();
+    let mut findings: Vec<String> = Vec::with_capacity(4);
     if out.contains("MTU: 576 bytes") {
         findings.push("576-byte MTU detected — severely restricted path, likely a misconfigured VPN or legacy link.".into());
     }

@@ -8453,7 +8453,7 @@ impl ConversationManager {
                         .and_then(|v| v.as_str())
                         .unwrap_or("uninformed scoping");
                     if let Some(arr) = pts {
-                        let mut pinned = Vec::new();
+                        let mut pinned = Vec::with_capacity(arr.len().min(3));
                         {
                             let mut guard = self.pinned_files.lock().await;
                             const MAX_PINNED_SIZE: u64 = 25 * 1024 * 1024; // 25MB Safety Valve
@@ -8515,6 +8515,7 @@ impl ConversationManager {
 
                     let mut task_objs = Vec::new();
                     if let Value::Array(arr) = tasks_val {
+                        task_objs.reserve(arr.len());
                         for v in arr {
                             let id = v
                                 .get("id")

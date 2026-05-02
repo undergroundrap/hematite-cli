@@ -77,7 +77,7 @@ impl HookRunner {
         tool_output: Option<&str>,
         is_error: bool,
     ) -> HookRunResult {
-        let mut messages = Vec::new();
+        let mut messages = Vec::with_capacity(commands.len());
         let mut denied = false;
 
         for command_str in commands {
