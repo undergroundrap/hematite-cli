@@ -25,7 +25,7 @@ pub fn read_git_status(cwd: &Path) -> Option<String> {
 /// Reads the current git diff (staged + unstaged) and returns it as a formatted string.
 /// Includes capping to prevent token overflow.
 pub fn read_git_diff(cwd: &Path, max_chars: usize) -> Option<String> {
-    let mut sections = Vec::new();
+    let mut sections = Vec::with_capacity(2);
 
     // 1. Staged changes
     if let Some(staged) = read_git_output(cwd, &["diff", "--cached"]) {

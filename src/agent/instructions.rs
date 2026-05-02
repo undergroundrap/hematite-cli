@@ -197,7 +197,7 @@ pub fn activate_matching_skills<'a>(
     let ws_exts = workspace_stack_extensions(&workspace_root);
     let query_paths = extract_query_paths(query);
 
-    let mut matched = Vec::new();
+    let mut matched = Vec::with_capacity(discovery.skills.len());
     for skill in &discovery.skills {
         // 1. Direct name match (e.g. "use the pdf-processing skill")
         let name_lower = skill.name.to_lowercase();
@@ -261,7 +261,7 @@ fn glob_matches(pattern: &str, name: &str) -> bool {
 /// Returns synthetic "file extension" strings that represent the active workspace stack,
 /// derived from presence of stack marker files. Used to match trigger patterns like `*.rs`.
 fn workspace_stack_extensions(root: &std::path::Path) -> Vec<String> {
-    let mut exts: Vec<String> = Vec::new();
+    let mut exts: Vec<String> = Vec::with_capacity(8);
     let markers: &[(&str, &[&str])] = &[
         ("Cargo.toml", &["x.rs"]),
         ("go.mod", &["x.go"]),

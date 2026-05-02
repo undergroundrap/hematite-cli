@@ -566,7 +566,7 @@ fn default_active_context() -> Vec<ContextFile> {
         "build.gradle",
     ];
 
-    let mut files = Vec::new();
+    let mut files = Vec::with_capacity(5);
 
     // Primary entrypoint
     for path in &entrypoint_candidates {

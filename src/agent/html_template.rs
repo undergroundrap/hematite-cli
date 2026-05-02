@@ -127,7 +127,7 @@ pub fn markdown_to_html(md: &str) -> String {
     let mut out = String::with_capacity(md.len());
     let mut in_code_block = false;
     let mut code_buf = String::with_capacity(256);
-    let mut list_items: Vec<String> = Vec::new();
+    let mut list_items: Vec<String> = Vec::with_capacity(8);
 
     let flush_list = |items: &mut Vec<String>, out: &mut String| {
         if !items.is_empty() {
