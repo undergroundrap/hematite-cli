@@ -5033,7 +5033,7 @@ impl ConversationManager {
             .map(|m| crate::agent::inference::estimate_message_tokens(m))
             .sum();
         // Accumulates per-tool result costs (chars / 4) during the turn.
-        let mut budget_tool_costs: Vec<crate::agent::economics::ToolCost> = Vec::new();
+        let mut budget_tool_costs: Vec<crate::agent::economics::ToolCost> = Vec::with_capacity(8);
 
         for _iter in 0..max_iters {
             let context_prep_start = tokio::time::Instant::now();
@@ -5512,7 +5512,7 @@ impl ConversationManager {
                                     .await;
 
                                 // BREAK THE COLLAPSE: Push hard errors for all tool calls in this batch and end turn.
-                                let mut err_results = Vec::new();
+                                let mut err_results = Vec::with_capacity(calls.len());
                                 for c in &calls {
                                     err_results.push(ChatMessage::tool_result_for_model(
                                         &c.id,
@@ -5611,7 +5611,7 @@ impl ConversationManager {
 
                 // 1. Concurrent Execution (ParallelRead)
                 if !parallel_calls.is_empty() {
-                    let mut tasks = Vec::new();
+                    let mut tasks = Vec::with_capacity(parallel_calls.len());
                     for call in parallel_calls {
                         let tx_clone = tx.clone();
                         let config_clone = config.clone();
@@ -6802,7 +6802,7 @@ impl ConversationManager {
                 }
             };
             // Collapse duplicate tool names into summed costs (insertion order preserved).
-            let mut tool_costs: Vec<crate::agent::economics::ToolCost> = Vec::new();
+            let mut tool_costs: Vec<crate::agent::economics::ToolCost> = Vec::with_capacity(budget_tool_costs.len());
             for tc in &budget_tool_costs {
                 if let Some(existing) = tool_costs.iter_mut().find(|e| e.name == tc.name) {
                     existing.tokens += tc.tokens;
@@ -7178,7 +7178,7 @@ impl ConversationManager {
         };
 
         let mut ctx = String::from(header);
-        let mut paths: Vec<String> = Vec::new();
+        let mut paths: Vec<String> = Vec::with_capacity(results.len());
 
         let mut total = 0usize;
         const MAX_CTX_CHARS: usize = 1_500;
@@ -7205,7 +7205,7 @@ impl ConversationManager {
     /// Returns the conversation history (WITHOUT the system prompt) for the context window.
     /// This ensures we don't have redundant system blocks and prevents Jinja crashes.
     fn context_window_slice(&self) -> Vec<ChatMessage> {
-        let mut result = Vec::new();
+        let mut result = Vec::with_capacity(self.history.len().saturating_sub(1));
 
         // Skip index 0 (the raw system message) and any stray system messages in history.
         if self.history.len() > 1 {
@@ -7233,7 +7233,7 @@ impl ConversationManager {
     }
 
     fn context_window_slice_from(&self, start_idx: usize) -> Vec<ChatMessage> {
-        let mut result = Vec::new();
+        let mut result = Vec::with_capacity(self.history.len().saturating_sub(start_idx.max(1)));
 
         if self.history.len() > 1 {
             let start = start_idx.max(1).min(self.history.len());

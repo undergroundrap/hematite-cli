@@ -7466,12 +7466,12 @@ fn inspect_dns_cache(max_entries: usize) -> Result<String, String> {
             );
             let mut shown = 0usize;
             for line in lines.iter().take(n) {
-                let cols: Vec<&str> = line.splitn(4, ',').collect();
-                if cols.len() >= 3 {
-                    let entry = cols[0].trim_matches('"');
-                    let rtype = cols[1].trim_matches('"');
-                    let data = cols[2].trim_matches('"');
-                    let ttl = cols.get(3).map(|s| s.trim_matches('"')).unwrap_or("?");
+                let mut it = line.splitn(4, ',');
+                if let (Some(e), Some(rt), Some(d)) = (it.next(), it.next(), it.next()) {
+                    let entry = e.trim_matches('"');
+                    let rtype = rt.trim_matches('"');
+                    let data = d.trim_matches('"');
+                    let ttl = it.next().map(|s| s.trim_matches('"')).unwrap_or("?");
                     let _ = write!(out, "  {entry:<45} {rtype:<6} {data}  (TTL {ttl}s)\n");
                     shown += 1;
                 }

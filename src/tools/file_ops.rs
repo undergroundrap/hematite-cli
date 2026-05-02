@@ -112,13 +112,9 @@ pub fn pop_ghost_ledger() -> Result<String, String> {
     }
 
     let last_line = lines.pop().unwrap();
-    let parts: Vec<&str> = last_line.splitn(2, '|').collect();
-    if parts.len() != 2 {
+    let Some((target_path, backup_path)) = last_line.split_once('|') else {
         return Err("Corrupted ledger entry".into());
-    }
-
-    let target_path = parts[0];
-    let backup_path = parts[1];
+    };
 
     let ws = workspace_root();
 
