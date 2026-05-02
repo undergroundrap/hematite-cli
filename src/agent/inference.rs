@@ -1712,7 +1712,7 @@ fn normalize_regex_pattern(input: &str) -> String {
 }
 
 fn prepare_gemma_native_messages(messages: &[ChatMessage]) -> Vec<ChatMessage> {
-    let mut system_blocks = Vec::new();
+    let mut system_blocks = Vec::with_capacity(2);
     let mut prepared = Vec::with_capacity(messages.len());
     let mut seeded = false;
 

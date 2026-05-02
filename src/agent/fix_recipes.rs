@@ -16,8 +16,9 @@ static RECIPE_AC: std::sync::OnceLock<RecipeAc> = std::sync::OnceLock::new();
 
 fn recipe_ac() -> &'static RecipeAc {
     RECIPE_AC.get_or_init(|| {
-        let mut patterns: Vec<&str> = Vec::new();
-        let mut recipe_indices: Vec<usize> = Vec::new();
+        let total: usize = ALL_RECIPES.iter().map(|e| e.triggers.len()).sum();
+        let mut patterns: Vec<&str> = Vec::with_capacity(total);
+        let mut recipe_indices: Vec<usize> = Vec::with_capacity(total);
         for (i, entry) in ALL_RECIPES.iter().enumerate() {
             for &trigger in entry.triggers {
                 patterns.push(trigger);
