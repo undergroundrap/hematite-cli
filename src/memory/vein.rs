@@ -2637,7 +2637,7 @@ fn chunk_rust_symbols(text: &str) -> Vec<String> {
     }
 
     // Subdivide any oversized blocks (e.g. long impl blocks with many methods).
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(chunks.len());
     for chunk in chunks {
         if chunk.len() > 3000 {
             result.extend(sliding_window_chunks(&chunk, 2000, 200));
@@ -2685,7 +2685,8 @@ fn chunk_paragraphs(text: &str) -> Vec<String> {
 /// Classic sliding-window fallback for oversized blocks.
 fn sliding_window_chunks(text: &str, chunk_size: usize, overlap: usize) -> Vec<String> {
     let chars: Vec<char> = text.chars().collect();
-    let mut result = Vec::new();
+    let stride = chunk_size.saturating_sub(overlap).max(1);
+    let mut result = Vec::with_capacity(chars.len() / stride + 1);
     let mut i = 0;
     while i < chars.len() {
         let end = (i + chunk_size).min(chars.len());

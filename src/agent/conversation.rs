@@ -9373,11 +9373,11 @@ fn enforce_prompt_budget(
     let mut stats = PromptBudgetStats::default();
 
     // 1. Summarize the newest large tool outputs first.
-    let mut tool_indices: Vec<usize> = prompt_msgs
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, msg)| (msg.role == "tool").then_some(idx))
-        .collect();
+    let mut tool_indices: Vec<usize> = {
+        let mut v = Vec::with_capacity(prompt_msgs.len());
+        v.extend(prompt_msgs.iter().enumerate().filter_map(|(idx, msg)| (msg.role == "tool").then_some(idx)));
+        v
+    };
     for idx in tool_indices.iter().rev().copied() {
         if estimate_prompt_tokens(prompt_msgs) <= target_tokens {
             break;
@@ -9391,11 +9391,8 @@ fn enforce_prompt_budget(
     }
 
     // 2. Collapse older tool results aggressively, keeping only the most recent two verbatim/summarized.
-    tool_indices = prompt_msgs
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, msg)| (msg.role == "tool").then_some(idx))
-        .collect();
+    tool_indices.clear();
+    tool_indices.extend(prompt_msgs.iter().enumerate().filter_map(|(idx, msg)| (msg.role == "tool").then_some(idx)));
     if tool_indices.len() > 2 {
         for idx in tool_indices
             .iter()
