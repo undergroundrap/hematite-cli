@@ -3873,7 +3873,7 @@ fn parse_lan_neighbors(text: &str) -> Vec<(String, String, String, String)> {
         other => vec![other],
     };
 
-    let mut neighbors = Vec::new();
+    let mut neighbors = Vec::with_capacity(entries.len());
     for entry in entries {
         let ip = entry
             .get("IPAddress")
@@ -8030,7 +8030,7 @@ fn parse_docker_mounts(raw: &str) -> Vec<DockerMountAudit> {
         return Vec::new();
     };
 
-    let mut mounts = Vec::new();
+    let mut mounts = Vec::with_capacity(entries.len());
     for entry in entries {
         let mount_type = entry
             .get("Type")
@@ -8396,7 +8396,7 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
     }
     out.push('\n');
 
-    let mut containers = Vec::new();
+    let mut containers = Vec::with_capacity(n);
     if let Ok(o) = Command::new("docker")
         .args([
             "ps",
@@ -8435,7 +8435,7 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
         }
     }
 
-    let mut volumes = Vec::new();
+    let mut volumes = Vec::with_capacity(n);
     if let Ok(o) = Command::new("docker")
         .args(["volume", "ls", "--format", "{{.Name}}\t{{.Driver}}"])
         .output()
