@@ -207,10 +207,10 @@ impl SystemPromptBuilder {
         );
 
         if let Some(s) = summary {
-            prompt.push_str(&format!(
+            let _ = write!(prompt,
                 "\n# COMPACTED HISTORY SUMMARY\n{}\nRecent messages are preserved below.",
                 s
-            ));
+            );
         }
 
         if let Some(mem) = memory {
@@ -218,14 +218,14 @@ impl SystemPromptBuilder {
         }
 
         prompt.push_str("\n# ENVIRONMENT");
-        prompt.push_str(&format!(
+        let _ = write!(prompt,
             "\n- Local Time: {}",
             chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
-        ));
-        prompt.push_str(&format!(
+        );
+        let _ = write!(prompt,
             "\n- Hematite Build: {}",
             crate::hematite_version_display()
-        ));
+        );
         if let Ok(user) = std::env::var("USERPROFILE") {
             let _ = write!(prompt, "\n- USERPROFILE (Authoritative): {user}");
         }
@@ -272,10 +272,10 @@ impl SystemPromptBuilder {
                         } else {
                             content
                         };
-                        prompt.push_str(&format!(
+                        let _ = write!(prompt,
                             "\n\n# ACTIVE TASK {} (.hematite/)\n{}",
                             name, content
-                        ));
+                        );
                     }
                 }
             }

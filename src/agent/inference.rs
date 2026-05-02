@@ -581,31 +581,31 @@ impl InferenceEngine {
         }
 
         if professional {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "You are Hematite, a local coding system running on {}. \
                  The TUI is one interface layer, not your whole identity. \
                  Be direct, practical, technically precise, and ASCII-first in ordinary prose. \
                  Skip filler and keep the focus on the work.\n",
                 os
-            ));
+            );
         } else {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "You are Hematite, a [{}] local AI coding system (Snark: {}/100) running on the user's hardware on {}. \
                  The terminal UI is only one surface of the system. \
                  Be direct, efficient, technical, and ASCII-first in ordinary prose. \
                  When the user asks who you are, describe Hematite as the local coding harness and agent, not merely the TUI.\n",
                 self.species, snark, os
-            ));
+            );
         }
 
         // Inject loaded model and context window so the model knows its own budget.
         let current_model = self.current_model();
         if !current_model.is_empty() {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "Loaded model: {} | Context window: {} tokens. \
                  Calibrate response length and tool-call depth to fit within this budget.\n\n",
                 current_model, current_context_length
-            ));
+            );
             if is_hematite_native_model(&current_model) {
                 sys.push_str(
                     "Sovereign native note: prefer exact tool JSON with no extra prose when calling tools. \
@@ -614,10 +614,10 @@ impl InferenceEngine {
                 );
             }
         } else {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "Context window: {} tokens. Calibrate response length to fit within this budget.\n\n",
                 current_context_length
-            ));
+            );
         }
 
         // PROTOCOL & TOOLS
@@ -689,10 +689,10 @@ impl InferenceEngine {
             for tool in tools {
                 let schema = serde_json::to_string(&tool.function.parameters)
                     .unwrap_or_else(|_| "{}".to_string());
-                sys.push_str(&format!(
+                let _ = write!(sys,
                     "<|tool>declaration:{}{}{}<tool|>\n",
                     tool.function.name, "{", schema
-                ));
+                );
                 let _ = write!(sys, "// {})\n", tool.function.description);
             }
         }
@@ -719,15 +719,15 @@ impl InferenceEngine {
         if professional {
             sys.push_str("Be direct, technical, concise, and ASCII-first.\n");
         } else {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "You are a [{}] local AI coding system. Be direct, concise, and technical.\n",
                 self.species
-            ));
+            );
         }
-        sys.push_str(&format!(
+        let _ = write!(sys,
             "Model: {} | Context: {} tokens. Keep turns focused.\n",
             current_model, current_context_length
-        ));
+        );
         if is_hematite_native_model(&current_model) {
             sys.push_str(
                 "Sovereign native: use exact tool JSON. No extra prose in tool calls. \
@@ -735,10 +735,10 @@ impl InferenceEngine {
             );
         }
         if cfg!(target_os = "windows") {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "OS: {}. Use PowerShell for shell. Never bash or /dev/null.\n",
                 os
-            ));
+            );
         } else {
             let _ = write!(sys, "OS: {}. Use native Unix shell.\n", os);
         }
@@ -778,35 +778,35 @@ impl InferenceEngine {
         if professional {
             sys.push_str("Be direct, technical, concise, and ASCII-first.\n");
         } else {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "You are a [{}] local AI coding system. Be direct, concise, and technical.\n",
                 self.species
-            ));
+            );
         }
         if !current_model.is_empty() {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "Loaded model: {} | Context window: {} tokens.\n",
                 current_model, current_context_length
-            ));
+            );
         } else {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "Context window: {} tokens.\n",
                 current_context_length
-            ));
+            );
         }
         sys.push_str("Tiny-context mode is active. Keep turns short. Prefer final answers over long analysis. Only use tools when necessary.\n");
         sys.push_str("Use built-in workspace tools for local inspection and edits. Do not invent tools, files, channels, or symbols.\n");
         sys.push_str("Before editing an existing file, gather recent file evidence first. After code edits, verify before commit.\n");
         if cfg!(target_os = "windows") {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "You are running on {}. Use PowerShell for shell work. Do not assume bash or /dev/null.\n",
                 os
-            ));
+            );
         } else {
-            sys.push_str(&format!(
+            let _ = write!(sys,
                 "You are running on {}. Use the native Unix shell conventions.\n",
                 os
-            ));
+            );
         }
         if brief {
             sys.push_str("BRIEF MODE: answer in one concise sentence unless code is required.\n");

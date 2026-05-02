@@ -231,30 +231,30 @@ impl SessionMemory {
             if checkpoint.summary.trim().is_empty() {
                 let _ = write!(s, "- **Latest Checkpoint**: {}\n", checkpoint.state);
             } else {
-                s.push_str(&format!(
+                let _ = write!(s,
                     "- **Latest Checkpoint**: {} - {}\n",
                     checkpoint.state, checkpoint.summary
-                ));
+                );
             }
         }
         if let Some(blocker) = &self.last_blocker {
             if blocker.summary.trim().is_empty() {
                 let _ = write!(s, "- **Latest Blocker**: {}\n", blocker.state);
             } else {
-                s.push_str(&format!(
+                let _ = write!(s,
                     "- **Latest Blocker**: {} - {}\n",
                     blocker.state, blocker.summary
-                ));
+                );
             }
         }
         if let Some(recovery) = &self.last_recovery {
             if recovery.summary.trim().is_empty() {
                 let _ = write!(s, "- **Latest Recovery**: {}\n", recovery.state);
             } else {
-                s.push_str(&format!(
+                let _ = write!(s,
                     "- **Latest Recovery**: {} - {}\n",
                     recovery.state, recovery.summary
-                ));
+                );
             }
         }
         if let Some(verification) = &self.last_verification {
@@ -263,16 +263,16 @@ impl SessionMemory {
             } else {
                 "failed"
             };
-            s.push_str(&format!(
+            let _ = write!(s,
                 "- **Latest Verification**: {} - {}\n",
                 status, verification.summary
-            ));
+            );
         }
         if let Some(compaction) = &self.last_compaction {
-            s.push_str(&format!(
+            let _ = write!(s,
                 "- **Latest Compaction**: pass {} removed {} message(s) - {}\n",
                 compaction.count, compaction.removed_message_count, compaction.summary
-            ));
+            );
         }
         s
     }

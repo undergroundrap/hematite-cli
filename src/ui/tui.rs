@@ -367,12 +367,12 @@ async fn handle_runtime_fix(app: &mut App) {
     if issue == RuntimeIssueKind::NoModel {
         let mut message = runtime_fix_path(app);
         if let Some((name, url)) = alternative {
-            message.push_str(&format!(
+            let _ = write!(message,
                 "\nReachable alternative: {} ({}). Hematite will not switch providers silently; use `/runtime provider {}` and restart if you want that runtime instead.",
                 name,
                 url,
                 name.to_ascii_lowercase()
-            ));
+            );
         }
         app.push_message("System", &message);
         app.history_idx = None;
@@ -399,12 +399,12 @@ async fn handle_runtime_fix(app: &mut App) {
             session_provider
         );
         if let Some((name, url)) = alternative {
-            message.push_str(&format!(
+            let _ = write!(message,
                 "\nReachable alternative: {} ({}). Hematite will stay on the current provider unless you explicitly switch with `/runtime provider {}` and restart.",
                 name,
                 url,
                 name.to_ascii_lowercase()
-            ));
+            );
         }
         app.push_message("System", &message);
         if issue == RuntimeIssueKind::EmptyResponse {
@@ -1557,10 +1557,10 @@ impl App {
             out.push('\n');
         }
 
-        out.push_str(&format!(
+        let _ = write!(out,
             "Tokens: {} | Cost: ${:.4}\n",
             self.total_tokens, self.current_session_cost
-        ));
+        );
 
         let mut child = std::process::Command::new("clip.exe")
             .stdin(std::process::Stdio::piped())
@@ -4898,12 +4898,12 @@ pub async fn run_app<B: Backend>(
                             if let Some((alt_name, alt_url)) =
                                 crate::runtime::detect_alternative_provider(&provider_name).await
                             {
-                                guidance.push_str(&format!(
+                                let _ = write!(guidance,
                                     " Reachable alternative detected: {} ({}). Use `/provider {}` and restart Hematite if you want to switch.",
                                     alt_name,
                                     alt_url,
                                     alt_name.to_ascii_lowercase().replace(' ', "")
-                                ));
+                                );
                             }
                             app.push_message("System", &guidance);
                         } else if provider_changed && !now_no_model {

@@ -1376,13 +1376,13 @@ impl Vein {
                 } else {
                     format!("{}d ago", age_secs / 86400)
                 };
-                out.push_str(&format!(
+                let _ = write!(out,
                     "  - {} [{} edit{}, {}]\n",
                     path,
                     heat,
                     if *heat == 1 { "" } else { "s" },
                     age
-                ));
+                );
             }
         }
         Some(out)

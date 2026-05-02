@@ -178,13 +178,13 @@ async fn perform_searx_search(query: &str, base_url: &str) -> Result<String, Str
             let url = res.get("url").and_then(|v| v.as_str()).unwrap_or("#");
             let content = res.get("content").and_then(|v| v.as_str()).unwrap_or("");
 
-            output.push_str(&format!(
+            let _ = write!(output,
                 "### {}. [{}]({})\n{}\n\n",
                 i + 1,
                 title,
                 url,
                 sanitize_web_content(content)
-            ));
+            );
         }
     }
 

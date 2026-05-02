@@ -353,14 +353,14 @@ pub fn render_active_skill_bodies(
 
 pub fn render_skills_report(discovery: &SkillDiscovery) -> String {
     let mut report = String::from("## Agent Skills\n\n");
-    report.push_str(&format!(
+    let _ = write!(report,
         "Project skill directories: {}\n\n",
         if discovery.project_skills_loaded {
             "loaded"
         } else {
             "skipped"
         }
-    ));
+    );
     if let Some(note) = &discovery.project_skills_note {
         report.push_str(note);
         report.push_str("\n\n");
@@ -380,18 +380,18 @@ pub fn render_skills_report(discovery: &SkillDiscovery) -> String {
 
     report.push_str("Discovered skills:\n");
     for skill in &discovery.skills {
-        report.push_str(&format!(
+        let _ = write!(report,
             "- `{}` [{}] — {}\n  SKILL.md: {}\n",
             skill.name,
             skill.scope.label(),
             skill.description,
             skill.skill_md_path.display()
-        ));
+        );
         if !skill.triggers.is_empty() {
-            report.push_str(&format!(
+            let _ = write!(report,
                 "  auto-activates: {}\n",
                 skill.triggers.join(", ")
-            ));
+            );
         }
         if let Some(compatibility) = &skill.compatibility {
             let _ = write!(report, "  compatibility: {}\n", compatibility);

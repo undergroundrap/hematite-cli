@@ -739,10 +739,10 @@ pub async fn generate_diagnosis_report() -> String {
     let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
     let _ = write!(md, "**Host:** {}  \n", data.hostname);
     let _ = write!(md, "**Hematite:** v{}  \n", version);
-    md.push_str(&format!(
+    let _ = write!(md,
         "**Health Score:** {} — {}  \n\n",
         score.grade, score.label
-    ));
+    );
     let _ = write!(md, "> {}\n\n", score.summary_line());
     md.push_str("---\n\n");
     md.push_str("## Action Plan\n\n");
@@ -924,11 +924,11 @@ fn build_html_document(
 
     let mut sections_html = String::new();
     for (label, output) in sections {
-        sections_html.push_str(&format!(
+        let _ = write!(sections_html,
             "<details><summary>{}</summary><pre>{}</pre></details>\n",
             he(label),
             he(output.trim_end())
-        ));
+        );
     }
 
     let content = format!(
@@ -1039,10 +1039,10 @@ pub async fn generate_triage_report_markdown(preset: &str) -> String {
     let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
     let _ = write!(md, "**Host:** {}  \n", data.hostname);
     let _ = write!(md, "**Hematite:** v{}  \n", version);
-    md.push_str(&format!(
+    let _ = write!(md,
         "**Health Score:** {} — {}  \n\n",
         score.grade, score.label
-    ));
+    );
     let _ = write!(md, "> {}\n\n", score.summary_line());
     md.push_str("---\n\n## Action Plan\n\n");
     md.push_str(&action_plan);
@@ -1193,10 +1193,10 @@ pub async fn generate_fix_plan_markdown(issue: &str) -> String {
     let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
     let _ = write!(md, "**Host:** {}  \n", data.hostname);
     let _ = write!(md, "**Hematite:** v{}  \n", version);
-    md.push_str(&format!(
+    let _ = write!(md,
         "**Health Score:** {} — {}  \n\n",
         score.grade, score.label
-    ));
+    );
     let _ = write!(md, "> {}\n\n", score.summary_line());
     md.push_str("---\n\n## Fix Steps\n\n");
     md.push_str(&action_plan);
@@ -1225,11 +1225,11 @@ pub async fn generate_fix_plan_html(issue: &str) -> String {
 
     let mut sections_html = String::new();
     for (label, output) in &data.sections {
-        sections_html.push_str(&format!(
+        let _ = write!(sections_html,
             "<details><summary>{}</summary><pre>{}</pre></details>\n",
             he(label),
             he(output.trim_end())
-        ));
+        );
     }
 
     let content = format!(

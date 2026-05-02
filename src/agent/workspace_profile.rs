@@ -183,21 +183,21 @@ pub fn profile_report(root: &Path) -> String {
     out.push_str("Workspace Profile\n");
     let _ = write!(out, "Path: {}\n", path.display());
     let _ = write!(out, "Mode: {}\n", profile.workspace_mode);
-    out.push_str(&format!(
+    let _ = write!(out,
         "Primary stack: {}\n",
         profile.primary_stack.as_deref().unwrap_or("unknown")
-    ));
+    );
     if !profile.stack_signals.is_empty() {
-        out.push_str(&format!(
+        let _ = write!(out,
             "Stack signals: {}\n",
             profile.stack_signals.join(", ")
-        ));
+        );
     }
     if !profile.package_managers.is_empty() {
-        out.push_str(&format!(
+        let _ = write!(out,
             "Package managers: {}\n",
             profile.package_managers.join(", ")
-        ));
+        );
     }
     if let Some(profile_name) = &profile.verify_profile {
         let _ = write!(out, "Verify profile: {}\n", profile_name);
@@ -218,47 +218,47 @@ pub fn profile_report(root: &Path) -> String {
             let _ = write!(out, "Local URL hint: {}\n", url);
         }
         if !contract.preferred_workflows.is_empty() {
-            out.push_str(&format!(
+            let _ = write!(out,
                 "Preferred workflows: {}\n",
                 contract.preferred_workflows.join(", ")
-            ));
+            );
         }
         if !contract.delivery_phases.is_empty() {
-            out.push_str(&format!(
+            let _ = write!(out,
                 "Delivery phases: {}\n",
                 contract.delivery_phases.join(" -> ")
-            ));
+            );
         }
         if !contract.verification_workflows.is_empty() {
-            out.push_str(&format!(
+            let _ = write!(out,
                 "Verification workflows: {}\n",
                 contract.verification_workflows.join(", ")
-            ));
+            );
         }
         if !contract.quality_gates.is_empty() {
-            out.push_str(&format!(
+            let _ = write!(out,
                 "Quality gates: {}\n",
                 contract.quality_gates.join("; ")
-            ));
+            );
         }
         if !contract.route_hints.is_empty() {
-            out.push_str(&format!(
+            let _ = write!(out,
                 "Route hints: {}\n",
                 contract.route_hints.join(", ")
-            ));
+            );
         }
     }
     if !profile.important_paths.is_empty() {
-        out.push_str(&format!(
+        let _ = write!(out,
             "Important paths: {}\n",
             profile.important_paths.join(", ")
-        ));
+        );
     }
     if !profile.ignored_paths.is_empty() {
-        out.push_str(&format!(
+        let _ = write!(out,
             "Ignored noise: {}\n",
             profile.ignored_paths.join(", ")
-        ));
+        );
     }
     let _ = write!(out, "Summary: {}", profile.summary);
     out

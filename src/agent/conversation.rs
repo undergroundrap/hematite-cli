@@ -1690,12 +1690,12 @@ impl ConversationManager {
         for (room, files) in by_room {
             let _ = write!(out, "[{}]\n", room);
             for file in files {
-                out.push_str(&format!(
+                let _ = write!(out,
                     "- {} [{} edit{}]\n",
                     file.path,
                     file.heat,
                     if file.heat == 1 { "" } else { "s" }
-                ));
+                );
             }
         }
 
@@ -1855,10 +1855,10 @@ impl ConversationManager {
             if let Some((alt_name, alt_url)) =
                 crate::runtime::detect_alternative_provider(&provider_name).await
             {
-                summary.push_str(&format!(
+                let _ = write!(summary,
                     " | reachable alternative: {} ({})",
                     alt_name, alt_url
-                ));
+                );
             }
             let _ = tx
                 .send(InferenceEvent::ProviderStatus {
@@ -3215,12 +3215,12 @@ impl ConversationManager {
                             let _ = write!(combined, "## {}\n\n{}\n\n", name, content.trim());
                         }
                         Err(e) => {
-                            combined.push_str(&format!(
+                            let _ = write!(combined,
                                 "## {}\n\nError reading {}: {}\n\n",
                                 name,
                                 path.display(),
                                 e
-                            ));
+                            );
                         }
                     }
                 }
@@ -3850,10 +3850,10 @@ impl ConversationManager {
                         provider_name, endpoint
                     );
                     if let Some((alt_name, alt_url)) = alternative {
-                        message.push_str(&format!(
+                        let _ = write!(message,
                             " Reachable alternative detected: {} ({})",
                             alt_name, alt_url
-                        ));
+                        );
                     }
                     let _ = tx.send(InferenceEvent::Error(message)).await;
                 }
@@ -4369,10 +4369,10 @@ impl ConversationManager {
         if !tiny_context_mode {
             if let Some(hint) = &config.context_hint {
                 if !hint.trim().is_empty() {
-                    base_prompt.push_str(&format!(
+                    let _ = write!(base_prompt,
                         "\n\n# Project Context (from .hematite/settings.json)\n{}",
                         hint
-                    ));
+                    );
                 }
             }
             if let Some(profile_block) = crate::agent::workspace_profile::profile_prompt_block(
@@ -4505,10 +4505,10 @@ impl ConversationManager {
         }
 
         // ── Inject Pinned Files (Context Locking) ───────────────────────────
-        system_msg.push_str(&format!(
+        let _ = write!(system_msg,
             "\n\n# WORKFLOW MODE\nCURRENT WORKFLOW: {}\n",
             self.workflow_mode.label()
-        ));
+        );
         if tiny_context_mode {
             system_msg
                 .push_str("Use the narrowest safe behavior for this mode. Keep the turn short.\n");
@@ -4534,10 +4534,10 @@ impl ConversationManager {
             }
             // Inject any explicitly force-loaded skill from /skill <name>, then clear it.
             if let Some(forced_body) = self.pending_skill_inject.take() {
-                system_msg.push_str(&format!(
+                let _ = write!(system_msg,
                     "\n\n# Active Skill Instructions\n\n{}",
                     forced_body
-                ));
+                );
             }
         }
         if !tiny_context_mode && implement_current_plan {
@@ -9714,13 +9714,13 @@ fn build_system_with_corrections(
     let (used, total) = gpu.read();
     if total > 0 {
         system_msg.push_str("\n\n# Terminal Hardware Context\n");
-        system_msg.push_str(&format!(
+        let _ = write!(system_msg,
             "HOST GPU: {} | VRAM: {:.1}GB / {:.1}GB ({:.0}% used)\n",
             gpu.gpu_name(),
             used as f64 / 1024.0,
             total as f64 / 1024.0,
             gpu.ratio() * 100.0
-        ));
+        );
         system_msg.push_str("Use this awareness to manage your context window responsibly.\n");
     }
 
@@ -9728,10 +9728,10 @@ fn build_system_with_corrections(
     system_msg.push_str("\n\n# Git Repository Context\n");
     let git_status_label = git.label();
     let git_url = git.url();
-    system_msg.push_str(&format!(
+    let _ = write!(system_msg,
         "REMOTE STATUS: {} | URL: {}\n",
         git_status_label, git_url
-    ));
+    );
 
     // Live Snapshots (Status/Diff)
     let root = crate::tools::file_ops::workspace_root();

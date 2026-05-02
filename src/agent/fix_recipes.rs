@@ -825,13 +825,13 @@ pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
             _ => ("sev-monitor", "b-monitor", "MONITOR"),
         };
         let _ = write!(out, "<div class=\"recipe {}\">\n", sev_class);
-        out.push_str(&format!(
+        let _ = write!(out,
             "<h3><span class=\"badge {}\">{}</span> {}. {}</h3>\n",
             badge_class,
             badge_text,
             i + 1,
             he(recipe.title)
-        ));
+        );
         out.push_str("<ol>\n");
         for step in recipe.steps {
             let _ = write!(out, "<li>{}</li>\n", he(step));

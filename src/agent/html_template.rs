@@ -258,10 +258,10 @@ fn linkify(s: &str) -> String {
             .find(|c: char| c.is_whitespace() || c == '<' || c == '>' || c == '"' || c == '\'')
             .unwrap_or(url_start.len());
         let url = &url_start[..end];
-        out.push_str(&format!(
+        let _ = write!(out,
             "<a href=\"{}\" target=\"_blank\">{}</a>",
             url, url
-        ));
+        );
         rest = &url_start[end..];
     }
     out.push_str(rest);

@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use crate::agent;
 use crate::agent::conversation::{ConversationManager, UserTurn};
 use crate::agent::git_monitor::GitState;
@@ -73,10 +75,10 @@ fn coding_runtime_budget_warning(
         provider_label, model_name, context_length
     );
     if let Some(target) = preferred_model.filter(|target| !model_name_matches(model_name, target)) {
-        message.push_str(&format!(
+        let _ = write!(message,
             " Load your preferred coding model `{}` and rerun `/runtime refresh` before heavy implementation.",
             target
-        ));
+        );
     } else {
         message.push_str(
             " Load a larger-context coding model before heavy implementation and rerun `/runtime refresh`.",

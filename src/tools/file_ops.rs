@@ -187,10 +187,10 @@ pub async fn read_file(args: &Value, budget_tokens: usize) -> Result<String, Str
     if content.len() > char_limit {
         content.truncate(char_limit);
         content.push_str("\n\n--- [PREDICTIVE TRUNCATION: CONTEXT BUDGET REACHED] ---\n");
-        content.push_str(&format!(
+        let _ = write!(content,
             "Output truncated at {} chars to prevent context window flooding. ",
             char_limit
-        ));
+        );
         content
             .push_str("To see more, use `read_file` with a higher `offset` and a smaller `limit`.");
     } else if end < total {
@@ -775,11 +775,11 @@ pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
 
         let mut out = format!("{total} file(s) match '{pattern}'");
         if offset > 0 || showing < total {
-            out.push_str(&format!(
+            let _ = write!(out,
                 " [showing {}-{} of {total}]",
                 offset + 1,
                 offset + showing
-            ));
+            );
         }
         out.push('\n');
 
@@ -899,11 +899,11 @@ pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
     let mut out =
         format!("{total_matches} match(es) across {files_matched} file(s), {total_hunks} hunk(s)");
     if offset > 0 || showing < total_hunks {
-        out.push_str(&format!(
+        let _ = write!(out,
             " [hunks {}-{} of {total_hunks}]",
             offset + 1,
             offset + showing
-        ));
+        );
     }
     out.push('\n');
 

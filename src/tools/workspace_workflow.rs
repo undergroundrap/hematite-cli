@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -880,7 +882,7 @@ async fn website_server_status(args: &Value, root: &Path) -> Result<String, Stri
         state.log_path
     );
     if let Some(probe) = probe {
-        out.push_str(&format!(
+        let _ = write!(out,
             "\n\nHTTP {}{}\n{}",
             probe.status,
             probe
@@ -889,7 +891,7 @@ async fn website_server_status(args: &Value, root: &Path) -> Result<String, Stri
                 .map(|title| format!(" ({title})"))
                 .unwrap_or_default(),
             format_probe_details(&probe)
-        ));
+        );
     } else {
         out.push_str("\n\nHTTP probe: unavailable");
     }
