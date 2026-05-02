@@ -2869,8 +2869,7 @@ impl ConversationManager {
 
                     // 2. Wide-Net Fallback: Find the first non-cmdlet, non-parameter string
                     if identity.is_empty() {
-                        let parts: Vec<&str> = command.split_whitespace().collect();
-                        for (i, part) in parts.iter().enumerate() {
+                        for (i, part) in command.split_whitespace().enumerate() {
                             if i == 0 || part.starts_with('-') {
                                 continue;
                             }

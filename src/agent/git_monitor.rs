@@ -137,10 +137,10 @@ async fn check_git_status() -> Option<(GitRemoteStatus, String)> {
         let counts = String::from_utf8_lossy(&sync_check.stdout)
             .trim()
             .to_string();
-        let parts: Vec<&str> = counts.split_whitespace().collect();
-        if parts.len() == 2 {
-            let ahead: u32 = parts[0].parse().unwrap_or(0);
-            let behind: u32 = parts[1].parse().unwrap_or(0);
+        let mut it = counts.split_whitespace();
+        if let (Some(ahead_str), Some(behind_str), None) = (it.next(), it.next(), it.next()) {
+            let ahead: u32 = ahead_str.parse().unwrap_or(0);
+            let behind: u32 = behind_str.parse().unwrap_or(0);
 
             if ahead > 0 && behind > 0 {
                 return Some((GitRemoteStatus::Diverged, url));

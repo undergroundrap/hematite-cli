@@ -3002,21 +3002,22 @@ fn collect_unix_listening_ports() -> Result<Vec<ListeningPort>, String> {
     let text = String::from_utf8_lossy(&output.stdout);
     let mut listeners = Vec::new();
     for line in text.lines().skip(1) {
-        let cols: Vec<&str> = line.split_whitespace().collect();
-        if cols.len() < 4 {
-            continue;
+        let mut it = line.split_whitespace();
+        if let (Some(state), Some(_), Some(_), Some(local)) =
+            (it.next(), it.next(), it.next(), it.next())
+        {
+            let Some(port) = extract_port_from_socket(local) else {
+                continue;
+            };
+            listeners.push(ListeningPort {
+                protocol: "tcp".to_string(),
+                local: local.to_string(),
+                port,
+                state: state.to_string(),
+                pid: None,
+                process_name: None,
+            });
         }
-        let Some(port) = extract_port_from_socket(cols[3]) else {
-            continue;
-        };
-        listeners.push(ListeningPort {
-            protocol: "tcp".to_string(),
-            local: cols[3].to_string(),
-            port,
-            state: cols[0].to_string(),
-            pid: None,
-            process_name: None,
-        });
     }
 
     Ok(listeners)
@@ -3203,16 +3204,19 @@ fn collect_unix_processes() -> Result<Vec<ProcessEntry>, String> {
     let text = String::from_utf8_lossy(&output.stdout);
     let mut processes = Vec::new();
     for line in text.lines() {
-        let cols: Vec<&str> = line.split_whitespace().collect();
-        if cols.len() < 3 {
-            continue;
+        let mut it = line.split_whitespace();
+        let Some(pid_str) = it.next() else { continue; };
+        let Some(rss_str) = it.next() else { continue; };
+        let Some(first_word) = it.next() else { continue; };
+        let Ok(pid) = pid_str.parse::<u32>() else { continue; };
+        let Ok(rss_kib) = rss_str.parse::<u64>() else { continue; };
+        let mut name = first_word.to_string();
+        for w in it {
+            name.push(' ');
+            name.push_str(w);
         }
-        let (Some(pid), Some(rss_kib)) = (cols[0].parse::<u32>().ok(), cols[1].parse::<u64>().ok())
-        else {
-            continue;
-        };
         processes.push(ProcessEntry {
-            name: cols[2..].join(" "),
+            name,
             pid,
             memory_bytes: rss_kib * 1024,
             cpu_seconds: None,
@@ -3734,13 +3738,14 @@ fn parse_unix_ip_addr(text: &str) -> Vec<NetworkAdapter> {
     let mut adapters = std::collections::BTreeMap::<String, NetworkAdapter>::new();
 
     for line in text.lines() {
-        let cols: Vec<&str> = line.split_whitespace().collect();
-        if cols.len() < 4 {
+        let mut it = line.split_whitespace();
+        let (Some(_), Some(iface), Some(family), Some(addr_full)) =
+            (it.next(), it.next(), it.next(), it.next())
+        else {
             continue;
-        }
-        let name = cols[1].trim_end_matches(':').to_string();
-        let family = cols[2];
-        let addr = cols[3].split('/').next().unwrap_or("").to_string();
+        };
+        let name = iface.trim_end_matches(':').to_string();
+        let addr = addr_full.split('/').next().unwrap_or("").to_string();
         let entry = adapters
             .entry(name.clone())
             .or_insert_with(|| NetworkAdapter {
@@ -4065,27 +4070,28 @@ fn service_is_running(service: &ServiceEntry) -> bool {
 fn parse_unix_services(status_text: &str, startup_text: &str) -> Vec<ServiceEntry> {
     let mut startup_modes = std::collections::HashMap::<String, String>::new();
     for line in startup_text.lines() {
-        let cols: Vec<&str> = line.split_whitespace().collect();
-        if cols.len() < 2 {
-            continue;
+        let mut it = line.split_whitespace();
+        if let (Some(name), Some(mode)) = (it.next(), it.next()) {
+            startup_modes.insert(name.to_string(), mode.to_string());
         }
-        startup_modes.insert(cols[0].to_string(), cols[1].to_string());
     }
 
     let mut services = Vec::new();
     for line in status_text.lines() {
-        let cols: Vec<&str> = line.split_whitespace().collect();
-        if cols.len() < 4 {
-            continue;
-        }
-        let unit = cols[0];
-        let load = cols[1];
-        let active = cols[2];
-        let sub = cols[3];
-        let description = if cols.len() > 4 {
-            Some(cols[4..].join(" "))
-        } else {
-            None
+        let mut it = line.split_whitespace();
+        let Some(unit) = it.next() else { continue; };
+        let Some(load) = it.next() else { continue; };
+        let Some(active) = it.next() else { continue; };
+        let Some(sub) = it.next() else { continue; };
+        let description = {
+            let mut desc = String::new();
+            for (i, w) in it.enumerate() {
+                if i > 0 {
+                    desc.push(' ');
+                }
+                desc.push_str(w);
+            }
+            if desc.is_empty() { None } else { Some(desc) }
         };
         services.push(ServiceEntry {
             name: unit.to_string(),
@@ -4210,10 +4216,12 @@ fn health_check_disk(needs_fix: &mut Vec<String>, watch: &mut Vec<String>, good:
         if let Ok(out) = Command::new("df").args(["-BG", "/"]).output() {
             let text = String::from_utf8_lossy(&out.stdout);
             for line in text.lines().skip(1) {
-                let cols: Vec<&str> = line.split_whitespace().collect();
-                if cols.len() >= 5 {
-                    let avail_str = cols[3].trim_end_matches('G');
-                    let use_pct = cols[4].trim_end_matches('%');
+                let mut it = line.split_whitespace();
+                if let (Some(_), Some(_), Some(_), Some(avail_raw), Some(use_pct_raw)) =
+                    (it.next(), it.next(), it.next(), it.next(), it.next())
+                {
+                    let avail_str = avail_raw.trim_end_matches('G');
+                    let use_pct = use_pct_raw.trim_end_matches('%');
                     let avail_gb: u64 = avail_str.parse().unwrap_or(0);
                     let used_pct: u64 = use_pct.parse().unwrap_or(0);
                     let msg = format!("Disk: {avail_gb} GB free on / ({used_pct}% used)");
@@ -5180,15 +5188,16 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
                 let text = String::from_utf8_lossy(&o.stdout);
                 let mut count = 0usize;
                 for line in text.lines().skip(1) {
-                    let cols: Vec<&str> = line.split_whitespace().collect();
-                    if cols.len() >= 4 && !cols[0].starts_with("tmpfs") {
-                        let _ = write!(out,
-                            "  {}  size: {}  avail: {}  used: {}\n",
-                            cols[0], cols[1], cols[2], cols[3]
-                        );
-                        count += 1;
-                        if count >= max_entries {
-                            break;
+                    let mut it = line.split_whitespace();
+                    if let (Some(fs), Some(size), Some(avail), Some(used)) =
+                        (it.next(), it.next(), it.next(), it.next())
+                    {
+                        if !fs.starts_with("tmpfs") {
+                            let _ = write!(out, "  {}  size: {}  avail: {}  used: {}\n", fs, size, avail, used);
+                            count += 1;
+                            if count >= max_entries {
+                                break;
+                            }
                         }
                     }
                 }
@@ -8186,12 +8195,14 @@ fn wsl_root_usage(distro_name: &str) -> Option<WslRootUsage> {
             mnt_c_present = Some(trimmed.ends_with("ok"));
             continue;
         }
-        let cols: Vec<&str> = trimmed.split_whitespace().collect();
-        if cols.len() >= 6 {
-            total_kb = cols[1].parse::<u64>().unwrap_or(0);
-            used_kb = cols[2].parse::<u64>().unwrap_or(0);
-            avail_kb = cols[3].parse::<u64>().unwrap_or(0);
-            use_percent = cols[4].to_string();
+        let mut it = trimmed.split_whitespace();
+        if let (Some(_), Some(total), Some(used), Some(avail), Some(pct), Some(_)) =
+            (it.next(), it.next(), it.next(), it.next(), it.next(), it.next())
+        {
+            total_kb = total.parse::<u64>().unwrap_or(0);
+            used_kb = used.parse::<u64>().unwrap_or(0);
+            avail_kb = avail.parse::<u64>().unwrap_or(0);
+            use_percent = pct.to_string();
         }
     }
 
