@@ -43,8 +43,8 @@ pub(crate) fn prune_read_only_context_bloat_batch(
         return (calls, None);
     }
 
-    let mut kept = Vec::new();
-    let mut dropped = Vec::new();
+    let mut kept = Vec::with_capacity(calls.len());
+    let mut dropped = Vec::with_capacity(4);
     for call in calls {
         if matches!(
             call.function.name.as_str(),
@@ -101,8 +101,8 @@ pub(crate) fn prune_architecture_trace_batch(
         .max_by_key(|call| trace_topic_priority_for_architecture(call))
         .map(|call| call.id.clone());
 
-    let mut kept = Vec::new();
-    let mut dropped_topics = Vec::new();
+    let mut kept = Vec::with_capacity(calls.len());
+    let mut dropped_topics = Vec::with_capacity(4);
     for call in calls {
         if call.function.name == "trace_runtime_flow" && Some(call.id.clone()) != best_trace {
             let args: Value = call.function.arguments.clone();
@@ -141,8 +141,8 @@ pub(crate) fn prune_authoritative_tool_batch(
         return (calls, None);
     }
 
-    let mut kept = Vec::new();
-    let mut dropped = Vec::new();
+    let mut kept = Vec::with_capacity(calls.len());
+    let mut dropped = Vec::with_capacity(4);
     for call in calls {
         if is_broad_repo_read_tool(&call.function.name) {
             dropped.push(call.function.name.clone());
@@ -168,7 +168,7 @@ pub(crate) fn prune_redirected_shell_batch(
     calls: Vec<ToolCallResponse>,
 ) -> (Vec<ToolCallResponse>, Option<String>) {
     let mut redirected_topics = std::collections::HashSet::new();
-    let mut kept = Vec::new();
+    let mut kept = Vec::with_capacity(calls.len());
     let mut dropped_count = 0;
 
     for call in calls {
