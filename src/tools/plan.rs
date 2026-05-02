@@ -47,7 +47,7 @@ impl PlanHandoff {
     }
 
     pub fn to_prompt(&self) -> String {
-        let mut out = String::new();
+        let mut out = String::with_capacity(256);
         if !self.goal.trim().is_empty() {
             let _ = write!(out, "  - Goal: {}\n", self.goal.trim());
         }
@@ -82,7 +82,7 @@ impl PlanHandoff {
     }
 
     pub fn to_markdown(&self) -> String {
-        let mut out = String::new();
+        let mut out = String::with_capacity(512);
         out.push_str("# Goal\n");
         out.push_str(self.goal.trim());
         out.push_str("\n\n# Target Files\n");
@@ -238,7 +238,7 @@ fn ensure_exec_plan_layout_for_root(root: &Path) -> Result<(), String> {
 }
 
 fn slugify_fragment(input: &str) -> String {
-    let mut slug = String::new();
+    let mut slug = String::with_capacity(input.len());
 
     for ch in input.chars() {
         let mapped = if ch.is_ascii_alphanumeric() {
@@ -302,7 +302,7 @@ fn current_or_new_active_plan_slug_for_root(root: &Path, title_hint: &str) -> St
 }
 
 fn render_structured_execution_plan(plan: &PlanHandoff, slug: &str, status: &str) -> String {
-    let mut out = String::new();
+    let mut out = String::with_capacity(512);
     let _ = write!(out, "# Execution Plan: {}\n\n", plan.summary_line());
     let _ = write!(out, "- Plan ID: `{slug}`\n");
     let _ = write!(out, "- Status: {status}\n");
