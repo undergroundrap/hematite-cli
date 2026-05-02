@@ -1916,16 +1916,12 @@ Get-NetUDPEndpoint -ErrorAction SilentlyContinue |
         let listeners: Vec<(String, u16, String, String)> = listener_text
             .lines()
             .filter_map(|line| {
-                let parts: Vec<&str> = line.trim().split('|').collect();
-                if parts.len() < 4 {
-                    return None;
-                }
-                Some((
-                    parts[0].to_string(),
-                    parts[1].parse::<u16>().ok()?,
-                    parts[2].to_string(),
-                    parts[3].to_string(),
-                ))
+                let mut it = line.trim().splitn(4, '|');
+                let a = it.next()?.to_string();
+                let b = it.next()?.parse::<u16>().ok()?;
+                let c = it.next()?.to_string();
+                let d = it.next()?.to_string();
+                Some((a, b, c, d))
             })
             .take(n)
             .collect();
@@ -2501,8 +2497,8 @@ fn inspect_directory_sync(label: &str, path: &Path, max_entries: usize) -> Resul
     top_level_entries.sort_by_key(|entry| entry.file_name());
 
     let top_level_count = top_level_entries.len();
-    let mut sample_names = Vec::new();
-    let mut largest_entries = Vec::new();
+    let mut sample_names = Vec::with_capacity(max_entries.min(top_level_count));
+    let mut largest_entries = Vec::with_capacity(top_level_count);
     let mut aggregate = PathAggregate::default();
     let mut budget = DIRECTORY_SCAN_NODE_BUDGET;
 
@@ -3158,8 +3154,10 @@ fn collect_windows_processes() -> Result<Vec<ProcessEntry>, String> {
 
     let text = String::from_utf8_lossy(&output.stdout);
     let mut out = Vec::new();
+    let mut parts: Vec<&str> = Vec::with_capacity(8);
     for line in text.lines() {
-        let parts: Vec<&str> = line.trim().split('|').collect();
+        parts.clear();
+        parts.extend(line.trim().split('|'));
         if parts.len() < 5 {
             continue;
         }
@@ -3173,7 +3171,7 @@ fn collect_windows_processes() -> Result<Vec<ProcessEntry>, String> {
             write_ops: None,
             detail: None,
         };
-        for p in parts {
+        for p in &parts {
             if let Some((k, v)) = p.split_once(':') {
                 match k {
                     "PID" => entry.pid = v.parse().unwrap_or(0),
@@ -4713,9 +4711,10 @@ fn inspect_log_check(lookback_hours: Option<u32>, max_entries: usize) -> Result<
 
         let mut count = 0usize;
         for line in text.lines() {
-            let parts: Vec<&str> = line.splitn(4, '|').collect();
-            if parts.len() == 4 {
-                let (time, level, source, msg) = (parts[0], parts[1], parts[2], parts[3]);
+            let mut it = line.splitn(4, '|');
+            if let (Some(time), Some(level), Some(source), Some(msg)) =
+                (it.next(), it.next(), it.next(), it.next())
+            {
                 let _ = write!(out, "[{time}] [{level}] {source}: {msg}\n");
                 count += 1;
             }
@@ -4823,15 +4822,10 @@ foreach ($h in $hives) {
         let entries: Vec<(String, String, String)> = text
             .lines()
             .filter_map(|l| {
-                let parts: Vec<&str> = l.splitn(3, '|').collect();
-                if parts.len() == 3 {
-                    Some((
-                        parts[0].to_string(),
-                        parts[1].to_string(),
-                        parts[2].to_string(),
-                    ))
-                } else {
-                    None
+                let mut it = l.splitn(3, '|');
+                match (it.next(), it.next(), it.next()) {
+                    (Some(a), Some(b), Some(c)) => Some((a.to_string(), b.to_string(), c.to_string())),
+                    _ => None,
                 }
             })
             .take(max_entries)
@@ -5854,13 +5848,11 @@ try {
         } else {
             out.push_str("Physical Drive Health:\n\n");
             for line in text.lines() {
-                let parts: Vec<&str> = line.splitn(5, '|').collect();
-                if parts.len() >= 4 {
-                    let name = parts[0];
-                    let media = parts[1];
-                    let size = parts[2];
-                    let health = parts[3];
-                    let op_status = parts.get(4).unwrap_or(&"");
+                let mut it = line.splitn(5, '|');
+                if let (Some(name), Some(media), Some(size), Some(health)) =
+                    (it.next(), it.next(), it.next(), it.next())
+                {
+                    let op_status = it.next().unwrap_or("");
                     let health_label = match health.trim() {
                         "Healthy" => "OK",
                         "Warning" => "[!] WARNING",
@@ -6110,16 +6102,9 @@ try {{
             } else {
                 out.push_str("System crashes / unexpected shutdowns:\n");
                 for line in text.lines() {
-                    let parts: Vec<&str> = line.splitn(3, '|').collect();
-                    if parts.len() >= 3 {
-                        let time = parts[0];
-                        let id = parts[1];
-                        let msg = parts[2];
-                        let label = if id == "41" {
-                            "Unexpected shutdown"
-                        } else {
-                            "BSOD (BugCheck)"
-                        };
+                    let mut it = line.splitn(3, '|');
+                    if let (Some(time), Some(id), Some(msg)) = (it.next(), it.next(), it.next()) {
+                        let label = if id == "41" { "Unexpected shutdown" } else { "BSOD (BugCheck)" };
                         let _ = write!(out, "  [{time}] {label}: {msg}\n");
                     }
                 }
@@ -6241,14 +6226,11 @@ try {{
         } else {
             let _ = write!(out, "Active scheduled tasks (up to {n}):\n\n");
             for line in text.lines() {
-                let parts: Vec<&str> = line.splitn(6, '|').collect();
-                if parts.len() >= 5 {
-                    let name = parts[0];
-                    let path = parts[1];
-                    let state = parts[2];
-                    let last = parts[3];
-                    let res = parts[4];
-                    let exec = parts.get(5).unwrap_or(&"").trim();
+                let mut it = line.splitn(6, '|');
+                if let (Some(name), Some(path), Some(state), Some(last), Some(res)) =
+                    (it.next(), it.next(), it.next(), it.next(), it.next())
+                {
+                    let exec = it.next().unwrap_or("").trim();
                     let display_path = path.trim_matches('\\');
                     let display_path = if display_path.is_empty() {
                         "Root"
@@ -7044,12 +7026,9 @@ try {{
             }
             let _ = write!(out, "Established TCP connections: {total}\n\n");
             for row in &rows {
-                let parts: Vec<&str> = row.splitn(4, '|').collect();
-                if parts.len() == 4 {
-                    let _ = write!(out,
-                        "  {:<15} (pid {:<5}) | {} → {}\n",
-                        parts[0], parts[1], parts[2], parts[3]
-                    );
+                let mut it = row.splitn(4, '|');
+                if let (Some(p0), Some(p1), Some(p2), Some(p3)) = (it.next(), it.next(), it.next(), it.next()) {
+                    let _ = write!(out, "  {:<15} (pid {:<5}) | {} → {}\n", p0, p1, p2, p3);
                 }
             }
             if total > n {
