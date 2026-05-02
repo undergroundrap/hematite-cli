@@ -110,7 +110,7 @@ pub fn load_recent_memories() -> String {
     files.sort_by_key(|e| e.file_name());
     files.reverse(); // newest first
 
-    let mut result = String::new();
+    let mut result = String::with_capacity(3_000);
     let mut total = 0usize;
     const MAX_TOTAL: usize = 3_000;
 

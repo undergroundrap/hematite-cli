@@ -1,4 +1,5 @@
 /// Staged triage engine for /diagnose. Phase 1 harness, Phase 2 agent synthesis.
+use std::fmt::Write as _;
 
 /// Parse health_report text and return determined follow-up inspect_host topics.
 pub fn triage_follow_up_topics(health_output: &str) -> Vec<&'static str> {
@@ -177,11 +178,7 @@ pub fn build_diagnose_instruction(health_output: &str, follow_up_topics: &[&str]
         let mut s = String::with_capacity(follow_up_topics.len() * 40);
         for (i, t) in follow_up_topics.iter().enumerate() {
             if i > 0 { s.push('\n'); }
-            s.push_str(&(i + 1).to_string());
-            s.push_str(". inspect_host(topic=\"");
-            s.push_str(t);
-            s.push('"');
-            s.push(')');
+            let _ = write!(s, "{}. inspect_host(topic=\"{}\")", i + 1, t);
         }
         s
     };

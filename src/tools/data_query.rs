@@ -345,7 +345,7 @@ fn execute_and_format(conn: &Connection, sql: &str) -> Result<String, String> {
 
     let mut rows = stmt.query([]).map_err(|e| format!("Query Error: {}", e))?;
 
-    let mut out = String::new();
+    let mut out = String::with_capacity(col_names.len() * 16 * 50);
     // Header
     for name in &col_names {
         let _ = write!(out, "{:<15} ", name);
