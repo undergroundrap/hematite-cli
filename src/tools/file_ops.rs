@@ -780,7 +780,7 @@ pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
         out.push('\n');
 
         let mut current_chars = out.len();
-        let mut shown_pages = Vec::new();
+        let mut shown_pages = Vec::with_capacity(page.len());
         for p in page {
             if current_chars + p.len() + 1 > char_budget {
                 out.push_str("\n[TRUNCATED BY TOKEN BUDGET]");

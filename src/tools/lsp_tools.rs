@@ -206,6 +206,7 @@ pub async fn lsp_search_symbol(
 
     let mut output = Vec::new();
     if let Some(arr) = result.as_array() {
+        output.reserve(arr.len());
         for sym in arr {
             let name = sym
                 .get("name")

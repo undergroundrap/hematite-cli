@@ -3430,8 +3430,8 @@ fn collect_toolchains() -> ToolchainReport {
         ToolCheck::new("uv", &[CommandProbe::new("uv", &["--version"])]),
     ];
 
-    let mut found = Vec::new();
-    let mut missing = Vec::new();
+    let mut found = Vec::with_capacity(checks.len());
+    let mut missing = Vec::with_capacity(checks.len());
 
     for check in checks {
         match check.detect() {
@@ -4114,10 +4114,10 @@ fn parse_unix_services(status_text: &str, startup_text: &str) -> Vec<ServiceEntr
 /// plain-English tiered verdict suitable for both developers and non-technical
 /// users who just want to know if their machine is okay.
 fn inspect_health_report() -> Result<String, String> {
-    let mut needs_fix: Vec<String> = Vec::new();
-    let mut watch: Vec<String> = Vec::new();
-    let mut good: Vec<String> = Vec::new();
-    let mut tips: Vec<String> = Vec::new();
+    let mut needs_fix: Vec<String> = Vec::with_capacity(8);
+    let mut watch: Vec<String> = Vec::with_capacity(8);
+    let mut good: Vec<String> = Vec::with_capacity(8);
+    let mut tips: Vec<String> = Vec::with_capacity(8);
 
     health_check_disk(&mut needs_fix, &mut watch, &mut good);
     health_check_memory(&mut watch, &mut good);
@@ -4368,8 +4368,8 @@ fn health_check_tools(watch: &mut Vec<String>, good: &mut Vec<String>, tips: &mu
         ("npm", "--version", "npm"),
     ];
 
-    let mut found: Vec<String> = Vec::new();
-    let mut missing: Vec<String> = Vec::new();
+    let mut found: Vec<String> = Vec::with_capacity(tool_checks.len());
+    let mut missing: Vec<String> = Vec::with_capacity(tool_checks.len());
     let mut python_found = false;
 
     for (cmd, arg, label) in tool_checks {

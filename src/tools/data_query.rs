@@ -206,7 +206,7 @@ fn query_json_optimized(path: &PathBuf, sql: &str, explain: bool) -> Result<Stri
             let mut stmt = tx.prepare(&insert_sql).map_err(|e| e.to_string())?;
             for item in arr {
                 if let Some(obj) = item.as_object() {
-                    let mut vals = Vec::new();
+                    let mut vals = Vec::with_capacity(cols.len());
                     for col in &cols {
                         vals.push(obj.get(col).map(|v| v.to_string()).unwrap_or_default());
                     }

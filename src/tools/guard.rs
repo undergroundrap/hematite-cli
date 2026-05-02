@@ -327,7 +327,7 @@ fn is_dangerous_chain(tokens: &[String]) -> bool {
     const SEPARATORS: &[&str] = &["&&", "||", "|", ";", "&"];
 
     // Split combined tokens like "echo hi&del" if shlex missed them
-    let mut refined = Vec::new();
+    let mut refined = Vec::with_capacity(tokens.len() * 2);
     for tok in tokens {
         let mut start = 0;
         for (i, ch) in tok.char_indices() {
