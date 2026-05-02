@@ -859,7 +859,7 @@ pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
 
         // Sort and merge overlapping ranges.
         ranges.sort_unstable();
-        let mut merged: Vec<(usize, usize)> = Vec::new();
+        let mut merged: Vec<(usize, usize)> = Vec::with_capacity(ranges.len());
         for (s, e) in ranges {
             if let Some(last) = merged.last_mut() {
                 if s <= last.1 + 1 {
@@ -873,7 +873,7 @@ pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
         // Build hunks from merged ranges.
         let match_set: std::collections::HashSet<usize> = match_idxs.into_iter().collect();
         for (start, end) in merged {
-            let mut hunk_lines = Vec::new();
+            let mut hunk_lines = Vec::with_capacity(end - start + 1);
             for i in start..=end {
                 hunk_lines.push((i + 1, all_lines[i].to_string(), match_set.contains(&i)));
             }

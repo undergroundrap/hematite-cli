@@ -32,7 +32,7 @@ impl TurnBudget {
     /// Compact ledger string for the SPECULAR panel and /budget command.
     pub fn render(&self) -> String {
         let total = self.input_tokens + self.output_tokens;
-        let mut parts = Vec::new();
+        let mut parts = Vec::with_capacity(self.tool_costs.len() + 2);
 
         if self.history_est > 0 {
             parts.push(format!("prior hist ~{}t", self.history_est));

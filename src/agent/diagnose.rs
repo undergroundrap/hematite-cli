@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 /// Parse health_report text and return determined follow-up inspect_host topics.
 pub fn triage_follow_up_topics(health_output: &str) -> Vec<&'static str> {
     let lower = health_output.to_ascii_lowercase();
-    let mut topics: Vec<&'static str> = Vec::new();
+    let mut topics: Vec<&'static str> = Vec::with_capacity(12);
 
     let action_required = lower.contains("action required");
     let worth_a_look = lower.contains("worth a look");
@@ -72,7 +72,7 @@ pub fn fix_follow_up_topics(
 ) -> Vec<(&'static str, &'static str)> {
     let lower = combined_output.to_ascii_lowercase();
     let ran: std::collections::HashSet<&str> = already_ran.iter().copied().collect();
-    let mut candidates: Vec<(&'static str, &'static str)> = Vec::new();
+    let mut candidates: Vec<(&'static str, &'static str)> = Vec::with_capacity(16);
     let mut seen = std::collections::HashSet::new();
 
     macro_rules! add {

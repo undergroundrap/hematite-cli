@@ -1806,7 +1806,7 @@ fn build_runtime_fix_grounded_fallback(results: &[(String, String)]) -> Option<S
         return None;
     }
 
-    let mut sections = Vec::new();
+    let mut sections = Vec::with_capacity(results.len());
 
     for (name, result) in results.iter().filter(|(name, _)| name == "research_web") {
         sections.push(format!(
@@ -5266,7 +5266,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
         f.render_widget(Clear, side[1]);
 
-        let mut v_lines: Vec<Line<'static>> = Vec::new();
+        let mut v_lines: Vec<Line<'static>> = Vec::with_capacity(32);
 
         // Section: live thought (bounded to last 300 chars to avoid wall-of-text)
         if app.thinking || app.agent_running {
