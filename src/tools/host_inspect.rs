@@ -2005,11 +2005,14 @@ Get-SmbConnection -ErrorAction SilentlyContinue |
             })
             .collect();
         if !stopped_discovery_services.is_empty() {
-            let names = stopped_discovery_services
-                .iter()
-                .map(|entry| entry.name.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
+            let names = {
+                let mut s = String::new();
+                for (i, entry) in stopped_discovery_services.iter().enumerate() {
+                    if i > 0 { s.push_str(", "); }
+                    s.push_str(&entry.name);
+                }
+                s
+            };
             findings.push(AuditFinding {
                 finding: format!("Discovery-related services are not running: {names}"),
                 impact: "Windows network neighborhood visibility, SSDP/UPnP discovery, or SMB browse behavior can look broken even when the network itself is fine.".to_string(),
@@ -2132,21 +2135,18 @@ Get-SmbConnection -ErrorAction SilentlyContinue |
             if !smb_mappings.is_empty() {
                 out.push_str("- Mapped drives:\n");
                 for mapping in smb_mappings.iter().take(n) {
-                    let parts: Vec<&str> = mapping.split('|').collect();
-                    if parts.len() >= 2 {
-                        let _ = write!(out, "  - {} -> {}\n", parts[0], parts[1]);
+                    let mut it = mapping.splitn(3, '|');
+                    if let (Some(a), Some(b)) = (it.next(), it.next()) {
+                        let _ = write!(out, "  - {} -> {}\n", a, b);
                     }
                 }
             }
             if !smb_connections.is_empty() {
                 out.push_str("- Active SMB connections:\n");
                 for connection in smb_connections.iter().take(n) {
-                    let parts: Vec<&str> = connection.split('|').collect();
-                    if parts.len() >= 3 {
-                        let _ = write!(out,
-                            "  - {}\\{} | Opens: {}\n",
-                            parts[0], parts[1], parts[2]
-                        );
+                    let mut it = connection.splitn(4, '|');
+                    if let (Some(a), Some(b), Some(c)) = (it.next(), it.next(), it.next()) {
+                        let _ = write!(out, "  - {}\\{} | Opens: {}\n", a, b, c);
                     }
                 }
             }
@@ -2973,9 +2973,9 @@ fn collect_windows_listening_ports() -> Result<Vec<ListeningPort>, String> {
             let mut pid_map = std::collections::HashMap::<String, String>::new();
             let ps_text = String::from_utf8_lossy(&ps_out.stdout);
             for line in ps_text.lines() {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 2 {
-                    pid_map.insert(parts[0].to_string(), parts[1].to_string());
+                let mut it = line.split_whitespace();
+                if let (Some(a), Some(b)) = (it.next(), it.next()) {
+                    pid_map.insert(a.to_string(), b.to_string());
                 }
             }
             for listener in &mut listeners {
@@ -4177,10 +4177,10 @@ fn health_check_disk(needs_fix: &mut Vec<String>, watch: &mut Vec<String>, good:
             let text = String::from_utf8_lossy(&out.stdout);
             let text = text.trim();
             if !text.starts_with("ERR") {
-                let parts: Vec<&str> = text.split('|').collect();
-                if parts.len() == 2 {
-                    let free_bytes: u64 = parts[0].trim().parse().unwrap_or(0);
-                    let used_bytes: u64 = parts[1].trim().parse().unwrap_or(0);
+                let mut it = text.splitn(3, '|');
+                if let (Some(p0), Some(p1)) = (it.next(), it.next()) {
+                    let free_bytes: u64 = p0.trim().parse().unwrap_or(0);
+                    let used_bytes: u64 = p1.trim().parse().unwrap_or(0);
                     let total = free_bytes + used_bytes;
                     let free_gb = free_bytes / 1_073_741_824;
                     let pct_free = if total > 0 {
@@ -4248,10 +4248,10 @@ fn health_check_memory(watch: &mut Vec<String>, good: &mut Vec<String>) {
             let text = String::from_utf8_lossy(&out.stdout);
             let text = text.trim();
             if !text.starts_with("ERR") {
-                let parts: Vec<&str> = text.split('|').collect();
-                if parts.len() == 2 {
-                    let free_kb: u64 = parts[0].trim().parse().unwrap_or(0);
-                    let total_kb: u64 = parts[1].trim().parse().unwrap_or(0);
+                let mut it = text.splitn(3, '|');
+                if let (Some(p0), Some(p1)) = (it.next(), it.next()) {
+                    let free_kb: u64 = p0.trim().parse().unwrap_or(0);
+                    let total_kb: u64 = p1.trim().parse().unwrap_or(0);
                     if total_kb > 0 {
                         let free_gb = free_kb / 1_048_576;
                         let total_gb = total_kb / 1_048_576;
@@ -5106,11 +5106,12 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
                 let text = String::from_utf8_lossy(&o.stdout);
                 let mut drive_count = 0usize;
                 for line in text.lines() {
-                    let parts: Vec<&str> = line.trim().split('|').collect();
-                    if parts.len() == 4 {
-                        let name = parts[0];
-                        let free: u64 = parts[1].parse().unwrap_or(0);
-                        let total: u64 = parts[3].parse().unwrap_or(0);
+                    let mut it = line.trim().splitn(5, '|');
+                    if let (Some(name), Some(p1), _, Some(p3)) =
+                        (it.next(), it.next(), it.next(), it.next())
+                    {
+                        let free: u64 = p1.parse().unwrap_or(0);
+                        let total: u64 = p3.parse().unwrap_or(0);
                         if total == 0 {
                             continue;
                         }
@@ -5294,14 +5295,13 @@ fn inspect_hardware() -> Result<String, String> {
         {
             let text = String::from_utf8_lossy(&o.stdout);
             let text = text.trim();
-            let parts: Vec<&str> = text.split('|').collect();
-            if parts.len() == 4 {
+            let mut it = text.splitn(5, '|');
+            if let (Some(p0), Some(p1), Some(p2), Some(p3)) =
+                (it.next(), it.next(), it.next(), it.next())
+            {
                 let _ = write!(out,
                     "CPU: {}\n  {} physical cores, {} logical processors, {:.1} GHz\n\n",
-                    parts[0],
-                    parts[1],
-                    parts[2],
-                    parts[3].parse::<f32>().unwrap_or(0.0)
+                    p0, p1, p2, p3.parse::<f32>().unwrap_or(0.0)
                 );
             } else {
                 let _ = write!(out, "CPU: {text}\n\n");
@@ -5334,17 +5334,14 @@ $speed = ($sticks | Select-Object -First 1).Speed
             if !lines.is_empty() {
                 out.push_str("GPU(s):\n");
                 for line in lines.iter().filter(|l| !l.trim().is_empty()) {
-                    let parts: Vec<&str> = line.trim().split('|').collect();
-                    if parts.len() == 3 {
-                        let res = if parts[2] == "x" || parts[2].starts_with('0') {
+                    let mut it = line.trim().splitn(4, '|');
+                    if let (Some(p0), Some(p1), Some(p2)) = (it.next(), it.next(), it.next()) {
+                        let res = if p2 == "x" || p2.starts_with('0') {
                             String::new()
                         } else {
-                            format!(" — {}@display", parts[2])
+                            format!(" — {}@display", p2)
                         };
-                        let _ = write!(out,
-                            "  {}\n    Driver: {}{}\n",
-                            parts[0], parts[1], res
-                        );
+                        let _ = write!(out, "  {}\n    Driver: {}{}\n", p0, p1, res);
                     } else {
                         let _ = write!(out, "  {}\n", line.trim());
                     }
@@ -5366,14 +5363,13 @@ $virt = "Hypervisor: $($cs.HypervisorPresent)|SLAT: $($proc.SecondLevelAddressTr
         {
             let text = String::from_utf8_lossy(&o.stdout);
             let text = text.trim().trim_matches('"');
-            let parts: Vec<&str> = text.split('|').collect();
-            if parts.len() == 4 {
+            let mut it = text.splitn(5, '|');
+            if let (Some(p0), Some(p1), Some(p2), Some(p3)) =
+                (it.next(), it.next(), it.next(), it.next())
+            {
                 let _ = write!(out,
                     "Motherboard: {}\n{}\nVirtualization: {}, {}\n\n",
-                    parts[0].trim(),
-                    parts[1].trim(),
-                    parts[2].trim(),
-                    parts[3].trim()
+                    p0.trim(), p1.trim(), p2.trim(), p3.trim()
                 );
             }
         }
@@ -5391,9 +5387,9 @@ $virt = "Hypervisor: $($cs.HypervisorPresent)|SLAT: $($proc.SecondLevelAddressTr
             if !lines.is_empty() {
                 out.push_str("Display(s):\n");
                 for line in &lines {
-                    let parts: Vec<&str> = line.trim().split('|').collect();
-                    if parts.len() == 2 {
-                        let _ = write!(out, "  {} — {}\n", parts[0].trim(), parts[1]);
+                    let mut it = line.trim().splitn(3, '|');
+                    if let (Some(p0), Some(p1)) = (it.next(), it.next()) {
+                        let _ = write!(out, "  {} — {}\n", p0.trim(), p1);
                     }
                 }
             }
@@ -5987,13 +5983,11 @@ try {
         }
 
         for line in text.lines() {
-            let parts: Vec<&str> = line.split('|').collect();
-            if parts.len() == 5 {
-                let name = parts[0];
-                let charge: i64 = parts[1].parse().unwrap_or(-1);
-                let state = parts[2];
-                let cycles = parts[3];
-                let health = parts[4];
+            let mut it = line.splitn(6, '|');
+            if let (Some(name), Some(p1), Some(state), Some(cycles), Some(health)) =
+                (it.next(), it.next(), it.next(), it.next(), it.next())
+            {
+                let charge: i64 = p1.parse().unwrap_or(-1);
 
                 let _ = write!(out, "Battery: {name}\n");
                 if charge >= 0 {
@@ -6138,9 +6132,9 @@ try {{
             } else {
                 out.push_str("Application crashes:\n");
                 for line in text.lines().take(n) {
-                    let parts: Vec<&str> = line.splitn(2, '|').collect();
-                    if parts.len() >= 2 {
-                        let _ = write!(out, "  [{}] {}\n", parts[0], parts[1]);
+                    let mut it = line.splitn(2, '|');
+                    if let (Some(a), Some(b)) = (it.next(), it.next()) {
+                        let _ = write!(out, "  [{}] {}\n", a, b);
                     }
                 }
             }
@@ -7102,17 +7096,12 @@ try {
         } else {
             out.push_str("VPN adapters:\n\n");
             for line in text.lines() {
-                let parts: Vec<&str> = line.splitn(4, '|').collect();
-                if parts.len() >= 3 {
-                    let name = parts[0];
-                    let desc = parts[1];
-                    let status = parts[2];
-                    let media = parts.get(3).unwrap_or(&"unknown");
-                    let label = if status.trim() == "Up" {
-                        "CONNECTED"
-                    } else {
-                        "disconnected"
-                    };
+                let mut it = line.splitn(4, '|');
+                if let (Some(name), Some(desc), Some(status)) =
+                    (it.next(), it.next(), it.next())
+                {
+                    let media = it.next().unwrap_or("unknown");
+                    let label = if status.trim() == "Up" { "CONNECTED" } else { "disconnected" };
                     let _ = write!(out,
                         "  {name} [{label}]\n    {desc}\n    Status: {status} | Media: {media}\n\n"
                     );
@@ -7136,11 +7125,9 @@ try {
             if t != "NO_RAS" && !t.is_empty() {
                 out.push_str("Windows VPN connections:\n");
                 for line in t.lines() {
-                    let parts: Vec<&str> = line.splitn(3, '|').collect();
-                    if parts.len() >= 2 {
-                        let name = parts[0];
-                        let status = parts[1];
-                        let server = parts.get(2).unwrap_or(&"");
+                    let mut it = line.splitn(3, '|');
+                    if let (Some(name), Some(status)) = (it.next(), it.next()) {
+                        let server = it.next().unwrap_or("");
                         let _ = write!(out, "  {name} → {server} [{status}]\n");
                     }
                 }
@@ -7344,12 +7331,11 @@ try {{
                         "Non-default enabled rules (showing up to {n}):\n\n"
                     );
                 } else {
-                    let parts: Vec<&str> = line.splitn(4, '|').collect();
-                    if parts.len() >= 3 {
-                        let name = parts[0];
-                        let dir = parts[1];
-                        let action = parts[2];
-                        let profile = parts.get(3).unwrap_or(&"Any");
+                    let mut it = line.splitn(4, '|');
+                    if let (Some(name), Some(dir), Some(action)) =
+                        (it.next(), it.next(), it.next())
+                    {
+                        let profile = it.next().unwrap_or("Any");
                         let icon = if action == "Block" { "[!]" } else { "   " };
                         let _ = write!(out,
                             "  {icon} [{dir}] {action}: {name} (profile: {profile})\n"
@@ -7629,17 +7615,15 @@ try {
                     );
                     let _ = write!(out, "  {}\n", "-".repeat(70));
                 } else if shown < n {
-                    let parts: Vec<&str> = line.splitn(4, '|').collect();
-                    if parts.len() == 4 {
-                        let dest = parts[0];
-                        let hop =
-                            if parts[1].is_empty() || parts[1] == "0.0.0.0" || parts[1] == "::" {
-                                "on-link"
-                            } else {
-                                parts[1]
-                            };
-                        let metric = parts[2];
-                        let iface = parts[3];
+                    let mut it = line.splitn(4, '|');
+                    if let (Some(dest), Some(p1), Some(metric), Some(iface)) =
+                        (it.next(), it.next(), it.next(), it.next())
+                    {
+                        let hop = if p1.is_empty() || p1 == "0.0.0.0" || p1 == "::" {
+                            "on-link"
+                        } else {
+                            p1
+                        };
                         let _ = write!(out, "  {dest:<22} {hop:<18} {metric:>8}  {iface}\n");
                         shown += 1;
                     }
@@ -9065,10 +9049,10 @@ $sorted | Select-Object -First {n} | ForEach-Object {{
                     let total: usize = rest.trim().parse().unwrap_or(0);
                     let _ = write!(out, "  (Total: {total}, showing first {n})\n\n");
                 } else if !line.trim().is_empty() {
-                    let parts: Vec<&str> = line.splitn(3, '|').collect();
-                    let name = parts.first().map(|s| s.trim()).unwrap_or("");
-                    let ver = parts.get(1).map(|s| s.trim()).unwrap_or("");
-                    let pub_ = parts.get(2).map(|s| s.trim()).unwrap_or("");
+                    let mut it = line.splitn(3, '|');
+                    let name = it.next().map(str::trim).unwrap_or("");
+                    let ver = it.next().map(str::trim).unwrap_or("");
+                    let pub_ = it.next().map(str::trim).unwrap_or("");
                     let _ = write!(out, "  {:<50} {:<18} {pub_}\n", name, ver);
                 }
             }
@@ -9493,9 +9477,9 @@ fn inspect_databases() -> Result<String, String> {
                 {
                     let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
                     if !text.is_empty() {
-                        let parts: Vec<&str> = text.splitn(2, ':').collect();
-                        let svc_name = parts.first().map(|s| s.trim()).unwrap_or("");
-                        let svc_state = parts.get(1).map(|s| s.trim()).unwrap_or("unknown");
+                        let mut it = text.splitn(2, ':');
+                        let svc_name = it.next().map(str::trim).unwrap_or("");
+                        let svc_state = it.next().map(str::trim).unwrap_or("unknown");
                         status_parts.push(format!("service '{svc_name}': {svc_state}"));
                         detected = true;
                     }
@@ -10471,11 +10455,14 @@ $sound = @(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue |
             .filter(|service| !service_is_running(service))
             .collect();
         if !stopped_core_services.is_empty() {
-            let names = stopped_core_services
-                .iter()
-                .map(|service| service.name.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
+            let names = {
+                let mut s = String::new();
+                for (i, svc) in stopped_core_services.iter().enumerate() {
+                    if i > 0 { s.push_str(", "); }
+                    s.push_str(&svc.name);
+                }
+                s
+            };
             findings.push(AuditFinding {
                 finding: format!("Core audio services are not running: {names}"),
                 impact: "Playback and recording devices can vanish or fail even when the hardware is physically present.".to_string(),
@@ -10532,11 +10519,14 @@ $sound = @(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue |
             .filter(|service| !service_is_running(service))
             .collect();
         if !bluetooth_endpoints.is_empty() && !stopped_bt_audio_services.is_empty() {
-            let names = stopped_bt_audio_services
-                .iter()
-                .map(|service| service.name.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
+            let names = {
+                let mut s = String::new();
+                for (i, svc) in stopped_bt_audio_services.iter().enumerate() {
+                    if i > 0 { s.push_str(", "); }
+                    s.push_str(&svc.name);
+                }
+                s
+            };
             findings.push(AuditFinding {
                 finding: format!(
                     "Bluetooth-branded audio endpoints exist, but Bluetooth audio services are not fully running: {names}"
@@ -10742,11 +10732,14 @@ $audio = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue |
             .filter(|service| !service_is_running(service))
             .collect();
         if !stopped_bluetooth_services.is_empty() {
-            let names = stopped_bluetooth_services
-                .iter()
-                .map(|service| service.name.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
+            let names = {
+                let mut s = String::new();
+                for (i, svc) in stopped_bluetooth_services.iter().enumerate() {
+                    if i > 0 { s.push_str(", "); }
+                    s.push_str(&svc.name);
+                }
+                s
+            };
             findings.push(AuditFinding {
                 finding: format!("Bluetooth-related services are not fully running: {names}"),
                 impact: "Discovery, pairing, reconnects, and headset profile switching can all fail even when the adapter appears installed.".to_string(),
@@ -10755,13 +10748,14 @@ $audio = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue |
         }
 
         if !radio_problems.is_empty() || !device_problems.is_empty() {
-            let problem_labels = radio_problems
-                .iter()
-                .chain(device_problems.iter())
-                .take(5)
-                .map(|device| device.name.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
+            let problem_labels = {
+                let mut s = String::new();
+                for (i, device) in radio_problems.iter().chain(device_problems.iter()).take(5).enumerate() {
+                    if i > 0 { s.push_str(", "); }
+                    s.push_str(&device.name);
+                }
+                s
+            };
             findings.push(AuditFinding {
                 finding: format!("Windows reports Bluetooth device issues for: {problem_labels}"),
                 impact: "A degraded radio or paired-device node can cause pairing loops, sudden disconnects, or one-way headset behavior.".to_string(),
@@ -11451,13 +11445,10 @@ fn inspect_drivers(max_entries: usize) -> Result<String, String> {
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .unwrap_or_default();
-        out.push_str(
-            &lsmod
-                .lines()
-                .take(max_entries)
-                .collect::<Vec<_>>()
-                .join("\n"),
-        );
+        for (i, line) in lsmod.lines().take(max_entries).enumerate() {
+            if i > 0 { out.push('\n'); }
+            out.push_str(line);
+        }
     }
 
     Ok(out.trim_end().to_string())
@@ -11504,13 +11495,10 @@ fn inspect_peripherals(max_entries: usize) -> Result<String, String> {
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .unwrap_or_default();
-        out.push_str(
-            &lsusb
-                .lines()
-                .take(max_entries)
-                .collect::<Vec<_>>()
-                .join("\n"),
-        );
+        for (i, line) in lsusb.lines().take(max_entries).enumerate() {
+            if i > 0 { out.push('\n'); }
+            out.push_str(line);
+        }
     }
 
     Ok(out.trim_end().to_string())
@@ -11539,9 +11527,11 @@ fn inspect_sessions(max_entries: usize) -> Result<String, String> {
                     .take(max_entries)
                     .filter(|l| !l.trim().is_empty())
                 {
-                    let parts: Vec<&str> = line.trim().split('|').collect();
-                    if parts.len() == 4 {
-                        let logon_type = match parts[2] {
+                    let mut it = line.trim().splitn(5, '|');
+                    if let (Some(p0), Some(p1), Some(p2), Some(p3)) =
+                        (it.next(), it.next(), it.next(), it.next())
+                    {
+                        let logon_type = match p2 {
                             "2" => "Interactive",
                             "3" => "Network",
                             "4" => "Batch",
@@ -11555,7 +11545,7 @@ fn inspect_sessions(max_entries: usize) -> Result<String, String> {
                         };
                         let _ = write!(out,
                             "- ID: {} | Type: {} | Started: {} | Auth: {}\n",
-                            parts[0], logon_type, parts[1], parts[3]
+                            p0, logon_type, p1, p3
                         );
                     }
                 }
@@ -12859,9 +12849,9 @@ $count
             let mut app_counts: std::collections::HashMap<String, usize> =
                 std::collections::HashMap::new();
             for line in &events {
-                let parts: Vec<&str> = line.splitn(6, '|').collect();
-                if parts.len() >= 3 {
-                    *app_counts.entry(parts[2].to_string()).or_insert(0) += 1;
+                let mut it = line.splitn(6, '|');
+                if let (Some(_), Some(_), Some(app)) = (it.next(), it.next(), it.next()) {
+                    *app_counts.entry(app.to_string()).or_insert(0) += 1;
                 }
             }
 
@@ -12897,14 +12887,10 @@ $count
             );
 
             for line in &events {
-                let parts: Vec<&str> = line.splitn(6, '|').collect();
-                if parts.len() >= 6 {
-                    let time = parts[0];
-                    let kind = parts[1];
-                    let app = parts[2];
-                    let ver = parts[3];
-                    let module = parts[4];
-                    let exc = parts[5];
+                let mut it = line.splitn(6, '|');
+                if let (Some(time), Some(kind), Some(app), Some(ver), Some(module), Some(exc)) =
+                    (it.next(), it.next(), it.next(), it.next(), it.next(), it.next())
+                {
                     let ver_note = if !ver.is_empty() {
                         format!(" v{ver}")
                     } else {

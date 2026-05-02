@@ -1325,10 +1325,12 @@ fn find_span_normalised(
 /// the model's indentation is actually correct.
 fn rstrip_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>> {
     find_span_normalised(content, search, |s| {
-        s.lines()
-            .map(|l| l.trim_end())
-            .collect::<Vec<_>>()
-            .join("\n")
+        let mut out = String::with_capacity(s.len());
+        for (i, l) in s.lines().enumerate() {
+            if i > 0 { out.push('\n'); }
+            out.push_str(l.trim_end());
+        }
+        out
     })
 }
 
@@ -1447,17 +1449,16 @@ fn dedent(s: &str) -> String {
         .map(|l| l.len() - l.trim_start_matches(' ').len())
         .min()
         .unwrap_or(0);
-    expanded
-        .iter()
-        .map(|l| {
-            if l.trim().is_empty() {
-                String::new()
-            } else {
-                l.get(min_indent..).unwrap_or(l).trim_end().to_string()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+    let mut out = String::with_capacity(s.len());
+    for (i, l) in expanded.iter().enumerate() {
+        if i > 0 { out.push('\n'); }
+        if l.trim().is_empty() {
+            // blank line: push nothing (empty string)
+        } else {
+            out.push_str(l.get(min_indent..).unwrap_or(l).trim_end());
+        }
+    }
+    out
 }
 
 /// When the model's search string has different indentation than the actual file
