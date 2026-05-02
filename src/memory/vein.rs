@@ -592,7 +592,7 @@ impl Vein {
 
         // Build an OR query from non-stopword tokens so any relevant term matches.
         let fts_query = {
-            let mut q = String::new();
+            let mut q = String::with_capacity(safe_query.len() + 16);
             for w in safe_query.split_whitespace().filter(|w| w.len() >= 3 && !stopwords.contains(*w)) {
                 if !q.is_empty() { q.push_str(" OR "); }
                 q.push_str(w);

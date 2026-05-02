@@ -519,11 +519,11 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
     //    word-scan for any path-like tokens not captured that way.
     let mut files: IndexedSet = IndexedSet::default();
     let mut tools: HashSet<String> = HashSet::new();
-    let mut requests: Vec<String> = Vec::new();
-    let mut assistant_notes: Vec<String> = Vec::new();
+    let mut requests: Vec<String> = Vec::with_capacity(messages.len().min(16));
+    let mut assistant_notes: Vec<String> = Vec::with_capacity(messages.len().min(8));
     // Tool results: verify_build, edit outcomes, notable errors.
     let mut verify_outcome: Option<bool> = None;
-    let mut error_snippets: Vec<String> = Vec::new();
+    let mut error_snippets: Vec<String> = Vec::with_capacity(4);
 
     for m in messages {
         // Precise file extraction from tool call arguments.

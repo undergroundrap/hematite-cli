@@ -781,13 +781,7 @@ pub fn format_action_plan(outputs: &[(&str, &str)]) -> String {
             "INVESTIGATE" => "🔍 INVESTIGATE",
             _ => "📊 MONITOR",
         };
-        out.push_str("### ");
-        out.push_str(&(i + 1).to_string());
-        out.push_str(". ");
-        out.push_str(badge);
-        out.push_str(" — ");
-        out.push_str(recipe.title);
-        out.push_str("\n\n");
+        let _ = write!(out, "### {}. {} — {}\n\n", i + 1, badge, recipe.title);
         for step in recipe.steps {
             out.push_str("- ");
             out.push_str(step);

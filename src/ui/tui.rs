@@ -4071,7 +4071,9 @@ pub async fn run_app<B: Backend>(
 
                                                 match sub.as_str() {
                                                     "view" => {
-                                                        let mut combined = String::new();
+                                                        let mut combined = String::with_capacity(
+                                                            crate::agent::instructions::PROJECT_GUIDANCE_FILES.len() * 512,
+                                                        );
                                                         for cand in crate::agent::instructions::PROJECT_GUIDANCE_FILES {
                                                             let p = crate::agent::instructions::resolve_guidance_path(&ws_root, cand);
                                                             if p.exists() {
@@ -6356,7 +6358,7 @@ fn draw_splash<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), Box<dyn std
         let content_height: u16 = 19;
         let top_pad = area.height.saturating_sub(content_height) / 2;
 
-        let mut lines: Vec<Line<'static>> = Vec::new();
+        let mut lines: Vec<Line<'static>> = Vec::with_capacity((top_pad + content_height) as usize + 4);
 
         for _ in 0..top_pad {
             lines.push(Line::raw(""));
