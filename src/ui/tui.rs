@@ -6456,7 +6456,7 @@ fn filter_tui_noise(text: &str) -> String {
     let cleaned = strip_ansi(text);
 
     // 2. Second Pass: Filter heuristic noise.
-    let mut lines = Vec::new();
+    let mut lines = Vec::with_capacity(cleaned.matches('\n').count() + 1);
     for line in cleaned.lines() {
         // Strip multi-line "LF replaced by CRLF" noise frequently emitted by git/shell on Windows.
         if CRLF_REGEX.is_match(line) {
@@ -6467,10 +6467,12 @@ fn filter_tui_noise(text: &str) -> String {
             continue;
         }
         // Strip random terminal control characters that might have escaped.
-        let sanitized: String = line
-            .chars()
-            .filter(|c| !c.is_control() || *c == '\t')
-            .collect();
+        let mut sanitized = String::with_capacity(line.len());
+        for c in line.chars() {
+            if !c.is_control() || c == '\t' {
+                sanitized.push(c);
+            }
+        }
         if sanitized.trim().is_empty() && !line.trim().is_empty() {
             continue;
         }
