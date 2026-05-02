@@ -3391,7 +3391,7 @@ fn bool_label(value: bool) -> &'static str {
 
 fn collect_toolchains() -> ToolchainReport {
     let config = crate::agent::config::load_config();
-    let mut python_probes = Vec::new();
+    let mut python_probes = Vec::with_capacity(5);
     let _ = if let Some(ref path) = config.python_path {
         python_probes.push(CommandProbe::new(path, &["--version"]));
     } else {
@@ -3445,7 +3445,7 @@ fn collect_toolchains() -> ToolchainReport {
 
 fn collect_package_managers() -> PackageManagerReport {
     let config = crate::agent::config::load_config();
-    let mut pip_probes = Vec::new();
+    let mut pip_probes = Vec::with_capacity(6);
     if let Some(ref path) = config.python_path {
         pip_probes.push(CommandProbe::new(path, &["-m", "pip", "--version"]));
     }
@@ -3487,7 +3487,7 @@ fn collect_package_managers() -> PackageManagerReport {
         ToolCheck::new("scoop", &[CommandProbe::new("scoop", &["--version"])]),
     ];
 
-    let mut found = Vec::new();
+    let mut found = Vec::with_capacity(checks.len());
     for check in checks {
         match check.detect() {
             Some(version) => found.push((check.label.to_string(), version)),
