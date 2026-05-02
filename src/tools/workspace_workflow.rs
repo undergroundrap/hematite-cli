@@ -760,13 +760,11 @@ async fn validate_website_server(args: &Value, root: &Path) -> Result<String, St
     }
     if !issues.is_empty() {
         out.push_str("\n\nIssues\n");
-        out.push_str(
-            &issues
-                .into_iter()
-                .map(|issue| format!("- {}", issue))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        );
+        for (i, issue) in issues.iter().enumerate() {
+            if i > 0 { out.push('\n'); }
+            out.push_str("- ");
+            out.push_str(issue);
+        }
     }
     if let Some(path) = log_path.as_deref() {
         out.push_str("\n\n");

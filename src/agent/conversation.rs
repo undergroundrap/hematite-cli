@@ -2620,11 +2620,7 @@ impl ConversationManager {
                     };
 
                     if !in_allowed {
-                        let allowed = allowed_paths
-                            .iter()
-                            .map(|p| format!("`{}`", p))
-                            .collect::<Vec<_>>()
-                            .join(", ");
+                        let allowed = backtick_join(&allowed_paths);
                         return Err(format!(
                             "Action blocked: current-plan execution is locked to the saved target files. Use a path-scoped built-in tool on one of these files only: {}.",
                             allowed
@@ -2780,12 +2776,7 @@ impl ConversationManager {
                     && !state.last_failed_build_paths.is_empty()
                     && !state.last_failed_build_paths.iter().any(|p| p == target)
                 {
-                    let files = state
-                        .last_failed_build_paths
-                        .iter()
-                        .map(|p| format!("`{}`", p))
-                        .collect::<Vec<_>>()
-                        .join(", ");
+                    let files = backtick_join(&state.last_failed_build_paths);
                     return Err(format!(
                         "Action blocked: the build is broken. Fix the errors in {} before editing other files. Re-run workspace verification to confirm the fix, then continue.",
                         files
