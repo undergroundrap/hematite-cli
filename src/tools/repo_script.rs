@@ -54,7 +54,7 @@ impl ScriptInvocation {
 
 fn build_clean_invocation(args: &Value) -> Result<ScriptInvocation, String> {
     let repo_root = require_repo_root()?;
-    let mut file_args = Vec::new();
+    let mut file_args = Vec::with_capacity(4);
     if bool_arg(args, "deep") {
         file_args.push("-Deep".to_string());
     }
@@ -78,7 +78,7 @@ fn build_package_windows_invocation(args: &Value) -> Result<ScriptInvocation, St
     ensure_windows("package_windows")?;
     let repo_root = require_repo_root()?;
 
-    let mut file_args = Vec::new();
+    let mut file_args = Vec::with_capacity(4);
     if bool_arg(args, "installer") {
         file_args.push("-Installer".to_string());
     }
@@ -103,7 +103,7 @@ fn build_release_invocation(args: &Value) -> Result<ScriptInvocation, String> {
         return Err("workflow=release requires exactly one of: 'version' or 'bump'.".to_string());
     }
 
-    let mut file_args = Vec::new();
+    let mut file_args = Vec::with_capacity(4);
     if let Some(version) = version {
         file_args.push("-Version".to_string());
         file_args.push(version);

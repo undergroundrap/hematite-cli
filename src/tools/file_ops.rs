@@ -469,7 +469,7 @@ pub async fn patch_hunk(args: &Value) -> Result<String, String> {
         ));
     }
 
-    let mut updated_lines = Vec::new();
+    let mut updated_lines = Vec::with_capacity(total);
     // 0-indexed adjustment
     let s_idx = start_line - 1;
     let e_idx = end_line; // inclusive in current logic from 1-based start_line..end_line
