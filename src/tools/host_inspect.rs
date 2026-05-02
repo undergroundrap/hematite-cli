@@ -6759,8 +6759,7 @@ async fn inspect_data_audit(path: PathBuf, _max_entries: usize) -> Result<String
                 } else {
                     " "
                 };
-                let cols: Vec<&str> = header.split(delimiter).map(|s| s.trim()).collect();
-                for (i, col) in cols.iter().enumerate() {
+                for (i, col) in header.split(delimiter).map(|s| s.trim()).enumerate() {
                     let _ = write!(out, "  {}. {}\n", i + 1, col);
                 }
             }
@@ -13011,7 +13010,8 @@ async fn inspect_overclocker() -> Result<String, String> {
             let stdout = String::from_utf8_lossy(&o.stdout);
             if !stdout.trim().is_empty() {
                 out.push_str("=== GPU SENSE (NVIDIA) ===\n");
-                let parts: Vec<&str> = stdout.trim().split(',').map(|s| s.trim()).collect();
+                let mut parts = Vec::with_capacity(16);
+                parts.extend(stdout.trim().split(',').map(|s| s.trim()));
                 if parts.len() >= 10 {
                     let _ = write!(out, "- Model:      {}\n", parts[0]);
                     let _ = write!(out, "- Graphics:   {} MHz\n", parts[1]);

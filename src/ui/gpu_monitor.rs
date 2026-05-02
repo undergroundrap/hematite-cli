@@ -157,20 +157,22 @@ async fn poll_nvidia_smi() -> Option<GpuMetrics> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let line = stdout.trim();
-    let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
-    if parts.len() < 9 {
+    let mut it = line.split(',').map(|s| s.trim());
+    let (Some(p0), Some(p1), Some(p2), Some(p3), Some(p4), Some(p5), Some(p6), Some(p7), Some(p8)) =
+        (it.next(), it.next(), it.next(), it.next(), it.next(), it.next(), it.next(), it.next(), it.next())
+    else {
         return None;
-    }
+    };
 
     Some(GpuMetrics {
-        used_mib: parts[0].parse().ok()?,
-        total_mib: parts[1].parse().ok()?,
-        name: parts[2].to_string(),
-        temperature: parts[3].parse().ok()?,
-        core_clock: parts[4].parse().ok()?,
-        mem_clock: parts[5].parse().ok()?,
-        power_draw: parts[6].parse().unwrap_or(0.0),
-        fan_speed: parts[7].parse().unwrap_or(0),
-        throttle_reasons: parts[8].to_string(),
+        used_mib: p0.parse().ok()?,
+        total_mib: p1.parse().ok()?,
+        name: p2.to_string(),
+        temperature: p3.parse().ok()?,
+        core_clock: p4.parse().ok()?,
+        mem_clock: p5.parse().ok()?,
+        power_draw: p6.parse().unwrap_or(0.0),
+        fan_speed: p7.parse().unwrap_or(0),
+        throttle_reasons: p8.to_string(),
     })
 }
