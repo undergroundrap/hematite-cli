@@ -639,7 +639,7 @@ fn sidebar_mode(app: &App, width: u16) -> SidebarMode {
 }
 
 fn build_compact_sidebar_lines(app: &App) -> Vec<Line<'static>> {
-    let mut lines = Vec::new();
+    let mut lines = Vec::with_capacity(16);
     let issue = runtime_issue_label(runtime_issue_kind(app));
     let provider = if app.provider_name.trim().is_empty() {
         "detecting".to_string()
@@ -692,7 +692,7 @@ fn build_compact_sidebar_lines(app: &App) -> Vec<Line<'static>> {
         }
     }
 
-    let mut recent_events: Vec<String> = Vec::new();
+    let mut recent_events: Vec<String> = Vec::with_capacity(5);
     if sidebar_has_live_activity(app) {
         let label = if app.thinking { "Reasoning" } else { "Working" };
         let dots = ".".repeat((app.tick_count % 4) as usize + 1);
@@ -719,7 +719,7 @@ fn build_compact_sidebar_lines(app: &App) -> Vec<Line<'static>> {
 }
 
 fn sidebar_signal_rows(app: &App) -> Vec<(String, Color)> {
-    let mut rows = Vec::new();
+    let mut rows = Vec::with_capacity(4);
     if !app.last_operator_checkpoint_summary.trim().is_empty() {
         rows.push((
             format!(
@@ -2475,7 +2475,7 @@ fn build_input_actions(app: &App) -> Vec<InputActionVisual> {
         Style::default().fg(Color::DarkGray)
     };
 
-    let mut actions = Vec::new();
+    let mut actions = Vec::with_capacity(6);
     if app.agent_running {
         actions.push(InputActionVisual {
             action: InputAction::Stop,
@@ -2528,7 +2528,7 @@ fn build_input_actions(app: &App) -> Vec<InputActionVisual> {
 
 fn visible_input_actions(app: &App, max_width: u16) -> Vec<InputActionVisual> {
     let mut used = 0u16;
-    let mut visible = Vec::new();
+    let mut visible = Vec::with_capacity(6);
     for action in build_input_actions(app) {
         let chip_width = action.label.chars().count() as u16 + 2;
         let gap = if visible.is_empty() { 0 } else { 1 };
@@ -2703,7 +2703,7 @@ fn select_input_title_layout(app: &App, title_width: u16) -> (Vec<InputActionVis
 
 fn input_action_hitboxes(app: &App, title_area: Rect) -> Vec<(InputAction, u16, u16)> {
     let mut x = title_area.x;
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(6);
     let (actions, _) = select_input_title_layout(app, title_area.width);
     for action in actions {
         let chip_width = action.label.chars().count() as u16 + 2; // " " + label + " "
@@ -2714,7 +2714,7 @@ fn input_action_hitboxes(app: &App, title_area: Rect) -> Vec<(InputAction, u16, 
 }
 
 fn render_input_title<'a>(app: &'a App, area: Rect) -> Line<'a> {
-    let mut spans = Vec::new();
+    let mut spans = Vec::with_capacity(8);
     let (actions, status) = select_input_title_layout(app, area.width);
     for action in actions {
         let is_hovered = app.hovered_input_action == Some(action.action);
