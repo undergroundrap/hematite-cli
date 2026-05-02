@@ -119,7 +119,7 @@ fn query_csv_streaming(path: &PathBuf, sql: &str, explain: bool) -> Result<Strin
 
     let mut conn = Connection::open_in_memory().map_err(|e| format!("Memory DB Error: {}", e))?;
 
-    let mut create_sql = format!("CREATE TABLE source (");
+    let mut create_sql = "CREATE TABLE source (".to_string();
     for (i, col) in clean_cols.iter().enumerate() {
         let _ = write!(create_sql, "{} {}", col, col_types[i]);
         if i < clean_cols.len() - 1 {
@@ -185,7 +185,7 @@ fn query_json_optimized(path: &PathBuf, sql: &str, explain: bool) -> Result<Stri
 
     let mut conn = Connection::open_in_memory().map_err(|e| e.to_string())?;
 
-    let mut create_sql = format!("CREATE TABLE source (");
+    let mut create_sql = "CREATE TABLE source (".to_string();
     for (i, col) in cols.iter().enumerate() {
         let _ = write!(create_sql, "{} TEXT", col); // JSON is dynamic, default to TEXT
         if i < cols.len() - 1 {
@@ -256,7 +256,7 @@ fn export_to_sqlite(path: &PathBuf, items: &[Value]) -> Result<String, String> {
 
     let conn = Connection::open(path).map_err(|e| format!("Failed to create DB: {}", e))?;
 
-    let mut create_sql = format!("CREATE TABLE IF NOT EXISTS data (");
+    let mut create_sql = "CREATE TABLE IF NOT EXISTS data (".to_string();
     for (i, col) in cols.iter().enumerate() {
         let _ = write!(create_sql, "{} TEXT", col);
         if i < cols.len() - 1 {

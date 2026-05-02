@@ -518,7 +518,7 @@ fn mark_all_task_ledger_items_complete() -> Result<TaskChecklistProgress, String
     let path = task_status_path();
     let content = std::fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read task ledger for closeout: {e}"))?;
-    let mut updated = String::new();
+    let mut updated = String::with_capacity(content.len());
     for line in content.lines() {
         let trimmed = line.trim_start();
         if trimmed.starts_with("- [ ]") {
@@ -1269,7 +1269,7 @@ fn sanitize_project_folder_name(raw: &str) -> String {
     let trimmed = raw
         .trim()
         .trim_matches(|c: char| matches!(c, '"' | '\'' | '`' | '.' | ',' | ':' | ';'));
-    let mut out = String::new();
+    let mut out = String::with_capacity(trimmed.len());
     for ch in trimmed.chars() {
         if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ' ') {
             out.push(ch);
@@ -9529,8 +9529,9 @@ fn is_quick_tool_request(input: &str) -> bool {
 }
 
 fn chunk_text(text: &str, words_per_chunk: usize) -> Vec<String> {
-    let mut chunks = Vec::new();
-    let mut current = String::new();
+    let avg_word = 6usize;
+    let mut chunks = Vec::with_capacity(text.len() / (words_per_chunk * avg_word).max(1) + 1);
+    let mut current = String::with_capacity(words_per_chunk * avg_word);
     let mut count = 0;
 
     for ch in text.chars() {
@@ -9538,8 +9539,8 @@ fn chunk_text(text: &str, words_per_chunk: usize) -> Vec<String> {
         if ch == ' ' || ch == '\n' {
             count += 1;
             if count >= words_per_chunk {
-                chunks.push(current.clone());
-                current.clear();
+                chunks.push(std::mem::take(&mut current));
+                current = String::with_capacity(words_per_chunk * avg_word);
                 count = 0;
             }
         }

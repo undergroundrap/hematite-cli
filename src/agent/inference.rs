@@ -1731,13 +1731,19 @@ fn prepare_gemma_native_messages(messages: &[ChatMessage]) -> Vec<ChatMessage> {
         clone.content = MessageContent::Text(strip_legacy_turn_wrappers(message.content.as_str()));
 
         if !seeded && message.role == "user" {
-            let mut merged = String::new();
+            let content_str = clone.content.as_str();
+            let mut merged = String::with_capacity(
+                system_blocks.iter().map(|s| s.len()).sum::<usize>()
+                    + system_blocks.len().saturating_sub(1) * 2
+                    + content_str.len()
+                    + 40,
+            );
             if !system_blocks.is_empty() {
                 merged.push_str("System instructions for this turn:\n");
                 merged.push_str(&system_blocks.join("\n\n"));
                 merged.push_str("\n\n");
             }
-            merged.push_str(clone.content.as_str());
+            merged.push_str(content_str);
             clone.content = MessageContent::Text(merged);
             seeded = true;
         }
