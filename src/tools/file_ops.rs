@@ -46,7 +46,7 @@ fn prune_ghost_backups(ghost_dir: &Path) {
         return;
     };
 
-    let mut rewritten = String::new();
+    let mut rewritten = String::with_capacity(content.len());
     for line in content.lines() {
         let mut parts = line.splitn(2, '|');
         if parts.next().is_some() {
