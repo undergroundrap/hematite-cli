@@ -381,8 +381,8 @@ pub fn compact_history(
         .len()
         .saturating_sub(config.preserve_recent_messages);
 
-    let mut messages_to_summarize = Vec::new();
-    let mut preserved_messages = Vec::new();
+    let mut messages_to_summarize = Vec::with_capacity(history.len());
+    let mut preserved_messages = Vec::with_capacity(history.len());
 
     // Preserve the Turn Entry User Prompt as the primary anchor.
     // Everything before it is permanently summarized.
@@ -445,7 +445,7 @@ pub fn extract_memory(messages: &[ChatMessage]) -> SessionMemory {
     // Working set: collect path args from every tool call across all turns,
     // giving higher priority to tool calls in the most recent user turn.
     // Cap at 12 files; most-recently-touched files survive longest.
-    let mut all_files: Vec<String> = Vec::new();
+    let mut all_files: Vec<String> = Vec::with_capacity(messages.len());
     for msg in messages {
         if let Some(calls) = &msg.tool_calls {
             for call in calls {

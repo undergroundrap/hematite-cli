@@ -1943,7 +1943,7 @@ fn parse_marker_transcript(raw: &str) -> Option<Vec<(String, String)>> {
         return None;
     }
 
-    let mut messages = Vec::new();
+    let mut messages = Vec::with_capacity(lines.len() / 2);
     let mut i = 0usize;
     while i < lines.len() {
         let line = lines[i].trim_start();

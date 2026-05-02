@@ -690,9 +690,9 @@ async fn validate_website_server(args: &Value, root: &Path) -> Result<String, St
         .build()
         .map_err(|e| format!("Failed to build validation client: {}", e))?;
 
-    let mut route_lines = Vec::new();
-    let mut asset_lines = Vec::new();
-    let mut issues = Vec::new();
+    let mut route_lines = Vec::with_capacity(routes.len());
+    let mut asset_lines = Vec::with_capacity(routes.len());
+    let mut issues = Vec::with_capacity(routes.len());
     let mut assets = std::collections::BTreeSet::new();
 
     for route in &routes {

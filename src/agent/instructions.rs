@@ -609,8 +609,8 @@ fn strip_matching_quotes(value: &str) -> &str {
 }
 
 fn dedupe_skills(skills: Vec<AgentSkill>) -> Vec<AgentSkill> {
-    let mut deduped = Vec::new();
-    let mut indexes: HashMap<String, usize> = HashMap::new();
+    let mut deduped = Vec::with_capacity(skills.len());
+    let mut indexes: HashMap<String, usize> = HashMap::with_capacity(skills.len());
     for skill in skills {
         if let Some(index) = indexes.get(&skill.name).copied() {
             deduped[index] = skill;
