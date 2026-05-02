@@ -1500,35 +1500,42 @@ pub fn get_tools() -> Vec<ToolDefinition> {
 
 fn is_natural_language_hallucination(input: &str) -> bool {
     let lower = input.to_lowercase();
-    let words = lower.split_whitespace().collect::<Vec<_>>();
+    let mut word_iter = lower.split_whitespace();
+    let first = match word_iter.next() {
+        Some(w) => w,
+        None => return false,
+    };
+
+    // Single pass: accumulate total count and stop-word hits.
+    let stop_words = [
+        "the", "a", "an", "on", "my", "your", "for", "with", "into", "onto",
+    ];
+    let mut stop_count = usize::from(stop_words.contains(&first));
+    let mut total = 1usize;
+    for word in word_iter {
+        total += 1;
+        if stop_words.contains(&word) {
+            stop_count += 1;
+        }
+    }
 
     // 1. Sentences starting with conversational phrases
-    if words.is_empty() {
-        return false;
-    }
-    let first = words[0];
     if [
         "make", "create", "i", "can", "please", "we", "let's", "go", "execute", "run", "how",
     ]
     .contains(&first)
+        && total >= 3
     {
-        // If it's more than 2 words, it's likely a sentence, not a command
-        if words.len() >= 3 {
-            return true;
-        }
+        return true;
     }
 
     // 2. Presence of English stop-words that are rare in CLI commands
-    let stop_words = [
-        "the", "a", "an", "on", "my", "your", "for", "with", "into", "onto",
-    ];
-    let stop_count = words.iter().filter(|w| stop_words.contains(w)).count();
     if stop_count >= 2 {
         return true;
     }
 
     // 3. Lack of common CLI separators if many words exist
-    if words.len() >= 5
+    if total >= 5
         && !input.contains('-')
         && !input.contains('/')
         && !input.contains('\\')
@@ -8302,7 +8309,7 @@ impl ConversationManager {
         real_id: String,
         budget_tokens: usize,
     ) -> ToolExecutionOutcome {
-        let mut msg_results = Vec::new();
+        let mut msg_results = Vec::with_capacity(2);
         let mut latest_target_dir = None;
         let mut plan_drafted_this_turn = false;
         let mut parsed_plan_handoff = None;
