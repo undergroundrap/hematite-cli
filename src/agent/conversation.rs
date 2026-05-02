@@ -435,6 +435,19 @@ fn build_continue_plan_execution_prompt(progress: TaskChecklistProgress) -> Stri
     )
 }
 
+fn backtick_join(paths: &[String]) -> String {
+    let cap = paths.iter().map(|p| p.len() + 2).sum::<usize>()
+        + paths.len().saturating_sub(1) * 2;
+    let mut s = String::with_capacity(cap);
+    for (i, p) in paths.iter().enumerate() {
+        if i > 0 { s.push_str(", "); }
+        s.push('`');
+        s.push_str(p);
+        s.push('`');
+    }
+    s
+}
+
 fn build_force_plan_mutation_prompt(
     progress: TaskChecklistProgress,
     target_files: &[String],
@@ -442,11 +455,7 @@ fn build_force_plan_mutation_prompt(
     let targets = if target_files.is_empty() {
         "the saved target files".to_string()
     } else {
-        target_files
-            .iter()
-            .map(|path| format!("`{path}`"))
-            .collect::<Vec<_>>()
-            .join(", ")
+        backtick_join(target_files)
     };
     format!(
         "You completed an implementation pass without mutating any target files, but `.hematite/TASK.md` still has {} unchecked item(s). This is not done. Read `.hematite/TASK.md`, inspect {}, and make a concrete implementation edit now. Do not summarize. If you still cannot mutate safely after grounding yourself in those files, surface exactly one concrete blocker.",
@@ -458,11 +467,7 @@ fn build_current_plan_scope_recovery_prompt(target_files: &[String]) -> String {
     let targets = if target_files.is_empty() {
         "the saved target files".to_string()
     } else {
-        target_files
-            .iter()
-            .map(|path| format!("`{path}`"))
-            .collect::<Vec<_>>()
-            .join(", ")
+        backtick_join(target_files)
     };
     format!(
         "STOP. You just tried to read or inspect something outside the saved current-plan targets. Stay inside {} only. Read `.hematite/TASK.md` or inspect one saved target file, then make progress there. Do not branch into unrelated files or docs/exec-plans paths.",
@@ -477,11 +482,7 @@ fn build_task_ledger_closeout_prompt(
     let targets = if target_files.is_empty() {
         "the saved target files".to_string()
     } else {
-        target_files
-            .iter()
-            .map(|path| format!("`{path}`"))
-            .collect::<Vec<_>>()
-            .join(", ")
+        backtick_join(target_files)
     };
     format!(
         "The deliverable files were already mutated, but `.hematite/TASK.md` still has {} unchecked item(s). This is not summary time yet. Read `.hematite/TASK.md`, verify the completed work in {}, then update the checklist to mark the finished items `[x]`. If needed, also write `.hematite/WALKTHROUGH.md`. Do not summarize until the task ledger reflects reality.",
@@ -556,11 +557,7 @@ fn deterministic_sovereign_closeout_summary(
     plan: &crate::tools::plan::PlanHandoff,
     target_files: &[String],
 ) -> String {
-    let targets = target_files
-        .iter()
-        .map(|path| format!("`{path}`"))
-        .collect::<Vec<_>>()
-        .join(", ");
+    let targets = backtick_join(target_files);
     format!(
         "## Summary: Sovereign Scaffold Task Complete\n\n### What Was Built\nImplemented the sovereign scaffold deliverable in {}.\n\n### What Was Verified\n- Deliverable files exist and are non-empty\n- `.hematite/TASK.md` was updated to reflect completion\n- `.hematite/WALKTHROUGH.md` was written for session closeout\n\n### Plan Goal\n{}\n",
         targets,
