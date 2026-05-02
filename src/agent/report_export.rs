@@ -734,7 +734,7 @@ pub async fn generate_diagnosis_report() -> String {
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
-    let mut md = String::new();
+    let mut md = String::with_capacity(action_plan.len() + data.follow_up_outputs.len() * 512 + 256);
     md.push_str("# Hematite Staged Diagnosis Report\n\n");
     let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
     let _ = write!(md, "**Host:** {}  \n", data.hostname);
@@ -922,7 +922,7 @@ fn build_html_document(
 ) -> String {
     use crate::agent::html_template::{build_html_shell, he, COPY_BUTTON_HTML};
 
-    let mut sections_html = String::new();
+    let mut sections_html = String::with_capacity(sections.iter().map(|(_, o)| o.len() + 64).sum::<usize>());
     for (label, output) in sections {
         let _ = write!(sections_html,
             "<details><summary>{}</summary><pre>{}</pre></details>\n",
@@ -1034,7 +1034,7 @@ pub async fn generate_triage_report_markdown(preset: &str) -> String {
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
-    let mut md = String::new();
+    let mut md = String::with_capacity(action_plan.len() + data.sections.len() * 512 + 256);
     let _ = write!(md, "# {}\n\n", title);
     let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
     let _ = write!(md, "**Host:** {}  \n", data.hostname);
@@ -1187,7 +1187,7 @@ pub async fn generate_fix_plan_markdown(issue: &str) -> String {
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
-    let mut md = String::new();
+    let mut md = String::with_capacity(action_plan.len() + data.sections.len() * 512 + 256);
     md.push_str("# Hematite Fix Plan\n\n");
     let _ = write!(md, "**Issue:** {}  \n", issue);
     let _ = write!(md, "**Generated:** {}  \n", data.timestamp);

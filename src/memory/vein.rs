@@ -2640,14 +2640,15 @@ fn chunk_rust_symbols(text: &str) -> Vec<String> {
 /// Chunk non-Rust text at paragraph boundaries (double newline).
 fn chunk_paragraphs(text: &str) -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
-    let mut current = String::new();
+    let mut current = String::with_capacity(2000);
 
     for para in text.split("\n\n") {
         if current.len() + para.len() + 2 > 2000 {
             if !current.trim().is_empty() {
-                result.push(current.clone());
+                result.push(std::mem::replace(&mut current, para.to_string()));
+            } else {
+                current = para.to_string();
             }
-            current = para.to_string();
         } else {
             if !current.is_empty() {
                 current.push_str("\n\n");
@@ -2659,7 +2660,7 @@ fn chunk_paragraphs(text: &str) -> Vec<String> {
         result.push(current);
     }
 
-    let mut final_result = Vec::new();
+    let mut final_result = Vec::with_capacity(result.len());
     for chunk in result {
         if chunk.len() > 2000 {
             final_result.extend(sliding_window_chunks(&chunk, 2000, 200));

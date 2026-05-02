@@ -227,7 +227,7 @@ fn inline_md(s: &str) -> String {
 }
 
 fn replace_pairs(s: &str, delim: &str, open: &str, close: &str) -> String {
-    let mut out = String::new();
+    let mut out = String::with_capacity(s.len());
     let mut rest = s;
     let mut open_tag = true;
     while let Some(pos) = rest.find(delim) {
@@ -242,7 +242,7 @@ fn replace_pairs(s: &str, delim: &str, open: &str, close: &str) -> String {
 
 fn linkify(s: &str) -> String {
     // Simple pass: wrap bare http/https URLs not already inside an href
-    let mut out = String::new();
+    let mut out = String::with_capacity(s.len());
     let mut rest = s;
     while let Some(pos) = rest.find("http") {
         let pre = &rest[..pos];

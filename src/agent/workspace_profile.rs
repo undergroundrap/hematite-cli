@@ -179,7 +179,7 @@ pub fn profile_report(root: &Path) -> String {
     let profile = load_workspace_profile(root).unwrap_or_else(|| detect_workspace_profile(root));
     let path = workspace_profile_path(root);
 
-    let mut out = String::new();
+    let mut out = String::with_capacity(512);
     out.push_str("Workspace Profile\n");
     let _ = write!(out, "Path: {}\n", path.display());
     let _ = write!(out, "Mode: {}\n", profile.workspace_mode);
