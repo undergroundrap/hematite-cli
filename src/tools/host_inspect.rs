@@ -1987,7 +1987,7 @@ Get-SmbConnection -ErrorAction SilentlyContinue |
             })
             .collect();
 
-        let mut findings = Vec::new();
+        let mut findings = Vec::with_capacity(4);
         if active_adapters.is_empty() {
             findings.push(AuditFinding {
                 finding: "No active LAN adapters were detected.".to_string(),
@@ -3553,7 +3553,7 @@ fn build_env_doctor_findings(
         .map(|(label, _)| label.as_str())
         .collect::<HashSet<_>>();
 
-    let mut findings = Vec::new();
+    let mut findings = Vec::with_capacity(4);
 
     if path_stats.duplicate_entries.len() > 0 {
         findings.push(format!(
@@ -3921,7 +3921,7 @@ fn parse_windows_services_json(text: &str) -> Result<Vec<ServiceEntry>, String> 
         other => vec![other],
     };
 
-    let mut services = Vec::new();
+    let mut services = Vec::with_capacity(entries.len());
     for entry in entries {
         let Some(name) = entry.get("Name").and_then(|v| v.as_str()) else {
             continue;
@@ -6292,8 +6292,8 @@ try {{
 
 fn inspect_dev_conflicts() -> Result<String, String> {
     let mut out = String::from("Host inspection: dev_conflicts\n\n");
-    let mut conflicts: Vec<String> = Vec::new();
-    let mut notes: Vec<String> = Vec::new();
+    let mut conflicts: Vec<String> = Vec::with_capacity(4);
+    let mut notes: Vec<String> = Vec::with_capacity(4);
 
     // ── Node.js / version managers ────────────────────────────────────────────
     {
@@ -8454,7 +8454,7 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
         }
     }
 
-    let mut findings = Vec::new();
+    let mut findings = Vec::with_capacity(4);
     for container in &containers {
         for mount in &container.mounts {
             if mount.mount_type == "bind" && mount.exists_on_host == Some(false) {
@@ -8521,7 +8521,7 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
                 if mount.mount_type == "bind" && mount.exists_on_host == Some(false) {
                     source.push_str(" [missing]");
                 }
-                let mut extras = Vec::new();
+                let mut extras = Vec::with_capacity(2);
                 if let Some(rw) = mount.read_write {
                     extras.push(if rw { "rw" } else { "ro" }.to_string());
                 }
@@ -8680,8 +8680,8 @@ fn inspect_wsl_filesystems(max_entries: usize) -> Result<String, String> {
         let _ = write!(out, "Distributions detected: {}\n\n", distros.len());
 
         let vhdx_files = collect_wsl_vhdx_files();
-        let mut findings = Vec::new();
-        let mut live_usage = Vec::new();
+        let mut findings = Vec::with_capacity(4);
+        let mut live_usage = Vec::with_capacity(n);
 
         for distro in distros.iter().take(n) {
             if distro.state.eq_ignore_ascii_case("Running") {
@@ -10453,7 +10453,7 @@ $sound = @(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue |
             .filter(|device| windows_sound_device_has_issue(device))
             .collect();
 
-        let mut findings = Vec::new();
+        let mut findings = Vec::with_capacity(4);
 
         let stopped_core_services: Vec<&ServiceEntry> = core_services
             .iter()
@@ -10490,7 +10490,7 @@ $sound = @(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue |
 
         if !endpoint_problems.is_empty() || !media_problems.is_empty() || !sound_problems.is_empty()
         {
-            let mut problem_labels = Vec::new();
+            let mut problem_labels = Vec::with_capacity(9);
             problem_labels.extend(
                 endpoint_problems
                     .iter()
@@ -10722,7 +10722,7 @@ $audio = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue |
             .filter(|device| windows_device_has_issue(device))
             .collect();
 
-        let mut findings = Vec::new();
+        let mut findings = Vec::with_capacity(4);
 
         if probe_loaded && radios.is_empty() {
             findings.push(AuditFinding {
@@ -13194,7 +13194,7 @@ fn decode_nvidia_throttle_reasons(hex: &str) -> String {
         return String::new();
     }
 
-    let mut reasons = Vec::new();
+    let mut reasons = Vec::with_capacity(9);
     if val & 0x01 != 0 {
         reasons.push("GPU Idle");
     }
