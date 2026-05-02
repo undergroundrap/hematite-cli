@@ -2370,8 +2370,8 @@ fn extract_pdf_text_with_lopdf(path: &std::path::Path) -> Result<Option<String>,
         return Ok(None);
     }
 
-    let mut extracted_pages = Vec::new();
-    let mut page_errors = Vec::new();
+    let mut extracted_pages = Vec::with_capacity(page_numbers.len());
+    let mut page_errors = Vec::with_capacity(page_numbers.len());
 
     for page_number in page_numbers {
         match doc.extract_text(&[page_number]) {
@@ -2406,7 +2406,7 @@ fn extract_pdf_text_with_lopdf(path: &std::path::Path) -> Result<Option<String>,
 }
 
 fn extract_pdf_text_inside_helper(path: &std::path::Path) -> Result<Option<String>, String> {
-    let mut failures = Vec::new();
+    let mut failures = Vec::with_capacity(2);
 
     match extract_pdf_text_with_pdf_extract(path) {
         Ok(Some(text)) => return Ok(Some(text)),
@@ -2598,8 +2598,8 @@ fn chunk_rust_symbols(text: &str) -> Vec<String> {
     ];
 
     let lines: Vec<&str> = text.lines().collect();
-    let mut chunks: Vec<String> = Vec::new();
-    let mut current: Vec<&str> = Vec::new();
+    let mut chunks: Vec<String> = Vec::with_capacity(lines.len() / 20 + 1);
+    let mut current: Vec<&str> = Vec::with_capacity(64);
 
     for &line in &lines {
         let top_level = !line.starts_with(' ') && !line.starts_with('\t');
@@ -2625,7 +2625,7 @@ fn chunk_rust_symbols(text: &str) -> Vec<String> {
             if !body.trim().is_empty() {
                 chunks.push(body);
             }
-            current = current[split..].to_vec();
+            current.drain(..split);
         }
         current.push(line);
     }
