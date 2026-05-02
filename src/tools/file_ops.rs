@@ -642,7 +642,7 @@ pub async fn list_files(args: &Value, budget: usize) -> Result<String, String> {
     });
 
     let mut current_chars = 0;
-    let mut shown = Vec::new();
+    let mut shown = Vec::with_capacity(files.len().min(200));
     let mut truncated_by_budget = false;
 
     let total_scanned = files.len();

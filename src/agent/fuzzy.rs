@@ -9,8 +9,8 @@ pub fn fuzzy_match(haystack: &str, needle: &str) -> Option<(Vec<usize>, i32)> {
         return Some((Vec::new(), i32::MAX));
     }
 
-    let mut lowered_chars: Vec<char> = Vec::new();
-    let mut lowered_to_orig_char_idx: Vec<usize> = Vec::new();
+    let mut lowered_chars: Vec<char> = Vec::with_capacity(haystack.len());
+    let mut lowered_to_orig_char_idx: Vec<usize> = Vec::with_capacity(haystack.len());
     for (orig_idx, ch) in haystack.chars().enumerate() {
         for lc in ch.to_lowercase() {
             lowered_chars.push(lc);
