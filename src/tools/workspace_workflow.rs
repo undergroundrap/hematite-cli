@@ -1003,7 +1003,7 @@ fn compact_whitespace(input: &str) -> String {
 }
 
 fn format_probe_details(probe: &WebsiteProbeSummary) -> String {
-    let mut lines = Vec::new();
+    let mut lines = Vec::with_capacity(3);
     if let Some(content_type) = probe.content_type.as_deref() {
         lines.push(format!("Content-Type: {}", content_type));
     }

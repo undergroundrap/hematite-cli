@@ -150,7 +150,7 @@ pub fn render_skill_catalog(discovery: &SkillDiscovery, max_chars: usize) -> Opt
         return None;
     }
 
-    let mut output = Vec::new();
+    let mut output = Vec::with_capacity(discovery.skills.len() + 2);
     output.push("# Agent Skills Catalog".to_string());
     output.push(
         "These skills use progressive disclosure. Read a skill's SKILL.md before following it; only load scripts, references, or assets when the skill calls for them.".to_string(),
@@ -451,7 +451,7 @@ pub fn render_instructions(files: &[InstructionFile], max_chars: usize) -> Optio
         return None;
     }
 
-    let mut output = Vec::new();
+    let mut output = Vec::with_capacity(files.len() + 2);
     output.push("# Project Instructions And Skills".to_string());
     output.push(
         "These guidance files were discovered in the directory tree for the current repository:"

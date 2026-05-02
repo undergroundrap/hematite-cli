@@ -4183,7 +4183,7 @@ impl ConversationManager {
                 DirectAnswerKind::HostInspection => {
                     let topics = all_host_inspection_topics(&effective_user_input);
                     let response = if topics.len() >= 2 {
-                        let mut combined = Vec::new();
+                        let mut combined = Vec::with_capacity(topics.len());
                         for topic in topics {
                             let args =
                                 host_inspection_args_from_prompt(topic, &effective_user_input);
@@ -6921,7 +6921,7 @@ impl ConversationManager {
         let profile = crate::agent::workspace_profile::load_workspace_profile(&root)
             .unwrap_or_else(|| crate::agent::workspace_profile::detect_workspace_profile(&root));
 
-        let mut sections = Vec::new();
+        let mut sections = Vec::with_capacity(4);
         let mut overall_ok = true;
         let contract = profile.runtime_contract.as_ref();
         let verification_workflows: Vec<String> = match contract {

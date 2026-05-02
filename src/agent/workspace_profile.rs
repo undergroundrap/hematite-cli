@@ -137,7 +137,7 @@ pub fn profile_prompt_block(root: &Path) -> Option<String> {
 pub fn profile_strategy_prompt_block(root: &Path) -> Option<String> {
     let profile = load_workspace_profile(root).unwrap_or_else(|| detect_workspace_profile(root));
     let contract = profile.runtime_contract?;
-    let mut lines = Vec::new();
+    let mut lines = Vec::with_capacity(6);
     lines.push(format!(
         "Treat this workspace as a `{}` control loop, not a blank slate.",
         contract.app_kind
@@ -1018,7 +1018,7 @@ fn build_summary(
     test_hint: Option<&str>,
     runtime_contract: Option<&RuntimeContract>,
 ) -> String {
-    let mut parts = Vec::new();
+    let mut parts = Vec::with_capacity(6);
     match workspace_mode {
         "project" => {
             if let Some(stack) = primary_stack {
