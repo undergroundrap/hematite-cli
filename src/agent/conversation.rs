@@ -4574,8 +4574,12 @@ impl ConversationManager {
             if task_path.exists() {
                 if let Ok(content) = std::fs::read_to_string(task_path) {
                     let snippet = if content.lines().count() > 50 {
-                        content.lines().take(50).collect::<Vec<_>>().join("\n")
-                            + "\n... (truncated)"
+                        let mut s = String::with_capacity(50 * 80);
+                        for (i, line) in content.lines().take(50).enumerate() {
+                            if i > 0 { s.push('\n'); }
+                            s.push_str(line);
+                        }
+                        s + "\n... (truncated)"
                     } else {
                         content
                     };

@@ -1376,7 +1376,12 @@ fn indent_flexible_find_span(content: &str, search: &str) -> Option<std::ops::Ra
 /// per line. Last resort before the cross-file hint error.
 fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>> {
     find_span_normalised(content, search, |s| {
-        s.lines().map(|l| l.trim()).collect::<Vec<_>>().join("\n")
+        let mut result = String::with_capacity(s.len());
+        for (i, l) in s.lines().enumerate() {
+            if i > 0 { result.push('\n'); }
+            result.push_str(l.trim());
+        }
+        result
     })
 }
 

@@ -247,7 +247,7 @@ pub(crate) fn summarize_runtime_trace_output(report: &str) -> String {
 }
 
 pub(crate) fn build_architecture_overview_answer(runtime_trace_summary: &str) -> String {
-    let mut out = String::new();
+    let mut out = String::with_capacity(runtime_trace_summary.len() + 1024);
     out.push_str("Grounded architecture overview\n\n");
     out.push_str("\n\nRuntime control flow\n");
     out.push_str(runtime_trace_summary.trim());

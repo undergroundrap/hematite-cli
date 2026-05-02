@@ -1146,7 +1146,7 @@ fn load_instruction_files() -> String {
     let Ok(cwd) = std::env::current_dir() else {
         return String::new();
     };
-    let mut result = String::new();
+    let mut result = String::with_capacity(4096);
     let mut seen: HashSet<u64> = HashSet::new();
     let mut total_chars: usize = 0;
     const MAX_TOTAL: usize = 12_000;

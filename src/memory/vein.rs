@@ -2416,7 +2416,14 @@ fn extract_pdf_text_inside_helper(path: &std::path::Path) -> Result<Option<Strin
         Err(e) => failures.push(e),
     }
 
-    let detail = failures.into_iter().take(2).collect::<Vec<_>>().join("; ");
+    let detail = {
+        let mut d = String::new();
+        for (i, f) in failures.into_iter().take(2).enumerate() {
+            if i > 0 { d.push_str("; "); }
+            d.push_str(&f);
+        }
+        d
+    };
     Err(format!(
         "Could not extract text from PDF. Hematite keeps PDF parsing best-effort so it can stay a lightweight single-binary local coding harness. The file may be scanned/image-only, encrypted, or use unsupported font encoding. Try exporting it to text/markdown or attach page images instead. Detail: {}",
         detail

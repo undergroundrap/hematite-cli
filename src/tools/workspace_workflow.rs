@@ -989,7 +989,14 @@ fn html_preview_text(body: &str) -> String {
 }
 
 fn compact_whitespace(input: &str) -> String {
-    input.split_whitespace().collect::<Vec<_>>().join(" ")
+    let mut result = String::with_capacity(input.len());
+    for (i, word) in input.split_whitespace().enumerate() {
+        if i > 0 {
+            result.push(' ');
+        }
+        result.push_str(word);
+    }
+    result
 }
 
 fn format_probe_details(probe: &WebsiteProbeSummary) -> String {

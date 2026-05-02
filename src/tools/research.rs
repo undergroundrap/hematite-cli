@@ -165,7 +165,7 @@ async fn perform_searx_search(query: &str, base_url: &str) -> Result<String, Str
         .await
         .map_err(|e| format!("Failed to parse SearXNG JSON: {e}"))?;
 
-    let mut output = String::new();
+    let mut output = String::with_capacity(query.len() + 4096);
     output.push_str("[Source: SearXNG (Local/Auto-Detected)]\n\n");
     let _ = write!(output, "# Search results for: {}\n\n", query);
 

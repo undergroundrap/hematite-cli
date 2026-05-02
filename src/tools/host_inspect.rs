@@ -470,25 +470,17 @@ fn inspect_summary(max_entries: usize) -> Result<String, String> {
     for (label, path) in [("Desktop", desktop_dir()), ("Downloads", downloads_dir())] {
         match path {
             Some(path) if path.exists() => match count_top_level_items(&path) {
-                Ok(count) => out.push_str(&format!(
-                    "- {}: {} top-level items at {}\n",
-                    label,
-                    count,
-                    path.display()
-                )),
-                Err(e) => out.push_str(&format!(
-                    "- {}: exists at {} but could not inspect ({})\n",
-                    label,
-                    path.display(),
-                    e
-                )),
+                Ok(count) => {
+                    let _ = write!(out, "- {}: {} top-level items at {}\n", label, count, path.display());
+                }
+                Err(e) => {
+                    let _ = write!(out, "- {}: exists at {} but could not inspect ({})\n", label, path.display(), e);
+                }
             },
-            Some(path) => out.push_str(&format!(
-                "- {}: expected at {} but not found\n",
-                label,
-                path.display()
-            )),
-            None => out.push_str(&format!("- {}: location unavailable on this host\n", label)),
+            Some(path) => {
+                let _ = write!(out, "- {}: expected at {} but not found\n", label, path.display());
+            }
+            None => { let _ = write!(out, "- {}: location unavailable on this host\n", label); }
         }
     }
 
@@ -1619,7 +1611,7 @@ fn inspect_resource_load() -> Result<String, String> {
             .next()
             .and_then(|l| l.parse::<u32>().ok())
             .unwrap_or(0);
-        let mem_json = lines.collect::<Vec<_>>().join("");
+        let mem_json: String = lines.collect();
         let mem_val: Value = serde_json::from_str(&mem_json).unwrap_or(Value::Null);
 
         let total_kb = mem_val["TotalVisibleMemorySize"].as_u64().unwrap_or(1);
@@ -5151,7 +5143,7 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
                     out.push_str("  (could not enumerate drives)\n");
                 }
             }
-            Err(e) => out.push_str(&format!("  (drive scan failed: {e})\n")),
+            Err(e) => { let _ = write!(out, "  (drive scan failed: {e})\n"); }
         }
 
         // ── Real-time Performance (Latency) ──────────────────────────────────
@@ -5208,7 +5200,7 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
                     }
                 }
             }
-            Err(e) => out.push_str(&format!("  (df failed: {e})\n")),
+            Err(e) => { let _ = write!(out, "  (df failed: {e})\n"); }
         }
     }
 
@@ -6425,9 +6417,9 @@ fn inspect_dev_conflicts() -> Result<String, String> {
                     );
                 }
             }
-            (Some(v3), None) => out.push_str(&format!("  python3: {v3}\n")),
-            (None, Some(v)) => out.push_str(&format!("  python: {v}\n")),
-            (Some(v3), Some(_)) => out.push_str(&format!("  {v3}\n")),
+            (Some(v3), None) => { let _ = write!(out, "  python3: {v3}\n"); }
+            (None, Some(v)) => { let _ = write!(out, "  python: {v}\n"); }
+            (Some(v3), Some(_)) => { let _ = write!(out, "  {v3}\n"); }
             (None, None) => out.push_str("  Not installed\n"),
         }
         if let Some(ref pe) = pyenv {
@@ -6857,10 +6849,7 @@ try {
             match text.as_str() {
                 "REACHABLE" => out.push_str("Internet: reachable\n"),
                 "UNREACHABLE" => out.push_str("Internet: unreachable [!]\n"),
-                _ => out.push_str(&format!(
-                    "Internet: {}\n",
-                    text.trim_start_matches("ERROR:").trim()
-                )),
+                _ => { let _ = write!(out, "Internet: {}\n", text.trim_start_matches("ERROR:").trim()); }
             }
         }
 
@@ -8421,7 +8410,7 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
     let n = max_entries.clamp(3, 12);
 
     match docker_engine_version() {
-        Ok(version) => out.push_str(&format!("Docker Engine: {version}\n")),
+        Ok(version) => { let _ = write!(out, "Docker Engine: {version}\n"); }
         Err(message) => {
             out.push_str(&message);
             return Ok(out.trim_end().to_string());
@@ -9006,7 +8995,7 @@ else { "SSHD:not_installed" }
                             let _ = write!(out, "\n  Total configured hosts: {}\n", hosts.len());
                         }
                     }
-                    Err(e) => out.push_str(&format!("  Could not read config: {e}\n")),
+                    Err(e) => { let _ = write!(out, "  Could not read config: {e}\n"); }
                 }
             } else {
                 out.push_str("  SSH config: not present\n");
@@ -11444,7 +11433,10 @@ fn inspect_device_health() -> Result<String, String> {
         if dmesg.is_empty() {
             out.push_str("  No critical hardware errors found in dmesg.\n");
         } else {
-            out.push_str(&dmesg.lines().take(20).collect::<Vec<_>>().join("\n"));
+            for (i, line) in dmesg.lines().take(20).enumerate() {
+                if i > 0 { out.push('\n'); }
+                out.push_str(line);
+            }
         }
     }
 
@@ -11602,7 +11594,10 @@ fn inspect_sessions(max_entries: usize) -> Result<String, String> {
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .unwrap_or_default();
-        out.push_str(&who.lines().take(max_entries).collect::<Vec<_>>().join("\n"));
+        for (i, line) in who.lines().take(max_entries).enumerate() {
+            if i > 0 { out.push('\n'); }
+            out.push_str(line);
+        }
     }
 
     Ok(out.trim_end().to_string())
@@ -12204,7 +12199,7 @@ foreach ($line in $raw) {
             Ok(_) => out.push_str(
                 "- dsregcmd returned no enrollment fields (device may not be AAD-joined)\n",
             ),
-            Err(e) => out.push_str(&format!("- dsregcmd error: {e}\n")),
+            Err(e) => { let _ = write!(out, "- dsregcmd error: {e}\n"); }
         }
 
         // ── Registry enrollment accounts ──────────────────────────────────────
@@ -12243,7 +12238,7 @@ if (Test-Path $base) {
                     }
                 }
             }
-            Err(e) => out.push_str(&format!("- Registry read error: {e}\n")),
+            Err(e) => { let _ = write!(out, "- Registry read error: {e}\n"); }
         }
 
         // ── MDM service health ────────────────────────────────────────────────
@@ -12265,7 +12260,7 @@ foreach ($n in $names) {
                 }
             }
             Ok(_) => out.push_str("- No Intune management services found (unmanaged device or extension not installed)\n"),
-            Err(e) => out.push_str(&format!("- Service query error: {e}\n")),
+            Err(e) => { let _ = write!(out, "- Service query error: {e}\n"); }
         }
 
         // ── Recent MDM / Intune events ────────────────────────────────────────
@@ -12296,7 +12291,7 @@ if (-not $found) { "No MDM warning/error events in the last 24 hours" }
                     }
                 }
             }
-            Err(e) => out.push_str(&format!("- Event log read error: {e}\n")),
+            Err(e) => { let _ = write!(out, "- Event log read error: {e}\n"); }
         }
 
         // ── Findings ──────────────────────────────────────────────────────────
@@ -13394,7 +13389,7 @@ $faceConfigured = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\Wbi
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Hello query error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Hello query error: {e}\n"); }
     }
 
     // Biometric service state
@@ -13405,7 +13400,7 @@ if ($svc) { "WbioSrvc | Status: $($svc.Status) | StartType: $($svc.StartType)" }
 else { "WbioSrvc not found" }
 "#;
     match run_powershell(ps_bio_svc) {
-        Ok(o) => out.push_str(&format!("- {}\n", o.trim())),
+        Ok(o) => { let _ = write!(out, "- {}\n", o.trim()); }
         Err(_) => out.push_str("- Could not query biometric service\n"),
     }
 
@@ -15552,7 +15547,7 @@ if ($svc) { "WSearch | Status: $($svc.Status) | StartType: $($svc.StartType)" }
 else { "WSearch service not found" }
 "#;
     match run_powershell(ps_svc) {
-        Ok(o) => out.push_str(&format!("- {}\n", o.trim())),
+        Ok(o) => { let _ = write!(out, "- {}\n", o.trim()); }
         Err(_) => out.push_str("- Could not query WSearch service\n"),
     }
 
@@ -15814,7 +15809,7 @@ if ($svc) { "W32Time | Status: $($svc.Status) | StartType: $($svc.StartType)" }
 else { "W32Time service not found" }
 "#;
     match run_powershell(ps_svc) {
-        Ok(o) => out.push_str(&format!("- {}\n", o.trim())),
+        Ok(o) => { let _ = write!(out, "- {}\n", o.trim()); }
         Err(_) => out.push_str("- Could not query W32Time service\n"),
     }
 
@@ -15937,7 +15932,7 @@ $plan = powercfg /getactivescheme 2>$null
 if ($plan) { $plan } else { "Could not query power scheme" }
 "#;
     match run_powershell(ps_plan) {
-        Ok(o) if !o.trim().is_empty() => out.push_str(&format!("- {}\n", o.trim())),
+        Ok(o) if !o.trim().is_empty() => { let _ = write!(out, "- {}\n", o.trim()); }
         _ => out.push_str("- Could not read active power plan\n"),
     }
 
@@ -16064,7 +16059,7 @@ $cert    = ($lines | Where-Object { $_ -match "Type: Certificate" }).Count
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Credential summary error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Credential summary error: {e}\n"); }
     }
 
     out.push_str("\n=== Credential targets (up to 20) ===\n");
@@ -16096,7 +16091,7 @@ $entries | Select-Object -Last 20 | ForEach-Object {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Credential list error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Credential list error: {e}\n"); }
     }
 
     let total_creds: usize = {
@@ -16163,7 +16158,7 @@ if ($t) {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Get-Tpm error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Get-Tpm error: {e}\n"); }
     }
 
     out.push_str("\n=== TPM spec version (WMI) ===\n");
@@ -16186,7 +16181,7 @@ if ($wmi) {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Win32_Tpm WMI error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Win32_Tpm WMI error: {e}\n"); }
     }
 
     out.push_str("\n=== Secure Boot state ===\n");
@@ -16214,7 +16209,7 @@ try {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Secure Boot check error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Secure Boot check error: {e}\n"); }
     }
 
     out.push_str("\n=== Firmware type ===\n");
@@ -16239,7 +16234,7 @@ switch ($fw) {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Firmware type error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Firmware type error: {e}\n"); }
     }
 
     let mut findings: Vec<String> = Vec::new();
@@ -16388,7 +16383,7 @@ if ($r) {{
                     }
                 }
             }
-            Err(e) => out.push_str(&format!("- Ping error: {e}\n")),
+            Err(e) => { let _ = write!(out, "- Ping error: {e}\n"); }
         }
     }
 
@@ -16429,7 +16424,7 @@ fn inspect_latency() -> Result<String, String> {
                     findings.push(format!("{label} ({host}) is unreachable."));
                 }
             }
-            Err(e) => out.push_str(&format!("- ping error: {e}\n")),
+            Err(e) => { let _ = write!(out, "- ping error: {e}\n"); }
         }
     }
 
@@ -16471,7 +16466,7 @@ Get-NetAdapter | Sort-Object Status,Name | ForEach-Object {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Adapter query error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Adapter query error: {e}\n"); }
     }
 
     out.push_str("\n=== Duplex and negotiated speed ===\n");
@@ -16500,7 +16495,7 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
                 let _ = write!(out, "- {l}\n");
             }
         }
-        Err(e) => out.push_str(&format!("- Duplex query error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Duplex query error: {e}\n"); }
     }
 
     out.push_str("\n=== Offload and performance settings (Up adapters) ===\n");
@@ -16533,7 +16528,7 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Offload query error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Offload query error: {e}\n"); }
     }
 
     out.push_str("\n=== Adapter error counters ===\n");
@@ -16560,7 +16555,7 @@ Get-NetAdapterStatistics | ForEach-Object {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Error counter query: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Error counter query: {e}\n"); }
     }
 
     out.push_str("\n=== Wake-on-LAN and power settings ===\n");
@@ -16587,7 +16582,7 @@ Get-NetAdapter | Where-Object Status -eq "Up" | ForEach-Object {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- WoL query error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- WoL query error: {e}\n"); }
     }
 
     let mut findings: Vec<String> = Vec::new();
@@ -16682,7 +16677,7 @@ foreach ($a in $adapters) {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- DHCP query error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- DHCP query error: {e}\n"); }
     }
 
     // Findings: check for expired or very-soon-expiring leases
@@ -16786,7 +16781,7 @@ Get-NetIPInterface | Where-Object { $_.AddressFamily -eq "IPv4" } |
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- MTU query error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- MTU query error: {e}\n"); }
     }
 
     out.push_str("\n=== Per-adapter MTU (IPv6) ===\n");
@@ -16806,7 +16801,7 @@ Get-NetIPInterface | Where-Object { $_.AddressFamily -eq "IPv6" } |
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- IPv6 MTU query error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- IPv6 MTU query error: {e}\n"); }
     }
 
     out.push_str("\n=== Path MTU discovery (ping DF-bit to 8.8.8.8) ===\n");
@@ -16830,7 +16825,7 @@ else { "All test sizes failed — path MTU may be very restricted or ICMP is blo
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Path MTU test error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Path MTU test error: {e}\n"); }
     }
 
     let mut findings: Vec<String> = Vec::new();
@@ -16893,7 +16888,7 @@ fn inspect_mtu() -> Result<String, String> {
                 }
             }
         }
-        Err(e) => out.push_str(&format!("- Ping error: {e}\n")),
+        Err(e) => { let _ = write!(out, "- Ping error: {e}\n"); }
     }
     Ok(out)
 }
@@ -17776,7 +17771,7 @@ fn inspect_port_test(host: Option<&str>, port: Option<u16>) -> Result<String, St
                 );
             }
         }
-        Err(e) => out.push_str(&format!("  nc not available: {e}\n")),
+        Err(e) => { let _ = write!(out, "  nc not available: {e}\n"); }
     }
     Ok(out)
 }

@@ -817,7 +817,7 @@ pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
         _ => 2,
     });
 
-    let mut out = String::new();
+    let mut out = String::with_capacity(all_recipes.len() * 400);
     for (i, recipe) in all_recipes.iter().enumerate() {
         let (sev_class, badge_class, badge_text) = match recipe.severity {
             "ACTION" => ("sev-action", "b-action", "ACTION REQUIRED"),
