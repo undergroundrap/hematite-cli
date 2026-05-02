@@ -2934,21 +2934,21 @@ fn collect_windows_listening_ports() -> Result<Vec<ListeningPort>, String> {
         if !trimmed.starts_with("TCP") {
             continue;
         }
-        let cols: Vec<&str> = trimmed.split_whitespace().collect();
-        if cols.len() < 5 || cols[3] != "LISTENING" {
-            continue;
+        let mut it = trimmed.split_whitespace();
+        if let (Some(proto), Some(local), Some(_), Some(state), Some(pid)) =
+            (it.next(), it.next(), it.next(), it.next(), it.next())
+        {
+            if state != "LISTENING" { continue; }
+            let Some(port) = extract_port_from_socket(local) else { continue; };
+            listeners.push(ListeningPort {
+                protocol: proto.to_string(),
+                local: local.to_string(),
+                port,
+                state: state.to_string(),
+                pid: Some(pid.to_string()),
+                process_name: None,
+            });
         }
-        let Some(port) = extract_port_from_socket(cols[1]) else {
-            continue;
-        };
-        listeners.push(ListeningPort {
-            protocol: cols[0].to_string(),
-            local: cols[1].to_string(),
-            port,
-            state: cols[3].to_string(),
-            pid: Some(cols[4].to_string()),
-            process_name: None,
-        });
     }
 
     // Enrich with process names via PowerShell — works without elevation for
@@ -4752,7 +4752,7 @@ fn inspect_log_check(lookback_hours: Option<u32>, max_entries: usize) -> Result<
                 for log_path in &log_paths {
                     if let Ok(content) = std::fs::read_to_string(log_path) {
                         let lines: Vec<&str> = content.lines().collect();
-                        let tail: Vec<&str> = lines
+                        let mut tail: Vec<&str> = lines
                             .iter()
                             .rev()
                             .filter(|l| {
@@ -4761,10 +4761,8 @@ fn inspect_log_check(lookback_hours: Option<u32>, max_entries: usize) -> Result<
                             })
                             .take(max_entries)
                             .copied()
-                            .collect::<Vec<_>>()
-                            .into_iter()
-                            .rev()
-                            .collect();
+                            .collect::<Vec<_>>();
+                        tail.reverse();
                         if !tail.is_empty() {
                             let _ = write!(out, "Source: {log_path}\n");
                             for l in &tail {
