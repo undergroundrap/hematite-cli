@@ -98,8 +98,7 @@ fn query_csv_streaming(path: &PathBuf, sql: &str, explain: bool) -> Result<Strin
 
     let mut col_types = vec!["INTEGER"; clean_cols.len()];
     for line in &sample_rows {
-        let vals: Vec<&str> = line.split(delimiter).map(|s| s.trim()).collect();
-        for (i, val) in vals.iter().enumerate() {
+        for (i, val) in line.split(delimiter).map(|s| s.trim()).enumerate() {
             if i >= col_types.len() {
                 break;
             }
@@ -141,9 +140,11 @@ fn query_csv_streaming(path: &PathBuf, sql: &str, explain: bool) -> Result<Strin
             let mut stmt = tx.prepare(&insert_sql).map_err(|e| e.to_string())?;
 
             // Insert sample rows
+            let ncols = clean_cols.len();
             for line in sample_rows {
-                let vals: Vec<&str> = line.split(delimiter).map(|s| s.trim()).collect();
-                if vals.len() == clean_cols.len() {
+                let mut vals = Vec::with_capacity(ncols);
+                vals.extend(line.split(delimiter).map(|s| s.trim()));
+                if vals.len() == ncols {
                     stmt.execute(rusqlite::params_from_iter(vals)).ok();
                 }
             }
@@ -151,8 +152,9 @@ fn query_csv_streaming(path: &PathBuf, sql: &str, explain: bool) -> Result<Strin
             // Insert remaining rows (Streaming)
             for line_res in lines {
                 if let Ok(line) = line_res {
-                    let vals: Vec<&str> = line.split(delimiter).map(|s| s.trim()).collect();
-                    if vals.len() == clean_cols.len() {
+                    let mut vals = Vec::with_capacity(ncols);
+                    vals.extend(line.split(delimiter).map(|s| s.trim()));
+                    if vals.len() == ncols {
                         stmt.execute(rusqlite::params_from_iter(vals)).ok();
                     }
                 }

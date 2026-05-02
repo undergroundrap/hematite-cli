@@ -8408,11 +8408,13 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
         .output()
     {
         for line in String::from_utf8_lossy(&o.stdout).lines().take(n) {
-            let cols: Vec<&str> = line.split('\t').collect();
-            if cols.len() < 3 {
+            let mut it = line.splitn(3, '\t');
+            let (Some(name_raw), Some(image_raw), Some(status_raw)) =
+                (it.next(), it.next(), it.next())
+            else {
                 continue;
-            }
-            let name = cols[0].trim().to_string();
+            };
+            let name = name_raw.trim().to_string();
             if name.is_empty() {
                 continue;
             }
@@ -8427,8 +8429,8 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
             };
             containers.push(DockerContainerAudit {
                 name,
-                image: cols[1].trim().to_string(),
-                status: cols[2].trim().to_string(),
+                image: image_raw.trim().to_string(),
+                status: status_raw.trim().to_string(),
                 mounts,
             });
         }
@@ -8440,18 +8442,14 @@ fn inspect_docker_filesystems(max_entries: usize) -> Result<String, String> {
         .output()
     {
         for line in String::from_utf8_lossy(&o.stdout).lines().take(n) {
-            let cols: Vec<&str> = line.split('\t').collect();
-            let Some(name) = cols.first().map(|v| v.trim()).filter(|v| !v.is_empty()) else {
+            let mut it = line.split('\t');
+            let Some(name) = it.next().map(|v| v.trim()).filter(|v| !v.is_empty()) else {
                 continue;
             };
+            let driver_hint = it.next().map(|v| v.trim()).filter(|v| !v.is_empty());
             let mut audit = inspect_docker_volume(name);
             if audit.driver == "unknown" {
-                audit.driver = cols
-                    .get(1)
-                    .map(|v| v.trim())
-                    .filter(|v| !v.is_empty())
-                    .unwrap_or("unknown")
-                    .to_string();
+                audit.driver = driver_hint.unwrap_or("unknown").to_string();
             }
             volumes.push(audit);
         }
@@ -11674,12 +11672,11 @@ $avgR = if ($readStats) {{ ($readStats | Measure-Object -Average).Average }} els
 
         let mut lines = text.lines();
         if let Some(metrics_line) = lines.next() {
-            let parts: Vec<&str> = metrics_line.split('|').collect();
             let mut avg_q = "unknown".to_string();
             let mut max_q = "unknown".to_string();
             let mut avg_r = "unknown".to_string();
 
-            for p in parts {
+            for p in metrics_line.split('|') {
                 if let Some((k, v)) = p.split_once(':') {
                     match k {
                         "AVG_Q" => avg_q = v.to_string(),
@@ -16345,10 +16342,9 @@ if ($r) {{
                     // High latency check
                     if let Some(rtt_line) = body.lines().find(|l| l.contains("RTT min/avg/max")) {
                         // parse avg from "RTT min/avg/max: Xms / Yms / Zms"
-                        let parts: Vec<&str> = rtt_line.split('/').collect();
-                        if parts.len() >= 2 {
+                        if let Some(avg_field) = rtt_line.split('/').nth(1) {
                             let avg_str: String =
-                                parts[1].chars().filter(|c| c.is_ascii_digit()).collect();
+                                avg_field.chars().filter(|c| c.is_ascii_digit()).collect();
                             let avg: u32 = avg_str.parse().unwrap_or(0);
                             if avg > 150 {
                                 findings.push(format!("{label} ({host}): high average RTT ({avg}ms) — check for congestion or routing issues."));
