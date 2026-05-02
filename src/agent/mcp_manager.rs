@@ -268,7 +268,7 @@ impl McpManager {
             .await?;
         self.next_id += 1;
 
-        let mut output = String::new();
+        let mut output = String::with_capacity(result.content.len() * 256);
         for content in result.content {
             match content {
                 McpContent::Text { text } => output.push_str(&text),

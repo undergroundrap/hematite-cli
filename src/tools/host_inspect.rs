@@ -12298,7 +12298,7 @@ fn inspect_hyperv() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         let mut findings: Vec<String> = Vec::new();
-        let mut out = String::new();
+        let mut out = String::with_capacity(2048);
 
         // --- Hyper-V role / VMMS service state ---
         let ps_role = r#"
@@ -12780,7 +12780,7 @@ fn inspect_app_crashes(process_filter: Option<&str>, max_entries: usize) -> Resu
     #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
     let mut findings: Vec<String> = Vec::new();
     #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
-    let mut sections = String::new();
+    let mut sections = String::with_capacity(2048);
 
     #[cfg(target_os = "windows")]
     {
@@ -15646,7 +15646,7 @@ fn inspect_search_index(_max_entries: usize) -> Result<String, String> {
 
 #[cfg(windows)]
 fn inspect_display_config(max_entries: usize) -> Result<String, String> {
-    let mut out = String::new();
+    let mut out = String::with_capacity(1024);
 
     // Active displays via CIM
     out.push_str("=== Active displays ===\n");
@@ -15764,7 +15764,7 @@ fn inspect_display_config(_max_entries: usize) -> Result<String, String> {
 
 #[cfg(windows)]
 fn inspect_ntp() -> Result<String, String> {
-    let mut out = String::new();
+    let mut out = String::with_capacity(1024);
 
     // w32tm status
     out.push_str("=== Windows Time service ===\n");
@@ -15888,7 +15888,7 @@ fn inspect_ntp() -> Result<String, String> {
 
 #[cfg(windows)]
 fn inspect_cpu_power() -> Result<String, String> {
-    let mut out = String::new();
+    let mut out = String::with_capacity(1024);
 
     // Active power plan
     out.push_str("=== Active power plan ===\n");
@@ -16000,7 +16000,7 @@ if ($pwr) {
 
 #[cfg(windows)]
 fn inspect_credentials(_max_entries: usize) -> Result<String, String> {
-    let mut out = String::new();
+    let mut out = String::with_capacity(1024);
 
     out.push_str("=== Credential vault summary ===\n");
     let ps_summary = r#"
@@ -16094,7 +16094,7 @@ fn inspect_credentials(_max_entries: usize) -> Result<String, String> {
 
 #[cfg(windows)]
 fn inspect_tpm() -> Result<String, String> {
-    let mut out = String::new();
+    let mut out = String::with_capacity(1024);
 
     out.push_str("=== TPM state ===\n");
     let ps_tpm = r#"
@@ -16265,7 +16265,7 @@ fn inspect_tpm() -> Result<String, String> {
 
 #[cfg(windows)]
 fn inspect_latency() -> Result<String, String> {
-    let mut out = String::new();
+    let mut out = String::with_capacity(1024);
 
     // Resolve default gateway from the routing table
     let ps_gw = r#"
@@ -16413,7 +16413,7 @@ fn inspect_latency() -> Result<String, String> {
 
 #[cfg(windows)]
 fn inspect_network_adapter() -> Result<String, String> {
-    let mut out = String::new();
+    let mut out = String::with_capacity(1024);
 
     out.push_str("=== Network adapters ===\n");
     let ps_adapters = r#"
@@ -16609,7 +16609,7 @@ fn inspect_network_adapter() -> Result<String, String> {
 
 #[cfg(windows)]
 fn inspect_dhcp() -> Result<String, String> {
-    let mut out = String::new();
+    let mut out = String::with_capacity(1024);
 
     out.push_str("=== DHCP lease details (per adapter) ===\n");
     let ps_dhcp = r#"
@@ -16727,7 +16727,7 @@ fn inspect_dhcp() -> Result<String, String> {
 
 #[cfg(windows)]
 fn inspect_mtu() -> Result<String, String> {
-    let mut out = String::new();
+    let mut out = String::with_capacity(1024);
 
     out.push_str("=== Per-adapter MTU (IPv4) ===\n");
     let ps_mtu = r#"

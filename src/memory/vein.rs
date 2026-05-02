@@ -2390,7 +2390,7 @@ fn extract_pdf_text_with_lopdf(path: &std::path::Path) -> Result<Option<String>,
 
     if !page_errors.is_empty() {
         let sample_errors = {
-            let mut s = String::new();
+            let mut s = String::with_capacity(160);
             for e in page_errors.into_iter().take(3) {
                 if !s.is_empty() { s.push_str("; "); }
                 s.push_str(&e);
@@ -2421,7 +2421,7 @@ fn extract_pdf_text_inside_helper(path: &std::path::Path) -> Result<Option<Strin
     }
 
     let detail = {
-        let mut d = String::new();
+        let mut d = String::with_capacity(160);
         for (i, f) in failures.into_iter().take(2).enumerate() {
             if i > 0 { d.push_str("; "); }
             d.push_str(&f);

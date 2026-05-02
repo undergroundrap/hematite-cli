@@ -1223,7 +1223,7 @@ pub async fn generate_fix_plan_html(issue: &str) -> String {
 
     use crate::agent::html_template::{build_html_shell, he, COPY_BUTTON_HTML};
 
-    let mut sections_html = String::new();
+    let mut sections_html = String::with_capacity(data.sections.len() * 512);
     for (label, output) in &data.sections {
         let _ = write!(sections_html,
             "<details><summary>{}</summary><pre>{}</pre></details>\n",

@@ -319,7 +319,7 @@ fn render_blueprint_execution_plan(blueprint: &str, slug: &str, status: &str) ->
         .filter(|line| !line.is_empty())
         .unwrap_or("Strategic Blueprint");
 
-    let mut out = String::new();
+    let mut out = String::with_capacity(blueprint.len() + 256);
     let _ = write!(out, "# Execution Plan: {title}\n\n");
     let _ = write!(out, "- Plan ID: `{slug}`\n");
     let _ = write!(out, "- Status: {status}\n");
@@ -568,7 +568,7 @@ pub fn parse_plan_handoff(input: &str) -> Option<PlanHandoff> {
 fn collect_sections(input: &str) -> std::collections::BTreeMap<String, String> {
     let mut sections = std::collections::BTreeMap::new();
     let mut current: Option<String> = None;
-    let mut buf = String::new();
+    let mut buf = String::with_capacity(256);
 
     for line in input.lines() {
         let trimmed = line.trim();

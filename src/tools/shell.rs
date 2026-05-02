@@ -196,7 +196,7 @@ pub async fn execute_streaming(
         None => "\n[process terminated by signal]".to_string(),
     };
 
-    let mut result = String::new();
+    let mut result = String::with_capacity(stdout_raw.len() + stderr_raw.len() + 16);
     if !stdout_raw.is_empty() {
         result.push_str(&stdout_raw);
     }
@@ -271,7 +271,7 @@ pub async fn execute_command_in_dir(
         None => "\n[process terminated by signal]".to_string(),
     };
 
-    let mut result = String::new();
+    let mut result = String::with_capacity(stdout.len() + stderr.len() + 16);
     if !stdout.is_empty() {
         result.push_str(&stdout);
     }

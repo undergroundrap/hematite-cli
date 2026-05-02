@@ -3682,7 +3682,7 @@ pub async fn run_app<B: Backend>(
 
                                                 // Build numbered nav list
                                                 let mut entries: Vec<std::path::PathBuf> = Vec::new();
-                                                let mut output = String::new();
+                                                let mut output = String::with_capacity(1024);
 
                                                 // Common locations (only when listing current/no-arg)
                                                 let listing_base = parts.len() < 2;

@@ -3188,7 +3188,9 @@ impl ConversationManager {
         if user_input.trim() == "/rules" {
             let workspace_root = crate::tools::file_ops::workspace_root();
             let report = {
-                let mut combined = String::new();
+                let mut combined = String::with_capacity(
+                    crate::agent::instructions::PROJECT_GUIDANCE_FILES.len() * 512,
+                );
                 for name in crate::agent::instructions::PROJECT_GUIDANCE_FILES {
                     let path =
                         crate::agent::instructions::resolve_guidance_path(&workspace_root, name);
