@@ -618,7 +618,7 @@ pub async fn generate_report_markdown() -> String {
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
     let version = env!("CARGO_PKG_VERSION");
-    let mut sections: Vec<(&str, String)> = Vec::new();
+    let mut sections: Vec<(&str, String)> = Vec::with_capacity(REPORT_TOPICS.len());
 
     let total = REPORT_TOPICS.len();
     for (i, (topic, label)) in REPORT_TOPICS.iter().enumerate() {
@@ -840,7 +840,7 @@ pub async fn generate_report_html() -> String {
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
     let version = env!("CARGO_PKG_VERSION");
-    let mut sections: Vec<(&str, String)> = Vec::new();
+    let mut sections: Vec<(&str, String)> = Vec::with_capacity(REPORT_TOPICS.len());
 
     let total = REPORT_TOPICS.len();
     for (i, (topic, label)) in REPORT_TOPICS.iter().enumerate() {
@@ -987,7 +987,7 @@ async fn run_triage_phases(preset: &str) -> TriageData {
     let total = topics.len();
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
-    let mut sections: Vec<(&'static str, String)> = Vec::new();
+    let mut sections: Vec<(&'static str, String)> = Vec::with_capacity(total);
 
     for (i, &(topic, label)) in topics.iter().enumerate() {
         eprintln!("  [{}/{}] {}...", i + 1, total, label);
@@ -1112,7 +1112,7 @@ async fn run_fix_plan_phases(issue: &str) -> FixPlanData {
     let total = initial_topics.len();
     let timestamp = now_timestamp_string();
     let mut hostname = hostname_from_env();
-    let mut sections: Vec<(&'static str, String)> = Vec::new();
+    let mut sections: Vec<(&'static str, String)> = Vec::with_capacity(total);
 
     for (i, &(topic, label)) in initial_topics.iter().enumerate() {
         eprintln!("  [{}/{}] {}...", i + 1, total, label);
