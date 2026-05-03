@@ -4965,27 +4965,27 @@ impl ConversationManager {
             std::collections::HashMap::new();
         // Track the count of identical (name, args) calls to detect infinite tool loops.
         let mut repeat_counts: std::collections::HashMap<String, usize> =
-            std::collections::HashMap::new();
+            std::collections::HashMap::with_capacity(8);
         let mut completed_tool_cache: std::collections::HashMap<String, CachedToolResult> =
-            std::collections::HashMap::new();
+            std::collections::HashMap::with_capacity(8);
         let mut successful_read_targets: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
+            std::collections::HashSet::with_capacity(8);
         // (path, offset) pairs — catches repeated reads at the same non-zero offset.
         let mut successful_read_regions: std::collections::HashSet<(String, u64)> =
-            std::collections::HashSet::new();
+            std::collections::HashSet::with_capacity(8);
         let mut successful_grep_targets: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
+            std::collections::HashSet::with_capacity(8);
         let mut no_match_grep_targets: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
+            std::collections::HashSet::with_capacity(8);
         let mut broad_grep_targets: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
+            std::collections::HashSet::with_capacity(8);
         let mut sovereign_task_root: Option<String> = None;
         let mut sovereign_scaffold_targets: std::collections::BTreeSet<String> =
             std::collections::BTreeSet::new();
         let mut turn_mutated_paths: std::collections::BTreeSet<String> =
             std::collections::BTreeSet::new();
         let mut mutation_counts_by_path: std::collections::HashMap<String, usize> =
-            std::collections::HashMap::new();
+            std::collections::HashMap::with_capacity(4);
         let mut frontend_polish_intervention_emitted = false;
         let mut visible_closeout_emitted = false;
 
