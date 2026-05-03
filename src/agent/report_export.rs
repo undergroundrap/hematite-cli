@@ -503,8 +503,8 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
             ),
         ];
-        let mut patterns: Vec<&str> = Vec::new();
-        let mut entries: Vec<(&'static str, &'static str)> = Vec::new();
+        let mut patterns: Vec<&str> = Vec::with_capacity(SAFE.len());
+        let mut entries: Vec<(&'static str, &'static str)> = Vec::with_capacity(SAFE.len());
         for &(trigger, label, cmd) in SAFE {
             patterns.push(trigger);
             entries.push((label, cmd));
@@ -702,7 +702,7 @@ async fn run_diagnosis_phases() -> DiagnosisData {
         );
     }
 
-    let mut follow_up_outputs: Vec<(&'static str, String)> = Vec::new();
+    let mut follow_up_outputs: Vec<(&'static str, String)> = Vec::with_capacity(follow_up_topics.len());
     for (i, topic) in follow_up_topics.iter().enumerate() {
         eprintln!("  [{}/{}] {}...", i + 1, follow_up_topics.len(), topic);
         let args = json!({"topic": topic});
