@@ -670,16 +670,17 @@ impl Vein {
 
         // Lowercase once so stopword matching below needs no per-token allocation.
         // FTS5 is case-insensitive, so lowercased tokens match correctly.
-        let safe_query: String = query
-            .chars()
-            .map(|c| {
+        let safe_query: String = {
+            let mut s = String::with_capacity(query.len());
+            s.extend(query.chars().map(|c| {
                 if c.is_alphanumeric() || c == ' ' || c == '_' {
                     c.to_ascii_lowercase()
                 } else {
                     ' '
                 }
-            })
-            .collect();
+            }));
+            s
+        };
 
         // Build an OR query from non-stopword tokens so any relevant term matches.
         let fts_query = {
@@ -777,16 +778,19 @@ impl Vein {
         };
 
         let db = self.db.lock().unwrap();
+        // prepare_cached reuses the compiled statement across calls — avoids recompiling
+        // the same SQL for every chunk (up to candidate_limit times per turn).
+        let mut stmt = match db.prepare_cached(
+            "SELECT content FROM chunks_fts WHERE path = ?1 LIMIT 1 OFFSET ?2",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
         scored
             .into_iter()
             .filter_map(|(score, path, idx, last_modified, room, memory_type)| {
-                let content: Option<String> = db
-                    .query_row(
-                        "SELECT content FROM chunks_fts WHERE path = ?1 LIMIT 1 OFFSET ?2",
-                        params![path, idx],
-                        |r| r.get(0),
-                    )
-                    .ok();
+                let content: Option<String> =
+                    stmt.query_row(params![path, idx], |r| r.get(0)).ok();
                 content.map(|c| SearchResult {
                     path,
                     content: c,
@@ -834,7 +838,7 @@ impl Vein {
         }
 
         let mut merged: Vec<SearchResult> = merged_by_path.into_values().collect();
-        merged.sort_by(|a, b| {
+        merged.sort_unstable_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
@@ -1197,7 +1201,7 @@ impl Vein {
         let missing: Vec<(String, i64, String, i64, String, String)> = {
             let db = self.db.lock().unwrap();
             let mut stmt = db
-                .prepare(
+                .prepare_cached(
                     "SELECT f.path, (f.rowid - 1) AS chunk_idx, f.content,
                             COALESCE(cm.last_modified, 0),
                             COALESCE(cm.room, 'root'),
@@ -1409,7 +1413,7 @@ impl Vein {
     /// Returns (path, heat, mtime, room).
     fn hot_files(&self, n: usize) -> Vec<(String, i64, i64, String)> {
         let db = self.db.lock().unwrap();
-        let mut stmt = match db.prepare(
+        let mut stmt = match db.prepare_cached(
             "SELECT fh.path, fh.heat, cm.last_modified, cm.room
              FROM file_heat fh
              JOIN chunks_meta cm ON cm.path = fh.path
