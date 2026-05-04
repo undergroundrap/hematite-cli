@@ -722,6 +722,10 @@ impl Vein {
             None => return Vec::new(),
         };
 
+        // Precompute the query vector's squared norm once — avoids recomputing it
+        // for every chunk in the scoring loop below (typically ~1000 comparisons).
+        let query_norm_sq: f32 = query_vec.iter().map(|x| x * x).sum();
+
         // Score each chunk against the query vector using the in-memory cache.
         // This avoids a per-turn full-table-scan of chunks_vec + blob deserialization.
         let mut scored: Vec<(f32, String, i64, i64, String, String)> = {
@@ -735,7 +739,7 @@ impl Vein {
             cache
                 .iter()
                 .map(|e| {
-                    let sim = cosine_similarity(&query_vec, &e.embedding);
+                    let sim = cosine_similarity_precomputed(&query_vec, query_norm_sq, &e.embedding);
                     (sim, e.path.clone(), e.chunk_idx, e.last_modified, e.room.clone(), e.memory_type.clone())
                 })
                 .collect()
@@ -2375,13 +2379,33 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() || a.is_empty() {
         return 0.0;
     }
-    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-    if norm_a == 0.0 || norm_b == 0.0 {
+    let (dot, na_sq, nb_sq) = a.iter().zip(b.iter()).fold(
+        (0.0f32, 0.0f32, 0.0f32),
+        |(dot, na, nb), (x, y)| (dot + x * y, na + x * x, nb + y * y),
+    );
+    if na_sq == 0.0 || nb_sq == 0.0 {
         0.0
     } else {
-        dot / (norm_a * norm_b)
+        dot / (na_sq.sqrt() * nb_sq.sqrt())
+    }
+}
+
+/// Cosine similarity when the query's squared norm is already known.
+/// Saves one pass over `a` on each call — use when scoring many chunks
+/// against the same query vector.
+#[inline]
+fn cosine_similarity_precomputed(a: &[f32], a_norm_sq: f32, b: &[f32]) -> f32 {
+    if a.len() != b.len() || a_norm_sq == 0.0 {
+        return 0.0;
+    }
+    let (dot, nb_sq) = a.iter().zip(b.iter()).fold(
+        (0.0f32, 0.0f32),
+        |(dot, nb), (x, y)| (dot + x * y, nb + y * y),
+    );
+    if nb_sq == 0.0 {
+        0.0
+    } else {
+        dot / (a_norm_sq.sqrt() * nb_sq.sqrt())
     }
 }
 
