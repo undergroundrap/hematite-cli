@@ -30,6 +30,20 @@ pub struct Vein {
     /// Base URL of the LLM provider, used for the embeddings endpoint.
     base_url: String,
     embed_model: std::sync::Arc<std::sync::RwLock<Option<String>>>,
+    /// In-memory cache of decoded embedding vectors. Avoids per-turn full-table-scan
+    /// of chunks_vec + blob deserialization. Populated at open time, updated
+    /// incrementally as new embeddings are stored or paths are evicted.
+    embedding_cache: std::sync::Mutex<Vec<EmbeddedChunk>>,
+}
+
+/// One cached embedding entry — the decoded float vector plus retrieval metadata.
+struct EmbeddedChunk {
+    path: String,
+    chunk_idx: i64,
+    embedding: Vec<f32>,
+    last_modified: i64,
+    room: String,
+    memory_type: String,
 }
 
 // SAFETY: rusqlite::Connection is !Send by default, but we wrap it in Arc<Mutex>
@@ -445,10 +459,48 @@ impl Vein {
             "ALTER TABLE chunks_meta ADD COLUMN memory_type TEXT NOT NULL DEFAULT '';",
         );
 
+        // Pre-load all stored embeddings into RAM so search_semantic never needs
+        // to do a full table scan. blob_to_floats decodes each BLOB once here.
+        let embedding_cache: Vec<EmbeddedChunk> = {
+            let mut stmt = db.prepare(
+                "SELECT cv.path, cv.chunk_idx, cv.embedding,
+                        cm.last_modified,
+                        COALESCE(cm.room, 'root'),
+                        COALESCE(cm.memory_type, '')
+                 FROM chunks_vec cv
+                 JOIN chunks_meta cm ON cm.path = cv.path",
+            )?;
+            // Collect raw rows first so stmt is dropped before the block ends.
+            let raw: Vec<(String, i64, Vec<u8>, i64, String, String)> = stmt
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, Vec<u8>>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, String>(5)?,
+                    ))
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+            raw.into_iter()
+                .map(|(path, chunk_idx, blob, last_modified, room, memory_type)| EmbeddedChunk {
+                    path,
+                    chunk_idx,
+                    embedding: blob_to_floats(&blob),
+                    last_modified,
+                    room,
+                    memory_type,
+                })
+                .collect()
+        };
+
         Ok(Self {
             db: std::sync::Arc::new(std::sync::Mutex::new(db)),
             base_url,
             embed_model: std::sync::Arc::new(std::sync::RwLock::new(None)),
+            embedding_cache: std::sync::Mutex::new(embedding_cache),
         })
     }
 
@@ -513,6 +565,10 @@ impl Vein {
         // Evict stale BM25 chunks, stale embedding vectors, then update metadata.
         db.execute("DELETE FROM chunks_fts WHERE path = ?1", params![path])?;
         db.execute("DELETE FROM chunks_vec WHERE path = ?1", params![path])?;
+        // Evict the in-memory cache for this path as well.
+        if let Ok(mut cache) = self.embedding_cache.lock() {
+            cache.retain(|e| e.path != path);
+        }
         db.execute(
             "INSERT OR REPLACE INTO chunks_meta (path, last_modified, room, memory_type) VALUES (?1, ?2, ?3, ?4)",
             params![path, last_modified, room, memory_type],
@@ -540,6 +596,17 @@ impl Vein {
         let Some(embed_model) = self.current_embed_model() else {
             return;
         };
+        // Fetch room + last_modified for this path once (needed for cache entry).
+        let (last_modified, room, memory_type) = {
+            let db = self.db.lock().unwrap();
+            db.query_row(
+                "SELECT last_modified, room, memory_type FROM chunks_meta WHERE path = ?1",
+                params![path],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2).unwrap_or_default())),
+            )
+            .unwrap_or((0, "root".to_string(), String::new()))
+        };
+
         for (idx, chunk) in chunks.iter().enumerate() {
             if let Some(vec) = embed_text_blocking(chunk, &self.base_url, &embed_model) {
                 let blob = floats_to_blob(&vec);
@@ -548,6 +615,19 @@ impl Vein {
                     "INSERT OR REPLACE INTO chunks_vec (path, chunk_idx, embedding) VALUES (?1, ?2, ?3)",
                     params![path, idx as i64, blob],
                 );
+                drop(db);
+                // Mirror into in-memory cache — avoids per-turn full scan in search_semantic.
+                if let Ok(mut cache) = self.embedding_cache.lock() {
+                    cache.retain(|e| !(e.path == path && e.chunk_idx == idx as i64));
+                    cache.push(EmbeddedChunk {
+                        path: path.to_string(),
+                        chunk_idx: idx as i64,
+                        embedding: vec,
+                        last_modified,
+                        room: room.clone(),
+                        memory_type: memory_type.clone(),
+                    });
+                }
             }
         }
     }
@@ -605,7 +685,7 @@ impl Vein {
         }
 
         let db = self.db.lock().unwrap();
-        let mut stmt = db.prepare(
+        let mut stmt = db.prepare_cached(
             "SELECT chunks_fts.path, chunks_fts.content, rank, cm.last_modified, cm.room, cm.memory_type
              FROM chunks_fts
              JOIN chunks_meta cm ON cm.path = chunks_fts.path
@@ -642,45 +722,24 @@ impl Vein {
             None => return Vec::new(),
         };
 
-        // Load all stored embeddings.
-        let rows: Vec<(String, i64, Vec<u8>, i64, String, String)> = {
-            let db = self.db.lock().unwrap();
-            let mut stmt = match db.prepare(
-                "SELECT cv.path, cv.chunk_idx, cv.embedding, cm.last_modified, cm.room, cm.memory_type
-                 FROM chunks_vec cv
-                 JOIN chunks_meta cm ON cm.path = cv.path",
-            ) {
-                Ok(s) => s,
+        // Score each chunk against the query vector using the in-memory cache.
+        // This avoids a per-turn full-table-scan of chunks_vec + blob deserialization.
+        let mut scored: Vec<(f32, String, i64, i64, String, String)> = {
+            let cache = match self.embedding_cache.lock() {
+                Ok(g) => g,
                 Err(_) => return Vec::new(),
             };
-            stmt.query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, Vec<u8>>(2)?,
-                    row.get::<_, i64>(3)?,
-                    row.get::<_, String>(4)?,
-                    row.get::<_, String>(5).unwrap_or_default(),
-                ))
-            })
-            .ok()
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
+            if cache.is_empty() {
+                return Vec::new();
+            }
+            cache
+                .iter()
+                .map(|e| {
+                    let sim = cosine_similarity(&query_vec, &e.embedding);
+                    (sim, e.path.clone(), e.chunk_idx, e.last_modified, e.room.clone(), e.memory_type.clone())
+                })
+                .collect()
         };
-
-        if rows.is_empty() {
-            return Vec::new();
-        }
-
-        // Score each chunk.
-        let mut scored: Vec<(f32, String, i64, i64, String, String)> = rows
-            .into_iter()
-            .filter_map(|(path, idx, blob, last_modified, room, memory_type)| {
-                let vec = blob_to_floats(&blob);
-                let sim = cosine_similarity(&query_vec, &vec);
-                Some((sim, path, idx, last_modified, room, memory_type))
-            })
-            .collect();
 
         scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(limit);
@@ -757,17 +816,16 @@ impl Vein {
     /// Used to bias retrieval toward what the user is actively working on.
     fn active_room(&self) -> Option<String> {
         let db = self.db.lock().unwrap();
-        db.query_row(
+        db.prepare_cached(
             "SELECT cm.room, SUM(fh.heat) as total
              FROM file_heat fh
              JOIN chunks_meta cm ON cm.path = fh.path
              GROUP BY cm.room
              ORDER BY total DESC
              LIMIT 1",
-            [],
-            |row| row.get::<_, String>(0),
         )
         .ok()
+        .and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, String>(0)).ok())
     }
 
     // ── Project Indexing ──────────────────────────────────────────────────────
@@ -1103,15 +1161,19 @@ impl Vein {
             return;
         }
 
-        // Fetch (path, chunk_idx, content) for chunks with no embedding.
+        // Fetch (path, chunk_idx, content, last_modified, room, memory_type) for chunks with no embedding.
         // chunks_fts rowid serves as chunk_idx (1-based → convert to 0-based).
-        let missing: Vec<(String, i64, String)> = {
+        let missing: Vec<(String, i64, String, i64, String, String)> = {
             let db = self.db.lock().unwrap();
             let mut stmt = db
                 .prepare(
-                    "SELECT f.path, (f.rowid - 1) AS chunk_idx, f.content
+                    "SELECT f.path, (f.rowid - 1) AS chunk_idx, f.content,
+                            COALESCE(cm.last_modified, 0),
+                            COALESCE(cm.room, 'root'),
+                            COALESCE(cm.memory_type, '')
                      FROM chunks_fts f
                      LEFT JOIN chunks_vec v ON f.path = v.path AND (f.rowid - 1) = v.chunk_idx
+                     LEFT JOIN chunks_meta cm ON cm.path = f.path
                      WHERE v.path IS NULL
                      ORDER BY CASE
                          WHEN f.path LIKE '%.rs' THEN 0
@@ -1127,6 +1189,9 @@ impl Vein {
                     r.get::<_, String>(0)?,
                     r.get::<_, i64>(1)?,
                     r.get::<_, String>(2)?,
+                    r.get::<_, i64>(3)?,
+                    r.get::<_, String>(4)?,
+                    r.get::<_, String>(5)?,
                 ))
             })
             .unwrap()
@@ -1138,7 +1203,7 @@ impl Vein {
             return;
         };
 
-        for (path, idx, content) in missing {
+        for (path, idx, content, last_modified, room, memory_type) in missing {
             if let Some(vec) = embed_text_blocking(&content, &self.base_url, &embed_model) {
                 let blob = floats_to_blob(&vec);
                 let db = self.db.lock().unwrap();
@@ -1146,6 +1211,19 @@ impl Vein {
                     "INSERT OR REPLACE INTO chunks_vec (path, chunk_idx, embedding) VALUES (?1, ?2, ?3)",
                     params![path, idx, blob],
                 );
+                drop(db);
+                // Mirror into in-memory cache.
+                if let Ok(mut cache) = self.embedding_cache.lock() {
+                    cache.retain(|e| !(e.path == path && e.chunk_idx == idx));
+                    cache.push(EmbeddedChunk {
+                        path: path.clone(),
+                        chunk_idx: idx,
+                        embedding: vec,
+                        last_modified,
+                        room: room.clone(),
+                        memory_type: memory_type.clone(),
+                    });
+                }
             } else {
                 // Embedding model not available — stop trying for this pass.
                 break;
