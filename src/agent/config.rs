@@ -1,7 +1,7 @@
 /// Hematite project-level configuration.
 ///
 /// Read from `.hematite/settings.json` in the workspace root.
-/// Re-loaded at the start of every turn so edits take effect without restart.
+/// Cached in-process with a 500 ms TTL; save_config() invalidates immediately.
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -178,10 +178,42 @@ fn load_global_config() -> Option<HematiteConfig> {
     serde_json::from_str(&data).ok()
 }
 
+static CONFIG_CACHE: std::sync::Mutex<Option<(std::time::Instant, HematiteConfig)>> =
+    std::sync::Mutex::new(None);
+
+const CONFIG_TTL: std::time::Duration = std::time::Duration::from_millis(500);
+
+/// Invalidate the in-process config cache. Called by save_config() so that the
+/// next load_config() sees the freshly written file immediately.
+pub fn invalidate_config_cache() {
+    if let Ok(mut g) = CONFIG_CACHE.lock() {
+        *g = None;
+    }
+}
+
 /// Load `.hematite/settings.json` from the workspace root, with global
 /// `~/.hematite/settings.json` as a fallback for unset fields.
 /// Workspace config always wins; global fills in what workspace doesn't set.
+/// Results are cached for 500 ms so multiple per-turn call sites share one read.
 pub fn load_config() -> HematiteConfig {
+    // Fast path: return the cached config if it is still fresh.
+    if let Ok(g) = CONFIG_CACHE.lock() {
+        if let Some((t, ref cfg)) = *g {
+            if t.elapsed() < CONFIG_TTL {
+                return cfg.clone();
+            }
+        }
+    }
+
+    let cfg = load_config_uncached();
+
+    if let Ok(mut g) = CONFIG_CACHE.lock() {
+        *g = Some((std::time::Instant::now(), cfg.clone()));
+    }
+    cfg
+}
+
+fn load_config_uncached() -> HematiteConfig {
     let path = settings_path();
 
     let workspace: Option<HematiteConfig> = if path.exists() {
@@ -240,7 +272,9 @@ pub fn save_config(config: &HematiteConfig) -> Result<(), String> {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
-    std::fs::write(&path, json).map_err(|e| e.to_string())
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    invalidate_config_cache();
+    Ok(())
 }
 
 pub fn provider_label_for_api_url(url: &str) -> &'static str {

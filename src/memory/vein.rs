@@ -2375,21 +2375,6 @@ fn embed_text_with_prefix(
 
 // ── Vector math ───────────────────────────────────────────────────────────────
 
-fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
-        return 0.0;
-    }
-    let (dot, na_sq, nb_sq) = a.iter().zip(b.iter()).fold(
-        (0.0f32, 0.0f32, 0.0f32),
-        |(dot, na, nb), (x, y)| (dot + x * y, na + x * x, nb + y * y),
-    );
-    if na_sq == 0.0 || nb_sq == 0.0 {
-        0.0
-    } else {
-        dot / (na_sq.sqrt() * nb_sq.sqrt())
-    }
-}
-
 /// Cosine similarity when the query's squared norm is already known.
 /// Saves one pass over `a` on each call — use when scoring many chunks
 /// against the same query vector.

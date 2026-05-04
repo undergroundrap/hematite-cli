@@ -1138,6 +1138,7 @@ fn preflight_chat_request(
 /// Looks for rule files plus optional skill guidance such as CLAUDE.md,
 /// .hematite/rules.md, SKILLS.md, SKILL.md, and .hematite/instructions.md.
 /// Deduplicates by content hash; truncates at 4KB per file, 12KB total.
+/// Result is cached by CWD so repeated per-turn calls pay zero I/O after the first.
 fn load_instruction_files() -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::collections::HashSet;
@@ -1146,6 +1147,17 @@ fn load_instruction_files() -> String {
     let Ok(cwd) = std::env::current_dir() else {
         return String::new();
     };
+
+    // Fast path: cache keyed by CWD — instruction files are session-constant.
+    static CACHE: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
+    let cwd_key = cwd.to_string_lossy().into_owned();
+    if let Ok(g) = CACHE.lock() {
+        if let Some((ref k, ref v)) = *g {
+            if *k == cwd_key {
+                return v.clone();
+            }
+        }
+    }
     let mut result = String::with_capacity(4096);
     let mut seen: HashSet<u64> = HashSet::new();
     let mut total_chars: usize = 0;
@@ -1191,20 +1203,39 @@ fn load_instruction_files() -> String {
         }
     }
 
-    if result.is_empty() {
-        return String::new();
+    let output = if result.is_empty() {
+        String::new()
+    } else {
+        format!("\n\n# Project Instructions And Skills\n{}", result)
+    };
+    if let Ok(mut g) = CACHE.lock() {
+        *g = Some((cwd_key, output.clone()));
     }
-    format!("\n\n# Project Instructions And Skills\n{}", result)
+    output
 }
 
 fn load_agent_skill_catalog() -> String {
+    static CACHE: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
     let workspace_root = crate::tools::file_ops::workspace_root();
+    let cwd_key = workspace_root.to_string_lossy().into_owned();
+    if let Ok(g) = CACHE.lock() {
+        if let Some((ref k, ref v)) = *g {
+            if *k == cwd_key {
+                return v.clone();
+            }
+        }
+    }
+
     let config = crate::agent::config::load_config();
     let discovery =
         crate::agent::instructions::discover_agent_skills(&workspace_root, &config.trust);
-    crate::agent::instructions::render_skill_catalog(&discovery, 6_000)
+    let output = crate::agent::instructions::render_skill_catalog(&discovery, 6_000)
         .map(|rendered| format!("\n\n{}", rendered))
-        .unwrap_or_default()
+        .unwrap_or_default();
+    if let Ok(mut g) = CACHE.lock() {
+        *g = Some((cwd_key, output.clone()));
+    }
+    output
 }
 
 pub fn extract_think_block(text: &str) -> Option<String> {
