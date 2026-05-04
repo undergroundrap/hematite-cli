@@ -607,8 +607,19 @@ impl Vein {
             .unwrap_or((0, "root".to_string(), String::new()))
         };
 
-        for (idx, chunk) in chunks.iter().enumerate() {
-            if let Some(vec) = embed_text_blocking(chunk, &self.base_url, &embed_model) {
+        // Build prefixed inputs and send all chunks in a single HTTP round-trip.
+        let prefixed: Vec<String> = chunks
+            .iter()
+            .map(|c| {
+                let p = format!("search_document: {}", c);
+                if p.len() > 8000 { p[..8000].to_string() } else { p }
+            })
+            .collect();
+
+        let embeddings = embed_batch(&prefixed, &self.base_url, &embed_model);
+
+        for (idx, maybe_vec) in embeddings.into_iter().enumerate() {
+            if let Some(vec) = maybe_vec {
                 let blob = floats_to_blob(&vec);
                 let db = self.db.lock().unwrap();
                 let _ = db.execute(
@@ -1207,30 +1218,41 @@ impl Vein {
             return;
         };
 
-        for (path, idx, content, last_modified, room, memory_type) in missing {
-            if let Some(vec) = embed_text_blocking(&content, &self.base_url, &embed_model) {
-                let blob = floats_to_blob(&vec);
-                let db = self.db.lock().unwrap();
-                let _ = db.execute(
-                    "INSERT OR REPLACE INTO chunks_vec (path, chunk_idx, embedding) VALUES (?1, ?2, ?3)",
-                    params![path, idx, blob],
-                );
-                drop(db);
-                // Mirror into in-memory cache.
-                if let Ok(mut cache) = self.embedding_cache.lock() {
-                    cache.retain(|e| !(e.path == path && e.chunk_idx == idx));
-                    cache.push(EmbeddedChunk {
-                        path: path.clone(),
-                        chunk_idx: idx,
-                        embedding: vec,
-                        last_modified,
-                        room: room.clone(),
-                        memory_type: memory_type.clone(),
-                    });
-                }
-            } else {
+        // Send all missing chunks in one batch request instead of N sequential calls.
+        let prefixed: Vec<String> = missing
+            .iter()
+            .map(|(_, _, content, _, _, _)| {
+                let p = format!("search_document: {}", content);
+                if p.len() > 8000 { p[..8000].to_string() } else { p }
+            })
+            .collect();
+
+        let embeddings = embed_batch(&prefixed, &self.base_url, &embed_model);
+
+        for (i, maybe_vec) in embeddings.into_iter().enumerate() {
+            let Some(vec) = maybe_vec else {
                 // Embedding model not available — stop trying for this pass.
                 break;
+            };
+            let (path, idx, _, last_modified, room, memory_type) = &missing[i];
+            let blob = floats_to_blob(&vec);
+            let db = self.db.lock().unwrap();
+            let _ = db.execute(
+                "INSERT OR REPLACE INTO chunks_vec (path, chunk_idx, embedding) VALUES (?1, ?2, ?3)",
+                params![path, idx, blob],
+            );
+            drop(db);
+            // Mirror into in-memory cache.
+            if let Ok(mut cache) = self.embedding_cache.lock() {
+                cache.retain(|e| !(e.path == *path && e.chunk_idx == *idx));
+                cache.push(EmbeddedChunk {
+                    path: path.clone(),
+                    chunk_idx: *idx,
+                    embedding: vec,
+                    last_modified: *last_modified,
+                    room: room.clone(),
+                    memory_type: memory_type.clone(),
+                });
             }
         }
     }
@@ -2302,19 +2324,93 @@ fn slugify_import_path(path: &Path) -> String {
 
 // ── Embedding API ─────────────────────────────────────────────────────────────
 
-/// Call the active provider's embedding endpoint synchronously.
-///
-/// Nomic-style models use task instruction prefixes:
-/// - Chunks stored in the index use `"search_document: "` prefix
-/// - Queries at search time use `"search_query: "` prefix
-///
-/// Callers must tolerate `None` and fall back to BM25-only search.
-fn embed_text_blocking(text: &str, base_url: &str, embed_model: &str) -> Option<Vec<f32>> {
-    embed_text_with_prefix(text, "search_document", base_url, embed_model)
+// Shared HTTP client — built once, reuses TCP keep-alive connections.
+// Embedding calls previously created a new client on every request, which
+// incurred a fresh TCP handshake each time (even to localhost).
+static EMBED_CLIENT: std::sync::OnceLock<reqwest::blocking::Client> =
+    std::sync::OnceLock::new();
+
+fn embed_client() -> &'static reqwest::blocking::Client {
+    EMBED_CLIENT.get_or_init(|| {
+        reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .expect("failed to build embedding HTTP client")
+    })
 }
 
 fn embed_query_blocking(text: &str, base_url: &str, embed_model: &str) -> Option<Vec<f32>> {
     embed_text_with_prefix(text, "search_query", base_url, embed_model)
+}
+
+/// Embed a batch of pre-prefixed texts in a single HTTP round-trip.
+/// Returns embeddings in the same order as `inputs`; missing slots are `None`.
+fn embed_batch(inputs: &[String], base_url: &str, embed_model: &str) -> Vec<Option<Vec<f32>>> {
+    if inputs.is_empty() {
+        return Vec::new();
+    }
+
+    let client = embed_client();
+    let trimmed = base_url.trim_end_matches('/');
+    let is_ollama = trimmed.contains("11434");
+    let url = if is_ollama {
+        format!("{}/api/embed", trimmed)
+    } else {
+        format!("{}/v1/embeddings", trimmed)
+    };
+
+    let body = serde_json::json!({
+        "model": embed_model,
+        "input": inputs
+    });
+
+    let resp = match client.post(&url).json(&body).send() {
+        Ok(r) if r.status().is_success() => r,
+        _ => return vec![None; inputs.len()],
+    };
+    let json: serde_json::Value = match resp.json() {
+        Ok(j) => j,
+        Err(_) => return vec![None; inputs.len()],
+    };
+
+    if is_ollama {
+        // Ollama: {"embeddings": [[...], [...], ...]}
+        match json["embeddings"].as_array() {
+            Some(arr) => arr
+                .iter()
+                .map(|e| {
+                    e.as_array().and_then(|v| {
+                        let floats: Vec<f32> = v
+                            .iter()
+                            .filter_map(|x| x.as_f64().map(|f| f as f32))
+                            .collect();
+                        if floats.is_empty() { None } else { Some(floats) }
+                    })
+                })
+                .collect(),
+            None => vec![None; inputs.len()],
+        }
+    } else {
+        // OpenAI: {"data": [{"index": N, "embedding": [...]}, ...]}
+        let mut out = vec![None; inputs.len()];
+        if let Some(arr) = json["data"].as_array() {
+            for item in arr {
+                let idx = item["index"].as_u64().unwrap_or(0) as usize;
+                if idx < out.len() {
+                    if let Some(emb) = item["embedding"].as_array() {
+                        let floats: Vec<f32> = emb
+                            .iter()
+                            .filter_map(|x| x.as_f64().map(|f| f as f32))
+                            .collect();
+                        if !floats.is_empty() {
+                            out[idx] = Some(floats);
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
 }
 
 fn embed_text_with_prefix(
@@ -2327,20 +2423,13 @@ fn embed_text_with_prefix(
     let prefixed = format!("{}: {}", task, text);
     // Truncate to ~8000 chars to stay within typical embedding model limits.
     let input = if prefixed.len() > 8000 {
-        &prefixed[..8000]
+        prefixed[..8000].to_string()
     } else {
-        &prefixed
+        prefixed
     };
 
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .ok()?;
-
-    let body = serde_json::json!({
-        "model": embed_model,
-        "input": input
-    });
+    let client = embed_client();
+    let body = serde_json::json!({ "model": embed_model, "input": input });
 
     let trimmed = base_url.trim_end_matches('/');
     let is_ollama = trimmed.contains("11434");
@@ -2395,7 +2484,11 @@ fn cosine_similarity_precomputed(a: &[f32], a_norm_sq: f32, b: &[f32]) -> f32 {
 }
 
 fn floats_to_blob(floats: &[f32]) -> Vec<u8> {
-    floats.iter().flat_map(|f| f.to_le_bytes()).collect()
+    let mut out = Vec::with_capacity(floats.len() * 4);
+    for f in floats {
+        out.extend_from_slice(&f.to_le_bytes());
+    }
+    out
 }
 
 fn blob_to_floats(blob: &[u8]) -> Vec<f32> {
