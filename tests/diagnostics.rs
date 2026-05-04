@@ -290,10 +290,10 @@ fn test_vein_bm25_index_and_search() {
     let doc = "fn authenticate(token: &str) -> bool {\n    token == \"secret\"\n}\n\n\
                fn logout(user: &str) {\n    println!(\"Logging out {}\", user);\n}";
 
-    let chunks = vein
+    let chunk_count = vein
         .index_document("src/auth.rs", 1_000_000, doc)
         .expect("index");
-    assert!(!chunks.is_empty(), "should produce chunks");
+    assert!(chunk_count > 0, "should produce chunks");
 
     let results = vein.search_bm25("authenticate", 5).expect("search");
     assert!(!results.is_empty(), "BM25 should find 'authenticate'");
@@ -303,10 +303,10 @@ fn test_vein_bm25_index_and_search() {
     assert_eq!(vein.file_count(), 1);
 
     // Re-indexing same mtime should be a no-op
-    let rechunks = vein
+    let rechunk_count = vein
         .index_document("src/auth.rs", 1_000_000, doc)
         .expect("re-index");
-    assert!(rechunks.is_empty(), "unchanged file should not re-index");
+    assert_eq!(rechunk_count, 0, "unchanged file should not re-index");
 }
 
 #[test]

@@ -517,13 +517,13 @@ impl Vein {
     // ── Indexing ──────────────────────────────────────────────────────────────
 
     /// Index a single file for BM25 search. Skip if mtime hasn't changed.
-    /// Returns the chunks that were written (empty if file was unchanged).
+    /// Returns the number of chunks written (0 if file was unchanged).
     pub fn index_document(
         &mut self,
         path: &str,
         last_modified: i64,
         full_text: &str,
-    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    ) -> Result<usize, Box<dyn std::error::Error>> {
         let room = detect_room(path);
         let ext = std::path::Path::new(path)
             .extension()
@@ -546,7 +546,7 @@ impl Vein {
         room: &str,
         memory_type: &str,
         chunks: &[String],
-    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    ) -> Result<usize, Box<dyn std::error::Error>> {
         let db = self.db.lock().unwrap();
         let existing: Option<i64> = db
             .query_row(
@@ -558,7 +558,7 @@ impl Vein {
 
         if let Some(ts) = existing {
             if ts >= last_modified {
-                return Ok(Vec::new()); // unchanged — skip
+                return Ok(0); // unchanged — skip
             }
         }
 
@@ -586,7 +586,7 @@ impl Vein {
         }
         tx.commit()?;
 
-        Ok(chunks.to_vec())
+        Ok(chunks.len())
     }
 
     /// Embed a set of chunks for one file and store the vectors.
@@ -737,9 +737,10 @@ impl Vein {
         // for every chunk in the scoring loop below (typically ~1000 comparisons).
         let query_norm_sq: f32 = query_vec.iter().map(|x| x * x).sum();
 
-        // Score each chunk against the query vector using the in-memory cache.
-        // This avoids a per-turn full-table-scan of chunks_vec + blob deserialization.
-        let mut scored: Vec<(f32, String, i64, i64, String, String)> = {
+        // Score every chunk using indices only — no String clones yet.
+        // Sort and truncate to top-`limit` before paying the clone cost.
+        // Old approach cloned 3 Strings per chunk × ~1000 chunks, discarding ~990 of them.
+        let top_indices: Vec<(f32, usize)> = {
             let cache = match self.embedding_cache.lock() {
                 Ok(g) => g,
                 Err(_) => return Vec::new(),
@@ -747,19 +748,34 @@ impl Vein {
             if cache.is_empty() {
                 return Vec::new();
             }
-            cache
+            let mut iv: Vec<(f32, usize)> = cache
                 .iter()
-                .map(|e| {
+                .enumerate()
+                .map(|(i, e)| {
                     let sim = cosine_similarity_precomputed(&query_vec, query_norm_sq, &e.embedding);
-                    (sim, e.path.clone(), e.chunk_idx, e.last_modified, e.room.clone(), e.memory_type.clone())
+                    (sim, i)
+                })
+                .collect();
+            iv.sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            iv.truncate(limit);
+            iv
+        };
+
+        // Clone Strings only for the top-N survivors, then fetch their content.
+        let scored: Vec<(f32, String, i64, i64, String, String)> = {
+            let cache = match self.embedding_cache.lock() {
+                Ok(g) => g,
+                Err(_) => return Vec::new(),
+            };
+            top_indices
+                .iter()
+                .map(|&(score, i)| {
+                    let e = &cache[i];
+                    (score, e.path.clone(), e.chunk_idx, e.last_modified, e.room.clone(), e.memory_type.clone())
                 })
                 .collect()
         };
 
-        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        scored.truncate(limit);
-
-        // Fetch the content for the top chunks.
         let db = self.db.lock().unwrap();
         scored
             .into_iter()
@@ -909,7 +925,7 @@ impl Vein {
 
             if let Ok(content) = std::fs::read_to_string(path) {
                 match self.index_document(&rel_str, mtime, &content) {
-                    Ok(new_chunks) if !new_chunks.is_empty() => {
+                    Ok(n) if n > 0 => {
                         count += 1;
                     }
                     Ok(_) => {}
@@ -994,7 +1010,7 @@ impl Vein {
                         continue;
                     }
                     match self.index_document(&rel_str, mtime, &text) {
-                        Ok(new_chunks) if !new_chunks.is_empty() => {
+                        Ok(n) if n > 0 => {
                             count += 1;
                         }
                         Ok(_) => {}
@@ -1068,7 +1084,7 @@ impl Vein {
                         mtype,
                         std::slice::from_ref(&exchange.content),
                     ) {
-                        Ok(new_chunks) if !new_chunks.is_empty() => {
+                        Ok(n) if n > 0 => {
                             count += 1;
                         }
                         Ok(_) => {}
@@ -1142,7 +1158,7 @@ impl Vein {
                         mtype,
                         std::slice::from_ref(&exchange.content),
                     ) {
-                        Ok(new_chunks) if !new_chunks.is_empty() => {
+                        Ok(n) if n > 0 => {
                             count += 1;
                         }
                         Ok(_) => {}
@@ -2492,9 +2508,11 @@ fn floats_to_blob(floats: &[f32]) -> Vec<u8> {
 }
 
 fn blob_to_floats(blob: &[u8]) -> Vec<f32> {
-    blob.chunks_exact(4)
-        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-        .collect()
+    let mut out = Vec::with_capacity(blob.len() / 4);
+    for b in blob.chunks_exact(4) {
+        out.push(f32::from_le_bytes([b[0], b[1], b[2], b[3]]));
+    }
+    out
 }
 
 // ── Document extraction ───────────────────────────────────────────────────────
