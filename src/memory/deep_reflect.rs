@@ -93,7 +93,28 @@ pub fn spawn_deep_reflect_system(
 
 /// Load recent memory files (last 3 days) to inject into the system prompt.
 /// Returns a formatted string ready for system prompt injection, or empty string.
+/// Cached for 60 seconds — DeepReflect only writes after 5+ minutes of idle,
+/// so a 60-second window never returns stale data during active sessions.
 pub fn load_recent_memories() -> String {
+    static CACHE: std::sync::Mutex<Option<(std::time::Instant, String)>> =
+        std::sync::Mutex::new(None);
+
+    if let Ok(g) = CACHE.lock() {
+        if let Some((t, ref v)) = *g {
+            if t.elapsed().as_secs() < 60 {
+                return v.clone();
+            }
+        }
+    }
+
+    let result = load_recent_memories_uncached();
+    if let Ok(mut g) = CACHE.lock() {
+        *g = Some((std::time::Instant::now(), result.clone()));
+    }
+    result
+}
+
+fn load_recent_memories_uncached() -> String {
     let memory_dir = PathBuf::from(".hematite").join("memories");
     if !memory_dir.exists() {
         return String::new();
