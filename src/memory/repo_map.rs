@@ -5,93 +5,105 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
+use std::sync::OnceLock;
 use tree_sitter::{Language, Parser, Query, QueryCursor};
 
-// ── Tag types ─────────────────────────────────────────────────────────────────
+// ── Cached query bundles ──────────────────────────────────────────────────────
+// Query::new compiles tree-sitter patterns against the grammar — non-trivial.
+// Cache once per process; reuse across every generate() call.
 
-struct Tag {
-    rel_path: String,
+fn rust_def_bundle() -> Option<&'static (Language, Query)> {
+    static Q: OnceLock<Option<(Language, Query)>> = OnceLock::new();
+    Q.get_or_init(|| {
+        let lang: Language = tree_sitter_rust::LANGUAGE.into();
+        let src = r#"
+            (function_item name: (identifier) @name)
+            (struct_item name: (type_identifier) @name)
+            (impl_item type: (type_identifier) @name)
+            (trait_item name: (type_identifier) @name)
+            (enum_item name: (type_identifier) @name)
+        "#;
+        Query::new(&lang, src).ok().map(|q| (lang, q))
+    })
+    .as_ref()
 }
 
-// ── Tree-sitter query factories ───────────────────────────────────────────────
-
-fn get_rust_def_query() -> Result<(Language, Query)> {
-    let language = tree_sitter_rust::LANGUAGE.into();
-    let query_src = r#"
-        (function_item name: (identifier) @name)
-        (struct_item name: (type_identifier) @name)
-        (impl_item type: (type_identifier) @name)
-        (trait_item name: (type_identifier) @name)
-        (enum_item name: (type_identifier) @name)
-    "#;
-    let query = Query::new(&language, query_src)?;
-    Ok((language, query))
+fn rust_ref_bundle() -> Option<&'static (Language, Query)> {
+    static Q: OnceLock<Option<(Language, Query)>> = OnceLock::new();
+    Q.get_or_init(|| {
+        let lang: Language = tree_sitter_rust::LANGUAGE.into();
+        let src = r#"(identifier) @ref (type_identifier) @ref (field_identifier) @ref"#;
+        Query::new(&lang, src).ok().map(|q| (lang, q))
+    })
+    .as_ref()
 }
 
-fn get_rust_ref_query() -> Result<(Language, Query)> {
-    let language = tree_sitter_rust::LANGUAGE.into();
-    let query_src = r#"
-        (identifier) @ref
-        (type_identifier) @ref
-        (field_identifier) @ref
-    "#;
-    let query = Query::new(&language, query_src)?;
-    Ok((language, query))
+fn python_def_bundle() -> Option<&'static (Language, Query)> {
+    static Q: OnceLock<Option<(Language, Query)>> = OnceLock::new();
+    Q.get_or_init(|| {
+        let lang: Language = tree_sitter_python::LANGUAGE.into();
+        let src = r#"
+            (class_definition name: (identifier) @name)
+            (function_definition name: (identifier) @name)
+        "#;
+        Query::new(&lang, src).ok().map(|q| (lang, q))
+    })
+    .as_ref()
 }
 
-fn get_python_def_query() -> Result<(Language, Query)> {
-    let language = tree_sitter_python::LANGUAGE.into();
-    let query_src = r#"
-        (class_definition name: (identifier) @name)
-        (function_definition name: (identifier) @name)
-    "#;
-    let query = Query::new(&language, query_src)?;
-    Ok((language, query))
+fn python_ref_bundle() -> Option<&'static (Language, Query)> {
+    static Q: OnceLock<Option<(Language, Query)>> = OnceLock::new();
+    Q.get_or_init(|| {
+        let lang: Language = tree_sitter_python::LANGUAGE.into();
+        Query::new(&lang, "(identifier) @ref").ok().map(|q| (lang, q))
+    })
+    .as_ref()
 }
 
-fn get_python_ref_query() -> Result<(Language, Query)> {
-    let language = tree_sitter_python::LANGUAGE.into();
-    let query_src = "(identifier) @ref";
-    let query = Query::new(&language, query_src)?;
-    Ok((language, query))
+fn ts_def_bundle() -> Option<&'static (Language, Query)> {
+    static Q: OnceLock<Option<(Language, Query)>> = OnceLock::new();
+    Q.get_or_init(|| {
+        let lang: Language = tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into();
+        let src = r#"
+            (interface_declaration name: (type_identifier) @name)
+            (class_declaration name: (type_identifier) @name)
+            (function_declaration name: (identifier) @name)
+        "#;
+        Query::new(&lang, src).ok().map(|q| (lang, q))
+    })
+    .as_ref()
 }
 
-fn get_ts_def_query() -> Result<(Language, Query)> {
-    let language = tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into();
-    let query_src = r#"
-        (interface_declaration name: (type_identifier) @name)
-        (class_declaration name: (type_identifier) @name)
-        (function_declaration name: (identifier) @name)
-    "#;
-    let query = Query::new(&language, query_src)?;
-    Ok((language, query))
+fn ts_ref_bundle() -> Option<&'static (Language, Query)> {
+    static Q: OnceLock<Option<(Language, Query)>> = OnceLock::new();
+    Q.get_or_init(|| {
+        let lang: Language = tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into();
+        let src = r#"(identifier) @ref (type_identifier) @ref"#;
+        Query::new(&lang, src).ok().map(|q| (lang, q))
+    })
+    .as_ref()
 }
 
-fn get_ts_ref_query() -> Result<(Language, Query)> {
-    let language = tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into();
-    let query_src = r#"
-        (identifier) @ref
-        (type_identifier) @ref
-    "#;
-    let query = Query::new(&language, query_src)?;
-    Ok((language, query))
+fn js_def_bundle() -> Option<&'static (Language, Query)> {
+    static Q: OnceLock<Option<(Language, Query)>> = OnceLock::new();
+    Q.get_or_init(|| {
+        let lang: Language = tree_sitter_javascript::LANGUAGE.into();
+        let src = r#"
+            (class_declaration name: (identifier) @name)
+            (function_declaration name: (identifier) @name)
+        "#;
+        Query::new(&lang, src).ok().map(|q| (lang, q))
+    })
+    .as_ref()
 }
 
-fn get_js_def_query() -> Result<(Language, Query)> {
-    let language = tree_sitter_javascript::LANGUAGE.into();
-    let query_src = r#"
-        (class_declaration name: (identifier) @name)
-        (function_declaration name: (identifier) @name)
-    "#;
-    let query = Query::new(&language, query_src)?;
-    Ok((language, query))
-}
-
-fn get_js_ref_query() -> Result<(Language, Query)> {
-    let language = tree_sitter_javascript::LANGUAGE.into();
-    let query_src = "(identifier) @ref";
-    let query = Query::new(&language, query_src)?;
-    Ok((language, query))
+fn js_ref_bundle() -> Option<&'static (Language, Query)> {
+    static Q: OnceLock<Option<(Language, Query)>> = OnceLock::new();
+    Q.get_or_init(|| {
+        let lang: Language = tree_sitter_javascript::LANGUAGE.into();
+        Query::new(&lang, "(identifier) @ref").ok().map(|q| (lang, q))
+    })
+    .as_ref()
 }
 
 // ── RepoMapGenerator ──────────────────────────────────────────────────────────
@@ -121,14 +133,14 @@ impl RepoMapGenerator {
     }
 
     pub fn generate(&self) -> Result<String> {
-        // ── Pass 1: Collect defs + refs from every source file ────────────
-        let mut all_tags: Vec<Tag> = Vec::new();
         // Map: symbol_name → set of files that define it
         let mut defines: HashMap<String, HashSet<String>> = HashMap::new();
         // Map: symbol_name → list of files that reference it
         let mut references: HashMap<String, Vec<String>> = HashMap::new();
-        // Map: (file, symbol_name) → list of definition tag names for display
+        // Map: file → list of definition names for display
         let mut definitions_display: HashMap<String, Vec<String>> = HashMap::new();
+        // All file paths that produced at least one def or ref tag.
+        let mut all_files: HashSet<String> = HashSet::new();
 
         let walker = WalkBuilder::new(&self.root)
             .hidden(true)
@@ -149,14 +161,8 @@ impl RepoMapGenerator {
             })
             .build();
 
-        let rust_def = get_rust_def_query().ok();
-        let rust_ref = get_rust_ref_query().ok();
-        let python_def = get_python_def_query().ok();
-        let python_ref = get_python_ref_query().ok();
-        let ts_def = get_ts_def_query().ok();
-        let ts_ref = get_ts_ref_query().ok();
-        let js_def = get_js_def_query().ok();
-        let js_ref = get_js_ref_query().ok();
+        // One parser reused across all files; set_language() switches between grammars.
+        let mut parser = Parser::new();
 
         for result in walker {
             let entry = match result {
@@ -170,10 +176,10 @@ impl RepoMapGenerator {
 
             let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
             let (def_bundle, ref_bundle) = match ext {
-                "rs" => (rust_def.as_ref(), rust_ref.as_ref()),
-                "py" => (python_def.as_ref(), python_ref.as_ref()),
-                "ts" | "tsx" => (ts_def.as_ref(), ts_ref.as_ref()),
-                "js" | "jsx" => (js_def.as_ref(), js_ref.as_ref()),
+                "rs" => (rust_def_bundle(), rust_ref_bundle()),
+                "py" => (python_def_bundle(), python_ref_bundle()),
+                "ts" | "tsx" => (ts_def_bundle(), ts_ref_bundle()),
+                "js" | "jsx" => (js_def_bundle(), js_ref_bundle()),
                 _ => continue,
             };
 
@@ -187,67 +193,116 @@ impl RepoMapGenerator {
                 .to_string_lossy()
                 .replace('\\', "/");
 
-            // Extract definitions
-            if let Some((lang, query)) = def_bundle {
-                let mut parser = Parser::new();
-                if parser.set_language(lang).is_ok() {
-                    if let Some(tree) = parser.parse(&source_code, None) {
-                        let mut cursor = QueryCursor::new();
-                        let matches =
-                            cursor.matches(query, tree.root_node(), source_code.as_bytes());
-                        for m in matches {
-                            for capture in m.captures {
-                                if let Ok(text) = capture.node.utf8_text(source_code.as_bytes()) {
-                                    let name = text.to_string();
-                                    all_tags.push(Tag {
-                                        rel_path: rel_path.clone(),
-                                    });
-                                    defines
-                                        .entry(name.clone())
-                                        .or_default()
-                                        .insert(rel_path.clone());
-                                    definitions_display
-                                        .entry(rel_path.clone())
-                                        .or_default()
-                                        .push(name);
+            // Parse each file once and run both def and ref queries on the same tree.
+            match (def_bundle, ref_bundle) {
+                (Some((lang, def_q)), Some((_, ref_q))) => {
+                    if parser.set_language(lang).is_ok() {
+                        if let Some(tree) = parser.parse(&source_code, None) {
+                            // Def pass
+                            let mut cursor = QueryCursor::new();
+                            for m in
+                                cursor.matches(def_q, tree.root_node(), source_code.as_bytes())
+                            {
+                                for capture in m.captures {
+                                    if let Ok(text) =
+                                        capture.node.utf8_text(source_code.as_bytes())
+                                    {
+                                        let name = text.to_string();
+                                        all_files.insert(rel_path.clone());
+                                        defines
+                                            .entry(name.clone())
+                                            .or_default()
+                                            .insert(rel_path.clone());
+                                        definitions_display
+                                            .entry(rel_path.clone())
+                                            .or_default()
+                                            .push(name);
+                                    }
                                 }
                             }
-                        }
-                    }
-                }
-            }
 
-            // Extract references
-            if let Some((lang, query)) = ref_bundle {
-                let mut parser = Parser::new();
-                if parser.set_language(lang).is_ok() {
-                    if let Some(tree) = parser.parse(&source_code, None) {
-                        let mut cursor = QueryCursor::new();
-                        let matches =
-                            cursor.matches(query, tree.root_node(), source_code.as_bytes());
-                        let mut seen_refs: HashSet<String> = HashSet::new();
-                        for m in matches {
-                            for capture in m.captures {
-                                if let Ok(text) = capture.node.utf8_text(source_code.as_bytes()) {
-                                    let name = text.to_string();
-                                    // Only count each unique identifier once per file
-                                    if seen_refs.insert(name.clone()) {
-                                        all_tags.push(Tag {
-                                            rel_path: rel_path.clone(),
-                                        });
-                                        references.entry(name).or_default().push(rel_path.clone());
+                            // Ref pass — seen_refs borrows source_code bytes to avoid String clones
+                            let mut cursor = QueryCursor::new();
+                            let mut seen_refs: HashSet<&str> = HashSet::new();
+                            for m in
+                                cursor.matches(ref_q, tree.root_node(), source_code.as_bytes())
+                            {
+                                for capture in m.captures {
+                                    if let Ok(text) =
+                                        capture.node.utf8_text(source_code.as_bytes())
+                                    {
+                                        if seen_refs.insert(text) {
+                                            all_files.insert(rel_path.clone());
+                                            references
+                                                .entry(text.to_string())
+                                                .or_default()
+                                                .push(rel_path.clone());
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+                (Some((lang, def_q)), None) => {
+                    if parser.set_language(lang).is_ok() {
+                        if let Some(tree) = parser.parse(&source_code, None) {
+                            let mut cursor = QueryCursor::new();
+                            for m in
+                                cursor.matches(def_q, tree.root_node(), source_code.as_bytes())
+                            {
+                                for capture in m.captures {
+                                    if let Ok(text) =
+                                        capture.node.utf8_text(source_code.as_bytes())
+                                    {
+                                        let name = text.to_string();
+                                        all_files.insert(rel_path.clone());
+                                        defines
+                                            .entry(name.clone())
+                                            .or_default()
+                                            .insert(rel_path.clone());
+                                        definitions_display
+                                            .entry(rel_path.clone())
+                                            .or_default()
+                                            .push(name);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                (None, Some((lang, ref_q))) => {
+                    if parser.set_language(lang).is_ok() {
+                        if let Some(tree) = parser.parse(&source_code, None) {
+                            let mut cursor = QueryCursor::new();
+                            let mut seen_refs: HashSet<&str> = HashSet::new();
+                            for m in
+                                cursor.matches(ref_q, tree.root_node(), source_code.as_bytes())
+                            {
+                                for capture in m.captures {
+                                    if let Ok(text) =
+                                        capture.node.utf8_text(source_code.as_bytes())
+                                    {
+                                        if seen_refs.insert(text) {
+                                            all_files.insert(rel_path.clone());
+                                            references
+                                                .entry(text.to_string())
+                                                .or_default()
+                                                .push(rel_path.clone());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                (None, None) => {}
             }
         }
 
         // Deduplicate definition display lists
         for defs in definitions_display.values_mut() {
-            defs.sort();
+            defs.sort_unstable();
             defs.dedup();
         }
 
@@ -258,21 +313,15 @@ impl RepoMapGenerator {
             }
         }
 
-        // ── Pass 2: Build the PageRank graph ──────────────────────────────
+        // ── Build PageRank graph ──────────────────────────────────────────────
         let defined_names: HashSet<&String> = defines.keys().collect();
         let referenced_names: HashSet<&String> = references.keys().collect();
         let shared_idents: HashSet<&&String> =
             defined_names.intersection(&referenced_names).collect();
 
-        // Collect all file paths that appear as nodes
-        let mut all_files: HashSet<String> = HashSet::new();
-        for tag in &all_tags {
-            all_files.insert(tag.rel_path.clone());
-        }
-
-        // Node index map
         let mut graph = DiGraph::<String, f64>::new();
-        let mut node_map: HashMap<String, petgraph::graph::NodeIndex> = HashMap::new();
+        let mut node_map: HashMap<String, petgraph::graph::NodeIndex> =
+            HashMap::with_capacity(all_files.len());
         for file in &all_files {
             let idx = graph.add_node(file.clone());
             node_map.insert(file.clone(), idx);
@@ -290,7 +339,6 @@ impl RepoMapGenerator {
                 None => continue,
             };
 
-            // Weight multiplier based on identifier quality
             let mut mul: f64 = 1.0;
             let is_snake = ident.contains('_') && ident.chars().any(|c| c.is_alphabetic());
             let is_camel =
@@ -301,7 +349,6 @@ impl RepoMapGenerator {
             if ident.starts_with('_') {
                 mul *= 0.1;
             }
-            // Overly generic names defined in 5+ files get downweighted
             if definers.len() > 5 {
                 mul *= 0.1;
             }
@@ -314,13 +361,12 @@ impl RepoMapGenerator {
                     let Some(&dst) = node_map.get(definer) else {
                         continue;
                     };
-                    // Accumulate weight on the edge
                     graph.add_edge(src, dst, mul);
                 }
             }
         }
 
-        // ── Pass 3: PageRank ──────────────────────────────────────────────
+        // ── PageRank ──────────────────────────────────────────────────────────
         let node_count = graph.node_count();
         if node_count == 0 {
             return Ok(
@@ -329,56 +375,58 @@ impl RepoMapGenerator {
             );
         }
 
-        let damping = 0.85;
-        let iterations = 30;
+        let damping = 0.85_f64;
+        let iterations = 30_usize;
         let base_score = 1.0 / node_count as f64;
+        let base_decay = (1.0 - damping) * base_score;
 
-        // Personalization: boost hot files proportional to heat weight.
-        // Hottest file (weight 1.0) gets 100x boost; others scale down linearly.
-        let mut personalization: HashMap<petgraph::graph::NodeIndex, f64> = HashMap::new();
+        // Precompute total outgoing edge-weight per node once — constant across iterations.
+        // Avoids O(E × avg_degree) recomputation inside the 30-iteration loop.
+        let out_weights: Vec<f64> = graph
+            .node_indices()
+            .map(|idx| graph.edges(idx).map(|e| *e.weight()).sum::<f64>().max(1.0))
+            .collect();
+
+        // Personalization boosts for hot files, stored as a dense Vec.
         let base_boost = 100.0 / node_count.max(1) as f64;
+        let mut pers_boosts: Vec<f64> = vec![0.0; node_count];
         for (file, weight) in &self.hot_files {
             if let Some(&idx) = node_map.get(file.as_str()) {
-                personalization.insert(idx, base_boost * weight);
+                pers_boosts[idx.index()] = base_boost * weight;
             }
         }
 
-        // Initialize scores
-        let mut scores: HashMap<petgraph::graph::NodeIndex, f64> = HashMap::new();
-        for idx in graph.node_indices() {
-            scores.insert(idx, base_score);
-        }
+        // Vec-based PageRank — replaces 30 HashMap allocations with 2 pre-allocated Vecs.
+        let mut scores: Vec<f64> = vec![base_score; node_count];
+        let mut new_scores: Vec<f64> = vec![0.0; node_count];
 
-        // Iterate PageRank
         for _ in 0..iterations {
-            let mut new_scores: HashMap<petgraph::graph::NodeIndex, f64> = HashMap::new();
-            for idx in graph.node_indices() {
-                new_scores.insert(idx, (1.0 - damping) * base_score);
-            }
+            new_scores.iter_mut().for_each(|s| *s = base_decay);
 
             for edge in graph.edge_indices() {
                 let (src, dst) = graph.edge_endpoints(edge).unwrap();
                 let weight = graph[edge];
-                // Total outgoing weight from src
-                let out_weight: f64 = graph.edges(src).map(|e| *e.weight()).sum::<f64>().max(1.0);
-                let contrib = damping * scores[&src] * (weight / out_weight);
-                *new_scores.entry(dst).or_default() += contrib;
+                let contrib = damping * scores[src.index()] * (weight / out_weights[src.index()]);
+                new_scores[dst.index()] += contrib;
             }
 
-            // Apply personalization
-            for (&idx, &pers) in &personalization {
-                *new_scores.entry(idx).or_default() += pers * base_score;
+            for (i, &pers) in pers_boosts.iter().enumerate() {
+                if pers > 0.0 {
+                    new_scores[i] += pers * base_score;
+                }
             }
 
-            scores = new_scores;
+            std::mem::swap(&mut scores, &mut new_scores);
         }
 
-        // ── Pass 4: Render ranked output ──────────────────────────────────
-        let mut ranked_files: Vec<(String, f64)> = scores
-            .iter()
-            .map(|(&idx, &score)| (graph[idx].clone(), score))
+        // ── Render ranked output ──────────────────────────────────────────────
+        let mut ranked_files: Vec<(String, f64)> = graph
+            .node_indices()
+            .map(|idx| (graph[idx].clone(), scores[idx.index()]))
             .collect();
-        ranked_files.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        ranked_files.sort_unstable_by(|a, b| {
+            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let mut output = String::with_capacity(self.max_symbols * 40 + 64);
         output.push_str("=== Repository Map (Structural Overview) ===\n");
