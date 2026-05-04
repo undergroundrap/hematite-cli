@@ -908,7 +908,9 @@ impl Vein {
                 continue;
             }
 
-            let Ok(meta) = std::fs::metadata(path) else {
+            // entry.metadata() reuses WIN32_FIND_DATA cached by walkdir on Windows
+            // (no extra stat syscall), falling back to symlink_metadata on Unix.
+            let Ok(meta) = entry.metadata() else {
                 continue;
             };
             if meta.len() > 512_000 {
@@ -983,7 +985,7 @@ impl Vein {
                     continue;
                 }
 
-                let Ok(meta) = std::fs::metadata(path) else {
+                let Ok(meta) = entry.metadata() else {
                     continue;
                 };
                 if meta.len() > 50_000_000 {
