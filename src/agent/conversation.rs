@@ -32,6 +32,7 @@ use crate::agent::routing::{
     DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
+use crate::agent::truncation::safe_head;
 use crate::agent::types::{
     ChatMessage, InferenceEvent, MessageContent, OperatorCheckpointState, ProviderRuntimeState,
     ToolCallFn, ToolDefinition, ToolFunction,
@@ -8887,7 +8888,7 @@ pub fn format_tool_display(name: &str, args: &Value) -> String {
             // Keep generic debug output strictly bounded so it never desyncs the TUI scroll math
             let rep = format!("{} {:?}", name, args);
             if rep.len() > 100 {
-                format!("{}... (truncated)", &rep[..100])
+                format!("{}... (truncated)", safe_head(&rep, 100))
             } else {
                 rep
             }

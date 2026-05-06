@@ -10,6 +10,8 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+
+use crate::agent::truncation::safe_head;
 use tokio::time::{sleep, Duration};
 
 pub fn spawn_deep_reflect_system(
@@ -143,7 +145,7 @@ fn load_recent_memories_uncached() -> String {
             continue;
         }
         let snippet = if content.len() > 1_000 {
-            format!("{}...", &content[..1_000])
+            format!("{}...", safe_head(&content, 1_000))
         } else {
             content
         };

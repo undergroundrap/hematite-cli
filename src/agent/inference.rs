@@ -1239,7 +1239,9 @@ fn load_agent_skill_catalog() -> String {
 }
 
 pub fn extract_think_block(text: &str) -> Option<String> {
-    let lower = text.to_lowercase();
+    // to_ascii_lowercase keeps byte positions identical to the original string.
+    // to_lowercase can expand some Unicode chars (e.g. İ → i), misaligning offsets.
+    let lower = text.to_ascii_lowercase();
 
     // Official Gemma-4 Native Tags
     let open_tag = "<|channel>thought";
@@ -1267,14 +1269,14 @@ pub fn strip_think_blocks(text: &str) -> String {
     // allocation so it can't slip through any branch below.
     let text = {
         let t = text.trim_start();
-        if t.len() >= 8 && t[..8].eq_ignore_ascii_case("</think>") {
+        if t.get(..8).map(|s| s.eq_ignore_ascii_case("</think>")).unwrap_or(false) {
             &t[8..]
         } else {
             text
         }
     };
 
-    let lower = text.to_lowercase();
+    let lower = text.to_ascii_lowercase();
 
     // Use the official Gemma-4 closing tag — answer is everything after it.
     if let Some(end) = lower.find("<channel|>").map(|i| i + "<channel|>".len()) {
@@ -1415,8 +1417,7 @@ fn strip_xml_tool_call_artifacts(text: &str) -> String {
         AhoCorasick::new(&lowered).expect("valid XML artifact patterns")
     });
 
-    // Lowercase once for searching.
-    let lower = text.to_lowercase();
+    let lower = text.to_ascii_lowercase();
 
     // Fast path: nothing to strip (common case for clean model output).
     if ac.find(&lower).is_none() {

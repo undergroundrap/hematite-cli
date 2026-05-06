@@ -1,5 +1,6 @@
 use std::fmt::Write as _;
 
+use crate::agent::truncation::safe_head;
 use serde_json::Value;
 use std::fs;
 use std::io;
@@ -181,7 +182,8 @@ pub async fn read_file(args: &Value, budget_tokens: usize) -> Result<String, Str
     };
 
     if content.len() > char_limit {
-        content.truncate(char_limit);
+        let safe_end = safe_head(&content, char_limit).len();
+        content.truncate(safe_end);
         content.push_str("\n\n--- [PREDICTIVE TRUNCATION: CONTEXT BUDGET REACHED] ---\n");
         let _ = write!(content,
             "Output truncated at {} chars to prevent context window flooding. ",

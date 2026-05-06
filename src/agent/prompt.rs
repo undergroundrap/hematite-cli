@@ -6,6 +6,7 @@ use crate::agent::git;
 use crate::agent::instructions::{
     guidance_section_title, resolve_guidance_path, PROJECT_GUIDANCE_FILES,
 };
+use crate::agent::truncation::safe_head;
 
 enum WorkspaceMode {
     Coding,
@@ -147,7 +148,7 @@ impl SystemPromptBuilder {
             if path.exists() {
                 if let Ok(content) = fs::read_to_string(&path) {
                     let content = if content.len() > 6000 {
-                        format!("{}...[Guidance Truncated]", &content[..6000])
+                        format!("{}...[Guidance Truncated]", safe_head(&content, 6000))
                     } else {
                         content
                     };
@@ -268,7 +269,7 @@ impl SystemPromptBuilder {
                 if let Ok(content) = fs::read_to_string(&path) {
                     if !content.trim().is_empty() {
                         let content = if content.len() > 3000 {
-                            format!("{}...[Truncated]", &content[..3000])
+                            format!("{}...[Truncated]", safe_head(&content, 3000))
                         } else {
                             content
                         };
@@ -286,7 +287,7 @@ impl SystemPromptBuilder {
             for tool in mcp_tools {
                 let raw = tool.description.as_deref().unwrap_or("No description provided.");
                 if raw.len() > 180 {
-                    let _ = write!(prompt, "\n- {}: {}...", tool.name, &raw[..180]);
+                    let _ = write!(prompt, "\n- {}: {}...", tool.name, safe_head(raw, 180));
                 } else {
                     let _ = write!(prompt, "\n- {}: {}", tool.name, raw);
                 }

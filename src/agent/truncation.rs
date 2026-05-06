@@ -44,6 +44,12 @@ pub fn truncate_middle(content: &str, max_bytes: usize) -> TruncatedOutput {
     }
 }
 
+/// Returns the longest prefix of `s` that is at most `max_bytes` long and ends on a UTF-8 boundary.
+pub fn safe_head(s: &str, max_bytes: usize) -> &str {
+    let end = find_valid_boundary_forward(s, max_bytes.min(s.len()));
+    &s[..end]
+}
+
 fn find_valid_boundary_forward(content: &str, target: usize) -> usize {
     let mut pos = target;
     while pos > 0 && !content.is_char_boundary(pos) {

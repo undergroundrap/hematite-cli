@@ -2,6 +2,8 @@ use std::fs::{create_dir_all, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 
+use crate::agent::truncation::safe_head;
+
 /// Persistent transcript logger for the DeepReflect engine.
 /// Writes append-only session logs to `.hematite_logs/` so the
 /// memory consolidation pass has real signal to synthesize from.
@@ -40,7 +42,7 @@ impl TranscriptLogger {
             .open(&self.session_file)
         {
             if output.len() > 500 {
-                let _ = write!(file, "[AGENT] {}... [TRUNCATED {} bytes]\n", &output[..500], output.len());
+                let _ = write!(file, "[AGENT] {}... [TRUNCATED {} bytes]\n", safe_head(output, 500), output.len());
             } else {
                 let _ = write!(file, "[AGENT] {}\n", output);
             }
