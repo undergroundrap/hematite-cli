@@ -5063,8 +5063,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     // Show agent-running indicator as last line when active.
     if app.agent_running {
         let dots = ".".repeat((app.tick_count % 4) as usize + 1);
+        let verb = if app.thinking { "thinking" } else { "working" };
         core_lines.push(Line::from(Span::styled(
-            format!(" Hematite is thinking{}", dots),
+            format!(" Hematite is {}{}", verb, dots),
             Style::default()
                 .fg(Color::Magenta)
                 .add_modifier(Modifier::DIM),
@@ -5646,18 +5647,18 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         (format!("{provider_prefix}:WARN"), Color::Red)
     } else if issue == RuntimeIssueKind::ContextCeiling {
         (format!("{provider_prefix}:CEIL"), Color::Yellow)
-    } else if runtime_age > std::time::Duration::from_secs(12) {
+    } else if runtime_age > std::time::Duration::from_secs(120) {
         (format!("{provider_prefix}:STALE"), Color::Yellow)
     } else {
         (format!("{provider_prefix}:LIVE"), Color::Green)
     };
     let compaction_percent = app.compaction_percent.min(100);
-    let _compaction_label = if app.compaction_threshold_tokens == 0 {
+    let compaction_label = if app.compaction_threshold_tokens == 0 {
         " CMP:  0%".to_string()
     } else {
         format!(" CMP:{:>3}%", compaction_percent)
     };
-    let _compaction_color = if app.compaction_threshold_tokens == 0 {
+    let compaction_color = if app.compaction_threshold_tokens == 0 {
         Color::DarkGray
     } else if compaction_percent >= 85 {
         Color::Red
@@ -5667,12 +5668,12 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         Color::Green
     };
     let prompt_percent = app.prompt_pressure_percent.min(100);
-    let _prompt_label = if app.prompt_estimated_total_tokens == 0 {
+    let prompt_label = if app.prompt_estimated_total_tokens == 0 {
         " BUD:  0%".to_string()
     } else {
         format!(" BUD:{:>3}%", prompt_percent)
     };
-    let _prompt_color = if app.prompt_estimated_total_tokens == 0 {
+    let prompt_color = if app.prompt_estimated_total_tokens == 0 {
         Color::DarkGray
     } else if prompt_percent >= 85 {
         Color::Red
@@ -5682,7 +5683,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         Color::Green
     };
 
-    let _think_badge = match app.think_mode {
+    let think_badge = match app.think_mode {
         Some(true) => " [THINK]",
         Some(false) => " [FAST]",
         None => "",
@@ -5746,10 +5747,10 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             Style::default().fg(Color::DarkGray),
         ),
         Span::styled("│ ", Style::default().fg(Color::Rgb(40, 40, 40))),
-        Span::styled(
-            format!("BUD:{:>3}% CMP:{:>3}% ", prompt_percent, compaction_percent),
-            Style::default().fg(Color::DarkGray),
-        ),
+        Span::styled(prompt_label, Style::default().fg(prompt_color)),
+        Span::styled(" ", Style::default().fg(Color::Rgb(40, 40, 40))),
+        Span::styled(compaction_label, Style::default().fg(compaction_color)),
+        Span::styled(format!("{} ", think_badge), Style::default().fg(Color::Cyan)),
         Span::styled("│ ", Style::default().fg(Color::Rgb(40, 40, 40))),
         Span::styled(session_usage_text, Style::default().fg(usage_color)),
     ];
