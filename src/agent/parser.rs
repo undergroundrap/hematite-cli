@@ -77,15 +77,17 @@ pub fn parse_master_spec(xml_content: &str) -> Vec<WorkerTask> {
         };
         let tag_attrs = &block[..tag_end];
 
-        // Parse ID dynamically
-        let id_start = tag_attrs.find("id=\"").map(|i| i + 4).unwrap_or(0);
-        let id_end = tag_attrs[id_start..].find('"').unwrap_or(0) + id_start;
-        let id = &tag_attrs[id_start..id_end];
+        // Parse ID — skip block if attribute is absent or unclosed
+        let Some(id_attr_pos) = tag_attrs.find("id=\"") else { continue; };
+        let id_start = id_attr_pos + 4;
+        let Some(id_end_rel) = tag_attrs[id_start..].find('"') else { continue; };
+        let id = &tag_attrs[id_start..id_start + id_end_rel];
 
-        // Parse Target physically
-        let target_start = tag_attrs.find("target=\"").map(|i| i + 8).unwrap_or(0);
-        let target_end = tag_attrs[target_start..].find('"').unwrap_or(0) + target_start;
-        let target = &tag_attrs[target_start..target_end];
+        // Parse Target — skip block if attribute is absent or unclosed
+        let Some(target_attr_pos) = tag_attrs.find("target=\"") else { continue; };
+        let target_start = target_attr_pos + 8;
+        let Some(target_end_rel) = tag_attrs[target_start..].find('"') else { continue; };
+        let target = &tag_attrs[target_start..target_start + target_end_rel];
 
         // Retrieve instruction payload bounds
         let content_block = &block[tag_end + 1..];

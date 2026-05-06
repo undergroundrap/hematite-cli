@@ -299,10 +299,7 @@ pub async fn execute_command_in_dir(
 async fn build_command(command: &str) -> tokio::process::Command {
     #[cfg(target_os = "windows")]
     {
-        let normalized = command
-            .replace("/dev/null", "$null")
-            .replace("1>/dev/null", "2>$null")
-            .replace("2>/dev/null", "2>$null");
+        let normalized = command.replace("/dev/null", "$null");
 
         if which("pwsh").await {
             let mut cmd = tokio::process::Command::new("pwsh");
