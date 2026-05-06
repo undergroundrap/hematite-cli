@@ -1,4 +1,5 @@
 use crate::agent::mcp::*;
+use crate::agent::truncation::safe_head;
 use crate::agent::types::McpRuntimeState;
 use crate::tools::file_ops::hematite_dir;
 use anyhow::{anyhow, Result};
@@ -283,7 +284,8 @@ impl McpManager {
         } else {
             // VRAM Guard: Truncate massive outputs to protect the local context window.
             if output.len() > 2500 {
-                output.truncate(2500);
+                let safe_end = safe_head(&output, 2500).len();
+                output.truncate(safe_end);
                 output.push_str("\n\n[Output Truncated by Hematite for VRAM Safety]");
             }
             Ok(output)

@@ -1,4 +1,5 @@
 use std::fmt::Write as _;
+use crate::agent::truncation::safe_head;
 use rusqlite::{types::Value as SqlValue, Connection};
 use serde_json::Value;
 use std::fs::File;
@@ -369,7 +370,7 @@ fn execute_and_format(conn: &Connection, sql: &str) -> Result<String, String> {
             };
             // Truncate long strings for table view
             let truncated = if val_str.len() > 14 {
-                format!("{}...", &val_str[..11])
+                format!("{}...", safe_head(&val_str, 11))
             } else {
                 val_str
             };
