@@ -5484,90 +5484,14 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     }
 
     // ── Box 3: Status bar ─────────────────────────────────────────────────────
-    let frame = app.tick_count % 3;
-    let _spark = match frame {
-        0 => "✧",
-        1 => "✦",
-        _ => "✨",
-    };
-    let _vigil = if app.brief_mode {
-        "VIGIL:[ON]"
-    } else {
-        "VIGIL:[off]"
-    };
-    let _yolo = if app.yolo_mode {
-        " | APPROVALS: OFF"
-    } else {
-        ""
-    };
+    let vigil_badge = if app.brief_mode { " VIGIL" } else { "" };
+    let yolo_badge = if app.yolo_mode { " YOLO" } else { "" };
 
     let bar_constraints = vec![Constraint::Fill(1)];
     let bar_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(bar_constraints)
         .split(chunks[2]);
-
-    // ── Box 4: Logic Activity Row (Alive cues) ───────────────────────────────
-    // We render this in the bottom-most area if active.
-    let _footer_row_legacy = if app.agent_running {
-        let elapsed = if let Some(start) = app.task_start_time {
-            format!(" {:0>2}s ", start.elapsed().as_secs())
-        } else {
-            String::new()
-        };
-        let last_log = app
-            .specular_logs
-            .last()
-            .map(|s| s.as_str())
-            .unwrap_or("...");
-        let spinner = match app.tick_count % 8 {
-            0 => "⠋",
-            1 => "⠙",
-            2 => "⠹",
-            3 => "⠸",
-            4 => "⠼",
-            5 => "⠴",
-            6 => "⠦",
-            _ => "⠧",
-        };
-
-        Line::from(vec![
-            Span::styled(
-                format!(" {} ", spinner),
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                elapsed,
-                Style::default()
-                    .bg(Color::Rgb(40, 40, 40))
-                    .fg(Color::White)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                format!(" ⬢ {}", last_log),
-                Style::default().fg(Color::DarkGray),
-            ),
-        ])
-    } else {
-        Line::from(vec![
-            Span::styled(" ⬢ ", Style::default().fg(Color::Rgb(40, 40, 40))),
-            Span::styled(
-                " [↑/↓] scroll ",
-                Style::default()
-                    .fg(Color::DarkGray)
-                    .add_modifier(Modifier::DIM),
-            ),
-            Span::styled(" | ", Style::default().fg(Color::Rgb(30, 30, 30))),
-            Span::styled(
-                " /help hints ",
-                Style::default()
-                    .fg(Color::DarkGray)
-                    .add_modifier(Modifier::DIM),
-            ),
-        ])
-    };
 
     let footer_row = {
         let footer_row_width = bar_chunks[0].width.saturating_sub(6);
@@ -5751,7 +5675,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         Span::styled(" ", Style::default().fg(Color::Rgb(40, 40, 40))),
         Span::styled(compaction_label, Style::default().fg(compaction_color)),
         Span::styled(format!("{} ", think_badge), Style::default().fg(Color::Cyan)),
-        Span::styled("│ ", Style::default().fg(Color::Rgb(40, 40, 40))),
+        Span::styled(vigil_badge.to_string(), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(yolo_badge.to_string(), Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::styled(" │ ", Style::default().fg(Color::Rgb(40, 40, 40))),
         Span::styled(session_usage_text, Style::default().fg(usage_color)),
     ];
 
