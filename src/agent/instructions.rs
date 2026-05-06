@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::agent::config::WorkspaceTrustConfig;
+use crate::agent::truncation::safe_head;
 use crate::agent::trust_resolver::{resolve_workspace_trust, WorkspaceTrustPolicy};
 
 pub const PROJECT_GUIDANCE_FILES: &[&str] = &[
@@ -466,7 +467,7 @@ pub fn render_instructions(files: &[InstructionFile], max_chars: usize) -> Optio
         }
 
         let content = if file.content.len() > remaining {
-            format!("{}\n... [truncated]", &file.content[..remaining - 20])
+            format!("{}\n... [truncated]", safe_head(&file.content, remaining.saturating_sub(20)))
         } else {
             file.content.clone()
         };

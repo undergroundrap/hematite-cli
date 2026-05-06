@@ -805,7 +805,7 @@ fn collapse_inline_whitespace(line: &str) -> String {
 
 fn truncate_summary_line(line: &str, max_chars: usize) -> String {
     if max_chars == 0 {
-        return line.to_string();
+        return String::new();
     }
     if max_chars == 1 {
         return ".".to_string();

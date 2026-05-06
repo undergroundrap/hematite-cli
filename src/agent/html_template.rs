@@ -258,9 +258,10 @@ fn linkify(s: &str) -> String {
             .find(|c: char| c.is_whitespace() || c == '<' || c == '>' || c == '"' || c == '\'')
             .unwrap_or(url_start.len());
         let url = &url_start[..end];
+        let escaped = he(url);
         let _ = write!(out,
             "<a href=\"{}\" target=\"_blank\">{}</a>",
-            url, url
+            escaped, escaped
         );
         rest = &url_start[end..];
     }
