@@ -206,7 +206,8 @@ impl SwarmCoordinator {
                     }
                     // Safety Net Context Expansion: Double the inference bounds on retry dynamically mapping logic
                     let padding: usize = 10 + (retry_count as usize * 10);
-                    let conflict_start = hunks[i + 1].start_line.saturating_sub(padding);
+                    // start_line is 1-indexed; subtract 1 to convert to 0-indexed, then subtract padding.
+                    let conflict_start = hunks[i + 1].start_line.saturating_sub(padding + 1);
                     let conflict_end = (current.end_line + padding).min(lines.len());
                     let context = lines[conflict_start..conflict_end].join("\n");
 

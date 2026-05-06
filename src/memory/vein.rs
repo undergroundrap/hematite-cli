@@ -1,4 +1,5 @@
 use std::fmt::Write as _;
+use crate::agent::truncation::safe_head;
 use rusqlite::{params, Connection};
 use serde::Deserialize;
 use serde_json::Value;
@@ -612,7 +613,7 @@ impl Vein {
             .iter()
             .map(|c| {
                 let p = format!("search_document: {}", c);
-                if p.len() > 8000 { p[..8000].to_string() } else { p }
+                if p.len() > 8000 { safe_head(&p, 8000).to_string() } else { p }
             })
             .collect();
 
@@ -1245,7 +1246,7 @@ impl Vein {
             .iter()
             .map(|(_, _, content, _, _, _)| {
                 let p = format!("search_document: {}", content);
-                if p.len() > 8000 { p[..8000].to_string() } else { p }
+                if p.len() > 8000 { safe_head(&p, 8000).to_string() } else { p }
             })
             .collect();
 
@@ -2445,7 +2446,7 @@ fn embed_text_with_prefix(
     let prefixed = format!("{}: {}", task, text);
     // Truncate to ~8000 chars to stay within typical embedding model limits.
     let input = if prefixed.len() > 8000 {
-        prefixed[..8000].to_string()
+        safe_head(&prefixed, 8000).to_string()
     } else {
         prefixed
     };

@@ -170,11 +170,7 @@ fn autodetect_command(
         }
     } else if cwd.join("CMakeLists.txt").exists() {
         // C / C++ (CMake) — create build dir if missing, configure + build
-        let build_dir = if cwd.join("build").exists() {
-            "build"
-        } else {
-            "build"
-        };
+        let build_dir = "build";
         match action {
             "build" => (
                 "C++/CMake",
