@@ -1,3 +1,4 @@
+use crate::agent::truncation::safe_head;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt::Write as _;
@@ -4849,7 +4850,7 @@ foreach ($h in $hives) {
                 }
                 // Truncate very long values (paths with many args)
                 let display = if value.len() > 100 {
-                    format!("{}…", &value[..100])
+                    format!("{}…", safe_head(&value, 100))
                 } else {
                     value.clone()
                 };
@@ -6243,7 +6244,7 @@ try {{
                         "    State: {state} | Last run: {last} | Result: {res}\n"
                     );
                     if !exec.is_empty() && exec != "(no exec)" {
-                        let short = if exec.len() > 80 { &exec[..80] } else { exec };
+                        let short = if exec.len() > 80 { safe_head(exec, 80) } else { exec };
                         let _ = write!(out, "    Runs: {short}\n");
                     }
                 }
@@ -7779,7 +7780,7 @@ fn inspect_env(max_entries: usize) -> Result<String, String> {
                 .any(|kv| k_upper.as_str() == kv.to_uppercase().as_str());
             if is_known {
                 let display = if v.len() > 120 {
-                    format!("{k} = {}…", &v[..117])
+                    format!("{k} = {}…", safe_head(&v, 117))
                 } else {
                     format!("{k} = {v}")
                 };
@@ -12724,7 +12725,7 @@ try {{
 
                     // Truncate long messages
                     let msg_display = if msg.len() > 120 {
-                        format!("{}…", &msg[..120])
+                        format!("{}…", safe_head(msg, 120))
                     } else {
                         msg.to_string()
                     };
