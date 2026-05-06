@@ -1,3 +1,4 @@
+use chrono::Local;
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
@@ -20,7 +21,7 @@ impl TranscriptLogger {
         let _ = create_dir_all(&log_dir);
 
         // One file per calendar day — DeepReflect reads these during Phase 2 (Gather)
-        let today = chrono_lite_date();
+        let today = Local::now().format("%Y-%m-%d").to_string();
         let session_file = log_dir.join(format!("{}.log", today));
 
         Self {
@@ -65,22 +66,3 @@ impl TranscriptLogger {
     }
 }
 
-/// Lightweight date string without pulling in the full chrono crate.
-/// Returns YYYY-MM-DD using the system clock.
-#[allow(dead_code)]
-fn chrono_lite_date() -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-
-    // Simple epoch-to-date conversion
-    let days = now / 86400;
-    let years = (days * 4 + 2) / 1461; // Approximate Gregorian
-    let year = 1970 + years;
-    let day_of_year = days - (years * 365 + years / 4);
-    let month = day_of_year / 30 + 1;
-    let day = day_of_year % 30 + 1;
-
-    format!("{:04}-{:02}-{:02}", year, month.min(12), day.min(31))
-}
