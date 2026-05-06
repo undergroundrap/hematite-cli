@@ -5089,22 +5089,33 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         (Color::Rgb(80, 80, 80), "•") // Standby
     };
 
-    let live_objective = if app.current_objective != "Idle" {
-        app.current_objective.clone()
+    // Use a context-appropriate label so "TASK:" never appears next to a transient
+    // state like "Reasoning" or "Working".  The prefix changes with the actual state.
+    let has_real_task = !app.current_objective.is_empty()
+        && app.current_objective != "Idle"
+        && app.current_objective != "Awaiting objective...";
+
+    let (title_prefix, title_body, title_color): (&str, String, Color) = if has_real_task {
+        let body = if app.current_objective.len() > 30 {
+            format!("{}...", &app.current_objective[..27])
+        } else {
+            app.current_objective.clone()
+        };
+        ("TASK", body, Color::Yellow)
     } else if !app.active_workers.is_empty() {
-        "Swarm active".to_string()
+        ("SWARM", "Parallel agents active".into(), Color::Cyan)
     } else if app.thinking {
-        "Reasoning".to_string()
+        ("THINKING", String::new(), Color::Magenta)
     } else if app.agent_running {
-        "Working".to_string()
+        ("WORKING", String::new(), Color::Green)
     } else {
-        "Idle".to_string()
+        ("READY", String::new(), Color::DarkGray)
     };
 
-    let objective_text = if live_objective.len() > 30 {
-        format!("{}...", &live_objective[..27])
+    let title_text = if title_body.is_empty() {
+        format!(" {} ", title_prefix)
     } else {
-        live_objective
+        format!(" {}: {} ", title_prefix, title_body)
     };
 
     let core_title = if app.professional {
@@ -5112,14 +5123,17 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             Span::styled(format!(" {} ", core_icon), Style::default().fg(heart_color)),
             Span::styled("HEMATITE ", Style::default().add_modifier(Modifier::BOLD)),
             Span::styled(
-                format!(" TASK: {} ", objective_text),
+                title_text,
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(title_color)
                     .add_modifier(Modifier::ITALIC),
             ),
         ])
     } else {
-        Line::from(format!(" TASK: {} ", objective_text))
+        Line::from(vec![
+            Span::styled(format!(" {} ", core_icon), Style::default().fg(heart_color)),
+            Span::styled(title_text, Style::default().fg(title_color)),
+        ])
     };
 
     let core_para = Paragraph::new(core_lines.clone())
