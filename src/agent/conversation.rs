@@ -7196,7 +7196,7 @@ impl ConversationManager {
                 break;
             }
             let snippet = if r.content.len() > 500 {
-                format!("{}...", &r.content[..500])
+                format!("{}...", safe_head(&r.content, 500))
             } else {
                 r.content.clone()
             };
