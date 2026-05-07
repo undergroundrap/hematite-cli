@@ -47,7 +47,7 @@ use crate::ui::gpu_monitor::GpuState;
 
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, Mutex, RwLock};
 // -- Session persistence -------------------------------------------------------
 
 #[derive(Clone, Debug, Default)]
@@ -1590,7 +1590,7 @@ pub struct ConversationManager {
     /// Active reasoning summary extracted from the previous model turn (Gemma-4 Native).
     pub reasoning_history: Option<String>,
     /// Layer 8: Active Reference Pinning (Context Locked)
-    pub pinned_files: Arc<Mutex<std::collections::HashMap<String, String>>>,
+    pub pinned_files: Arc<RwLock<std::collections::HashMap<String, String>>>,
     /// Hard action-grounding state for proof-before-action checks.
     action_grounding: Arc<Mutex<ActionGroundingState>>,
     /// True only during `/code Implement the current plan.` style execution turns.
@@ -2214,7 +2214,7 @@ impl ConversationManager {
                 crate::tools::file_ops::workspace_root(),
             ))),
             reasoning_history: None,
-            pinned_files: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            pinned_files: Arc::new(RwLock::new(std::collections::HashMap::new())),
             action_grounding: Arc::new(Mutex::new(ActionGroundingState::default())),
             plan_execution_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             plan_execution_pass_depth: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
@@ -2696,7 +2696,7 @@ impl ConversationManager {
             let path_exists = std::path::Path::new(target).exists();
             if path_exists {
                 let state = self.action_grounding.lock().await;
-                let pinned = self.pinned_files.lock().await;
+                let pinned = self.pinned_files.read().await;
                 let pinned_match = pinned.keys().any(|p| normalize_workspace_path(p) == target);
                 drop(pinned);
 
@@ -3120,7 +3120,7 @@ impl ConversationManager {
             self.session_memory.clear();
             self.running_summary = None;
             self.correction_hints.clear();
-            self.pinned_files.lock().await.clear();
+            self.pinned_files.write().await.clear();
             self.reset_action_grounding().await;
             reset_task_files();
             let _ = std::fs::remove_file(session_path());
@@ -3143,7 +3143,7 @@ impl ConversationManager {
             self.session_memory.clear();
             self.running_summary = None;
             self.correction_hints.clear();
-            self.pinned_files.lock().await.clear();
+            self.pinned_files.write().await.clear();
             self.reset_action_grounding().await;
             reset_task_files();
             crate::agent::tasks::clear();
@@ -4280,7 +4280,7 @@ impl ConversationManager {
             match std::fs::read_to_string(path) {
                 Ok(content) => {
                     self.pinned_files
-                        .lock()
+                        .write()
                         .await
                         .insert(path.to_string(), content);
                     let msg = format!(
@@ -4307,7 +4307,7 @@ impl ConversationManager {
         // ── /unpin: remove file from active context ──────────────────────────
         if user_input.trim_start().starts_with("/unpin ") {
             let path = user_input.trim_start()[7..].trim();
-            if self.pinned_files.lock().await.remove(path).is_some() {
+            if self.pinned_files.write().await.remove(path).is_some() {
                 let msg = format!("Unpinned: {} — file removed from active context.", path);
                 for chunk in chunk_text(&msg, 8) {
                     let _ = tx.send(InferenceEvent::Token(chunk)).await;
@@ -4554,7 +4554,7 @@ impl ConversationManager {
             }
         }
         if !tiny_context_mode {
-            let pinned = self.pinned_files.lock().await;
+            let pinned = self.pinned_files.read().await;
             if !pinned.is_empty() {
                 system_msg.push_str("\n\n# ACTIVE CONTEXT (PINNED FILES)\n");
                 system_msg.push_str("The following files are locked in your active memory for prioritized reference.\n\n");
@@ -8463,7 +8463,7 @@ impl ConversationManager {
                     if let Some(arr) = pts {
                         let mut pinned = Vec::with_capacity(arr.len().min(3));
                         {
-                            let mut guard = self.pinned_files.lock().await;
+                            let mut guard = self.pinned_files.write().await;
                             const MAX_PINNED_SIZE: u64 = 25 * 1024 * 1024; // 25MB Safety Valve
 
                             for v in arr.iter().take(3) {
@@ -8495,7 +8495,7 @@ impl ConversationManager {
                     }
                 } else if call.name == "list_pinned" {
                     let paths_msg = {
-                        let pinned = self.pinned_files.lock().await;
+                        let pinned = self.pinned_files.read().await;
                         if pinned.is_empty() {
                             "No files are currently pinned.".to_string()
                         } else {

@@ -6,7 +6,7 @@
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 lazy_static! {
     /// Global access to GPU vitals for tool investigation (Zero-Shot Trends).
@@ -21,9 +21,9 @@ pub struct GpuState {
     /// VRAM total in MiB.
     pub total_mib: AtomicU32,
     /// GPU name (set once on first successful poll).
-    pub name: Mutex<String>,
+    pub name: RwLock<String>,
     /// Recent history points (max 10).
-    pub history: Mutex<VecDeque<HistoryPoint>>,
+    pub history: RwLock<VecDeque<HistoryPoint>>,
 }
 
 #[derive(Debug, Clone)]
@@ -43,8 +43,8 @@ impl GpuState {
         Self {
             used_mib: AtomicU32::new(0),
             total_mib: AtomicU32::new(0),
-            name: Mutex::new("GPU".into()),
-            history: Mutex::new(VecDeque::with_capacity(10)),
+            name: RwLock::new("GPU".into()),
+            history: RwLock::new(VecDeque::with_capacity(10)),
         }
     }
 
@@ -80,7 +80,7 @@ impl GpuState {
 
     /// Returns the GPU name (e.g. "NVIDIA GeForce RTX 4070").
     pub fn gpu_name(&self) -> String {
-        self.name.lock().unwrap().clone()
+        self.name.read().unwrap().clone()
     }
 }
 
@@ -96,7 +96,7 @@ pub fn spawn_gpu_monitor() -> Arc<GpuState> {
                 bg.used_mib.store(metrics.used_mib, Ordering::Relaxed);
                 bg.total_mib.store(metrics.total_mib, Ordering::Relaxed);
                 if !metrics.name.is_empty() {
-                    let mut name = bg.name.lock().unwrap();
+                    let mut name = bg.name.write().unwrap();
                     if *name == "GPU" {
                         *name = metrics.name;
                     }
@@ -104,7 +104,7 @@ pub fn spawn_gpu_monitor() -> Arc<GpuState> {
 
                 // Add to history every ~2 minutes (60 iterations @ 2s each)
                 if poll_count % 60 == 0 {
-                    let mut history = bg.history.lock().unwrap();
+                    let mut history = bg.history.write().unwrap();
                     history.push_back(HistoryPoint {
                         timestamp: chrono::Local::now(),
                         used_mib: metrics.used_mib,

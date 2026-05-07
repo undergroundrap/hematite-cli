@@ -34,7 +34,7 @@ pub struct Vein {
     /// In-memory cache of decoded embedding vectors. Avoids per-turn full-table-scan
     /// of chunks_vec + blob deserialization. Populated at open time, updated
     /// incrementally as new embeddings are stored or paths are evicted.
-    embedding_cache: std::sync::Mutex<Vec<EmbeddedChunk>>,
+    embedding_cache: std::sync::RwLock<Vec<EmbeddedChunk>>,
 }
 
 /// One cached embedding entry — the decoded float vector plus retrieval metadata.
@@ -501,7 +501,7 @@ impl Vein {
             db: std::sync::Arc::new(std::sync::Mutex::new(db)),
             base_url,
             embed_model: std::sync::Arc::new(std::sync::RwLock::new(None)),
-            embedding_cache: std::sync::Mutex::new(embedding_cache),
+            embedding_cache: std::sync::RwLock::new(embedding_cache),
         })
     }
 
@@ -567,7 +567,7 @@ impl Vein {
         db.execute("DELETE FROM chunks_fts WHERE path = ?1", params![path])?;
         db.execute("DELETE FROM chunks_vec WHERE path = ?1", params![path])?;
         // Evict the in-memory cache for this path as well.
-        if let Ok(mut cache) = self.embedding_cache.lock() {
+        if let Ok(mut cache) = self.embedding_cache.write() {
             cache.retain(|e| e.path != path);
         }
         db.execute(
@@ -629,7 +629,7 @@ impl Vein {
                 );
                 drop(db);
                 // Mirror into in-memory cache — avoids per-turn full scan in search_semantic.
-                if let Ok(mut cache) = self.embedding_cache.lock() {
+                if let Ok(mut cache) = self.embedding_cache.write() {
                     cache.retain(|e| !(e.path == path && e.chunk_idx == idx as i64));
                     cache.push(EmbeddedChunk {
                         path: path.to_string(),
@@ -743,7 +743,7 @@ impl Vein {
         // Sort and truncate to top-`limit` before paying the clone cost.
         // Old approach cloned 3 Strings per chunk × ~1000 chunks, discarding ~990 of them.
         let top_indices: Vec<(f32, usize)> = {
-            let cache = match self.embedding_cache.lock() {
+            let cache = match self.embedding_cache.read() {
                 Ok(g) => g,
                 Err(_) => return Vec::new(),
             };
@@ -765,7 +765,7 @@ impl Vein {
 
         // Clone Strings only for the top-N survivors, then fetch their content.
         let scored: Vec<(f32, String, i64, i64, String, String)> = {
-            let cache = match self.embedding_cache.lock() {
+            let cache = match self.embedding_cache.read() {
                 Ok(g) => g,
                 Err(_) => return Vec::new(),
             };
@@ -1266,7 +1266,7 @@ impl Vein {
             );
             drop(db);
             // Mirror into in-memory cache.
-            if let Ok(mut cache) = self.embedding_cache.lock() {
+            if let Ok(mut cache) = self.embedding_cache.write() {
                 cache.retain(|e| !(e.path == *path && e.chunk_idx == *idx));
                 cache.push(EmbeddedChunk {
                     path: path.clone(),

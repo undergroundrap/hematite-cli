@@ -13055,7 +13055,7 @@ async fn inspect_overclocker() -> Result<String, String> {
 
         // 1b. Session Trends (RAM-only historians)
         let gpu_state = &crate::ui::gpu_monitor::GLOBAL_GPU_STATE;
-        let history = gpu_state.history.lock().unwrap();
+        let history = gpu_state.history.read().unwrap();
         if history.len() >= 2 {
             out.push_str("=== SILICON TRENDS (Session) ===\n");
             let first = history.front().unwrap();
