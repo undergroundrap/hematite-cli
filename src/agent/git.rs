@@ -25,9 +25,10 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
             (file, path)
         }
         Err(e) => {
-            return Err(io::Error::other(
-                format!("Failed to create temp index: {}", e),
-            ))
+            return Err(io::Error::other(format!(
+                "Failed to create temp index: {}",
+                e
+            )))
         }
     };
     // Close the file handle immediately so Git can own it.
@@ -58,9 +59,7 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
     if !add_status.success() {
         // Cleanup on failure
         let _ = std::fs::remove_file(&index_path);
-        return Err(io::Error::other(
-            "Git add to temp index failed",
-        ));
+        return Err(io::Error::other("Git add to temp index failed"));
     }
 
     // 4. Create a tree object from the temporary index state.
@@ -76,9 +75,7 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
     let _ = std::fs::remove_file(&index_path);
 
     if !tree_output.status.success() {
-        return Err(io::Error::other(
-            "Git write-tree failed",
-        ));
+        return Err(io::Error::other("Git write-tree failed"));
     }
     let tree_sha = String::from_utf8_lossy(&tree_output.stdout)
         .trim()
@@ -98,9 +95,7 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
         .output()?;
 
     if !commit_output.status.success() {
-        return Err(io::Error::other(
-            "Git commit-tree failed",
-        ));
+        return Err(io::Error::other("Git commit-tree failed"));
     }
     let commit_sha = String::from_utf8_lossy(&commit_output.stdout)
         .trim()
@@ -118,9 +113,7 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
         .status()?;
 
     if !update_status.success() {
-        return Err(io::Error::other(
-            "Git update-ref failed",
-        ));
+        return Err(io::Error::other("Git update-ref failed"));
     }
 
     Ok(())
@@ -140,9 +133,7 @@ pub fn revert_from_ghost(repo_path: &Path, file_path: &str) -> io::Result<String
         .status()?;
 
     if !status.success() {
-        return Err(io::Error::other(
-            "Git checkout from ghost ref failed",
-        ));
+        return Err(io::Error::other("Git checkout from ghost ref failed"));
     }
 
     Ok(format!("Restored {} from Git Ghost ref", file_path))

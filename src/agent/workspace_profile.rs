@@ -238,11 +238,7 @@ pub fn profile_report(root: &Path) -> String {
             );
         }
         if !contract.quality_gates.is_empty() {
-            let _ = writeln!(
-                out,
-                "Quality gates: {}",
-                contract.quality_gates.join("; ")
-            );
+            let _ = writeln!(out, "Quality gates: {}", contract.quality_gates.join("; "));
         }
         if !contract.route_hints.is_empty() {
             let _ = writeln!(out, "Route hints: {}", contract.route_hints.join(", "));

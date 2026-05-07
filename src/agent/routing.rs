@@ -365,12 +365,8 @@ fn is_conversational_advisory(lower: &str) -> bool {
         && no_imperative;
 
     // ── Confirmation-seeking tail — "right?", "correct?" ────────────────────────
-    let ends_confirmation = lower
-        .trim_end_matches(['?', ' '])
-        .ends_with("right")
-        || lower
-            .trim_end_matches(['?', ' '])
-            .ends_with("correct")
+    let ends_confirmation = lower.trim_end_matches(['?', ' ']).ends_with("right")
+        || lower.trim_end_matches(['?', ' ']).ends_with("correct")
         || lower.ends_with("right?")
         || lower.ends_with("yeah?");
 

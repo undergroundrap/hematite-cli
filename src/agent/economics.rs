@@ -88,7 +88,6 @@ impl SessionEconomics {
     }
 }
 
-
 /// A record of a tool call.
 #[derive(Serialize, Clone, Debug)]
 pub struct ToolRecord {

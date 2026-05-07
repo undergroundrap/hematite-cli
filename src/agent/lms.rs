@@ -79,9 +79,7 @@ impl LmsHarness {
             .status()?;
 
         if !status.success() {
-            return Err(io::Error::other(
-                "Failed to start lms server",
-            ));
+            return Err(io::Error::other("Failed to start lms server"));
         }
 
         Ok(())
@@ -96,9 +94,7 @@ impl LmsHarness {
         let output = Command::new(lms).args(["ls"]).output()?;
 
         if !output.status.success() {
-            return Err(io::Error::other(
-                "Failed to list models via lms",
-            ));
+            return Err(io::Error::other("Failed to list models via lms"));
         }
 
         let out_str = String::from_utf8_lossy(&output.stdout);
@@ -121,9 +117,7 @@ impl LmsHarness {
         let output = Command::new(lms).args(["ps"]).output()?;
 
         if !output.status.success() {
-            return Err(io::Error::other(
-                "Failed to list loaded models via lms",
-            ));
+            return Err(io::Error::other("Failed to list loaded models via lms"));
         }
 
         let out_str = String::from_utf8_lossy(&output.stdout);
@@ -150,9 +144,10 @@ impl LmsHarness {
             .status()?;
 
         if !status.success() {
-            return Err(io::Error::other(
-                format!("Failed to load model: {}", model_id),
-            ));
+            return Err(io::Error::other(format!(
+                "Failed to load model: {}",
+                model_id
+            )));
         }
 
         Ok(())
@@ -171,9 +166,10 @@ impl LmsHarness {
             .status()?;
 
         if !status.success() {
-            return Err(io::Error::other(
-                format!("Failed to unload model: {}", model_id),
-            ));
+            return Err(io::Error::other(format!(
+                "Failed to unload model: {}",
+                model_id
+            )));
         }
 
         Ok(())
@@ -192,9 +188,7 @@ impl LmsHarness {
             .status()?;
 
         if !status.success() {
-            return Err(io::Error::other(
-                "Failed to unload all models",
-            ));
+            return Err(io::Error::other("Failed to unload all models"));
         }
 
         Ok(())

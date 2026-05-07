@@ -544,11 +544,7 @@ fn inspect_path(max_entries: usize) -> Result<String, String> {
         "- Duplicate entries: {}",
         path_stats.duplicate_entries.len()
     );
-    let _ = writeln!(
-        out,
-        "- Missing paths: {}",
-        path_stats.missing_entries.len()
-    );
+    let _ = writeln!(out, "- Missing paths: {}", path_stats.missing_entries.len());
 
     out.push_str("\nPATH entries:\n");
     for entry in path_stats.entries.iter().take(max_entries) {
@@ -2456,11 +2452,7 @@ fn inspect_repo_doctor(path: PathBuf, max_entries: usize) -> Result<String, Stri
 
     let mut out = String::from("Host inspection: repo_doctor\n\n");
     let _ = writeln!(out, "- Path: {}", path.display());
-    let _ = writeln!(
-        out,
-        "- Workspace mode: {}",
-        workspace_mode_for_path(&path)
-    );
+    let _ = writeln!(out, "- Workspace mode: {}", workspace_mode_for_path(&path));
 
     if markers.is_empty() {
         out.push_str("- Project markers: none of Cargo.toml, package.json, pyproject.toml, go.mod, justfile, Makefile, or .git were found at this path\n");
@@ -3403,7 +3395,8 @@ fn collect_project_markers(path: &Path) -> Vec<String> {
         ".git",
     ]
     .iter()
-    .filter(|&name| path.join(name).exists()).map(|name| (*name).to_string())
+    .filter(|&name| path.join(name).exists())
+    .map(|name| (*name).to_string())
     .collect()
 }
 
@@ -3456,7 +3449,7 @@ fn collect_toolchains() -> ToolchainReport {
     let mut python_probes = Vec::with_capacity(5);
     if let Some(ref path) = config.python_path {
         python_probes.push(CommandProbe::new(path, &["--version"]));
-    } ;
+    };
 
     python_probes.extend([
         CommandProbe::new("python3", &["--version"]),
@@ -3550,7 +3543,9 @@ fn collect_package_managers() -> PackageManagerReport {
 
     let mut found = Vec::with_capacity(checks.len());
     for check in checks {
-        if let Some(version) = check.detect() { found.push((check.label.to_string(), version)) }
+        if let Some(version) = check.detect() {
+            found.push((check.label.to_string(), version))
+        }
     }
 
     PackageManagerReport { found }
@@ -6322,10 +6317,7 @@ try {{
                         display_path
                     };
                     let _ = writeln!(out, "  {name} [{display_path}]");
-                    let _ = writeln!(
-                        out,
-                        "    State: {state} | Last run: {last} | Result: {res}"
-                    );
+                    let _ = writeln!(out, "    State: {state} | Last run: {last} | Result: {res}");
                     if !exec.is_empty() && exec != "(no exec)" {
                         let short = if exec.len() > 80 {
                             safe_head(exec, 80)
@@ -6770,8 +6762,7 @@ try {{
                         } else {
                             let _ = write!(out, "\nSTATUS: Valid ({} days left)\n", days_left);
                         }
-                    } else if let Ok(expiry) = chrono::DateTime::parse_from_rfc3339(not_after_raw)
-                    {
+                    } else if let Ok(expiry) = chrono::DateTime::parse_from_rfc3339(not_after_raw) {
                         let now = chrono::Utc::now();
                         let days_left = expiry.signed_duration_since(now).num_days();
                         if days_left < 0 {
@@ -6783,8 +6774,7 @@ try {{
                                 days_left
                             );
                         } else {
-                            let _ =
-                                write!(out, "\nSTATUS: Valid ({} days left)\n", days_left);
+                            let _ = write!(out, "\nSTATUS: Valid ({} days left)\n", days_left);
                         }
                     }
                 }
@@ -8893,12 +8883,7 @@ fn inspect_wsl_filesystems(max_entries: usize) -> Result<String, String> {
             out.push_str("- No ext4.vhdx files found under %LOCALAPPDATA%\\Packages. Imported distros may live elsewhere.\n");
         } else {
             for (path, size_bytes) in vhdx_files.iter().take(n) {
-                let _ = writeln!(
-                    out,
-                    "- {} at {}",
-                    human_bytes(*size_bytes),
-                    path.display()
-                );
+                let _ = writeln!(out, "- {} at {}", human_bytes(*size_bytes), path.display());
             }
         }
     }

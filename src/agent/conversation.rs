@@ -79,8 +79,7 @@ impl UserTurn {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Default)]
+#[derive(serde::Serialize, serde::Deserialize, Default)]
 struct SavedSession {
     running_summary: Option<String>,
     #[serde(default)]
@@ -92,7 +91,6 @@ struct SavedSession {
     #[serde(default)]
     turn_count: u32,
 }
-
 
 /// Snapshot of the previous session, surfaced on startup when a workspace is
 /// resumed after a restart or crash.
@@ -637,8 +635,7 @@ fn inject_at_file_mentions(prompt: &str) -> String {
             continue;
         }
         // Strip trailing punctuation that isn't part of a path
-        let path_str =
-            raw.trim_end_matches([',', '.', ':', ';', '!', '?']);
+        let path_str = raw.trim_end_matches([',', '.', ':', ';', '!', '?']);
         if path_str.is_empty() {
             continue;
         }
@@ -5233,35 +5230,36 @@ impl ConversationManager {
 
                     let class = classify_runtime_failure(&e);
                     if should_retry_runtime_failure(class)
-                        && self.recovery_context.consume_transient_retry() {
-                            let label = match class {
-                                RuntimeFailureClass::ProviderDegraded => "provider_degraded",
-                                _ => "empty_model_response",
-                            };
-                            self.transcript.log_system(&format!(
-                                "Automatic provider recovery triggered: {}",
-                                e.trim()
-                            ));
-                            self.emit_recovery_recipe_summary(
-                                &tx,
-                                label,
-                                compact_runtime_recovery_summary(class),
-                            )
+                        && self.recovery_context.consume_transient_retry()
+                    {
+                        let label = match class {
+                            RuntimeFailureClass::ProviderDegraded => "provider_degraded",
+                            _ => "empty_model_response",
+                        };
+                        self.transcript.log_system(&format!(
+                            "Automatic provider recovery triggered: {}",
+                            e.trim()
+                        ));
+                        self.emit_recovery_recipe_summary(
+                            &tx,
+                            label,
+                            compact_runtime_recovery_summary(class),
+                        )
+                        .await;
+                        let _ = tx
+                            .send(InferenceEvent::ProviderStatus {
+                                state: ProviderRuntimeState::Recovering,
+                                summary: compact_runtime_recovery_summary(class).into(),
+                            })
                             .await;
-                            let _ = tx
-                                .send(InferenceEvent::ProviderStatus {
-                                    state: ProviderRuntimeState::Recovering,
-                                    summary: compact_runtime_recovery_summary(class).into(),
-                                })
-                                .await;
-                            self.emit_operator_checkpoint(
-                                &tx,
-                                OperatorCheckpointState::RecoveringProvider,
-                                compact_runtime_recovery_summary(class),
-                            )
-                            .await;
-                            continue;
-                        }
+                        self.emit_operator_checkpoint(
+                            &tx,
+                            OperatorCheckpointState::RecoveringProvider,
+                            compact_runtime_recovery_summary(class),
+                        )
+                        .await;
+                        continue;
+                    }
 
                     if explicit_search_request
                         && matches!(
@@ -7028,11 +7026,9 @@ impl ConversationManager {
 
                         if other == "website_validate" && needs_boot {
                             let start_args = serde_json::json!({ "workflow": "website_start" });
-                            if crate::tools::workspace_workflow::run_workspace_workflow(
-                                &start_args,
-                            )
-                            .await
-                            .is_ok()
+                            if crate::tools::workspace_workflow::run_workspace_workflow(&start_args)
+                                .await
+                                .is_ok()
                             {
                                 if let Ok(retry_out) =
                                     crate::tools::workspace_workflow::run_workspace_workflow(&args)
