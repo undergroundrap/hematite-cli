@@ -3544,11 +3544,12 @@ pub async fn run_app<B: Backend>(
                                     else { app.manual_scroll_offset = Some(off.saturating_sub(10)); }
                                 }
                             }
-                            KeyCode::Tab => {
-                                if app.show_autocomplete && !app.autocomplete_suggestions.is_empty() {
-                                    let selected = app.autocomplete_suggestions[app.selected_suggestion].clone();
-                                    app.apply_autocomplete_selection(&selected);
-                                }
+                            KeyCode::Tab
+                                if app.show_autocomplete
+                                    && !app.autocomplete_suggestions.is_empty() =>
+                            {
+                                let selected = app.autocomplete_suggestions[app.selected_suggestion].clone();
+                                app.apply_autocomplete_selection(&selected);
                             }
                             KeyCode::Char(c) => {
                                 app.history_idx = None; // typing cancels history nav
@@ -4547,14 +4548,14 @@ pub async fn run_app<B: Backend>(
                             _ => {}
                         }
                     }
-                    Some(Ok(Event::Paste(content))) => {
-                        if !try_attach_from_paste(&mut app, &content) {
-                            // Normalize pasted newlines into spaces so we don't accidentally submit
-                            // multiple lines or break the single-line input logic.
-                            let normalized = content.replace("\r\n", " ").replace('\n', " ");
-                            app.input.push_str(&normalized);
-                            app.last_input_time = Instant::now();
-                        }
+                    Some(Ok(Event::Paste(content)))
+                        if !try_attach_from_paste(&mut app, &content) =>
+                    {
+                        // Normalize pasted newlines into spaces so we don't accidentally submit
+                        // multiple lines or break the single-line input logic.
+                        let normalized = content.replace("\r\n", " ").replace('\n', " ");
+                        app.input.push_str(&normalized);
+                        app.last_input_time = Instant::now();
                     }
                     _ => {}
                 }
