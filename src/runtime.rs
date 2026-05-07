@@ -776,6 +776,7 @@ mod tests {
     use crate::agent::config::HematiteConfig;
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn preferred_coding_model_uses_config_before_cli() {
         let mut config = HematiteConfig::default();
         config.think_model = Some("qwen-config".into());

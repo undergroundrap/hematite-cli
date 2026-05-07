@@ -1,11 +1,11 @@
 use crate::agent::lsp::manager::LspManager;
 use serde_json::{json, Value};
 use std::fmt::Write as _;
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-fn adjust_position(root: &PathBuf, path: &str, line: u32, character: u32) -> u32 {
+fn adjust_position(root: &Path, path: &str, line: u32, character: u32) -> u32 {
     if character > 0 {
         return character;
     }

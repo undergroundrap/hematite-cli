@@ -953,7 +953,7 @@ impl App {
         let steel = Color::Rgb(110, 110, 110);
         let ice = Color::Rgb(145, 205, 255);
         let slate = Color::Rgb(42, 42, 42);
-        let pulse_on = self.tick_count % 2 == 0;
+        let pulse_on = self.tick_count.is_multiple_of(2);
 
         match speaker {
             "You" => vec![
@@ -3017,6 +3017,7 @@ fn pick_attachment_path(kind: AttachmentPickerKind) -> Result<Option<String>, St
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut specular_rx: Receiver<SpecularEvent>,
@@ -6054,8 +6055,7 @@ fn strip_ghost_prefix(s: &str) -> &str {
 
 fn first_n_chars(s: &str, n: usize) -> String {
     let mut result = String::with_capacity(n.min(s.len()));
-    let mut count = 0;
-    for c in s.chars() {
+    for (count, c) in s.chars().enumerate() {
         if count >= n {
             result.push('…');
             break;
@@ -6065,7 +6065,6 @@ fn first_n_chars(s: &str, n: usize) -> String {
         } else if !c.is_control() {
             result.push(c);
         }
-        count += 1;
     }
     result
 }

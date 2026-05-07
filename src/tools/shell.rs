@@ -17,7 +17,7 @@ pub async fn execute(args: &Value, budget_tokens: usize) -> Result<String, Strin
     let effective_limit = if budget_tokens == 0 {
         MAX_OUTPUT_BYTES
     } else {
-        budget_chars.min(MAX_OUTPUT_BYTES).max(1000)
+        budget_chars.clamp(1000, MAX_OUTPUT_BYTES)
     };
     let mut command = args
         .get("command")
@@ -74,7 +74,7 @@ pub async fn execute_streaming(
     let effective_limit = if budget_tokens == 0 {
         MAX_OUTPUT_BYTES
     } else {
-        budget_chars.min(MAX_OUTPUT_BYTES).max(1000)
+        budget_chars.clamp(1000, MAX_OUTPUT_BYTES)
     };
 
     // Background tasks don't benefit from streaming — delegate to execute().

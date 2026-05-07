@@ -573,11 +573,17 @@ fn is_known_safe_command(tokens: &[String]) -> bool {
         }
         "cargo" => {
             let sub = tokens.get(1).map(|s| s.to_lowercase());
-            match sub.as_deref() {
-                Some("check") | Some("build") | Some("test") | Some("run") | Some("fmt")
-                | Some("clippy") | Some("tree") | Some("metadata") => true,
-                _ => false,
-            }
+            matches!(
+                sub.as_deref(),
+                Some("check")
+                    | Some("build")
+                    | Some("test")
+                    | Some("run")
+                    | Some("fmt")
+                    | Some("clippy")
+                    | Some("tree")
+                    | Some("metadata")
+            )
         }
         _ => true,
     }

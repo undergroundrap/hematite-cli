@@ -385,8 +385,7 @@ fn is_conversational_advisory(lower: &str) -> bool {
         || opinion_opener
         || hypothetical
         || acknowledgment
-        || (ends_confirmation && advisory_tail)
-        || (starts_advisory && advisory_tail)
+        || ends_confirmation && advisory_tail
 }
 
 fn mentions_host_inspection_question(lower: &str) -> bool {
@@ -2353,13 +2352,15 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     }
 }
 
+type TopicDetector = (&'static str, fn(&str) -> bool);
+
 pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
     // All topic detectors in priority order — ordered so more specific topics come
     // before generic fallbacks (e.g. traceroute before network).
     let lower = user_input.to_lowercase();
     let mut topics: Vec<&'static str> = Vec::with_capacity(4);
 
-    let detectors: &[(&str, fn(&str) -> bool)] = &[
+    let detectors: &[TopicDetector] = &[
         ("overclocker", |l| {
             l.contains("overclocker")
                 || l.contains("gpu clock")
@@ -3895,9 +3896,12 @@ pub fn classify_query_intent(workflow_mode: WorkflowMode, user_input: &str) -> Q
         || lower == "/commands"
     {
         Some(DirectAnswerKind::Help)
-    } else if lower == "/about" || lower == "/version" || lower == "about" || lower == "version" {
-        Some(DirectAnswerKind::About)
-    } else if mentions_creator_question(&lower) {
+    } else if lower == "/about"
+        || lower == "/version"
+        || lower == "about"
+        || lower == "version"
+        || mentions_creator_question(&lower)
+    {
         Some(DirectAnswerKind::About)
     } else if matches!(
         lower.trim(),

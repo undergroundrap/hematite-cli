@@ -116,7 +116,7 @@ fn build_soul_from_prng(prng: &mut impl FnMut() -> u32) -> RustySoul {
         },
     };
 
-    let shiny = (prng() % 100) == 0; // 1%
+    let shiny = prng().is_multiple_of(100); // 1%
     let wisdom = (prng() % 20 + 10) as u16;
     let (snark, chaos, sprite, personality) = species_data(species);
 

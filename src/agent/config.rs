@@ -498,6 +498,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn preferred_coding_model_prefers_think_then_model_then_fast() {
         let mut config = HematiteConfig::default();
         config.fast_model = Some("fast".into());

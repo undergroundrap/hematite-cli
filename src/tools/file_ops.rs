@@ -245,8 +245,8 @@ pub async fn inspect_lines(args: &Value) -> Result<String, String> {
         end,
         total_lines
     );
-    for i in start..end {
-        let _ = writeln!(output, "[{:>4}] | {}", i + 1, lines[i]);
+    for (offset, line) in lines[start..end].iter().enumerate() {
+        let _ = writeln!(output, "[{:>4}] | {}", start + offset + 1, line);
     }
 
     Ok(output)
@@ -289,8 +289,8 @@ pub async fn tail_file(args: &Value) -> Result<String, String> {
     let window = &filtered[skip..];
 
     if window.is_empty() {
-        let note = if grep_pat.is_some() {
-            format!(" matching '{}'", grep_pat.unwrap())
+        let note = if let Some(pat) = grep_pat {
+            format!(" matching '{pat}'")
         } else {
             String::new()
         };
@@ -496,8 +496,8 @@ pub async fn patch_hunk(args: &Value) -> Result<String, String> {
 
     let mut diff = String::with_capacity(replacement.len() + (e_idx - s_idx) * 64 + 32);
     diff.push_str("\n--- HUNK DIFF ---\n");
-    for i in s_idx..e_idx {
-        let _ = writeln!(diff, "- {}", lines[i].trim_end());
+    for line in &lines[s_idx..e_idx] {
+        let _ = writeln!(diff, "- {}", line.trim_end());
     }
     for line in replacement.lines() {
         let _ = writeln!(diff, "+ {}", line.trim_end());
@@ -879,8 +879,12 @@ pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
         let match_set: std::collections::HashSet<usize> = match_idxs.into_iter().collect();
         for (start, end) in merged {
             let mut hunk_lines = Vec::with_capacity(end - start + 1);
-            for i in start..=end {
-                hunk_lines.push((i + 1, all_lines[i].to_string(), match_set.contains(&i)));
+            for (offset, line) in all_lines[start..=end].iter().enumerate() {
+                hunk_lines.push((
+                    start + offset + 1,
+                    line.to_string(),
+                    match_set.contains(&(start + offset)),
+                ));
             }
             hunks.push(Hunk {
                 path: path_str.clone(),
@@ -1578,8 +1582,8 @@ pub fn compute_patch_hunk_diff(args: &Value) -> Result<String, String> {
     let e_idx = end_line;
 
     let mut diff = format!("@@ lines {}-{} @@\n", start_line, end_line);
-    for i in s_idx..e_idx {
-        let _ = writeln!(diff, "- {}", lines[i].trim_end());
+    for line in &lines[s_idx..e_idx] {
+        let _ = writeln!(diff, "- {}", line.trim_end());
     }
     for line in replacement.lines() {
         let _ = writeln!(diff, "+ {}", line.trim_end());

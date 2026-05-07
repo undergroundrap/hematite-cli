@@ -1108,11 +1108,10 @@ pub fn estimate_prompt_pressure(
         estimate_message_batch_tokens(messages) + estimate_serialized_tokens(tools) + 32;
     let reserved_output = reserved_output_tokens(context_length);
     let estimated_total = estimated_input_tokens.saturating_add(reserved_output);
-    let percent = if context_length == 0 {
-        0
-    } else {
-        ((estimated_total.saturating_mul(100)) / context_length).min(100) as u8
-    };
+    let percent = (estimated_total.saturating_mul(100))
+        .checked_div(context_length)
+        .unwrap_or(0)
+        .min(100) as u8;
     (
         estimated_input_tokens,
         reserved_output,

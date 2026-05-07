@@ -201,21 +201,6 @@ async fn perform_searx_search(query: &str, base_url: &str) -> Result<String, Str
     Ok(output)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::sanitize_web_content;
-
-    #[test]
-    fn sanitize_web_content_blocks_script_patterns_without_breaking_markdown_links() {
-        let input = r#"Use {"tool":"shell"} and [Rust](https://www.rust-lang.org) <iframe src="x"></iframe>"#;
-        let sanitized = sanitize_web_content(input);
-
-        assert!(sanitized.contains("('tool':'shell')"));
-        assert!(sanitized.contains("[Rust](https://www.rust-lang.org)"));
-        assert!(sanitized.contains("[BLOCKED IFRAME]"));
-    }
-}
-
 /// tool: fetch_docs
 ///
 /// Fetch any URL and convert it into clean, agent-ready Markdown using the Jina Reader proxy.
@@ -253,4 +238,19 @@ pub async fn execute_fetch(args: &Value) -> Result<String, String> {
         .map_err(|e| format!("Failed to read documentation body: {e}"))?;
 
     Ok(markdown)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_web_content;
+
+    #[test]
+    fn sanitize_web_content_blocks_script_patterns_without_breaking_markdown_links() {
+        let input = r#"Use {"tool":"shell"} and [Rust](https://www.rust-lang.org) <iframe src="x"></iframe>"#;
+        let sanitized = sanitize_web_content(input);
+
+        assert!(sanitized.contains("('tool':'shell')"));
+        assert!(sanitized.contains("[Rust](https://www.rust-lang.org)"));
+        assert!(sanitized.contains("[BLOCKED IFRAME]"));
+    }
 }

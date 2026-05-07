@@ -109,7 +109,7 @@ pub fn spawn_gpu_monitor() -> Arc<GpuState> {
                 }
 
                 // Add to history every ~2 minutes (60 iterations @ 2s each)
-                if poll_count % 60 == 0 {
+                if poll_count.is_multiple_of(60) {
                     let mut history = bg.history.write().unwrap();
                     history.push_back(HistoryPoint {
                         timestamp: chrono::Local::now(),

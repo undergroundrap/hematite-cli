@@ -1645,11 +1645,7 @@ fn inspect_resource_load() -> Result<String, String> {
         let total_kb = mem_val["TotalVisibleMemorySize"].as_u64().unwrap_or(1);
         let free_kb = mem_val["FreePhysicalMemory"].as_u64().unwrap_or(0);
         let used_kb = total_kb.saturating_sub(free_kb);
-        let mem_percent = if total_kb > 0 {
-            (used_kb * 100) / total_kb
-        } else {
-            0
-        };
+        let mem_percent = (used_kb * 100).checked_div(total_kb).unwrap_or(0);
 
         let mut out = String::from("Host inspection: resource_load\n\n");
         out.push_str("**System Performance Summary:**\n");
@@ -8328,7 +8324,7 @@ fn collect_wsl_vhdx_files() -> Vec<(PathBuf, u64)> {
             vhds.push((path, metadata.len()));
         }
     }
-    vhds.sort_by(|a, b| b.1.cmp(&a.1));
+    vhds.sort_by_key(|b| std::cmp::Reverse(b.1));
     vhds
 }
 

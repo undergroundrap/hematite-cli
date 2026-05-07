@@ -16,12 +16,14 @@ pub struct LspRequest {
     pub params: Value,
 }
 
+type PendingRequests = Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>>;
+
 /// A robust, async-first LSP client for Hematite-CLI.
 pub struct LspClient {
     #[allow(dead_code)]
     child: Child,
     stdin: Arc<Mutex<tokio::process::ChildStdin>>,
-    pending_requests: Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>>,
+    pending_requests: PendingRequests,
     pub next_id: Arc<std::sync::atomic::AtomicU64>,
     /// Layer 9: Diagnostic Storage (Pinned to URI)
     pub diagnostics: Arc<Mutex<HashMap<String, Value>>>,
@@ -42,8 +44,7 @@ impl LspClient {
         let stdin = child.stdin.take().ok_or("Failed to open stdin")?;
         let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
 
-        let pending_requests: Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>> =
-            Arc::new(Mutex::new(HashMap::new()));
+        let pending_requests: PendingRequests = Arc::new(Mutex::new(HashMap::new()));
         let next_id = Arc::new(std::sync::atomic::AtomicU64::new(1));
         let diagnostics: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
 

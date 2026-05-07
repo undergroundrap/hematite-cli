@@ -673,7 +673,7 @@ fn inject_at_file_mentions(prompt: &str) -> String {
 ///
 /// We leave the two most recent messages untouched so any read that was part of the current
 /// edit cycle stays visible (the model may still reference it for adjacent edits).
-fn compact_stale_reads(history: &mut Vec<ChatMessage>, path: &str) {
+fn compact_stale_reads(history: &mut [ChatMessage], path: &str) {
     const MIN_SIZE_TO_COMPACT: usize = 800;
     let stub = "[prior read_file content compacted — file was edited; use read_file to reload]";
     let normalized = normalize_workspace_path(path);
@@ -1809,11 +1809,10 @@ impl ConversationManager {
         let vram_ratio = self.gpu_state.ratio();
         let config = CompactionConfig::adaptive(context_length, vram_ratio);
         let estimated_tokens = compaction::estimate_compactable_tokens(&self.history);
-        let percent = if config.max_estimated_tokens == 0 {
-            0
-        } else {
-            ((estimated_tokens.saturating_mul(100)) / config.max_estimated_tokens).min(100) as u8
-        };
+        let percent = (estimated_tokens.saturating_mul(100))
+            .checked_div(config.max_estimated_tokens)
+            .unwrap_or(0)
+            .min(100) as u8;
 
         let _ = tx
             .send(InferenceEvent::CompactionPressure {
@@ -4418,9 +4417,9 @@ impl ConversationManager {
             preferred_host_inspection_topic(&effective_user_input) == Some("fix_plan");
         let architecture_overview_mode = intent.architecture_overview_mode;
         let capability_needs_repo = intent.capability_needs_repo;
-        let research_mode = intent.primary_class == QueryIntentClass::Research
+        let research_mode = (capability_needs_repo || !capability_mode)
             && intent.direct_answer.is_none()
-            && !(capability_mode && !capability_needs_repo);
+            && intent.primary_class == QueryIntentClass::Research;
         let mut system_msg = build_system_with_corrections(
             &base_prompt,
             &self.correction_hints,
@@ -6802,13 +6801,9 @@ impl ConversationManager {
             };
             let context_pct = {
                 let ctx_len = self.engine.current_context_length();
-                if ctx_len > 0 {
-                    let total = input_end.saturating_sub(budget_input_start)
-                        + output_end.saturating_sub(budget_output_start);
-                    ((total * 100) / ctx_len).min(100) as u8
-                } else {
-                    0
-                }
+                let total = input_end.saturating_sub(budget_input_start)
+                    + output_end.saturating_sub(budget_output_start);
+                (total * 100).checked_div(ctx_len).unwrap_or(0).min(100) as u8
             };
             // Collapse duplicate tool names into summed costs (insertion order preserved).
             let mut tool_costs: Vec<crate::agent::economics::ToolCost> =

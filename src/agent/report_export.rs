@@ -1,6 +1,6 @@
 use serde_json::json;
 use std::fmt::Write as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const REPORT_TOPICS: &[(&str, &str)] = &[
     ("health_report", "System Health"),
@@ -1356,7 +1356,7 @@ fn report_path(ext: &str) -> PathBuf {
         .join(format!("health-{}.{}", now_file_timestamp(), ext))
 }
 
-fn ensure_parent(path: &PathBuf) {
+fn ensure_parent(path: &Path) {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
@@ -1407,7 +1407,9 @@ fn epoch_to_ymd_hms(epoch: u64) -> (u32, u32, u32, u32, u32, u32) {
     let rem = rem - years_1 * 365;
 
     let year = (1970 + years_400 * 400 + years_100 * 100 + years_4 * 4 + years_1) as u32;
-    let leap = u32::from(year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+    let leap = u32::from(
+        year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)),
+    );
     let month_days: [u32; 12] = [31, 28 + leap, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     let mut rem = rem as u32;
     let mut month = 1u32;

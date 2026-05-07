@@ -204,8 +204,6 @@ fn detect_lint_command(root: &Path) -> Result<String, String> {
             "{} run lint --if-present",
             detect_node_package_manager(root)
         ))
-    } else if root.join("go.mod").exists() {
-        Err(missing_workspace_command_message("lint", root))
     } else {
         Err(missing_workspace_command_message("lint", root))
     }
@@ -825,9 +823,10 @@ fn normalize_route_hints(routes: Vec<String>) -> Vec<String> {
         if trimmed.is_empty() {
             continue;
         }
-        if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
-            normalized.insert(trimmed.to_string());
-        } else if trimmed.starts_with('/') {
+        if trimmed.starts_with("http://")
+            || trimmed.starts_with("https://")
+            || trimmed.starts_with('/')
+        {
             normalized.insert(trimmed.to_string());
         } else {
             normalized.insert(format!("/{}", trimmed));

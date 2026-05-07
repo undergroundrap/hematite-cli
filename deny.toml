@@ -3,13 +3,12 @@
 # Install: cargo install cargo-deny
 
 [advisories]
-# Deny crates with known security vulnerabilities
 version = 2
-ignore = []
+# Stuck in ratatui 0.29 transitive deps — no fixed version available upstream
+ignore = ["RUSTSEC-2026-0002", "RUSTSEC-2024-0436"]
 
 [licenses]
 version = 2
-# Allow permissive OSS licenses common in the Rust ecosystem
 allow = [
     "MIT",
     "Apache-2.0",
@@ -18,30 +17,42 @@ allow = [
     "BSD-3-Clause",
     "ISC",
     "Unicode-3.0",
-    "Unicode-DFS-2016",
     "CC0-1.0",
     "Zlib",
-    "OpenSSL",
-    "blessing",         # sqlite3-sys uses the SQLite "blessing"
+    # Hematite itself
+    "AGPL-3.0-only",
+    # symphonia (audio decoding via rodio) + option-ext (via dirs)
+    "MPL-2.0",
+    # mp3lame-encoder, mp3lame-sys, wav — LGPL means dynamic relinking required;
+    # acceptable for an open-source CLI where source is available
+    "LGPL-3.0-only",
+    # webpki-root-certs (certificate data, not code) via ort/ureq
+    "CDLA-Permissive-2.0",
+    # language-tokenizer via misaki-rs/kokoros
+    "WTFPL",
 ]
 
-# ring uses a non-standard license combining ISC, MIT, and BoringSSL
-[[licenses.exceptions]]
-allow = ["ISC", "MIT", "OpenSSL"]
-name = "ring"
+# These crates use the deprecated SPDX identifier "LGPL-3.0" instead of "LGPL-3.0-only"
+# cargo-deny doesn't normalize deprecated IDs, so we clarify them explicitly
+[[licenses.clarify]]
+name = "mp3lame-encoder"
+expression = "LGPL-3.0-only"
+license-files = []
 
-# webpki uses ISC
-[[licenses.exceptions]]
-allow = ["ISC"]
-name = "webpki"
+[[licenses.clarify]]
+name = "mp3lame-sys"
+expression = "LGPL-3.0-only"
+license-files = []
+
+[[licenses.clarify]]
+name = "wav"
+expression = "LGPL-3.0-only"
+license-files = []
 
 [bans]
-# Warn when multiple versions of the same crate are pulled in
 multiple-versions = "warn"
 wildcards = "allow"
 highlight = "all"
-
-# Deny crates we never want in the dependency tree
 deny = []
 
 [sources]
