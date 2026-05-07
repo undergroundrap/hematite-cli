@@ -177,7 +177,9 @@ pub fn build_diagnose_instruction(health_output: &str, follow_up_topics: &[&str]
     let topic_list = {
         let mut s = String::with_capacity(follow_up_topics.len() * 40);
         for (i, t) in follow_up_topics.iter().enumerate() {
-            if i > 0 { s.push('\n'); }
+            if i > 0 {
+                s.push('\n');
+            }
             let _ = write!(s, "{}. inspect_host(topic=\"{}\")", i + 1, t);
         }
         s

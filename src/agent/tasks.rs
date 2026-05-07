@@ -1,5 +1,5 @@
-use std::fmt::Write as _;
 use serde::{Deserialize, Serialize};
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

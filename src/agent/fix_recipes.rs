@@ -820,7 +820,8 @@ pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
             _ => ("sev-monitor", "b-monitor", "MONITOR"),
         };
         let _ = write!(out, "<div class=\"recipe {}\">\n", sev_class);
-        let _ = write!(out,
+        let _ = write!(
+            out,
             "<h3><span class=\"badge {}\">{}</span> {}. {}</h3>\n",
             badge_class,
             badge_text,

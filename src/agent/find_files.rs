@@ -1,6 +1,6 @@
-use std::fmt::Write as _;
 use crate::agent::fuzzy::fuzzy_match;
 use serde_json::Value;
+use std::fmt::Write as _;
 use walkdir::WalkDir;
 
 /// Precision File Discovery using Fuzzy Matching.

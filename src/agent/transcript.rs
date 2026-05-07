@@ -43,7 +43,12 @@ impl TranscriptLogger {
             .open(&self.session_file)
         {
             if output.len() > 500 {
-                let _ = write!(file, "[AGENT] {}... [TRUNCATED {} bytes]\n", safe_head(output, 500), output.len());
+                let _ = write!(
+                    file,
+                    "[AGENT] {}... [TRUNCATED {} bytes]\n",
+                    safe_head(output, 500),
+                    output.len()
+                );
             } else {
                 let _ = write!(file, "[AGENT] {}\n", output);
             }
@@ -65,4 +70,3 @@ impl TranscriptLogger {
         }
     }
 }
-

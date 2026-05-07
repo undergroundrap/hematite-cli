@@ -581,7 +581,8 @@ impl InferenceEngine {
         }
 
         if professional {
-            let _ = write!(sys,
+            let _ = write!(
+                sys,
                 "You are Hematite, a local coding system running on {}. \
                  The TUI is one interface layer, not your whole identity. \
                  Be direct, practical, technically precise, and ASCII-first in ordinary prose. \
@@ -601,7 +602,8 @@ impl InferenceEngine {
         // Inject loaded model and context window so the model knows its own budget.
         let current_model = self.current_model();
         if !current_model.is_empty() {
-            let _ = write!(sys,
+            let _ = write!(
+                sys,
                 "Loaded model: {} | Context window: {} tokens. \
                  Calibrate response length and tool-call depth to fit within this budget.\n\n",
                 current_model, current_context_length
@@ -689,7 +691,8 @@ impl InferenceEngine {
             for tool in tools {
                 let schema = serde_json::to_string(&tool.function.parameters)
                     .unwrap_or_else(|_| "{}".to_string());
-                let _ = write!(sys,
+                let _ = write!(
+                    sys,
                     "<|tool>declaration:{}{}{}<tool|>\n",
                     tool.function.name, "{", schema
                 );
@@ -719,12 +722,14 @@ impl InferenceEngine {
         if professional {
             sys.push_str("Be direct, technical, concise, and ASCII-first.\n");
         } else {
-            let _ = write!(sys,
+            let _ = write!(
+                sys,
                 "You are a [{}] local AI coding system. Be direct, concise, and technical.\n",
                 self.species
             );
         }
-        let _ = write!(sys,
+        let _ = write!(
+            sys,
             "Model: {} | Context: {} tokens. Keep turns focused.\n",
             current_model, current_context_length
         );
@@ -735,7 +740,8 @@ impl InferenceEngine {
             );
         }
         if cfg!(target_os = "windows") {
-            let _ = write!(sys,
+            let _ = write!(
+                sys,
                 "OS: {}. Use PowerShell for shell. Never bash or /dev/null.\n",
                 os
             );
@@ -778,21 +784,20 @@ impl InferenceEngine {
         if professional {
             sys.push_str("Be direct, technical, concise, and ASCII-first.\n");
         } else {
-            let _ = write!(sys,
+            let _ = write!(
+                sys,
                 "You are a [{}] local AI coding system. Be direct, concise, and technical.\n",
                 self.species
             );
         }
         if !current_model.is_empty() {
-            let _ = write!(sys,
+            let _ = write!(
+                sys,
                 "Loaded model: {} | Context window: {} tokens.\n",
                 current_model, current_context_length
             );
         } else {
-            let _ = write!(sys,
-                "Context window: {} tokens.\n",
-                current_context_length
-            );
+            let _ = write!(sys, "Context window: {} tokens.\n", current_context_length);
         }
         sys.push_str("Tiny-context mode is active. Keep turns short. Prefer final answers over long analysis. Only use tools when necessary.\n");
         sys.push_str("Use built-in workspace tools for local inspection and edits. Do not invent tools, files, channels, or symbols.\n");
@@ -803,7 +808,8 @@ impl InferenceEngine {
                 os
             );
         } else {
-            let _ = write!(sys,
+            let _ = write!(
+                sys,
                 "You are running on {}. Use the native Unix shell conventions.\n",
                 os
             );
@@ -1269,7 +1275,10 @@ pub fn strip_think_blocks(text: &str) -> String {
     // allocation so it can't slip through any branch below.
     let text = {
         let t = text.trim_start();
-        if t.get(..8).map(|s| s.eq_ignore_ascii_case("</think>")).unwrap_or(false) {
+        if t.get(..8)
+            .map(|s| s.eq_ignore_ascii_case("</think>"))
+            .unwrap_or(false)
+        {
             &t[8..]
         } else {
             text

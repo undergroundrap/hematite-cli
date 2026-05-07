@@ -1,5 +1,5 @@
-use std::fmt::Write as _;
 use serde_json::Value;
+use std::fmt::Write as _;
 use std::process::Command;
 
 /// tool: git_onboarding

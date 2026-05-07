@@ -1,7 +1,7 @@
-use std::fmt::Write as _;
 use crate::agent::truncation::safe_head;
 use rusqlite::{types::Value as SqlValue, Connection};
 use serde_json::Value;
+use std::fmt::Write as _;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -322,7 +322,9 @@ fn export_to_csv(path: &PathBuf, items: &[Value]) -> Result<String, String> {
                 row.push(val);
             }
             for (i, val) in row.iter().enumerate() {
-                if i > 0 { content.push(','); }
+                if i > 0 {
+                    content.push(',');
+                }
                 content.push_str(val);
             }
             content.push('\n');

@@ -85,7 +85,9 @@ impl RecoveryRecipe {
             + self.steps.len().saturating_sub(1) * 4;
         let mut s = String::with_capacity(cap);
         for (i, step) in self.steps.iter().enumerate() {
-            if i > 0 { s.push_str(" -> "); }
+            if i > 0 {
+                s.push_str(" -> ");
+            }
             s.push_str(step.label());
         }
         s

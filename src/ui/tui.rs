@@ -1,10 +1,9 @@
-use std::fmt::Write as _;
 use super::modal_review::{draw_diff_review, ActiveReview};
 use crate::agent::conversation::{AttachedDocument, AttachedImage, UserTurn};
-use crate::agent::truncation::safe_head;
 use crate::agent::inference::{McpRuntimeState, OperatorCheckpointState, ProviderRuntimeState};
 use crate::agent::specular::SpecularEvent;
 use crate::agent::swarm::{ReviewResponse, SwarmMessage};
+use crate::agent::truncation::safe_head;
 use crate::agent::utils::{strip_ansi, CRLF_REGEX};
 use crate::ui::gpu_monitor::GpuState;
 use crossterm::event::{self, Event, EventStream, KeyCode};
@@ -20,6 +19,7 @@ use ratatui::{
     },
     Terminal,
 };
+use std::fmt::Write as _;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::Receiver;
@@ -1558,7 +1558,8 @@ impl App {
             out.push('\n');
         }
 
-        let _ = write!(out,
+        let _ = write!(
+            out,
             "Tokens: {} | Cost: ${:.4}\n",
             self.total_tokens, self.current_session_cost
         );
@@ -5676,9 +5677,20 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         Span::styled(prompt_label, Style::default().fg(prompt_color)),
         Span::styled(" ", Style::default().fg(Color::Rgb(40, 40, 40))),
         Span::styled(compaction_label, Style::default().fg(compaction_color)),
-        Span::styled(format!("{} ", think_badge), Style::default().fg(Color::Cyan)),
-        Span::styled(vigil_badge.to_string(), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-        Span::styled(yolo_badge.to_string(), Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", think_badge),
+            Style::default().fg(Color::Cyan),
+        ),
+        Span::styled(
+            vigil_badge.to_string(),
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            yolo_badge.to_string(),
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ),
         Span::styled(" │ ", Style::default().fg(Color::Rgb(40, 40, 40))),
         Span::styled(session_usage_text, Style::default().fg(usage_color)),
     ];
@@ -6301,7 +6313,8 @@ fn draw_splash<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), Box<dyn std
         let content_height: u16 = 19;
         let top_pad = area.height.saturating_sub(content_height) / 2;
 
-        let mut lines: Vec<Line<'static>> = Vec::with_capacity((top_pad + content_height) as usize + 4);
+        let mut lines: Vec<Line<'static>> =
+            Vec::with_capacity((top_pad + content_height) as usize + 4);
 
         for _ in 0..top_pad {
             lines.push(Line::raw(""));

@@ -526,8 +526,13 @@ fn infer_website_framework(package: &Value) -> String {
     let deps = dependency_names(package);
     let script_text = {
         let mut s = String::new();
-        for text in package_scripts(package).into_values().filter_map(|value| value.as_str().map(|t| t.to_ascii_lowercase())) {
-            if !s.is_empty() { s.push('\n'); }
+        for text in package_scripts(package)
+            .into_values()
+            .filter_map(|value| value.as_str().map(|t| t.to_ascii_lowercase()))
+        {
+            if !s.is_empty() {
+                s.push('\n');
+            }
             s.push_str(&text);
         }
         s
@@ -764,7 +769,9 @@ async fn validate_website_server(args: &Value, root: &Path) -> Result<String, St
     if !issues.is_empty() {
         out.push_str("\n\nIssues\n");
         for (i, issue) in issues.iter().enumerate() {
-            if i > 0 { out.push('\n'); }
+            if i > 0 {
+                out.push('\n');
+            }
             out.push_str("- ");
             out.push_str(issue);
         }
@@ -883,7 +890,8 @@ async fn website_server_status(args: &Value, root: &Path) -> Result<String, Stri
         state.log_path
     );
     if let Some(probe) = probe {
-        let _ = write!(out,
+        let _ = write!(
+            out,
             "\n\nHTTP {}{}\n{}",
             probe.status,
             probe
@@ -978,7 +986,8 @@ async fn fetch_website_snapshot(
 fn extract_html_title(body: &str) -> Option<String> {
     use std::sync::OnceLock;
     static RE: OnceLock<Regex> = OnceLock::new();
-    let re = RE.get_or_init(|| Regex::new(r"(?is)<title[^>]*>(.*?)</title>").expect("valid title regex"));
+    let re = RE
+        .get_or_init(|| Regex::new(r"(?is)<title[^>]*>(.*?)</title>").expect("valid title regex"));
     re.captures(body)
         .and_then(|captures| captures.get(1).map(|value| value.as_str()))
         .map(compact_whitespace)

@@ -1,5 +1,5 @@
-use std::fmt::Write as _;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -354,7 +354,8 @@ pub fn render_active_skill_bodies(
 
 pub fn render_skills_report(discovery: &SkillDiscovery) -> String {
     let mut report = String::from("## Agent Skills\n\n");
-    let _ = write!(report,
+    let _ = write!(
+        report,
         "Project skill directories: {}\n\n",
         if discovery.project_skills_loaded {
             "loaded"
@@ -381,7 +382,8 @@ pub fn render_skills_report(discovery: &SkillDiscovery) -> String {
 
     report.push_str("Discovered skills:\n");
     for skill in &discovery.skills {
-        let _ = write!(report,
+        let _ = write!(
+            report,
             "- `{}` [{}] — {}\n  SKILL.md: {}\n",
             skill.name,
             skill.scope.label(),
@@ -389,10 +391,7 @@ pub fn render_skills_report(discovery: &SkillDiscovery) -> String {
             skill.skill_md_path.display()
         );
         if !skill.triggers.is_empty() {
-            let _ = write!(report,
-                "  auto-activates: {}\n",
-                skill.triggers.join(", ")
-            );
+            let _ = write!(report, "  auto-activates: {}\n", skill.triggers.join(", "));
         }
         if let Some(compatibility) = &skill.compatibility {
             let _ = write!(report, "  compatibility: {}\n", compatibility);
@@ -467,7 +466,10 @@ pub fn render_instructions(files: &[InstructionFile], max_chars: usize) -> Optio
         }
 
         let content = if file.content.len() > remaining {
-            format!("{}\n... [truncated]", safe_head(&file.content, remaining.saturating_sub(20)))
+            format!(
+                "{}\n... [truncated]",
+                safe_head(&file.content, remaining.saturating_sub(20))
+            )
         } else {
             file.content.clone()
         };

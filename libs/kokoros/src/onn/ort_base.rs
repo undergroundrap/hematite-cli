@@ -1,5 +1,5 @@
-use ort::session::Session;
 use crate::tts::koko::ModelStrategy;
+use ort::session::Session;
 
 pub trait OrtBase {
     fn set_sess(&mut self, sess: Session);
@@ -8,7 +8,7 @@ pub trait OrtBase {
     fn load_model(&mut self, model_path: String) -> Result<(), Box<dyn std::error::Error>> {
         let sess = Session::builder()?
             .with_execution_providers([
-                ort::execution_providers::CPUExecutionProvider::default().build(),
+                ort::execution_providers::CPUExecutionProvider::default().build()
             ])?
             .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Disable)?
             .with_memory_pattern(false)?
@@ -21,10 +21,13 @@ pub trait OrtBase {
         Ok(())
     }
 
-    fn load_model_from_memory(&mut self, model_bytes: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    fn load_model_from_memory(
+        &mut self,
+        model_bytes: &[u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let sess = Session::builder()?
             .with_execution_providers([
-                ort::execution_providers::CPUExecutionProvider::default().build(),
+                ort::execution_providers::CPUExecutionProvider::default().build()
             ])?
             .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Disable)?
             .with_memory_pattern(false)?

@@ -55,7 +55,9 @@ fn python_ref_bundle() -> Option<&'static (Language, Query)> {
     static Q: OnceLock<Option<(Language, Query)>> = OnceLock::new();
     Q.get_or_init(|| {
         let lang: Language = tree_sitter_python::LANGUAGE.into();
-        Query::new(&lang, "(identifier) @ref").ok().map(|q| (lang, q))
+        Query::new(&lang, "(identifier) @ref")
+            .ok()
+            .map(|q| (lang, q))
     })
     .as_ref()
 }
@@ -101,7 +103,9 @@ fn js_ref_bundle() -> Option<&'static (Language, Query)> {
     static Q: OnceLock<Option<(Language, Query)>> = OnceLock::new();
     Q.get_or_init(|| {
         let lang: Language = tree_sitter_javascript::LANGUAGE.into();
-        Query::new(&lang, "(identifier) @ref").ok().map(|q| (lang, q))
+        Query::new(&lang, "(identifier) @ref")
+            .ok()
+            .map(|q| (lang, q))
     })
     .as_ref()
 }
@@ -200,12 +204,10 @@ impl RepoMapGenerator {
                         if let Some(tree) = parser.parse(&source_code, None) {
                             // Def pass
                             let mut cursor = QueryCursor::new();
-                            for m in
-                                cursor.matches(def_q, tree.root_node(), source_code.as_bytes())
+                            for m in cursor.matches(def_q, tree.root_node(), source_code.as_bytes())
                             {
                                 for capture in m.captures {
-                                    if let Ok(text) =
-                                        capture.node.utf8_text(source_code.as_bytes())
+                                    if let Ok(text) = capture.node.utf8_text(source_code.as_bytes())
                                     {
                                         let name = text.to_string();
                                         all_files.insert(rel_path.clone());
@@ -224,12 +226,10 @@ impl RepoMapGenerator {
                             // Ref pass — seen_refs borrows source_code bytes to avoid String clones
                             let mut cursor = QueryCursor::new();
                             let mut seen_refs: HashSet<&str> = HashSet::new();
-                            for m in
-                                cursor.matches(ref_q, tree.root_node(), source_code.as_bytes())
+                            for m in cursor.matches(ref_q, tree.root_node(), source_code.as_bytes())
                             {
                                 for capture in m.captures {
-                                    if let Ok(text) =
-                                        capture.node.utf8_text(source_code.as_bytes())
+                                    if let Ok(text) = capture.node.utf8_text(source_code.as_bytes())
                                     {
                                         if seen_refs.insert(text) {
                                             all_files.insert(rel_path.clone());
@@ -248,12 +248,10 @@ impl RepoMapGenerator {
                     if parser.set_language(lang).is_ok() {
                         if let Some(tree) = parser.parse(&source_code, None) {
                             let mut cursor = QueryCursor::new();
-                            for m in
-                                cursor.matches(def_q, tree.root_node(), source_code.as_bytes())
+                            for m in cursor.matches(def_q, tree.root_node(), source_code.as_bytes())
                             {
                                 for capture in m.captures {
-                                    if let Ok(text) =
-                                        capture.node.utf8_text(source_code.as_bytes())
+                                    if let Ok(text) = capture.node.utf8_text(source_code.as_bytes())
                                     {
                                         let name = text.to_string();
                                         all_files.insert(rel_path.clone());
@@ -276,12 +274,10 @@ impl RepoMapGenerator {
                         if let Some(tree) = parser.parse(&source_code, None) {
                             let mut cursor = QueryCursor::new();
                             let mut seen_refs: HashSet<&str> = HashSet::new();
-                            for m in
-                                cursor.matches(ref_q, tree.root_node(), source_code.as_bytes())
+                            for m in cursor.matches(ref_q, tree.root_node(), source_code.as_bytes())
                             {
                                 for capture in m.captures {
-                                    if let Ok(text) =
-                                        capture.node.utf8_text(source_code.as_bytes())
+                                    if let Ok(text) = capture.node.utf8_text(source_code.as_bytes())
                                     {
                                         if seen_refs.insert(text) {
                                             all_files.insert(rel_path.clone());
@@ -424,9 +420,8 @@ impl RepoMapGenerator {
             .node_indices()
             .map(|idx| (graph[idx].clone(), scores[idx.index()]))
             .collect();
-        ranked_files.sort_unstable_by(|a, b| {
-            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        ranked_files
+            .sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut output = String::with_capacity(self.max_symbols * 40 + 64);
         output.push_str("=== Repository Map (Structural Overview) ===\n");

@@ -158,9 +158,17 @@ async fn poll_nvidia_smi() -> Option<GpuMetrics> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let line = stdout.trim();
     let mut it = line.split(',').map(|s| s.trim());
-    let (Some(p0), Some(p1), Some(p2), Some(p3), Some(p4), Some(p5), Some(p6), Some(p7), Some(p8)) =
-        (it.next(), it.next(), it.next(), it.next(), it.next(), it.next(), it.next(), it.next(), it.next())
-    else {
+    let (Some(p0), Some(p1), Some(p2), Some(p3), Some(p4), Some(p5), Some(p6), Some(p7), Some(p8)) = (
+        it.next(),
+        it.next(),
+        it.next(),
+        it.next(),
+        it.next(),
+        it.next(),
+        it.next(),
+        it.next(),
+        it.next(),
+    ) else {
         return None;
     };
 

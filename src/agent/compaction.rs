@@ -1,6 +1,6 @@
-use std::fmt::Write as _;
 use crate::agent::inference::ChatMessage;
 use std::collections::{BTreeSet, HashSet};
+use std::fmt::Write as _;
 
 /// Professional Compaction Configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -234,7 +234,8 @@ impl SessionMemory {
             if checkpoint.summary.trim().is_empty() {
                 let _ = write!(s, "- **Latest Checkpoint**: {}\n", checkpoint.state);
             } else {
-                let _ = write!(s,
+                let _ = write!(
+                    s,
                     "- **Latest Checkpoint**: {} - {}\n",
                     checkpoint.state, checkpoint.summary
                 );
@@ -244,7 +245,8 @@ impl SessionMemory {
             if blocker.summary.trim().is_empty() {
                 let _ = write!(s, "- **Latest Blocker**: {}\n", blocker.state);
             } else {
-                let _ = write!(s,
+                let _ = write!(
+                    s,
                     "- **Latest Blocker**: {} - {}\n",
                     blocker.state, blocker.summary
                 );
@@ -254,7 +256,8 @@ impl SessionMemory {
             if recovery.summary.trim().is_empty() {
                 let _ = write!(s, "- **Latest Recovery**: {}\n", recovery.state);
             } else {
-                let _ = write!(s,
+                let _ = write!(
+                    s,
                     "- **Latest Recovery**: {} - {}\n",
                     recovery.state, recovery.summary
                 );
@@ -266,13 +269,15 @@ impl SessionMemory {
             } else {
                 "failed"
             };
-            let _ = write!(s,
+            let _ = write!(
+                s,
                 "- **Latest Verification**: {} - {}\n",
                 status, verification.summary
             );
         }
         if let Some(compaction) = &self.last_compaction {
-            let _ = write!(s,
+            let _ = write!(
+                s,
                 "- **Latest Compaction**: pass {} removed {} message(s) - {}\n",
                 compaction.count, compaction.removed_message_count, compaction.summary
             );
@@ -648,10 +653,15 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
         {
             {
                 let calls = m.tool_calls.as_ref().unwrap();
-                let mut s = String::with_capacity(14 + calls.iter().map(|c| c.function.name.len()).sum::<usize>() + calls.len().saturating_sub(1) * 2);
+                let mut s = String::with_capacity(
+                    14 + calls.iter().map(|c| c.function.name.len()).sum::<usize>()
+                        + calls.len().saturating_sub(1) * 2,
+                );
                 s.push_str("Executing: ");
                 for (i, c) in calls.iter().enumerate() {
-                    if i > 0 { s.push_str(", "); }
+                    if i > 0 {
+                        s.push_str(", ");
+                    }
                     s.push_str(&c.function.name);
                 }
                 s
@@ -765,7 +775,6 @@ fn push_summary_line_with_budget(
         lines.push(line);
     }
 }
-
 
 fn summary_line_priority(line: &str) -> usize {
     if line == "Conversation summary:" || is_core_summary_detail(line) {

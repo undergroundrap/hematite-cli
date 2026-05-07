@@ -1,8 +1,8 @@
 use indicatif::{ProgressBar, ProgressStyle};
+use reqwest;
 use serde_json::Value;
 use std::io::Read;
 use tokio::{fs::File, io::AsyncWriteExt};
-use reqwest;
 
 pub async fn download_file_from_url(
     url: &str,

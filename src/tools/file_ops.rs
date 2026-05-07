@@ -185,7 +185,8 @@ pub async fn read_file(args: &Value, budget_tokens: usize) -> Result<String, Str
         let safe_end = safe_head(&content, char_limit).len();
         content.truncate(safe_end);
         content.push_str("\n\n--- [PREDICTIVE TRUNCATION: CONTEXT BUDGET REACHED] ---\n");
-        let _ = write!(content,
+        let _ = write!(
+            content,
             "Output truncated at {} chars to prevent context window flooding. ",
             char_limit
         );
@@ -433,7 +434,8 @@ pub async fn edit_file(args: &Value) -> Result<String, String> {
         ""
     };
 
-    let mut diff_block = String::with_capacity(effective_search.len() + effective_replace.len() + 32);
+    let mut diff_block =
+        String::with_capacity(effective_search.len() + effective_replace.len() + 32);
     diff_block.push_str("\n--- DIFF \n");
     for line in effective_search.lines() {
         let _ = write!(diff_block, "- {}\n", line);
@@ -773,7 +775,8 @@ pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
 
         let mut out = format!("{total} file(s) match '{pattern}'");
         if offset > 0 || showing < total {
-            let _ = write!(out,
+            let _ = write!(
+                out,
                 " [showing {}-{} of {total}]",
                 offset + 1,
                 offset + showing
@@ -897,7 +900,8 @@ pub async fn grep_files(args: &Value, budget: usize) -> Result<String, String> {
     let mut out =
         format!("{total_matches} match(es) across {files_matched} file(s), {total_hunks} hunk(s)");
     if offset > 0 || showing < total_hunks {
-        let _ = write!(out,
+        let _ = write!(
+            out,
             " [hunks {}-{} of {total_hunks}]",
             offset + 1,
             offset + showing
@@ -1240,7 +1244,9 @@ fn nearest_lines(content: &str, search: &str) -> String {
     let count = end - start;
     let mut snippet = String::with_capacity(count * 60);
     for (i, l) in lines[start..end].iter().enumerate() {
-        if i > 0 { snippet.push('\n'); }
+        if i > 0 {
+            snippet.push('\n');
+        }
         let _ = write!(snippet, "{:>4} | {}", start + i + 1, l);
     }
 
@@ -1325,7 +1331,9 @@ fn rstrip_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize
     find_span_normalised(content, search, |s| {
         let mut out = String::with_capacity(s.len());
         for (i, l) in s.lines().enumerate() {
-            if i > 0 { out.push('\n'); }
+            if i > 0 {
+                out.push('\n');
+            }
             out.push_str(l.trim_end());
         }
         out
@@ -1378,7 +1386,9 @@ fn fuzzy_find_span(content: &str, search: &str) -> Option<std::ops::Range<usize>
     find_span_normalised(content, search, |s| {
         let mut result = String::with_capacity(s.len());
         for (i, l) in s.lines().enumerate() {
-            if i > 0 { result.push('\n'); }
+            if i > 0 {
+                result.push('\n');
+            }
             result.push_str(l.trim());
         }
         result
@@ -1449,7 +1459,9 @@ fn dedent(s: &str) -> String {
         .unwrap_or(0);
     let mut out = String::with_capacity(s.len());
     for (i, l) in expanded.iter().enumerate() {
-        if i > 0 { out.push('\n'); }
+        if i > 0 {
+            out.push('\n');
+        }
         if l.trim().is_empty() {
             // blank line: push nothing (empty string)
         } else {

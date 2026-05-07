@@ -1,7 +1,7 @@
-use std::fmt::Write as _;
 use lazy_static::lazy_static;
 use reqwest::header::USER_AGENT;
 use serde_json::Value;
+use std::fmt::Write as _;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
@@ -35,7 +35,9 @@ pub async fn execute_search(args: &Value, searx_url: Option<String>) -> Result<S
         .replace("crate", "")
         .split_whitespace()
         .fold(String::new(), |mut s, w| {
-            if !s.is_empty() { s.push(' '); }
+            if !s.is_empty() {
+                s.push(' ');
+            }
             s.push_str(w);
             s
         });
@@ -181,7 +183,8 @@ async fn perform_searx_search(query: &str, base_url: &str) -> Result<String, Str
             let url = res.get("url").and_then(|v| v.as_str()).unwrap_or("#");
             let content = res.get("content").and_then(|v| v.as_str()).unwrap_or("");
 
-            let _ = write!(output,
+            let _ = write!(
+                output,
                 "### {}. [{}]({})\n{}\n\n",
                 i + 1,
                 title,

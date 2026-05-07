@@ -73,20 +73,26 @@ impl OrtBase for OrtKoko {
                 let ns_tensor = Array::from_elem((1,), 0.667f32).into_dyn(); // Rank-1 (Standard Energy)
                 let ns_val: ort::value::Value = ort::value::Value::from_array(ns_tensor)?.into();
                 session_inputs.push((node_name.as_str(), ns_val));
-                tracing::info!("Sovereign Engine: Diamond Clarity Vector Forced (Node: {}).", node_name);
+                tracing::info!(
+                    "Sovereign Engine: Diamond Clarity Vector Forced (Node: {}).",
+                    node_name
+                );
             }
             if noise_w_aliases.contains(&node_name.as_str()) {
                 let nsw_tensor = Array::from_elem((1,), 0.8f32).into_dyn(); // Rank-1 (Standard Energy)
                 let nsw_val: ort::value::Value = ort::value::Value::from_array(nsw_tensor)?.into();
                 session_inputs.push((node_name.as_str(), nsw_val));
-                tracing::info!("Sovereign Engine: Diamond Breath Suppression Vector Forced (Node: {}).", node_name);
+                tracing::info!(
+                    "Sovereign Engine: Diamond Breath Suppression Vector Forced (Node: {}).",
+                    node_name
+                );
             }
         }
 
         let outputs = session.run(session_inputs)?;
 
         let audio_key = strategy.audio_key();
-        
+
         // Extract using 2.0 API which returns (Shape, &[T]) in this version
         let (shape, data) = outputs[audio_key].try_extract_tensor::<f32>()?;
         let dims: Vec<usize> = shape.iter().map(|&d| d as usize).collect();

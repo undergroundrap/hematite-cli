@@ -437,11 +437,12 @@ fn build_continue_plan_execution_prompt(progress: TaskChecklistProgress) -> Stri
 }
 
 fn backtick_join(paths: &[String]) -> String {
-    let cap = paths.iter().map(|p| p.len() + 2).sum::<usize>()
-        + paths.len().saturating_sub(1) * 2;
+    let cap = paths.iter().map(|p| p.len() + 2).sum::<usize>() + paths.len().saturating_sub(1) * 2;
     let mut s = String::with_capacity(cap);
     for (i, p) in paths.iter().enumerate() {
-        if i > 0 { s.push_str(", "); }
+        if i > 0 {
+            s.push_str(", ");
+        }
         s.push('`');
         s.push_str(p);
         s.push('`');
@@ -724,7 +725,9 @@ fn read_file_preview_for_retry(path: &str, max_lines: usize) -> String {
     let total = content.lines().count();
     let mut lines = String::with_capacity(max_lines * 60);
     for (i, line) in content.lines().enumerate().take(max_lines) {
-        if i > 0 { lines.push('\n'); }
+        if i > 0 {
+            lines.push('\n');
+        }
         let _ = write!(lines, "{:>4}  {}", i + 1, line);
     }
     if total > max_lines {
@@ -1693,7 +1696,8 @@ impl ConversationManager {
         for (room, files) in by_room {
             let _ = write!(out, "[{}]\n", room);
             for file in files {
-                let _ = write!(out,
+                let _ = write!(
+                    out,
                     "- {} [{} edit{}]\n",
                     file.path,
                     file.heat,
@@ -1858,7 +1862,8 @@ impl ConversationManager {
             if let Some((alt_name, alt_url)) =
                 crate::runtime::detect_alternative_provider(&provider_name).await
             {
-                let _ = write!(summary,
+                let _ = write!(
+                    summary,
                     " | reachable alternative: {} ({})",
                     alt_name, alt_url
                 );
@@ -1955,7 +1960,9 @@ impl ConversationManager {
         }
         let mut lines = String::with_capacity(models.len() * 40);
         for (idx, model) in models.iter().enumerate() {
-            if idx > 0 { lines.push('\n'); }
+            if idx > 0 {
+                lines.push('\n');
+            }
             let _ = write!(lines, "{}. {}", idx + 1, model);
         }
         Ok(format!(
@@ -3209,7 +3216,8 @@ impl ConversationManager {
                             let _ = write!(combined, "## {}\n\n{}\n\n", name, content.trim());
                         }
                         Err(e) => {
-                            let _ = write!(combined,
+                            let _ = write!(
+                                combined,
                                 "## {}\n\nError reading {}: {}\n\n",
                                 name,
                                 path.display(),
@@ -3844,7 +3852,8 @@ impl ConversationManager {
                         provider_name, endpoint
                     );
                     if let Some((alt_name, alt_url)) = alternative {
-                        let _ = write!(message,
+                        let _ = write!(
+                            message,
                             " Reachable alternative detected: {} ({})",
                             alt_name, alt_url
                         );
@@ -4363,7 +4372,8 @@ impl ConversationManager {
         if !tiny_context_mode {
             if let Some(hint) = &config.context_hint {
                 if !hint.trim().is_empty() {
-                    let _ = write!(base_prompt,
+                    let _ = write!(
+                        base_prompt,
                         "\n\n# Project Context (from .hematite/settings.json)\n{}",
                         hint
                     );
@@ -4499,7 +4509,8 @@ impl ConversationManager {
         }
 
         // ── Inject Pinned Files (Context Locking) ───────────────────────────
-        let _ = write!(system_msg,
+        let _ = write!(
+            system_msg,
             "\n\n# WORKFLOW MODE\nCURRENT WORKFLOW: {}\n",
             self.workflow_mode.label()
         );
@@ -4528,7 +4539,8 @@ impl ConversationManager {
             }
             // Inject any explicitly force-loaded skill from /skill <name>, then clear it.
             if let Some(forced_body) = self.pending_skill_inject.take() {
-                let _ = write!(system_msg,
+                let _ = write!(
+                    system_msg,
                     "\n\n# Active Skill Instructions\n\n{}",
                     forced_body
                 );
@@ -4582,7 +4594,9 @@ impl ConversationManager {
                     let snippet = if content.lines().count() > 50 {
                         let mut s = String::with_capacity(50 * 80);
                         for (i, line) in content.lines().take(50).enumerate() {
-                            if i > 0 { s.push('\n'); }
+                            if i > 0 {
+                                s.push('\n');
+                            }
                             s.push_str(line);
                         }
                         s + "\n... (truncated)"
@@ -6810,7 +6824,8 @@ impl ConversationManager {
                 }
             };
             // Collapse duplicate tool names into summed costs (insertion order preserved).
-            let mut tool_costs: Vec<crate::agent::economics::ToolCost> = Vec::with_capacity(budget_tool_costs.len());
+            let mut tool_costs: Vec<crate::agent::economics::ToolCost> =
+                Vec::with_capacity(budget_tool_costs.len());
             for tc in &budget_tool_costs {
                 if let Some(existing) = tool_costs.iter_mut().find(|e| e.name == tc.name) {
                     existing.tokens += tc.tokens;
@@ -8860,11 +8875,7 @@ fn is_code_like_path(path: &str) -> bool {
 // ── Display helpers ───────────────────────────────────────────────────────────
 
 pub fn format_tool_display(name: &str, args: &Value) -> String {
-    let get = |key: &str| -> &str {
-        args.get(key)
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-    };
+    let get = |key: &str| -> &str { args.get(key).and_then(|v| v.as_str()).unwrap_or("") };
     match name {
         "shell" | "bash" | "powershell" => format!("$ {}", get("command")),
         "run_workspace_workflow" => format!("workflow: {}", get("workflow")),
@@ -9384,7 +9395,12 @@ fn enforce_prompt_budget(
     // 1. Summarize the newest large tool outputs first.
     let mut tool_indices: Vec<usize> = {
         let mut v = Vec::with_capacity(prompt_msgs.len());
-        v.extend(prompt_msgs.iter().enumerate().filter_map(|(idx, msg)| (msg.role == "tool").then_some(idx)));
+        v.extend(
+            prompt_msgs
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, msg)| (msg.role == "tool").then_some(idx)),
+        );
         v
     };
     for idx in tool_indices.iter().rev().copied() {
@@ -9401,7 +9417,12 @@ fn enforce_prompt_budget(
 
     // 2. Collapse older tool results aggressively, keeping only the most recent two verbatim/summarized.
     tool_indices.clear();
-    tool_indices.extend(prompt_msgs.iter().enumerate().filter_map(|(idx, msg)| (msg.role == "tool").then_some(idx)));
+    tool_indices.extend(
+        prompt_msgs
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, msg)| (msg.role == "tool").then_some(idx)),
+    );
     if tool_indices.len() > 2 {
         for idx in tool_indices
             .iter()
@@ -9711,7 +9732,8 @@ fn build_system_with_corrections(
     let (used, total) = gpu.read();
     if total > 0 {
         system_msg.push_str("\n\n# Terminal Hardware Context\n");
-        let _ = write!(system_msg,
+        let _ = write!(
+            system_msg,
             "HOST GPU: {} | VRAM: {:.1}GB / {:.1}GB ({:.0}% used)\n",
             gpu.gpu_name(),
             used as f64 / 1024.0,
@@ -9725,7 +9747,8 @@ fn build_system_with_corrections(
     system_msg.push_str("\n\n# Git Repository Context\n");
     let git_status_label = git.label();
     let git_url = git.url();
-    let _ = write!(system_msg,
+    let _ = write!(
+        system_msg,
         "REMOTE STATUS: {} | URL: {}\n",
         git_status_label, git_url
     );

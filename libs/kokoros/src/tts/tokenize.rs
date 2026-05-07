@@ -14,7 +14,7 @@ use crate::tts::vocab::VOCAB;
 pub fn tokenize(phonemes: &str) -> Vec<i64> {
     // Add start/end padding '$' as required by the Kokoro model
     let padded = format!("${}$", phonemes);
-    
+
     padded
         .chars()
         .filter_map(|c| VOCAB.get(&c))

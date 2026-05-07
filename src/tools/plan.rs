@@ -1,6 +1,6 @@
-use std::fmt::Write as _;
 use crate::tools::file_ops::{hematite_dir, is_project_workspace, workspace_root};
 use serde_json::{json, Value};
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -52,10 +52,7 @@ impl PlanHandoff {
             let _ = write!(out, "  - Goal: {}\n", self.goal.trim());
         }
         if !self.target_files.is_empty() {
-            let _ = write!(out,
-                "  - Target Files: {}\n",
-                self.target_files.join(", ")
-            );
+            let _ = write!(out, "  - Target Files: {}\n", self.target_files.join(", "));
         }
         if !self.ordered_steps.is_empty() {
             out.push_str("  - Ordered Steps:\n");
@@ -734,7 +731,8 @@ pub async fn generate_walkthrough(args: &Value) -> Result<String, String> {
     if should_sync_current_workspace_exec_plans() {
         let root = workspace_root();
         if let Ok(Some(archived)) = archive_active_execution_plan_for_root(&root, summary) {
-            let _ = write!(detail,
+            let _ = write!(
+                detail,
                 "\nArchived active execution plan to {}",
                 archived.display()
             );

@@ -655,7 +655,11 @@ pub async fn generate_report_markdown() -> String {
     let _ = write!(md, "**Generated:** {}  \n", timestamp);
     let _ = write!(md, "**Host:** {}  \n", hostname);
     let _ = write!(md, "**Hematite:** v{}  \n", version);
-    let _ = write!(md, "**Health Score:** {} — {}  \n\n", score.grade, score.label);
+    let _ = write!(
+        md,
+        "**Health Score:** {} — {}  \n\n",
+        score.grade, score.label
+    );
     let _ = write!(md, "> {}\n\n", score.summary_line());
     md.push_str("---\n\n");
 
@@ -702,7 +706,8 @@ async fn run_diagnosis_phases() -> DiagnosisData {
         );
     }
 
-    let mut follow_up_outputs: Vec<(&'static str, String)> = Vec::with_capacity(follow_up_topics.len());
+    let mut follow_up_outputs: Vec<(&'static str, String)> =
+        Vec::with_capacity(follow_up_topics.len());
     for (i, topic) in follow_up_topics.iter().enumerate() {
         eprintln!("  [{}/{}] {}...", i + 1, follow_up_topics.len(), topic);
         let args = json!({"topic": topic});
@@ -734,12 +739,14 @@ pub async fn generate_diagnosis_report() -> String {
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
-    let mut md = String::with_capacity(action_plan.len() + data.follow_up_outputs.len() * 512 + 256);
+    let mut md =
+        String::with_capacity(action_plan.len() + data.follow_up_outputs.len() * 512 + 256);
     md.push_str("# Hematite Staged Diagnosis Report\n\n");
     let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
     let _ = write!(md, "**Host:** {}  \n", data.hostname);
     let _ = write!(md, "**Hematite:** v{}  \n", version);
-    let _ = write!(md,
+    let _ = write!(
+        md,
         "**Health Score:** {} — {}  \n\n",
         score.grade, score.label
     );
@@ -922,9 +929,11 @@ fn build_html_document(
 ) -> String {
     use crate::agent::html_template::{build_html_shell, he, COPY_BUTTON_HTML};
 
-    let mut sections_html = String::with_capacity(sections.iter().map(|(_, o)| o.len() + 64).sum::<usize>());
+    let mut sections_html =
+        String::with_capacity(sections.iter().map(|(_, o)| o.len() + 64).sum::<usize>());
     for (label, output) in sections {
-        let _ = write!(sections_html,
+        let _ = write!(
+            sections_html,
             "<details><summary>{}</summary><pre>{}</pre></details>\n",
             he(label),
             he(output.trim_end())
@@ -1039,7 +1048,8 @@ pub async fn generate_triage_report_markdown(preset: &str) -> String {
     let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
     let _ = write!(md, "**Host:** {}  \n", data.hostname);
     let _ = write!(md, "**Hematite:** v{}  \n", version);
-    let _ = write!(md,
+    let _ = write!(
+        md,
         "**Health Score:** {} — {}  \n\n",
         score.grade, score.label
     );
@@ -1143,7 +1153,9 @@ async fn run_fix_plan_phases(issue: &str) -> FixPlanData {
         let total = sections.iter().map(|(_, o)| o.len()).sum::<usize>() + sections.len();
         let mut s = String::with_capacity(total);
         for (i, (_, o)) in sections.iter().enumerate() {
-            if i > 0 { s.push('\n'); }
+            if i > 0 {
+                s.push('\n');
+            }
             s.push_str(o);
         }
         s
@@ -1193,7 +1205,8 @@ pub async fn generate_fix_plan_markdown(issue: &str) -> String {
     let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
     let _ = write!(md, "**Host:** {}  \n", data.hostname);
     let _ = write!(md, "**Hematite:** v{}  \n", version);
-    let _ = write!(md,
+    let _ = write!(
+        md,
         "**Health Score:** {} — {}  \n\n",
         score.grade, score.label
     );
@@ -1225,7 +1238,8 @@ pub async fn generate_fix_plan_html(issue: &str) -> String {
 
     let mut sections_html = String::with_capacity(data.sections.len() * 512);
     for (label, output) in &data.sections {
-        let _ = write!(sections_html,
+        let _ = write!(
+            sections_html,
             "<details><summary>{}</summary><pre>{}</pre></details>\n",
             he(label),
             he(output.trim_end())

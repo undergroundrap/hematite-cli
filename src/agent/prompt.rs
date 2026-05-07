@@ -208,7 +208,8 @@ impl SystemPromptBuilder {
         );
 
         if let Some(s) = summary {
-            let _ = write!(prompt,
+            let _ = write!(
+                prompt,
                 "\n# COMPACTED HISTORY SUMMARY\n{}\nRecent messages are preserved below.",
                 s
             );
@@ -219,11 +220,13 @@ impl SystemPromptBuilder {
         }
 
         prompt.push_str("\n# ENVIRONMENT");
-        let _ = write!(prompt,
+        let _ = write!(
+            prompt,
             "\n- Local Time: {}",
             chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
         );
-        let _ = write!(prompt,
+        let _ = write!(
+            prompt,
             "\n- Hematite Build: {}",
             crate::hematite_version_display()
         );
@@ -273,7 +276,8 @@ impl SystemPromptBuilder {
                         } else {
                             content
                         };
-                        let _ = write!(prompt,
+                        let _ = write!(
+                            prompt,
                             "\n\n# ACTIVE TASK {} (.hematite/)\n{}",
                             name, content
                         );
@@ -285,7 +289,10 @@ impl SystemPromptBuilder {
         if !mcp_tools.is_empty() {
             prompt.push_str("\n\n# ACTIVE MCP TOOLS");
             for tool in mcp_tools {
-                let raw = tool.description.as_deref().unwrap_or("No description provided.");
+                let raw = tool
+                    .description
+                    .as_deref()
+                    .unwrap_or("No description provided.");
                 if raw.len() > 180 {
                     let _ = write!(prompt, "\n- {}: {}...", tool.name, safe_head(raw, 180));
                 } else {

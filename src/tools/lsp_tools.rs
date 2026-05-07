@@ -1,6 +1,6 @@
-use std::fmt::Write as _;
 use crate::agent::lsp::manager::LspManager;
 use serde_json::{json, Value};
+use std::fmt::Write as _;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -157,7 +157,9 @@ fn format_location_result(res: Value) -> Result<String, String> {
     let mut output = String::new();
     if let Some(arr) = res.as_array() {
         for (i, loc) in arr.iter().enumerate() {
-            if i > 0 { output.push('\n'); }
+            if i > 0 {
+                output.push('\n');
+            }
             output.push_str(&format_location(loc));
         }
     } else {

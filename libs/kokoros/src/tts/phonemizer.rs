@@ -1,7 +1,7 @@
 use crate::tts::vocab::VOCAB;
 use lazy_static::lazy_static;
+use misaki_rs::{Language, G2P};
 use regex::Regex;
-use misaki_rs::{G2P, Language};
 use std::sync::Arc;
 
 lazy_static! {
@@ -49,7 +49,7 @@ impl Phonemizer {
 
     pub fn phonemize(&self, text: &str, _normalize: bool) -> String {
         // --- HIGH ENERGY BYPASS MODE ---
-        // Using raw text G2P but cleaning the IPA symbols to match the 
+        // Using raw text G2P but cleaning the IPA symbols to match the
         // model's high-energy 'default' training.
         let mut ps = self.backend.phonemize(text);
 

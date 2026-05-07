@@ -17,8 +17,8 @@
 
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::fmt::Write as _;
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 
 pub struct RedactResult {
     /// Sanitized text safe to send to a cloud model.

@@ -1,7 +1,7 @@
-use std::fmt::Write as _;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeSet;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -183,18 +183,17 @@ pub fn profile_report(root: &Path) -> String {
     out.push_str("Workspace Profile\n");
     let _ = write!(out, "Path: {}\n", path.display());
     let _ = write!(out, "Mode: {}\n", profile.workspace_mode);
-    let _ = write!(out,
+    let _ = write!(
+        out,
         "Primary stack: {}\n",
         profile.primary_stack.as_deref().unwrap_or("unknown")
     );
     if !profile.stack_signals.is_empty() {
-        let _ = write!(out,
-            "Stack signals: {}\n",
-            profile.stack_signals.join(", ")
-        );
+        let _ = write!(out, "Stack signals: {}\n", profile.stack_signals.join(", "));
     }
     if !profile.package_managers.is_empty() {
-        let _ = write!(out,
+        let _ = write!(
+            out,
             "Package managers: {}\n",
             profile.package_managers.join(", ")
         );
@@ -218,47 +217,46 @@ pub fn profile_report(root: &Path) -> String {
             let _ = write!(out, "Local URL hint: {}\n", url);
         }
         if !contract.preferred_workflows.is_empty() {
-            let _ = write!(out,
+            let _ = write!(
+                out,
                 "Preferred workflows: {}\n",
                 contract.preferred_workflows.join(", ")
             );
         }
         if !contract.delivery_phases.is_empty() {
-            let _ = write!(out,
+            let _ = write!(
+                out,
                 "Delivery phases: {}\n",
                 contract.delivery_phases.join(" -> ")
             );
         }
         if !contract.verification_workflows.is_empty() {
-            let _ = write!(out,
+            let _ = write!(
+                out,
                 "Verification workflows: {}\n",
                 contract.verification_workflows.join(", ")
             );
         }
         if !contract.quality_gates.is_empty() {
-            let _ = write!(out,
+            let _ = write!(
+                out,
                 "Quality gates: {}\n",
                 contract.quality_gates.join("; ")
             );
         }
         if !contract.route_hints.is_empty() {
-            let _ = write!(out,
-                "Route hints: {}\n",
-                contract.route_hints.join(", ")
-            );
+            let _ = write!(out, "Route hints: {}\n", contract.route_hints.join(", "));
         }
     }
     if !profile.important_paths.is_empty() {
-        let _ = write!(out,
+        let _ = write!(
+            out,
             "Important paths: {}\n",
             profile.important_paths.join(", ")
         );
     }
     if !profile.ignored_paths.is_empty() {
-        let _ = write!(out,
-            "Ignored noise: {}\n",
-            profile.ignored_paths.join(", ")
-        );
+        let _ = write!(out, "Ignored noise: {}\n", profile.ignored_paths.join(", "));
     }
     let _ = write!(out, "Summary: {}", profile.summary);
     out
@@ -789,7 +787,9 @@ fn package_scripts(package: &Value) -> serde_json::Map<String, Value> {
 fn package_script_text(scripts: &serde_json::Map<String, Value>) -> String {
     let mut result = String::with_capacity(scripts.len() * 40);
     for value in scripts.values().filter_map(|v| v.as_str()) {
-        if !result.is_empty() { result.push('\n'); }
+        if !result.is_empty() {
+            result.push('\n');
+        }
         result.push_str(&value.to_ascii_lowercase());
     }
     result

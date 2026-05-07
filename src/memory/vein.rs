@@ -1,9 +1,9 @@
-use std::fmt::Write as _;
 use crate::agent::truncation::safe_head;
 use rusqlite::{params, Connection};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write as _;
 use std::path::Path;
 
 /// "The Vein" — local RAG memory engine backed by SQLite FTS5 + semantic embeddings.
@@ -165,7 +165,8 @@ pub fn detect_room(path: &str) -> String {
         }
         // contains("/{segment}/")
         lo.len() >= slen + 2
-            && lo.windows(slen + 2)
+            && lo
+                .windows(slen + 2)
                 .any(|w| w[0] == b'/' && &w[1..slen + 1] == seg && w[slen + 1] == b'/')
     };
 
@@ -486,14 +487,16 @@ impl Vein {
                 .filter_map(|r| r.ok())
                 .collect();
             raw.into_iter()
-                .map(|(path, chunk_idx, blob, last_modified, room, memory_type)| EmbeddedChunk {
-                    path,
-                    chunk_idx,
-                    embedding: blob_to_floats(&blob),
-                    last_modified,
-                    room,
-                    memory_type,
-                })
+                .map(
+                    |(path, chunk_idx, blob, last_modified, room, memory_type)| EmbeddedChunk {
+                        path,
+                        chunk_idx,
+                        embedding: blob_to_floats(&blob),
+                        last_modified,
+                        room,
+                        memory_type,
+                    },
+                )
                 .collect()
         };
 
@@ -603,7 +606,13 @@ impl Vein {
             db.query_row(
                 "SELECT last_modified, room, memory_type FROM chunks_meta WHERE path = ?1",
                 params![path],
-                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2).unwrap_or_default())),
+                |r| {
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2).unwrap_or_default(),
+                    ))
+                },
             )
             .unwrap_or((0, "root".to_string(), String::new()))
         };
@@ -613,7 +622,11 @@ impl Vein {
             .iter()
             .map(|c| {
                 let p = format!("search_document: {}", c);
-                if p.len() > 8000 { safe_head(&p, 8000).to_string() } else { p }
+                if p.len() > 8000 {
+                    safe_head(&p, 8000).to_string()
+                } else {
+                    p
+                }
             })
             .collect();
 
@@ -686,8 +699,13 @@ impl Vein {
         // Build an OR query from non-stopword tokens so any relevant term matches.
         let fts_query = {
             let mut q = String::with_capacity(safe_query.len() + 16);
-            for w in safe_query.split_whitespace().filter(|w| w.len() >= 3 && !stopwords.contains(*w)) {
-                if !q.is_empty() { q.push_str(" OR "); }
+            for w in safe_query
+                .split_whitespace()
+                .filter(|w| w.len() >= 3 && !stopwords.contains(*w))
+            {
+                if !q.is_empty() {
+                    q.push_str(" OR ");
+                }
                 q.push_str(w);
             }
             q
@@ -754,7 +772,8 @@ impl Vein {
                 .iter()
                 .enumerate()
                 .map(|(i, e)| {
-                    let sim = cosine_similarity_precomputed(&query_vec, query_norm_sq, &e.embedding);
+                    let sim =
+                        cosine_similarity_precomputed(&query_vec, query_norm_sq, &e.embedding);
                     (sim, i)
                 })
                 .collect();
@@ -773,7 +792,14 @@ impl Vein {
                 .iter()
                 .map(|&(score, i)| {
                     let e = &cache[i];
-                    (score, e.path.clone(), e.chunk_idx, e.last_modified, e.room.clone(), e.memory_type.clone())
+                    (
+                        score,
+                        e.path.clone(),
+                        e.chunk_idx,
+                        e.last_modified,
+                        e.room.clone(),
+                        e.memory_type.clone(),
+                    )
                 })
                 .collect()
         };
@@ -781,17 +807,16 @@ impl Vein {
         let db = self.db.lock().unwrap();
         // prepare_cached reuses the compiled statement across calls — avoids recompiling
         // the same SQL for every chunk (up to candidate_limit times per turn).
-        let mut stmt = match db.prepare_cached(
-            "SELECT content FROM chunks_fts WHERE path = ?1 LIMIT 1 OFFSET ?2",
-        ) {
+        let mut stmt = match db
+            .prepare_cached("SELECT content FROM chunks_fts WHERE path = ?1 LIMIT 1 OFFSET ?2")
+        {
             Ok(s) => s,
             Err(_) => return Vec::new(),
         };
         scored
             .into_iter()
             .filter_map(|(score, path, idx, last_modified, room, memory_type)| {
-                let content: Option<String> =
-                    stmt.query_row(params![path, idx], |r| r.get(0)).ok();
+                let content: Option<String> = stmt.query_row(params![path, idx], |r| r.get(0)).ok();
                 content.map(|c| SearchResult {
                     path,
                     content: c,
@@ -1247,7 +1272,11 @@ impl Vein {
             .iter()
             .map(|(_, _, content, _, _, _)| {
                 let p = format!("search_document: {}", content);
-                if p.len() > 8000 { safe_head(&p, 8000).to_string() } else { p }
+                if p.len() > 8000 {
+                    safe_head(&p, 8000).to_string()
+                } else {
+                    p
+                }
             })
             .collect();
 
@@ -1507,7 +1536,8 @@ impl Vein {
                 } else {
                     format!("{}d ago", age_secs / 86400)
                 };
-                let _ = write!(out,
+                let _ = write!(
+                    out,
                     "  - {} [{} edit{}, {}]\n",
                     path,
                     heat,
@@ -1523,10 +1553,11 @@ impl Vein {
         let pattern = format!("{}%", prefix);
         let existing_paths: Vec<String> = {
             let db = self.db.lock().unwrap();
-            let mut stmt = match db.prepare_cached("SELECT path FROM chunks_meta WHERE path LIKE ?1") {
-                Ok(stmt) => stmt,
-                Err(_) => return,
-            };
+            let mut stmt =
+                match db.prepare_cached("SELECT path FROM chunks_meta WHERE path LIKE ?1") {
+                    Ok(stmt) => stmt,
+                    Err(_) => return,
+                };
             stmt.query_map(params![pattern], |row| row.get::<_, String>(0))
                 .map(|rows| rows.filter_map(|row| row.ok()).collect())
                 .unwrap_or_default()
@@ -2294,8 +2325,14 @@ fn extract_text_content(value: &Value) -> Option<String> {
 
     if let Some(array) = value.as_array() {
         let mut joined = String::new();
-        for part in array.iter().filter_map(extract_text_content).filter(|p| !p.is_empty()) {
-            if !joined.is_empty() { joined.push('\n'); }
+        for part in array
+            .iter()
+            .filter_map(extract_text_content)
+            .filter(|p| !p.is_empty())
+        {
+            if !joined.is_empty() {
+                joined.push('\n');
+            }
             joined.push_str(&part);
         }
         return (!joined.is_empty()).then_some(joined);
@@ -2318,8 +2355,14 @@ fn extract_text_content(value: &Value) -> Option<String> {
 
     if let Some(parts) = obj.get("parts").and_then(|v| v.as_array()) {
         let mut joined = String::new();
-        for part in parts.iter().filter_map(|p| p.as_str().map(|s| s.trim().to_string())).filter(|p| !p.is_empty()) {
-            if !joined.is_empty() { joined.push('\n'); }
+        for part in parts
+            .iter()
+            .filter_map(|p| p.as_str().map(|s| s.trim().to_string()))
+            .filter(|p| !p.is_empty())
+        {
+            if !joined.is_empty() {
+                joined.push('\n');
+            }
             joined.push_str(&part);
         }
         if !joined.is_empty() {
@@ -2351,8 +2394,7 @@ fn slugify_import_path(path: &Path) -> String {
 // Shared HTTP client — built once, reuses TCP keep-alive connections.
 // Embedding calls previously created a new client on every request, which
 // incurred a fresh TCP handshake each time (even to localhost).
-static EMBED_CLIENT: std::sync::OnceLock<reqwest::blocking::Client> =
-    std::sync::OnceLock::new();
+static EMBED_CLIENT: std::sync::OnceLock<reqwest::blocking::Client> = std::sync::OnceLock::new();
 
 fn embed_client() -> &'static reqwest::blocking::Client {
     EMBED_CLIENT.get_or_init(|| {
@@ -2408,7 +2450,11 @@ fn embed_batch(inputs: &[String], base_url: &str, embed_model: &str) -> Vec<Opti
                             .iter()
                             .filter_map(|x| x.as_f64().map(|f| f as f32))
                             .collect();
-                        if floats.is_empty() { None } else { Some(floats) }
+                        if floats.is_empty() {
+                            None
+                        } else {
+                            Some(floats)
+                        }
                     })
                 })
                 .collect(),
@@ -2496,10 +2542,12 @@ fn cosine_similarity_precomputed(a: &[f32], a_norm_sq: f32, b: &[f32]) -> f32 {
     if a.len() != b.len() || a_norm_sq == 0.0 {
         return 0.0;
     }
-    let (dot, nb_sq) = a.iter().zip(b.iter()).fold(
-        (0.0f32, 0.0f32),
-        |(dot, nb), (x, y)| (dot + x * y, nb + y * y),
-    );
+    let (dot, nb_sq) = a
+        .iter()
+        .zip(b.iter())
+        .fold((0.0f32, 0.0f32), |(dot, nb), (x, y)| {
+            (dot + x * y, nb + y * y)
+        });
     if nb_sq == 0.0 {
         0.0
     } else {
@@ -2598,7 +2646,9 @@ fn extract_pdf_text_with_lopdf(path: &std::path::Path) -> Result<Option<String>,
         let sample_errors = {
             let mut s = String::with_capacity(160);
             for e in page_errors.into_iter().take(3) {
-                if !s.is_empty() { s.push_str("; "); }
+                if !s.is_empty() {
+                    s.push_str("; ");
+                }
                 s.push_str(&e);
             }
             s
@@ -2629,7 +2679,9 @@ fn extract_pdf_text_inside_helper(path: &std::path::Path) -> Result<Option<Strin
     let detail = {
         let mut d = String::with_capacity(160);
         for (i, f) in failures.into_iter().take(2).enumerate() {
-            if i > 0 { d.push_str("; "); }
+            if i > 0 {
+                d.push_str("; ");
+            }
             d.push_str(&f);
         }
         d

@@ -259,7 +259,8 @@ fn linkify(s: &str) -> String {
             .unwrap_or(url_start.len());
         let url = &url_start[..end];
         let escaped = he(url);
-        let _ = write!(out,
+        let _ = write!(
+            out,
             "<a href=\"{}\" target=\"_blank\">{}</a>",
             escaped, escaped
         );

@@ -1,4 +1,3 @@
-use std::io::{Cursor};
 use crate::onn::ort_base::OrtBase;
 use crate::onn::ort_koko::OrtKoko;
 use crate::tts::phonemizer::Phonemizer;
@@ -7,6 +6,7 @@ use ndarray_npy::NpzReader;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
+use std::io::Cursor;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -45,7 +45,7 @@ impl TTSKoko {
         ort.load_model(model_path.to_string())?;
 
         let styles = Self::load_voices(voices_path)?;
-        
+
         // Default to English US phonemizer
         let phonemizer = Phonemizer::new("a");
 
@@ -63,12 +63,15 @@ impl TTSKoko {
         })
     }
 
-    pub fn new_from_memory(model_bytes: &[u8], voices_bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
+    pub fn new_from_memory(
+        model_bytes: &[u8],
+        voices_bytes: &[u8],
+    ) -> Result<Self, Box<dyn Error>> {
         let mut ort = OrtKoko::new();
         ort.load_model_from_memory(model_bytes)?;
 
         let styles = Self::load_voices_from_memory(voices_bytes)?;
-        
+
         let phonemizer = Phonemizer::new("a");
 
         if !VOICES_LOGGED.load(Ordering::SeqCst) {
@@ -97,50 +100,66 @@ impl TTSKoko {
         }
 
         // --- SOVEREIGN CHUNKING: 80-TOKEN MICRO-RESET ---
-        // Kokoro v1.0 energy is highest with tiny contexts. We split into 80-token 
+        // Kokoro v1.0 energy is highest with tiny contexts. We split into 80-token
         // clusters (~12 words) to ensure 100% vocalization throughout.
         let mut full_audio = Vec::new();
         let mut full_alignments = Vec::new();
 
         // 1. Sentence-Aware Splitter (80-token limit)
         let mut text_chunks = Vec::new();
-        let sentences: Vec<_> = input_text.split_inclusive(|c| c == '.' || c == '!' || c == '?' || c == '\n' || c == ';' || c == ',').collect();
-        
+        let sentences: Vec<_> = input_text
+            .split_inclusive(|c| {
+                c == '.' || c == '!' || c == '?' || c == '\n' || c == ';' || c == ','
+            })
+            .collect();
+
         let mut current_chunk = String::new();
         for s in sentences {
             let next_text = format!("{}{}", current_chunk, s);
             if tokenize(&self.phonemizer.phonemize(&next_text, true)).len() > 80 {
-                if !current_chunk.is_empty() { text_chunks.push(current_chunk.clone()); current_chunk.clear(); }
+                if !current_chunk.is_empty() {
+                    text_chunks.push(current_chunk.clone());
+                    current_chunk.clear();
+                }
                 // Fallback: word split
                 let words: Vec<_> = s.split_whitespace().collect();
                 let mut temp_text = String::new();
                 for w in words {
                     let next_temp = format!("{} {}", temp_text, w);
                     if tokenize(&self.phonemizer.phonemize(&next_temp, true)).len() > 80 {
-                        text_chunks.push(temp_text.trim().to_string()); temp_text = w.to_string();
-                    } else { temp_text = next_temp; }
+                        text_chunks.push(temp_text.trim().to_string());
+                        temp_text = w.to_string();
+                    } else {
+                        temp_text = next_temp;
+                    }
                 }
                 current_chunk = temp_text;
-            } else { current_chunk = next_text; }
+            } else {
+                current_chunk = next_text;
+            }
         }
-        if !current_chunk.is_empty() { text_chunks.push(current_chunk); }
+        if !current_chunk.is_empty() {
+            text_chunks.push(current_chunk);
+        }
 
         let mut current_offset = 0.0;
         for chunk_text in text_chunks {
             let mut phonemes = self.phonemizer.phonemize(&chunk_text, true);
-            
+
             // --- FORCED VOCALIZATION (CONVICTION) ---
             // If it doesn't end in strong punctuation, add a '.' to force vocalization vs whispering.
             if !phonemes.ends_with('.') && !phonemes.ends_with('!') && !phonemes.ends_with('?') {
                 phonemes.push('.');
             }
-            
+
             let tokens = tokenize(&phonemes);
-            if tokens.is_empty() { continue; }
+            if tokens.is_empty() {
+                continue;
+            }
 
             let style = self.styles.get(voice).ok_or("Voice style not found")?;
             let tokens_batch = vec![tokens.iter().map(|&t| t as i64).collect::<Vec<i64>>()];
-            
+
             let mut onn = self.onn.lock().unwrap();
             let res = onn.infer(tokens_batch, style, speed, &self.strategy);
             drop(onn);
@@ -159,21 +178,31 @@ impl TTSKoko {
             };
 
             // --- CHUNK PROCESSING: TRIM & NORMALIZE ---
-            
+
             // 1. Aggressive Silence Trimmer (to remove the forced '.' pause)
-            let start = audio_data.iter().position(|&s| s.abs() > 0.005).unwrap_or(0);
-            let end = audio_data.iter().rposition(|&s| s.abs() > 0.005).unwrap_or(audio_data.len());
+            let start = audio_data
+                .iter()
+                .position(|&s| s.abs() > 0.005)
+                .unwrap_or(0);
+            let end = audio_data
+                .iter()
+                .rposition(|&s| s.abs() > 0.005)
+                .unwrap_or(audio_data.len());
             let trimmed = &audio_data[start..end];
 
             // 2. Local Normalization
             let sq_sum: f32 = trimmed.iter().map(|&s| s * s).sum();
             let rms = (sq_sum / trimmed.len().max(1) as f32).sqrt();
-            let gain = if rms > 0.001 { (0.15f32 / rms).min(100.0f32) } else { 1.0f32 };
-            
+            let gain = if rms > 0.001 {
+                (0.15f32 / rms).min(100.0f32)
+            } else {
+                1.0f32
+            };
+
             let mut chunk_audio: Vec<f32> = trimmed.iter().map(|&s| s * gain).collect();
 
             // 3. Linear Crossfade (10ms)
-            let fade_len = 240; 
+            let fade_len = 240;
             if chunk_audio.len() > fade_len * 2 {
                 for i in 0..fade_len {
                     let alpha = i as f32 / fade_len as f32;
@@ -221,27 +250,43 @@ impl TTSKoko {
         F: FnMut(Vec<f32>) -> Result<(), Box<dyn Error>>,
     {
         let input_text = text.trim();
-        if input_text.is_empty() { return Ok(()); }
+        if input_text.is_empty() {
+            return Ok(());
+        }
 
         let mut text_chunks = Vec::new();
-        let sentences: Vec<_> = input_text.split_inclusive(|c| c == '.' || c == '!' || c == '?' || c == '\n' || c == ';' || c == ',').collect();
+        let sentences: Vec<_> = input_text
+            .split_inclusive(|c| {
+                c == '.' || c == '!' || c == '?' || c == '\n' || c == ';' || c == ','
+            })
+            .collect();
         let mut current_chunk = String::new();
         for s in sentences {
             let next_text = format!("{}{}", current_chunk, s);
             if tokenize(&self.phonemizer.phonemize(&next_text, true)).len() > 80 {
-                if !current_chunk.is_empty() { text_chunks.push(current_chunk.clone()); current_chunk.clear(); }
+                if !current_chunk.is_empty() {
+                    text_chunks.push(current_chunk.clone());
+                    current_chunk.clear();
+                }
                 let words: Vec<_> = s.split_whitespace().collect();
                 let mut temp_text = String::new();
                 for w in words {
                     let next_temp = format!("{} {}", temp_text, w);
                     if tokenize(&self.phonemizer.phonemize(&next_temp, true)).len() > 80 {
-                        text_chunks.push(temp_text.trim().to_string()); temp_text = w.to_string();
-                    } else { temp_text = next_temp; }
+                        text_chunks.push(temp_text.trim().to_string());
+                        temp_text = w.to_string();
+                    } else {
+                        temp_text = next_temp;
+                    }
                 }
                 current_chunk = temp_text;
-            } else { current_chunk = next_text; }
+            } else {
+                current_chunk = next_text;
+            }
         }
-        if !current_chunk.is_empty() { text_chunks.push(current_chunk); }
+        if !current_chunk.is_empty() {
+            text_chunks.push(current_chunk);
+        }
 
         for chunk_text in text_chunks {
             let mut ph = self.phonemizer.phonemize(&chunk_text, true);
@@ -249,13 +294,20 @@ impl TTSKoko {
             if !ph.ends_with('.') && !ph.ends_with('!') && !ph.ends_with('?') {
                 ph.push('.');
             }
-            
+
             let tok = tokenize(&ph);
-            if tok.is_empty() { continue; }
+            if tok.is_empty() {
+                continue;
+            }
 
             let style = self.styles.get(voice).ok_or("Voice style not found")?;
             let mut onn = self.onn.lock().unwrap();
-            let res = onn.infer(vec![tok.iter().map(|&t| t as i64).collect()], style, speed, &self.strategy);
+            let res = onn.infer(
+                vec![tok.iter().map(|&t| t as i64).collect()],
+                style,
+                speed,
+                &self.strategy,
+            );
             drop(onn);
 
             let raw_audio = match res {
@@ -264,7 +316,7 @@ impl TTSKoko {
                     let err_str = e.to_string();
                     if err_str.contains("Expand node") || err_str.contains("invalid expand shape") {
                         tracing::warn!("Kokoro Engine: Suppressing ONNX synthesis glitch (Streaming). Returning silence.");
-                        vec![] 
+                        vec![]
                     } else {
                         return Err(e);
                     }
@@ -273,15 +325,22 @@ impl TTSKoko {
 
             // AGGRESSIVE TRIM & NORM
             let start = raw_audio.iter().position(|&s| s.abs() > 0.005).unwrap_or(0);
-            let end = raw_audio.iter().rposition(|&s| s.abs() > 0.005).unwrap_or(raw_audio.len());
+            let end = raw_audio
+                .iter()
+                .rposition(|&s| s.abs() > 0.005)
+                .unwrap_or(raw_audio.len());
             let trimmed = &raw_audio[start..end];
 
             let sq_sum: f32 = trimmed.iter().map(|&s| s * s).sum();
             let rms = (sq_sum / trimmed.len().max(1) as f32).sqrt();
-            let gain = if rms > 0.001 { (0.15f32 / rms).min(100.0f32) } else { 1.0f32 };
+            let gain = if rms > 0.001 {
+                (0.15f32 / rms).min(100.0f32)
+            } else {
+                1.0f32
+            };
             let mut chunk_audio: Vec<f32> = trimmed.iter().map(|&s| s * gain).collect();
 
-            let fade_len = 240; 
+            let fade_len = 240;
             if chunk_audio.len() > fade_len * 2 {
                 for i in 0..fade_len {
                     let alpha = i as f32 / fade_len as f32;
