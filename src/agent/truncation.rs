@@ -50,6 +50,19 @@ pub fn safe_head(s: &str, max_bytes: usize) -> &str {
     &s[..end]
 }
 
+/// Returns a suffix of `s` containing at most `max_bytes` bytes, starting on a UTF-8 boundary.
+pub fn safe_tail(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes {
+        return s;
+    }
+    let offset = s.len() - max_bytes;
+    // Walk forward from offset to find the nearest char boundary.
+    let start = (offset..=s.len())
+        .find(|&i| s.is_char_boundary(i))
+        .unwrap_or(s.len());
+    &s[start..]
+}
+
 fn find_valid_boundary_forward(content: &str, target: usize) -> usize {
     let mut pos = target;
     while pos > 0 && !content.is_char_boundary(pos) {

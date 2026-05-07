@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use crate::agent::truncation::safe_head;
+use crate::agent::truncation::{safe_head, safe_tail};
 use tokio::time::{sleep, Duration};
 
 pub fn spawn_deep_reflect_system(
@@ -51,11 +51,7 @@ pub fn spawn_deep_reflect_system(
             }
 
             // Cap transcript to avoid blowing the context window.
-            let transcript_slice = if log_content.len() > 8_000 {
-                &log_content[log_content.len() - 8_000..]
-            } else {
-                &log_content
-            };
+            let transcript_slice = safe_tail(&log_content, 8_000);
 
             let prompt = format!(
                 "You are a memory synthesizer for a coding agent. Analyze this session transcript \

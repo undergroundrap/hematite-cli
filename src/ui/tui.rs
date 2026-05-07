@@ -1,6 +1,7 @@
 use std::fmt::Write as _;
 use super::modal_review::{draw_diff_review, ActiveReview};
 use crate::agent::conversation::{AttachedDocument, AttachedImage, UserTurn};
+use crate::agent::truncation::safe_head;
 use crate::agent::inference::{McpRuntimeState, OperatorCheckpointState, ProviderRuntimeState};
 use crate::agent::specular::SpecularEvent;
 use crate::agent::swarm::{ReviewResponse, SwarmMessage};
@@ -5098,7 +5099,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     let (title_prefix, title_body, title_color): (&str, String, Color) = if has_real_task {
         let body = if app.current_objective.len() > 30 {
-            format!("{}...", &app.current_objective[..27])
+            format!("{}...", safe_head(&app.current_objective, 27))
         } else {
             app.current_objective.clone()
         };
