@@ -1523,7 +1523,7 @@ impl Vein {
         let pattern = format!("{}%", prefix);
         let existing_paths: Vec<String> = {
             let db = self.db.lock().unwrap();
-            let mut stmt = match db.prepare("SELECT path FROM chunks_meta WHERE path LIKE ?1") {
+            let mut stmt = match db.prepare_cached("SELECT path FROM chunks_meta WHERE path LIKE ?1") {
                 Ok(stmt) => stmt,
                 Err(_) => return,
             };
