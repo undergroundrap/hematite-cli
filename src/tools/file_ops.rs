@@ -1770,12 +1770,13 @@ mod tests {
 
     #[test]
     fn safe_path_allows_plan_sidecars_inside_workspace() {
+        let _cwd_lock = crate::TEST_CWD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path();
         std::fs::create_dir_all(root.join(".hematite")).unwrap();
         std::fs::write(root.join(".hematite").join("TASK.md"), "# Task Ledger\n").unwrap();
 
-        let previous = std::env::current_dir().unwrap();
+        let previous = env!("CARGO_MANIFEST_DIR");
         std::env::set_current_dir(root).unwrap();
         let resolved = safe_path(".hematite/TASK.md").unwrap();
         std::env::set_current_dir(previous).unwrap();

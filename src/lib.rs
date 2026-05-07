@@ -1,4 +1,11 @@
 pub mod agent;
+
+/// Serializes tests that call `std::env::set_current_dir` to prevent race conditions
+/// in parallel test runs. Any test that mutates the process-wide cwd must hold this
+/// lock for the duration of the directory change.
+#[cfg(test)]
+pub(crate) static TEST_CWD_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 pub mod memory;
 pub mod runtime;
 pub mod telemetry;
@@ -15,6 +22,7 @@ const HEMATITE_GIT_EXACT_TAG_RAW: &str = env!("HEMATITE_GIT_EXACT_TAG");
 const HEMATITE_GIT_DIRTY_RAW: &str = env!("HEMATITE_GIT_DIRTY");
 
 pub fn hematite_git_commit_short() -> Option<&'static str> {
+    #[allow(clippy::const_is_empty)]
     (!HEMATITE_GIT_COMMIT_SHORT_RAW.is_empty()).then_some(HEMATITE_GIT_COMMIT_SHORT_RAW)
 }
 

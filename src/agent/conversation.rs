@@ -10571,7 +10571,10 @@ Plain paragraph
     fn merge_plan_allowed_paths_includes_hematite_sidecars() {
         let allowed = merge_plan_allowed_paths(&["src/main.rs".to_string()]);
 
-        assert!(allowed.contains(&normalize_workspace_path("src/main.rs")));
+        // Use ends_with instead of contains(&normalize_workspace_path(...)) to avoid a
+        // race condition: normalize_workspace_path reads current_dir(), which concurrent
+        // tests that call set_current_dir() can change between the two call sites.
+        assert!(allowed.iter().any(|p| p.ends_with("/src/main.rs")));
         assert!(allowed
             .iter()
             .any(|path| path.ends_with("/.hematite/task.md")));
@@ -10675,8 +10678,9 @@ Plain paragraph
 
     #[test]
     fn sovereign_closeout_detects_materialized_targets() {
+        let _cwd_lock = crate::TEST_CWD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let temp = tempfile::tempdir().unwrap();
-        let previous = std::env::current_dir().unwrap();
+        let previous = env!("CARGO_MANIFEST_DIR");
         std::env::set_current_dir(temp.path()).unwrap();
         std::fs::write("index.html", "<html>ok</html>").unwrap();
 
@@ -10687,8 +10691,9 @@ Plain paragraph
 
     #[test]
     fn deterministic_sovereign_closeout_returns_summary_when_targets_exist() {
+        let _cwd_lock = crate::TEST_CWD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let temp = tempfile::tempdir().unwrap();
-        let previous = std::env::current_dir().unwrap();
+        let previous = env!("CARGO_MANIFEST_DIR");
         std::env::set_current_dir(temp.path()).unwrap();
         std::fs::create_dir_all(".hematite").unwrap();
         std::fs::write("index.html", "<html>ok</html>").unwrap();

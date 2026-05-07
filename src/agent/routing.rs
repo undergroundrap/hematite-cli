@@ -535,7 +535,12 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
         )
     }) || contains_any(lower, &["tell me", "how big", "show me"]);
 
-    host_scope && host_action
+    // Some words are self-sufficient diagnostic state indicators: asking "is my GPU
+    // throttled?" implicitly asks to inspect whether throttling is happening.
+    let self_sufficient_state =
+        lower.contains("throttled") || lower.contains("overheating") || lower.contains("bottlenecking");
+
+    host_scope && (host_action || self_sufficient_state)
 }
 
 pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str> {
@@ -2070,6 +2075,13 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("running")
                 || lower.contains("security")
                 || lower.contains("hardening")));
+
+    // Host-remediation queries (e.g., "fix cargo not found on this machine") contain
+    // code keywords like "cargo" that also trip the mutation guard. Check fix_plan
+    // first so these read-only host inspection requests are never silently dropped.
+    if asks_fix_plan && asks_mutation_intent {
+        return Some("fix_plan");
+    }
 
     // If the user has a clear mutation intent (create folder, edit file),
     // we should NOT route to a read-only host inspection topic, as that would
