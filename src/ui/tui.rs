@@ -5030,14 +5030,14 @@ pub async fn run_app<B: Backend>(
 // ── Render ────────────────────────────────────────────────────────────────────
 
 fn ui(f: &mut ratatui::Frame, app: &App) {
-    let size = f.size();
+    let size = f.area();
     if size.width < 60 || size.height < 10 {
         // Render a minimal wait message or just clear if area is too collapsed
         f.render_widget(Clear, size);
         return;
     }
 
-    let input_height = compute_input_height(f.size().width, app.input.len());
+    let input_height = compute_input_height(f.area().width, app.input.len());
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -5046,7 +5046,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             Constraint::Length(input_height),
             Constraint::Length(5), // Expanded to accommodate Multi-Tier Liquid Telemetry
         ])
-        .split(f.size());
+        .split(f.area());
 
     let sidebar_mode = sidebar_mode(app, size.width);
     let sidebar_width = match sidebar_mode {
@@ -5769,7 +5769,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         let text_w = app.input.len() as u16;
         let max_w = inner_area.width.saturating_sub(1);
         let cursor_x = inner_area.x + text_w.min(max_w);
-        f.set_cursor(cursor_x, inner_area.y);
+        f.set_cursor_position((cursor_x, inner_area.y));
     }
 
     // ── High-risk approval modal ───────────────────────────────────────────────
@@ -5778,7 +5778,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
         // Taller modal for diff preview so more lines are visible.
         let modal_h = if is_diff_preview { 70 } else { 50 };
-        let area = centered_rect(80, modal_h, f.size());
+        let area = centered_rect(80, modal_h, f.area());
         f.render_widget(Clear, area);
 
         let chunks = Layout::default()
@@ -6283,7 +6283,7 @@ fn draw_splash<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), Box<dyn std
     let version = env!("CARGO_PKG_VERSION");
 
     terminal.draw(|f| {
-        let area = f.size();
+        let area = f.area();
 
         f.render_widget(
             Block::default().style(Style::default().bg(Color::Black)),

@@ -14,7 +14,7 @@ pub struct ActiveReview {
 }
 
 pub fn draw_diff_review(f: &mut Frame, review: &ActiveReview) {
-    let area = centered_rect(80, 80, f.size());
+    let area = centered_rect(80, 80, f.area());
     f.render_widget(Clear, area);
 
     // ── Outer Frame ──────────────────────────────────────────────
