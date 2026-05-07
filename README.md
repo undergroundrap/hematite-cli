@@ -679,6 +679,29 @@ cargo run -- --stats
 
 Source-build note: the publish-safe default build does not embed the 300MB+ voice assets. Packaged releases and local packaging scripts opt back into baked-in voice automatically with `--features embedded-voice-assets`.
 
+### Repo Health
+
+The repo is wired for long-term solo maintainability. Every quality check is automated and runs together when you tag a release.
+
+| Tool | What it enforces |
+|---|---|
+| `rust-toolchain.toml` | Pins stable Rust + guarantees `rustfmt` and `clippy` components are always present |
+| `rustfmt.toml` | 100-char line width, 2021 edition — `cargo fmt --check` fails CI if code drifts |
+| `.clippy.toml` | Clippy with `-D warnings` (all warnings are errors), thresholds tuned for this codebase |
+| `deny.toml` | `cargo deny check` — blocks deps with known CVEs, audits licenses, flags duplicate crates |
+| `.github/workflows/ci.yml` | Tag-triggered: fmt check + `cargo audit` + `cargo deny` (Linux), clippy + 400+ tests (Windows) |
+| `justfile` | `just check` runs the full local quality gate in one command, mirroring CI exactly |
+
+**The daily loop:**
+
+```powershell
+just check        # before tagging: fmt + clippy + tests + audit
+just outdated     # every few months: check for stale dependencies
+just package      # when ready to ship: build portable + update PATH
+```
+
+Tag a release → CI fires the quality gate and both release builds (Windows portable + installer, Linux + macOS archives) automatically. No manual upload needed.
+
 ---
 
 ## Distribution
