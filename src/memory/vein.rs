@@ -1203,26 +1203,27 @@ impl Vein {
         // chunks_fts rowid serves as chunk_idx (1-based → convert to 0-based).
         let missing: Vec<(String, i64, String, i64, String, String)> = {
             let db = self.db.lock().unwrap();
-            let mut stmt = db
-                .prepare_cached(
-                    "SELECT f.path, (f.rowid - 1) AS chunk_idx, f.content,
-                            COALESCE(cm.last_modified, 0),
-                            COALESCE(cm.room, 'root'),
-                            COALESCE(cm.memory_type, '')
-                     FROM chunks_fts f
-                     LEFT JOIN chunks_vec v ON f.path = v.path AND (f.rowid - 1) = v.chunk_idx
-                     LEFT JOIN chunks_meta cm ON cm.path = f.path
-                     WHERE v.path IS NULL
-                     ORDER BY CASE
-                         WHEN f.path LIKE '%.rs' THEN 0
-                         WHEN f.path LIKE '%.toml' THEN 1
-                         WHEN f.path LIKE '%.json' THEN 2
-                         ELSE 3
-                     END, f.path
-                     LIMIT 20",
-                )
-                .unwrap();
-            stmt.query_map([], |r| {
+            let mut stmt = match db.prepare_cached(
+                "SELECT f.path, (f.rowid - 1) AS chunk_idx, f.content,
+                        COALESCE(cm.last_modified, 0),
+                        COALESCE(cm.room, 'root'),
+                        COALESCE(cm.memory_type, '')
+                 FROM chunks_fts f
+                 LEFT JOIN chunks_vec v ON f.path = v.path AND (f.rowid - 1) = v.chunk_idx
+                 LEFT JOIN chunks_meta cm ON cm.path = f.path
+                 WHERE v.path IS NULL
+                 ORDER BY CASE
+                     WHEN f.path LIKE '%.rs' THEN 0
+                     WHEN f.path LIKE '%.toml' THEN 1
+                     WHEN f.path LIKE '%.json' THEN 2
+                     ELSE 3
+                 END, f.path
+                 LIMIT 20",
+            ) {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            let Ok(rows) = stmt.query_map([], |r| {
                 Ok((
                     r.get::<_, String>(0)?,
                     r.get::<_, i64>(1)?,
@@ -1231,10 +1232,10 @@ impl Vein {
                     r.get::<_, String>(4)?,
                     r.get::<_, String>(5)?,
                 ))
-            })
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .collect()
+            }) else {
+                return;
+            };
+            rows.filter_map(|r| r.ok()).collect()
         };
 
         let Some(embed_model) = self.current_embed_model() else {
