@@ -40,14 +40,16 @@ struct Pattern {
 lazy_static! {
     static ref PATTERNS: Vec<Pattern> = vec![
         // Windows username in paths: C:\Users\<name>\ or C:/Users/<name>/
+        // Trailing separator is optional so bare paths like C:\Users\ocean are also caught.
         Pattern {
-            re: Regex::new(r"(?i)(C:[/\\]Users[/\\])([^/\\\r\n\t ]+)([/\\])").unwrap(),
+            re: Regex::new(r"(?i)(C:[/\\]Users[/\\])([^/\\\r\n\t ]+)([/\\]?)").unwrap(),
             label: "username-path",
             replacement: "${1}[USER]${3}",
         },
         // Linux/macOS home paths: /home/<name>/ or /Users/<name>/
+        // Trailing slash is optional so paths at end-of-line are also caught.
         Pattern {
-            re: Regex::new(r"(/(?:home|Users)/)([^/\r\n\t ]+)(/)").unwrap(),
+            re: Regex::new(r"(/(?:home|Users)/)([^/\r\n\t ]+)(/?)").unwrap(),
             label: "username-path",
             replacement: "${1}[USER]${3}",
         },
