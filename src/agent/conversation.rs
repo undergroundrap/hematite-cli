@@ -10678,7 +10678,9 @@ Plain paragraph
 
     #[test]
     fn sovereign_closeout_detects_materialized_targets() {
-        let _cwd_lock = crate::TEST_CWD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _cwd_lock = crate::TEST_CWD_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let temp = tempfile::tempdir().unwrap();
         let previous = env!("CARGO_MANIFEST_DIR");
         std::env::set_current_dir(temp.path()).unwrap();
@@ -10691,7 +10693,9 @@ Plain paragraph
 
     #[test]
     fn deterministic_sovereign_closeout_returns_summary_when_targets_exist() {
-        let _cwd_lock = crate::TEST_CWD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _cwd_lock = crate::TEST_CWD_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let temp = tempfile::tempdir().unwrap();
         let previous = env!("CARGO_MANIFEST_DIR");
         std::env::set_current_dir(temp.path()).unwrap();

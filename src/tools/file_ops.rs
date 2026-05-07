@@ -1165,24 +1165,23 @@ fn canonicalize_safe(candidate: &Path, original: &str) -> Result<PathBuf, String
 }
 
 fn is_allowed_plan_sidecar(workspace: &Path, abs: &Path) -> bool {
-    let normalized = abs
-        .to_string_lossy()
-        .trim_start_matches(r"\\?\")
-        .to_lowercase()
-        .replace('\\', "/");
-    let workspace_norm = workspace
-        .to_string_lossy()
-        .trim_start_matches(r"\\?\")
-        .to_lowercase()
-        .replace('\\', "/");
+    // Use Path::starts_with with a canonicalized workspace so the prefix check is
+    // path-component–aware and works on Windows where Path::canonicalize() prepends
+    // the \\?\ extended-path prefix: that prefix is its own path component, so
+    // abs.starts_with(non_canonical_workspace) silently returns false even when both
+    // paths point to the same directory tree.
+    let canonical_workspace = workspace
+        .canonicalize()
+        .unwrap_or_else(|_| workspace.to_path_buf());
 
-    if !normalized.starts_with(&workspace_norm) {
+    if !abs.starts_with(&canonical_workspace) {
         return false;
     }
 
-    normalized.ends_with("/.hematite/task.md")
-        || normalized.ends_with("/.hematite/plan.md")
-        || normalized.ends_with("/.hematite/walkthrough.md")
+    let path_lower = abs.to_string_lossy().to_lowercase().replace('\\', "/");
+    path_lower.ends_with("/.hematite/task.md")
+        || path_lower.ends_with("/.hematite/plan.md")
+        || path_lower.ends_with("/.hematite/walkthrough.md")
 }
 
 fn check_workspace_bounds(abs: &Path, original: &str) -> Result<(), String> {
@@ -1770,7 +1769,9 @@ mod tests {
 
     #[test]
     fn safe_path_allows_plan_sidecars_inside_workspace() {
-        let _cwd_lock = crate::TEST_CWD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _cwd_lock = crate::TEST_CWD_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path();
         std::fs::create_dir_all(root.join(".hematite")).unwrap();

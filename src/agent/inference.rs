@@ -2004,7 +2004,9 @@ I'll search before continuing.
 
     #[test]
     fn load_instruction_files_includes_workspace_guidance_files() {
-        let _cwd_lock = crate::TEST_CWD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _cwd_lock = crate::TEST_CWD_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let temp = tempfile::tempdir().unwrap();
         let previous = env!("CARGO_MANIFEST_DIR");
 
@@ -2024,7 +2026,9 @@ I'll search before continuing.
 
     #[test]
     fn load_agent_skill_catalog_includes_skill_directory_entries() {
-        let _cwd_lock = crate::TEST_CWD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _cwd_lock = crate::TEST_CWD_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let temp = tempfile::tempdir().unwrap();
         let previous = env!("CARGO_MANIFEST_DIR");
 

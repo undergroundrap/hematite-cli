@@ -537,8 +537,9 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
 
     // Some words are self-sufficient diagnostic state indicators: asking "is my GPU
     // throttled?" implicitly asks to inspect whether throttling is happening.
-    let self_sufficient_state =
-        lower.contains("throttled") || lower.contains("overheating") || lower.contains("bottlenecking");
+    let self_sufficient_state = lower.contains("throttled")
+        || lower.contains("overheating")
+        || lower.contains("bottlenecking");
 
     host_scope && (host_action || self_sufficient_state)
 }
