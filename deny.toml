@@ -1,0 +1,50 @@
+# cargo-deny configuration for Hematite CLI
+# Run: cargo deny check
+# Install: cargo install cargo-deny
+
+[advisories]
+# Deny crates with known security vulnerabilities
+version = 2
+ignore = []
+
+[licenses]
+version = 2
+# Allow permissive OSS licenses common in the Rust ecosystem
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "CC0-1.0",
+    "Zlib",
+    "OpenSSL",
+    "blessing",         # sqlite3-sys uses the SQLite "blessing"
+]
+
+# ring uses a non-standard license combining ISC, MIT, and BoringSSL
+[[licenses.exceptions]]
+allow = ["ISC", "MIT", "OpenSSL"]
+name = "ring"
+
+# webpki uses ISC
+[[licenses.exceptions]]
+allow = ["ISC"]
+name = "webpki"
+
+[bans]
+# Warn when multiple versions of the same crate are pulled in
+multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
+
+# Deny crates we never want in the dependency tree
+deny = []
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

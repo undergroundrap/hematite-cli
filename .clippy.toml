@@ -1,0 +1,10 @@
+# Hematite clippy configuration
+# Tuned for a large, async, multi-platform Rust codebase
+
+# Raise thresholds that would fire on intentionally complex dispatch functions
+cognitive-complexity-threshold = 40
+too-many-arguments-threshold = 10
+too-many-lines-threshold = 250
+
+# type-complexity fires on deeply nested async/Arc types - not useful here
+avoid-breaking-exported-api = true
