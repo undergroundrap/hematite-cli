@@ -2306,6 +2306,7 @@ fn test_build_summary_captures_verify_build_outcome() {
 // ── verify_build streaming ─────────────────────────────────────────────────────
 
 #[test]
+#[allow(clippy::await_holding_lock)]
 fn test_verify_build_streaming_no_project_emits_no_shell_lines() {
     // In a directory with no recognized project file, execute_streaming must
     // return Err quickly (autodetect failure) and must NOT emit any ShellLine
@@ -2356,6 +2357,7 @@ fn test_verify_build_streaming_no_project_emits_no_shell_lines() {
 }
 
 #[test]
+#[allow(clippy::await_holding_lock)]
 fn test_verify_build_streaming_output_shape_matches_blocking() {
     // Both execute() and execute_streaming() must return an Ok/Err with the
     // same "BUILD OK [...]" / "BUILD FAILED [...]" prefix format. The streaming
@@ -2463,7 +2465,7 @@ fn test_tail_file_grep_filter_matches_only_relevant_lines() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let tmp_path = std::env::temp_dir().join("hematite_tail_grep_test.txt");
-        let lines = vec![
+        let lines = [
             "info: starting build",
             "error: E0425 cannot find value",
             "info: compiling foo.rs",
@@ -7243,12 +7245,12 @@ fn test_diagnose_instruction_names_exact_topics() {
 #[test]
 fn test_report_export_markdown_structure() {
     use hematite::agent::report_export;
-    let _ = std::hint::black_box(report_export::generate_report_markdown as usize);
-    let _ = std::hint::black_box(report_export::generate_report_json as usize);
-    let _ = std::hint::black_box(report_export::generate_report_html as usize);
-    let _ = std::hint::black_box(report_export::save_report_markdown as usize);
-    let _ = std::hint::black_box(report_export::save_report_json as usize);
-    let _ = std::hint::black_box(report_export::save_report_html as usize);
+    let _ = std::hint::black_box(report_export::generate_report_markdown as *const () as usize);
+    let _ = std::hint::black_box(report_export::generate_report_json as *const () as usize);
+    let _ = std::hint::black_box(report_export::generate_report_html as *const () as usize);
+    let _ = std::hint::black_box(report_export::save_report_markdown as *const () as usize);
+    let _ = std::hint::black_box(report_export::save_report_json as *const () as usize);
+    let _ = std::hint::black_box(report_export::save_report_html as *const () as usize);
 }
 
 // ── HTML report ───────────────────────────────────────────────────────────────
@@ -7354,7 +7356,7 @@ fn test_report_cli_flags_exist() {
 #[test]
 fn test_report_export_save_diagnosis_wiring() {
     use hematite::agent::report_export;
-    let _ = std::hint::black_box(report_export::save_diagnosis_report as usize);
+    let _ = std::hint::black_box(report_export::save_diagnosis_report as *const () as usize);
 }
 
 // ── Fix recipes ───────────────────────────────────────────────────────────────
@@ -7438,7 +7440,7 @@ fn test_fix_recipes_action_sorted_before_monitor() {
 fn test_fix_recipes_diagnose_report_wiring() {
     // Verify generate_diagnosis_report is reachable (wiring/compile check).
     use hematite::agent::report_export;
-    let _ = std::hint::black_box(report_export::generate_diagnosis_report as usize);
+    let _ = std::hint::black_box(report_export::generate_diagnosis_report as *const () as usize);
 }
 
 // ── Health score ──────────────────────────────────────────────────────────────
