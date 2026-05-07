@@ -210,7 +210,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "snmp" | "snmp_agent" | "snmp_service" | "snmp_config" => inspect_snmp(),
         "port_test" | "port_check" | "test_port" | "check_port" | "tcp_test" | "reachable" => {
             let pt_host = args.get("host").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let pt_port = args.get("port").and_then(|v| v.as_u64()).map(|p| p as u16);
+            let pt_port = args.get("port").and_then(|v| v.as_u64()).and_then(|p| u16::try_from(p).ok());
             inspect_port_test(pt_host.as_deref(), pt_port)
         }
         "network_profile" | "network_location" | "net_profile" | "network_category" => inspect_network_profile(),
@@ -237,10 +237,10 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
             inspect_network_adapter()
         }
         "event_query" | "event_log" | "events" | "event_search" | "eventlog" => {
-            let event_id = args.get("event_id").and_then(|v| v.as_u64()).map(|n| n as u32);
+            let event_id = args.get("event_id").and_then(|v| v.as_u64()).and_then(|n| u32::try_from(n).ok());
             let log_name = args.get("log").and_then(|v| v.as_str()).map(|s| s.to_string());
             let source = args.get("source").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let hours = args.get("hours").and_then(|v| v.as_u64()).unwrap_or(24) as u32;
+            let hours = args.get("hours").and_then(|v| v.as_u64()).and_then(|h| u32::try_from(h).ok()).unwrap_or(24u32);
             let level = args.get("level").and_then(|v| v.as_str()).map(|s| s.to_string());
             inspect_event_query(event_id, log_name.as_deref(), source.as_deref(), hours, level.as_deref(), max_entries)
         }

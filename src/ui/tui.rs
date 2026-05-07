@@ -3717,7 +3717,7 @@ pub async fn run_app<B: Backend>(
                                                         .filter(|e| e.path().is_dir())
                                                         .map(|e| e.path())
                                                         .collect();
-                                                    dirs_found.sort();
+                                                    dirs_found.sort_unstable();
                                                     if !dirs_found.is_empty() {
                                                         let _ = write!(output, "\n{}:\n", cwd_label.display());
                                                         for pb in &dirs_found {
@@ -5362,7 +5362,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             )]));
 
             let mut sorted_ids: Vec<_> = app.active_workers.keys().cloned().collect();
-            sorted_ids.sort();
+            sorted_ids.sort_unstable();
 
             for id in sorted_ids {
                 let prog = app.active_workers[&id];

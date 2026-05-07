@@ -976,7 +976,9 @@ async fn fetch_website_snapshot(
 }
 
 fn extract_html_title(body: &str) -> Option<String> {
-    let re = Regex::new(r"(?is)<title[^>]*>(.*?)</title>").ok()?;
+    use std::sync::OnceLock;
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| Regex::new(r"(?is)<title[^>]*>(.*?)</title>").expect("valid title regex"));
     re.captures(body)
         .and_then(|captures| captures.get(1).map(|value| value.as_str()))
         .map(compact_whitespace)
@@ -984,8 +986,12 @@ fn extract_html_title(body: &str) -> Option<String> {
 }
 
 fn html_preview_text(body: &str) -> String {
-    let strip_re = Regex::new(r"(?is)<script[^>]*>.*?</script>|<style[^>]*>.*?</style>|<[^>]+>")
-        .expect("valid strip regex");
+    use std::sync::OnceLock;
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let strip_re = RE.get_or_init(|| {
+        Regex::new(r"(?is)<script[^>]*>.*?</script>|<style[^>]*>.*?</style>|<[^>]+>")
+            .expect("valid strip regex")
+    });
     let stripped = strip_re.replace_all(body, " ");
     let compact = compact_whitespace(&stripped);
     compact.chars().take(240).collect()
@@ -1033,7 +1039,11 @@ fn extract_local_asset_urls(page_url: &str, body: &str) -> Vec<String> {
     let Ok(page) = reqwest::Url::parse(page_url) else {
         return Vec::new();
     };
-    let regex = Regex::new(r#"(?is)(?:src|href)=["']([^"'#]+)["']"#).expect("valid asset regex");
+    use std::sync::OnceLock;
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let regex = RE.get_or_init(|| {
+        Regex::new(r#"(?is)(?:src|href)=["']([^"'#]+)["']"#).expect("valid asset regex")
+    });
     let mut assets = std::collections::BTreeSet::new();
     for captures in regex.captures_iter(body) {
         let Some(raw) = captures.get(1).map(|value| value.as_str().trim()) else {
