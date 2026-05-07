@@ -59,7 +59,7 @@ pub async fn lsp_definitions(
             .call("textDocument/definition", fallback_params)
             .await
         {
-            if !res.is_null() && !res.get("uri").is_none() {
+            if !res.is_null() && res.get("uri").is_some() {
                 result = res;
             }
         }
@@ -295,7 +295,7 @@ pub async fn lsp_get_diagnostics(
                     3 => "[INFO]",
                     _ => "[HINT]",
                 };
-                let _ = write!(out, "{} Line {}: {}\n", sev_label, start_line + 1, msg);
+                let _ = writeln!(out, "{} Line {}: {}", sev_label, start_line + 1, msg);
             }
             Ok(out)
         }

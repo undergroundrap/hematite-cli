@@ -298,11 +298,7 @@ fn extract_query_paths(query: &str) -> Vec<String> {
         let token = token.trim_matches(|c: char| {
             !c.is_alphanumeric() && c != '.' && c != '/' && c != '_' && c != '-' && c != '@'
         });
-        let effective = if token.starts_with('@') {
-            &token[1..]
-        } else {
-            token
-        };
+        let effective = token.strip_prefix('@').unwrap_or(token);
         if let Some(ext) = effective.rsplit('.').next() {
             if known_exts.contains(&ext.to_lowercase().as_str()) {
                 paths.push(effective.to_string());
@@ -391,10 +387,10 @@ pub fn render_skills_report(discovery: &SkillDiscovery) -> String {
             skill.skill_md_path.display()
         );
         if !skill.triggers.is_empty() {
-            let _ = write!(report, "  auto-activates: {}\n", skill.triggers.join(", "));
+            let _ = writeln!(report, "  auto-activates: {}", skill.triggers.join(", "));
         }
         if let Some(compatibility) = &skill.compatibility {
-            let _ = write!(report, "  compatibility: {}\n", compatibility);
+            let _ = writeln!(report, "  compatibility: {}", compatibility);
         }
     }
     report

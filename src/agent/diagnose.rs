@@ -24,15 +24,12 @@ pub fn triage_follow_up_topics(health_output: &str) -> Vec<&'static str> {
         topics.push("processes");
     }
 
-    if lower.contains("critical") || lower.contains("error event") {
-        if lower.contains("event") {
+    if (lower.contains("critical") || lower.contains("error event"))
+        && lower.contains("event") {
             topics.push("log_check");
         }
-    }
 
-    if lower.contains("[!]") && lower.contains("service") {
-        topics.push("services");
-    } else if lower.contains("[-]") && lower.contains("service") {
+    if (lower.contains("[!]") || lower.contains("[-]")) && lower.contains("service") {
         topics.push("services");
     }
 

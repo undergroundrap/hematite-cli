@@ -65,7 +65,7 @@ fn add_task(path: &PathBuf, title: &str) -> Result<String, String> {
     if !tasks.is_empty() && !tasks.ends_with('\n') {
         tasks.push('\n');
     }
-    let _ = write!(tasks, "- [ ] {}\n", title);
+    let _ = writeln!(tasks, "- [ ] {}", title);
 
     fs::create_dir_all(path.parent().expect("Invalid task path")).map_err(|e| e.to_string())?;
     fs::write(path, &tasks).map_err(|e| format!("Failed to write task: {e}"))?;

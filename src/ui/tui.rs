@@ -1438,8 +1438,8 @@ impl App {
             let a_is_dir = a.ends_with('/');
             let b_is_dir = b.ends_with('/');
 
-            let a_ext = a.split('.').last().unwrap_or("");
-            let b_ext = b.split('.').last().unwrap_or("");
+            let a_ext = a.split('.').next_back().unwrap_or("");
+            let b_ext = b.split('.').next_back().unwrap_or("");
             let a_is_src = a_ext == "rs" || a_ext == "md";
             let b_is_src = b_ext == "rs" || b_ext == "md";
 
@@ -1558,9 +1558,9 @@ impl App {
             out.push('\n');
         }
 
-        let _ = write!(
+        let _ = writeln!(
             out,
-            "Tokens: {} | Cost: ${:.4}\n",
+            "Tokens: {} | Cost: ${:.4}",
             self.total_tokens, self.current_session_cost
         );
 
@@ -1667,8 +1667,8 @@ impl App {
         }
 
         history.push_str("\nSession Stats\n");
-        let _ = write!(history, "Tokens: {}\n", self.total_tokens);
-        let _ = write!(history, "Cost: ${:.4}\n", self.current_session_cost);
+        let _ = writeln!(history, "Tokens: {}", self.total_tokens);
+        let _ = writeln!(history, "Cost: ${:.4}", self.current_session_cost);
 
         copy_text_to_clipboard(&history);
     }
@@ -1688,8 +1688,8 @@ impl App {
         }
 
         history.push_str("\nSession Stats\n");
-        let _ = write!(history, "Tokens: {}\n", self.total_tokens);
-        let _ = write!(history, "Cost: ${:.4}\n", self.current_session_cost);
+        let _ = writeln!(history, "Tokens: {}", self.total_tokens);
+        let _ = writeln!(history, "Cost: ${:.4}", self.current_session_cost);
 
         copy_text_to_clipboard(&history);
     }
@@ -3605,7 +3605,7 @@ pub async fn run_app<B: Backend>(
 
                                     // ── Slash Command Processor ──────────────────────────
                                     if input_text.starts_with('/') {
-                                        let parts: Vec<&str> = input_text.trim().split_whitespace().collect();
+                                        let parts: Vec<&str> = input_text.split_whitespace().collect();
                                         let cmd = parts[0].to_lowercase();
                                         match cmd.as_str() {
                                             "/undo" => {
@@ -3701,7 +3701,7 @@ pub async fn run_app<B: Backend>(
                                                         output.push_str("Common locations:\n");
                                                         for (label, pb) in &valid {
                                                             entries.push(pb.clone());
-                                                            let _ = write!(output, "  {:>2}.  {:<12}  {}\n", entries.len(), label, pb.display());
+                                                            let _ = writeln!(output, "  {:>2}.  {:<12}  {}", entries.len(), label, pb.display());
                                                         }
                                                     }
                                                 }
@@ -3724,7 +3724,7 @@ pub async fn run_app<B: Backend>(
                                                         for pb in &dirs_found {
                                                             entries.push(pb.clone());
                                                             let name = pb.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-                                                            let _ = write!(output, "  {:>2}.  {}\n", entries.len(), name);
+                                                            let _ = writeln!(output, "  {:>2}.  {}", entries.len(), name);
                                                         }
                                                     }
                                                 }
@@ -3836,7 +3836,7 @@ pub async fn run_app<B: Backend>(
                                                     let mut list = format!("Available voices (current: {}):\n", current);
                                                     for (i, &(id, label)) in VOICE_LIST.iter().enumerate() {
                                                         let marker = if id == current.as_str() { " ◀" } else { "" };
-                                                        let _ = write!(list, "  {:>2}. {}{}\n", i + 1, label, marker);
+                                                        let _ = writeln!(list, "  {:>2}. {}{}", i + 1, label, marker);
                                                     }
                                                     list.push_str("\nUse /voice N or /voice <id> to select.");
                                                     app.push_message("System", &list);
@@ -4080,7 +4080,7 @@ pub async fn run_app<B: Backend>(
                                                             let p = crate::agent::instructions::resolve_guidance_path(&ws_root, cand);
                                                             if p.exists() {
                                                                 if let Ok(c) = std::fs::read_to_string(&p) {
-                                                                    let _ = write!(combined, "--- [{}] ---\n", cand);
+                                                                    let _ = writeln!(combined, "--- [{}] ---", cand);
                                                                     combined.push_str(&c);
                                                                     combined.push_str("\n\n");
                                                                 }
@@ -4116,7 +4116,7 @@ pub async fn run_app<B: Backend>(
                                                               let p = crate::agent::instructions::resolve_guidance_path(&ws_root, cand);
                                                               let icon = if p.exists() { "[v]" } else { "[ ]" };
                                                               let label = crate::agent::instructions::guidance_status_label(cand);
-                                                              let _ = write!(status, "  {} {:<25} {}\n", icon, cand, label);
+                                                              let _ = writeln!(status, "  {} {:<25} {}", icon, cand, label);
                                                         }
                                                         status.push_str("\nUsage:\n  /rules view        - View combined guidance\n  /rules edit        - Edit personal local rules (ignored by git)\n  /rules edit shared - Edit project-wide shared rules");
                                                         app.push_message("System", &status);
@@ -5154,7 +5154,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             // TUI SCROLL FIX:
             // Exact calculation: how many times does line_w fit into inner_w?
             // This matches Paragraph's internal Wrap logic closely.
-            let wrapped = (line_w + inner_w - 1) / inner_w;
+            let wrapped = line_w.div_ceil(inner_w);
             total_lines += wrapped;
         }
     }
@@ -5790,7 +5790,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
             .split(area);
 
         // ── Modal Header ─────────────────────────────────────────────────────
-        let (title_str, title_color) = if let Some(_) = &approval.mutation_label {
+        let (title_str, title_color) = if approval.mutation_label.is_some() {
             (" MUTATION REQUESTED — AUTHORISE THE WORKFLOW ", Color::Cyan)
         } else if is_diff_preview {
             (" DIFF PREVIEW — REVIEW BEFORE APPLYING ", Color::Yellow)
@@ -5844,7 +5844,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         );
 
         // ── Modal Body ───────────────────────────────────────────────────────
-        let border_color = if let Some(_) = &approval.mutation_label {
+        let border_color = if approval.mutation_label.is_some() {
             Color::Cyan
         } else if is_diff_preview {
             Color::Yellow

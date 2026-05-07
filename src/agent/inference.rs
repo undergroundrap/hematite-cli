@@ -513,7 +513,7 @@ impl InferenceEngine {
                     .description
                     .as_deref()
                     .unwrap_or("No description provided.");
-                let _ = write!(sys, "- {}: {}\n", tool.name, description);
+                let _ = writeln!(sys, "- {}: {}", tool.name, description);
             }
         }
 
@@ -581,20 +581,20 @@ impl InferenceEngine {
         }
 
         if professional {
-            let _ = write!(
+            let _ = writeln!(
                 sys,
                 "You are Hematite, a local coding system running on {}. \
                  The TUI is one interface layer, not your whole identity. \
                  Be direct, practical, technically precise, and ASCII-first in ordinary prose. \
-                 Skip filler and keep the focus on the work.\n",
+                 Skip filler and keep the focus on the work.",
                 os
             );
         } else {
-            let _ = write!(sys,
+            let _ = writeln!(sys,
                 "You are Hematite, a [{}] local AI coding system (Snark: {}/100) running on the user's hardware on {}. \
                  The terminal UI is only one surface of the system. \
                  Be direct, efficient, technical, and ASCII-first in ordinary prose. \
-                 When the user asks who you are, describe Hematite as the local coding harness and agent, not merely the TUI.\n",
+                 When the user asks who you are, describe Hematite as the local coding harness and agent, not merely the TUI.",
                 self.species, snark, os
             );
         }
@@ -691,12 +691,12 @@ impl InferenceEngine {
             for tool in tools {
                 let schema = serde_json::to_string(&tool.function.parameters)
                     .unwrap_or_else(|_| "{}".to_string());
-                let _ = write!(
+                let _ = writeln!(
                     sys,
-                    "<|tool>declaration:{}{}{}<tool|>\n",
-                    tool.function.name, "{", schema
+                    "<|tool>declaration:{}{{{}<tool|>",
+                    tool.function.name, schema
                 );
-                let _ = write!(sys, "// {})\n", tool.function.description);
+                let _ = writeln!(sys, "// {})", tool.function.description);
             }
         }
 
@@ -722,15 +722,15 @@ impl InferenceEngine {
         if professional {
             sys.push_str("Be direct, technical, concise, and ASCII-first.\n");
         } else {
-            let _ = write!(
+            let _ = writeln!(
                 sys,
-                "You are a [{}] local AI coding system. Be direct, concise, and technical.\n",
+                "You are a [{}] local AI coding system. Be direct, concise, and technical.",
                 self.species
             );
         }
-        let _ = write!(
+        let _ = writeln!(
             sys,
-            "Model: {} | Context: {} tokens. Keep turns focused.\n",
+            "Model: {} | Context: {} tokens. Keep turns focused.",
             current_model, current_context_length
         );
         if is_hematite_native_model(&current_model) {
@@ -740,13 +740,13 @@ impl InferenceEngine {
             );
         }
         if cfg!(target_os = "windows") {
-            let _ = write!(
+            let _ = writeln!(
                 sys,
-                "OS: {}. Use PowerShell for shell. Never bash or /dev/null.\n",
+                "OS: {}. Use PowerShell for shell. Never bash or /dev/null.",
                 os
             );
         } else {
-            let _ = write!(sys, "OS: {}. Use native Unix shell.\n", os);
+            let _ = writeln!(sys, "OS: {}. Use native Unix shell.", os);
         }
         if brief {
             sys.push_str("BRIEF MODE: one concise sentence unless code is required.\n");
@@ -766,7 +766,7 @@ impl InferenceEngine {
             sys.push_str("\n# AVAILABLE TOOLS\n");
             for tool in tools {
                 let desc: String = tool.function.description.chars().take(120).collect();
-                let _ = write!(sys, "- {}: {}\n", tool.function.name, desc);
+                let _ = writeln!(sys, "- {}: {}", tool.function.name, desc);
             }
         }
 
@@ -784,33 +784,33 @@ impl InferenceEngine {
         if professional {
             sys.push_str("Be direct, technical, concise, and ASCII-first.\n");
         } else {
-            let _ = write!(
+            let _ = writeln!(
                 sys,
-                "You are a [{}] local AI coding system. Be direct, concise, and technical.\n",
+                "You are a [{}] local AI coding system. Be direct, concise, and technical.",
                 self.species
             );
         }
         if !current_model.is_empty() {
-            let _ = write!(
+            let _ = writeln!(
                 sys,
-                "Loaded model: {} | Context window: {} tokens.\n",
+                "Loaded model: {} | Context window: {} tokens.",
                 current_model, current_context_length
             );
         } else {
-            let _ = write!(sys, "Context window: {} tokens.\n", current_context_length);
+            let _ = writeln!(sys, "Context window: {} tokens.", current_context_length);
         }
         sys.push_str("Tiny-context mode is active. Keep turns short. Prefer final answers over long analysis. Only use tools when necessary.\n");
         sys.push_str("Use built-in workspace tools for local inspection and edits. Do not invent tools, files, channels, or symbols.\n");
         sys.push_str("Before editing an existing file, gather recent file evidence first. After code edits, verify before commit.\n");
         if cfg!(target_os = "windows") {
-            let _ = write!(sys,
-                "You are running on {}. Use PowerShell for shell work. Do not assume bash or /dev/null.\n",
+            let _ = writeln!(sys,
+                "You are running on {}. Use PowerShell for shell work. Do not assume bash or /dev/null.",
                 os
             );
         } else {
-            let _ = write!(
+            let _ = writeln!(
                 sys,
-                "You are running on {}. Use the native Unix shell conventions.\n",
+                "You are running on {}. Use the native Unix shell conventions.",
                 os
             );
         }

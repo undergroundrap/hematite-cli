@@ -219,10 +219,7 @@ fn load_config_uncached() -> HematiteConfig {
     let workspace: Option<HematiteConfig> = if path.exists() {
         let content = std::fs::read_to_string(&path).ok();
         if let Some(d) = content {
-            match serde_json::from_str(&d) {
-                Ok(cfg) => Some(cfg),
-                Err(_) => None,
-            }
+            serde_json::from_str(&d).ok()
         } else {
             None
         }

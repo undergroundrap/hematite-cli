@@ -9,6 +9,12 @@ pub struct LmsHarness {
     pub binary_path: Option<PathBuf>,
 }
 
+impl Default for LmsHarness {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LmsHarness {
     pub fn new() -> Self {
         Self {
@@ -73,8 +79,7 @@ impl LmsHarness {
             .status()?;
 
         if !status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 "Failed to start lms server",
             ));
         }
@@ -91,8 +96,7 @@ impl LmsHarness {
         let output = Command::new(lms).args(["ls"]).output()?;
 
         if !output.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 "Failed to list models via lms",
             ));
         }
@@ -117,8 +121,7 @@ impl LmsHarness {
         let output = Command::new(lms).args(["ps"]).output()?;
 
         if !output.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 "Failed to list loaded models via lms",
             ));
         }
@@ -147,8 +150,7 @@ impl LmsHarness {
             .status()?;
 
         if !status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 format!("Failed to load model: {}", model_id),
             ));
         }
@@ -169,8 +171,7 @@ impl LmsHarness {
             .status()?;
 
         if !status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 format!("Failed to unload model: {}", model_id),
             ));
         }
@@ -191,8 +192,7 @@ impl LmsHarness {
             .status()?;
 
         if !status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 "Failed to unload all models",
             ));
         }

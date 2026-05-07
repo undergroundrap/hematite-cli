@@ -146,7 +146,7 @@ pub fn path_is_safe(workspace_root: &Path, target: &Path) -> Result<PathBuf, Str
         .replace("\\", "/");
     let norm_workspace = norm_workspace_owned.trim_start_matches("//?/");
 
-    if !norm_path.starts_with(&norm_workspace) {
+    if !norm_path.starts_with(norm_workspace) {
         // RELAXED SANDBOX: Allow absolute paths IF they passed the blacklist checks above.
         // Also allow sovereign tokens (@DESKTOP, ~) even if they aren't technically 'absolute' in a Path sense.
         if target.is_absolute()
@@ -560,11 +560,16 @@ fn is_known_safe_command(tokens: &[String]) -> bool {
     match exe_name {
         "git" => {
             let sub = tokens.get(1).map(|s| s.to_lowercase());
-            match sub.as_deref() {
-                Some("status") | Some("log") | Some("diff") | Some("branch") | Some("show")
-                | Some("ls-files") | Some("rev-parse") => true,
-                _ => false,
-            }
+            matches!(
+                sub.as_deref(),
+                Some("status")
+                    | Some("log")
+                    | Some("diff")
+                    | Some("branch")
+                    | Some("show")
+                    | Some("ls-files")
+                    | Some("rev-parse")
+            )
         }
         "cargo" => {
             let sub = tokens.get(1).map(|s| s.to_lowercase());

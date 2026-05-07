@@ -71,7 +71,7 @@ impl LspClient {
                     let _ = reader.read_line(&mut line).await;
 
                     let mut body = vec![0u8; len];
-                    if let Err(_) = reader.read_exact(&mut body).await {
+                    if (reader.read_exact(&mut body).await).is_err() {
                         break;
                     }
 

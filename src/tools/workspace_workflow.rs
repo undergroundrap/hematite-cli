@@ -412,9 +412,8 @@ async fn start_website_server(args: &Value, root: &Path) -> Result<String, Strin
         &log_path,
     )
     .await
-    .map_err(|message| {
+    .inspect_err(|_message| {
         let _ = fs::remove_file(&state_path);
-        message
     })?;
 
     save_website_server_state(&state_path, &state)?;
@@ -904,7 +903,7 @@ async fn website_server_status(args: &Value, root: &Path) -> Result<String, Stri
     } else {
         out.push_str("\n\nHTTP probe: unavailable");
     }
-    out.push_str("\n");
+    out.push('\n');
     out.push_str(&format_log_tail("Recent log tail", Some(&state.log_path)));
     Ok(out)
 }

@@ -261,7 +261,7 @@ pub fn create_pr_from_context(title: Option<&str>, draft: bool) -> Result<String
     let pr_title = title
         .map(str::to_string)
         .or(auto_title)
-        .unwrap_or_else(|| branch.replace('-', " ").replace('_', " "));
+        .unwrap_or_else(|| branch.replace(['-', '_'], " "));
 
     // Gather commit log for body
     let commits = Command::new("git")

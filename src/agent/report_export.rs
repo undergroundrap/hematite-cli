@@ -430,7 +430,7 @@ static AUTO_CMD_AC: std::sync::OnceLock<AutoCmdAc> = std::sync::OnceLock::new();
 
 fn auto_cmd_ac() -> &'static AutoCmdAc {
     AUTO_CMD_AC.get_or_init(|| {
-        const SAFE: &[(&'static str, &'static str, &'static str)] = &[
+        const SAFE: &[(&str, &str, &str)] = &[
             ("dns: failed", "Flush DNS cache", "ipconfig /flushdns"),
             (
                 "dns resolution: failed",
@@ -630,7 +630,7 @@ pub async fn generate_report_markdown() -> String {
                     for line in s.lines() {
                         let ll = line.to_ascii_lowercase();
                         if ll.contains("hostname") || ll.contains("computer name") {
-                            if let Some(val) = line.splitn(2, ':').nth(1) {
+                            if let Some(val) = line.split_once(':').map(|x| x.1) {
                                 let h = val.trim().to_string();
                                 if !h.is_empty() {
                                     hostname = h;
@@ -652,9 +652,9 @@ pub async fn generate_report_markdown() -> String {
 
     let mut md = String::with_capacity(action_plan.len() + sections.len() * 512 + 256);
     md.push_str("# Hematite Diagnostic Report\n\n");
-    let _ = write!(md, "**Generated:** {}  \n", timestamp);
-    let _ = write!(md, "**Host:** {}  \n", hostname);
-    let _ = write!(md, "**Hematite:** v{}  \n", version);
+    let _ = writeln!(md, "**Generated:** {}  ", timestamp);
+    let _ = writeln!(md, "**Host:** {}  ", hostname);
+    let _ = writeln!(md, "**Hematite:** v{}  ", version);
     let _ = write!(
         md,
         "**Health Score:** {} — {}  \n\n",
@@ -742,9 +742,9 @@ pub async fn generate_diagnosis_report() -> String {
     let mut md =
         String::with_capacity(action_plan.len() + data.follow_up_outputs.len() * 512 + 256);
     md.push_str("# Hematite Staged Diagnosis Report\n\n");
-    let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
-    let _ = write!(md, "**Host:** {}  \n", data.hostname);
-    let _ = write!(md, "**Hematite:** v{}  \n", version);
+    let _ = writeln!(md, "**Generated:** {}  ", data.timestamp);
+    let _ = writeln!(md, "**Host:** {}  ", data.hostname);
+    let _ = writeln!(md, "**Hematite:** v{}  ", version);
     let _ = write!(
         md,
         "**Health Score:** {} — {}  \n\n",
@@ -859,7 +859,7 @@ pub async fn generate_report_html() -> String {
                     for line in s.lines() {
                         let ll = line.to_ascii_lowercase();
                         if ll.contains("hostname") || ll.contains("computer name") {
-                            if let Some(val) = line.splitn(2, ':').nth(1) {
+                            if let Some(val) = line.split_once(':').map(|x| x.1) {
                                 let h = val.trim().to_string();
                                 if !h.is_empty() {
                                     hostname = h;
@@ -932,9 +932,9 @@ fn build_html_document(
     let mut sections_html =
         String::with_capacity(sections.iter().map(|(_, o)| o.len() + 64).sum::<usize>());
     for (label, output) in sections {
-        let _ = write!(
+        let _ = writeln!(
             sections_html,
-            "<details><summary>{}</summary><pre>{}</pre></details>\n",
+            "<details><summary>{}</summary><pre>{}</pre></details>",
             he(label),
             he(output.trim_end())
         );
@@ -1007,7 +1007,7 @@ async fn run_triage_phases(preset: &str) -> TriageData {
                     for line in s.lines() {
                         let ll = line.to_ascii_lowercase();
                         if ll.contains("hostname") || ll.contains("computer name") {
-                            if let Some(val) = line.splitn(2, ':').nth(1) {
+                            if let Some(val) = line.split_once(':').map(|x| x.1) {
                                 let h = val.trim().to_string();
                                 if !h.is_empty() {
                                     hostname = h;
@@ -1045,9 +1045,9 @@ pub async fn generate_triage_report_markdown(preset: &str) -> String {
 
     let mut md = String::with_capacity(action_plan.len() + data.sections.len() * 512 + 256);
     let _ = write!(md, "# {}\n\n", title);
-    let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
-    let _ = write!(md, "**Host:** {}  \n", data.hostname);
-    let _ = write!(md, "**Hematite:** v{}  \n", version);
+    let _ = writeln!(md, "**Generated:** {}  ", data.timestamp);
+    let _ = writeln!(md, "**Host:** {}  ", data.hostname);
+    let _ = writeln!(md, "**Hematite:** v{}  ", version);
     let _ = write!(
         md,
         "**Health Score:** {} — {}  \n\n",
@@ -1133,7 +1133,7 @@ async fn run_fix_plan_phases(issue: &str) -> FixPlanData {
                     for line in s.lines() {
                         let ll = line.to_ascii_lowercase();
                         if ll.contains("hostname") || ll.contains("computer name") {
-                            if let Some(val) = line.splitn(2, ':').nth(1) {
+                            if let Some(val) = line.split_once(':').map(|x| x.1) {
                                 let h = val.trim().to_string();
                                 if !h.is_empty() {
                                     hostname = h;
@@ -1201,10 +1201,10 @@ pub async fn generate_fix_plan_markdown(issue: &str) -> String {
 
     let mut md = String::with_capacity(action_plan.len() + data.sections.len() * 512 + 256);
     md.push_str("# Hematite Fix Plan\n\n");
-    let _ = write!(md, "**Issue:** {}  \n", issue);
-    let _ = write!(md, "**Generated:** {}  \n", data.timestamp);
-    let _ = write!(md, "**Host:** {}  \n", data.hostname);
-    let _ = write!(md, "**Hematite:** v{}  \n", version);
+    let _ = writeln!(md, "**Issue:** {}  ", issue);
+    let _ = writeln!(md, "**Generated:** {}  ", data.timestamp);
+    let _ = writeln!(md, "**Host:** {}  ", data.hostname);
+    let _ = writeln!(md, "**Hematite:** v{}  ", version);
     let _ = write!(
         md,
         "**Health Score:** {} — {}  \n\n",
@@ -1238,9 +1238,9 @@ pub async fn generate_fix_plan_html(issue: &str) -> String {
 
     let mut sections_html = String::with_capacity(data.sections.len() * 512);
     for (label, output) in &data.sections {
-        let _ = write!(
+        let _ = writeln!(
             sections_html,
-            "<details><summary>{}</summary><pre>{}</pre></details>\n",
+            "<details><summary>{}</summary><pre>{}</pre></details>",
             he(label),
             he(output.trim_end())
         );

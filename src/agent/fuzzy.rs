@@ -1,7 +1,6 @@
 /// High-Precision Fuzzy Matching Module.
 /// Ports the subsequence matching algorithm from Codex-RS to improve
 /// architectural grounding during file and symbol discovery.
-
 /// Returns the indices of the matched characters in the original haystack
 /// and a score where smaller is better.
 pub fn fuzzy_match(haystack: &str, needle: &str) -> Option<(Vec<usize>, i32)> {

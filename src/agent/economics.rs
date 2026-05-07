@@ -59,6 +59,7 @@ impl TurnBudget {
 }
 
 /// Tracks token usage and tool calls for a session.
+#[derive(Default)]
 pub struct SessionEconomics {
     /// Input tokens accumulated across all calls.
     pub input_tokens: usize,
@@ -87,15 +88,6 @@ impl SessionEconomics {
     }
 }
 
-impl Default for SessionEconomics {
-    fn default() -> Self {
-        Self {
-            input_tokens: 0,
-            output_tokens: 0,
-            tools_used: Vec::new(),
-        }
-    }
-}
 
 /// A record of a tool call.
 #[derive(Serialize, Clone, Debug)]

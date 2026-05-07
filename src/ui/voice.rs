@@ -63,7 +63,6 @@ impl VoiceManager {
                         "Voice Engine: Disabled in crates.io/source build (use packaged releases for baked-in voice).".into(),
                     ));
                     while rx.recv().is_ok() {}
-                    return;
                 }
 
                 #[cfg(feature = "embedded-voice-assets")]

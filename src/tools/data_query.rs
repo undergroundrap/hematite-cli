@@ -126,7 +126,7 @@ fn query_csv_streaming(path: &PathBuf, sql: &str, explain: bool) -> Result<Strin
             create_sql.push_str(", ");
         }
     }
-    create_sql.push_str(")");
+    create_sql.push(')');
 
     conn.execute(&create_sql, [])
         .map_err(|e| format!("DDL Error: {}", e))?;
@@ -151,13 +151,11 @@ fn query_csv_streaming(path: &PathBuf, sql: &str, explain: bool) -> Result<Strin
             }
 
             // Insert remaining rows (Streaming)
-            for line_res in lines {
-                if let Ok(line) = line_res {
-                    let mut vals = Vec::with_capacity(ncols);
-                    vals.extend(line.split(delimiter).map(|s| s.trim()));
-                    if vals.len() == ncols {
-                        stmt.execute(rusqlite::params_from_iter(vals)).ok();
-                    }
+            for line in lines.map_while(Result::ok) {
+                let mut vals = Vec::with_capacity(ncols);
+                vals.extend(line.split(delimiter).map(|s| s.trim()));
+                if vals.len() == ncols {
+                    stmt.execute(rusqlite::params_from_iter(vals)).ok();
                 }
             }
         }
@@ -195,7 +193,7 @@ fn query_json_optimized(path: &PathBuf, sql: &str, explain: bool) -> Result<Stri
             create_sql.push_str(", ");
         }
     }
-    create_sql.push_str(")");
+    create_sql.push(')');
 
     conn.execute(&create_sql, []).map_err(|e| e.to_string())?;
 
@@ -266,7 +264,7 @@ fn export_to_sqlite(path: &PathBuf, items: &[Value]) -> Result<String, String> {
             create_sql.push_str(", ");
         }
     }
-    create_sql.push_str(")");
+    create_sql.push(')');
 
     conn.execute(&create_sql, [])
         .map_err(|e| format!("DDL Error: {}", e))?;
@@ -355,9 +353,9 @@ fn execute_and_format(conn: &Connection, sql: &str) -> Result<String, String> {
     for name in &col_names {
         let _ = write!(out, "{:<15} ", name);
     }
-    out.push_str("\n");
+    out.push('\n');
     out.push_str(&"-".repeat(col_names.len() * 16));
-    out.push_str("\n");
+    out.push('\n');
 
     let mut count = 0;
     while let Some(row) = rows.next().map_err(|e| e.to_string())? {
@@ -378,7 +376,7 @@ fn execute_and_format(conn: &Connection, sql: &str) -> Result<String, String> {
             };
             let _ = write!(out, "{:<15} ", truncated);
         }
-        out.push_str("\n");
+        out.push('\n');
         count += 1;
         if count >= 100 {
             out.push_str("\n[Result truncated to first 100 rows]\n");

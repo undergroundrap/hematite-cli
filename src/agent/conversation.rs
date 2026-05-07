@@ -80,6 +80,7 @@ impl UserTurn {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Default)]
 struct SavedSession {
     running_summary: Option<String>,
     #[serde(default)]
@@ -92,16 +93,6 @@ struct SavedSession {
     turn_count: u32,
 }
 
-impl Default for SavedSession {
-    fn default() -> Self {
-        Self {
-            running_summary: None,
-            session_memory: crate::agent::compaction::SessionMemory::default(),
-            last_goal: None,
-            turn_count: 0,
-        }
-    }
-}
 
 /// Snapshot of the previous session, surfaced on startup when a workspace is
 /// resumed after a restart or crash.
@@ -647,7 +638,7 @@ fn inject_at_file_mentions(prompt: &str) -> String {
         }
         // Strip trailing punctuation that isn't part of a path
         let path_str =
-            raw.trim_end_matches(|c: char| matches!(c, ',' | '.' | ':' | ';' | '!' | '?'));
+            raw.trim_end_matches([',', '.', ':', ';', '!', '?']);
         if path_str.is_empty() {
             continue;
         }
@@ -1694,11 +1685,11 @@ impl ConversationManager {
             by_room.entry(file.room.as_str()).or_default().push(file);
         }
         for (room, files) in by_room {
-            let _ = write!(out, "[{}]\n", room);
+            let _ = writeln!(out, "[{}]", room);
             for file in files {
-                let _ = write!(
+                let _ = writeln!(
                     out,
-                    "- {} [{} edit{}]\n",
+                    "- {} [{} edit{}]",
                     file.path,
                     file.heat,
                     if file.heat == 1 { "" } else { "s" }
@@ -2161,6 +2152,7 @@ impl ConversationManager {
         Ok(outcome)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         engine: Arc<InferenceEngine>,
         professional: bool,
@@ -2426,9 +2418,7 @@ impl ConversationManager {
         if self.workflow_mode != WorkflowMode::Architect {
             return None;
         }
-        let Some(plan) = crate::tools::plan::parse_plan_handoff(response) else {
-            return None;
-        };
+        let plan = crate::tools::plan::parse_plan_handoff(response)?;
         let _ = crate::tools::plan::save_plan_handoff(&plan);
         self.session_memory.current_plan = Some(plan.clone());
         Some(plan)
@@ -2473,7 +2463,7 @@ impl ConversationManager {
             }
             let raw = token
                 .trim_start_matches('@')
-                .trim_end_matches(|c: char| matches!(c, ',' | '.' | ':' | ';' | '!' | '?'));
+                .trim_end_matches([',', '.', ':', ';', '!', '?']);
             if raw.is_empty() {
                 continue;
             }
@@ -2955,22 +2945,22 @@ impl ConversationManager {
         }
 
         let mut receipt = String::from("[ACTION RECEIPT]\n");
-        let _ = write!(receipt, "- tool: {}\n", name);
+        let _ = writeln!(receipt, "- tool: {}", name);
         if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
-            let _ = write!(receipt, "- target: {}\n", path);
+            let _ = writeln!(receipt, "- target: {}", path);
         }
         if name == "shell" {
             if let Some(command) = args.get("command").and_then(|v| v.as_str()) {
-                let _ = write!(receipt, "- command: {}\n", command);
+                let _ = writeln!(receipt, "- command: {}", command);
             }
             if let Some(reason) = args.get("reason").and_then(|v| v.as_str()) {
                 if !reason.trim().is_empty() {
-                    let _ = write!(receipt, "- reason: {}\n", reason.trim());
+                    let _ = writeln!(receipt, "- reason: {}", reason.trim());
                 }
             }
         }
         let first_line = output.lines().next().unwrap_or(output).trim();
-        let _ = write!(receipt, "- outcome: {}\n", first_line);
+        let _ = writeln!(receipt, "- outcome: {}", first_line);
         Some(ChatMessage::system(&receipt))
     }
 
@@ -3072,7 +3062,7 @@ impl ConversationManager {
             if issue.is_empty() || issue == "list" || issue == "help" {
                 let mut list = "Supported issue categories:\n\n".to_string();
                 for (cat, keywords) in fix_issue_categories() {
-                    let _ = write!(list, "  {:<22} {}\n", cat, keywords);
+                    let _ = writeln!(list, "  {:<22} {}", cat, keywords);
                 }
                 for chunk in chunk_text(&list, 8) {
                     let _ = tx.send(InferenceEvent::Token(chunk)).await;
@@ -4560,7 +4550,7 @@ impl ConversationManager {
                 if !plan.target_files.is_empty() {
                     system_msg.push_str("\n# CURRENT PLAN TARGET FILES\n");
                     for path in &plan.target_files {
-                        let _ = write!(system_msg, "- {}\n", path);
+                        let _ = writeln!(system_msg, "- {}", path);
                     }
                 }
             }
@@ -5052,7 +5042,7 @@ impl ConversationManager {
             .history
             .iter()
             .take(turn_anchor)
-            .map(|m| crate::agent::inference::estimate_message_tokens(m))
+            .map(crate::agent::inference::estimate_message_tokens)
             .sum();
         // Accumulates per-tool result costs (chars / 4) during the turn.
         let mut budget_tool_costs: Vec<crate::agent::economics::ToolCost> = Vec::with_capacity(8);
@@ -5242,8 +5232,8 @@ impl ConversationManager {
                     }
 
                     let class = classify_runtime_failure(&e);
-                    if should_retry_runtime_failure(class) {
-                        if self.recovery_context.consume_transient_retry() {
+                    if should_retry_runtime_failure(class)
+                        && self.recovery_context.consume_transient_retry() {
                             let label = match class {
                                 RuntimeFailureClass::ProviderDegraded => "provider_degraded",
                                 _ => "empty_model_response",
@@ -5272,7 +5262,6 @@ impl ConversationManager {
                             .await;
                             continue;
                         }
-                    }
 
                     if explicit_search_request
                         && matches!(
@@ -5503,7 +5492,7 @@ impl ConversationManager {
                             let tracker = self.diff_tracker.clone();
                             tokio::spawn(async move {
                                 let mut guard = tracker.lock().await;
-                                let _ = guard.on_file_access(std::path::Path::new(&path));
+                                guard.on_file_access(std::path::Path::new(&path));
                             });
                         }
                     }
@@ -5737,9 +5726,9 @@ impl ConversationManager {
                 let execution_ms = execution_start.elapsed().as_millis();
                 let _ = tx
                     .send(InferenceEvent::TurnTiming {
-                        context_prep_ms: context_prep_ms as u128,
-                        inference_ms: inference_ms as u128,
-                        execution_ms: execution_ms as u128,
+                        context_prep_ms,
+                        inference_ms,
+                        execution_ms,
                     })
                     .await;
 
@@ -6463,9 +6452,9 @@ impl ConversationManager {
                 let execution_ms = execution_start.elapsed().as_millis();
                 let _ = tx
                     .send(InferenceEvent::TurnTiming {
-                        context_prep_ms: context_prep_ms as u128,
-                        inference_ms: inference_ms as u128,
-                        execution_ms: execution_ms as u128,
+                        context_prep_ms,
+                        inference_ms,
+                        execution_ms,
                     })
                     .await;
 
@@ -7039,10 +7028,11 @@ impl ConversationManager {
 
                         if other == "website_validate" && needs_boot {
                             let start_args = serde_json::json!({ "workflow": "website_start" });
-                            if let Ok(_) = crate::tools::workspace_workflow::run_workspace_workflow(
+                            if crate::tools::workspace_workflow::run_workspace_workflow(
                                 &start_args,
                             )
                             .await
+                            .is_ok()
                             {
                                 if let Ok(retry_out) =
                                     crate::tools::workspace_workflow::run_workspace_workflow(&args)
@@ -7182,7 +7172,7 @@ impl ConversationManager {
     /// Returns a formatted system message string, or None if nothing useful found.
     fn build_vein_context(&self, query: &str) -> Option<(String, Vec<String>)> {
         // Skip trivial / very short inputs.
-        if query.trim().split_whitespace().count() < 3 {
+        if query.split_whitespace().count() < 3 {
             return None;
         }
 
@@ -7657,7 +7647,7 @@ fn clean_shell_dns_token(token: &str) -> String {
                     '\'' | '"' | '(' | ')' | '[' | ']' | '{' | '}' | ';' | ',' | '`'
                 )
         })
-        .trim_end_matches(|c: char| matches!(c, ':' | '.'))
+        .trim_end_matches([':', '.'])
         .to_string()
 }
 
@@ -8337,7 +8327,7 @@ impl ConversationManager {
             gemma4_model,
             self.history
                 .last()
-                .and_then(|m| m.content.as_str().split('\n').last()),
+                .and_then(|m| m.content.as_str().split('\n').next_back()),
         );
         call.name = normalized_name;
         let last_user_prompt = self
@@ -9720,7 +9710,7 @@ fn build_system_with_corrections(
         crate::agent::config::PermissionMode::Developer => "DEVELOPER",
         crate::agent::config::PermissionMode::SystemAdmin => "SYSTEM-ADMIN (UNRESTRICTED)",
     };
-    let _ = write!(system_msg, "CURRENT MODE: {}\n", mode_label);
+    let _ = writeln!(system_msg, "CURRENT MODE: {}", mode_label);
 
     if config.mode == crate::agent::config::PermissionMode::ReadOnly {
         system_msg.push_str("PERMISSION: You are restricted to READ-ONLY access. Do NOT attempt to use write_file, edit_file, or shell for any modification. Focus entirely on analysis, indexing, and reporting.\n");
@@ -9732,9 +9722,9 @@ fn build_system_with_corrections(
     let (used, total) = gpu.read();
     if total > 0 {
         system_msg.push_str("\n\n# Terminal Hardware Context\n");
-        let _ = write!(
+        let _ = writeln!(
             system_msg,
-            "HOST GPU: {} | VRAM: {:.1}GB / {:.1}GB ({:.0}% used)\n",
+            "HOST GPU: {} | VRAM: {:.1}GB / {:.1}GB ({:.0}% used)",
             gpu.gpu_name(),
             used as f64 / 1024.0,
             total as f64 / 1024.0,
@@ -9747,9 +9737,9 @@ fn build_system_with_corrections(
     system_msg.push_str("\n\n# Git Repository Context\n");
     let git_status_label = git.label();
     let git_url = git.url();
-    let _ = write!(
+    let _ = writeln!(
         system_msg,
-        "REMOTE STATUS: {} | URL: {}\n",
+        "REMOTE STATUS: {} | URL: {}",
         git_status_label, git_url
     );
 
@@ -9758,13 +9748,13 @@ fn build_system_with_corrections(
     if let Some(status_snapshot) = crate::agent::git_context::read_git_status(&root) {
         system_msg.push_str("\nGit status snapshot:\n");
         system_msg.push_str(&status_snapshot);
-        system_msg.push_str("\n");
+        system_msg.push('\n');
     }
 
     if let Some(diff_snapshot) = crate::agent::git_context::read_git_diff(&root, 2000) {
         system_msg.push_str("\nGit diff snapshot:\n");
         system_msg.push_str(&diff_snapshot);
-        system_msg.push_str("\n");
+        system_msg.push('\n');
     }
 
     if git_status_label == "NONE" {
@@ -9783,7 +9773,7 @@ fn build_system_with_corrections(
     system_msg.push_str("\n\n# Formatting Corrections\n");
     system_msg.push_str("You previously failed formatting checks on these files. Ensure your whitespace/indentation perfectly matches the original file exactly on your next attempt:\n");
     for hint in hints {
-        let _ = write!(system_msg, "- {}\n", hint);
+        let _ = writeln!(system_msg, "- {}", hint);
     }
     system_msg
 }

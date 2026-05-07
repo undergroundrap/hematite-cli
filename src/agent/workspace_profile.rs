@@ -181,82 +181,82 @@ pub fn profile_report(root: &Path) -> String {
 
     let mut out = String::with_capacity(512);
     out.push_str("Workspace Profile\n");
-    let _ = write!(out, "Path: {}\n", path.display());
-    let _ = write!(out, "Mode: {}\n", profile.workspace_mode);
-    let _ = write!(
+    let _ = writeln!(out, "Path: {}", path.display());
+    let _ = writeln!(out, "Mode: {}", profile.workspace_mode);
+    let _ = writeln!(
         out,
-        "Primary stack: {}\n",
+        "Primary stack: {}",
         profile.primary_stack.as_deref().unwrap_or("unknown")
     );
     if !profile.stack_signals.is_empty() {
-        let _ = write!(out, "Stack signals: {}\n", profile.stack_signals.join(", "));
+        let _ = writeln!(out, "Stack signals: {}", profile.stack_signals.join(", "));
     }
     if !profile.package_managers.is_empty() {
-        let _ = write!(
+        let _ = writeln!(
             out,
-            "Package managers: {}\n",
+            "Package managers: {}",
             profile.package_managers.join(", ")
         );
     }
     if let Some(profile_name) = &profile.verify_profile {
-        let _ = write!(out, "Verify profile: {}\n", profile_name);
+        let _ = writeln!(out, "Verify profile: {}", profile_name);
     }
     if let Some(build_hint) = &profile.build_hint {
-        let _ = write!(out, "Build hint: {}\n", build_hint);
+        let _ = writeln!(out, "Build hint: {}", build_hint);
     }
     if let Some(test_hint) = &profile.test_hint {
-        let _ = write!(out, "Test hint: {}\n", test_hint);
+        let _ = writeln!(out, "Test hint: {}", test_hint);
     }
     if let Some(contract) = &profile.runtime_contract {
-        let _ = write!(out, "Loop family: {}\n", contract.loop_family);
-        let _ = write!(out, "App kind: {}\n", contract.app_kind);
+        let _ = writeln!(out, "Loop family: {}", contract.loop_family);
+        let _ = writeln!(out, "App kind: {}", contract.app_kind);
         if let Some(framework) = &contract.framework_hint {
-            let _ = write!(out, "Framework hint: {}\n", framework);
+            let _ = writeln!(out, "Framework hint: {}", framework);
         }
         if let Some(url) = &contract.local_url_hint {
-            let _ = write!(out, "Local URL hint: {}\n", url);
+            let _ = writeln!(out, "Local URL hint: {}", url);
         }
         if !contract.preferred_workflows.is_empty() {
-            let _ = write!(
+            let _ = writeln!(
                 out,
-                "Preferred workflows: {}\n",
+                "Preferred workflows: {}",
                 contract.preferred_workflows.join(", ")
             );
         }
         if !contract.delivery_phases.is_empty() {
-            let _ = write!(
+            let _ = writeln!(
                 out,
-                "Delivery phases: {}\n",
+                "Delivery phases: {}",
                 contract.delivery_phases.join(" -> ")
             );
         }
         if !contract.verification_workflows.is_empty() {
-            let _ = write!(
+            let _ = writeln!(
                 out,
-                "Verification workflows: {}\n",
+                "Verification workflows: {}",
                 contract.verification_workflows.join(", ")
             );
         }
         if !contract.quality_gates.is_empty() {
-            let _ = write!(
+            let _ = writeln!(
                 out,
-                "Quality gates: {}\n",
+                "Quality gates: {}",
                 contract.quality_gates.join("; ")
             );
         }
         if !contract.route_hints.is_empty() {
-            let _ = write!(out, "Route hints: {}\n", contract.route_hints.join(", "));
+            let _ = writeln!(out, "Route hints: {}", contract.route_hints.join(", "));
         }
     }
     if !profile.important_paths.is_empty() {
-        let _ = write!(
+        let _ = writeln!(
             out,
-            "Important paths: {}\n",
+            "Important paths: {}",
             profile.important_paths.join(", ")
         );
     }
     if !profile.ignored_paths.is_empty() {
-        let _ = write!(out, "Ignored noise: {}\n", profile.ignored_paths.join(", "));
+        let _ = writeln!(out, "Ignored noise: {}", profile.ignored_paths.join(", "));
     }
     let _ = write!(out, "Summary: {}", profile.summary);
     out

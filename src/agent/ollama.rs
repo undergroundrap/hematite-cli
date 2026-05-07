@@ -39,7 +39,7 @@ impl OllamaHarness {
     /// Verify if the Ollama server is reachable and responsive.
     pub async fn is_reachable(&self) -> bool {
         self.client
-            .get(&format!("{}/api/tags", self.base_url))
+            .get(format!("{}/api/tags", self.base_url))
             .send()
             .await
             .is_ok()
@@ -49,7 +49,7 @@ impl OllamaHarness {
     pub async fn verify_version(&self) -> Result<String, String> {
         let resp = self
             .client
-            .get(&format!("{}/api/version", self.base_url))
+            .get(format!("{}/api/version", self.base_url))
             .send()
             .await
             .map_err(|e| format!("Ollama unreachable: {}", e))?;
@@ -67,7 +67,7 @@ impl OllamaHarness {
     pub async fn has_model(&self, name: &str) -> Result<bool, String> {
         let resp = self
             .client
-            .get(&format!("{}/api/tags", self.base_url))
+            .get(format!("{}/api/tags", self.base_url))
             .send()
             .await
             .map_err(|e| format!("Ollama unreachable: {}", e))?;

@@ -6,10 +6,15 @@ use std::path::{Path, PathBuf};
 /// Authoritative Turn Diff Tracker.
 /// Enables Hematite to proactively capture workspace mutations and
 /// generate high-precision unified diffs for human-in-the-loop verification.
-
 pub struct TurnDiffTracker {
     /// Baseline snapshots: Path -> Original Content
     baselines: HashMap<PathBuf, Vec<u8>>,
+}
+
+impl Default for TurnDiffTracker {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TurnDiffTracker {

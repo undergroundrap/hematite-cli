@@ -191,9 +191,7 @@ async fn manage_ledger(args: &Value) -> Result<String, String> {
 
             file.write_all(entry.as_bytes())
                 .map_err(|e| e.to_string())?;
-            Ok(format!(
-                "Derivation successfully persisted to Scientific Ledger (RAG-indexed)."
-            ))
+            Ok("Derivation successfully persisted to Scientific Ledger (RAG-indexed).".to_string())
         }
         _ => Err(format!("Unknown ledger action: {}", action)),
     }

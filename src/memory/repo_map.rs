@@ -434,9 +434,9 @@ impl RepoMapGenerator {
             }
 
             if let Some(defs) = definitions_display.get(rel_path) {
-                let _ = write!(output, "{}:\n", rel_path);
+                let _ = writeln!(output, "{}:", rel_path);
                 for def in defs {
-                    let _ = write!(output, "  - {}\n", def);
+                    let _ = writeln!(output, "  - {}", def);
                     total_symbols += 1;
                     if total_symbols >= self.max_symbols {
                         break;

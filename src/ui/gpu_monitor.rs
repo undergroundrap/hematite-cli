@@ -38,6 +38,12 @@ pub struct HistoryPoint {
     pub throttle_reasons: String,
 }
 
+impl Default for GpuState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GpuState {
     pub fn new() -> Self {
         Self {

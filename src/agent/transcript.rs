@@ -15,6 +15,12 @@ pub struct TranscriptLogger {
 }
 
 #[allow(dead_code)]
+impl Default for TranscriptLogger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TranscriptLogger {
     pub fn new() -> Self {
         let log_dir = crate::tools::file_ops::hematite_dir().join("logs");
@@ -43,14 +49,14 @@ impl TranscriptLogger {
             .open(&self.session_file)
         {
             if output.len() > 500 {
-                let _ = write!(
+                let _ = writeln!(
                     file,
-                    "[AGENT] {}... [TRUNCATED {} bytes]\n",
+                    "[AGENT] {}... [TRUNCATED {} bytes]",
                     safe_head(output, 500),
                     output.len()
                 );
             } else {
-                let _ = write!(file, "[AGENT] {}\n", output);
+                let _ = writeln!(file, "[AGENT] {}", output);
             }
         }
     }
@@ -66,7 +72,7 @@ impl TranscriptLogger {
             .append(true)
             .open(&self.session_file)
         {
-            let _ = write!(file, "{}{}\n", prefix, body);
+            let _ = writeln!(file, "{}{}", prefix, body);
         }
     }
 }

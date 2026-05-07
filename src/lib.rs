@@ -19,6 +19,7 @@ pub fn hematite_git_commit_short() -> Option<&'static str> {
 }
 
 pub fn hematite_git_exact_tag() -> Option<&'static str> {
+    #[allow(clippy::const_is_empty)]
     (!HEMATITE_GIT_EXACT_TAG_RAW.is_empty()).then_some(HEMATITE_GIT_EXACT_TAG_RAW)
 }
 

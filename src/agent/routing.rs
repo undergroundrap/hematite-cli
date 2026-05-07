@@ -366,10 +366,10 @@ fn is_conversational_advisory(lower: &str) -> bool {
 
     // ── Confirmation-seeking tail — "right?", "correct?" ────────────────────────
     let ends_confirmation = lower
-        .trim_end_matches(|c: char| c == '?' || c == ' ')
+        .trim_end_matches(['?', ' '])
         .ends_with("right")
         || lower
-            .trim_end_matches(|c: char| c == '?' || c == ' ')
+            .trim_end_matches(['?', ' '])
             .ends_with("correct")
         || lower.ends_with("right?")
         || lower.ends_with("yeah?");
@@ -2106,8 +2106,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("fix_plan")
     } else if asks_env_doctor {
         Some("env_doctor")
-    } else if asks_overclocker {
-        Some("overclocker")
     } else if asks_traceroute {
         Some("traceroute")
     } else if asks_dhcp {
@@ -2178,8 +2176,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("tpm")
     } else if asks_network_adapter {
         Some("network_adapter")
-    } else if asks_ipv6 {
-        Some("ipv6")
     } else if asks_tcp_params {
         Some("tcp_params")
     } else if asks_wlan_profiles {
@@ -2230,8 +2226,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("drivers")
     } else if asks_peripherals {
         Some("peripherals")
-    } else if asks_user_accounts {
-        Some("user_accounts")
     } else if asks_sessions {
         Some("sessions")
     } else if asks_virtualization {
@@ -2258,12 +2252,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (mentions_host_inspection_question(&lower) && asks_broad_readiness)
     {
         Some("summary")
-    } else if asks_env_doctor {
-        Some("env_doctor")
     } else if asks_dns_servers {
         Some("dns_servers")
-    } else if asks_lan_discovery {
-        Some("lan_discovery")
     } else if asks_connectivity {
         Some("connectivity")
     } else if asks_wifi {
@@ -2282,8 +2272,6 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("arp")
     } else if asks_route_table {
         Some("route_table")
-    } else if asks_network_stats {
-        Some("network_stats")
     } else if asks_shares {
         Some("shares")
     } else if asks_network {
@@ -3702,10 +3690,10 @@ pub fn preferred_workspace_workflow(user_input: &str) -> Option<&'static str> {
         Some("lint")
     } else if asks_fix && asks_project_scope {
         Some("fix")
-    } else if asks_script && !preferred_maintainer_workflow(user_input).is_some() {
+    } else if asks_script && preferred_maintainer_workflow(user_input).is_none() {
         Some("script")
     } else if (asks_test || asks_lint || asks_fix)
-        && !preferred_maintainer_workflow(user_input).is_some()
+        && preferred_maintainer_workflow(user_input).is_none()
     {
         Some(if asks_test {
             "test"

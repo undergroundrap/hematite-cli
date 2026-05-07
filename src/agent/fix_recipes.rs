@@ -819,10 +819,10 @@ pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
             "INVESTIGATE" => ("sev-investigate", "b-investigate", "INVESTIGATE"),
             _ => ("sev-monitor", "b-monitor", "MONITOR"),
         };
-        let _ = write!(out, "<div class=\"recipe {}\">\n", sev_class);
-        let _ = write!(
+        let _ = writeln!(out, "<div class=\"recipe {}\">", sev_class);
+        let _ = writeln!(
             out,
-            "<h3><span class=\"badge {}\">{}</span> {}. {}</h3>\n",
+            "<h3><span class=\"badge {}\">{}</span> {}. {}</h3>",
             badge_class,
             badge_text,
             i + 1,
@@ -830,7 +830,7 @@ pub fn format_action_plan_html(outputs: &[(&str, &str)]) -> String {
         );
         out.push_str("<ol>\n");
         for step in recipe.steps {
-            let _ = write!(out, "<li>{}</li>\n", he(step));
+            let _ = writeln!(out, "<li>{}</li>", he(step));
         }
         out.push_str("</ol>\n");
         if let Some(_topic) = recipe.dig_deeper {

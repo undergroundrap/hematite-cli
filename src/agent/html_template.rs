@@ -3,7 +3,6 @@ use std::fmt::Write as _;
 /// Shared dark-theme HTML shell for all Hematite HTML outputs.
 /// Any feature that saves an HTML file calls `build_html_shell` — consistent
 /// look everywhere, CSS and JS defined in one place.
-
 pub fn he(s: &str) -> String {
     let mut out: Option<String> = None;
     let mut last = 0usize;
@@ -133,7 +132,7 @@ pub fn markdown_to_html(md: &str) -> String {
         if !items.is_empty() {
             out.push_str("<ul>\n");
             for item in items.iter() {
-                let _ = write!(out, "<li>{}</li>\n", item);
+                let _ = writeln!(out, "<li>{}</li>", item);
             }
             out.push_str("</ul>\n");
             items.clear();
@@ -144,7 +143,7 @@ pub fn markdown_to_html(md: &str) -> String {
         // fenced code block toggle
         if line.starts_with("```") {
             if in_code_block {
-                let _ = write!(out, "<pre>{}</pre>\n", he(code_buf.trim_end()));
+                let _ = writeln!(out, "<pre>{}</pre>", he(code_buf.trim_end()));
                 code_buf.clear();
                 in_code_block = false;
             } else {
@@ -162,17 +161,17 @@ pub fn markdown_to_html(md: &str) -> String {
         // headings
         if let Some(rest) = line.strip_prefix("### ") {
             flush_list(&mut list_items, &mut out);
-            let _ = write!(out, "<h3>{}</h3>\n", inline_md(rest));
+            let _ = writeln!(out, "<h3>{}</h3>", inline_md(rest));
             continue;
         }
         if let Some(rest) = line.strip_prefix("## ") {
             flush_list(&mut list_items, &mut out);
-            let _ = write!(out, "<h2>{}</h2>\n", inline_md(rest));
+            let _ = writeln!(out, "<h2>{}</h2>", inline_md(rest));
             continue;
         }
         if let Some(rest) = line.strip_prefix("# ") {
             flush_list(&mut list_items, &mut out);
-            let _ = write!(out, "<h2>{}</h2>\n", inline_md(rest));
+            let _ = writeln!(out, "<h2>{}</h2>", inline_md(rest));
             continue;
         }
 
@@ -198,12 +197,12 @@ pub fn markdown_to_html(md: &str) -> String {
 
         // paragraph line
         flush_list(&mut list_items, &mut out);
-        let _ = write!(out, "<p>{}</p>\n", inline_md(line));
+        let _ = writeln!(out, "<p>{}</p>", inline_md(line));
     }
 
     flush_list(&mut list_items, &mut out);
     if in_code_block && !code_buf.is_empty() {
-        let _ = write!(out, "<pre>{}</pre>\n", he(code_buf.trim_end()));
+        let _ = writeln!(out, "<pre>{}</pre>", he(code_buf.trim_end()));
     }
 
     // Collapse consecutive <p> tags separated only by blank lines into a section

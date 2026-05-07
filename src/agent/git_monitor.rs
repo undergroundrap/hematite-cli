@@ -22,6 +22,12 @@ pub struct GitState {
     pub remote_url: std::sync::Mutex<String>,
 }
 
+impl Default for GitState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GitState {
     pub fn new() -> Self {
         Self {

@@ -31,7 +31,7 @@ impl CompactionConfig {
     pub fn adaptive(context_length: usize, vram_ratio: f64) -> Self {
         let vram = vram_ratio.clamp(0.0, 1.0);
         let effective = (context_length as f64 * 0.40 * (1.0 - vram * 0.5)) as usize;
-        let max_estimated_tokens = effective.max(4_000).min(60_000);
+        let max_estimated_tokens = effective.clamp(4_000, 60_000);
         let preserve_recent_messages = (context_length / 3_000).clamp(8, 20);
         Self {
             preserve_recent_messages,
@@ -227,38 +227,38 @@ impl SessionMemory {
         if !self.learnings.is_empty() {
             s.push_str("- **Key Learnings**:\n");
             for l in &self.learnings {
-                let _ = write!(s, "  - {l}\n");
+                let _ = writeln!(s, "  - {l}");
             }
         }
         if let Some(checkpoint) = &self.last_checkpoint {
             if checkpoint.summary.trim().is_empty() {
-                let _ = write!(s, "- **Latest Checkpoint**: {}\n", checkpoint.state);
+                let _ = writeln!(s, "- **Latest Checkpoint**: {}", checkpoint.state);
             } else {
-                let _ = write!(
+                let _ = writeln!(
                     s,
-                    "- **Latest Checkpoint**: {} - {}\n",
+                    "- **Latest Checkpoint**: {} - {}",
                     checkpoint.state, checkpoint.summary
                 );
             }
         }
         if let Some(blocker) = &self.last_blocker {
             if blocker.summary.trim().is_empty() {
-                let _ = write!(s, "- **Latest Blocker**: {}\n", blocker.state);
+                let _ = writeln!(s, "- **Latest Blocker**: {}", blocker.state);
             } else {
-                let _ = write!(
+                let _ = writeln!(
                     s,
-                    "- **Latest Blocker**: {} - {}\n",
+                    "- **Latest Blocker**: {} - {}",
                     blocker.state, blocker.summary
                 );
             }
         }
         if let Some(recovery) = &self.last_recovery {
             if recovery.summary.trim().is_empty() {
-                let _ = write!(s, "- **Latest Recovery**: {}\n", recovery.state);
+                let _ = writeln!(s, "- **Latest Recovery**: {}", recovery.state);
             } else {
-                let _ = write!(
+                let _ = writeln!(
                     s,
-                    "- **Latest Recovery**: {} - {}\n",
+                    "- **Latest Recovery**: {} - {}",
                     recovery.state, recovery.summary
                 );
             }
@@ -269,16 +269,16 @@ impl SessionMemory {
             } else {
                 "failed"
             };
-            let _ = write!(
+            let _ = writeln!(
                 s,
-                "- **Latest Verification**: {} - {}\n",
+                "- **Latest Verification**: {} - {}",
                 status, verification.summary
             );
         }
         if let Some(compaction) = &self.last_compaction {
-            let _ = write!(
+            let _ = writeln!(
                 s,
-                "- **Latest Compaction**: pass {} removed {} message(s) - {}\n",
+                "- **Latest Compaction**: pass {} removed {} message(s) - {}",
                 compaction.count, compaction.removed_message_count, compaction.summary
             );
         }
@@ -579,7 +579,7 @@ fn build_technical_summary(messages: &[ChatMessage]) -> String {
         // Assistant prose (up to 3) — capture decisions and explanations made.
         if m.role == "assistant"
             && !m.content.as_str().trim().is_empty()
-            && m.tool_calls.as_ref().map_or(true, |tc| tc.is_empty())
+            && m.tool_calls.as_ref().is_none_or(|tc| tc.is_empty())
             && assistant_notes.len() < 3
         {
             let text = m.content.as_str().trim();

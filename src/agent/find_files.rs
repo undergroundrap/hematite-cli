@@ -54,7 +54,7 @@ pub async fn find_files_fuzzy(args: &Value) -> Result<String, String> {
         } else {
             "Low"
         };
-        let _ = write!(output, "- {} (Confidence: {})\n", path, confidence);
+        let _ = writeln!(output, "- {} (Confidence: {})", path, confidence);
     }
 
     Ok(output)

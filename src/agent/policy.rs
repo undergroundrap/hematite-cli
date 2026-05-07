@@ -219,7 +219,7 @@ pub(crate) fn is_redundant_action(
                     // Check if this result belongs to a previous identical grep call
                     if let Some(_prev_assistant) = history.iter().rev().find(|prev| {
                         prev.role == "assistant"
-                            && prev.tool_calls.as_ref().map_or(false, |calls| {
+                            && prev.tool_calls.as_ref().is_some_and(|calls| {
                                 calls.iter().any(|c| {
                                     c.id == m.tool_call_id.clone().unwrap_or_default()
                                         && (c.function.name == "grep_files"

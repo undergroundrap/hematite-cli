@@ -25,8 +25,7 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
             (file, path)
         }
         Err(e) => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 format!("Failed to create temp index: {}", e),
             ))
         }
@@ -59,8 +58,7 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
     if !add_status.success() {
         // Cleanup on failure
         let _ = std::fs::remove_file(&index_path);
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(io::Error::other(
             "Git add to temp index failed",
         ));
     }
@@ -78,8 +76,7 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
     let _ = std::fs::remove_file(&index_path);
 
     if !tree_output.status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(io::Error::other(
             "Git write-tree failed",
         ));
     }
@@ -101,8 +98,7 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
         .output()?;
 
     if !commit_output.status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(io::Error::other(
             "Git commit-tree failed",
         ));
     }
@@ -122,8 +118,7 @@ pub fn create_ghost_snapshot(repo_path: &Path) -> io::Result<()> {
         .status()?;
 
     if !update_status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(io::Error::other(
             "Git update-ref failed",
         ));
     }
@@ -145,8 +140,7 @@ pub fn revert_from_ghost(repo_path: &Path, file_path: &str) -> io::Result<String
         .status()?;
 
     if !status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(io::Error::other(
             "Git checkout from ghost ref failed",
         ));
     }
@@ -164,7 +158,7 @@ pub fn get_active_branch(repo_path: &Path) -> io::Result<String> {
         .stderr(Stdio::null())
         .output()?;
     if !output.status.success() {
-        return Err(io::Error::new(io::ErrorKind::Other, "Git rev-parse failed"));
+        return Err(io::Error::other("Git rev-parse failed"));
     }
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }

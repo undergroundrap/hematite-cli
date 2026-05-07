@@ -1526,7 +1526,7 @@ impl Vein {
 
         let mut out = String::from("# Hot Files (most edited — grouped by subsystem)\n");
         for (room, entries) in &by_room {
-            let _ = write!(out, "[{}]\n", room);
+            let _ = writeln!(out, "[{}]", room);
             for (path, heat, mtime) in entries {
                 let age_secs = now - mtime;
                 let age = if age_secs < 3600 {
@@ -1536,9 +1536,9 @@ impl Vein {
                 } else {
                     format!("{}d ago", age_secs / 86400)
                 };
-                let _ = write!(
+                let _ = writeln!(
                     out,
-                    "  - {} [{} edit{}, {}]\n",
+                    "  - {} [{} edit{}, {}]",
                     path,
                     heat,
                     if *heat == 1 { "" } else { "s" },
@@ -1900,7 +1900,7 @@ fn current_unix_timestamp() -> i64 {
 }
 
 fn session_memory_timestamp(result: &SearchResult) -> Option<i64> {
-    extract_session_path_timestamp(&result.path).or_else(|| {
+    extract_session_path_timestamp(&result.path).or({
         if result.last_modified > 0 {
             Some(result.last_modified)
         } else {

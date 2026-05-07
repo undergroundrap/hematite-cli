@@ -9,7 +9,6 @@ use std::fmt::Write as _;
 ///
 /// The block is loaded once at session start and injected every turn so the
 /// model knows what the user was recently doing without them explaining it.
-
 const MAX_COMMANDS: usize = 20;
 const MIN_CMD_LEN: usize = 4;
 
@@ -20,7 +19,7 @@ pub fn load_shell_history_block() -> Option<String> {
     }
     let mut block = String::from("## Recent Shell History (last session commands)\n");
     for cmd in &commands {
-        let _ = write!(block, "  $ {}\n", cmd);
+        let _ = writeln!(block, "  $ {}", cmd);
     }
     block.push_str("Use this context to understand what the user was recently working on.\n");
     Some(block)
