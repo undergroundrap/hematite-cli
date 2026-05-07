@@ -255,7 +255,7 @@ impl SystemPromptBuilder {
                 }
             }
             if !list.is_empty() {
-                list.sort();
+                list.sort_unstable();
                 let _ = write!(prompt, "\n- Workspace Files (Root): {}", list.join(", "));
             }
         }

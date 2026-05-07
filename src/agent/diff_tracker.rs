@@ -45,7 +45,7 @@ impl TurnDiffTracker {
 
         let mut aggregated = String::with_capacity(self.baselines.len() * 512);
         let mut sorted_paths: Vec<_> = self.baselines.keys().collect();
-        sorted_paths.sort();
+        sorted_paths.sort_unstable();
 
         for path in sorted_paths {
             let original_bytes = self.baselines.get(path).unwrap();

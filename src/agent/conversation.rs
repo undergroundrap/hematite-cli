@@ -128,7 +128,7 @@ pub fn load_checkpoint() -> Option<CheckpointResume> {
         .into_iter()
         .take(4)
         .collect();
-    working_files.sort();
+    working_files.sort_unstable();
     let last_verify_ok = saved.session_memory.last_verification.map(|v| v.successful);
     Some(CheckpointResume {
         last_goal: goal,
@@ -1082,7 +1082,7 @@ fn parse_failing_paths_from_build_output(output: &str) -> Vec<String> {
             Some(resolved.to_string_lossy().replace('\\', "/").to_lowercase())
         })
         .collect();
-    paths.sort();
+    paths.sort_unstable();
     paths.dedup();
     paths
 }
