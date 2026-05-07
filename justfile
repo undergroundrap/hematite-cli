@@ -50,6 +50,11 @@ audit:
 deny:
     cargo deny check
 
+# List dependencies with newer versions available (requires cargo-outdated)
+# Install: cargo install cargo-outdated
+outdated:
+    cargo outdated --depth 1
+
 # ── Build ─────────────────────────────────────────────────────────────────────
 
 # Fast compile check (no linking)

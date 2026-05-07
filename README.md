@@ -647,24 +647,37 @@ That package still installs the `hematite` command. The crates.io package name a
 
 ### Developer Mode
 
+**Quick commands** (`cargo install just` or `winget install Casey.Just`):
+
 ```powershell
-# 1. Build the engine
-cargo build --release
-
-# 2. Run from the project root
-cargo run --release
-
-# 3. Skip the splash screen for automation/tests
-cargo run --release -- --no-splash
-
-# 4. Skip approval modals (Approvals Off mode)
-cargo run --release -- --yolo
-
-# 5. Show your Rusty companion stats and exit
-cargo run --release -- --stats
+just check          # fmt + clippy + tests + audit — mirrors CI exactly
+just test           # run the full test suite
+just test-one <name>  # run one test with output
+just audit          # cargo audit (CVE check on Cargo.lock)
+just deny           # cargo deny check (licenses, bans, sources)
+just outdated       # list dependencies with newer versions available
+just package        # build portable Windows bundle + update PATH
+just clean-deep     # remove target/ and vein.db when disk fills up
+just                # list all available recipes
 ```
 
-Source-build note: the publish-safe default build does not embed the 300MB+ voice assets. Hematite's packaged releases and local packaging scripts opt back into baked-in voice automatically with `--features embedded-voice-assets`.
+CI runs on `v*` tags and manual dispatch — pushing normally is silent. Tag a release and both the quality gate (fmt, clippy, tests, audit) and the release builds fire together.
+
+**Raw cargo commands:**
+
+```powershell
+# Build and run
+cargo build
+cargo run -- --no-splash
+
+# Skip approval modals
+cargo run -- --yolo
+
+# Show companion stats
+cargo run -- --stats
+```
+
+Source-build note: the publish-safe default build does not embed the 300MB+ voice assets. Packaged releases and local packaging scripts opt back into baked-in voice automatically with `--features embedded-voice-assets`.
 
 ---
 
