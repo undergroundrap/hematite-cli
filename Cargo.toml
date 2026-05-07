@@ -11,6 +11,24 @@ license-file = "LICENSE"
 keywords = ["ai", "harness", "sysadmin", "local-llm", "cli"]
 categories = ["command-line-utilities", "development-tools", "network-programming", "os"]
 
+exclude = [
+    "assets/*",
+    "evals/*",
+    "installer/*",
+    "docs/*",
+    "dist/*",
+    ".claude/*",
+    ".hematite/*",
+    "scripts/*",
+    "*.ps1",
+    "*.sh",
+    "prompt_library.md",
+    "MEMORY.md",
+    "WORKFLOWS.md",
+    "CONTRIBUTING.md",
+    "CAPABILITIES.md",
+]
+
 [package.metadata.docs.rs]
 # docs.rs runs on Linux — MSVC targets require lib.exe which is not available.
 # Build docs for Linux; the API surface is the same across platforms.
