@@ -5138,16 +5138,8 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         ])
     };
 
-    let core_para = Paragraph::new(core_lines.clone())
-        .block(
-            Block::default()
-                .title(core_title)
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray)),
-        )
-        .wrap(Wrap { trim: true });
-
-    // Enhanced Scroll calculation.
+    // Enhanced Scroll calculation — done before Paragraph construction so we can
+    // move core_lines into Paragraph::new() instead of cloning it a second time.
     let avail_h = top[0].height.saturating_sub(2);
     // Borders (2) + Scrollbar (1) + explicit Padding (1) = 4.
     let inner_w = top[0].width.saturating_sub(4).max(1);
@@ -5172,6 +5164,15 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     } else {
         max_scroll
     };
+
+    let core_para = Paragraph::new(core_lines)
+        .block(
+            Block::default()
+                .title(core_title)
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        )
+        .wrap(Wrap { trim: true });
 
     // Clear the outer chunk and the inner dialogue area to prevent ghosting from previous frames or background renders.
     f.render_widget(Clear, top[0]);

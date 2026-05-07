@@ -2236,9 +2236,9 @@ fn inspect_services(name_filter: Option<String>, max_entries: usize) -> Result<S
 
     services.sort_by(|a, b| {
         let a_running =
-            a.status.to_ascii_lowercase() == "running" || a.status.to_ascii_lowercase() == "active";
+            a.status.eq_ignore_ascii_case("running") || a.status.eq_ignore_ascii_case("active");
         let b_running =
-            b.status.to_ascii_lowercase() == "running" || b.status.to_ascii_lowercase() == "active";
+            b.status.eq_ignore_ascii_case("running") || b.status.eq_ignore_ascii_case("active");
         b_running.cmp(&a_running).then_with(|| a.name.cmp(&b.name))
     });
 
