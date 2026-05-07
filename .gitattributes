@@ -1,3 +1,13 @@
-*.sh text eol=lf
-*.yml text eol=lf
-*.yaml text eol=lf
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.exe binary
+*.dll binary
+*.onnx binary
+*.bin binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.zip binary
