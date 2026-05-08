@@ -1407,7 +1407,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("network share")
             && (lower.contains("reach") || lower.contains("access") || lower.contains("test")));
     let asks_thermal = lower.contains("thermal")
-        || (lower.contains("throttle") && !lower.contains("gpu"))
+        || (lower.contains("throttl") && !lower.contains("gpu"))
         || lower.contains("overheating")
         || lower.contains("cpu temp");
     let asks_overclocker = lower.contains("overclocker")
@@ -1420,7 +1420,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("nvidia")
                 || lower.contains("silicon")))
         || (lower.contains("gpu")
-            && (lower.contains("throttle")
+            && (lower.contains("throttl")
                 || lower.contains("bottleneck")
                 || lower.contains("clock")
                 || lower.contains("fan")

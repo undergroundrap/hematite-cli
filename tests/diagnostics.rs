@@ -8010,3 +8010,139 @@ fn test_scheduler_register_invalid_exe_returns_err_or_ok() {
     // Both Ok and Err are valid — we just check it doesn't crash
     let _ = result;
 }
+
+// ── fix_plan routing: mutation-guard bypass for host-remediation queries ───────
+//
+// Queries like "fix cargo not found" contain a code keyword ("cargo") that also
+// triggers asks_mutation_intent. Before v0.8.2 the mutation guard fired first and
+// returned None, silently dropping the host-inspection intent. The fix adds an
+// early-return for (asks_fix_plan && asks_mutation_intent) before the mutation guard
+// so these read-only host-remediation queries are correctly routed to fix_plan.
+
+#[test]
+fn test_routing_detects_fix_plan_for_cargo_remediation() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // "fix" is both a fix verb (asks_fix_plan) and a mutation verb (asks_mutation_intent).
+    // Pairing it with a code keyword like "cargo" or "rust" makes both conditions true,
+    // so the early return added in v0.8.2 fires before the mutation guard returns None.
+    assert_eq!(
+        preferred_host_inspection_topic("fix cargo not found on this machine"),
+        Some("fix_plan")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("how do I fix cargo not on my PATH"),
+        Some("fix_plan")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("fix rust toolchain not found"),
+        Some("fix_plan")
+    );
+}
+
+#[test]
+fn test_routing_detects_fix_plan_for_runtime_remediation() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // These use fix-type verbs paired with runtime keywords (lm studio, port, model)
+    // that don't trip the mutation guard, so they flow through the dispatch chain to
+    // fix_plan without colliding with dns_lookup or other higher-priority topics.
+    assert_eq!(
+        preferred_host_inspection_topic("fix lm studio connection refused"),
+        Some("fix_plan")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("fix port 1234 already in use"),
+        Some("fix_plan")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("fix embedding model not loading"),
+        Some("fix_plan")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("fix no coding model loaded"),
+        Some("fix_plan")
+    );
+}
+
+#[test]
+fn test_routing_mutation_guard_still_blocks_code_mutations() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // Real code-mutation queries must NOT route to any host inspection topic.
+    // These have mutation verbs + code keywords but no fix/repair/resolve/troubleshoot,
+    // so asks_fix_plan is false and the mutation guard correctly returns None.
+    let mutations = [
+        "create a cargo project",
+        "create a new rust project",
+        "write a python script to parse the logs",
+        "refactor this code",
+        "implement the new feature",
+    ];
+    for q in mutations {
+        let topic = preferred_host_inspection_topic(q);
+        assert!(
+            topic.is_none(),
+            "Mutation query should not route to host inspection: {q:?} (got: {topic:?})"
+        );
+    }
+}
+
+// ── thermal routing: self-sufficient state words need no action verb ───────────
+//
+// Before v0.8.2, mentions_host_inspection_question required an explicit action verb
+// ("show me", "check", "how") alongside the host scope word. Queries like
+// "is my CPU throttled?" have no action verb so host inspection mode was never
+// enabled and the model free-formed instead of calling inspect_host. The fix adds
+// self_sufficient_state detection for "throttled", "overheating", "bottlenecking".
+
+#[test]
+fn test_routing_detects_thermal_for_cpu_throttle() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // "throttle" without "gpu" → thermal (not overclocker).
+    assert_eq!(
+        preferred_host_inspection_topic("is my CPU throttled?"),
+        Some("thermal")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("why is my CPU throttling"),
+        Some("thermal")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("cpu temp too high"),
+        Some("thermal")
+    );
+}
+
+#[test]
+fn test_routing_detects_thermal_for_overheating_without_gpu() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // "overheating" without "gpu" → thermal.
+    assert_eq!(
+        preferred_host_inspection_topic("my PC is overheating"),
+        Some("thermal")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is the system overheating?"),
+        Some("thermal")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("check if my computer is overheating"),
+        Some("thermal")
+    );
+}
+
+#[test]
+fn test_routing_detects_overclocker_for_gpu_thermal_queries() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // "gpu" + throttle/bottleneck/overheating → overclocker (higher priority than thermal).
+    assert_eq!(
+        preferred_host_inspection_topic("is my GPU throttled?"),
+        Some("overclocker")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("why is my GPU bottlenecking?"),
+        Some("overclocker")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is my GPU overheating?"),
+        Some("overclocker")
+    );
+}
