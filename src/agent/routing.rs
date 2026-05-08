@@ -2514,6 +2514,16 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("uac")
                 || (l.contains("security") && !l.contains("git") && !l.contains("ssh"))
         }),
+        ("defender_quarantine", |l| {
+            l.contains("defender quarantine")
+                || l.contains("quarantine threat")
+                || l.contains("threat history")
+                || l.contains("detected threat")
+                || l.contains("malware detected")
+                || l.contains("defender found")
+                || (l.contains("quarantine") && l.contains("defender"))
+                || l.contains("threat detection")
+        }),
         ("permissions", |l| {
             l.contains("permission") || l.contains("access control") || l.contains("get-acl")
         }),
@@ -2999,6 +3009,24 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("cache size")
                 || l.contains("i/o pressure")
                 || l.contains("disk usage")
+        }),
+        ("storage_spaces", |l| {
+            l.contains("storage spaces")
+                || l.contains("storage pool")
+                || l.contains("virtual disk")
+                || l.contains("windows raid")
+                || l.contains("storage pool degraded")
+                || l.contains("parity volume")
+                || (l.contains("mirror") && l.contains("drive"))
+        }),
+        ("log_check", |l| {
+            l.contains("event log")
+                || l.contains("recent errors")
+                || l.contains("recent warnings")
+                || l.contains("error log")
+                || l.contains("event viewer")
+                || l.contains("system log")
+                || (l.contains("log") && l.contains("recent") && l.contains("error"))
         }),
         ("hardware", |l| {
             l.contains("cpu model")

@@ -7,7 +7,6 @@ readme = "README.md"
 repository = "https://github.com/undergroundrap/hematite-cli"
 homepage = "https://github.com/undergroundrap/hematite-cli"
 license = "AGPL-3.0-only"
-license-file = "LICENSE"
 keywords = ["ai", "harness", "sysadmin", "local-llm", "cli"]
 categories = ["command-line-utilities", "development-tools", "network-programming", "os"]
 

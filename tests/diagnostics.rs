@@ -8564,3 +8564,55 @@ fn test_all_host_topics_detects_app_crashes_and_browser_health() {
         "should include browser_health; got: {topics:?}"
     );
 }
+
+// ── all_host_inspection_topics: newly registered topics ───────────────────────
+// These topics were previously in preferred_host_inspection_topic's dispatch
+// chain but absent from all_host_inspection_topics. Adding them means multi-topic
+// harness pre-runs now fire them when the query mentions both this topic and
+// another (e.g. "check defender quarantine and overall security posture").
+
+#[test]
+fn test_all_host_topics_detects_defender_quarantine_with_security() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics = all_host_inspection_topics(
+        "check defender quarantine and current security posture",
+    );
+    assert!(
+        topics.contains(&"defender_quarantine"),
+        "should include defender_quarantine; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"security"),
+        "should include security; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_all_host_topics_detects_storage_spaces_with_disk_health() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics =
+        all_host_inspection_topics("check storage spaces health and disk health");
+    assert!(
+        topics.contains(&"storage_spaces"),
+        "should include storage_spaces; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"disk_health"),
+        "should include disk_health; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_all_host_topics_detects_log_check_with_network_stats() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics =
+        all_host_inspection_topics("show recent errors from the event log and network stats");
+    assert!(
+        topics.contains(&"log_check"),
+        "should include log_check; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"network_stats"),
+        "should include network_stats; got: {topics:?}"
+    );
+}
