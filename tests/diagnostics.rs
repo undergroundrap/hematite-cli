@@ -8146,3 +8146,421 @@ fn test_routing_detects_overclocker_for_gpu_thermal_queries() {
         Some("overclocker")
     );
 }
+
+// ── app_crashes routing ───────────────────────────────────────────────────────
+// app_crashes dispatches before recent_crashes in the chain, so browser-specific
+// crash queries must route to app_crashes even though "crash" alone would match
+// recent_crashes.
+
+#[test]
+fn test_routing_detects_app_crashes_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // Use non-browser apps: "chrome crash" routes to browser_health (dispatched earlier).
+    assert_eq!(
+        preferred_host_inspection_topic("word keeps crashing"),
+        Some("app_crashes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what applications have been crashing"),
+        Some("app_crashes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("faulting application svchost.exe"),
+        Some("app_crashes")
+    );
+}
+
+// ── hyperv routing ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_hyperv_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show my hyper-v virtual machines"),
+        Some("hyperv")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("list vms running on this host"),
+        Some("hyperv")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("hyperv vm status"),
+        Some("hyperv")
+    );
+}
+
+// ── sessions routing ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_sessions_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // Avoid "who is logged in" and "active sessions" — both are in asks_user_accounts
+    // (lines 585 and 597) which dispatches at line 2099, before sessions (line 2237).
+    assert_eq!(
+        preferred_host_inspection_topic("show user sessions on this PC"),
+        Some("sessions")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("who is on this machine right now"),
+        Some("sessions")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("list current login sessions"),
+        Some("sessions")
+    );
+}
+
+// ── ntp routing ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_ntp_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("time sync is broken"),
+        Some("ntp")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("my computer clock is wrong"),
+        Some("ntp")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("NTP server not responding"),
+        Some("ntp")
+    );
+}
+
+// ── cpu_power routing ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_cpu_power_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("why is my CPU running so slow"),
+        Some("cpu_power")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is turbo boost enabled"),
+        Some("cpu_power")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("check CPU clock speed"),
+        Some("cpu_power")
+    );
+}
+
+// ── display_config routing ────────────────────────────────────────────────────
+// display_config is dispatched before peripherals in the chain, so "monitor"
+// queries route to display_config even though asks_peripherals also matches it.
+
+#[test]
+fn test_routing_detects_display_config_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what resolution is my monitor running at"),
+        Some("display_config")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is my screen refresh rate"),
+        Some("display_config")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("check my display configuration"),
+        Some("display_config")
+    );
+}
+
+// ── search_index routing ──────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_search_index_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("Windows search not working"),
+        Some("search_index")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("search indexer is stuck"),
+        Some("search_index")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("why is my search indexing so slow"),
+        Some("search_index")
+    );
+}
+
+// ── sign_in routing ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_sign_in_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("Windows Hello not working"),
+        Some("sign_in")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("my PIN is broken"),
+        Some("sign_in")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("can't sign in to my account"),
+        Some("sign_in")
+    );
+}
+
+// ── camera routing ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_camera_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("my camera is not working"),
+        Some("camera")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("webcam not detected"),
+        Some("camera")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("camera blocked by privacy settings"),
+        Some("camera")
+    );
+}
+
+// ── outlook routing ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_outlook_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("Outlook is not opening"),
+        Some("outlook")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Microsoft Outlook add-ins are disabled"),
+        Some("outlook")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("where is my Outlook OST file"),
+        Some("outlook")
+    );
+}
+
+// ── teams routing ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_teams_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("Teams is not loading"),
+        Some("teams")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("clear Microsoft Teams cache"),
+        Some("teams")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("why does Teams keep crashing"),
+        Some("teams")
+    );
+}
+
+// ── windows_backup routing ────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_windows_backup_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("check my system restore points"),
+        Some("windows_backup")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("file history not working"),
+        Some("windows_backup")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("when was the last Windows backup"),
+        Some("windows_backup")
+    );
+}
+
+// ── env_doctor routing ────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_env_doctor_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("run the environment doctor"),
+        Some("env_doctor")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("check for package manager conflicts"),
+        Some("env_doctor")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show shims in my PATH"),
+        Some("env_doctor")
+    );
+}
+
+// ── path routing ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_path_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show my PATH entries"),
+        Some("path")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is in my PATH"),
+        Some("path")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show raw PATH variable"),
+        Some("path")
+    );
+}
+
+// ── priority collision: teams vs nic_teaming ──────────────────────────────────
+// "teams" appears in both asks_teams and in NIC teaming queries. The not_nic_teaming
+// guard inside asks_teams must exclude it when the query is about NIC teaming.
+
+#[test]
+fn test_routing_teams_excluded_for_nic_teaming_queries() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("nic teaming configuration"),
+        Some("nic_teaming")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("nic-teaming setup"),
+        Some("nic_teaming")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("LBFO team adapter status"),
+        Some("nic_teaming")
+    );
+}
+
+// ── priority collision: app_crashes vs recent_crashes ─────────────────────────
+// app_crashes (dispatched first) must win for app-specific queries; recent_crashes
+// must win for kernel-level events that don't name an application.
+
+#[test]
+fn test_routing_app_crashes_dispatches_before_recent_crashes() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // App-specific crash: goes to app_crashes, not recent_crashes.
+    // Use a non-browser app — "chrome crash" routes to browser_health (earlier dispatch).
+    assert_eq!(
+        preferred_host_inspection_topic("word keeps crashing"),
+        Some("app_crashes")
+    );
+    // Kernel-level/BSOD: no app name → recent_crashes.
+    assert_eq!(
+        preferred_host_inspection_topic("my PC crashed and restarted itself"),
+        Some("recent_crashes")
+    );
+}
+
+// ── priority collision: overclocker dispatches before thermal ─────────────────
+// When "gpu" is present alongside "throttl", overclocker (line 2095) wins.
+// Without "gpu", the same throttl query falls through to thermal (line 2145).
+
+#[test]
+fn test_routing_overclocker_dispatches_before_thermal() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("is my GPU throttling?"),
+        Some("overclocker")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is my CPU throttling?"),
+        Some("thermal")
+    );
+}
+
+// ── priority collision: display_config dispatches before peripherals ───────────
+// "monitor" appears in both asks_display_config and asks_peripherals. display_config
+// wins because it is dispatched earlier (line 2175 vs line 2235).
+
+#[test]
+fn test_routing_display_config_dispatches_before_peripherals() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what monitors are connected"),
+        Some("display_config")
+    );
+    // Pure peripheral query without display context goes to peripherals.
+    assert_eq!(
+        preferred_host_inspection_topic("show connected USB keyboards"),
+        Some("peripherals")
+    );
+}
+
+// ── morphology regression: throttl stem catches all inflected forms ────────────
+// Before the throttl-stem fix, "throttling" (present continuous) did not contain
+// the substring "throttle" so asks_thermal returned false and the query fell
+// through to None. The stem "throttl" catches throttle/throttled/throttling/
+// throttles and must continue to do so if the routing is ever refactored.
+
+#[test]
+fn test_routing_throttl_stem_catches_all_inflected_forms() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // Past participle — was never broken.
+    assert_eq!(
+        preferred_host_inspection_topic("is my CPU throttled?"),
+        Some("thermal")
+    );
+    // Present continuous — was broken before the stem fix.
+    assert_eq!(
+        preferred_host_inspection_topic("why is my CPU throttling?"),
+        Some("thermal")
+    );
+    // Third-person singular present — also covered by the stem.
+    assert_eq!(
+        preferred_host_inspection_topic("the CPU throttles under load"),
+        Some("thermal")
+    );
+    // GPU + throttling form → overclocker (gpu guard still works with stem).
+    assert_eq!(
+        preferred_host_inspection_topic("is my GPU throttling?"),
+        Some("overclocker")
+    );
+}
+
+// ── all_host_inspection_topics: multi-topic harness pre-runs ──────────────────
+// The harness pre-run fires all_host_inspection_topics before the model turn when
+// 2+ topics are detected. These tests guard against new topics being omitted from
+// the all_host_inspection_topics table (a different table from
+// preferred_host_inspection_topic).
+
+#[test]
+fn test_all_host_topics_detects_hyperv_and_sessions_together() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics =
+        all_host_inspection_topics("show hyper-v vms and who is logged on this host");
+    assert!(
+        topics.contains(&"hyperv"),
+        "should include hyperv; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"sessions"),
+        "should include sessions; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_all_host_topics_detects_app_crashes_and_browser_health() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics = all_host_inspection_topics(
+        "application crash in chrome — also check overall browser health",
+    );
+    assert!(
+        topics.contains(&"app_crashes"),
+        "should include app_crashes; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"browser_health"),
+        "should include browser_health; got: {topics:?}"
+    );
+}
