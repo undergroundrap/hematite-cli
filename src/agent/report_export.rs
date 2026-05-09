@@ -409,6 +409,62 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         &["wmi error", "powershell wmi", "get-wmiobject fail"],
         &[("wmi_health", "WMI Health")]
     );
+    add_if!(
+        &[
+            "monitor",
+            "display",
+            "screen resolution",
+            "second monitor",
+            "wrong resolution",
+            "display settings",
+            "refresh rate",
+            "scaling"
+        ],
+        &[("display_config", "Display Config")]
+    );
+    add_if!(
+        &[
+            "keyboard not",
+            "mouse not",
+            "touchpad not",
+            "trackpad not",
+            "keyboard stopped",
+            "mouse stopped",
+            "keyboard broken",
+            "mouse broken",
+            "peripheral not"
+        ],
+        &[("peripherals", "Peripherals"), ("device_health", "Device Health")]
+    );
+    add_if!(
+        &[
+            "hibernate",
+            "won't hibernate",
+            "sleep issue",
+            "won't sleep",
+            "won't wake",
+            "stuck after sleep",
+            "won't wake up",
+            "sleep mode"
+        ],
+        &[
+            ("pending_reboot", "Pending Reboot"),
+            ("services", "Services"),
+            ("thermal", "Thermal")
+        ]
+    );
+    add_if!(
+        &[
+            "microsoft store",
+            "store app",
+            "windows store",
+            "uwp",
+            "app won't install",
+            "store not working",
+            "winget"
+        ],
+        &[("installer_health", "Installer Health")]
+    );
 
     if topics.is_empty() {
         topics.push(("health_report", "System Health"));
@@ -611,6 +667,22 @@ pub fn fix_issue_categories() -> &'static [(&'static str, &'static str)] {
         ("Clock / Time", "time wrong, clock wrong, time sync"),
         ("OneDrive", "onedrive, file sync, not syncing"),
         ("WMI", "wmi error, powershell wmi"),
+        (
+            "Display / Monitor",
+            "monitor, display, screen resolution, second monitor, refresh rate, scaling",
+        ),
+        (
+            "Keyboard / Mouse",
+            "keyboard not working, mouse not working, touchpad, trackpad",
+        ),
+        (
+            "Sleep / Hibernate",
+            "hibernate, won't sleep, won't wake, sleep issue, stuck after sleep",
+        ),
+        (
+            "Microsoft Store / Apps",
+            "microsoft store, store app, uwp, app won't install, winget",
+        ),
     ]
 }
 
