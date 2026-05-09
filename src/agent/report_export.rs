@@ -1337,7 +1337,7 @@ pub async fn generate_inspect_output(topics_csv: &str) -> String {
             Err(e) => format!("Error ({}): {}", topic, e),
         };
         if total > 1 {
-            let _ = write!(out, "─── {} ───\n", topic);
+            let _ = writeln!(out, "─── {} ───", topic);
         }
         out.push_str(result.trim_end());
         out.push('\n');
@@ -1397,7 +1397,7 @@ pub async fn generate_query_output(query: &str) -> String {
             Err(e) => format!("Error ({}): {}", topic, e),
         };
         if total > 1 {
-            let _ = write!(out, "─── {} ───\n", topic);
+            let _ = writeln!(out, "─── {} ───", topic);
         }
         out.push_str(result.trim_end());
         out.push('\n');

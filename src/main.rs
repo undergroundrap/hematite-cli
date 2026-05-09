@@ -12,6 +12,16 @@ use hematite::{ui, CliCockpit};
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::sync::Arc;
 
+fn snapshot_path(name: &str) -> std::path::PathBuf {
+    let safe: String = name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .collect();
+    hematite::tools::file_ops::hematite_dir()
+        .join("snapshots")
+        .join(format!("{}.txt", safe))
+}
+
 fn wants_version_report(args: &[String]) -> bool {
     args.len() == 2 && matches!(args[1].as_str(), "--version" | "-V")
 }
@@ -205,6 +215,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if cockpit.snapshots {
+        let dir = hematite::tools::file_ops::hematite_dir().join("snapshots");
+        if !dir.exists() {
+            println!("No snapshots saved yet.");
+            println!("Save one with: hematite --inspect <topic> --snapshot <name>");
+            return Ok(());
+        }
+        let mut entries: Vec<_> = std::fs::read_dir(&dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|e| {
+                e.path()
+                    .extension()
+                    .is_some_and(|x| x == "txt")
+            })
+            .collect();
+        entries.sort_by_key(|e| {
+            e.metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+        });
+        entries.reverse();
+        if entries.is_empty() {
+            println!("No snapshots saved yet.");
+        } else {
+            println!("Saved snapshots ({}):\n", entries.len());
+            for e in &entries {
+                let name = e.file_name();
+                let stem = std::path::Path::new(&name)
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let size = e.metadata().map(|m| m.len()).unwrap_or(0);
+                let age = e
+                    .metadata()
+                    .and_then(|m| m.modified())
+                    .ok()
+                    .and_then(|t| t.elapsed().ok())
+                    .map(|d| {
+                        let s = d.as_secs();
+                        if s < 60 {
+                            format!("{}s ago", s)
+                        } else if s < 3600 {
+                            format!("{}m ago", s / 60)
+                        } else if s < 86400 {
+                            format!("{}h ago", s / 3600)
+                        } else {
+                            format!("{}d ago", s / 86400)
+                        }
+                    })
+                    .unwrap_or_else(|| "?".to_string());
+                println!("  {:30}  {:>6} B  {}", stem, size, age);
+            }
+            println!("\nCompare with: hematite --diff <topic> --from <name>");
+        }
+        return Ok(());
+    }
+
     if let Some(ref topics_csv) = cockpit.watch {
         let interval = cockpit.watch_interval.max(1);
         let alert_pat = cockpit.alert.as_deref().map(|p| p.to_ascii_lowercase());
@@ -286,15 +355,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .as_secs()
         };
 
-        eprintln!("Taking snapshot A ({})...", topics_csv);
-        let snap_a = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
-        let ts_a = ts(now());
-
-        eprintln!(
-            "Snapshot A taken at {}. Waiting {}s for snapshot B...",
-            ts_a, after_secs
-        );
-        tokio::time::sleep(std::time::Duration::from_secs(after_secs)).await;
+        // If --from <name> is given, load snapshot A from disk
+        let (snap_a, ts_a) = if let Some(ref from_name) = cockpit.from {
+            let path = snapshot_path(from_name);
+            match std::fs::read_to_string(&path) {
+                Ok(content) => {
+                    eprintln!("Loaded snapshot A from: {}", path.display());
+                    let age = path
+                        .metadata()
+                        .and_then(|m| m.modified())
+                        .ok()
+                        .and_then(|t| t.elapsed().ok())
+                        .map(|d| {
+                            let s = d.as_secs();
+                            if s < 60 { format!("{}s ago", s) }
+                            else if s < 3600 { format!("{}m ago", s / 60) }
+                            else if s < 86400 { format!("{}h ago", s / 3600) }
+                            else { format!("{}d ago", s / 86400) }
+                        })
+                        .unwrap_or_else(|| "saved".to_string());
+                    (content, format!("{} ({})", from_name, age))
+                }
+                Err(e) => {
+                    eprintln!("Error loading snapshot '{}': {}", from_name, e);
+                    eprintln!("Run `hematite --snapshots` to list available snapshots.");
+                    std::process::exit(1);
+                }
+            }
+        } else {
+            eprintln!("Taking snapshot A ({})...", topics_csv);
+            let s = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+            let t = ts(now());
+            eprintln!("Snapshot A taken at {}. Waiting {}s for snapshot B...", t, after_secs);
+            tokio::time::sleep(std::time::Duration::from_secs(after_secs)).await;
+            (s, t)
+        };
 
         eprintln!("Taking snapshot B...");
         let snap_b = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
@@ -335,17 +430,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref topics_csv) = cockpit.inspect {
-        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
-        let save = cockpit.open || matches!(fmt.as_str(), "html" | "json");
-        let (content, path) =
-            hematite::agent::report_export::run_inspect_topics(topics_csv, &fmt, save).await;
-        if let Some(p) = path {
-            println!("Inspect report saved: {}", p.display());
-            if cockpit.open {
-                open_path(&p);
+        let content = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+
+        if let Some(ref snap_name) = cockpit.snapshot {
+            let snap_path = snapshot_path(snap_name);
+            if let Some(parent) = snap_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            match std::fs::write(&snap_path, &content) {
+                Ok(()) => println!("Snapshot saved: {}", snap_path.display()),
+                Err(e) => eprintln!("Failed to save snapshot: {}", e),
             }
         } else {
-            print!("{}", content);
+            let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+            let save = cockpit.open || matches!(fmt.as_str(), "html" | "json");
+            if save {
+                let (_, path) =
+                    hematite::agent::report_export::run_inspect_topics(topics_csv, &fmt, true)
+                        .await;
+                if let Some(p) = path {
+                    println!("Inspect report saved: {}", p.display());
+                    if cockpit.open {
+                        open_path(&p);
+                    }
+                }
+            } else {
+                print!("{}", content);
+            }
         }
         return Ok(());
     }

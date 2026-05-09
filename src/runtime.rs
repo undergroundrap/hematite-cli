@@ -814,6 +814,9 @@ mod tests {
             diff: None,
             diff_after: 30,
             alert: None,
+            snapshot: None,
+            from: None,
+            snapshots: false,
             pdf_extract_helper: None,
             teleported_from: None,
         };

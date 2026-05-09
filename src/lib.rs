@@ -340,6 +340,29 @@ pub struct CliCockpit {
     )]
     pub alert: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        value_name = "NAME",
+        help = "With --inspect: save output to .hematite/snapshots/<name>.txt instead of printing. Example: hematite --inspect thermal --snapshot before-update"
+    )]
+    pub snapshot: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        value_name = "NAME",
+        help = "With --diff: load snapshot A from .hematite/snapshots/<name>.txt instead of running a live capture. Example: hematite --diff thermal --from before-update"
+    )]
+    pub from: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        help = "List saved snapshots in .hematite/snapshots/ with timestamps and sizes"
+    )]
+    pub snapshots: bool,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
