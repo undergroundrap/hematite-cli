@@ -8613,3 +8613,30 @@ fn test_all_host_topics_detects_log_check_with_network_stats() {
         "should include network_stats; got: {topics:?}"
     );
 }
+
+#[test]
+fn test_all_host_topics_detects_repo_doctor_with_connectivity() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let topics = all_host_inspection_topics("check repo health and network connectivity");
+    assert!(
+        topics.contains(&"repo_doctor"),
+        "should include repo_doctor; got: {topics:?}"
+    );
+    assert!(
+        topics.contains(&"connectivity"),
+        "should include connectivity; got: {topics:?}"
+    );
+}
+
+#[test]
+fn test_routing_detects_repo_doctor_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("run repo doctor"),
+        Some("repo_doctor")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show workspace health"),
+        Some("repo_doctor")
+    );
+}

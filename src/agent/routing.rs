@@ -538,9 +538,8 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
 
     // Some words are self-sufficient diagnostic state indicators: asking "is my GPU
     // throttled?" implicitly asks to inspect whether throttling is happening.
-    let self_sufficient_state = lower.contains("throttl")
-        || lower.contains("overheating")
-        || lower.contains("bottleneck");
+    let self_sufficient_state =
+        lower.contains("throttl") || lower.contains("overheating") || lower.contains("bottleneck");
 
     host_scope && (host_action || self_sufficient_state)
 }
@@ -3103,6 +3102,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("ping google")
                 || l.contains("internet access")
                 || l.contains("no internet")
+                || l.contains("network connectivity")
+                || l.contains("connectivity check")
+                || l.contains("check connectivity")
         }),
         ("wifi", |l| {
             l.contains("wi-fi")
@@ -3469,6 +3471,14 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("print security")
                 || l.contains("cve-2021-34527")
                 || (l.contains("print") && l.contains("vulnerab"))
+        }),
+        ("repo_doctor", |l| {
+            l.contains("repo doctor")
+                || l.contains("repository doctor")
+                || l.contains("workspace health")
+                || l.contains("repo health")
+                || l.contains("git status")
+                || l.contains("uncommitted changes")
         }),
     ];
 
