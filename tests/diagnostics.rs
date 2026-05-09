@@ -8834,3 +8834,68 @@ fn test_fix_routes_installer_health_for_store_queries() {
         );
     }
 }
+
+#[test]
+fn test_fix_routes_audio_for_sound_queries() {
+    for query in &["no sound", "audio not working", "microphone not working", "crackling audio", "no audio output"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"audio"),
+            "\"{}\" should route to audio, got: {:?}",
+            query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_bluetooth_for_pairing_queries() {
+    for query in &["bluetooth not working", "headset won't connect", "can't pair bluetooth", "bluetooth keeps disconnecting"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"bluetooth"),
+            "\"{}\" should route to bluetooth, got: {:?}",
+            query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_outlook_for_email_queries() {
+    for query in &["outlook not opening", "outlook crashing", "email not working", "pst file corrupt"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"outlook"),
+            "\"{}\" should route to outlook, got: {:?}",
+            query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_teams_for_teams_queries() {
+    for query in &["teams not working", "teams won't open", "microsoft teams crashing", "teams black screen"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"teams"),
+            "\"{}\" should route to teams, got: {:?}",
+            query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_browser_health_for_browser_queries() {
+    for query in &["chrome slow", "edge crashing", "firefox not working", "browser keeps crashing"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"browser_health"),
+            "\"{}\" should route to browser_health, got: {:?}",
+            query, names
+        );
+    }
+}

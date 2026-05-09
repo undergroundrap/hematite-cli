@@ -465,6 +465,76 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         ],
         &[("installer_health", "Installer Health")]
     );
+    add_if!(
+        &[
+            "no sound",
+            "audio not",
+            "sound not",
+            "speaker not",
+            "microphone not",
+            "mic not",
+            "audio stopped",
+            "crackling",
+            "no audio"
+        ],
+        &[("audio", "Audio")]
+    );
+    add_if!(
+        &[
+            "bluetooth not",
+            "bluetooth won't",
+            "headset won't connect",
+            "headphones won't",
+            "can't pair",
+            "won't pair",
+            "bluetooth disconnect",
+            "bluetooth keep"
+        ],
+        &[("bluetooth", "Bluetooth")]
+    );
+    add_if!(
+        &[
+            "outlook not",
+            "outlook won't",
+            "outlook crash",
+            "outlook slow",
+            "email not",
+            "email won't",
+            "email crash",
+            "calendar not",
+            "pst",
+            "ost file"
+        ],
+        &[("outlook", "Outlook")]
+    );
+    add_if!(
+        &[
+            "teams not",
+            "teams won't",
+            "teams crash",
+            "teams slow",
+            "teams black screen",
+            "teams audio",
+            "teams video",
+            "microsoft teams"
+        ],
+        &[("teams", "Teams")]
+    );
+    add_if!(
+        &[
+            "chrome slow",
+            "chrome crash",
+            "edge slow",
+            "edge crash",
+            "firefox slow",
+            "firefox crash",
+            "browser slow",
+            "browser crash",
+            "browser not",
+            "browser keeps"
+        ],
+        &[("browser_health", "Browser Health")]
+    );
 
     if topics.is_empty() {
         topics.push(("health_report", "System Health"));
