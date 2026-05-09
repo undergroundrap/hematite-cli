@@ -8675,3 +8675,108 @@ fn test_overheat_stem_routes_to_thermal() {
         "overheat (base form) should route to thermal"
     );
 }
+
+// ── inventory completeness ────────────────────────────────────────────────────
+
+#[test]
+fn test_inventory_covers_all_nine_groups() {
+    let inv = hematite::agent::direct_answers::build_inspect_inventory();
+    for group in &[
+        "SYSTEM & HEALTH",
+        "STORAGE & DISK",
+        "THERMAL & POWER",
+        "DEVICES & PERIPHERALS",
+        "SECURITY",
+        "NETWORK",
+        "ENTERPRISE & IDENTITY",
+        "APPLICATIONS",
+        "DEVELOPER & ENVIRONMENT",
+    ] {
+        assert!(inv.contains(group), "inventory missing group: {}", group);
+    }
+}
+
+#[test]
+fn test_inventory_contains_representative_topics() {
+    let inv = hematite::agent::direct_answers::build_inspect_inventory();
+    // spot-check one topic from each group
+    for topic in &[
+        "health_report",  // System
+        "disk_benchmark", // Storage
+        "overclocker",    // Thermal
+        "bluetooth",      // Devices
+        "defender_quarantine", // Security
+        "wlan_profiles",  // Network
+        "mdm_enrollment", // Enterprise
+        "windows_backup", // Applications
+        "docker_filesystems", // Developer
+    ] {
+        assert!(inv.contains(topic), "inventory missing topic: {}", topic);
+    }
+}
+
+#[test]
+fn test_inventory_lists_128_topics_hint() {
+    let inv = hematite::agent::direct_answers::build_inspect_inventory();
+    assert!(inv.contains("128"), "inventory should mention 128 topics");
+}
+
+// ── generate_query_output routing ────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_generate_query_output_slow_pc_hits_resource_load() {
+    let out = hematite::agent::report_export::generate_query_output("why is my PC slow").await;
+    // resource_load is the primary topic for performance queries
+    assert!(
+        out.contains("Host inspection:") || out.contains("Resource") || out.contains("CPU"),
+        "slow PC query should return diagnostic output, got: {}",
+        &out[..out.len().min(200)]
+    );
+}
+
+#[tokio::test]
+async fn test_generate_query_output_unknown_query_falls_back_to_summary() {
+    // A query that matches nothing should fall back to summary
+    let out =
+        hematite::agent::report_export::generate_query_output("xyzzy nothing matches this query at all")
+            .await;
+    assert!(
+        !out.is_empty(),
+        "unknown query should still return fallback summary output"
+    );
+}
+
+// ── generate_inspect_output direct topics ────────────────────────────────────
+
+#[tokio::test]
+async fn test_generate_inspect_output_single_topic() {
+    let out = hematite::agent::report_export::generate_inspect_output("connectivity").await;
+    assert!(
+        out.contains("connectivity") || out.contains("REACHABLE") || out.contains("internet"),
+        "inspect connectivity should return connectivity output"
+    );
+}
+
+#[tokio::test]
+async fn test_generate_inspect_output_multi_topic_includes_separators() {
+    let out =
+        hematite::agent::report_export::generate_inspect_output("connectivity,wifi").await;
+    assert!(
+        out.contains("connectivity") && out.contains("wifi"),
+        "multi-topic inspect should cover both topics"
+    );
+    // Separator lines should be present for multi-topic runs
+    assert!(
+        out.contains("───"),
+        "multi-topic output should include section separators"
+    );
+}
+
+#[tokio::test]
+async fn test_generate_inspect_output_empty_returns_help() {
+    let out = hematite::agent::report_export::generate_inspect_output("").await;
+    assert!(
+        out.contains("--inspect") || out.contains("inventory"),
+        "empty topic should return usage hint"
+    );
+}

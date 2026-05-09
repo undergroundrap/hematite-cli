@@ -95,19 +95,74 @@ pub(crate) fn build_architect_session_reset_plan() -> crate::tools::plan::PlanHa
     }
 }
 pub fn build_inspect_inventory() -> String {
-    let mut inventory = "Available Host Inspection Topics:\n\n".to_string();
-    inventory.push_str("System:\n");
-    inventory.push_str("  summary, health_report, updates, security, hardware, storage, battery, recent_crashes, pending_reboot, disk_health, scheduled_tasks, startup_items, data_audit\n\n");
-    inventory.push_str("Network:\n");
-    inventory.push_str("  connectivity, wifi, internet_check, network, connections, vpn, proxy, firewall_rules, ports, lan_discovery, traceroute, dns_servers, ipconfig, latency, public_ip, ssl_cert\n\n");
-    inventory.push_str("Identity & Access:\n");
-    inventory.push_str("  sign_in, user_accounts, ad_user, identity_auth, outlook, teams, browser_health, installer_health, onedrive, search_index, event_query\n\n");
-    inventory.push_str("Developer:\n");
-    inventory.push_str(
-        "  toolchains, env_doctor, dev_conflicts, path, registry_audit, msi, git_state\n\n",
-    );
-    inventory.push_str("Usage: /inspect <topic>");
-    inventory
+    "\
+Hematite inspect_host  —  128 available topics
+
+SYSTEM & HEALTH (24)
+  health_report    summary          hardware         os_config
+  processes        services         resource_load    startup_items
+  sessions         log_check        event_query      scheduled_tasks
+  updates          pending_reboot   patch_history    activation
+  integrity        windows_features wmi_health       recent_crashes
+  app_crashes      installed_software  service_dependencies  hyperv
+
+STORAGE & DISK (10)
+  storage          disk_health      disk_benchmark   shadow_copies
+  pagefile         storage_spaces   desktop          downloads
+  disk             directory
+
+THERMAL & POWER (4)
+  thermal          cpu_power        battery          overclocker
+
+DEVICES & PERIPHERALS (10)
+  device_health    drivers          peripherals      display_config
+  audio            bluetooth        camera           printers
+  print_spooler    usb_history
+
+SECURITY (17)
+  security         bitlocker        tpm              credentials
+  user_accounts    local_security_policy  audit_policy  shares
+  firewall_rules   gpo              certificates     defender_quarantine
+  rdp              domain           permissions      registry_audit
+  share_access
+
+NETWORK (32)
+  connectivity     wifi             network          latency
+  connections      vpn              proxy            lan_discovery
+  dns_servers      dns_cache        dns_lookup       arp
+  route_table      ip_config        traceroute       ports
+  network_stats    udp_ports        network_adapter  dhcp
+  mtu              ipv6             tcp_params       wlan_profiles
+  network_profile  ipsec            netbios          nic_teaming
+  snmp             port_test        public_ip        ssl_cert
+
+ENTERPRISE & IDENTITY (9)
+  identity_auth    sign_in          mdm_enrollment   domain_health
+  winrm            ssh              ad_user          login_history
+  ntp
+
+APPLICATIONS (7)
+  outlook          teams            browser_health   installer_health
+  onedrive         windows_backup   search_index
+
+DEVELOPER & ENVIRONMENT (15)
+  toolchains       env_doctor       dev_conflicts    path
+  env              git_config       repo_doctor      databases
+  docker           docker_filesystems  wsl           wsl_filesystems
+  hosts_file       data_audit       fix_plan
+
+Topics that accept optional args: directory (path), disk (path),
+  port_test (host, port), traceroute (host), dns_lookup (name, type),
+  log_check (lookback_hours), event_query (event_id, source, level),
+  share_access (path), data_audit (path), fix_plan (issue)
+
+Usage:
+  hematite --inspect <topic>
+  hematite --inspect <topic1>,<topic2>,...
+  hematite --query \"<natural language question>\"
+  /inspect <topic>  (TUI)\
+"
+    .to_string()
 }
 
 pub(crate) fn build_help_answer() -> String {
