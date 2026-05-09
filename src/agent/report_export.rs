@@ -656,6 +656,67 @@ pub fn fix_plan_auto_commands(combined_output: &str) -> Vec<(&'static str, &'sta
     result
 }
 
+/// Map a recipe title to the most natural `hematite --fix "<issue>"` argument.
+/// Returns `None` for recipes that don't have a clean fix-command equivalent.
+fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
+    match title {
+        t if t.contains("disk space") || t.contains("Low disk") => Some("disk full"),
+        t if t.contains("Drive health") || t.contains("failure") => Some("disk health warning"),
+        t if t.contains("Restart required") => Some("restart required"),
+        t if t.contains("event log errors") => Some("Windows errors in event log"),
+        t if t.contains("service not running") => Some("critical service stopped"),
+        t if t.contains("No internet") => Some("can't connect to internet"),
+        t if t.contains("latency") => Some("high network latency"),
+        t if t.contains("memory usage") => Some("high RAM usage"),
+        t if t.contains("running hot") || t.contains("CPU") => Some("CPU running hot"),
+        t if t.contains("security protection") => Some("Windows Defender disabled"),
+        t if t.contains("Threat detected") => Some("virus or malware detected"),
+        t if t.contains("updates pending") => Some("Windows updates pending"),
+        t if t.contains("Hardware device error") => Some("hardware device error"),
+        t if t.contains("No backup") => Some("no backup configured"),
+        t if t.contains("SMB1") => Some("SMB1 security risk"),
+        t if t.contains("encryption not enabled") => Some("BitLocker not enabled"),
+        t if t.contains("DNS resolution") => Some("DNS not resolving"),
+        t if t.contains("Application crashing") => Some("app crashing repeatedly"),
+        t if t.contains("Wi-Fi signal weak") => Some("weak Wi-Fi signal"),
+        t if t.contains("clock not synchronizing") => Some("clock out of sync"),
+        t if t.contains("system file corruption") => Some("Windows system files corrupt"),
+        t if t.contains("Service failed") => Some("service stopped unexpectedly"),
+        t if t.contains("Remote Desktop") => Some("RDP disabled or blocked"),
+        t if t.contains("Windows Update service") => Some("Windows Update broken"),
+        t if t.contains("Teams cache") => Some("Teams not working"),
+        t if t.contains("authentication broker") => Some("Microsoft 365 sign-in broken"),
+        t if t.contains("WMI repository") => Some("WMI errors"),
+        t if t.contains("Windows not activated") => Some("Windows not activated"),
+        t if t.contains("Windows Search") => Some("Windows search not finding files"),
+        t if t.contains("OneDrive not syncing") => Some("OneDrive not syncing"),
+        t if t.contains("Printer offline") => Some("printer offline or stuck"),
+        t if t.contains("Outlook mail profile") => Some("Outlook not opening"),
+        t if t.contains("PrintNightmare") => Some("PrintNightmare not mitigated"),
+        _ => None,
+    }
+}
+
+/// Given the combined plain-text content of a triage or diagnose report, return
+/// a deduplicated list of `hematite --fix "<issue>"` suggestions for the IT tech.
+/// Only ACTION and INVESTIGATE severity recipes are surfaced.
+pub fn suggest_fix_commands(content: &str) -> Vec<String> {
+    let recipes = crate::agent::fix_recipes::match_recipes(content);
+    let mut seen = std::collections::HashSet::new();
+    let mut suggestions: Vec<String> = Vec::new();
+    for recipe in recipes {
+        if recipe.severity == "MONITOR" {
+            continue;
+        }
+        if let Some(arg) = recipe_title_to_fix_arg(recipe.title) {
+            if seen.insert(arg) {
+                suggestions.push(format!("  hematite --fix \"{}\"", arg));
+            }
+        }
+    }
+    suggestions
+}
+
 pub fn report_has_issues_in_content(content: &str) -> bool {
     for line in content.lines() {
         if line.contains("Health Score:") {

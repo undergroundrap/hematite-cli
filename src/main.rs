@@ -30,6 +30,18 @@ fn report_indicates_issues(content: &str) -> bool {
     hematite::agent::report_export::report_has_issues_in_content(content)
 }
 
+fn print_fix_suggestions(content: &str) {
+    let suggestions = hematite::agent::report_export::suggest_fix_commands(content);
+    if !suggestions.is_empty() {
+        println!();
+        println!("Issues found. Targeted fix plans:");
+        for s in &suggestions {
+            println!("{}", s);
+        }
+        println!();
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     hematite::tools::hardening::pre_main_hardening();
@@ -104,6 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => hematite::agent::report_export::save_diagnosis_report().await,
         };
         println!("Diagnosis saved: {}", path.display());
+        print_fix_suggestions(&content);
         if cockpit.open {
             open_path(&path);
         }
@@ -122,6 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => hematite::agent::report_export::save_triage_report(preset_str).await,
         };
         println!("Triage saved: {}", path.display());
+        print_fix_suggestions(&content);
         if cockpit.open {
             open_path(&path);
         }

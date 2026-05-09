@@ -8888,6 +8888,35 @@ fn test_fix_routes_teams_for_teams_queries() {
 }
 
 #[test]
+fn test_suggest_fix_commands_returns_hints_for_known_findings() {
+    // Simulate triage output containing known recipe triggers
+    let content = "DNS: Failed\nDrive health: Warning\nHigh memory pressure detected";
+    let suggestions = hematite::agent::report_export::suggest_fix_commands(content);
+    assert!(
+        !suggestions.is_empty(),
+        "known findings should produce --fix suggestions, got none"
+    );
+    for s in &suggestions {
+        assert!(
+            s.contains("hematite --fix"),
+            "suggestion should be a hematite --fix command, got: {}",
+            s
+        );
+    }
+}
+
+#[test]
+fn test_suggest_fix_commands_empty_for_healthy_content() {
+    let content = "All systems healthy. No issues detected.";
+    let suggestions = hematite::agent::report_export::suggest_fix_commands(content);
+    assert!(
+        suggestions.is_empty(),
+        "healthy content should produce no suggestions, got: {:?}",
+        suggestions
+    );
+}
+
+#[test]
 fn test_fix_routes_browser_health_for_browser_queries() {
     for query in &["chrome slow", "edge crashing", "firefox not working", "browser keeps crashing"] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
