@@ -163,130 +163,152 @@ pub struct CliCockpit {
     )]
     pub url: String,
 
+    // ── MCP Server ────────────────────────────────────────────────────────────
+
     #[arg(
         long,
+        help_heading = "MCP Server",
         help = "Run as an MCP stdio server — exposes inspect_host to Claude Desktop, OpenClaw, Cursor, and any MCP-capable agent"
     )]
     pub mcp_server: bool,
 
     #[arg(
         long,
+        help_heading = "MCP Server",
         help = "Enable edge redaction in MCP server mode — strips usernames, MACs, serial numbers, hostnames, and credentials before responses leave the machine"
     )]
     pub edge_redact: bool,
 
     #[arg(
         long,
-        help = "Enable semantic edge redaction — routes inspect_host output through the local model for privacy-safe summarization before any data leaves the machine. Requires a local OpenAI-compatible runtime running. Implies --edge-redact."
+        help_heading = "MCP Server",
+        help = "Enable semantic edge redaction — routes inspect_host output through the local model for privacy-safe summarization before any data leaves the machine. Implies --edge-redact."
     )]
     pub semantic_redact: bool,
 
     #[arg(
         long,
-        help = "Endpoint for --semantic-redact (default: same as --url). Point at a dedicated compact model, e.g. Bonsai 8B on port 1235, while your main model stays on 1234."
+        help_heading = "MCP Server",
+        help = "Endpoint for --semantic-redact (default: same as --url). Point at a dedicated compact model on a different port."
     )]
     pub semantic_url: Option<String>,
 
     #[arg(
         long,
-        help = "Model ID for --semantic-redact (e.g. bonsai-8b). Required when multiple models are loaded in the local runtime. Omit for single-model setups."
+        help_heading = "MCP Server",
+        help = "Model ID for --semantic-redact (e.g. bonsai-8b). Required when multiple models are loaded."
     )]
     pub semantic_model: Option<String>,
 
+    // ── Headless Reports ──────────────────────────────────────────────────────
+
     #[arg(
         long,
+        help_heading = "Headless Reports",
         help = "Run a headless diagnostic report and print to stdout — no TUI launched. Pipe to a file: hematite --report > health.md"
     )]
     pub report: bool,
 
     #[arg(
         long,
+        help_heading = "Headless Reports",
         default_value = "md",
-        help = "Output format for --report: 'md' (markdown, default), 'json', or 'html' (self-contained, double-clickable)"
+        help = "Output format: md (default), json, or html (self-contained, double-clickable)"
     )]
     pub report_format: String,
 
     #[arg(
         long,
-        help = "Run a full staged triage — no TUI, no model required. Saves diagnosis to .hematite/reports/ and prints the path. Add --open to launch the file immediately."
+        help_heading = "Headless Reports",
+        help = "Staged triage — health_report then targeted follow-up inspections. Saves to .hematite/reports/. Add --open to launch."
     )]
     pub diagnose: bool,
 
     #[arg(
         long,
+        help_heading = "Headless Reports",
         default_missing_value = "default",
         num_args = 0..=1,
         value_name = "PRESET",
-        help = "IT-first-look triage — no model required. Optional preset: network, security, performance, storage, apps. Plain --triage runs the IT-first-look default (health, security, connectivity, identity, updates). Saves to .hematite/reports/triage-DATE. Add --open for html."
+        help = "IT-first-look triage. Optional preset: network, security, performance, storage, apps. Plain --triage runs health+security+connectivity+identity+updates."
     )]
     pub triage: Option<String>,
 
     #[arg(
         long,
+        help_heading = "Headless Reports",
         value_name = "ISSUE",
-        help = "Generate a targeted fix plan for a stated issue — no model required. Keyword-matches your issue to the relevant inspect_host topics, runs them, and saves a step-by-step fix plan. Example: hematite --fix \"PC running slow\""
+        help = "Targeted fix plan — keyword-matches your issue to the right inspect_host topics and saves a step-by-step plan. Example: hematite --fix \"PC running slow\""
     )]
     pub fix: Option<String>,
 
     #[arg(
         long,
-        help = "After generating a --report, --diagnose, --triage, or --fix report, open the saved file in the default application (browser for HTML, editor for Markdown)"
+        help_heading = "Headless Reports",
+        help = "Open the saved report file immediately after writing (browser for HTML, editor for Markdown)"
     )]
     pub open: bool,
 
     #[arg(
         long,
+        help_heading = "Headless Reports",
         help = "With --fix: preview which topics would be inspected without running any checks"
     )]
     pub dry_run: bool,
 
     #[arg(
         long,
-        help = "With --fix: after the fix plan is generated, offer to run any safe non-destructive fixes automatically (service restarts, DNS flush, clock sync, etc.)"
+        help_heading = "Headless Reports",
+        help = "With --fix: offer to run safe auto-fixes after generating the plan (DNS flush, service restarts, clock sync, etc.)"
     )]
     pub execute: bool,
 
     #[arg(
         long,
+        help_heading = "Headless Reports",
         default_missing_value = "weekly",
         num_args = 0..=1,
         value_name = "CADENCE",
-        help = "Register a Windows scheduled task that runs --triage automatically. \
-                CADENCE: weekly (default, Monday 08:00), daily (08:00), \
-                remove (unregister), status (show current state). \
-                Example: hematite --schedule  or  hematite --schedule daily"
+        help = "Register a Windows scheduled task for --triage. CADENCE: weekly (default), daily, remove, status."
     )]
     pub schedule: Option<String>,
 
+    // ── Modelless Inspection ──────────────────────────────────────────────────
+
     #[arg(
         long,
-        help = "List all available inspect_host topics — no model, no TUI. Pipe to grep to find a topic."
+        help_heading = "Modelless Inspection",
+        help = "List all 128 available inspect_host topics by category. No model or TUI required."
     )]
     pub inventory: bool,
 
     #[arg(
         long,
+        help_heading = "Modelless Inspection",
         value_name = "TOPIC[,TOPIC2,...]",
-        help = "Run any inspect_host topic directly — no model, no TUI. Comma-separate for multiple: --inspect wifi,latency,dns_cache. Combine with --open to save and launch the output file."
+        help = "Run any inspect_host topic directly to stdout. Comma-separate for multiple topics. Example: hematite --inspect wifi,latency,dns_cache"
     )]
     pub inspect: Option<String>,
 
     #[arg(
         long,
+        help_heading = "Modelless Inspection",
         value_name = "QUERY",
-        help = "Natural-language query routed to the right inspect_host topics — no model, no TUI. Example: hematite --query \"why is my PC slow\""
+        help = "Natural-language query routed to the right inspect_host topics. Example: hematite --query \"why is my PC slow\""
     )]
     pub query: Option<String>,
 
     #[arg(
         long,
+        help_heading = "Modelless Inspection",
         value_name = "TOPIC[,TOPIC2,...]",
-        help = "Continuously poll one or more inspect_host topics and reprint every N seconds (default 5). Press Ctrl+C to stop. Example: hematite --watch resource_load,thermal"
+        help = "Continuously poll topic(s) every N seconds (see --watch-interval). Press Ctrl+C to stop. Example: hematite --watch resource_load,thermal"
     )]
     pub watch: Option<String>,
 
     #[arg(
         long,
+        help_heading = "Modelless Inspection",
         value_name = "SECONDS",
         default_value = "5",
         help = "Polling interval in seconds for --watch (default: 5)"
@@ -295,27 +317,26 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Modelless Inspection",
         value_name = "TOPIC[,TOPIC2,...]",
-        help = "Take two snapshots of topic(s) and show what changed between them. \
-                Wait time between snapshots is set by --diff-after (default: 30s). \
-                Example: hematite --diff resource_load,thermal --diff-after 60"
+        help = "Take two snapshots separated by --diff-after seconds and show a colored diff. Example: hematite --diff processes --diff-after 60"
     )]
     pub diff: Option<String>,
 
     #[arg(
         long,
+        help_heading = "Modelless Inspection",
         value_name = "SECONDS",
         default_value = "30",
-        help = "Seconds to wait between snapshots for --diff (default: 30)"
+        help = "Seconds between snapshots for --diff (default: 30)"
     )]
     pub diff_after: u64,
 
     #[arg(
         long,
+        help_heading = "Modelless Inspection",
         value_name = "PATTERN",
-        help = "Used with --watch: only print output when it contains PATTERN (case-insensitive). \
-                Prints a silent heartbeat line when no match. Rings the terminal bell on a match. \
-                Example: hematite --watch thermal --alert throttl"
+        help = "With --watch: silent heartbeat when pattern is absent, bell + full output on match. Example: hematite --watch thermal --alert throttl"
     )]
     pub alert: Option<String>,
 
