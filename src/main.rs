@@ -173,11 +173,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
-        let (content, path) = match fmt.as_str() {
-            "html" => hematite::agent::report_export::save_fix_plan_html(issue).await,
-            _ => hematite::agent::report_export::save_fix_plan(issue).await,
+        let (content, path) = if fmt == "html" {
+            hematite::agent::report_export::save_fix_plan_html(issue).await
+        } else {
+            let (summary, md, path) =
+                hematite::agent::report_export::save_fix_plan_with_summary(issue).await;
+            println!("\n{}", summary.trim_end());
+            (md, path)
         };
-        println!("Fix plan saved: {}", path.display());
+        println!("\nFix plan saved: {}", path.display());
         if cockpit.open {
             open_path(&path);
         }

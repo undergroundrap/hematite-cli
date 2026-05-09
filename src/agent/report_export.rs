@@ -1502,6 +1502,54 @@ pub async fn save_fix_plan(issue: &str) -> (String, PathBuf) {
     (md, path)
 }
 
+/// Like `save_fix_plan` but also returns the plain-text action plan for immediate
+/// terminal printing. Returns `(action_plan_text, full_md, path)`.
+pub async fn save_fix_plan_with_summary(issue: &str) -> (String, String, PathBuf) {
+    let data = run_fix_plan_phases(issue).await;
+    let version = env!("CARGO_PKG_VERSION");
+
+    let section_refs: Vec<(&str, &str)> = data
+        .sections
+        .iter()
+        .map(|(l, o)| (*l, o.as_str()))
+        .collect();
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
+    let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
+
+    let mut md = String::with_capacity(action_plan.len() + data.sections.len() * 512 + 256);
+    md.push_str("# Hematite Fix Plan\n\n");
+    let _ = writeln!(md, "**Issue:** {}  ", issue);
+    let _ = writeln!(md, "**Generated:** {}  ", data.timestamp);
+    let _ = writeln!(md, "**Host:** {}  ", data.hostname);
+    let _ = writeln!(md, "**Hematite:** v{}  ", version);
+    let _ = write!(
+        md,
+        "**Health Score:** {} — {}  \n\n",
+        score.grade, score.label
+    );
+    let _ = write!(md, "> {}\n\n", score.summary_line());
+    md.push_str("---\n\n## Fix Steps\n\n");
+    md.push_str(&action_plan);
+    md.push_str("---\n\n");
+    for (label, output) in &data.sections {
+        let _ = write!(md, "## {}\n\n```\n", label);
+        md.push_str(output.trim_end());
+        md.push_str("\n```\n\n");
+    }
+
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("fix-{}.md", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &md);
+
+    let summary = format!(
+        "Health Score: {} — {}\n\n{}",
+        score.grade, score.label, action_plan
+    );
+    (summary, md, path)
+}
+
 pub async fn save_fix_plan_html(issue: &str) -> (String, PathBuf) {
     let html = generate_fix_plan_html(issue).await;
     let path = crate::tools::file_ops::hematite_dir()
