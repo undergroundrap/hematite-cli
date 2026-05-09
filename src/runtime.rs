@@ -813,6 +813,7 @@ mod tests {
             watch_interval: 5,
             diff: None,
             diff_after: 30,
+            alert: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

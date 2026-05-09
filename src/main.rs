@@ -207,15 +207,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(ref topics_csv) = cockpit.watch {
         let interval = cockpit.watch_interval.max(1);
-        eprintln!(
-            "Watching: {} | interval: {}s | Ctrl+C to stop\n",
-            topics_csv, interval
-        );
+        let alert_pat = cockpit.alert.as_deref().map(|p| p.to_ascii_lowercase());
+
+        if let Some(ref pat) = alert_pat {
+            eprintln!(
+                "Watching: {} | alert: {:?} | interval: {}s | Ctrl+C to stop",
+                topics_csv, pat, interval
+            );
+        } else {
+            eprintln!(
+                "Watching: {} | interval: {}s | Ctrl+C to stop",
+                topics_csv, interval
+            );
+        }
+
         loop {
-            // ANSI: clear screen + cursor home
-            print!("\x1B[2J\x1B[H");
             use std::io::Write;
-            let _ = std::io::stdout().flush();
 
             let ts = {
                 use std::time::{SystemTime, UNIX_EPOCH};
@@ -228,16 +235,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let sec = (s % 60) as u32;
                 format!("{:02}:{:02}:{:02} UTC", h, m, sec)
             };
-            println!(
-                "Hematite Watch — {} | every {}s | Ctrl+C to stop\n",
-                ts, interval
-            );
 
             let content =
                 hematite::agent::report_export::generate_inspect_output(topics_csv).await;
-            print!("{}", content);
-            let _ = std::io::stdout().flush();
 
+            if let Some(ref pat) = alert_pat {
+                if content.to_ascii_lowercase().contains(pat.as_str()) {
+                    // Match: ring bell, clear screen, print full output
+                    print!("\x1B[2J\x1B[H\x07");
+                    let _ = std::io::stdout().flush();
+                    println!(
+                        "\x1B[32mALERT\x1B[0m — pattern {:?} matched at {} | Ctrl+C to stop\n",
+                        pat, ts
+                    );
+                    print!("{}", content);
+                } else {
+                    // No match: single heartbeat line, no clear
+                    println!("  [{}]  no match for {:?}", ts, pat);
+                }
+            } else {
+                // No alert filter: clear and display as before
+                print!("\x1B[2J\x1B[H");
+                let _ = std::io::stdout().flush();
+                println!(
+                    "Hematite Watch — {} | every {}s | Ctrl+C to stop\n",
+                    ts, interval
+                );
+                print!("{}", content);
+            }
+
+            let _ = std::io::stdout().flush();
             tokio::time::sleep(std::time::Duration::from_secs(interval)).await;
         }
     }

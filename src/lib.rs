@@ -310,6 +310,15 @@ pub struct CliCockpit {
     )]
     pub diff_after: u64,
 
+    #[arg(
+        long,
+        value_name = "PATTERN",
+        help = "Used with --watch: only print output when it contains PATTERN (case-insensitive). \
+                Prints a silent heartbeat line when no match. Rings the terminal bell on a match. \
+                Example: hematite --watch thermal --alert throttl"
+    )]
+    pub alert: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
