@@ -539,7 +539,7 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
     // Some words are self-sufficient diagnostic state indicators: asking "is my GPU
     // throttled?" implicitly asks to inspect whether throttling is happening.
     let self_sufficient_state =
-        lower.contains("throttl") || lower.contains("overheating") || lower.contains("bottleneck");
+        lower.contains("throttl") || lower.contains("overheat") || lower.contains("bottleneck");
 
     host_scope && (host_action || self_sufficient_state)
 }
@@ -1408,7 +1408,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             && (lower.contains("reach") || lower.contains("access") || lower.contains("test")));
     let asks_thermal = lower.contains("thermal")
         || (lower.contains("throttl") && !lower.contains("gpu"))
-        || lower.contains("overheating")
+        || lower.contains("overheat")
         || lower.contains("cpu temp");
     let asks_overclocker = lower.contains("overclocker")
         || lower.contains("nvidia stats")
@@ -2545,7 +2545,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("net share")
         }),
         ("thermal", |l| {
-            l.contains("thermal") || l.contains("throttling") || l.contains("overheating")
+            l.contains("thermal") || l.contains("throttling") || l.contains("overheat")
         }),
         ("overclocker", |l| {
             l.contains("overclocker")

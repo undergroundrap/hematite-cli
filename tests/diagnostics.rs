@@ -8640,3 +8640,38 @@ fn test_routing_detects_repo_doctor_topic() {
         Some("repo_doctor")
     );
 }
+
+#[test]
+fn test_routing_overheat_stem_catches_all_inflected_forms() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // "overheating" was the only form; now the stem covers all inflections
+    for q in &[
+        "my CPU is overheating",
+        "my CPU overheated",
+        "why does it overheat",
+        "CPU keeps overheating",
+    ] {
+        assert_eq!(
+            preferred_host_inspection_topic(q),
+            Some("thermal"),
+            "query {:?} should route to thermal",
+            q
+        );
+    }
+}
+
+#[test]
+fn test_overheat_stem_routes_to_thermal() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    // Past tense "overheated" must route to thermal, not fall through
+    assert_eq!(
+        preferred_host_inspection_topic("cpu overheated last night"),
+        Some("thermal"),
+        "overheated (past tense) should route to thermal via overheat stem"
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("why does my cpu overheat"),
+        Some("thermal"),
+        "overheat (base form) should route to thermal"
+    );
+}
