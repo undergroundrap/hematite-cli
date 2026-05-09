@@ -293,6 +293,23 @@ pub struct CliCockpit {
     )]
     pub watch_interval: u64,
 
+    #[arg(
+        long,
+        value_name = "TOPIC[,TOPIC2,...]",
+        help = "Take two snapshots of topic(s) and show what changed between them. \
+                Wait time between snapshots is set by --diff-after (default: 30s). \
+                Example: hematite --diff resource_load,thermal --diff-after 60"
+    )]
+    pub diff: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "SECONDS",
+        default_value = "30",
+        help = "Seconds to wait between snapshots for --diff (default: 30)"
+    )]
+    pub diff_after: u64,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

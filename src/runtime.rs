@@ -811,6 +811,8 @@ mod tests {
             query: None,
             watch: None,
             watch_interval: 5,
+            diff: None,
+            diff_after: 30,
             pdf_extract_helper: None,
             teleported_from: None,
         };

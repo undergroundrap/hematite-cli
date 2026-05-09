@@ -242,6 +242,71 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    if let Some(ref topics_csv) = cockpit.diff {
+        let after_secs = cockpit.diff_after.max(1);
+
+        let ts = |secs: u64| {
+            let h = ((secs / 3600) % 24) as u32;
+            let m = ((secs / 60) % 60) as u32;
+            let s = (secs % 60) as u32;
+            format!("{:02}:{:02}:{:02} UTC", h, m, s)
+        };
+
+        let now = || {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        };
+
+        eprintln!("Taking snapshot A ({})...", topics_csv);
+        let snap_a = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+        let ts_a = ts(now());
+
+        eprintln!(
+            "Snapshot A taken at {}. Waiting {}s for snapshot B...",
+            ts_a, after_secs
+        );
+        tokio::time::sleep(std::time::Duration::from_secs(after_secs)).await;
+
+        eprintln!("Taking snapshot B...");
+        let snap_b = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+        let ts_b = ts(now());
+
+        println!("--- Snapshot A  ({})", ts_a);
+        println!("+++ Snapshot B  ({})", ts_b);
+        println!();
+
+        use similar::{ChangeTag, TextDiff};
+        let diff = TextDiff::from_lines(&snap_a, &snap_b);
+        let mut changed = false;
+        for group in diff.grouped_ops(2) {
+            for op in &group {
+                for change in diff.iter_changes(op) {
+                    match change.tag() {
+                        ChangeTag::Delete => {
+                            print!("\x1B[31m- {}\x1B[0m", change);
+                            changed = true;
+                        }
+                        ChangeTag::Insert => {
+                            print!("\x1B[32m+ {}\x1B[0m", change);
+                            changed = true;
+                        }
+                        ChangeTag::Equal => {
+                            print!("  {}", change);
+                        }
+                    }
+                }
+            }
+            println!();
+        }
+
+        if !changed {
+            println!("No changes detected between snapshots.");
+        }
+        return Ok(());
+    }
+
     if let Some(ref topics_csv) = cockpit.inspect {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let save = cockpit.open || matches!(fmt.as_str(), "html" | "json");
