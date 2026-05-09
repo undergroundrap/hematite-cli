@@ -258,6 +258,20 @@ pub struct CliCockpit {
     )]
     pub schedule: Option<String>,
 
+    #[arg(
+        long,
+        value_name = "TOPIC[,TOPIC2,...]",
+        help = "Run any inspect_host topic directly — no model, no TUI. Comma-separate for multiple: --inspect wifi,latency,dns_cache. Combine with --open to save and launch the output file."
+    )]
+    pub inspect: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "QUERY",
+        help = "Natural-language query routed to the right inspect_host topics — no model, no TUI. Example: hematite --query \"why is my PC slow\""
+    )]
+    pub query: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

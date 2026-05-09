@@ -1308,6 +1308,106 @@ pub async fn save_fix_plan_html(issue: &str) -> (String, PathBuf) {
     (html, path)
 }
 
+// ── Direct topic inspection (--inspect, /query) ──────────────────────────────
+
+/// Run one or more inspect_host topics by name and return combined plain-text output.
+/// `topics_csv` is a comma-separated list: e.g. "wifi,latency,dns_cache".
+pub async fn generate_inspect_output(topics_csv: &str) -> String {
+    let topics: Vec<&str> = topics_csv
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if topics.is_empty() {
+        return "No topics specified. Example: hematite --inspect wifi,latency,dns_cache\n\
+                Run `hematite --inventory` to list all 128+ available topics.\n"
+            .to_string();
+    }
+
+    let total = topics.len();
+    let mut out = String::new();
+    for (i, topic) in topics.iter().enumerate() {
+        if total > 1 {
+            eprintln!("  [{}/{}] {}...", i + 1, total, topic);
+        }
+        let args = json!({"topic": topic});
+        let result = match crate::tools::host_inspect::inspect_host(&args).await {
+            Ok(s) => s,
+            Err(e) => format!("Error ({}): {}", topic, e),
+        };
+        if total > 1 {
+            let _ = write!(out, "─── {} ───\n", topic);
+        }
+        out.push_str(result.trim_end());
+        out.push('\n');
+        if total > 1 {
+            out.push('\n');
+        }
+    }
+    out
+}
+
+/// Run inspect topics and optionally save as a report file.
+/// Returns `(content, saved_path_option)`.
+pub async fn run_inspect_topics(
+    topics_csv: &str,
+    fmt: &str,
+    save: bool,
+) -> (String, Option<PathBuf>) {
+    let content = generate_inspect_output(topics_csv).await;
+
+    if !save {
+        return (content, None);
+    }
+
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("inspect-{}.{}", now_file_timestamp(), fmt));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &content);
+    (content, Some(path))
+}
+
+/// Route a natural-language query to the appropriate inspect_host topics and run them.
+/// Uses `all_host_inspection_topics()` for multi-topic detection, falls back to
+/// `preferred_host_inspection_topic()` for single-topic, then "summary" if nothing matches.
+pub async fn generate_query_output(query: &str) -> String {
+    use crate::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+
+    let detected = all_host_inspection_topics(query);
+    let topics: Vec<&str> = if !detected.is_empty() {
+        detected
+    } else {
+        match preferred_host_inspection_topic(query) {
+            Some(t) => vec![t],
+            None => vec!["summary"],
+        }
+    };
+
+    let total = topics.len();
+    let mut out = String::new();
+    for (i, topic) in topics.iter().enumerate() {
+        if total > 1 {
+            eprintln!("  [{}/{}] {}...", i + 1, total, topic);
+        }
+        let args = json!({"topic": topic});
+        let result = match crate::tools::host_inspect::inspect_host(&args).await {
+            Ok(s) => s,
+            Err(e) => format!("Error ({}): {}", topic, e),
+        };
+        if total > 1 {
+            let _ = write!(out, "─── {} ───\n", topic);
+        }
+        out.push_str(result.trim_end());
+        out.push('\n');
+        if total > 1 {
+            out.push('\n');
+        }
+    }
+    out
+}
+
 /// Save arbitrary markdown content as a dark-theme HTML page.
 /// Returns `(html_string, saved_path)`. Title defaults to a timestamp slug
 /// if empty. Saves to `.hematite/reports/research-DATE.html`.

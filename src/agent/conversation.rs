@@ -3106,6 +3106,67 @@ impl ConversationManager {
             return Ok(());
         }
 
+        if user_input.starts_with("/query") {
+            let q = user_input.strip_prefix("/query").unwrap_or("").trim();
+            if q.is_empty() {
+                for chunk in chunk_text(
+                    "Usage: /query <natural language question>\n\
+                     Example: /query why is my PC slow\n\
+                     Routes your question to the right inspect_host topics and runs them without a model.",
+                    8,
+                ) {
+                    let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                }
+                let _ = tx.send(InferenceEvent::Done).await;
+                return Ok(());
+            }
+            let detected = all_host_inspection_topics(q);
+            let topics: Vec<&str> = if !detected.is_empty() {
+                detected
+            } else {
+                match preferred_host_inspection_topic(q) {
+                    Some(t) => vec![t],
+                    None => vec!["summary"],
+                }
+            };
+            let _ = tx
+                .send(InferenceEvent::Thought(format!(
+                    "Query routed to {} topic(s): {}",
+                    topics.len(),
+                    topics.join(", ")
+                )))
+                .await;
+            let total = topics.len();
+            let mut out = String::new();
+            for (i, topic) in topics.iter().enumerate() {
+                let _ = tx
+                    .send(InferenceEvent::Thought(format!(
+                        "  [{}/{}] inspecting {}...",
+                        i + 1,
+                        total,
+                        topic
+                    )))
+                    .await;
+                let args = serde_json::json!({"topic": topic});
+                let result = inspect_host(&args)
+                    .await
+                    .unwrap_or_else(|e| format!("Error: {}", e));
+                if total > 1 {
+                    out.push_str(&format!("─── {} ───\n", topic));
+                }
+                out.push_str(result.trim_end());
+                out.push('\n');
+                if total > 1 {
+                    out.push('\n');
+                }
+            }
+            for chunk in chunk_text(&out, 8) {
+                let _ = tx.send(InferenceEvent::Token(chunk)).await;
+            }
+            let _ = tx.send(InferenceEvent::Done).await;
+            return Ok(());
+        }
+
         // ── Fast-path reset commands: handled locally, no network I/O needed ──
         if user_input.trim() == "/new" {
             self.history.clear();

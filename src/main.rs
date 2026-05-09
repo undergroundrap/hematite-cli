@@ -200,6 +200,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
+    if let Some(ref topics_csv) = cockpit.inspect {
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let save = cockpit.open || matches!(fmt.as_str(), "html" | "json");
+        let (content, path) =
+            hematite::agent::report_export::run_inspect_topics(topics_csv, &fmt, save).await;
+        if let Some(p) = path {
+            println!("Inspect report saved: {}", p.display());
+            if cockpit.open {
+                open_path(&p);
+            }
+        } else {
+            print!("{}", content);
+        }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.query {
+        let content = hematite::agent::report_export::generate_query_output(query).await;
+        print!("{}", content);
+        return Ok(());
+    }
+
     if let Some(ref cadence) = cockpit.schedule {
         let cadence_str = cadence.trim();
 

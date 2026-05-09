@@ -806,6 +806,8 @@ mod tests {
             dry_run: false,
             execute: false,
             schedule: None,
+            inspect: None,
+            query: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
