@@ -170,7 +170,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **USB Device History** (`usb_history`) — USB storage device connection history from the USBSTOR registry key: lists all USB storage devices ever connected to this machine by friendly name; useful for security/forensics audits; requires elevation for full history; Linux fallback queries journalctl
 - **Print Spooler / PrintNightmare** (`print_spooler`) — Print Spooler service state, PrintNightmare (CVE-2021-34527) hardening check (RpcAuthnLevelPrivacyEnabled and Point and Print driver installation policy), and pending print queue; flags unmitigated configurations; Linux fallback checks CUPS via lpstat
 
-**Network Admin topics (28+):**
+**Network Admin topics (29+):**
 
 - **Latency** (`latency`) — ping RTT (min/avg/max) and packet loss to the default gateway, Cloudflare DNS (1.1.1.1), and Google DNS (8.8.8.8); findings for unreachable targets, high packet loss, and elevated latency
 - **Network Adapter** (`network_adapter`) — NIC inventory (link speed, MAC, driver version), offload settings (LSO/RSS/TCP checksum offload/jumbo frames) per adapter, error and discard counters, and wake-on-LAN / power management state
@@ -200,6 +200,7 @@ Hematite ships a complete workstation inspection layer that covers the full OS s
 - **SNMP** (`snmp`) — Windows SNMP agent service state, community string presence audit (values redacted), permitted manager list, SNMP Trap service; flags running agents and the well-known 'public' community string as a risk
 - **Port Test** (`port_test`) — TCP port reachability test to any remote host and port via `Test-NetConnection`; returns OPEN/CLOSED/FILTERED with ICMP ping result, source address, and interface used. Use args `host` and `port`.
 - **Network Profile** (`network_profile`) — Windows network location profile per interface (Public/Private/DomainAuthenticated), IPv4/IPv6 connectivity state; flags Public-category interfaces and domain-authenticated connections
+- **DNS Servers** (`dns_servers`) — DNS resolver addresses configured per network adapter (not cache — the actual nameservers), annotated with well-known providers (Google, Cloudflare, Quad9, OpenDNS), DoH configuration, and DNS search suffix list
 
 **Intent-based diagnostic orchestration:**
 
@@ -213,9 +214,11 @@ When the model calls `shell` with a command that matches a structured host inspe
  
 Hematite implements a definitive loop-breaker for auto-redirected shell calls. If the model attempts to call `shell` repeatedly for the same diagnostic intent, the harness provides a short "Action Handled" message instead of flooding the context with redundant telemetry. The **Synchronized Enforcer** ensures that shell diagnostics are only blocked if a native topic is actually available to take over.
 
-**Developer tooling topics (10):**
+**Developer tooling topics (13+):**
 
 - **Environment variables** (`env`) — total count, developer/tool vars (CARGO_HOME, JAVA_HOME, GOPATH, VIRTUAL_ENV, DOCKER_HOST, etc.), secret-shaped vars shown as `[SET, N chars]` only — values never exposed; PATH entry count with pointer to the path topic
+- **Environment Doctor** (`env_doctor`) — full developer environment health check: PATH sanity, package manager conflicts, toolchain version mismatches, conda/pyenv/nvm shadowing, and missing expected tools
+- **Toolchains** (`toolchains`) — installed developer tool inventory with versions: Rust, Node, Python, Go, Java, Docker, Git, and other common toolchain binaries detected on PATH
 - **Hosts file** (`hosts_file`) — reads `/etc/hosts` (Windows: `drivers\etc\hosts`); shows active entries, flags custom non-loopback entries, includes full file content
 - **Docker** (`docker`) — Docker Engine version, daemon health, running containers with status and ports, local images, Docker Compose projects, active context; reports gracefully if not installed or daemon is down
 - **WSL** (`wsl`) — Windows Subsystem for Linux distros with state (Running/Stopped), WSL version metadata; Windows-only feature, reports platform note on Linux/macOS
@@ -223,6 +226,7 @@ Hematite implements a definitive loop-breaker for auto-redirected shell calls. I
 - **Installed software** (`installed_software`) — winget list on Windows (registry scan fallback); dpkg/rpm/pacman on Linux; brew + mas on macOS; paginated with max_entries
 - **Git config** (`git_config`) — global git config grouped by Identity, Core, Commit/Signing, Push/Pull, Credential, Branch sections; local repo config; git aliases; points at missing config if not set up
 - **Databases** (`databases`) — detects running local database engines: PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQLite, SQL Server, CouchDB, Cassandra, Elasticsearch — via CLI version check, TCP port probe, and OS service state; no credentials required
+- **Data Audit** (`data_audit`) — structured CSV/TSV/JSON file analysis: column inventory, data types, row counts, null rates, statistical distribution, and anomaly hints; accepts optional `path` arg
 
 Additional deep-audit developer topics:
 
