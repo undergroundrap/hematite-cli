@@ -8537,8 +8537,7 @@ fn test_routing_throttl_stem_catches_all_inflected_forms() {
 #[test]
 fn test_all_host_topics_detects_hyperv_and_sessions_together() {
     use hematite::agent::routing::all_host_inspection_topics;
-    let topics =
-        all_host_inspection_topics("show hyper-v vms and who is logged on this host");
+    let topics = all_host_inspection_topics("show hyper-v vms and who is logged on this host");
     assert!(
         topics.contains(&"hyperv"),
         "should include hyperv; got: {topics:?}"
@@ -8574,9 +8573,8 @@ fn test_all_host_topics_detects_app_crashes_and_browser_health() {
 #[test]
 fn test_all_host_topics_detects_defender_quarantine_with_security() {
     use hematite::agent::routing::all_host_inspection_topics;
-    let topics = all_host_inspection_topics(
-        "check defender quarantine and current security posture",
-    );
+    let topics =
+        all_host_inspection_topics("check defender quarantine and current security posture");
     assert!(
         topics.contains(&"defender_quarantine"),
         "should include defender_quarantine; got: {topics:?}"
@@ -8590,8 +8588,7 @@ fn test_all_host_topics_detects_defender_quarantine_with_security() {
 #[test]
 fn test_all_host_topics_detects_storage_spaces_with_disk_health() {
     use hematite::agent::routing::all_host_inspection_topics;
-    let topics =
-        all_host_inspection_topics("check storage spaces health and disk health");
+    let topics = all_host_inspection_topics("check storage spaces health and disk health");
     assert!(
         topics.contains(&"storage_spaces"),
         "should include storage_spaces; got: {topics:?}"
