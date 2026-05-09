@@ -1266,6 +1266,7 @@ async fn run_fix_plan_phases(issue: &str) -> FixPlanData {
     let mut hostname = hostname_from_env();
     let mut sections: Vec<(&'static str, String)> = Vec::with_capacity(total);
 
+    eprintln!("hematite --fix: \"{}\" ({} check(s))", issue, total);
     for (i, &(topic, label)) in initial_topics.iter().enumerate() {
         eprintln!("  [{}/{}] {}...", i + 1, total, label);
         let args = serde_json::json!({"topic": topic});
@@ -1468,6 +1469,9 @@ pub async fn generate_inspect_output(topics_csv: &str) -> String {
     }
 
     let total = topics.len();
+    if total > 1 {
+        eprintln!("hematite --inspect: {} topic(s)", total);
+    }
     let mut out = String::new();
     for (i, topic) in topics.iter().enumerate() {
         if total > 1 {
@@ -1528,11 +1532,10 @@ pub async fn generate_query_output(query: &str) -> String {
     };
 
     let total = topics.len();
+    eprintln!("hematite --query: {} topic(s) matched", total);
     let mut out = String::new();
     for (i, topic) in topics.iter().enumerate() {
-        if total > 1 {
-            eprintln!("  [{}/{}] {}...", i + 1, total, topic);
-        }
+        eprintln!("  [{}/{}] {}...", i + 1, total, topic);
         let args = json!({"topic": topic});
         let result = match crate::tools::host_inspect::inspect_host(&args).await {
             Ok(s) => s,
