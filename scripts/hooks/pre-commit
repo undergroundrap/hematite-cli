@@ -1,0 +1,31 @@
+#!/bin/sh
+# Pre-commit hook: block U+FFFD (mojibake replacement character) in staged .md files.
+# U+FFFD means a special char (em dash, arrow, quote) was corrupted during copy-paste.
+
+staged_md=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$')
+
+if [ -z "$staged_md" ]; then
+    exit 0
+fi
+
+FFFD='�'
+found=0
+
+for file in $staged_md; do
+    if [ -f "$file" ] && grep -qF "$FFFD" "$file" 2>/dev/null; then
+        count=$(grep -oF "$FFFD" "$file" | wc -l | tr -d ' ')
+        echo "  $file ($count instance(s) of U+FFFD mojibake)"
+        found=1
+    fi
+done
+
+if [ "$found" -eq 1 ]; then
+    echo ""
+    echo "ERROR: Mojibake (U+FFFD replacement character) found in staged .md files."
+    echo "These are corrupted em dashes, arrows, or quotes from an encoding mismatch."
+    echo "Search: grep -n . <file> | grep -F '$FFFD'"
+    echo ""
+    exit 1
+fi
+
+exit 0
