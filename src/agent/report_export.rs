@@ -425,13 +425,13 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     add_if!(
         &[
             "keyboard not",
+            "keyboard stop",
+            "keyboard broke",
             "mouse not",
-            "touchpad not",
-            "trackpad not",
-            "keyboard stopped",
-            "mouse stopped",
-            "keyboard broken",
-            "mouse broken",
+            "mouse stop",
+            "mouse broke",
+            "touchpad",
+            "trackpad",
             "peripheral not"
         ],
         &[("peripherals", "Peripherals"), ("device_health", "Device Health")]

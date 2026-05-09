@@ -8780,3 +8780,57 @@ async fn test_generate_inspect_output_empty_returns_help() {
         "empty topic should return usage hint"
     );
 }
+
+// ── fix_plan_topics routing ───────────────────────────────────────────────────
+
+#[test]
+fn test_fix_routes_display_config_for_monitor_queries() {
+    for query in &["monitor not working", "second monitor", "wrong resolution", "bad refresh rate", "scaling too big"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"display_config"),
+            "\"{}\" should route to display_config, got: {:?}",
+            query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_peripherals_for_keyboard_mouse_queries() {
+    for query in &["keyboard not working", "mouse not working", "touchpad not responding", "trackpad broken"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"peripherals"),
+            "\"{}\" should route to peripherals, got: {:?}",
+            query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_sleep_topics_for_hibernate_queries() {
+    for query in &["computer won't hibernate", "won't wake up from sleep", "stuck after sleep", "sleep mode broken"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"services") || names.contains(&"pending_reboot") || names.contains(&"thermal"),
+            "\"{}\" should route to sleep-related topics, got: {:?}",
+            query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_installer_health_for_store_queries() {
+    for query in &["microsoft store not working", "store app won't install", "uwp app broken", "winget failing"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"installer_health"),
+            "\"{}\" should route to installer_health, got: {:?}",
+            query, names
+        );
+    }
+}
