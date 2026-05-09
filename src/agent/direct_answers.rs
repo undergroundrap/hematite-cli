@@ -94,7 +94,7 @@ pub(crate) fn build_architect_session_reset_plan() -> crate::tools::plan::PlanHa
         ],
     }
 }
-pub(crate) fn build_inspect_inventory() -> String {
+pub fn build_inspect_inventory() -> String {
     let mut inventory = "Available Host Inspection Topics:\n\n".to_string();
     inventory.push_str("System:\n");
     inventory.push_str("  summary, health_report, updates, security, hardware, storage, battery, recent_crashes, pending_reboot, disk_health, scheduled_tasks, startup_items, data_audit\n\n");

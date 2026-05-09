@@ -200,6 +200,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
+    if cockpit.inventory {
+        println!("{}", hematite::agent::direct_answers::build_inspect_inventory());
+        return Ok(());
+    }
+
+    if let Some(ref topics_csv) = cockpit.watch {
+        let interval = cockpit.watch_interval.max(1);
+        eprintln!(
+            "Watching: {} | interval: {}s | Ctrl+C to stop\n",
+            topics_csv, interval
+        );
+        loop {
+            // ANSI: clear screen + cursor home
+            print!("\x1B[2J\x1B[H");
+            use std::io::Write;
+            let _ = std::io::stdout().flush();
+
+            let ts = {
+                use std::time::{SystemTime, UNIX_EPOCH};
+                let s = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+                let h = ((s / 3600) % 24) as u32;
+                let m = ((s / 60) % 60) as u32;
+                let sec = (s % 60) as u32;
+                format!("{:02}:{:02}:{:02} UTC", h, m, sec)
+            };
+            println!(
+                "Hematite Watch — {} | every {}s | Ctrl+C to stop\n",
+                ts, interval
+            );
+
+            let content =
+                hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+            print!("{}", content);
+            let _ = std::io::stdout().flush();
+
+            tokio::time::sleep(std::time::Duration::from_secs(interval)).await;
+        }
+    }
+
     if let Some(ref topics_csv) = cockpit.inspect {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let save = cockpit.open || matches!(fmt.as_str(), "html" | "json");
