@@ -428,7 +428,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
 
-        use std::io::Write;
         let all_sweep = hematite::agent::report_export::sweep_auto_fixes();
 
         // --fix-all --only <label>: filter to the named fix
@@ -453,7 +452,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
 
         let ts = hematite::agent::report_export::timestamp_label();
-        println!("Hematite maintenance sweep — {} checks\n", sweep.len());
+        let quiet_sweep = cockpit.quiet;
+        // In quiet mode, buffer progress lines; flush only if there are unresolved issues.
+        let mut progress_buf: Vec<String> = Vec::new();
+        let emit = |buf: &mut Vec<String>, line: String| {
+            if quiet_sweep {
+                buf.push(line);
+            } else {
+                println!("{}", line);
+            }
+        };
+        emit(&mut progress_buf, format!("Hematite maintenance sweep — {} checks\n", sweep.len()));
 
         struct SweepEntry {
             label: &'static str,
@@ -472,8 +481,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .trim_start_matches("Resync ")
                 .trim_start_matches("Empty ")
                 .trim_start_matches("Start ");
-            print!("  Checking {}... ", display);
-            let _ = std::io::stdout().flush();
             let needs_fix = if let (Some(topic), Some(gone)) =
                 (fix.verify_topic, fix.verify_gone)
             {
@@ -484,12 +491,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 true
             };
             if !needs_fix {
-                println!("OK");
+                emit(&mut progress_buf, format!("  Checking {}... OK", display));
                 log.push(SweepEntry { label: fix.label, status: "healthy" });
                 continue;
             }
-            print!("needs fix — running... ");
-            let _ = std::io::stdout().flush();
             let status = std::process::Command::new("cmd")
                 .args(["/C", fix.cmd])
                 .stdout(std::process::Stdio::null())
@@ -503,36 +508,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             hematite::agent::report_export::generate_inspect_output(topic)
                                 .await;
                         if post.to_ascii_lowercase().contains(gone) {
-                            println!("\x1B[33m✗ still present\x1B[0m");
+                            emit(&mut progress_buf, format!("  Checking {}... needs fix — ✗ still present", display));
                             log.push(SweepEntry { label: fix.label, status: "unresolved" });
                         } else {
-                            println!("\x1B[32m✓ resolved\x1B[0m");
+                            emit(&mut progress_buf, format!("  Checking {}... needs fix — ✓ resolved", display));
                             verified += 1;
                             log.push(SweepEntry { label: fix.label, status: "fixed" });
                         }
                     } else {
-                        println!("done");
+                        emit(&mut progress_buf, format!("  Checking {}... needs fix — done", display));
                         verified += 1;
                         log.push(SweepEntry { label: fix.label, status: "done" });
                     }
                 }
                 Ok(s) => {
-                    println!("failed (code {})", s.code().unwrap_or(1));
+                    emit(&mut progress_buf, format!("  Checking {}... needs fix — failed (code {})", display, s.code().unwrap_or(1)));
                     log.push(SweepEntry { label: fix.label, status: "failed" });
                 }
                 Err(e) => {
-                    println!("error: {}", e);
+                    emit(&mut progress_buf, format!("  Checking {}... needs fix — error: {}", display, e));
                     log.push(SweepEntry { label: fix.label, status: "failed" });
                 }
             }
         }
-        println!();
         let summary = if applied == 0 {
             "All checks passed — nothing needed fixing.".to_string()
         } else {
             format!("{} fix(es) applied, {} verified resolved.", applied, verified)
         };
-        println!("  {}", summary);
+        let has_unresolved = applied > verified;
+        emit(&mut progress_buf, String::new());
+        emit(&mut progress_buf, format!("  {}", summary));
+
+        // Flush buffered progress if quiet mode suppressed it but there are issues
+        if quiet_sweep && has_unresolved {
+            for line in &progress_buf {
+                println!("{}", line);
+            }
+        }
 
         // Build and save the sweep report
         let hostname = std::env::var("COMPUTERNAME")
@@ -602,7 +615,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let _ = std::fs::write(&report_path, &md);
             report_content = md.clone();
         }
-        println!("Sweep report saved: {}", report_path.display());
+        if !quiet_sweep || has_unresolved {
+            println!("Sweep report saved: {}", report_path.display());
+        }
 
         if let Some(ref out_path) = cockpit.output {
             write_output_copy(&report_content, out_path);
