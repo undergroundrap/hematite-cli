@@ -915,11 +915,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref topics_csv) = cockpit.inspect {
-        let raw_content =
-            hematite::agent::report_export::generate_inspect_output(topics_csv).await;
-        let content = apply_field_filter(&raw_content, cockpit.field.as_deref());
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
 
         if let Some(ref snap_name) = cockpit.snapshot {
+            // Snapshots are always plain text (for later --diff --from comparisons).
+            let raw_content =
+                hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+            let content = apply_field_filter(&raw_content, cockpit.field.as_deref());
             let snap_path = snapshot_path(snap_name);
             if let Some(parent) = snap_path.parent() {
                 let _ = std::fs::create_dir_all(parent);
@@ -928,28 +930,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(()) => println!("Snapshot saved: {}", snap_path.display()),
                 Err(e) => eprintln!("Failed to save snapshot: {}", e),
             }
-        } else {
-            let fmt = cockpit.report_format.trim().to_ascii_lowercase();
-            let save = cockpit.open || matches!(fmt.as_str(), "html" | "json");
-            if save {
-                let (_, path) =
-                    hematite::agent::report_export::run_inspect_topics(topics_csv, &fmt, true)
-                        .await;
-                if let Some(p) = path {
-                    println!("Inspect report saved: {}", p.display());
-                    if cockpit.open {
-                        open_path(&p);
-                    }
+        } else if cockpit.open || fmt == "html" {
+            // HTML or --open: save to file and optionally launch.
+            let (_, path) =
+                hematite::agent::report_export::run_inspect_topics(topics_csv, &fmt, true).await;
+            if let Some(p) = path {
+                println!("Inspect report saved: {}", p.display());
+                if cockpit.open {
+                    open_path(&p);
                 }
+            }
+        } else {
+            // Default (md/txt) and JSON: generate and print to stdout.
+            let raw_content = if fmt == "json" {
+                hematite::agent::report_export::generate_inspect_output_json(topics_csv).await
+            } else {
+                hematite::agent::report_export::generate_inspect_output(topics_csv).await
+            };
+            let content = apply_field_filter(&raw_content, cockpit.field.as_deref());
+            if let Some(ref out_path) = cockpit.output {
+                write_output_copy(&content, out_path);
             } else {
                 print!("{}", content);
-                if cockpit.clipboard {
-                    copy_to_clipboard(&content);
-                    println!("Copied to clipboard.");
-                }
-                if cockpit.notify {
-                    show_toast("Hematite Inspect", &format!("Done: {}", topics_csv));
-                }
+            }
+            if cockpit.clipboard {
+                copy_to_clipboard(&content);
+                println!("Copied to clipboard.");
+            }
+            if cockpit.notify {
+                show_toast("Hematite Inspect", &format!("Done: {}", topics_csv));
             }
         }
         return Ok(());

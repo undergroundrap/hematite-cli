@@ -8894,6 +8894,37 @@ async fn test_generate_inspect_output_empty_returns_help() {
     );
 }
 
+// ── generate_inspect_output_json ─────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_generate_inspect_output_json_is_valid_json() {
+    let out =
+        hematite::agent::report_export::generate_inspect_output_json("connectivity").await;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&out).expect("--inspect --report-format json should produce valid JSON");
+    assert!(parsed.get("topics").is_some(), "JSON should have a 'topics' field");
+    assert!(parsed.get("sections").is_some(), "JSON should have a 'sections' field");
+    assert!(parsed.get("generated").is_some(), "JSON should have a 'generated' field");
+}
+
+#[tokio::test]
+async fn test_generate_inspect_output_json_multi_topic() {
+    let out =
+        hematite::agent::report_export::generate_inspect_output_json("connectivity,wifi").await;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&out).expect("multi-topic JSON inspect should be valid");
+    let topics = parsed["topics"].as_array().expect("topics should be an array");
+    assert_eq!(topics.len(), 2, "should have 2 topics in JSON output");
+    assert!(
+        parsed["sections"].get("connectivity").is_some(),
+        "sections should contain connectivity"
+    );
+    assert!(
+        parsed["sections"].get("wifi").is_some(),
+        "sections should contain wifi"
+    );
+}
+
 // ── fix_plan_topics routing ───────────────────────────────────────────────────
 
 #[test]

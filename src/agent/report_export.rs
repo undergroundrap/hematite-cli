@@ -1961,6 +1961,48 @@ pub async fn generate_inspect_output(topics_csv: &str) -> String {
     out
 }
 
+/// Run one or more inspect_host topics and return structured JSON output.
+pub async fn generate_inspect_output_json(topics_csv: &str) -> String {
+    let topics: Vec<&str> = topics_csv
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if topics.is_empty() {
+        return json!({"error": "No topics specified."}).to_string();
+    }
+
+    let total = topics.len();
+    eprintln!("hematite --inspect (json): {} topic(s)", total);
+    let mut sections_obj = serde_json::Map::new();
+    let mut combined = String::new();
+    for (i, topic) in topics.iter().enumerate() {
+        eprintln!("  [{}/{}] {}...", i + 1, total, topic);
+        let args = json!({"topic": topic});
+        let result = match crate::tools::host_inspect::inspect_host(&args).await {
+            Ok(s) => s,
+            Err(e) => format!("Error ({}): {}", topic, e),
+        };
+        sections_obj.insert(topic.to_string(), json!(result));
+        combined.push_str(result.trim_end());
+        combined.push('\n');
+    }
+
+    let host = std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| "unknown".to_string());
+    let obj = json!({
+        "generated": now_timestamp_string(),
+        "host": host,
+        "hematite_version": env!("CARGO_PKG_VERSION"),
+        "topics": topics,
+        "sections": serde_json::Value::Object(sections_obj),
+        "combined_output": combined,
+    });
+    serde_json::to_string_pretty(&obj).unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e))
+}
+
 /// Run inspect topics and optionally save as a report file.
 /// Returns `(content, saved_path_option)`.
 pub async fn run_inspect_topics(
@@ -1968,7 +2010,11 @@ pub async fn run_inspect_topics(
     fmt: &str,
     save: bool,
 ) -> (String, Option<PathBuf>) {
-    let content = generate_inspect_output(topics_csv).await;
+    let content = if fmt == "json" {
+        generate_inspect_output_json(topics_csv).await
+    } else {
+        generate_inspect_output(topics_csv).await
+    };
 
     if !save {
         return (content, None);
