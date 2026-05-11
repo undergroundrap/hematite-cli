@@ -656,9 +656,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if cockpit.snapshots {
         let dir = hematite::tools::file_ops::hematite_dir().join("snapshots");
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+
         if !dir.exists() {
-            println!("No snapshots saved yet.");
-            println!("Save one with: hematite --inspect <topic> --snapshot <name>");
+            if fmt == "json" {
+                println!("[]");
+            } else {
+                println!("No snapshots saved yet.");
+                println!("Save one with: hematite --inspect <topic> --snapshot <name>");
+            }
             return Ok(());
         }
         let mut entries: Vec<_> = std::fs::read_dir(&dir)
@@ -673,7 +679,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
         });
         entries.reverse();
-        if entries.is_empty() {
+
+        if fmt == "json" {
+            let arr: Vec<serde_json::Value> = entries
+                .iter()
+                .map(|e| {
+                    let name = e.file_name();
+                    let stem = std::path::Path::new(&name)
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    let size_bytes = e.metadata().map(|m| m.len()).unwrap_or(0);
+                    let age_secs = e
+                        .metadata()
+                        .and_then(|m| m.modified())
+                        .ok()
+                        .and_then(|t| t.elapsed().ok())
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    serde_json::json!({
+                        "name": stem,
+                        "size_bytes": size_bytes,
+                        "age_secs": age_secs,
+                    })
+                })
+                .collect();
+            let out = serde_json::to_string_pretty(&serde_json::Value::Array(arr))
+                .unwrap_or_else(|_| "[]".to_string());
+            if let Some(ref out_path) = cockpit.output {
+                write_output_copy(&out, out_path);
+            } else {
+                println!("{}", out);
+            }
+        } else if entries.is_empty() {
             println!("No snapshots saved yet.");
         } else {
             println!("Saved snapshots ({}):\n", entries.len());

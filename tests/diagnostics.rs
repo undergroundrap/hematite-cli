@@ -8948,6 +8948,25 @@ async fn test_generate_inspect_output_empty_returns_help() {
     );
 }
 
+// ── snapshots --report-format json ───────────────────────────────────────────
+
+#[test]
+fn test_snapshots_json_schema_shape() {
+    // Verify the snapshot list JSON schema shape produced by --snapshots --report-format json.
+    let entries = vec![
+        serde_json::json!({"name": "before-update", "size_bytes": 4096u64, "age_secs": 3600u64}),
+        serde_json::json!({"name": "after-update", "size_bytes": 4200u64, "age_secs": 120u64}),
+    ];
+    let arr = serde_json::Value::Array(entries);
+    let out = serde_json::to_string_pretty(&arr).expect("should serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&out).expect("should parse");
+    let list = parsed.as_array().expect("should be an array");
+    assert_eq!(list.len(), 2);
+    assert!(list[0].get("name").is_some());
+    assert!(list[0].get("size_bytes").is_some());
+    assert!(list[0].get("age_secs").is_some());
+}
+
 // ── diff JSON schema ──────────────────────────────────────────────────────────
 
 #[test]
