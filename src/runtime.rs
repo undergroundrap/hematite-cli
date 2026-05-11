@@ -816,6 +816,7 @@ mod tests {
             query: None,
             watch: None,
             watch_interval: 5,
+            count: None,
             diff: None,
             diff_after: 30,
             alert: None,

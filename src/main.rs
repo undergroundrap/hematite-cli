@@ -557,18 +557,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let interval = cockpit.watch_interval.max(1);
         let alert_pat = cockpit.alert.as_deref().map(|p| p.to_ascii_lowercase());
 
+        let max_cycles = cockpit.count;
+        let stop_label = match max_cycles {
+            Some(n) => format!("{} cycle(s)", n),
+            None => "Ctrl+C to stop".to_string(),
+        };
         if let Some(ref pat) = alert_pat {
             eprintln!(
-                "Watching: {} | alert: {:?} | interval: {}s | Ctrl+C to stop",
-                topics_csv, pat, interval
+                "Watching: {} | alert: {:?} | interval: {}s | {}",
+                topics_csv, pat, interval, stop_label
             );
         } else {
             eprintln!(
-                "Watching: {} | interval: {}s | Ctrl+C to stop",
-                topics_csv, interval
+                "Watching: {} | interval: {}s | {}",
+                topics_csv, interval, stop_label
             );
         }
 
+        let mut cycle: u64 = 0;
         loop {
             use std::io::Write;
 
@@ -592,8 +598,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     print!("\x1B[2J\x1B[H\x07");
                     let _ = std::io::stdout().flush();
                     println!(
-                        "\x1B[32mALERT\x1B[0m — pattern {:?} matched at {} | Ctrl+C to stop\n",
-                        pat, ts
+                        "\x1B[32mALERT\x1B[0m — pattern {:?} matched at {} | {}\n",
+                        pat, ts, stop_label
                     );
                     if cockpit.notify {
                         show_toast(
@@ -611,13 +617,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 print!("\x1B[2J\x1B[H");
                 let _ = std::io::stdout().flush();
                 println!(
-                    "Hematite Watch — {} | every {}s | Ctrl+C to stop\n",
-                    ts, interval
+                    "Hematite Watch — {} | every {}s | {}\n",
+                    ts, interval, stop_label
                 );
                 print!("{}", content);
             }
 
             let _ = std::io::stdout().flush();
+            cycle += 1;
+            if let Some(max) = max_cycles {
+                if cycle >= max {
+                    break;
+                }
+            }
             tokio::time::sleep(std::time::Duration::from_secs(interval)).await;
         }
     }

@@ -355,6 +355,14 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Modelless Inspection",
+        value_name = "N",
+        help = "With --watch: stop after N poll cycles instead of running until Ctrl+C. Example: hematite --watch resource_load --count 5"
+    )]
+    pub count: Option<u64>,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
         value_name = "TOPIC[,TOPIC2,...]",
         help = "Take two snapshots separated by --diff-after seconds and show a colored diff. Example: hematite --diff processes --diff-after 60"
     )]
