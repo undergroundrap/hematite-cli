@@ -1,6 +1,6 @@
 #define AppName "Hematite"
 #ifndef AppVersion
-  #define AppVersion "0.8.2"
+  #define AppVersion "0.9.0"
 #endif
 #ifndef BundleDir
   #define BundleDir "..\\dist\\windows\\Hematite-" + AppVersion + "-portable"
