@@ -106,25 +106,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if cockpit.report {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
-        if cockpit.open {
-            let path = match fmt.as_str() {
-                "json" => hematite::agent::report_export::save_report_json().await.1,
-                "html" => hematite::agent::report_export::save_report_html().await.1,
-                _ => {
-                    hematite::agent::report_export::save_report_markdown()
-                        .await
-                        .1
-                }
+        if cockpit.open || fmt == "html" {
+            let (out, path) = match fmt.as_str() {
+                "json" => hematite::agent::report_export::save_report_json().await,
+                "html" => hematite::agent::report_export::save_report_html().await,
+                _ => hematite::agent::report_export::save_report_markdown().await,
             };
             println!("Report saved: {}", path.display());
-            open_path(&path);
+            if cockpit.open {
+                open_path(&path);
+            }
+            if cockpit.clipboard {
+                copy_to_clipboard(&out);
+                println!("Copied to clipboard.");
+            }
+            if cockpit.notify {
+                show_toast("Hematite Report", "Diagnostic report complete.");
+            }
         } else {
             let out = match fmt.as_str() {
                 "json" => hematite::agent::report_export::generate_report_json().await,
-                "html" => hematite::agent::report_export::generate_report_html().await,
                 _ => hematite::agent::report_export::generate_report_markdown().await,
             };
-            print!("{}", out);
+            if let Some(ref out_path) = cockpit.output {
+                write_output_copy(&out, out_path);
+            } else {
+                print!("{}", out);
+            }
+            if cockpit.clipboard {
+                copy_to_clipboard(&out);
+                println!("Copied to clipboard.");
+            }
+            if cockpit.notify {
+                show_toast("Hematite Report", "Diagnostic report complete.");
+            }
         }
         return Ok(());
     }
@@ -1052,7 +1067,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             hematite::agent::report_export::generate_query_output(query).await
         };
         let filtered = apply_field_filter(&content, cockpit.field.as_deref());
-        print!("{}", filtered);
+        if let Some(ref out_path) = cockpit.output {
+            write_output_copy(&filtered, out_path);
+        } else {
+            print!("{}", filtered);
+        }
         if cockpit.clipboard {
             copy_to_clipboard(&filtered);
             println!("Copied to clipboard.");
