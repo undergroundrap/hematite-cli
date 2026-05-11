@@ -551,13 +551,15 @@ pub fn fix_plan_topics(issue: &str) -> Vec<(&'static str, &'static str)> {
 }
 
 /// A safe auto-executable fix with optional post-fix verification.
-/// `verify_topic`: inspect_host topic to re-run after the fix.
-/// `verify_gone`: pattern that should be ABSENT in that output if the fix worked.
+/// `verify_topic`: inspect_host topic to re-run before (pre-check) and after the fix.
+/// `verify_gone`: pattern ABSENT in healthy output; present means the problem exists.
+/// `include_in_sweep`: eligible for `--fix-all` maintenance sweep.
 pub struct AutoFix {
     pub label: &'static str,
     pub cmd: &'static str,
     pub verify_topic: Option<&'static str>,
     pub verify_gone: Option<&'static str>,
+    pub include_in_sweep: bool,
 }
 
 struct AutoCmdAc {
@@ -569,14 +571,15 @@ static AUTO_CMD_AC: std::sync::OnceLock<AutoCmdAc> = std::sync::OnceLock::new();
 
 fn auto_cmd_ac() -> &'static AutoCmdAc {
     AUTO_CMD_AC.get_or_init(|| {
-        // (trigger_pattern, label, command, verify_topic, verify_gone_pattern)
-        const SAFE: &[(&str, &str, &str, Option<&str>, Option<&str>)] = &[
+        // (trigger, label, cmd, verify_topic, verify_gone, include_in_sweep)
+        const SAFE: &[(&str, &str, &str, Option<&str>, Option<&str>, bool)] = &[
             (
                 "dns: failed",
                 "Flush DNS cache",
                 "ipconfig /flushdns",
                 Some("connectivity"),
                 Some("dns: failed"),
+                true,
             ),
             (
                 "dns resolution: failed",
@@ -584,6 +587,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "ipconfig /flushdns",
                 Some("connectivity"),
                 Some("dns: failed"),
+                false, // duplicate label — sweep deduplicates by label
             ),
             (
                 "wsearch",
@@ -591,6 +595,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
                 Some("search_index"),
                 Some("stopped"),
+                true,
             ),
             (
                 "windows search",
@@ -598,6 +603,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
                 Some("search_index"),
                 Some("stopped"),
+                false, // duplicate label
             ),
             (
                 "spooler",
@@ -605,6 +611,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service Spooler -Force\"",
                 Some("printers"),
                 Some("offline"),
+                true,
             ),
             (
                 "print spooler",
@@ -612,6 +619,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service Spooler -Force\"",
                 Some("printers"),
                 Some("offline"),
+                false, // duplicate label
             ),
             (
                 "ntp source unreachable",
@@ -619,6 +627,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "w32tm /resync /force",
                 Some("ntp"),
                 Some("failed"),
+                true,
             ),
             (
                 "time sync failed",
@@ -626,6 +635,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "w32tm /resync /force",
                 Some("ntp"),
                 Some("failed"),
+                false, // duplicate label
             ),
             (
                 "bits",
@@ -633,6 +643,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service BITS -Force\"",
                 None,
                 None,
+                false, // no verify — skip sweep
             ),
             (
                 "wuauserv",
@@ -640,6 +651,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service wuauserv -Force\"",
                 None,
                 None,
+                false,
             ),
             (
                 "windows update service",
@@ -647,6 +659,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service wuauserv -Force\"",
                 None,
                 None,
+                false, // duplicate label
             ),
             (
                 "audiosrv",
@@ -654,6 +667,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service Audiosrv -Force\"",
                 Some("audio"),
                 Some("not running"),
+                true,
             ),
             (
                 "windows audio",
@@ -661,6 +675,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service Audiosrv -Force\"",
                 Some("audio"),
                 Some("not running"),
+                false, // duplicate label
             ),
             (
                 "low disk",
@@ -668,6 +683,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
                 None,
                 None,
+                true, // always safe — include in sweep
             ),
             (
                 "free up space",
@@ -675,6 +691,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
                 None,
                 None,
+                false, // duplicate label
             ),
             // Teams cache — classic and new Teams
             (
@@ -683,6 +700,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Get-Process ms-teams,Teams -ErrorAction SilentlyContinue | Stop-Process -Force; Remove-Item \\\"$env:APPDATA\\\\Microsoft\\\\Teams\\\\Cache\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item \\\"$env:LOCALAPPDATA\\\\Packages\\\\MSTeams_8wekyb3d8bbwe\\\\LocalCache\\\\Microsoft\\\\MSTeams\\\\EBWebView\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue\"",
                 Some("teams"),
                 Some("cache:"),
+                true,
             ),
             (
                 "msteams",
@@ -690,6 +708,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Get-Process ms-teams,Teams -ErrorAction SilentlyContinue | Stop-Process -Force; Remove-Item \\\"$env:APPDATA\\\\Microsoft\\\\Teams\\\\Cache\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item \\\"$env:LOCALAPPDATA\\\\Packages\\\\MSTeams_8wekyb3d8bbwe\\\\LocalCache\\\\Microsoft\\\\MSTeams\\\\EBWebView\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue\"",
                 Some("teams"),
                 Some("cache:"),
+                false, // duplicate label
             ),
             // Bluetooth
             (
@@ -698,6 +717,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service bthserv -Force -ErrorAction SilentlyContinue\"",
                 Some("bluetooth"),
                 Some("not running"),
+                true,
             ),
             (
                 "bthserv",
@@ -705,14 +725,16 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service bthserv -Force -ErrorAction SilentlyContinue\"",
                 Some("bluetooth"),
                 Some("not running"),
+                false, // duplicate label
             ),
-            // DHCP client
+            // DHCP — renewing drops network briefly; skip sweep
             (
                 "dhcp lease expired",
                 "Renew DHCP lease",
                 "ipconfig /release && ipconfig /renew",
                 Some("dhcp"),
                 Some("expired"),
+                false,
             ),
             (
                 "lease expires",
@@ -720,14 +742,16 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "ipconfig /release && ipconfig /renew",
                 Some("dhcp"),
                 Some("expired"),
+                false, // duplicate label
             ),
-            // DNS client service
+            // DNS client service — covered by DNS flush in sweep
             (
                 "dnscache",
                 "Restart DNS Client service",
                 "powershell -Command \"Restart-Service Dnscache -Force -ErrorAction SilentlyContinue\"",
                 Some("connectivity"),
                 Some("dns: failed"),
+                false,
             ),
             // OneDrive
             (
@@ -736,14 +760,16 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Start-Process \\\"$env:LOCALAPPDATA\\\\Microsoft\\\\OneDrive\\\\OneDrive.exe\\\" -ErrorAction SilentlyContinue\"",
                 Some("onedrive"),
                 Some("not running"),
+                true,
             ),
-            // WMI
+            // WMI — disruptive; only on explicit --fix, not sweep
             (
                 "wmi repository",
                 "Restart WMI service",
                 "powershell -Command \"Restart-Service winmgmt -Force\"",
                 Some("wmi_health"),
                 Some("corrupt"),
+                false,
             ),
             (
                 "winmgmt",
@@ -751,29 +777,32 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 "powershell -Command \"Restart-Service winmgmt -Force\"",
                 Some("wmi_health"),
                 Some("corrupt"),
+                false, // duplicate label
             ),
-            // Network Location Awareness — fixes "unidentified network" / wrong profile
+            // Network Location Awareness
             (
                 "unidentified network",
                 "Restart Network Location Awareness",
                 "powershell -Command \"Restart-Service NlaSvc -Force -ErrorAction SilentlyContinue\"",
                 Some("network_profile"),
                 Some("unidentified"),
+                true,
             ),
-            // Remote Desktop
+            // Remote Desktop — security-sensitive; only on explicit --fix
             (
                 "remote desktop disabled",
                 "Enable Remote Desktop",
                 "powershell -Command \"Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server' -Name fDenyTSConnections -Value 0; Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction SilentlyContinue\"",
                 Some("rdp"),
                 Some("disabled"),
+                false,
             ),
         ];
         let mut patterns: Vec<&str> = Vec::with_capacity(SAFE.len());
         let mut entries: Vec<AutoFix> = Vec::with_capacity(SAFE.len());
-        for &(trigger, label, cmd, verify_topic, verify_gone) in SAFE {
+        for &(trigger, label, cmd, verify_topic, verify_gone, include_in_sweep) in SAFE {
             patterns.push(trigger);
-            entries.push(AutoFix { label, cmd, verify_topic, verify_gone });
+            entries.push(AutoFix { label, cmd, verify_topic, verify_gone, include_in_sweep });
         }
         AutoCmdAc {
             ac: aho_corasick::AhoCorasick::new(&patterns).expect("valid patterns"),
@@ -794,6 +823,18 @@ pub fn fix_plan_auto_commands(combined_output: &str) -> Vec<&'static AutoFix> {
         }
     }
     result
+}
+
+/// Returns the ordered list of fixes eligible for `--fix-all` maintenance sweep.
+/// One entry per label, sweep-flagged only.
+pub fn sweep_auto_fixes() -> Vec<&'static AutoFix> {
+    let state = auto_cmd_ac();
+    let mut seen = std::collections::HashSet::new();
+    state
+        .entries
+        .iter()
+        .filter(|f| f.include_in_sweep && seen.insert(f.label))
+        .collect()
 }
 
 /// Map a recipe title to the most natural `hematite --fix "<issue>"` argument.

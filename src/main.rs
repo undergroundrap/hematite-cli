@@ -267,6 +267,78 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(if has_issues_final { 1 } else { 0 });
     }
 
+    if cockpit.fix_all {
+        use std::io::Write;
+        let sweep = hematite::agent::report_export::sweep_auto_fixes();
+        println!("Hematite maintenance sweep — {} checks\n", sweep.len());
+        let mut applied = 0usize;
+        let mut verified = 0usize;
+        for fix in &sweep {
+            let display = fix
+                .label
+                .trim_start_matches("Restart ")
+                .trim_start_matches("Flush ")
+                .trim_start_matches("Clear ")
+                .trim_start_matches("Resync ")
+                .trim_start_matches("Empty ")
+                .trim_start_matches("Start ");
+            print!("  Checking {}... ", display);
+            let _ = std::io::stdout().flush();
+            // Pre-check: skip if already healthy
+            let needs_fix = if let (Some(topic), Some(gone)) =
+                (fix.verify_topic, fix.verify_gone)
+            {
+                let pre =
+                    hematite::agent::report_export::generate_inspect_output(topic).await;
+                pre.to_ascii_lowercase().contains(gone)
+            } else {
+                true // no verify means always run (e.g. Recycle Bin clear)
+            };
+            if !needs_fix {
+                println!("OK");
+                continue;
+            }
+            print!("needs fix — running... ");
+            let _ = std::io::stdout().flush();
+            let status = std::process::Command::new("cmd")
+                .args(["/C", fix.cmd])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+            applied += 1;
+            match status {
+                Ok(s) if s.success() => {
+                    if let (Some(topic), Some(gone)) = (fix.verify_topic, fix.verify_gone) {
+                        let post =
+                            hematite::agent::report_export::generate_inspect_output(topic)
+                                .await;
+                        if post.to_ascii_lowercase().contains(gone) {
+                            println!("\x1B[33m✗ still present\x1B[0m");
+                        } else {
+                            println!("\x1B[32m✓ resolved\x1B[0m");
+                            verified += 1;
+                        }
+                    } else {
+                        println!("done");
+                        verified += 1;
+                    }
+                }
+                Ok(s) => println!("failed (code {})", s.code().unwrap_or(1)),
+                Err(e) => println!("error: {}", e),
+            }
+        }
+        println!();
+        if applied == 0 {
+            println!("  All checks passed — nothing needed fixing.");
+        } else {
+            println!(
+                "  {} fix(es) applied, {} verified resolved.",
+                applied, verified
+            );
+        }
+        std::process::exit(if applied > 0 && verified < applied { 1 } else { 0 });
+    }
+
     if cockpit.inventory {
         println!(
             "{}",

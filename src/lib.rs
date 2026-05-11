@@ -271,6 +271,13 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Headless Reports",
+        help = "Maintenance sweep — checks every safe auto-fix topic, skips what is healthy, runs what needs fixing, and verifies each fix resolved. No model required."
+    )]
+    pub fix_all: bool,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
         default_missing_value = "weekly",
         num_args = 0..=1,
         value_name = "CADENCE",

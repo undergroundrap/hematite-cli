@@ -9043,3 +9043,46 @@ fn test_auto_fix_deduplicates_same_label() {
     let unique: std::collections::HashSet<&str> = labels.iter().copied().collect();
     assert_eq!(labels.len(), unique.len(), "duplicate labels in auto-fix results");
 }
+
+#[test]
+fn test_sweep_auto_fixes_no_duplicate_labels() {
+    let sweep = hematite::agent::report_export::sweep_auto_fixes();
+    let labels: Vec<&str> = sweep.iter().map(|f| f.label).collect();
+    let unique: std::collections::HashSet<&str> = labels.iter().copied().collect();
+    assert_eq!(labels.len(), unique.len(), "sweep has duplicate labels: {:?}", labels);
+}
+
+#[test]
+fn test_sweep_auto_fixes_all_have_verify_or_are_always_safe() {
+    let sweep = hematite::agent::report_export::sweep_auto_fixes();
+    assert!(!sweep.is_empty(), "sweep list must not be empty");
+    // Every sweep entry either has a verify pair or is unconditionally safe (no verify needed).
+    // Entries without verify run unconditionally — ensure none of those are security-sensitive.
+    for fix in &sweep {
+        if fix.verify_topic.is_none() {
+            assert!(
+                fix.label.contains("Recycle Bin"),
+                "sweep entry without verify should be obviously safe, got: {}",
+                fix.label
+            );
+        }
+    }
+}
+
+#[test]
+fn test_sweep_excludes_security_sensitive_fixes() {
+    let sweep = hematite::agent::report_export::sweep_auto_fixes();
+    let labels: Vec<&str> = sweep.iter().map(|f| f.label).collect();
+    assert!(
+        !labels.contains(&"Enable Remote Desktop"),
+        "Enable Remote Desktop must not be in sweep — security sensitive"
+    );
+    assert!(
+        !labels.contains(&"Restart WMI service"),
+        "Restart WMI must not be in sweep — disruptive"
+    );
+    assert!(
+        !labels.contains(&"Renew DHCP lease"),
+        "Renew DHCP must not be in sweep — drops network briefly"
+    );
+}
