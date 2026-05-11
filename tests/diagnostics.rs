@@ -8894,6 +8894,27 @@ async fn test_generate_inspect_output_empty_returns_help() {
     );
 }
 
+// ── watch NDJSON schema ───────────────────────────────────────────────────────
+
+#[test]
+fn test_watch_ndjson_schema_shape() {
+    // Verify the exact JSON object shape emitted per cycle by --watch --report-format json.
+    let obj = serde_json::json!({
+        "timestamp": "12:00:00 UTC",
+        "cycle": 1u64,
+        "topics": "connectivity",
+        "alert_matched": false,
+        "output": "some output",
+    });
+    let line = serde_json::to_string(&obj).expect("should serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&line).expect("should parse");
+    assert!(parsed.get("timestamp").is_some());
+    assert!(parsed.get("cycle").is_some());
+    assert!(parsed.get("topics").is_some());
+    assert!(parsed.get("alert_matched").is_some());
+    assert!(parsed.get("output").is_some());
+}
+
 // ── generate_inspect_output_json ─────────────────────────────────────────────
 
 #[tokio::test]

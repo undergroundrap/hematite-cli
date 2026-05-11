@@ -804,6 +804,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 print!("{}", content);
             }
 
+            // Append to --output log file if specified (NDJSON for json mode, timestamped blocks otherwise).
+            if let Some(ref out_path) = cockpit.output {
+                use std::io::Write as _;
+                let path = std::path::Path::new(out_path);
+                if let Some(parent) = path.parent() {
+                    if !parent.as_os_str().is_empty() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                }
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(path)
+                {
+                    if is_json_mode {
+                        let alert_matched = alert_pat
+                            .as_ref()
+                            .map(|p| raw_content.to_ascii_lowercase().contains(p.as_str()))
+                            .unwrap_or(false);
+                        let obj = serde_json::json!({
+                            "timestamp": ts,
+                            "cycle": cycle + 1,
+                            "topics": topics_csv.as_str(),
+                            "alert_matched": alert_matched,
+                            "output": content.as_ref(),
+                        });
+                        let _ = writeln!(
+                            file,
+                            "{}",
+                            serde_json::to_string(&obj).unwrap_or_default()
+                        );
+                    } else {
+                        let _ = writeln!(file, "=== {} (cycle {}) ===", ts, cycle + 1);
+                        let _ = write!(file, "{}", content.as_ref());
+                        let _ = writeln!(file);
+                    }
+                }
+            }
+
             let _ = std::io::stdout().flush();
             cycle += 1;
             if let Some(max) = max_cycles {
