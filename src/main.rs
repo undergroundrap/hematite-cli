@@ -343,8 +343,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
 
+        // --fix-all --list: print available fix labels and exit
+        if cockpit.only.as_deref() == Some("list") || cockpit.only.as_deref() == Some("help") {
+            let all = hematite::agent::report_export::sweep_auto_fixes();
+            println!("Available sweep fixes ({}):\n", all.len());
+            for fix in &all {
+                println!("  \"{}\"", fix.label);
+            }
+            println!("\nRun one: hematite --fix-all --only \"<label>\"");
+            return Ok(());
+        }
+
         use std::io::Write;
-        let sweep = hematite::agent::report_export::sweep_auto_fixes();
+        let all_sweep = hematite::agent::report_export::sweep_auto_fixes();
+
+        // --fix-all --only <label>: filter to the named fix
+        let sweep: Vec<&hematite::agent::report_export::AutoFix> =
+            if let Some(ref only_label) = cockpit.only {
+                let label_lower = only_label.to_ascii_lowercase();
+                let matches: Vec<_> = all_sweep
+                    .iter()
+                    .filter(|f| f.label.to_ascii_lowercase().contains(&label_lower))
+                    .copied()
+                    .collect();
+                if matches.is_empty() {
+                    eprintln!(
+                        "No sweep fix found matching {:?}.\nRun `hematite --fix-all --only list` to see all labels.",
+                        only_label
+                    );
+                    std::process::exit(1);
+                }
+                matches
+            } else {
+                all_sweep
+            };
+
         let ts = hematite::agent::report_export::timestamp_label();
         println!("Hematite maintenance sweep — {} checks\n", sweep.len());
 

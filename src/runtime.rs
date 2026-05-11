@@ -808,6 +808,7 @@ mod tests {
             yes: false,
             quiet: false,
             fix_all: false,
+            only: None,
             clipboard: false,
             notify: false,
             output: None,

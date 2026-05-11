@@ -289,6 +289,14 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Headless Reports",
+        value_name = "LABEL",
+        help = "With --fix-all: run only the named fix from the sweep. Example: hematite --fix-all --only \"Flush DNS Cache\". Use --fix-all --list to see all fix labels."
+    )]
+    pub only: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
         help = "Copy output to clipboard after the command completes. Works with --triage, --diagnose, --fix, --fix-all, --inspect, and --query."
     )]
     pub clipboard: bool,

@@ -7395,6 +7395,34 @@ fn test_report_cli_flags_exist() {
         flag_names.contains(&"yes"),
         "--yes flag missing from CliCockpit"
     );
+    assert!(
+        flag_names.contains(&"only"),
+        "--only flag missing from CliCockpit"
+    );
+}
+
+#[test]
+fn test_fix_all_only_filters_by_label() {
+    use hematite::agent::report_export::sweep_auto_fixes;
+    let all = sweep_auto_fixes();
+    // "Flush DNS Cache" is a known entry — verify partial match works
+    let dns_fixes: Vec<_> = all
+        .iter()
+        .filter(|f| f.label.to_ascii_lowercase().contains("dns"))
+        .collect();
+    assert!(
+        !dns_fixes.is_empty(),
+        "Expected at least one sweep fix with 'dns' in the label"
+    );
+}
+
+#[test]
+fn test_fix_all_only_list_returns_all_labels() {
+    use hematite::agent::report_export::sweep_auto_fixes;
+    let all = sweep_auto_fixes();
+    for fix in &all {
+        assert!(!fix.label.is_empty(), "Each sweep fix must have a non-empty label");
+    }
 }
 
 #[test]
