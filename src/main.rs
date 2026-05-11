@@ -30,13 +30,27 @@ fn report_indicates_issues(content: &str) -> bool {
     hematite::agent::report_export::report_has_issues_in_content(content)
 }
 
+fn print_health_banner(content: &str) {
+    let score = hematite::agent::report_export::score_health_from_content(content);
+    let bar = match score.grade {
+        'A' => "██████████ A",
+        'B' => "████████░░ B",
+        'C' => "██████░░░░ C",
+        'D' => "████░░░░░░ D",
+        _ =>   "██░░░░░░░░ F",
+    };
+    println!();
+    println!("  Health Score  {}  — {}",  bar, score.label);
+    println!("  {}", score.summary_line());
+}
+
 fn print_fix_suggestions(content: &str) {
     let suggestions = hematite::agent::report_export::suggest_fix_commands(content);
     if !suggestions.is_empty() {
         println!();
-        println!("Issues found. Targeted fix plans:");
+        println!("  Next steps — run a targeted fix plan:");
         for s in &suggestions {
-            println!("{}", s);
+            println!("    {}", s.trim());
         }
         println!();
     }
@@ -116,6 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => hematite::agent::report_export::save_diagnosis_report().await,
         };
         println!("Diagnosis saved: {}", path.display());
+        print_health_banner(&content);
         print_fix_suggestions(&content);
         if cockpit.open {
             open_path(&path);
@@ -135,6 +150,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => hematite::agent::report_export::save_triage_report(preset_str).await,
         };
         println!("Triage saved: {}", path.display());
+        print_health_banner(&content);
         print_fix_suggestions(&content);
         if cockpit.open {
             open_path(&path);
@@ -150,15 +166,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let issue_str = issue.trim();
 
         if issue_str.eq_ignore_ascii_case("list") || issue_str.eq_ignore_ascii_case("help") {
-            println!("hematite --fix: supported issue categories\n");
+            println!("hematite --fix: {} supported issue categories (no model required)\n", hematite::agent::report_export::fix_issue_categories().len());
             for (category, keywords) in hematite::agent::report_export::fix_issue_categories() {
-                println!("  {:<22} {}", category, keywords);
+                // Use the first keyword phrase as the example argument
+                let example = keywords.split(',').next().unwrap_or(keywords).trim();
+                println!("  {:<26}  hematite --fix \"{}\"", category, example);
             }
-            println!("\nExamples:");
-            println!("  hematite --fix \"PC running slow\"");
-            println!("  hematite --fix \"can't connect to internet\" --report-format html --open");
-            println!("  hematite --fix \"BSOD after update\"");
-            println!("  hematite --fix \"Outlook not opening\"");
+            println!("\nAdd --report-format html --open for a browser report.");
+            println!("Add --dry-run to preview which checks would run.");
+            println!("Add --execute to run safe auto-fixes after the plan.");
             return Ok(());
         }
 

@@ -717,6 +717,12 @@ pub fn suggest_fix_commands(content: &str) -> Vec<String> {
     suggestions
 }
 
+/// Re-score health from a saved report's plain-text content for terminal display.
+/// Wraps the whole content as a single pseudo-section and runs the recipe matcher.
+pub fn score_health_from_content(content: &str) -> crate::agent::fix_recipes::HealthScore {
+    crate::agent::fix_recipes::score_health(&[("report", content)])
+}
+
 pub fn report_has_issues_in_content(content: &str) -> bool {
     for line in content.lines() {
         if line.contains("Health Score:") {
