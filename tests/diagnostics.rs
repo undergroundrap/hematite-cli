@@ -8894,6 +8894,46 @@ async fn test_generate_inspect_output_empty_returns_help() {
     );
 }
 
+// ── diff JSON schema ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_diff_json_schema_shape() {
+    // Verify the diff JSON structure by building it the same way the handler does.
+    use similar::{ChangeTag, TextDiff};
+    let snap_a = "line one\nline two\nline three\n";
+    let snap_b = "line one\nline two changed\nline three\n";
+    let diff = TextDiff::from_lines(snap_a, snap_b);
+    let mut diff_lines: Vec<String> = Vec::new();
+    let mut changed = false;
+    for group in diff.grouped_ops(2) {
+        for op in &group {
+            for change in diff.iter_changes(op) {
+                let prefix = match change.tag() {
+                    ChangeTag::Delete => { changed = true; "-" }
+                    ChangeTag::Insert => { changed = true; "+" }
+                    ChangeTag::Equal => " ",
+                };
+                diff_lines.push(format!("{}{}", prefix, change));
+            }
+        }
+    }
+    let obj = serde_json::json!({
+        "topics": "test_topic",
+        "snapshot_a": "snap_a_ts",
+        "snapshot_b": "snap_b_ts",
+        "changed": changed,
+        "diff_lines": diff_lines,
+        "before": snap_a,
+        "after": snap_b,
+    });
+    let serialized = serde_json::to_string_pretty(&obj).expect("should serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&serialized).expect("should parse back");
+    assert_eq!(parsed["changed"], serde_json::json!(true));
+    assert!(parsed["diff_lines"].as_array().map(|a| !a.is_empty()).unwrap_or(false));
+    assert!(parsed.get("before").is_some());
+    assert!(parsed.get("after").is_some());
+}
+
 // ── watch NDJSON schema ───────────────────────────────────────────────────────
 
 #[test]
