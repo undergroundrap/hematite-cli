@@ -51,6 +51,10 @@ pub fn hematite_build_descriptor() -> String {
     }
 }
 
+pub fn hematite_version() -> String {
+    format!("v{}", HEMATITE_VERSION)
+}
+
 pub fn hematite_version_display() -> String {
     format!("v{} [{}]", HEMATITE_VERSION, hematite_build_descriptor())
 }
@@ -274,6 +278,13 @@ pub struct CliCockpit {
         help = "Maintenance sweep — checks every safe auto-fix topic, skips what is healthy, runs what needs fixing, and verifies each fix resolved. No model required."
     )]
     pub fix_all: bool,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        help = "Copy output to clipboard after the command completes. Works with --triage, --diagnose, --fix, --fix-all, --inspect, and --query."
+    )]
+    pub clipboard: bool,
 
     #[arg(
         long,

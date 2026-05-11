@@ -141,6 +141,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             print_health_banner(&content);
             print_fix_suggestions(&content);
         }
+        if cockpit.clipboard {
+            copy_to_clipboard(&content);
+            println!("Copied to clipboard.");
+        }
         if cockpit.open {
             open_path(&path);
         }
@@ -159,6 +163,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Triage saved: {}", path.display());
             print_health_banner(&content);
             print_fix_suggestions(&content);
+        }
+        if cockpit.clipboard {
+            copy_to_clipboard(&content);
+            println!("Copied to clipboard.");
         }
         if cockpit.open {
             open_path(&path);
@@ -210,6 +218,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let has_issues_final = report_indicates_issues(&content);
         if !cockpit.quiet || has_issues_final {
             println!("\nFix plan saved: {}", path.display());
+        }
+        if cockpit.clipboard {
+            copy_to_clipboard(&content);
+            println!("Copied to clipboard.");
         }
         if cockpit.open {
             open_path(&path);
@@ -270,9 +282,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if cockpit.fix_all {
         use std::io::Write;
         let sweep = hematite::agent::report_export::sweep_auto_fixes();
+        let ts = hematite::agent::report_export::timestamp_label();
         println!("Hematite maintenance sweep — {} checks\n", sweep.len());
+
+        struct SweepEntry {
+            label: &'static str,
+            status: &'static str,  // "healthy", "fixed", "unresolved", "failed", "done"
+        }
+        let mut log: Vec<SweepEntry> = Vec::new();
         let mut applied = 0usize;
         let mut verified = 0usize;
+
         for fix in &sweep {
             let display = fix
                 .label
@@ -284,7 +304,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .trim_start_matches("Start ");
             print!("  Checking {}... ", display);
             let _ = std::io::stdout().flush();
-            // Pre-check: skip if already healthy
             let needs_fix = if let (Some(topic), Some(gone)) =
                 (fix.verify_topic, fix.verify_gone)
             {
@@ -292,10 +311,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     hematite::agent::report_export::generate_inspect_output(topic).await;
                 pre.to_ascii_lowercase().contains(gone)
             } else {
-                true // no verify means always run (e.g. Recycle Bin clear)
+                true
             };
             if !needs_fix {
                 println!("OK");
+                log.push(SweepEntry { label: fix.label, status: "healthy" });
                 continue;
             }
             print!("needs fix — running... ");
@@ -314,27 +334,86 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 .await;
                         if post.to_ascii_lowercase().contains(gone) {
                             println!("\x1B[33m✗ still present\x1B[0m");
+                            log.push(SweepEntry { label: fix.label, status: "unresolved" });
                         } else {
                             println!("\x1B[32m✓ resolved\x1B[0m");
                             verified += 1;
+                            log.push(SweepEntry { label: fix.label, status: "fixed" });
                         }
                     } else {
                         println!("done");
                         verified += 1;
+                        log.push(SweepEntry { label: fix.label, status: "done" });
                     }
                 }
-                Ok(s) => println!("failed (code {})", s.code().unwrap_or(1)),
-                Err(e) => println!("error: {}", e),
+                Ok(s) => {
+                    println!("failed (code {})", s.code().unwrap_or(1));
+                    log.push(SweepEntry { label: fix.label, status: "failed" });
+                }
+                Err(e) => {
+                    println!("error: {}", e);
+                    log.push(SweepEntry { label: fix.label, status: "failed" });
+                }
             }
         }
         println!();
-        if applied == 0 {
-            println!("  All checks passed — nothing needed fixing.");
+        let summary = if applied == 0 {
+            "All checks passed — nothing needed fixing.".to_string()
         } else {
-            println!(
-                "  {} fix(es) applied, {} verified resolved.",
-                applied, verified
+            format!("{} fix(es) applied, {} verified resolved.", applied, verified)
+        };
+        println!("  {}", summary);
+
+        // Build and save the sweep report
+        let hostname = std::env::var("COMPUTERNAME")
+            .or_else(|_| std::env::var("HOSTNAME"))
+            .unwrap_or_else(|_| "unknown".to_string());
+        let mut md = format!(
+            "# Hematite Maintenance Sweep\n\nDate: {}  \nMachine: {}\n\n## Results\n\n| Check | Result |\n|---|---|\n",
+            ts, hostname
+        );
+        for e in &log {
+            let icon = match e.status {
+                "healthy" => "OK — skipped",
+                "fixed" => "Fixed — verified resolved",
+                "unresolved" => "Fixed — still present",
+                "done" => "Fixed — applied",
+                _ => "Failed",
+            };
+            md.push_str(&format!("| {} | {} |\n", e.label, icon));
+        }
+        md.push_str(&format!("\n## Summary\n\n{}\n", summary));
+
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let report_dir = hematite::tools::file_ops::hematite_dir().join("reports");
+        let _ = std::fs::create_dir_all(&report_dir);
+        let safe_ts: String = ts.chars().map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' }).collect();
+
+        let report_content: String;
+        let report_path: std::path::PathBuf;
+
+        if fmt == "html" {
+            let html = hematite::agent::html_template::build_html_shell(
+                "Hematite Maintenance Sweep",
+                &hematite::hematite_version(),
+                &hematite::agent::html_template::markdown_to_html(&md),
             );
+            report_path = report_dir.join(format!("sweep-{}.html", safe_ts));
+            let _ = std::fs::write(&report_path, &html);
+            report_content = md.clone();
+        } else {
+            report_path = report_dir.join(format!("sweep-{}.md", safe_ts));
+            let _ = std::fs::write(&report_path, &md);
+            report_content = md.clone();
+        }
+        println!("Sweep report saved: {}", report_path.display());
+
+        if cockpit.clipboard {
+            copy_to_clipboard(&report_content);
+            println!("Copied to clipboard.");
+        }
+        if cockpit.open {
+            open_path(&report_path);
         }
         std::process::exit(if applied > 0 && verified < applied { 1 } else { 0 });
     }
@@ -591,6 +670,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             } else {
                 print!("{}", content);
+                if cockpit.clipboard {
+                    copy_to_clipboard(&content);
+                    println!("Copied to clipboard.");
+                }
             }
         }
         return Ok(());
@@ -599,6 +682,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(ref query) = cockpit.query {
         let content = hematite::agent::report_export::generate_query_output(query).await;
         print!("{}", content);
+        if cockpit.clipboard {
+            copy_to_clipboard(&content);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
@@ -771,6 +858,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("{}", summary);
     }
     Ok(())
+}
+
+fn copy_to_clipboard(text: &str) {
+    use std::io::Write;
+    #[cfg(target_os = "windows")]
+    let prog: (&str, Vec<&str>) = ("clip", vec![]);
+    #[cfg(target_os = "macos")]
+    let prog: (&str, Vec<&str>) = ("pbcopy", vec![]);
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let prog: (&str, Vec<&str>) = ("xclip", vec!["-selection", "clipboard"]);
+    if let Ok(mut child) = std::process::Command::new(prog.0)
+        .args(&prog.1)
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+    {
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        let _ = child.wait();
+    }
 }
 
 fn open_path(path: &std::path::Path) {

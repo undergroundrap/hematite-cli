@@ -807,6 +807,7 @@ mod tests {
             execute: false,
             quiet: false,
             fix_all: false,
+            clipboard: false,
             schedule: None,
             inventory: false,
             inspect: None,

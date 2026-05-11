@@ -1903,6 +1903,10 @@ fn ensure_parent(path: &Path) {
     }
 }
 
+pub fn timestamp_label() -> String {
+    now_timestamp_string()
+}
+
 fn now_timestamp_string() -> String {
     let now = unix_now();
     let (y, mo, d, h, mi, s) = epoch_to_ymd_hms(now);
