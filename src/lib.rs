@@ -289,6 +289,13 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Headless Reports",
+        help = "Show a native desktop notification when the command finishes. On alert pattern match with --watch, fires a notification instead of only ringing the bell. Windows 10/11 only."
+    )]
+    pub notify: bool,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
         default_missing_value = "weekly",
         num_args = 0..=1,
         value_name = "CADENCE",

@@ -145,6 +145,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             copy_to_clipboard(&content);
             println!("Copied to clipboard.");
         }
+        if cockpit.notify {
+            let score = hematite::agent::report_export::score_health_from_content(&content);
+            let body = format!("Grade {} — {}", score.grade, score.summary_line());
+            show_toast("Hematite Diagnosis", &body);
+        }
         if cockpit.open {
             open_path(&path);
         }
@@ -167,6 +172,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if cockpit.clipboard {
             copy_to_clipboard(&content);
             println!("Copied to clipboard.");
+        }
+        if cockpit.notify {
+            let score = hematite::agent::report_export::score_health_from_content(&content);
+            let body = format!("Grade {} — {}", score.grade, score.summary_line());
+            show_toast("Hematite Triage", &body);
         }
         if cockpit.open {
             open_path(&path);
@@ -276,6 +286,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
+        if cockpit.notify {
+            let grade = if has_issues_final { "Issues found" } else { "All clear" };
+            show_toast("Hematite Fix Plan", &format!("{} — {}", grade, issue_str));
+        }
         std::process::exit(if has_issues_final { 1 } else { 0 });
     }
 
@@ -412,6 +426,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             copy_to_clipboard(&report_content);
             println!("Copied to clipboard.");
         }
+        if cockpit.notify {
+            let toast_body = if applied == 0 {
+                "All checks passed — nothing needed fixing.".to_string()
+            } else if verified == applied {
+                format!("{} fix(es) applied — all verified resolved.", applied)
+            } else {
+                format!(
+                    "{} fix(es) applied, {} unresolved — action needed.",
+                    applied,
+                    applied - verified
+                )
+            };
+            show_toast("Hematite Sweep", &toast_body);
+        }
         if cockpit.open {
             open_path(&report_path);
         }
@@ -523,6 +551,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         "\x1B[32mALERT\x1B[0m — pattern {:?} matched at {} | Ctrl+C to stop\n",
                         pat, ts
                     );
+                    if cockpit.notify {
+                        show_toast(
+                            "Hematite Alert",
+                            &format!("Pattern {:?} matched at {}", pat, ts),
+                        );
+                    }
                     print!("{}", content);
                 } else {
                     // No match: single heartbeat line, no clear
@@ -674,6 +708,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     copy_to_clipboard(&content);
                     println!("Copied to clipboard.");
                 }
+                if cockpit.notify {
+                    show_toast("Hematite Inspect", &format!("Done: {}", topics_csv));
+                }
             }
         }
         return Ok(());
@@ -685,6 +722,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if cockpit.clipboard {
             copy_to_clipboard(&content);
             println!("Copied to clipboard.");
+        }
+        if cockpit.notify {
+            show_toast("Hematite Query", &format!("Done: {}", query.trim()));
         }
         return Ok(());
     }
@@ -877,6 +917,38 @@ fn copy_to_clipboard(text: &str) {
             let _ = stdin.write_all(text.as_bytes());
         }
         let _ = child.wait();
+    }
+}
+
+/// Show a native Windows desktop notification using the WinRT Toast API via
+/// PowerShell. No-ops on non-Windows platforms and when PowerShell is absent.
+fn show_toast(title: &str, body: &str) {
+    #[cfg(target_os = "windows")]
+    {
+        // Escape single-quotes so they don't break the PowerShell string literals.
+        let safe_title = title.replace('\'', "\\'");
+        let safe_body = body.replace('\'', "\\'");
+        let script = format!(
+            "$ErrorActionPreference='SilentlyContinue';\
+            [Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime]|Out-Null;\
+            $t=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02);\
+            $n=$t.GetElementsByTagName('text');\
+            $n.Item(0).InnerText='{title}';\
+            $n.Item(1).InnerText='{body}';\
+            $toast=[Windows.UI.Notifications.ToastNotification]::new($t);\
+            [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Hematite').Show($toast)",
+            title = safe_title,
+            body = safe_body,
+        );
+        let _ = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (title, body);
     }
 }
 
