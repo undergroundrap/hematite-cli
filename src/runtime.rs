@@ -822,6 +822,7 @@ mod tests {
             diff: None,
             diff_after: 30,
             alert: None,
+            field: None,
             snapshot: None,
             from: None,
             snapshots: false,

@@ -403,6 +403,14 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Modelless Inspection",
+        value_name = "PATTERN",
+        help = "With --watch or --inspect: filter output to only lines containing PATTERN. Case-insensitive. Example: hematite --watch resource_load --field cpu"
+    )]
+    pub field: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
         value_name = "NAME",
         help = "With --inspect: save output to .hematite/snapshots/<name>.txt instead of printing. Example: hematite --inspect thermal --snapshot before-update"
     )]

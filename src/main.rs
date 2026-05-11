@@ -738,11 +738,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 format!("{:02}:{:02}:{:02} UTC", h, m, sec)
             };
 
-            let content = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+            let raw_content =
+                hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+            let content = apply_field_filter(&raw_content, cockpit.field.as_deref());
 
             if let Some(ref pat) = alert_pat {
-                if content.to_ascii_lowercase().contains(pat.as_str()) {
-                    // Match: ring bell, clear screen, print full output
+                if raw_content.to_ascii_lowercase().contains(pat.as_str()) {
+                    // Match: ring bell, clear screen, print (field-filtered) output
                     print!("\x1B[2J\x1B[H\x07");
                     let _ = std::io::stdout().flush();
                     println!(
@@ -882,14 +884,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref topics_csv) = cockpit.inspect {
-        let content = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+        let raw_content =
+            hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+        let content = apply_field_filter(&raw_content, cockpit.field.as_deref());
 
         if let Some(ref snap_name) = cockpit.snapshot {
             let snap_path = snapshot_path(snap_name);
             if let Some(parent) = snap_path.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
-            match std::fs::write(&snap_path, &content) {
+            match std::fs::write(&snap_path, content.as_ref()) {
                 Ok(()) => println!("Snapshot saved: {}", snap_path.display()),
                 Err(e) => eprintln!("Failed to save snapshot: {}", e),
             }
@@ -1102,6 +1106,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("{}", summary);
     }
     Ok(())
+}
+
+/// Filter content to lines matching `pattern` (case-insensitive). Returns the filtered string.
+/// If `pattern` is None, returns the full content unchanged.
+fn apply_field_filter<'a>(content: &'a str, pattern: Option<&str>) -> std::borrow::Cow<'a, str> {
+    match pattern {
+        None => std::borrow::Cow::Borrowed(content),
+        Some(pat) => {
+            let lower_pat = pat.to_ascii_lowercase();
+            let filtered: String = content
+                .lines()
+                .filter(|line| line.to_ascii_lowercase().contains(&lower_pat))
+                .collect::<Vec<_>>()
+                .join("\n");
+            std::borrow::Cow::Owned(if filtered.is_empty() {
+                format!("(no lines matched {:?})", pat)
+            } else {
+                filtered
+            })
+        }
+    }
 }
 
 /// Copy report content to a user-specified output path, creating parent dirs if needed.

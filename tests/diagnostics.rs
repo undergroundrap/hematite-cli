@@ -7399,6 +7399,10 @@ fn test_report_cli_flags_exist() {
         flag_names.contains(&"only"),
         "--only flag missing from CliCockpit"
     );
+    assert!(
+        flag_names.contains(&"field"),
+        "--field flag missing from CliCockpit"
+    );
 }
 
 #[test]
