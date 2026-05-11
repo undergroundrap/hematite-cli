@@ -742,7 +742,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 hematite::agent::report_export::generate_inspect_output(topics_csv).await;
             let content = apply_field_filter(&raw_content, cockpit.field.as_deref());
 
-            if let Some(ref pat) = alert_pat {
+            let is_json_mode = cockpit
+                .report_format
+                .trim()
+                .eq_ignore_ascii_case("json");
+
+            if is_json_mode {
+                // JSON mode: emit one newline-delimited JSON object per cycle
+                let alert_matched = alert_pat
+                    .as_ref()
+                    .map(|p| raw_content.to_ascii_lowercase().contains(p.as_str()))
+                    .unwrap_or(false);
+                let obj = serde_json::json!({
+                    "timestamp": ts,
+                    "cycle": cycle + 1,
+                    "topics": topics_csv.as_str(),
+                    "alert_matched": alert_matched,
+                    "output": content.as_ref(),
+                });
+                println!(
+                    "{}",
+                    serde_json::to_string(&obj).unwrap_or_else(|_| "{}".to_string())
+                );
+                let _ = std::io::stdout().flush();
+                if alert_matched && cockpit.notify {
+                    if let Some(ref pat) = alert_pat {
+                        show_toast(
+                            "Hematite Alert",
+                            &format!("Pattern {:?} matched at {}", pat, ts),
+                        );
+                    }
+                }
+            } else if let Some(ref pat) = alert_pat {
                 if raw_content.to_ascii_lowercase().contains(pat.as_str()) {
                     // Match: ring bell, clear screen, print (field-filtered) output
                     print!("\x1B[2J\x1B[H\x07");
