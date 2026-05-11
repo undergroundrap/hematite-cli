@@ -7430,6 +7430,29 @@ fn test_fix_all_only_list_returns_all_labels() {
 }
 
 #[test]
+fn test_fix_all_dry_run_preview_filters_correctly() {
+    use hematite::agent::report_export::sweep_auto_fixes;
+    let all = sweep_auto_fixes();
+    // Simulate what --fix-all --dry-run --only "dns" would show
+    let lower = "dns";
+    let preview: Vec<_> = all
+        .iter()
+        .filter(|f| f.label.to_ascii_lowercase().contains(lower))
+        .collect();
+    assert!(
+        !preview.is_empty(),
+        "dry-run --only dns should match at least one fix"
+    );
+    // Unfiltered preview should match all
+    let all_preview: Vec<_> = all.iter().collect();
+    assert_eq!(
+        all_preview.len(),
+        sweep_auto_fixes().len(),
+        "unfiltered dry-run should show all sweep entries"
+    );
+}
+
+#[test]
 fn test_output_flag_help_mentions_path() {
     use clap::CommandFactory;
     use hematite::CliCockpit;

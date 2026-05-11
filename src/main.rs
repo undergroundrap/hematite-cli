@@ -369,6 +369,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
 
+        // --fix-all --dry-run: preview what would run without executing
+        if cockpit.dry_run {
+            let all = hematite::agent::report_export::sweep_auto_fixes();
+            let preview: Vec<_> = if let Some(ref only_label) = cockpit.only {
+                let lower = only_label.to_ascii_lowercase();
+                all.iter()
+                    .filter(|f| f.label.to_ascii_lowercase().contains(&lower))
+                    .copied()
+                    .collect()
+            } else {
+                all
+            };
+            println!(
+                "hematite --fix-all --dry-run: {} fix(es) would run\n",
+                preview.len()
+            );
+            for (i, fix) in preview.iter().enumerate() {
+                println!("  [{}] {}", i + 1, fix.label);
+                if let Some(topic) = fix.verify_topic {
+                    println!("       verify-topic: {}", topic);
+                }
+                println!("       cmd: {}", fix.cmd);
+            }
+            println!("\nRemove --dry-run to execute the sweep.");
+            return Ok(());
+        }
+
         use std::io::Write;
         let all_sweep = hematite::agent::report_export::sweep_auto_fixes();
 
