@@ -2020,6 +2020,45 @@ pub async fn generate_query_output(query: &str) -> String {
     out
 }
 
+/// Like `generate_query_output` but returns structured JSON with matched topics + per-topic output.
+pub async fn generate_query_output_json(query: &str) -> String {
+    use crate::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+
+    let detected = all_host_inspection_topics(query);
+    let topics: Vec<&str> = if !detected.is_empty() {
+        detected
+    } else {
+        match preferred_host_inspection_topic(query) {
+            Some(t) => vec![t],
+            None => vec!["summary"],
+        }
+    };
+
+    let total = topics.len();
+    eprintln!("hematite --query (json): {} topic(s) matched", total);
+    let mut sections_obj = serde_json::Map::new();
+    let mut combined = String::new();
+    for (i, topic) in topics.iter().enumerate() {
+        eprintln!("  [{}/{}] {}...", i + 1, total, topic);
+        let args = json!({"topic": topic});
+        let result = match crate::tools::host_inspect::inspect_host(&args).await {
+            Ok(s) => s,
+            Err(e) => format!("Error ({}): {}", topic, e),
+        };
+        sections_obj.insert(topic.to_string(), json!(result));
+        combined.push_str(result.trim_end());
+        combined.push('\n');
+    }
+
+    let obj = json!({
+        "query": query,
+        "matched_topics": topics,
+        "sections": serde_json::Value::Object(sections_obj),
+        "combined_output": combined,
+    });
+    serde_json::to_string_pretty(&obj).unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e))
+}
+
 /// Save arbitrary markdown content as a dark-theme HTML page.
 /// Returns `(html_string, saved_path)`. Title defaults to a timestamp slug
 /// if empty. Saves to `.hematite/reports/research-DATE.html`.

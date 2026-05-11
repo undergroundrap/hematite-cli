@@ -956,10 +956,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref query) = cockpit.query {
-        let content = hematite::agent::report_export::generate_query_output(query).await;
-        print!("{}", content);
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let content = if fmt == "json" {
+            hematite::agent::report_export::generate_query_output_json(query).await
+        } else {
+            hematite::agent::report_export::generate_query_output(query).await
+        };
+        let filtered = apply_field_filter(&content, cockpit.field.as_deref());
+        print!("{}", filtered);
         if cockpit.clipboard {
-            copy_to_clipboard(&content);
+            copy_to_clipboard(&filtered);
             println!("Copied to clipboard.");
         }
         if cockpit.notify {
