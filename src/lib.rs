@@ -268,6 +268,13 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Headless Reports",
+        help = "With --fix --execute: skip the Y/n prompt and apply auto-fixes immediately. Use in scripts and scheduled tasks."
+    )]
+    pub yes: bool,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
         help = "Suppress output when the result is healthy (exit 0). Only prints when issues are found (exit 1). Use in scheduled tasks and scripts."
     )]
     pub quiet: bool,

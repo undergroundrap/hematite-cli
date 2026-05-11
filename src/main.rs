@@ -256,12 +256,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for (i, fix) in auto_cmds.iter().enumerate() {
                     println!("  [{}] {}", i + 1, fix.label);
                 }
-                print!("\nRun these now? [Y/n]: ");
                 use std::io::Write;
-                let _ = std::io::stdout().flush();
-                let mut answer = String::new();
-                let _ = std::io::stdin().read_line(&mut answer);
-                if !answer.trim().eq_ignore_ascii_case("n") {
+                let approved = if cockpit.yes {
+                    println!("\nApplying fixes automatically (--yes)...");
+                    true
+                } else {
+                    print!("\nRun these now? [Y/n]: ");
+                    let _ = std::io::stdout().flush();
+                    let mut answer = String::new();
+                    let _ = std::io::stdin().read_line(&mut answer);
+                    !answer.trim().eq_ignore_ascii_case("n")
+                };
+                if approved {
                     println!();
                     for fix in &auto_cmds {
                         print!("  Running: {}... ", fix.label);

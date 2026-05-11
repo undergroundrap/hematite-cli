@@ -805,6 +805,7 @@ mod tests {
             open: false,
             dry_run: false,
             execute: false,
+            yes: false,
             quiet: false,
             fix_all: false,
             clipboard: false,

@@ -7391,6 +7391,10 @@ fn test_report_cli_flags_exist() {
         flag_names.contains(&"compare"),
         "--compare flag missing from CliCockpit"
     );
+    assert!(
+        flag_names.contains(&"yes"),
+        "--yes flag missing from CliCockpit"
+    );
 }
 
 #[test]
