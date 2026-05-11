@@ -294,6 +294,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if cockpit.fix_all {
+        // --fix-all --schedule [cadence]: register a Windows scheduled task for the sweep
+        if let Some(ref cadence) = cockpit.schedule {
+            let cadence_str = cadence.trim();
+            if cadence_str == "status" {
+                println!("{}", hematite::agent::scheduler::query_sweep_task());
+                return Ok(());
+            }
+            if cadence_str == "remove" {
+                match hematite::agent::scheduler::remove_sweep_task() {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+                return Ok(());
+            }
+            let exe_path = std::env::current_exe()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| "hematite".to_string());
+            match hematite::agent::scheduler::register_sweep_task(cadence_str, &exe_path) {
+                Ok(msg) => println!("{}", msg),
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            return Ok(());
+        }
+
         use std::io::Write;
         let sweep = hematite::agent::report_export::sweep_auto_fixes();
         let ts = hematite::agent::report_export::timestamp_label();

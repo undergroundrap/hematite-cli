@@ -8011,6 +8011,24 @@ fn test_scheduler_register_invalid_exe_returns_err_or_ok() {
     let _ = result;
 }
 
+#[test]
+fn test_scheduler_sweep_query_returns_string() {
+    let result = hematite::agent::scheduler::query_sweep_task();
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn test_scheduler_sweep_remove_nonexistent_returns_result() {
+    let result = hematite::agent::scheduler::remove_sweep_task();
+    let _ = result;
+}
+
+#[test]
+fn test_scheduler_sweep_register_does_not_panic() {
+    let result = hematite::agent::scheduler::register_sweep_task("weekly", "nonexistent.exe");
+    let _ = result;
+}
+
 // ── fix_plan routing: mutation-guard bypass for host-remediation queries ───────
 //
 // Queries like "fix cargo not found" contain a code keyword ("cargo") that also

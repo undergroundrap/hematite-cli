@@ -299,7 +299,7 @@ pub struct CliCockpit {
         default_missing_value = "weekly",
         num_args = 0..=1,
         value_name = "CADENCE",
-        help = "Register a Windows scheduled task for --triage. CADENCE: weekly (default), daily, remove, status."
+        help = "Register a Windows scheduled task for --triage. CADENCE: weekly (default), daily, remove, status. Combine with --fix-all to schedule the maintenance sweep instead."
     )]
     pub schedule: Option<String>,
 
