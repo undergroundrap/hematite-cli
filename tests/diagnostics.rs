@@ -8986,3 +8986,21 @@ fn test_fix_routes_browser_health_for_browser_queries() {
         );
     }
 }
+
+#[test]
+fn test_report_indicates_issues_true_for_non_a_grade() {
+    let content = "Health Score: **D — Action Required**\nLow disk space detected.";
+    assert!(
+        hematite::agent::report_export::report_has_issues_in_content(content),
+        "D-grade content should indicate issues"
+    );
+}
+
+#[test]
+fn test_report_indicates_issues_false_for_a_grade() {
+    let content = "Health Score: **A — All Good**\nNo issues detected.";
+    assert!(
+        !hematite::agent::report_export::report_has_issues_in_content(content),
+        "A-grade content should not indicate issues"
+    );
+}

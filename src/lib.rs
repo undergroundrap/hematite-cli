@@ -264,6 +264,13 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Headless Reports",
+        help = "Suppress output when the result is healthy (exit 0). Only prints when issues are found (exit 1). Use in scheduled tasks and scripts."
+    )]
+    pub quiet: bool,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
         default_missing_value = "weekly",
         num_args = 0..=1,
         value_name = "CADENCE",

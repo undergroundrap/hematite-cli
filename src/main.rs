@@ -135,17 +135,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "html" => hematite::agent::report_export::save_diagnosis_report_html().await,
             _ => hematite::agent::report_export::save_diagnosis_report().await,
         };
-        println!("Diagnosis saved: {}", path.display());
-        print_health_banner(&content);
-        print_fix_suggestions(&content);
+        let has_issues = report_indicates_issues(&content);
+        if !cockpit.quiet || has_issues {
+            println!("Diagnosis saved: {}", path.display());
+            print_health_banner(&content);
+            print_fix_suggestions(&content);
+        }
         if cockpit.open {
             open_path(&path);
         }
-        std::process::exit(if report_indicates_issues(&content) {
-            1
-        } else {
-            0
-        });
+        std::process::exit(if has_issues { 1 } else { 0 });
     }
 
     if let Some(ref preset) = cockpit.triage {
@@ -155,17 +154,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "html" => hematite::agent::report_export::save_triage_report_html(preset_str).await,
             _ => hematite::agent::report_export::save_triage_report(preset_str).await,
         };
-        println!("Triage saved: {}", path.display());
-        print_health_banner(&content);
-        print_fix_suggestions(&content);
+        let has_issues = report_indicates_issues(&content);
+        if !cockpit.quiet || has_issues {
+            println!("Triage saved: {}", path.display());
+            print_health_banner(&content);
+            print_fix_suggestions(&content);
+        }
         if cockpit.open {
             open_path(&path);
         }
-        std::process::exit(if report_indicates_issues(&content) {
-            1
-        } else {
-            0
-        });
+        std::process::exit(if has_issues { 1 } else { 0 });
     }
 
     if let Some(ref issue) = cockpit.fix {
@@ -203,10 +201,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             let (summary, md, path) =
                 hematite::agent::report_export::save_fix_plan_with_summary(issue).await;
-            println!("\n{}", summary.trim_end());
+            let has_issues = report_indicates_issues(&md);
+            if !cockpit.quiet || has_issues {
+                println!("\n{}", summary.trim_end());
+            }
             (md, path)
         };
-        println!("\nFix plan saved: {}", path.display());
+        let has_issues_final = report_indicates_issues(&content);
+        if !cockpit.quiet || has_issues_final {
+            println!("\nFix plan saved: {}", path.display());
+        }
         if cockpit.open {
             open_path(&path);
         }
@@ -246,11 +250,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        std::process::exit(if report_indicates_issues(&content) {
-            1
-        } else {
-            0
-        });
+        std::process::exit(if has_issues_final { 1 } else { 0 });
     }
 
     if cockpit.inventory {

@@ -805,6 +805,7 @@ mod tests {
             open: false,
             dry_run: false,
             execute: false,
+            quiet: false,
             schedule: None,
             inventory: false,
             inspect: None,
