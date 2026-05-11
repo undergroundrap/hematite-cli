@@ -224,6 +224,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let (content, path) = if fmt == "html" {
             hematite::agent::report_export::save_fix_plan_html(issue).await
+        } else if fmt == "json" {
+            hematite::agent::report_export::save_fix_plan_json(issue).await
         } else {
             let (summary, md, path) =
                 hematite::agent::report_export::save_fix_plan_with_summary(issue).await;
@@ -456,6 +458,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             report_path = report_dir.join(format!("sweep-{}.html", safe_ts));
             let _ = std::fs::write(&report_path, &html);
             report_content = md.clone();
+        } else if fmt == "json" {
+            let checks: Vec<serde_json::Value> = log
+                .iter()
+                .map(|e| {
+                    serde_json::json!({
+                        "label": e.label,
+                        "status": e.status,
+                    })
+                })
+                .collect();
+            let json_obj = serde_json::json!({
+                "generated": ts,
+                "host": hostname,
+                "hematite_version": hematite::hematite_version(),
+                "checks_run": log.len(),
+                "applied": applied,
+                "verified": verified,
+                "unresolved": applied.saturating_sub(verified),
+                "summary": summary,
+                "checks": checks,
+            });
+            let json_str = serde_json::to_string_pretty(&json_obj)
+                .unwrap_or_else(|_| "{}".to_string());
+            report_path = report_dir.join(format!("sweep-{}.json", safe_ts));
+            let _ = std::fs::write(&report_path, &json_str);
+            report_content = json_str;
         } else {
             report_path = report_dir.join(format!("sweep-{}.md", safe_ts));
             let _ = std::fs::write(&report_path, &md);

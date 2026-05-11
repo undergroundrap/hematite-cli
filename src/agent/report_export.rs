@@ -1863,6 +1863,61 @@ pub async fn save_fix_plan_html(issue: &str) -> (String, PathBuf) {
     (html, path)
 }
 
+pub async fn save_fix_plan_json(issue: &str) -> (String, PathBuf) {
+    let data = run_fix_plan_phases(issue).await;
+    let version = env!("CARGO_PKG_VERSION");
+    let section_refs: Vec<(&str, &str)> = data
+        .sections
+        .iter()
+        .map(|(l, o)| (*l, o.as_str()))
+        .collect();
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
+    let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
+
+    let mut seen_titles = std::collections::HashSet::new();
+    let mut action_items: Vec<&str> = Vec::new();
+    let mut investigate_items: Vec<&str> = Vec::new();
+    for (_label, output) in &section_refs {
+        for recipe in crate::agent::fix_recipes::match_recipes(output) {
+            if seen_titles.insert(recipe.title) {
+                match recipe.severity {
+                    "ACTION" => action_items.push(recipe.title),
+                    "INVESTIGATE" => investigate_items.push(recipe.title),
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let mut sections_obj = serde_json::Map::new();
+    for (label, output) in &data.sections {
+        sections_obj.insert(label.to_string(), json!(output));
+    }
+
+    let obj = json!({
+        "generated": data.timestamp,
+        "host": data.hostname,
+        "hematite_version": version,
+        "issue": issue,
+        "grade": score.grade.to_string(),
+        "label": score.label,
+        "action_count": score.action_count,
+        "investigate_count": score.investigate_count,
+        "action_items": action_items,
+        "investigate_items": investigate_items,
+        "action_plan": action_plan,
+        "sections": serde_json::Value::Object(sections_obj),
+    });
+    let json_str =
+        serde_json::to_string_pretty(&obj).unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e));
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("fix-{}.json", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &json_str);
+    (json_str, path)
+}
+
 // ── Direct topic inspection (--inspect, /query) ──────────────────────────────
 
 /// Run one or more inspect_host topics by name and return combined plain-text output.
