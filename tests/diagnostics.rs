@@ -9004,3 +9004,42 @@ fn test_report_indicates_issues_false_for_a_grade() {
         "A-grade content should not indicate issues"
     );
 }
+
+#[test]
+fn test_auto_fix_new_entries_detected() {
+    for trigger in &[
+        "teams cache: 2.1 GB",
+        "bthserv stopped",
+        "dhcp lease expired",
+        "wmi repository corrupt",
+        "unidentified network",
+        "onedrive not running",
+    ] {
+        let fixes = hematite::agent::report_export::fix_plan_auto_commands(trigger);
+        assert!(
+            !fixes.is_empty(),
+            "trigger {:?} should match at least one auto-fix",
+            trigger
+        );
+    }
+}
+
+#[test]
+fn test_auto_fix_verify_fields_set_for_dns_flush() {
+    let fixes = hematite::agent::report_export::fix_plan_auto_commands("dns: failed");
+    assert!(!fixes.is_empty(), "dns: failed should match");
+    let fix = &fixes[0];
+    assert_eq!(fix.label, "Flush DNS cache");
+    assert_eq!(fix.verify_topic, Some("connectivity"));
+    assert_eq!(fix.verify_gone, Some("dns: failed"));
+}
+
+#[test]
+fn test_auto_fix_deduplicates_same_label() {
+    // Both "wsearch" and "windows search" map to the same label — only one entry returned.
+    let fixes =
+        hematite::agent::report_export::fix_plan_auto_commands("wsearch stopped windows search");
+    let labels: Vec<&str> = fixes.iter().map(|f| f.label).collect();
+    let unique: std::collections::HashSet<&str> = labels.iter().copied().collect();
+    assert_eq!(labels.len(), unique.len(), "duplicate labels in auto-fix results");
+}

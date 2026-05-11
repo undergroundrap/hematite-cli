@@ -550,93 +550,230 @@ pub fn fix_plan_topics(issue: &str) -> Vec<(&'static str, &'static str)> {
     topics_for_issue(issue)
 }
 
+/// A safe auto-executable fix with optional post-fix verification.
+/// `verify_topic`: inspect_host topic to re-run after the fix.
+/// `verify_gone`: pattern that should be ABSENT in that output if the fix worked.
+pub struct AutoFix {
+    pub label: &'static str,
+    pub cmd: &'static str,
+    pub verify_topic: Option<&'static str>,
+    pub verify_gone: Option<&'static str>,
+}
+
 struct AutoCmdAc {
     ac: aho_corasick::AhoCorasick,
-    entries: Vec<(&'static str, &'static str)>,
+    entries: Vec<AutoFix>,
 }
 
 static AUTO_CMD_AC: std::sync::OnceLock<AutoCmdAc> = std::sync::OnceLock::new();
 
 fn auto_cmd_ac() -> &'static AutoCmdAc {
     AUTO_CMD_AC.get_or_init(|| {
-        const SAFE: &[(&str, &str, &str)] = &[
-            ("dns: failed", "Flush DNS cache", "ipconfig /flushdns"),
+        // (trigger_pattern, label, command, verify_topic, verify_gone_pattern)
+        const SAFE: &[(&str, &str, &str, Option<&str>, Option<&str>)] = &[
+            (
+                "dns: failed",
+                "Flush DNS cache",
+                "ipconfig /flushdns",
+                Some("connectivity"),
+                Some("dns: failed"),
+            ),
             (
                 "dns resolution: failed",
                 "Flush DNS cache",
                 "ipconfig /flushdns",
+                Some("connectivity"),
+                Some("dns: failed"),
             ),
             (
                 "wsearch",
                 "Restart Windows Search",
                 "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
+                Some("search_index"),
+                Some("stopped"),
             ),
             (
                 "windows search",
                 "Restart Windows Search",
                 "powershell -Command \"Restart-Service WSearch -ErrorAction SilentlyContinue\"",
+                Some("search_index"),
+                Some("stopped"),
             ),
             (
                 "spooler",
                 "Restart Print Spooler",
                 "powershell -Command \"Restart-Service Spooler -Force\"",
+                Some("printers"),
+                Some("offline"),
             ),
             (
                 "print spooler",
                 "Restart Print Spooler",
                 "powershell -Command \"Restart-Service Spooler -Force\"",
+                Some("printers"),
+                Some("offline"),
             ),
             (
                 "ntp source unreachable",
                 "Resync system clock",
                 "w32tm /resync /force",
+                Some("ntp"),
+                Some("failed"),
             ),
             (
                 "time sync failed",
                 "Resync system clock",
                 "w32tm /resync /force",
+                Some("ntp"),
+                Some("failed"),
             ),
             (
                 "bits",
                 "Restart BITS service",
                 "powershell -Command \"Restart-Service BITS -Force\"",
+                None,
+                None,
             ),
             (
                 "wuauserv",
                 "Restart Windows Update service",
                 "powershell -Command \"Restart-Service wuauserv -Force\"",
+                None,
+                None,
             ),
             (
                 "windows update service",
                 "Restart Windows Update service",
                 "powershell -Command \"Restart-Service wuauserv -Force\"",
+                None,
+                None,
             ),
             (
                 "audiosrv",
                 "Restart Audio service",
                 "powershell -Command \"Restart-Service Audiosrv -Force\"",
+                Some("audio"),
+                Some("not running"),
             ),
             (
                 "windows audio",
                 "Restart Audio service",
                 "powershell -Command \"Restart-Service Audiosrv -Force\"",
+                Some("audio"),
+                Some("not running"),
             ),
             (
                 "low disk",
                 "Empty Recycle Bin",
                 "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
+                None,
+                None,
             ),
             (
                 "free up space",
                 "Empty Recycle Bin",
                 "powershell -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
+                None,
+                None,
+            ),
+            // Teams cache — classic and new Teams
+            (
+                "teams cache",
+                "Clear Teams cache",
+                "powershell -Command \"Get-Process ms-teams,Teams -ErrorAction SilentlyContinue | Stop-Process -Force; Remove-Item \\\"$env:APPDATA\\\\Microsoft\\\\Teams\\\\Cache\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item \\\"$env:LOCALAPPDATA\\\\Packages\\\\MSTeams_8wekyb3d8bbwe\\\\LocalCache\\\\Microsoft\\\\MSTeams\\\\EBWebView\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue\"",
+                Some("teams"),
+                Some("cache:"),
+            ),
+            (
+                "msteams",
+                "Clear Teams cache",
+                "powershell -Command \"Get-Process ms-teams,Teams -ErrorAction SilentlyContinue | Stop-Process -Force; Remove-Item \\\"$env:APPDATA\\\\Microsoft\\\\Teams\\\\Cache\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item \\\"$env:LOCALAPPDATA\\\\Packages\\\\MSTeams_8wekyb3d8bbwe\\\\LocalCache\\\\Microsoft\\\\MSTeams\\\\EBWebView\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue\"",
+                Some("teams"),
+                Some("cache:"),
+            ),
+            // Bluetooth
+            (
+                "bluetooth service",
+                "Restart Bluetooth service",
+                "powershell -Command \"Restart-Service bthserv -Force -ErrorAction SilentlyContinue\"",
+                Some("bluetooth"),
+                Some("not running"),
+            ),
+            (
+                "bthserv",
+                "Restart Bluetooth service",
+                "powershell -Command \"Restart-Service bthserv -Force -ErrorAction SilentlyContinue\"",
+                Some("bluetooth"),
+                Some("not running"),
+            ),
+            // DHCP client
+            (
+                "dhcp lease expired",
+                "Renew DHCP lease",
+                "ipconfig /release && ipconfig /renew",
+                Some("dhcp"),
+                Some("expired"),
+            ),
+            (
+                "lease expires",
+                "Renew DHCP lease",
+                "ipconfig /release && ipconfig /renew",
+                Some("dhcp"),
+                Some("expired"),
+            ),
+            // DNS client service
+            (
+                "dnscache",
+                "Restart DNS Client service",
+                "powershell -Command \"Restart-Service Dnscache -Force -ErrorAction SilentlyContinue\"",
+                Some("connectivity"),
+                Some("dns: failed"),
+            ),
+            // OneDrive
+            (
+                "onedrive not running",
+                "Start OneDrive",
+                "powershell -Command \"Start-Process \\\"$env:LOCALAPPDATA\\\\Microsoft\\\\OneDrive\\\\OneDrive.exe\\\" -ErrorAction SilentlyContinue\"",
+                Some("onedrive"),
+                Some("not running"),
+            ),
+            // WMI
+            (
+                "wmi repository",
+                "Restart WMI service",
+                "powershell -Command \"Restart-Service winmgmt -Force\"",
+                Some("wmi_health"),
+                Some("corrupt"),
+            ),
+            (
+                "winmgmt",
+                "Restart WMI service",
+                "powershell -Command \"Restart-Service winmgmt -Force\"",
+                Some("wmi_health"),
+                Some("corrupt"),
+            ),
+            // Network Location Awareness — fixes "unidentified network" / wrong profile
+            (
+                "unidentified network",
+                "Restart Network Location Awareness",
+                "powershell -Command \"Restart-Service NlaSvc -Force -ErrorAction SilentlyContinue\"",
+                Some("network_profile"),
+                Some("unidentified"),
+            ),
+            // Remote Desktop
+            (
+                "remote desktop disabled",
+                "Enable Remote Desktop",
+                "powershell -Command \"Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server' -Name fDenyTSConnections -Value 0; Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction SilentlyContinue\"",
+                Some("rdp"),
+                Some("disabled"),
             ),
         ];
         let mut patterns: Vec<&str> = Vec::with_capacity(SAFE.len());
-        let mut entries: Vec<(&'static str, &'static str)> = Vec::with_capacity(SAFE.len());
-        for &(trigger, label, cmd) in SAFE {
+        let mut entries: Vec<AutoFix> = Vec::with_capacity(SAFE.len());
+        for &(trigger, label, cmd, verify_topic, verify_gone) in SAFE {
             patterns.push(trigger);
-            entries.push((label, cmd));
+            entries.push(AutoFix { label, cmd, verify_topic, verify_gone });
         }
         AutoCmdAc {
             ac: aho_corasick::AhoCorasick::new(&patterns).expect("valid patterns"),
@@ -645,15 +782,15 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
     })
 }
 
-pub fn fix_plan_auto_commands(combined_output: &str) -> Vec<(&'static str, &'static str)> {
+pub fn fix_plan_auto_commands(combined_output: &str) -> Vec<&'static AutoFix> {
     let lower = combined_output.to_ascii_lowercase();
     let state = auto_cmd_ac();
     let mut seen_labels = std::collections::HashSet::new();
-    let mut result: Vec<(&'static str, &'static str)> = Vec::new();
+    let mut result: Vec<&'static AutoFix> = Vec::new();
     for mat in state.ac.find_iter(&lower) {
-        let (label, cmd) = state.entries[mat.pattern().as_usize()];
-        if seen_labels.insert(label) {
-            result.push((label, cmd));
+        let fix = &state.entries[mat.pattern().as_usize()];
+        if seen_labels.insert(fix.label) {
+            result.push(fix);
         }
     }
     result

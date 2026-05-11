@@ -221,8 +221,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("\nNo safe auto-fixes available for these findings.");
             } else {
                 println!("\nFound {} safe auto-fix(es):", auto_cmds.len());
-                for (i, (label, cmd)) in auto_cmds.iter().enumerate() {
-                    println!("  [{}] {} — {}", i + 1, label, cmd);
+                for (i, fix) in auto_cmds.iter().enumerate() {
+                    println!("  [{}] {}", i + 1, fix.label);
                 }
                 print!("\nRun these now? [Y/n]: ");
                 use std::io::Write;
@@ -231,21 +231,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let _ = std::io::stdin().read_line(&mut answer);
                 if !answer.trim().eq_ignore_ascii_case("n") {
                     println!();
-                    for (label, cmd) in &auto_cmds {
-                        print!("  Running: {}... ", label);
+                    for fix in &auto_cmds {
+                        print!("  Running: {}... ", fix.label);
                         let _ = std::io::stdout().flush();
-                        let result = std::process::Command::new("cmd")
-                            .args(["/C", cmd])
+                        let status = std::process::Command::new("cmd")
+                            .args(["/C", fix.cmd])
                             .stdout(std::process::Stdio::null())
                             .stderr(std::process::Stdio::null())
                             .status();
-                        match result {
-                            Ok(s) if s.success() => println!("OK"),
+                        match status {
+                            Ok(s) if s.success() => {
+                                println!("OK");
+                                if let (Some(topic), Some(gone)) =
+                                    (fix.verify_topic, fix.verify_gone)
+                                {
+                                    print!("    Verifying {}... ", topic);
+                                    let _ = std::io::stdout().flush();
+                                    let verify_out = hematite::agent::report_export::generate_inspect_output(topic).await;
+                                    if verify_out.to_ascii_lowercase().contains(gone) {
+                                        println!("\x1B[33m✗ Still present\x1B[0m — run: hematite --fix \"{}\"", issue_str);
+                                    } else {
+                                        println!("\x1B[32m✓ Verified resolved\x1B[0m");
+                                    }
+                                }
+                            }
                             Ok(s) => println!("Failed (code {})", s.code().unwrap_or(1)),
                             Err(e) => println!("Error: {}", e),
                         }
                     }
-                    println!("\nSafe fixes complete.");
+                    println!("\nAuto-fix run complete.");
                 }
             }
         }
