@@ -327,6 +327,47 @@ Hematite transforms technical discovery into a privacy-first, grounded competenc
 - **Self-Healing Lifecycle**: Hematite manages the search engine's health autonomously, performing heartbeat checks during the runtime boot sequence and auto-booting the container if it's offline. If Docker is unavailable, Hematite surfaces a compact startup note with the fix instead of silently failing.
 - **Intent-Aware Routing**: The system's intent classifier distinguishes between "Research" (external web discovery) and "Analysis" (local codebase exploration), ensuring that "search" queries meant for the repository don't wander to the internet.
 
+## 12. Headless IT Automation
+
+Every diagnostic command runs without a model, TUI, or network. The full headless surface is scriptable and CI-friendly.
+
+**Report commands** — save a file and print the path:
+- `--triage [preset]` — 5-topic IT-first-look (health, security, connectivity, identity, updates). Presets: `network`, `security`, `performance`, `storage`, `apps`.
+- `--diagnose` — staged triage: `health_report` → dynamic follow-up topics → fix plan.
+- `--fix "<issue>"` — keyword-routed fix plan. Add `--execute` to run safe auto-fixes; `--execute --yes` to skip the prompt.
+- `--fix-all` — maintenance sweep: pre-check every safe auto-fix, skip healthy, run what needs fixing, verify each fix resolved.
+- `--report` — full workstation snapshot (health, hardware, storage, network, security, toolchains).
+
+**Inspection commands** — output to stdout, no file saved by default:
+- `--inspect <topic[,topic2,...]>` — run any of 128+ topics directly. Comma-separate for multi-topic.
+- `--query "<text>"` — natural-language routing to the right topics.
+- `--watch <topic>` — continuous polling. Add `--count N` to stop after N cycles, `--alert <pattern>` for bell-on-match.
+- `--diff <topic>` — before/after snapshot diff. Add `--from <name>` to diff against a saved snapshot instead of a live first capture.
+- `--compare <name1>,<name2>` — diff two saved snapshots without a live run.
+- `--inventory` — full 128+ topic catalog by category.
+- `--snapshots` — list saved snapshots with name, size, and age.
+
+**Output modifiers** — all headless commands accept:
+| Flag | Effect |
+|---|---|
+| `--report-format json` | Structured JSON output with health grade, action items, and per-section data |
+| `--report-format html` | Self-contained dark-theme HTML with "Copy for AI" button |
+| `--output <path>` | Save to explicit file instead of auto-dated `.hematite/reports/` |
+| `--clipboard` | Copy output to clipboard after run |
+| `--notify` | Windows 10/11 desktop toast on completion or `--alert` match |
+| `--quiet` | Suppress output when healthy (exit 0); print only on issues (exit 1) |
+| `--open` | Save to file and open in browser/editor immediately |
+| `--field <pattern>` | Filter output to lines containing PATTERN (case-insensitive) |
+| `--dry-run` | Preview topics or fix commands without executing (works with `--triage`, `--diagnose`, `--fix`, `--fix-all`) |
+
+**Scheduling** — `--fix-all --schedule [weekly|daily|remove|status]` registers a Windows Task Scheduler task that runs the maintenance sweep silently (with `--quiet`) at 03:00.
+
+**JSON consistency** — every command's JSON output follows the same envelope:
+```json
+{"generated": "...", "host": "...", "hematite_version": "...", "grade": "A", "action_count": 0, ...}
+```
+Fix-all JSON adds sweep-specific fields (`checks_run`, `applied`, `verified`, `unresolved`, `checks[]`). Watch JSON emits NDJSON (one object per line): `{"timestamp", "cycle", "topics", "alert_matched", "output"}`. Diff JSON includes `before`, `after`, `diff_lines[]`, and `changed`.
+
 ---
 
 Hematite is strongest when treated as a complete local AI workstation partner: a polished coding harness, a grounded SysAdmin and Network Admin, and a natural-language terminal interface — all GPU-aware, terminal-native, tool-rich, and tuned for serious work on single-GPU consumer hardware, especially RTX 4070-class machines.

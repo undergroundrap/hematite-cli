@@ -584,7 +584,8 @@ These commands run entirely without a loaded model — no LM Studio, no Ollama, 
 ```
 # IT-first-look (5 topics: health + security + connectivity + identity + updates)
 hematite --triage
-hematite --triage --report-format html --open
+hematite --triage --report-format html --open   # save and open HTML report immediately
+hematite --triage --quiet                        # silent on healthy, exit 1 on issues
 
 # Named presets — focused domain checks, no model required
 hematite --triage network        # connectivity, Wi-Fi, latency, DNS, VPN, proxy
@@ -593,18 +594,79 @@ hematite --triage performance    # resource load, thermal, CPU power, startup it
 hematite --triage storage        # storage, disk health, shadow copies, Storage Spaces
 hematite --triage apps           # browser, Outlook, Teams, installer health, OneDrive
 
+# Preview before running (dry-run)
+hematite --triage --dry-run
+hematite --triage network --dry-run
+
 # Targeted fix plan — describe your issue, get step-by-step fix steps
 hematite --fix "PC running slow"
 hematite --fix "can't connect to internet" --report-format html --open
 hematite --fix "BSOD after update"
 hematite --fix "Outlook not working"
+hematite --fix "PC running slow" --execute          # offer to run safe auto-fixes after plan
+hematite --fix "PC running slow" --execute --yes    # auto-approve without prompt (scripts)
+hematite --fix "DNS issues" --dry-run               # preview topics without running
+
+# Maintenance sweep — checks every safe auto-fix, skips healthy, verifies fixes
+hematite --fix-all
+hematite --fix-all --only "Flush DNS Cache"         # run a single named fix
+hematite --fix-all --only list                      # list all available fix labels
+hematite --fix-all --dry-run                        # preview sweep without executing
+hematite --fix-all --quiet                          # silent on clean runs (for scheduled tasks)
+hematite --fix-all --report-format json             # structured sweep results
+hematite --fix-all --schedule weekly                # register Windows scheduled task
+hematite --fix-all --schedule daily
+hematite --fix-all --schedule remove
+hematite --fix-all --schedule status
 
 # Full workstation snapshot and staged deep-dive
-hematite --report                # health, hardware, storage, network, security, toolchains
-hematite --diagnose              # staged: health_report → targeted follow-ups → fix plan
+hematite --report                           # health, hardware, storage, network, security, toolchains
+hematite --report --report-format json      # structured JSON output
+hematite --diagnose                         # staged: health_report → targeted follow-ups → fix plan
+hematite --diagnose --dry-run               # preview phase-1 topics and dynamic phase-2 logic
+
+# Direct topic inspection — no model, instant output
+hematite --inspect wifi
+hematite --inspect wifi,latency,dns_cache              # comma-separated multi-topic
+hematite --inspect wifi --report-format json           # structured JSON output
+hematite --inspect thermal --snapshot before-update    # save snapshot for later diff
+hematite --inspect thermal --field throttl             # filter to lines matching pattern
+
+# Natural-language query routing
+hematite --query "why is my PC slow"
+hematite --query "what's wrong with my network" --report-format json
+
+# Continuous monitoring
+hematite --watch resource_load                            # poll every 5s until Ctrl+C
+hematite --watch resource_load --watch-interval 10        # custom interval
+hematite --watch resource_load --count 5                  # stop after 5 cycles
+hematite --watch thermal --alert throttl                  # bell + print on match
+hematite --watch thermal --alert throttl --notify         # Windows toast on match
+hematite --watch resource_load --report-format json       # NDJSON streaming output
+hematite --watch resource_load --output logs/cpu.ndjson --report-format json  # log to file
+
+# Before/after diff
+hematite --diff processes --diff-after 60           # 60-second gap between snapshots
+hematite --diff thermal --from before-update        # diff live vs saved snapshot
+hematite --diff processes --report-format json      # structured diff with before/after fields
+hematite --compare before-update,after-update       # diff two saved snapshots
+
+# Snapshot management
+hematite --snapshots                                # list saved snapshots
+hematite --snapshots --report-format json           # machine-readable snapshot listing
+
+# Topic catalog
+hematite --inventory                                # 128+ topics by category (plain text)
+hematite --inventory --report-format json           # structured JSON catalog
+
+# Output flags that work across all headless commands
+hematite --triage --output /tmp/report.md           # save to explicit path
+hematite --inspect wifi --clipboard                 # copy to clipboard after run
+hematite --fix-all --notify                         # Windows toast when done
+hematite --triage --quiet                           # silent on healthy, exit 1 on issues
 ```
 
-`--triage` is the "sit-down command" for IT techs. `--fix` is the natural-language problem-to-fix-plan lane. `--report` is the developer workstation snapshot. `--diagnose` is the staged triage that targets follow-up inspection at exactly what the health check flagged.
+`--triage` is the "sit-down command" for IT techs. `--fix` is the natural-language problem-to-fix-plan lane. `--fix-all` is the zero-decision maintenance sweep. `--report` is the developer workstation snapshot. `--diagnose` is the staged triage that targets follow-up inspection at exactly what the health check flagged. All commands support `--report-format json` for scripting and CI integration.
 
 ### Fastest Summary
 
