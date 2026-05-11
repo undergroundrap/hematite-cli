@@ -823,6 +823,7 @@ mod tests {
             snapshot: None,
             from: None,
             snapshots: false,
+            compare: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

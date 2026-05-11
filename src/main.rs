@@ -548,7 +548,88 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .unwrap_or_else(|| "?".to_string());
                 println!("  {:30}  {:>6} B  {}", stem, size, age);
             }
-            println!("\nCompare with: hematite --diff <topic> --from <name>");
+            println!("\nDiff against live: hematite --diff <topic> --from <name>");
+            println!("Diff two saved:    hematite --compare <name1>,<name2>");
+        }
+        return Ok(());
+    }
+
+    if let Some(ref names_csv) = cockpit.compare {
+        let parts: Vec<&str> = names_csv.splitn(2, ',').collect();
+        if parts.len() != 2 {
+            eprintln!(
+                "Error: --compare requires two comma-separated snapshot names.\n\
+                 Example: hematite --compare before-update,after-update\n\
+                 Run `hematite --snapshots` to list available snapshots."
+            );
+            std::process::exit(1);
+        }
+        let (name_a, name_b) = (parts[0].trim(), parts[1].trim());
+        let load_snap = |name: &str| {
+            let path = snapshot_path(name);
+            match std::fs::read_to_string(&path) {
+                Ok(content) => {
+                    let age = path
+                        .metadata()
+                        .and_then(|m| m.modified())
+                        .ok()
+                        .and_then(|t| t.elapsed().ok())
+                        .map(|d| {
+                            let s = d.as_secs();
+                            if s < 60 { format!("{}s ago", s) }
+                            else if s < 3600 { format!("{}m ago", s / 60) }
+                            else if s < 86400 { format!("{}h ago", s / 3600) }
+                            else { format!("{}d ago", s / 86400) }
+                        })
+                        .unwrap_or_else(|| "saved".to_string());
+                    Ok((content, age))
+                }
+                Err(e) => Err(format!("Cannot load snapshot '{}': {}", name, e)),
+            }
+        };
+        let (snap_a, age_a) = match load_snap(name_a) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("{}", e);
+                eprintln!("Run `hematite --snapshots` to list available snapshots.");
+                std::process::exit(1);
+            }
+        };
+        let (snap_b, age_b) = match load_snap(name_b) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("{}", e);
+                eprintln!("Run `hematite --snapshots` to list available snapshots.");
+                std::process::exit(1);
+            }
+        };
+        println!("--- {}  ({})", name_a, age_a);
+        println!("+++ {}  ({})", name_b, age_b);
+        println!();
+        use similar::{ChangeTag, TextDiff};
+        let diff = TextDiff::from_lines(&snap_a, &snap_b);
+        let mut changed = false;
+        for group in diff.grouped_ops(2) {
+            for op in &group {
+                for change in diff.iter_changes(op) {
+                    match change.tag() {
+                        ChangeTag::Delete => {
+                            print!("\x1B[31m- {}\x1B[0m", change);
+                            changed = true;
+                        }
+                        ChangeTag::Insert => {
+                            print!("\x1B[32m+ {}\x1B[0m", change);
+                            changed = true;
+                        }
+                        ChangeTag::Equal => {
+                            print!("  {}", change);
+                        }
+                    }
+                }
+            }
+        }
+        if !changed {
+            println!("No differences between '{}' and '{}'.", name_a, name_b);
         }
         return Ok(());
     }

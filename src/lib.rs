@@ -408,6 +408,14 @@ pub struct CliCockpit {
     )]
     pub snapshots: bool,
 
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        value_name = "NAME1,NAME2",
+        help = "Diff two saved snapshots against each other without a live run. Example: hematite --compare before-update,after-update"
+    )]
+    pub compare: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
