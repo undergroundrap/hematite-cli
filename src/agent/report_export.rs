@@ -434,7 +434,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "trackpad",
             "peripheral not"
         ],
-        &[("peripherals", "Peripherals"), ("device_health", "Device Health")]
+        &[
+            ("peripherals", "Peripherals"),
+            ("device_health", "Device Health")
+        ]
     );
     add_if!(
         &[

@@ -15,7 +15,13 @@ use std::sync::Arc;
 fn snapshot_path(name: &str) -> std::path::PathBuf {
     let safe: String = name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     hematite::tools::file_ops::hematite_dir()
         .join("snapshots")
@@ -37,10 +43,10 @@ fn print_health_banner(content: &str) {
         'B' => "████████░░ B",
         'C' => "██████░░░░ C",
         'D' => "████░░░░░░ D",
-        _ =>   "██░░░░░░░░ F",
+        _ => "██░░░░░░░░ F",
     };
     println!();
-    println!("  Health Score  {}  — {}",  bar, score.label);
+    println!("  Health Score  {}  — {}", bar, score.label);
     println!("  {}", score.summary_line());
 }
 
@@ -166,7 +172,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let issue_str = issue.trim();
 
         if issue_str.eq_ignore_ascii_case("list") || issue_str.eq_ignore_ascii_case("help") {
-            println!("hematite --fix: {} supported issue categories (no model required)\n", hematite::agent::report_export::fix_issue_categories().len());
+            println!(
+                "hematite --fix: {} supported issue categories (no model required)\n",
+                hematite::agent::report_export::fix_issue_categories().len()
+            );
             for (category, keywords) in hematite::agent::report_export::fix_issue_categories() {
                 // Use the first keyword phrase as the example argument
                 let example = keywords.split(',').next().unwrap_or(keywords).trim();
@@ -245,7 +254,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if cockpit.inventory {
-        println!("{}", hematite::agent::direct_answers::build_inspect_inventory());
+        println!(
+            "{}",
+            hematite::agent::direct_answers::build_inspect_inventory()
+        );
         return Ok(());
     }
 
@@ -260,11 +272,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .into_iter()
             .flatten()
             .flatten()
-            .filter(|e| {
-                e.path()
-                    .extension()
-                    .is_some_and(|x| x == "txt")
-            })
+            .filter(|e| e.path().extension().is_some_and(|x| x == "txt"))
             .collect();
         entries.sort_by_key(|e| {
             e.metadata()
@@ -339,8 +347,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 format!("{:02}:{:02}:{:02} UTC", h, m, sec)
             };
 
-            let content =
-                hematite::agent::report_export::generate_inspect_output(topics_csv).await;
+            let content = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
 
             if let Some(ref pat) = alert_pat {
                 if content.to_ascii_lowercase().contains(pat.as_str()) {
@@ -402,10 +409,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .and_then(|t| t.elapsed().ok())
                         .map(|d| {
                             let s = d.as_secs();
-                            if s < 60 { format!("{}s ago", s) }
-                            else if s < 3600 { format!("{}m ago", s / 60) }
-                            else if s < 86400 { format!("{}h ago", s / 3600) }
-                            else { format!("{}d ago", s / 86400) }
+                            if s < 60 {
+                                format!("{}s ago", s)
+                            } else if s < 3600 {
+                                format!("{}m ago", s / 60)
+                            } else if s < 86400 {
+                                format!("{}h ago", s / 3600)
+                            } else {
+                                format!("{}d ago", s / 86400)
+                            }
                         })
                         .unwrap_or_else(|| "saved".to_string());
                     (content, format!("{} ({})", from_name, age))
@@ -420,7 +432,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("Taking snapshot A ({})...", topics_csv);
             let s = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
             let t = ts(now());
-            eprintln!("Snapshot A taken at {}. Waiting {}s for snapshot B...", t, after_secs);
+            eprintln!(
+                "Snapshot A taken at {}. Waiting {}s for snapshot B...",
+                t, after_secs
+            );
             tokio::time::sleep(std::time::Duration::from_secs(after_secs)).await;
             (s, t)
         };

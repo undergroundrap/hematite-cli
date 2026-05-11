@@ -164,7 +164,6 @@ pub struct CliCockpit {
     pub url: String,
 
     // ── MCP Server ────────────────────────────────────────────────────────────
-
     #[arg(
         long,
         help_heading = "MCP Server",
@@ -201,7 +200,6 @@ pub struct CliCockpit {
     pub semantic_model: Option<String>,
 
     // ── Headless Reports ──────────────────────────────────────────────────────
-
     #[arg(
         long,
         help_heading = "Headless Reports",
@@ -274,7 +272,6 @@ pub struct CliCockpit {
     pub schedule: Option<String>,
 
     // ── Modelless Inspection ──────────────────────────────────────────────────
-
     #[arg(
         long,
         help_heading = "Modelless Inspection",

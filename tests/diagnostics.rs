@@ -8701,15 +8701,15 @@ fn test_inventory_contains_representative_topics() {
     let inv = hematite::agent::direct_answers::build_inspect_inventory();
     // spot-check one topic from each group
     for topic in &[
-        "health_report",  // System
-        "disk_benchmark", // Storage
-        "overclocker",    // Thermal
-        "bluetooth",      // Devices
+        "health_report",       // System
+        "disk_benchmark",      // Storage
+        "overclocker",         // Thermal
+        "bluetooth",           // Devices
         "defender_quarantine", // Security
-        "wlan_profiles",  // Network
-        "mdm_enrollment", // Enterprise
-        "windows_backup", // Applications
-        "docker_filesystems", // Developer
+        "wlan_profiles",       // Network
+        "mdm_enrollment",      // Enterprise
+        "windows_backup",      // Applications
+        "docker_filesystems",  // Developer
     ] {
         assert!(inv.contains(topic), "inventory missing topic: {}", topic);
     }
@@ -8737,9 +8737,10 @@ async fn test_generate_query_output_slow_pc_hits_resource_load() {
 #[tokio::test]
 async fn test_generate_query_output_unknown_query_falls_back_to_summary() {
     // A query that matches nothing should fall back to summary
-    let out =
-        hematite::agent::report_export::generate_query_output("xyzzy nothing matches this query at all")
-            .await;
+    let out = hematite::agent::report_export::generate_query_output(
+        "xyzzy nothing matches this query at all",
+    )
+    .await;
     assert!(
         !out.is_empty(),
         "unknown query should still return fallback summary output"
@@ -8759,8 +8760,7 @@ async fn test_generate_inspect_output_single_topic() {
 
 #[tokio::test]
 async fn test_generate_inspect_output_multi_topic_includes_separators() {
-    let out =
-        hematite::agent::report_export::generate_inspect_output("connectivity,wifi").await;
+    let out = hematite::agent::report_export::generate_inspect_output("connectivity,wifi").await;
     assert!(
         out.contains("connectivity") && out.contains("wifi"),
         "multi-topic inspect should cover both topics"
@@ -8785,104 +8785,156 @@ async fn test_generate_inspect_output_empty_returns_help() {
 
 #[test]
 fn test_fix_routes_display_config_for_monitor_queries() {
-    for query in &["monitor not working", "second monitor", "wrong resolution", "bad refresh rate", "scaling too big"] {
+    for query in &[
+        "monitor not working",
+        "second monitor",
+        "wrong resolution",
+        "bad refresh rate",
+        "scaling too big",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"display_config"),
             "\"{}\" should route to display_config, got: {:?}",
-            query, names
+            query,
+            names
         );
     }
 }
 
 #[test]
 fn test_fix_routes_peripherals_for_keyboard_mouse_queries() {
-    for query in &["keyboard not working", "mouse not working", "touchpad not responding", "trackpad broken"] {
+    for query in &[
+        "keyboard not working",
+        "mouse not working",
+        "touchpad not responding",
+        "trackpad broken",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"peripherals"),
             "\"{}\" should route to peripherals, got: {:?}",
-            query, names
+            query,
+            names
         );
     }
 }
 
 #[test]
 fn test_fix_routes_sleep_topics_for_hibernate_queries() {
-    for query in &["computer won't hibernate", "won't wake up from sleep", "stuck after sleep", "sleep mode broken"] {
+    for query in &[
+        "computer won't hibernate",
+        "won't wake up from sleep",
+        "stuck after sleep",
+        "sleep mode broken",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
-            names.contains(&"services") || names.contains(&"pending_reboot") || names.contains(&"thermal"),
+            names.contains(&"services")
+                || names.contains(&"pending_reboot")
+                || names.contains(&"thermal"),
             "\"{}\" should route to sleep-related topics, got: {:?}",
-            query, names
+            query,
+            names
         );
     }
 }
 
 #[test]
 fn test_fix_routes_installer_health_for_store_queries() {
-    for query in &["microsoft store not working", "store app won't install", "uwp app broken", "winget failing"] {
+    for query in &[
+        "microsoft store not working",
+        "store app won't install",
+        "uwp app broken",
+        "winget failing",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"installer_health"),
             "\"{}\" should route to installer_health, got: {:?}",
-            query, names
+            query,
+            names
         );
     }
 }
 
 #[test]
 fn test_fix_routes_audio_for_sound_queries() {
-    for query in &["no sound", "audio not working", "microphone not working", "crackling audio", "no audio output"] {
+    for query in &[
+        "no sound",
+        "audio not working",
+        "microphone not working",
+        "crackling audio",
+        "no audio output",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"audio"),
             "\"{}\" should route to audio, got: {:?}",
-            query, names
+            query,
+            names
         );
     }
 }
 
 #[test]
 fn test_fix_routes_bluetooth_for_pairing_queries() {
-    for query in &["bluetooth not working", "headset won't connect", "can't pair bluetooth", "bluetooth keeps disconnecting"] {
+    for query in &[
+        "bluetooth not working",
+        "headset won't connect",
+        "can't pair bluetooth",
+        "bluetooth keeps disconnecting",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"bluetooth"),
             "\"{}\" should route to bluetooth, got: {:?}",
-            query, names
+            query,
+            names
         );
     }
 }
 
 #[test]
 fn test_fix_routes_outlook_for_email_queries() {
-    for query in &["outlook not opening", "outlook crashing", "email not working", "pst file corrupt"] {
+    for query in &[
+        "outlook not opening",
+        "outlook crashing",
+        "email not working",
+        "pst file corrupt",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"outlook"),
             "\"{}\" should route to outlook, got: {:?}",
-            query, names
+            query,
+            names
         );
     }
 }
 
 #[test]
 fn test_fix_routes_teams_for_teams_queries() {
-    for query in &["teams not working", "teams won't open", "microsoft teams crashing", "teams black screen"] {
+    for query in &[
+        "teams not working",
+        "teams won't open",
+        "microsoft teams crashing",
+        "teams black screen",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"teams"),
             "\"{}\" should route to teams, got: {:?}",
-            query, names
+            query,
+            names
         );
     }
 }
@@ -8918,13 +8970,19 @@ fn test_suggest_fix_commands_empty_for_healthy_content() {
 
 #[test]
 fn test_fix_routes_browser_health_for_browser_queries() {
-    for query in &["chrome slow", "edge crashing", "firefox not working", "browser keeps crashing"] {
+    for query in &[
+        "chrome slow",
+        "edge crashing",
+        "firefox not working",
+        "browser keeps crashing",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"browser_health"),
             "\"{}\" should route to browser_health, got: {:?}",
-            query, names
+            query,
+            names
         );
     }
 }
