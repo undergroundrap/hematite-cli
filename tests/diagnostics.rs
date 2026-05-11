@@ -8948,6 +8948,33 @@ async fn test_generate_inspect_output_empty_returns_help() {
     );
 }
 
+// ── inventory --report-format json ───────────────────────────────────────────
+
+#[test]
+fn test_inventory_json_is_valid_and_has_all_categories() {
+    let out = hematite::agent::direct_answers::build_inspect_inventory_json();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&out).expect("--inventory --report-format json should be valid JSON");
+    let categories = parsed.as_array().expect("should be a JSON array");
+    assert_eq!(categories.len(), 9, "should have 9 categories");
+    for cat in categories {
+        assert!(cat.get("category").is_some(), "each entry needs a 'category' field");
+        assert!(
+            cat["topics"].as_array().map(|t| !t.is_empty()).unwrap_or(false),
+            "each category needs a non-empty 'topics' array"
+        );
+    }
+}
+
+#[test]
+fn test_inventory_json_contains_known_topics() {
+    let out = hematite::agent::direct_answers::build_inspect_inventory_json();
+    assert!(out.contains("health_report"), "inventory JSON should contain health_report");
+    assert!(out.contains("connectivity"), "inventory JSON should contain connectivity");
+    assert!(out.contains("docker"), "inventory JSON should contain docker");
+    assert!(out.contains("outlook"), "inventory JSON should contain outlook");
+}
+
 // ── snapshots --report-format json ───────────────────────────────────────────
 
 #[test]

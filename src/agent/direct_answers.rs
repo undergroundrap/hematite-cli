@@ -165,6 +165,50 @@ Usage:
     .to_string()
 }
 
+pub fn build_inspect_inventory_json() -> String {
+    use serde_json::json;
+    let categories = json!([
+        {"category": "System & Health", "topics": [
+            "health_report","summary","hardware","os_config","processes","services",
+            "resource_load","startup_items","sessions","log_check","event_query",
+            "scheduled_tasks","updates","pending_reboot","patch_history","activation",
+            "integrity","windows_features","wmi_health","recent_crashes","app_crashes",
+            "installed_software","service_dependencies","hyperv"]},
+        {"category": "Storage & Disk", "topics": [
+            "storage","disk_health","disk_benchmark","shadow_copies","pagefile",
+            "storage_spaces","desktop","downloads","disk","directory"]},
+        {"category": "Thermal & Power", "topics": [
+            "thermal","cpu_power","battery","overclocker"]},
+        {"category": "Devices & Peripherals", "topics": [
+            "device_health","drivers","peripherals","display_config","audio",
+            "bluetooth","camera","printers","print_spooler","usb_history"]},
+        {"category": "Security", "topics": [
+            "security","bitlocker","tpm","credentials","user_accounts",
+            "local_security_policy","audit_policy","shares","firewall_rules","gpo",
+            "certificates","defender_quarantine","rdp","domain","permissions",
+            "registry_audit","share_access"]},
+        {"category": "Network", "topics": [
+            "connectivity","wifi","network","latency","connections","vpn","proxy",
+            "lan_discovery","dns_servers","dns_cache","dns_lookup","arp","route_table",
+            "ip_config","traceroute","ports","network_stats","udp_ports",
+            "network_adapter","dhcp","mtu","ipv6","tcp_params","wlan_profiles",
+            "network_profile","ipsec","netbios","nic_teaming","snmp","port_test",
+            "public_ip","ssl_cert"]},
+        {"category": "Enterprise & Identity", "topics": [
+            "identity_auth","sign_in","mdm_enrollment","domain_health","winrm",
+            "ssh","ad_user","login_history","ntp"]},
+        {"category": "Applications", "topics": [
+            "outlook","teams","browser_health","installer_health","onedrive",
+            "windows_backup","search_index"]},
+        {"category": "Developer & Environment", "topics": [
+            "toolchains","env_doctor","dev_conflicts","path","env","git_config",
+            "repo_doctor","databases","docker","docker_filesystems","wsl",
+            "wsl_filesystems","hosts_file","data_audit","fix_plan"]},
+    ]);
+    serde_json::to_string_pretty(&categories)
+        .unwrap_or_else(|_| "[]".to_string())
+}
+
 pub(crate) fn build_help_answer() -> String {
     "Hematite TUI Command Categories:\n\n\
     [IT, Remediation & Data Analysis]\n\

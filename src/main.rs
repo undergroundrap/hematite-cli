@@ -647,10 +647,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if cockpit.inventory {
-        println!(
-            "{}",
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let out = if fmt == "json" {
+            hematite::agent::direct_answers::build_inspect_inventory_json()
+        } else {
             hematite::agent::direct_answers::build_inspect_inventory()
-        );
+        };
+        if let Some(ref out_path) = cockpit.output {
+            write_output_copy(&out, out_path);
+        } else {
+            println!("{}", out);
+        }
         return Ok(());
     }
 
