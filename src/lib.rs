@@ -296,6 +296,14 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Headless Reports",
+        value_name = "PATH",
+        help = "Save report output to an explicit file path instead of the auto-dated .hematite/reports/ directory. Works with --triage, --diagnose, --fix, --fix-all, and --inspect."
+    )]
+    pub output: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
         default_missing_value = "weekly",
         num_args = 0..=1,
         value_name = "CADENCE",

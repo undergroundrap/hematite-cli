@@ -7351,6 +7351,41 @@ fn test_report_cli_flags_exist() {
         flag_names.contains(&"open"),
         "--open flag missing from CliCockpit"
     );
+    assert!(
+        flag_names.contains(&"output"),
+        "--output flag missing from CliCockpit"
+    );
+    assert!(
+        flag_names.contains(&"quiet"),
+        "--quiet flag missing from CliCockpit"
+    );
+    assert!(
+        flag_names.contains(&"clipboard"),
+        "--clipboard flag missing from CliCockpit"
+    );
+    assert!(
+        flag_names.contains(&"notify"),
+        "--notify flag missing from CliCockpit"
+    );
+}
+
+#[test]
+fn test_output_flag_help_mentions_path() {
+    use clap::CommandFactory;
+    use hematite::CliCockpit;
+    let cmd = CliCockpit::command();
+    let output_arg = cmd.get_arguments().find(|a| a.get_long() == Some("output"));
+    assert!(output_arg.is_some(), "--output flag must exist");
+    let help = output_arg
+        .unwrap()
+        .get_help()
+        .map(|h| h.to_string())
+        .unwrap_or_default();
+    assert!(
+        help.to_ascii_lowercase().contains("path") || help.to_ascii_lowercase().contains("file"),
+        "--output help text should mention path or file: {}",
+        help
+    );
 }
 
 #[test]

@@ -141,6 +141,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             print_health_banner(&content);
             print_fix_suggestions(&content);
         }
+        if let Some(ref out_path) = cockpit.output {
+            write_output_copy(&content, out_path);
+        }
         if cockpit.clipboard {
             copy_to_clipboard(&content);
             println!("Copied to clipboard.");
@@ -168,6 +171,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Triage saved: {}", path.display());
             print_health_banner(&content);
             print_fix_suggestions(&content);
+        }
+        if let Some(ref out_path) = cockpit.output {
+            write_output_copy(&content, out_path);
         }
         if cockpit.clipboard {
             copy_to_clipboard(&content);
@@ -286,6 +292,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
+        if let Some(ref out_path) = cockpit.output {
+            write_output_copy(&content, out_path);
+        }
         if cockpit.notify {
             let grade = if has_issues_final { "Issues found" } else { "All clear" };
             show_toast("Hematite Fix Plan", &format!("{} — {}", grade, issue_str));
@@ -452,6 +461,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         println!("Sweep report saved: {}", report_path.display());
 
+        if let Some(ref out_path) = cockpit.output {
+            write_output_copy(&report_content, out_path);
+        }
         if cockpit.clipboard {
             copy_to_clipboard(&report_content);
             println!("Copied to clipboard.");
@@ -928,6 +940,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("{}", summary);
     }
     Ok(())
+}
+
+/// Copy report content to a user-specified output path, creating parent dirs if needed.
+fn write_output_copy(content: &str, output_path: &str) {
+    let path = std::path::Path::new(output_path);
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+    }
+    match std::fs::write(path, content) {
+        Ok(()) => println!("Output written: {}", path.display()),
+        Err(e) => eprintln!("Failed to write --output {}: {}", path.display(), e),
+    }
 }
 
 fn copy_to_clipboard(text: &str) {

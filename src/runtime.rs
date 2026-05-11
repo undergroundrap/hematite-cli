@@ -809,6 +809,7 @@ mod tests {
             fix_all: false,
             clipboard: false,
             notify: false,
+            output: None,
             schedule: None,
             inventory: false,
             inspect: None,
