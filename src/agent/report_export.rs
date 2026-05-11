@@ -1308,6 +1308,65 @@ pub async fn save_diagnosis_report_html() -> (String, PathBuf) {
     (html, path)
 }
 
+pub async fn generate_diagnosis_report_json() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    let data = run_diagnosis_phases().await;
+    let mut section_refs: Vec<(&str, &str)> =
+        vec![("health_report", data.health_output.as_str())];
+    for (topic, output) in &data.follow_up_outputs {
+        section_refs.push((*topic, output.as_str()));
+    }
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
+
+    // Collect action/investigate titles by scanning each section independently
+    let mut seen_titles = std::collections::HashSet::new();
+    let mut action_items: Vec<&str> = Vec::new();
+    let mut investigate_items: Vec<&str> = Vec::new();
+    for (_label, output) in &section_refs {
+        for recipe in crate::agent::fix_recipes::match_recipes(output) {
+            if seen_titles.insert(recipe.title) {
+                match recipe.severity {
+                    "ACTION" => action_items.push(recipe.title),
+                    "INVESTIGATE" => investigate_items.push(recipe.title),
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let mut sections_obj = serde_json::Map::new();
+    sections_obj.insert("health_report".into(), json!(data.health_output));
+    for (topic, output) in &data.follow_up_outputs {
+        sections_obj.insert(topic.to_string(), json!(output));
+    }
+
+    let obj = json!({
+        "generated": data.timestamp,
+        "host": data.hostname,
+        "hematite_version": version,
+        "grade": score.grade.to_string(),
+        "label": score.label,
+        "action_count": score.action_count,
+        "investigate_count": score.investigate_count,
+        "monitor_count": score.monitor_count,
+        "action_items": action_items,
+        "investigate_items": investigate_items,
+        "follow_up_topics": data.follow_up_outputs.iter().map(|(t, _)| *t).collect::<Vec<_>>(),
+        "sections": serde_json::Value::Object(sections_obj),
+    });
+    serde_json::to_string_pretty(&obj).unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e))
+}
+
+pub async fn save_diagnosis_report_json() -> (String, PathBuf) {
+    let json = generate_diagnosis_report_json().await;
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("diagnosis-{}.json", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &json);
+    (json, path)
+}
+
 fn build_html_document(
     title: &str,
     timestamp: &str,
@@ -1497,6 +1556,63 @@ pub async fn save_triage_report_html(preset: &str) -> (String, PathBuf) {
     ensure_parent(&path);
     let _ = std::fs::write(&path, &html);
     (html, path)
+}
+
+pub async fn generate_triage_report_json(preset: &str) -> String {
+    let data = run_triage_phases(preset).await;
+    let version = env!("CARGO_PKG_VERSION");
+    let section_refs: Vec<(&str, &str)> = data
+        .sections
+        .iter()
+        .map(|(l, o)| (*l, o.as_str()))
+        .collect();
+    let score = crate::agent::fix_recipes::score_health(&section_refs);
+
+    let mut seen_titles = std::collections::HashSet::new();
+    let mut action_items: Vec<&str> = Vec::new();
+    let mut investigate_items: Vec<&str> = Vec::new();
+    for (_label, output) in &section_refs {
+        for recipe in crate::agent::fix_recipes::match_recipes(output) {
+            if seen_titles.insert(recipe.title) {
+                match recipe.severity {
+                    "ACTION" => action_items.push(recipe.title),
+                    "INVESTIGATE" => investigate_items.push(recipe.title),
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let mut sections_obj = serde_json::Map::new();
+    for (label, output) in &data.sections {
+        sections_obj.insert(label.to_string(), json!(output));
+    }
+
+    let obj = json!({
+        "generated": data.timestamp,
+        "host": data.hostname,
+        "hematite_version": version,
+        "preset": preset,
+        "grade": score.grade.to_string(),
+        "label": score.label,
+        "action_count": score.action_count,
+        "investigate_count": score.investigate_count,
+        "monitor_count": score.monitor_count,
+        "action_items": action_items,
+        "investigate_items": investigate_items,
+        "sections": serde_json::Value::Object(sections_obj),
+    });
+    serde_json::to_string_pretty(&obj).unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e))
+}
+
+pub async fn save_triage_report_json(preset: &str) -> (String, PathBuf) {
+    let json = generate_triage_report_json(preset).await;
+    let path = crate::tools::file_ops::hematite_dir()
+        .join("reports")
+        .join(format!("triage-{}.json", now_file_timestamp()));
+    ensure_parent(&path);
+    let _ = std::fs::write(&path, &json);
+    (json, path)
 }
 
 // ── Fix Plan (--fix "<issue>", no model required) ─────────────────────────────

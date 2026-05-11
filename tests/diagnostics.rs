@@ -7326,6 +7326,22 @@ fn test_html_report_format_flag() {
 }
 
 #[test]
+fn test_triage_json_output_wiring() {
+    // Verify save_triage_report_json is a callable public function (smoke test)
+    let _ = std::hint::black_box(
+        hematite::agent::report_export::save_triage_report_json as *const () as usize,
+    );
+}
+
+#[test]
+fn test_diagnosis_json_output_wiring() {
+    // Verify save_diagnosis_report_json is a callable public function (smoke test)
+    let _ = std::hint::black_box(
+        hematite::agent::report_export::save_diagnosis_report_json as *const () as usize,
+    );
+}
+
+#[test]
 fn test_report_cli_flags_exist() {
     // Smoke-test that --report, --report-format, and --diagnose are valid CliCockpit fields.
     use clap::CommandFactory;

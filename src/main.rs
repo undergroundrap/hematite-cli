@@ -133,6 +133,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let (content, path) = match fmt.as_str() {
             "html" => hematite::agent::report_export::save_diagnosis_report_html().await,
+            "json" => hematite::agent::report_export::save_diagnosis_report_json().await,
             _ => hematite::agent::report_export::save_diagnosis_report().await,
         };
         let has_issues = report_indicates_issues(&content);
@@ -164,6 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let (content, path) = match fmt.as_str() {
             "html" => hematite::agent::report_export::save_triage_report_html(preset_str).await,
+            "json" => hematite::agent::report_export::save_triage_report_json(preset_str).await,
             _ => hematite::agent::report_export::save_triage_report(preset_str).await,
         };
         let has_issues = report_indicates_issues(&content);
