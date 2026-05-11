@@ -11,6 +11,10 @@ const REPORT_TOPICS: &[(&str, &str)] = &[
     ("toolchains", "Developer Toolchains"),
 ];
 
+pub fn report_topics() -> &'static [(&'static str, &'static str)] {
+    REPORT_TOPICS
+}
+
 /// IT-first-look triage topics (health, security, connectivity, identity, updates).
 const TRIAGE_TOPICS: &[(&str, &str)] = &[
     ("health_report", "System Health"),
@@ -20,7 +24,7 @@ const TRIAGE_TOPICS: &[(&str, &str)] = &[
     ("updates", "Windows Updates"),
 ];
 
-fn triage_topics_for_preset(preset: &str) -> &'static [(&'static str, &'static str)] {
+pub fn triage_topics_for_preset(preset: &str) -> &'static [(&'static str, &'static str)] {
     match preset {
         "network" => &[
             ("connectivity", "Connectivity"),

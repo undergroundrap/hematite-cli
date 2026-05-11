@@ -145,6 +145,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if cockpit.diagnose {
+        if cockpit.dry_run {
+            let topics = hematite::agent::report_export::report_topics();
+            println!(
+                "hematite --diagnose --dry-run: phase 1 inspects {} topic(s)\n",
+                topics.len()
+            );
+            for (i, (topic, label)) in topics.iter().enumerate() {
+                println!("  [{}/{}] {} ({})", i + 1, topics.len(), label, topic);
+            }
+            println!(
+                "\nPhase 2 topics are determined dynamically from phase 1 results (disk/RAM/security flags)."
+            );
+            println!("Remove --dry-run to run the full staged diagnosis.");
+            return Ok(());
+        }
+
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let (content, path) = match fmt.as_str() {
             "html" => hematite::agent::report_export::save_diagnosis_report_html().await,
@@ -177,6 +193,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(ref preset) = cockpit.triage {
         let preset_str = preset.as_str();
+
+        if cockpit.dry_run {
+            let topics =
+                hematite::agent::report_export::triage_topics_for_preset(preset_str);
+            println!(
+                "hematite --triage{} --dry-run: {} topic(s) would be inspected\n",
+                if preset_str == "default" { String::new() } else { format!(" {}", preset_str) },
+                topics.len()
+            );
+            for (i, (topic, label)) in topics.iter().enumerate() {
+                println!("  [{}/{}] {} ({})", i + 1, topics.len(), label, topic);
+            }
+            println!("\nRemove --dry-run to run the triage.");
+            return Ok(());
+        }
+
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let (content, path) = match fmt.as_str() {
             "html" => hematite::agent::report_export::save_triage_report_html(preset_str).await,

@@ -7430,6 +7430,37 @@ fn test_fix_all_only_list_returns_all_labels() {
 }
 
 #[test]
+fn test_triage_dry_run_default_has_five_topics() {
+    let topics = hematite::agent::report_export::triage_topics_for_preset("default");
+    assert_eq!(
+        topics.len(),
+        5,
+        "default triage should have 5 topics: health, security, connectivity, identity, updates"
+    );
+}
+
+#[test]
+fn test_triage_dry_run_network_preset_includes_wifi() {
+    let topics = hematite::agent::report_export::triage_topics_for_preset("network");
+    let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        names.contains(&"wifi"),
+        "network triage preset should include wifi, got: {:?}",
+        names
+    );
+}
+
+#[test]
+fn test_diagnose_dry_run_report_topics_has_six() {
+    let topics = hematite::agent::report_export::report_topics();
+    assert_eq!(
+        topics.len(),
+        6,
+        "report/diagnose phase 1 should have 6 topics: health, hardware, storage, network, security, toolchains"
+    );
+}
+
+#[test]
 fn test_fix_all_dry_run_preview_filters_correctly() {
     use hematite::agent::report_export::sweep_auto_fixes;
     let all = sweep_auto_fixes();
