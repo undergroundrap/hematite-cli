@@ -393,11 +393,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // --fix-all --list: print available fix labels and exit
         if cockpit.only.as_deref() == Some("list") || cockpit.only.as_deref() == Some("help") {
             let all = hematite::agent::report_export::sweep_auto_fixes();
-            println!("Available sweep fixes ({}):\n", all.len());
-            for fix in &all {
-                println!("  \"{}\"", fix.label);
+            let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+            if fmt == "json" {
+                let arr: Vec<serde_json::Value> = all
+                    .iter()
+                    .map(|f| serde_json::json!({
+                        "label": f.label,
+                        "verify_topic": f.verify_topic,
+                        "verify_gone": f.verify_gone,
+                    }))
+                    .collect();
+                let out = serde_json::to_string_pretty(&serde_json::Value::Array(arr))
+                    .unwrap_or_else(|_| "[]".to_string());
+                if let Some(ref out_path) = cockpit.output {
+                    write_output_copy(&out, out_path);
+                } else {
+                    println!("{}", out);
+                }
+            } else {
+                println!("Available sweep fixes ({}):\n", all.len());
+                for fix in &all {
+                    println!("  \"{}\"", fix.label);
+                }
+                println!("\nRun one: hematite --fix-all --only \"<label>\"");
             }
-            println!("\nRun one: hematite --fix-all --only \"<label>\"");
             return Ok(());
         }
 
@@ -805,8 +824,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let snap_a_f = apply_field_filter(&snap_a, cockpit.field.as_deref());
+        let snap_b_f = apply_field_filter(&snap_b, cockpit.field.as_deref());
         use similar::{ChangeTag, TextDiff};
-        let diff = TextDiff::from_lines(&snap_a, &snap_b);
+        let diff = TextDiff::from_lines(snap_a_f.as_ref(), snap_b_f.as_ref());
         if fmt == "json" {
             let mut diff_lines: Vec<String> = Vec::new();
             let mut changed = false;
@@ -827,8 +848,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "snapshot_b": format!("{} ({})", name_b, age_b),
                 "changed": changed,
                 "diff_lines": diff_lines,
-                "before": snap_a,
-                "after": snap_b,
+                "before": snap_a_f.as_ref(),
+                "after": snap_b_f.as_ref(),
             });
             let out = serde_json::to_string_pretty(&obj)
                 .unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e));
@@ -1090,11 +1111,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let snap_b = hematite::agent::report_export::generate_inspect_output(topics_csv).await;
         let ts_b = ts(now());
 
+        // Apply --field filter to both snapshots before diffing so the diff only
+        // shows lines matching the pattern (e.g. --diff resource_load --field cpu).
+        let snap_a_f = apply_field_filter(&snap_a, cockpit.field.as_deref());
+        let snap_b_f = apply_field_filter(&snap_b, cockpit.field.as_deref());
+
         let diff_fmt = cockpit.report_format.trim().to_ascii_lowercase();
 
         if diff_fmt == "json" {
             use similar::{ChangeTag, TextDiff};
-            let diff = TextDiff::from_lines(&snap_a, &snap_b);
+            let diff = TextDiff::from_lines(snap_a_f.as_ref(), snap_b_f.as_ref());
             let mut diff_lines: Vec<String> = Vec::new();
             let mut changed = false;
             for group in diff.grouped_ops(2) {
@@ -1115,8 +1141,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "snapshot_b": ts_b,
                 "changed": changed,
                 "diff_lines": diff_lines,
-                "before": snap_a,
-                "after": snap_b,
+                "before": snap_a_f.as_ref(),
+                "after": snap_b_f.as_ref(),
             });
             let out = serde_json::to_string_pretty(&obj)
                 .unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e));
@@ -1135,7 +1161,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!();
 
             use similar::{ChangeTag, TextDiff};
-            let diff = TextDiff::from_lines(&snap_a, &snap_b);
+            let diff = TextDiff::from_lines(snap_a_f.as_ref(), snap_b_f.as_ref());
             let mut changed = false;
             for group in diff.grouped_ops(2) {
                 for op in &group {

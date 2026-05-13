@@ -9531,3 +9531,31 @@ fn test_fix_plan_routes_cryptsvc() {
         "cryptsvc trigger should map to Cryptographic Services restart"
     );
 }
+
+#[test]
+fn test_sweep_list_json_schema_shape() {
+    // Verify the JSON structure of --fix-all --only list --report-format json.
+    let all = hematite::agent::report_export::sweep_auto_fixes();
+    let arr: Vec<serde_json::Value> = all
+        .iter()
+        .map(|f| serde_json::json!({
+            "label": f.label,
+            "verify_topic": f.verify_topic,
+            "verify_gone": f.verify_gone,
+        }))
+        .collect();
+    let out = serde_json::to_string_pretty(&serde_json::Value::Array(arr))
+        .expect("should serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&out).expect("should parse");
+    let items = parsed.as_array().expect("should be array");
+    assert!(!items.is_empty(), "sweep list JSON should be non-empty");
+    let first = &items[0];
+    assert!(first.get("label").is_some(), "each item should have label");
+    assert!(first.get("verify_topic").is_some(), "each item should have verify_topic (may be null)");
+    assert!(first.get("verify_gone").is_some(), "each item should have verify_gone (may be null)");
+    // All labels must be non-empty strings
+    for item in items {
+        let label = item["label"].as_str().expect("label should be string");
+        assert!(!label.is_empty(), "label should not be empty");
+    }
+}
