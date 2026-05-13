@@ -679,6 +679,60 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("print_spooler"),
         },
     },
+
+    // ── TCP/IP stack corruption ───────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["winsock catalog corrupted", "winsock reset", "tcp/ip stack", "netsh int ip reset", "no internet after update", "network stack corrupt"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "TCP/IP or Winsock stack needs reset",
+            steps: &[
+                "Open PowerShell as administrator",
+                "Reset the TCP/IP stack: netsh int ip reset",
+                "Reset the Winsock catalog: netsh winsock reset",
+                "Restart the computer — these changes require a reboot to take effect",
+                "After restart, verify internet is restored: ping 1.1.1.1",
+                "If still broken, run: ipconfig /release then ipconfig /renew to get a fresh DHCP lease",
+            ],
+            dig_deeper: Some("connectivity"),
+        },
+    },
+
+    // ── WLAN AutoConfig service stopped ──────────────────────────────────────
+    RecipeEntry {
+        triggers: &["wlansvc: stopped", "wlan autoconfig: stopped", "wlan autoconfig service: stopped", "wireless autoconfig: stopped"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "WLAN AutoConfig service stopped — Wi-Fi unavailable",
+            steps: &[
+                "Open PowerShell as administrator",
+                "Start the WLAN AutoConfig service: Start-Service Wlansvc",
+                "Set it to auto-start: Set-Service Wlansvc -StartupType Automatic",
+                "Verify Wi-Fi adapter is visible: Get-NetAdapter | Where-Object {$_.MediaType -eq '802.11'}",
+                "If no Wi-Fi adapter appears after starting the service, check Device Manager for a disabled wireless adapter",
+                "If the service fails to start, update the Wi-Fi adapter driver via Device Manager → right-click adapter → Update driver",
+            ],
+            dig_deeper: Some("wifi"),
+        },
+    },
+
+    // ── Windows Firewall service stopped ─────────────────────────────────────
+    RecipeEntry {
+        triggers: &["firewall service: stopped", "mpssvc: stopped", "windows firewall service: stopped", "firewall: stopped"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Windows Firewall service stopped — security risk",
+            steps: &[
+                "Open PowerShell as administrator",
+                "Start the Windows Firewall service: Start-Service MpsSvc",
+                "Set it to auto-start: Set-Service MpsSvc -StartupType Automatic",
+                "Verify all profiles are active: Get-NetFirewallProfile | Select Name, Enabled",
+                "If MpsSvc fails to start, check for third-party firewall software that may have disabled it",
+                "In an enterprise environment, the firewall may be managed by Group Policy — run gpresult /r to check",
+            ],
+            dig_deeper: Some("security"),
+        },
+    },
 ];
 
 pub struct HealthScore {

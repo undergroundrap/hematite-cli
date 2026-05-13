@@ -9034,6 +9034,82 @@ fn test_diff_json_schema_shape() {
     assert!(parsed.get("after").is_some());
 }
 
+// ── compare JSON schema ──────────────────────────────────────────────────────
+
+#[test]
+fn test_compare_json_schema_shape() {
+    // Verify --compare --report-format json produces the expected object shape.
+    use similar::{ChangeTag, TextDiff};
+    let snap_a = "version: 1.0\nstatus: ok\n";
+    let snap_b = "version: 1.1\nstatus: ok\n";
+    let diff = TextDiff::from_lines(snap_a, snap_b);
+    let mut diff_lines: Vec<String> = Vec::new();
+    let mut changed = false;
+    for group in diff.grouped_ops(2) {
+        for op in &group {
+            for change in diff.iter_changes(op) {
+                let prefix = match change.tag() {
+                    ChangeTag::Delete => { changed = true; "-" }
+                    ChangeTag::Insert => { changed = true; "+" }
+                    ChangeTag::Equal => " ",
+                };
+                diff_lines.push(format!("{}{}", prefix, change));
+            }
+        }
+    }
+    let obj = serde_json::json!({
+        "snapshot_a": "before-update (2d ago)",
+        "snapshot_b": "after-update (1h ago)",
+        "changed": changed,
+        "diff_lines": diff_lines,
+        "before": snap_a,
+        "after": snap_b,
+    });
+    let serialized = serde_json::to_string_pretty(&obj).expect("should serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&serialized).expect("should parse back");
+    assert_eq!(parsed["changed"], serde_json::json!(true));
+    assert!(parsed.get("snapshot_a").is_some(), "should have snapshot_a");
+    assert!(parsed.get("snapshot_b").is_some(), "should have snapshot_b");
+    assert!(parsed.get("diff_lines").is_some(), "should have diff_lines");
+    assert!(parsed.get("before").is_some(), "should have before");
+    assert!(parsed.get("after").is_some(), "should have after");
+    assert!(parsed.get("topics").is_none(), "compare JSON should not have topics field");
+    let lines = parsed["diff_lines"].as_array().expect("diff_lines should be array");
+    assert!(!lines.is_empty(), "diff_lines should be non-empty for changed snapshots");
+}
+
+#[test]
+fn test_compare_json_unchanged_snapshots() {
+    use similar::{ChangeTag, TextDiff};
+    let content = "status: ok\nhealth: good\n";
+    let diff = TextDiff::from_lines(content, content);
+    let mut diff_lines: Vec<String> = Vec::new();
+    let mut changed = false;
+    for group in diff.grouped_ops(2) {
+        for op in &group {
+            for change in diff.iter_changes(op) {
+                let prefix = match change.tag() {
+                    ChangeTag::Delete => { changed = true; "-" }
+                    ChangeTag::Insert => { changed = true; "+" }
+                    ChangeTag::Equal => " ",
+                };
+                diff_lines.push(format!("{}{}", prefix, change));
+            }
+        }
+    }
+    let obj = serde_json::json!({
+        "snapshot_a": "snap1 (5m ago)",
+        "snapshot_b": "snap2 (1m ago)",
+        "changed": changed,
+        "diff_lines": diff_lines,
+        "before": content,
+        "after": content,
+    });
+    let serialized = serde_json::to_string_pretty(&obj).expect("should serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&serialized).expect("should parse");
+    assert_eq!(parsed["changed"], serde_json::json!(false));
+}
+
 // ── watch NDJSON schema ───────────────────────────────────────────────────────
 
 #[test]
@@ -9362,11 +9438,13 @@ fn test_sweep_auto_fixes_all_have_verify_or_are_always_safe() {
     let sweep = hematite::agent::report_export::sweep_auto_fixes();
     assert!(!sweep.is_empty(), "sweep list must not be empty");
     // Every sweep entry either has a verify pair or is unconditionally safe (no verify needed).
-    // Entries without verify run unconditionally — ensure none of those are security-sensitive.
+    // Entries without verify run unconditionally — ensure none are security-sensitive.
+    // Explicitly allowed: Recycle Bin and Temp folder cleanup (file-system cleanup, always safe).
+    const ALWAYS_SAFE: &[&str] = &["Recycle Bin", "Temp folder"];
     for fix in &sweep {
         if fix.verify_topic.is_none() {
             assert!(
-                fix.label.contains("Recycle Bin"),
+                ALWAYS_SAFE.iter().any(|s| fix.label.contains(s)),
                 "sweep entry without verify should be obviously safe, got: {}",
                 fix.label
             );
@@ -9389,5 +9467,67 @@ fn test_sweep_excludes_security_sensitive_fixes() {
     assert!(
         !labels.contains(&"Renew DHCP lease"),
         "Renew DHCP must not be in sweep — drops network briefly"
+    );
+    assert!(
+        !labels.contains(&"Reset TCP/IP stack"),
+        "Reset TCP/IP must not be in sweep — requires reboot"
+    );
+    assert!(
+        !labels.contains(&"Restart WLAN AutoConfig service"),
+        "Restart WLAN must not be in sweep — could drop Wi-Fi briefly"
+    );
+    assert!(
+        !labels.contains(&"Restart Cryptographic Services"),
+        "Restart CryptSvc must not be in sweep — disruptive to active auth"
+    );
+}
+
+#[test]
+fn test_sweep_includes_temp_folder_cleanup() {
+    let sweep = hematite::agent::report_export::sweep_auto_fixes();
+    let labels: Vec<&str> = sweep.iter().map(|f| f.label).collect();
+    assert!(
+        labels.contains(&"Clear Windows Temp folder"),
+        "Temp folder cleanup should be in sweep: {:?}", labels
+    );
+}
+
+#[test]
+fn test_sweep_includes_firewall_restart() {
+    let sweep = hematite::agent::report_export::sweep_auto_fixes();
+    let labels: Vec<&str> = sweep.iter().map(|f| f.label).collect();
+    assert!(
+        labels.contains(&"Restart Windows Firewall"),
+        "Windows Firewall restart should be in sweep: {:?}", labels
+    );
+}
+
+#[test]
+fn test_fix_plan_routes_winsock_to_reset() {
+    let fixes = hematite::agent::report_export::fix_plan_auto_commands("winsock catalog issue");
+    assert!(!fixes.is_empty(), "winsock should match a fix");
+    assert!(
+        fixes.iter().any(|f| f.label == "Reset TCP/IP stack"),
+        "winsock trigger should map to Reset TCP/IP stack"
+    );
+}
+
+#[test]
+fn test_fix_plan_routes_wlansvc_to_wlan_restart() {
+    let fixes = hematite::agent::report_export::fix_plan_auto_commands("wlansvc service stopped");
+    assert!(!fixes.is_empty(), "wlansvc should match a fix");
+    assert!(
+        fixes.iter().any(|f| f.label == "Restart WLAN AutoConfig service"),
+        "wlansvc trigger should map to WLAN AutoConfig restart"
+    );
+}
+
+#[test]
+fn test_fix_plan_routes_cryptsvc() {
+    let fixes = hematite::agent::report_export::fix_plan_auto_commands("cryptsvc not running");
+    assert!(!fixes.is_empty(), "cryptsvc should match a fix");
+    assert!(
+        fixes.iter().any(|f| f.label == "Restart Cryptographic Services"),
+        "cryptsvc trigger should map to Cryptographic Services restart"
     );
 }

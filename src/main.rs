@@ -804,33 +804,70 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::process::exit(1);
             }
         };
-        println!("--- {}  ({})", name_a, age_a);
-        println!("+++ {}  ({})", name_b, age_b);
-        println!();
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         use similar::{ChangeTag, TextDiff};
         let diff = TextDiff::from_lines(&snap_a, &snap_b);
-        let mut changed = false;
-        for group in diff.grouped_ops(2) {
-            for op in &group {
-                for change in diff.iter_changes(op) {
-                    match change.tag() {
-                        ChangeTag::Delete => {
-                            print!("\x1B[31m- {}\x1B[0m", change);
-                            changed = true;
-                        }
-                        ChangeTag::Insert => {
-                            print!("\x1B[32m+ {}\x1B[0m", change);
-                            changed = true;
-                        }
-                        ChangeTag::Equal => {
-                            print!("  {}", change);
+        if fmt == "json" {
+            let mut diff_lines: Vec<String> = Vec::new();
+            let mut changed = false;
+            for group in diff.grouped_ops(2) {
+                for op in &group {
+                    for change in diff.iter_changes(op) {
+                        let prefix = match change.tag() {
+                            ChangeTag::Delete => { changed = true; "-" }
+                            ChangeTag::Insert => { changed = true; "+" }
+                            ChangeTag::Equal => " ",
+                        };
+                        diff_lines.push(format!("{}{}", prefix, change));
+                    }
+                }
+            }
+            let obj = serde_json::json!({
+                "snapshot_a": format!("{} ({})", name_a, age_a),
+                "snapshot_b": format!("{} ({})", name_b, age_b),
+                "changed": changed,
+                "diff_lines": diff_lines,
+                "before": snap_a,
+                "after": snap_b,
+            });
+            let out = serde_json::to_string_pretty(&obj)
+                .unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e));
+            if let Some(ref out_path) = cockpit.output {
+                write_output_copy(&out, out_path);
+            } else {
+                println!("{}", out);
+            }
+            if cockpit.clipboard {
+                copy_to_clipboard(&out);
+                println!("Copied to clipboard.");
+            }
+        } else {
+            println!("--- {}  ({})", name_a, age_a);
+            println!("+++ {}  ({})", name_b, age_b);
+            println!();
+            let mut changed = false;
+            for group in diff.grouped_ops(2) {
+                for op in &group {
+                    for change in diff.iter_changes(op) {
+                        match change.tag() {
+                            ChangeTag::Delete => {
+                                print!("\x1B[31m- {}\x1B[0m", change);
+                                changed = true;
+                            }
+                            ChangeTag::Insert => {
+                                print!("\x1B[32m+ {}\x1B[0m", change);
+                                changed = true;
+                            }
+                            ChangeTag::Equal => {
+                                print!("  {}", change);
+                            }
                         }
                     }
                 }
             }
-        }
-        if !changed {
-            println!("No differences between '{}' and '{}'.", name_a, name_b);
+            if !changed {
+                println!("No differences between '{}' and '{}'.", name_a, name_b);
+            }
         }
         return Ok(());
     }

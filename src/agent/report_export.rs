@@ -792,6 +792,76 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 Some("unidentified"),
                 true,
             ),
+            // Windows Temp folder — always safe, include in sweep
+            (
+                "temp folder",
+                "Clear Windows Temp folder",
+                "powershell -Command \"Remove-Item \\\"$env:TEMP\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue\"",
+                None,
+                None,
+                true, // always safe — runs every sweep
+            ),
+            (
+                "temporary files",
+                "Clear Windows Temp folder",
+                "powershell -Command \"Remove-Item \\\"$env:TEMP\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue\"",
+                None,
+                None,
+                false, // duplicate label
+            ),
+            // Windows Firewall
+            (
+                "firewall: off",
+                "Restart Windows Firewall",
+                "powershell -Command \"Restart-Service MpsSvc -Force -ErrorAction SilentlyContinue\"",
+                Some("security"),
+                Some("firewall: off"),
+                true,
+            ),
+            (
+                "firewall profile: disabled",
+                "Restart Windows Firewall",
+                "powershell -Command \"Restart-Service MpsSvc -Force -ErrorAction SilentlyContinue\"",
+                Some("security"),
+                Some("firewall: off"),
+                false, // duplicate label
+            ),
+            // TCP/IP stack reset — requires reboot; explicit --fix only
+            (
+                "winsock",
+                "Reset TCP/IP stack",
+                "netsh int ip reset && netsh winsock reset",
+                Some("connectivity"),
+                Some("unreachable"),
+                false,
+            ),
+            // Remote Desktop service — explicit --fix only (disruptive if active sessions)
+            (
+                "termservice",
+                "Restart Remote Desktop Services",
+                "powershell -Command \"Restart-Service TermService -Force -ErrorAction SilentlyContinue\"",
+                Some("rdp"),
+                Some("stopped"),
+                false,
+            ),
+            // WLAN AutoConfig — explicit --fix only (could drop Wi-Fi briefly)
+            (
+                "wlansvc",
+                "Restart WLAN AutoConfig service",
+                "powershell -Command \"Restart-Service Wlansvc -Force -ErrorAction SilentlyContinue\"",
+                Some("wifi"),
+                Some("stopped"),
+                false,
+            ),
+            // Cryptographic Services
+            (
+                "cryptsvc",
+                "Restart Cryptographic Services",
+                "powershell -Command \"Restart-Service CryptSvc -Force -ErrorAction SilentlyContinue\"",
+                Some("identity_auth"),
+                Some("cryptsvc"),
+                false,
+            ),
             // Remote Desktop — security-sensitive; only on explicit --fix
             (
                 "remote desktop disabled",
@@ -878,6 +948,12 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("Printer offline") => Some("printer offline or stuck"),
         t if t.contains("Outlook mail profile") => Some("Outlook not opening"),
         t if t.contains("PrintNightmare") => Some("PrintNightmare not mitigated"),
+        t if t.contains("Temp folder") => Some("disk full"),
+        t if t.contains("Windows Firewall") => Some("Windows Firewall stopped"),
+        t if t.contains("TCP/IP stack") => Some("network not working after update"),
+        t if t.contains("Remote Desktop Services") => Some("RDP not responding"),
+        t if t.contains("WLAN AutoConfig") => Some("WiFi service stopped"),
+        t if t.contains("Cryptographic Services") => Some("certificates not loading"),
         _ => None,
     }
 }
