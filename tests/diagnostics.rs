@@ -10373,6 +10373,61 @@ fn test_fix_issue_categories_covers_advertised_areas() {
 }
 
 #[test]
+fn test_recipe_matches_external_monitor_not_detected() {
+    for trigger in &[
+        "monitor not detected",
+        "second monitor not showing",
+        "hdmi not working",
+        "displayport not detected",
+        "external display not",
+        "no signal on monitor",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("External monitor") || r.title.contains("no signal")),
+            "should match external monitor recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_explorer_crash() {
+    for trigger in &[
+        "explorer.exe crash",
+        "windows explorer crash",
+        "desktop icons disappeared",
+        "taskbar disappeared",
+        "start menu crashed",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("Explorer") || r.title.contains("taskbar")),
+            "should match explorer crash recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_monitor_routes_to_display_config() {
+    let topics = hematite::agent::report_export::fix_plan_topics("second monitor not showing up");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"display_config"),
+        "monitor query should route to display_config"
+    );
+}
+
+#[test]
+fn test_routing_explorer_crash_routes_to_processes() {
+    let topics = hematite::agent::report_export::fix_plan_topics("taskbar disappeared after crash");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"processes") || topic_ids.contains(&"log_check"),
+        "explorer crash query should route to processes or log_check"
+    );
+}
+
+#[test]
 fn test_all_action_recipes_have_fix_arg_mapping() {
     // Every ACTION/INVESTIGATE recipe title should have a recipe_title_to_fix_arg entry so that
     // suggest_fix_commands can surface it as a hematite --fix hint in reports.

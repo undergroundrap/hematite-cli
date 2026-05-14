@@ -801,6 +801,40 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     );
     add_if!(
         &[
+            "monitor not detected",
+            "second monitor",
+            "hdmi not working",
+            "displayport not",
+            "external monitor",
+            "external display",
+            "no signal on monitor",
+            "extend display",
+            "duplicate display"
+        ],
+        &[
+            ("display_config", "Display Config"),
+            ("device_health", "Device Health"),
+            ("drivers", "Drivers")
+        ]
+    );
+    add_if!(
+        &[
+            "explorer.exe crash",
+            "windows explorer crash",
+            "file explorer crash",
+            "desktop icons disappeared",
+            "taskbar disappeared",
+            "taskbar not responding",
+            "start menu crashed",
+            "desktop froze"
+        ],
+        &[
+            ("processes", "Processes"),
+            ("log_check", "Event Log")
+        ]
+    );
+    add_if!(
+        &[
             "access denied",
             "access is denied",
             "permission denied",
@@ -1314,6 +1348,10 @@ pub fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("Browser") && (t.contains("slow") || t.contains("crashing")) => {
             Some("browser slow or crashing")
         }
+        t if t.contains("External monitor") || t.contains("no signal") => {
+            Some("external monitor not detected")
+        }
+        t if t.contains("Explorer") && t.contains("crashed") => Some("desktop or taskbar crashed"),
         t if t.contains("Visual C++") => Some("Visual C++ runtime missing"),
         t if t.contains("Certificate expiring") => Some("certificate expiring soon"),
         t if t.contains("Page file not configured") => Some("page file not configured"),
@@ -1482,6 +1520,14 @@ pub fn fix_issue_categories() -> &'static [(&'static str, &'static str)] {
         (
             "Wi-Fi Dropping",
             "wifi drops, wifi disconnects, internet cuts out, wifi intermittent, wifi unstable",
+        ),
+        (
+            "Monitor Not Detected",
+            "second monitor not showing, HDMI not working, external monitor, no signal, DisplayPort",
+        ),
+        (
+            "Explorer / Desktop Crashed",
+            "desktop crashed, taskbar disappeared, start menu not working, File Explorer crash",
         ),
     ]
 }

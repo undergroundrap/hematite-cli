@@ -1421,6 +1421,58 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("device_health"),
         },
     },
+
+    // ── External monitor not detected / no signal ─────────────────────────────
+    // Note: "display adapter" is owned by the GPU crash recipe; use monitor-specific phrases.
+    RecipeEntry {
+        triggers: &[
+            "monitor not detected", "second monitor not showing", "second monitor not detected",
+            "hdmi not working", "displayport not detected", "display not detected",
+            "external display not", "no signal on monitor", "monitor not recognized",
+            "extend display not", "duplicate display not", "monitor shows no signal",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "External monitor not detected or showing no signal",
+            steps: &[
+                "Press Win+P to open the display projection menu → choose 'Extend' or 'Duplicate' — Windows sometimes stops detecting secondary monitors after sleep or lock",
+                "Unplug and replug the cable (HDMI or DisplayPort) at both ends — contact issues are the most common cause of 'no signal'; try a different cable if available",
+                "Run hematite --inspect display_config to see which monitors Windows currently detects and their reported resolution and refresh rate",
+                "In Display Settings (right-click desktop → Display settings) → scroll down → click 'Detect' under Multiple displays — forces Windows to re-scan for connected monitors",
+                "Try a different port: if using HDMI 1, try HDMI 2 or the DisplayPort on the same GPU or dock",
+                "Check if the monitor input source matches: most monitors have an on-screen menu to switch between HDMI 1, HDMI 2, DisplayPort, VGA — cycle through all inputs",
+                "Update or reinstall the GPU driver: Device Manager → Display Adapters → right-click GPU → Update driver; or use GeForce Experience (NVIDIA) or Radeon Software (AMD) for the latest driver",
+                "For docks and USB-C hubs: ensure the dock has a DisplayLink or Thunderbolt driver installed and is connected to a Thunderbolt-capable port; generic USB-C ports often don't support video output",
+            ],
+            dig_deeper: Some("display_config"),
+        },
+    },
+
+    // ── Windows Explorer / desktop / taskbar crashed ──────────────────────────
+    // Note: "explorer" could be a substring — use "explorer.exe" or "explorer crash" to be precise.
+    RecipeEntry {
+        triggers: &[
+            "explorer.exe crash", "explorer.exe not responding", "windows explorer crash",
+            "file explorer crash", "desktop icons disappeared", "taskbar disappeared",
+            "taskbar not responding", "start menu not working", "start menu crashed",
+            "desktop froze", "desktop not responding", "shell infrastructure crash",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Windows Explorer / desktop or taskbar crashed",
+            steps: &[
+                "Restart Explorer immediately without rebooting: press Ctrl+Shift+Esc → Task Manager → Details tab → find explorer.exe → right-click → End task → File → Run new task → type explorer.exe → OK",
+                "If Task Manager won't open: press Ctrl+Alt+Del → Task Manager → or run from the lock screen",
+                "Check for recent Windows Updates or driver updates that may have caused the crash: Settings → Windows Update → View update history — note what installed in the last 48 hours",
+                "Check the Application event log for crash details: run hematite --inspect log_check and look for 'Windows Explorer' or 'APPCRASH' events near the crash time",
+                "Run SFC to repair corrupted shell files (a common cause of recurring Explorer crashes): PowerShell (admin) → sfc /scannow → then DISM /Online /Cleanup-Image /RestoreHealth → reboot",
+                "If Desktop icons keep disappearing: right-click Desktop → View → ensure 'Show desktop icons' is checked",
+                "If Start menu doesn't work after reboot: PowerShell (admin) → Get-AppXPackage -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"} — reinstalls shell UWP components",
+                "Create a new user profile as a diagnostic: Settings → Accounts → Family & other users → Add someone else — if Explorer works fine in the new profile, your current profile is corrupt",
+            ],
+            dig_deeper: Some("log_check"),
+        },
+    },
 ];
 
 pub struct HealthScore {
