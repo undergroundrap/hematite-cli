@@ -941,6 +941,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "can't get ip",
             "apipa",
             "169.254",
+            "ipv4",
             "dhcp not",
             "dhcp fail",
             "dhcp server",
@@ -955,6 +956,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     );
     add_if!(
         &[
+            "ipv6",
             "ipv6 not",
             "ipv6 fail",
             "no ipv6",
@@ -1061,6 +1063,108 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "audit log"
         ],
         &[("log_check", "Event Log"), ("services", "Services")]
+    );
+    add_if!(
+        &[
+            "ctrl+alt+del",
+            "login screen stuck",
+            "stuck on lock screen",
+            "winlogon",
+            "sign in screen stuck",
+            "can't get past login",
+            "welcome screen stuck"
+        ],
+        &[("sign_in", "Sign-In / Windows Hello"), ("services", "Services")]
+    );
+    add_if!(
+        &[
+            "reset windows",
+            "can't reset",
+            "windows reset",
+            "reinstall windows",
+            "factory reset windows",
+            "repair windows install",
+            "windows recovery"
+        ],
+        &[
+            ("installer_health", "Installer Health"),
+            ("pending_reboot", "Pending Reboot"),
+            ("integrity", "Integrity")
+        ]
+    );
+    add_if!(
+        &[
+            "scheduled task",
+            "task scheduler",
+            "task not running",
+            "scheduled job",
+            "task failed"
+        ],
+        &[("scheduled_tasks", "Scheduled Tasks"), ("log_check", "Event Log")]
+    );
+    add_if!(
+        &[
+            "ssh connection",
+            "ssh refused",
+            "ssh timeout",
+            "openssh",
+            "ssh not working",
+            "ssh key",
+            "sshd"
+        ],
+        &[
+            ("ssh", "SSH"),
+            ("firewall_rules", "Firewall Rules"),
+            ("connectivity", "Connectivity")
+        ]
+    );
+    add_if!(
+        &[
+            "git credential",
+            "git push denied",
+            "git auth",
+            "github auth",
+            "git permission",
+            "git clone failed",
+            "git identity"
+        ],
+        &[("git_config", "Git Config"), ("credentials", "Credentials")]
+    );
+    add_if!(
+        &[
+            "not found in path",
+            "command not found",
+            "python not found",
+            "node not found",
+            "path issue",
+            "missing from path",
+            "env var not set",
+            "toolchain not found"
+        ],
+        &[("toolchains", "Toolchains"), ("env", "Environment Vars"), ("path", "PATH")]
+    );
+    add_if!(
+        &[
+            "version conflict",
+            "node version",
+            "python version conflict",
+            "dev conflict",
+            "package manager conflict",
+            "conda shadow",
+            "nvm conflict",
+            "pyenv conflict"
+        ],
+        &[("dev_conflicts", "Dev Conflicts"), ("toolchains", "Toolchains")]
+    );
+    add_if!(
+        &[
+            "group policy",
+            "gpo ",
+            "gpo:",
+            "group policy error",
+            "policy enforcement"
+        ],
+        &[("gpo", "Group Policy"), ("domain_health", "Domain Health")]
     );
     add_if!(
         &[
