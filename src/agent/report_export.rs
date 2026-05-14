@@ -954,6 +954,9 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("Remote Desktop Services") => Some("RDP not responding"),
         t if t.contains("WLAN AutoConfig") => Some("WiFi service stopped"),
         t if t.contains("Cryptographic Services") => Some("certificates not loading"),
+        t if t.contains("No audio") => Some("no sound"),
+        t if t.contains("Bluetooth not working") => Some("Bluetooth not connecting"),
+        t if t.contains("App installation failing") => Some("app install not working"),
         _ => None,
     }
 }

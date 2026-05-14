@@ -1056,7 +1056,7 @@ Nothing currently queued. All roadmap items shipped.
 - **IPv6 routing fix** — ✓ Done. `ipv6` topic was orphaned in the routing engine (variable existed but was never dispatched). Now routes correctly for all IPv6/SLAAC/DHCPv6 queries.
 - **Shadow copies age** — ✓ Done. `shadow_copies` topic now shows the most recent snapshot's creation date and age in days via `Get-WmiObject Win32_ShadowCopy`, making disaster recovery confidence visible at a glance.
 - **RDP security layer and encryption level** — ✓ Done. `rdp` topic now includes Security Layer (RDP/Negotiate/SSL-TLS) and MinEncryptionLevel (Low/ClientCompat/High/FIPS) from the RDP-Tcp registry key.
-- **New fix recipes** — ✓ Done. Added: service start failure, RDP disabled/unreachable, Windows Update service broken, PrintNightmare not mitigated, TCP/IP stack reset, WLAN AutoConfig stopped, and Windows Firewall stopped. Total: 40 recipes, 12 sweep-eligible auto-fixes.
+- **New fix recipes** — ✓ Done. Added: service start failure, RDP disabled/unreachable, Windows Update service broken, PrintNightmare not mitigated, TCP/IP stack reset, WLAN AutoConfig stopped, Windows Firewall stopped, No audio, Bluetooth not working, and App installation failing. Total: 43 recipes, 12 sweep-eligible auto-fixes.
 
 ### Deferred — implement if users request it
 

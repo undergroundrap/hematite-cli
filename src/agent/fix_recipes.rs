@@ -733,6 +733,62 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("security"),
         },
     },
+
+    // ── No audio / sound not working ─────────────────────────────────────────
+    RecipeEntry {
+        triggers: &["core audio services are not running", "no audio endpoints", "audio service not running", "audiosrv: not running", "no playback devices", "no sound device"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "No audio — Windows Audio service or device issue",
+            steps: &[
+                "Restart the Windows Audio service: PowerShell (admin) → Restart-Service Audiosrv -Force",
+                "If the service restarts but no sound, check Device Manager for audio device errors: Win+X → Device Manager → Sound, video and game controllers",
+                "Right-click any device with a yellow bang → Update driver → Search automatically",
+                "Check the audio device is not muted or disabled: right-click volume icon in taskbar → Open Sound settings → check Output device",
+                "For Bluetooth headsets: run hematite --inspect bluetooth to check the AVCTP service and audio crossover state",
+                "If using a USB audio device: unplug and replug the device, or try a different USB port",
+                "Last resort — reinstall the audio driver: Device Manager → Sound → right-click device → Uninstall device → Restart PC (Windows re-installs the driver)",
+            ],
+            dig_deeper: Some("audio"),
+        },
+    },
+
+    // ── Bluetooth pairing/connection issues ──────────────────────────────────
+    RecipeEntry {
+        triggers: &["bluetooth-related services are not fully running", "no bluetooth radio", "bluetooth device issues", "bluetooth adapter not detected", "bthserv: stopped", "bluetooth service not running"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Bluetooth not working — service or hardware issue",
+            steps: &[
+                "Restart the Bluetooth services: PowerShell (admin) → Restart-Service bthserv -Force",
+                "If the service starts but devices won't pair: toggle Bluetooth off then on in Settings → Bluetooth & devices",
+                "Remove the device and re-pair it: Settings → Bluetooth & devices → find the device → Remove → Add device",
+                "If no Bluetooth adapter is detected: check Device Manager → Bluetooth — look for missing or disabled adapters",
+                "For a disabled adapter: right-click → Enable device; for a missing adapter, check if Bluetooth is disabled in BIOS/UEFI or via a physical switch/key combination",
+                "Update the Bluetooth driver: Device Manager → Bluetooth → right-click adapter → Update driver",
+                "For Bluetooth audio: verify the device is set as the default audio output in Settings → System → Sound",
+            ],
+            dig_deeper: Some("bluetooth"),
+        },
+    },
+
+    // ── Windows Installer / app installation failing ──────────────────────────
+    RecipeEntry {
+        triggers: &["msiserver) is disabled", "msiexec.exe is missing", "installer transaction already in progress", "recent installer failures were recorded", "microsoft desktop app installer is missing", "msiserver: disabled"],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "App installation failing — Windows Installer issue",
+            steps: &[
+                "Re-enable and start the Windows Installer service: PowerShell (admin) → Set-Service msiserver -StartupType Manual; Start-Service msiserver",
+                "If an installer transaction is stuck, clear it: PowerShell (admin) → msiexec /unreg; msiexec /regserver",
+                "If a pending reboot is blocking installs: save your work and restart the computer first",
+                "For winget install failures: ensure Microsoft Desktop App Installer is current — open Microsoft Store → search 'App Installer' → Update",
+                "Clear the Windows Installer temp files: delete C:\\Windows\\Installer\\*.tmp",
+                "If MSI installs still fail after the above, run: sfc /scannow in an admin PowerShell to repair system files that MSI depends on",
+            ],
+            dig_deeper: Some("installer_health"),
+        },
+    },
 ];
 
 pub struct HealthScore {

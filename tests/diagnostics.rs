@@ -9532,6 +9532,38 @@ fn test_fix_plan_routes_cryptsvc() {
     );
 }
 
+// ── New fix_recipes.rs coverage ──────────────────────────────────────────────
+
+#[test]
+fn test_recipe_matches_no_audio() {
+    let out = hematite::agent::fix_recipes::match_recipes(
+        "Core audio services are not running: Audiosrv, AudioEndpointBuilder"
+    );
+    assert!(!out.is_empty(), "should match audio recipe");
+    assert!(out.iter().any(|r| r.title.contains("No audio")), "should match 'No audio' recipe");
+}
+
+#[test]
+fn test_recipe_matches_bluetooth_not_working() {
+    let out = hematite::agent::fix_recipes::match_recipes(
+        "Bluetooth-related services are not fully running: BthServ"
+    );
+    assert!(!out.is_empty(), "should match bluetooth recipe");
+    assert!(out.iter().any(|r| r.title.contains("Bluetooth")), "should match Bluetooth recipe");
+}
+
+#[test]
+fn test_recipe_matches_installer_health() {
+    let out = hematite::agent::fix_recipes::match_recipes(
+        "Windows Installer service (msiserver) is disabled - MSI installs cannot start until it is re-enabled."
+    );
+    assert!(!out.is_empty(), "should match installer recipe");
+    assert!(
+        out.iter().any(|r| r.title.contains("App installation")),
+        "should match app installation recipe"
+    );
+}
+
 #[test]
 fn test_sweep_list_json_schema_shape() {
     // Verify the JSON structure of --fix-all --only list --report-format json.
