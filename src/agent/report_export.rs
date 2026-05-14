@@ -782,6 +782,39 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             ("processes", "Processes")
         ]
     );
+    add_if!(
+        &[
+            "wifi disconnects",
+            "wifi drops",
+            "wifi keeps dropping",
+            "wifi keeps disconnecting",
+            "internet keeps cutting",
+            "connection drops",
+            "wifi intermittent",
+            "wifi unstable"
+        ],
+        &[
+            ("wifi", "Wi-Fi"),
+            ("network_adapter", "Network Adapter"),
+            ("connectivity", "Connectivity")
+        ]
+    );
+    add_if!(
+        &[
+            "access denied",
+            "access is denied",
+            "permission denied",
+            "you don't have permission",
+            "cannot access this folder",
+            "file access denied",
+            "folder access denied",
+            "unauthorized access"
+        ],
+        &[
+            ("user_accounts", "User Accounts"),
+            ("shares", "Shares")
+        ]
+    );
 
     if topics.is_empty() {
         topics.push(("health_report", "System Health"));
@@ -1288,6 +1321,12 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
             Some("Windows Update stuck")
         }
         t if t.contains("GPU") && t.contains("driver crash") => Some("GPU driver crash"),
+        t if t.contains("Access denied") || t.contains("permission error") => {
+            Some("access denied to file or folder")
+        }
+        t if t.contains("Wi-Fi keeps disconnecting") || t.contains("dropping intermittently") => {
+            Some("Wi-Fi keeps dropping")
+        }
         _ => None,
     }
 }
@@ -1434,6 +1473,14 @@ pub fn fix_issue_categories() -> &'static [(&'static str, &'static str)] {
         (
             "Windows Update Stuck",
             "update stuck, update error 0x, update won't install, cumulative update failed",
+        ),
+        (
+            "Access Denied",
+            "access denied, can't open file, permission denied, you don't have permission",
+        ),
+        (
+            "Wi-Fi Dropping",
+            "wifi drops, wifi disconnects, internet cuts out, wifi intermittent, wifi unstable",
         ),
     ]
 }

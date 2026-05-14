@@ -10288,6 +10288,63 @@ fn test_routing_gpu_crash_routes_to_device_health() {
 }
 
 #[test]
+fn test_recipe_matches_access_denied() {
+    // "access is denied" is owned by the network share recipe — test permission-specific triggers
+    for trigger in &[
+        "access denied",
+        "you don't have permission",
+        "permission denied",
+        "you do not have permission",
+        "cannot access this folder",
+        "unauthorized access",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("Access denied") || r.title.contains("permission")),
+            "should match access denied recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_wifi_dropping() {
+    for trigger in &[
+        "wifi disconnects",
+        "wifi keeps dropping",
+        "wifi keeps disconnecting",
+        "internet keeps cutting out",
+        "wifi unstable",
+        "wifi intermittent",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("Wi-Fi keeps") || r.title.contains("dropping")),
+            "should match wifi dropping recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_access_denied_routes_to_user_accounts() {
+    let topics = hematite::agent::report_export::fix_plan_topics("access denied opening file");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"user_accounts"),
+        "access denied query should route to user_accounts"
+    );
+}
+
+#[test]
+fn test_routing_wifi_dropping_routes_to_network_adapter() {
+    let topics = hematite::agent::report_export::fix_plan_topics("wifi keeps dropping connection");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"wifi") || topic_ids.contains(&"network_adapter"),
+        "wifi dropping query should route to wifi or network_adapter"
+    );
+}
+
+#[test]
 fn test_fix_issue_categories_covers_advertised_areas() {
     let cats = hematite::agent::report_export::fix_issue_categories();
     let names: Vec<&str> = cats.iter().map(|(n, _)| *n).collect();
@@ -10305,6 +10362,8 @@ fn test_fix_issue_categories_covers_advertised_areas() {
         "GPU Driver Crash",
         "Windows Update Stuck",
         "Slow Boot",
+        "Access Denied",
+        "Wi-Fi Dropping",
     ] {
         assert!(
             names.contains(expected),

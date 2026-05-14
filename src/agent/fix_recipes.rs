@@ -1339,6 +1339,58 @@ static ALL_RECIPES: &[RecipeEntry] = &[
         },
     },
 
+    // ── Access denied / file permission error ─────────────────────────────────
+    // Note: "access is denied" is owned by the Network share recipe (shorter AC pattern wins
+    // when patterns share the same trigger string). Use permission-specific phrases here.
+    RecipeEntry {
+        triggers: &[
+            "access denied", "you don't have permission",
+            "you do not have permission", "cannot access this folder",
+            "permission denied", "unable to access",
+            "folder access denied", "unauthorized access",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Access denied — file or folder permission error",
+            steps: &[
+                "Try running the application as Administrator: right-click the app → Run as administrator — many system folders require elevated permissions",
+                "Take ownership of the file or folder: right-click the file/folder → Properties → Security tab → Advanced → Owner → Edit → change owner to your account → check 'Replace owner on subcontainers and objects' → OK",
+                "Grant your account full control: Properties → Security → Edit → Add → type your username → check Full Control → OK; then retry the operation",
+                "For files on an external drive or from another PC: the old security identifier (SID) from the previous system owns the files — take ownership as above; alternatively, right-click the drive root and grant your account permissions there",
+                "For network shares: check that your account has read/write permissions on the share — contact the share owner or IT admin to verify permissions",
+                "For C:\\Windows or system folders: these are locked by design for security; use the built-in Administrator account (net user administrator /active:yes in an elevated command prompt) only if absolutely necessary",
+                "Check if the file is in use by another process: Task Manager (Ctrl+Shift+Esc) → Details tab → right-click → End task for the process holding the file; or use Sysinternals Process Explorer → Find Handle to locate which process has the lock",
+                "Run hematite --inspect user_accounts to verify your account type — Standard users cannot access certain folders that Administrators can",
+            ],
+            dig_deeper: Some("user_accounts"),
+        },
+    },
+
+    // ── Wi-Fi keeps disconnecting or dropping ────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "wifi disconnects", "wifi keeps dropping", "wifi keeps disconnecting",
+            "internet keeps cutting out", "wifi unstable", "wifi drops every",
+            "internet drops", "connection drops", "wifi connection drops",
+            "network keeps disconnecting", "wifi intermittent",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Wi-Fi keeps disconnecting or dropping intermittently",
+            steps: &[
+                "Run hematite --inspect wifi to check signal strength and negotiated speed — a weak signal (RSSI worse than -70 dBm) is the most common cause of intermittent drops; move closer to the router or use a Wi-Fi extender",
+                "Disable Wi-Fi adapter power management (the #1 fix for random disconnects): Device Manager → Network Adapters → right-click Wi-Fi adapter → Properties → Power Management → uncheck 'Allow the computer to turn off this device to save power'",
+                "Update the Wi-Fi driver: Device Manager → Network Adapters → right-click Wi-Fi adapter → Update driver; or download the latest driver from the laptop/motherboard manufacturer's website",
+                "Forget and rejoin the network: Settings → Network & Internet → Wi-Fi → Manage known networks → select the network → Forget → reconnect and re-enter the password",
+                "Change the DNS server to a more reliable provider: Settings → Network & Internet → Wi-Fi → Hardware properties → DNS server assignment → Manual → IPv4: 1.1.1.1 and 1.0.0.1 (Cloudflare) or 8.8.8.8 and 8.8.4.4 (Google)",
+                "Check for channel congestion: router admin page (usually 192.168.1.1) → change the Wi-Fi channel to a less congested one (1, 6, or 11 for 2.4 GHz; any non-overlapping channel for 5 GHz)",
+                "Reset the TCP/IP stack if drops are accompanied by complete connectivity loss: PowerShell (admin) → netsh int ip reset → netsh winsock reset → reboot",
+                "Check router firmware updates — outdated router firmware causes intermittent disconnections; update via the router's admin interface",
+            ],
+            dig_deeper: Some("wifi"),
+        },
+    },
+
     // ── GPU / display driver crash (TDR failure, nvlddmkm.sys, black screen) ──
     // Note: "display driver" is owned by the Screen flickering recipe. Use unique
     // driver-crash identifiers only: kernel fault names, TDR codes, GPU-specific terms.
