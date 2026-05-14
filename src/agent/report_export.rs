@@ -182,7 +182,9 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "smart error",
             "disk error",
             "bad sector",
-            "drive health"
+            "drive health",
+            "disk health",
+            "check disk"
         ],
         &[("disk_health", "Disk Health"), ("storage", "Storage")]
     );
@@ -192,7 +194,16 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "boot slow",
             "slow startup",
             "startup slow",
-            "takes forever to boot"
+            "takes forever to boot",
+            "not booting",
+            "won't boot",
+            "wont boot",
+            "boot fail",
+            "boot loop",
+            "stuck on spinning",
+            "spinning wheel",
+            "loading wheel",
+            "infinite loading"
         ],
         &[
             ("startup_items", "Startup Items"),
@@ -1361,6 +1372,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     add_if!(
         &[
             "how much ram",
+            "check my ram",
+            "check ram",
+            "my ram size",
+            "show ram",
             "what cpu",
             "cpu model",
             "what processor",
@@ -1417,7 +1432,12 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     add_if!(
         &[
             "task manager",
-            "process explorer"
+            "process explorer",
+            "what processes",
+            "most resources",
+            "using the most",
+            "top processes",
+            "resource hog"
         ],
         &[("processes", "Processes"), ("resource_load", "Resource Load")]
     );
