@@ -581,6 +581,55 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     );
     add_if!(
         &[
+            "overheat",
+            "overheating",
+            "too hot",
+            "running hot",
+            "laptop hot",
+            "pc getting hot",
+            "temperature high",
+            "cpu temperature",
+            "thermal throttl",
+            "fan loud",
+            "fan noise",
+            "fans running",
+            "fan running",
+            "fans spinning",
+            "fan spinning",
+            "loud fan",
+            "fan always on",
+            "fan constantly",
+            "fan at max",
+            "fan at 100"
+        ],
+        &[
+            ("thermal", "Thermal"),
+            ("cpu_power", "CPU Power"),
+            ("overclocker", "GPU / Overclocker Telemetry")
+        ]
+    );
+    add_if!(
+        &[
+            "out of memory",
+            "low memory",
+            "ram full",
+            "running out of ram",
+            "memory full",
+            "ram usage high",
+            "memory usage high",
+            "physical memory",
+            "ram almost",
+            "not enough memory",
+            "memory leak"
+        ],
+        &[
+            ("resource_load", "Resource Load"),
+            ("pagefile", "Page File"),
+            ("processes", "Processes")
+        ]
+    );
+    add_if!(
+        &[
             "gpu",
             "graphics",
             "game slow",
