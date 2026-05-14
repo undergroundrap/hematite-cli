@@ -10527,6 +10527,84 @@ fn test_routing_microphone_still_routes_to_audio() {
 }
 
 #[test]
+fn test_routing_ntp_no_false_positive_on_sync_fail() {
+    // "NTP sync failing" previously matched onedrive's "sync fail" keyword
+    let topics = hematite::agent::report_export::fix_plan_topics("NTP sync failing");
+    let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(!ids.contains(&"onedrive"), "onedrive should NOT match 'NTP sync failing'");
+    assert!(ids.contains(&"ntp"), "ntp should match 'NTP sync failing'");
+}
+
+#[test]
+fn test_routing_time_zone_routes_to_ntp() {
+    let cases = ["time zone wrong", "wrong timezone", "timezone incorrect"];
+    for q in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(&"ntp"), "ntp routing expected for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_ip_dhcp_routes_correctly() {
+    let cases = ["IP address conflict", "no IP address", "DHCP not working"];
+    for q in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(&"dhcp"), "dhcp routing expected for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_ipv6_mtu_route_correctly() {
+    let ipv6_topics = hematite::agent::report_export::fix_plan_topics("IPv6 not working");
+    let mtu_topics = hematite::agent::report_export::fix_plan_topics("MTU issues causing packet loss");
+    let ipv6_ids: Vec<_> = ipv6_topics.iter().map(|(t, _)| *t).collect();
+    let mtu_ids: Vec<_> = mtu_topics.iter().map(|(t, _)| *t).collect();
+    assert!(ipv6_ids.contains(&"ipv6"), "ipv6 routing expected for IPv6 query");
+    assert!(mtu_ids.contains(&"mtu"), "mtu routing expected for MTU query");
+}
+
+#[test]
+fn test_routing_certificates_tpm_smb_route_correctly() {
+    let cases = [
+        ("certificate expired", "certificates"),
+        ("TPM not detected", "tpm"),
+        ("secure boot disabled", "tpm"),
+        ("SMB1 enabled warning", "shares"),
+    ];
+    for (q, expected) in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(expected), "{expected} routing expected for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_pagefile_search_index_route_correctly() {
+    let cases = [
+        ("hiberfil.sys too big", "pagefile"),
+        ("pagefile taking up space", "pagefile"),
+        ("windows search eating disk", "search_index"),
+    ];
+    for (q, expected) in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(expected), "{expected} routing expected for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_wmi_event_log_route_correctly() {
+    let wmi_topics = hematite::agent::report_export::fix_plan_topics("WMI not working");
+    let log_topics = hematite::agent::report_export::fix_plan_topics("event log full");
+    let wmi_ids: Vec<_> = wmi_topics.iter().map(|(t, _)| *t).collect();
+    let log_ids: Vec<_> = log_topics.iter().map(|(t, _)| *t).collect();
+    assert!(wmi_ids.contains(&"wmi_health"), "wmi_health routing expected for WMI query");
+    assert!(log_ids.contains(&"log_check"), "log_check routing expected for event log query");
+}
+
+#[test]
 fn test_routing_activation_routes_correctly() {
     let cases = ["Windows license expired", "not activated", "need to activate Windows"];
     for q in &cases {

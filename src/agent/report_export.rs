@@ -397,7 +397,13 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "clock wrong",
             "wrong time",
             "time sync",
-            "time off"
+            "time off",
+            "time zone",
+            "timezone",
+            "wrong timezone",
+            "ntp ",
+            "ntp:",
+            "w32tm"
         ],
         &[("ntp", "NTP / Time Sync")]
     );
@@ -407,7 +413,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "one drive",
             "file sync",
             "not syncing",
-            "sync fail"
+            "onedrive sync"
         ],
         &[("onedrive", "OneDrive")]
     );
@@ -927,6 +933,135 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         ]
     );
 
+    // ── Network addressing ──────────────────────────────────────────────────
+    add_if!(
+        &[
+            "ip address conflict",
+            "no ip address",
+            "can't get ip",
+            "apipa",
+            "169.254",
+            "dhcp not",
+            "dhcp fail",
+            "dhcp server",
+            "ip not assigned",
+            "no dhcp"
+        ],
+        &[
+            ("dhcp", "DHCP Lease"),
+            ("ip_config", "IP Config"),
+            ("connectivity", "Connectivity")
+        ]
+    );
+    add_if!(
+        &[
+            "ipv6 not",
+            "ipv6 fail",
+            "no ipv6",
+            "ipv6 issue",
+            "ipv6 address",
+            "slaac",
+            "dhcpv6"
+        ],
+        &[("ipv6", "IPv6"), ("connectivity", "Connectivity")]
+    );
+    add_if!(
+        &[
+            "mtu",
+            "packet fragmentation",
+            "pmtu",
+            "fragmented packet",
+            "mtu mismatch"
+        ],
+        &[("mtu", "MTU"), ("connectivity", "Connectivity")]
+    );
+    // ── Security / compliance ───────────────────────────────────────────────
+    add_if!(
+        &[
+            "certificate expired",
+            "certificate error",
+            "ssl error",
+            "cert expired",
+            "certificate not trusted",
+            "ssl certificate",
+            "tls error",
+            "certificate warning"
+        ],
+        &[("certificates", "Certificates")]
+    );
+    add_if!(
+        &[
+            "tpm not",
+            "no tpm",
+            "tpm missing",
+            "tpm error",
+            "tpm chip",
+            "secure boot",
+            "uefi secure",
+            "bitlocker needs tpm"
+        ],
+        &[("tpm", "TPM / Secure Boot")]
+    );
+    add_if!(
+        &[
+            "smb1",
+            "smb version 1",
+            "ntlmv1",
+            "ntlm level",
+            "ntlm authentication level",
+            "lmcompatibility",
+            "lan manager"
+        ],
+        &[
+            ("shares", "SMB Shares"),
+            ("local_security_policy", "Local Security Policy")
+        ]
+    );
+    // ── Storage / system files ──────────────────────────────────────────────
+    add_if!(
+        &[
+            "pagefile",
+            "page file",
+            "hiberfil",
+            "hiberfile",
+            "virtual memory file",
+            "swapfile.sys",
+            "virtual memory low"
+        ],
+        &[("pagefile", "Page File"), ("storage", "Storage")]
+    );
+    add_if!(
+        &[
+            "windows search",
+            "search index",
+            "search indexing",
+            "wsearch",
+            "search eating"
+        ],
+        &[("search_index", "Search Index"), ("storage", "Storage")]
+    );
+    // ── System health ───────────────────────────────────────────────────────
+    add_if!(
+        &[
+            "wmi not",
+            "wmi error",
+            "wmi corrupt",
+            "wmi fail",
+            "wmi broken",
+            "winmgmt"
+        ],
+        &[("wmi_health", "WMI Health")]
+    );
+    add_if!(
+        &[
+            "event log full",
+            "event log error",
+            "event viewer",
+            "event log cleared",
+            "audit log"
+        ],
+        &[("log_check", "Event Log"), ("services", "Services")]
+    );
     add_if!(
         &[
             "windows license",
