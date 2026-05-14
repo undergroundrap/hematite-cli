@@ -254,7 +254,11 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "suspicious",
             "threat",
             "infected",
-            "ransomware"
+            "ransomware",
+            "defender blocked",
+            "windows defender",
+            "defender flagged",
+            "defender quarantine"
         ],
         &[
             ("security", "Security Posture"),
@@ -462,9 +466,14 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         &[
             "hibernate",
             "won't hibernate",
+            "wont hibernate",
             "sleep issue",
             "won't sleep",
+            "wont sleep",
+            "wont go to sleep",
+            "won't go to sleep",
             "won't wake",
+            "wont wake",
             "stuck after sleep",
             "won't wake up",
             "sleep mode"
@@ -1305,6 +1314,35 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             ("disk_health", "Disk Health"),
             ("shadow_copies", "Shadow Copies")
         ]
+    );
+
+    add_if!(
+        &[
+            "disk benchmark",
+            "storage speed",
+            "read write speed",
+            "sequential read",
+            "sequential write",
+            "io throughput",
+            "disk throughput",
+            "disk performance",
+            "drive speed test"
+        ],
+        &[("disk_benchmark", "Disk Benchmark")]
+    );
+    add_if!(
+        &[
+            "uac prompt",
+            "uac not",
+            "uac disabled",
+            "user account control",
+            "admin rights",
+            "needs admin",
+            "needs elevation",
+            "run as administrator",
+            "administrator permission"
+        ],
+        &[("local_security_policy", "Local Security Policy"), ("user_accounts", "User Accounts")]
     );
 
     if topics.is_empty() {
