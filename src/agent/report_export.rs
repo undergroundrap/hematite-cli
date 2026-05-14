@@ -292,8 +292,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "speaker",
             "no sound",
             "headset",
-            "mic",
             "microphone",
+            "mic ",
+            "mic not",
+            "mic stopped",
             "crackling",
             "audio fail"
         ],
