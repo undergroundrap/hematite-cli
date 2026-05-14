@@ -7425,7 +7425,10 @@ fn test_fix_all_only_list_returns_all_labels() {
     use hematite::agent::report_export::sweep_auto_fixes;
     let all = sweep_auto_fixes();
     for fix in &all {
-        assert!(!fix.label.is_empty(), "Each sweep fix must have a non-empty label");
+        assert!(
+            !fix.label.is_empty(),
+            "Each sweep fix must have a non-empty label"
+        );
     }
 }
 
@@ -8958,9 +8961,15 @@ fn test_inventory_json_is_valid_and_has_all_categories() {
     let categories = parsed.as_array().expect("should be a JSON array");
     assert_eq!(categories.len(), 9, "should have 9 categories");
     for cat in categories {
-        assert!(cat.get("category").is_some(), "each entry needs a 'category' field");
         assert!(
-            cat["topics"].as_array().map(|t| !t.is_empty()).unwrap_or(false),
+            cat.get("category").is_some(),
+            "each entry needs a 'category' field"
+        );
+        assert!(
+            cat["topics"]
+                .as_array()
+                .map(|t| !t.is_empty())
+                .unwrap_or(false),
             "each category needs a non-empty 'topics' array"
         );
     }
@@ -8969,10 +8978,22 @@ fn test_inventory_json_is_valid_and_has_all_categories() {
 #[test]
 fn test_inventory_json_contains_known_topics() {
     let out = hematite::agent::direct_answers::build_inspect_inventory_json();
-    assert!(out.contains("health_report"), "inventory JSON should contain health_report");
-    assert!(out.contains("connectivity"), "inventory JSON should contain connectivity");
-    assert!(out.contains("docker"), "inventory JSON should contain docker");
-    assert!(out.contains("outlook"), "inventory JSON should contain outlook");
+    assert!(
+        out.contains("health_report"),
+        "inventory JSON should contain health_report"
+    );
+    assert!(
+        out.contains("connectivity"),
+        "inventory JSON should contain connectivity"
+    );
+    assert!(
+        out.contains("docker"),
+        "inventory JSON should contain docker"
+    );
+    assert!(
+        out.contains("outlook"),
+        "inventory JSON should contain outlook"
+    );
 }
 
 // ── snapshots --report-format json ───────────────────────────────────────────
@@ -9009,8 +9030,14 @@ fn test_diff_json_schema_shape() {
         for op in &group {
             for change in diff.iter_changes(op) {
                 let prefix = match change.tag() {
-                    ChangeTag::Delete => { changed = true; "-" }
-                    ChangeTag::Insert => { changed = true; "+" }
+                    ChangeTag::Delete => {
+                        changed = true;
+                        "-"
+                    }
+                    ChangeTag::Insert => {
+                        changed = true;
+                        "+"
+                    }
                     ChangeTag::Equal => " ",
                 };
                 diff_lines.push(format!("{}{}", prefix, change));
@@ -9029,7 +9056,10 @@ fn test_diff_json_schema_shape() {
     let serialized = serde_json::to_string_pretty(&obj).expect("should serialize");
     let parsed: serde_json::Value = serde_json::from_str(&serialized).expect("should parse back");
     assert_eq!(parsed["changed"], serde_json::json!(true));
-    assert!(parsed["diff_lines"].as_array().map(|a| !a.is_empty()).unwrap_or(false));
+    assert!(parsed["diff_lines"]
+        .as_array()
+        .map(|a| !a.is_empty())
+        .unwrap_or(false));
     assert!(parsed.get("before").is_some());
     assert!(parsed.get("after").is_some());
 }
@@ -9049,8 +9079,14 @@ fn test_compare_json_schema_shape() {
         for op in &group {
             for change in diff.iter_changes(op) {
                 let prefix = match change.tag() {
-                    ChangeTag::Delete => { changed = true; "-" }
-                    ChangeTag::Insert => { changed = true; "+" }
+                    ChangeTag::Delete => {
+                        changed = true;
+                        "-"
+                    }
+                    ChangeTag::Insert => {
+                        changed = true;
+                        "+"
+                    }
                     ChangeTag::Equal => " ",
                 };
                 diff_lines.push(format!("{}{}", prefix, change));
@@ -9073,9 +9109,17 @@ fn test_compare_json_schema_shape() {
     assert!(parsed.get("diff_lines").is_some(), "should have diff_lines");
     assert!(parsed.get("before").is_some(), "should have before");
     assert!(parsed.get("after").is_some(), "should have after");
-    assert!(parsed.get("topics").is_none(), "compare JSON should not have topics field");
-    let lines = parsed["diff_lines"].as_array().expect("diff_lines should be array");
-    assert!(!lines.is_empty(), "diff_lines should be non-empty for changed snapshots");
+    assert!(
+        parsed.get("topics").is_none(),
+        "compare JSON should not have topics field"
+    );
+    let lines = parsed["diff_lines"]
+        .as_array()
+        .expect("diff_lines should be array");
+    assert!(
+        !lines.is_empty(),
+        "diff_lines should be non-empty for changed snapshots"
+    );
 }
 
 #[test]
@@ -9089,8 +9133,14 @@ fn test_compare_json_unchanged_snapshots() {
         for op in &group {
             for change in diff.iter_changes(op) {
                 let prefix = match change.tag() {
-                    ChangeTag::Delete => { changed = true; "-" }
-                    ChangeTag::Insert => { changed = true; "+" }
+                    ChangeTag::Delete => {
+                        changed = true;
+                        "-"
+                    }
+                    ChangeTag::Insert => {
+                        changed = true;
+                        "+"
+                    }
                     ChangeTag::Equal => " ",
                 };
                 diff_lines.push(format!("{}{}", prefix, change));
@@ -9135,13 +9185,21 @@ fn test_watch_ndjson_schema_shape() {
 
 #[tokio::test]
 async fn test_generate_inspect_output_json_is_valid_json() {
-    let out =
-        hematite::agent::report_export::generate_inspect_output_json("connectivity").await;
-    let parsed: serde_json::Value =
-        serde_json::from_str(&out).expect("--inspect --report-format json should produce valid JSON");
-    assert!(parsed.get("topics").is_some(), "JSON should have a 'topics' field");
-    assert!(parsed.get("sections").is_some(), "JSON should have a 'sections' field");
-    assert!(parsed.get("generated").is_some(), "JSON should have a 'generated' field");
+    let out = hematite::agent::report_export::generate_inspect_output_json("connectivity").await;
+    let parsed: serde_json::Value = serde_json::from_str(&out)
+        .expect("--inspect --report-format json should produce valid JSON");
+    assert!(
+        parsed.get("topics").is_some(),
+        "JSON should have a 'topics' field"
+    );
+    assert!(
+        parsed.get("sections").is_some(),
+        "JSON should have a 'sections' field"
+    );
+    assert!(
+        parsed.get("generated").is_some(),
+        "JSON should have a 'generated' field"
+    );
 }
 
 #[tokio::test]
@@ -9150,7 +9208,9 @@ async fn test_generate_inspect_output_json_multi_topic() {
         hematite::agent::report_export::generate_inspect_output_json("connectivity,wifi").await;
     let parsed: serde_json::Value =
         serde_json::from_str(&out).expect("multi-topic JSON inspect should be valid");
-    let topics = parsed["topics"].as_array().expect("topics should be an array");
+    let topics = parsed["topics"]
+        .as_array()
+        .expect("topics should be an array");
     assert_eq!(topics.len(), 2, "should have 2 topics in JSON output");
     assert!(
         parsed["sections"].get("connectivity").is_some(),
@@ -9372,36 +9432,57 @@ fn test_fix_routes_browser_health_for_browser_queries() {
 
 #[test]
 fn test_fix_routes_display_for_flickering() {
-    for query in &["screen flickering", "monitor flicker", "display artifact", "screen goes black"] {
+    for query in &[
+        "screen flickering",
+        "monitor flicker",
+        "display artifact",
+        "screen goes black",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"display_config"),
-            "\"{}\" should route to display_config, got: {:?}", query, names
+            "\"{}\" should route to display_config, got: {:?}",
+            query,
+            names
         );
     }
 }
 
 #[test]
 fn test_fix_routes_storage_for_high_disk() {
-    for query in &["high disk usage", "disk 100 percent", "disk is full", "no space left"] {
+    for query in &[
+        "high disk usage",
+        "disk 100 percent",
+        "disk is full",
+        "no space left",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"storage"),
-            "\"{}\" should route to storage, got: {:?}", query, names
+            "\"{}\" should route to storage, got: {:?}",
+            query,
+            names
         );
     }
 }
 
 #[test]
 fn test_fix_routes_overclocker_for_gpu_gaming() {
-    for query in &["GPU overheating", "game slow", "fps drop", "graphics card issue"] {
+    for query in &[
+        "GPU overheating",
+        "game slow",
+        "fps drop",
+        "graphics card issue",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"overclocker"),
-            "\"{}\" should route to overclocker, got: {:?}", query, names
+            "\"{}\" should route to overclocker, got: {:?}",
+            query,
+            names
         );
     }
 }
@@ -9413,19 +9494,28 @@ fn test_fix_routes_startup_items_for_boot_slow() {
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"startup_items"),
-            "\"{}\" should route to startup_items, got: {:?}", query, names
+            "\"{}\" should route to startup_items, got: {:?}",
+            query,
+            names
         );
     }
 }
 
 #[test]
 fn test_fix_routes_installer_health_for_install_failures() {
-    for query in &["can't install app", "installation failed", "winget fail", "store install stuck"] {
+    for query in &[
+        "can't install app",
+        "installation failed",
+        "winget fail",
+        "store install stuck",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
             names.contains(&"installer_health"),
-            "\"{}\" should route to installer_health, got: {:?}", query, names
+            "\"{}\" should route to installer_health, got: {:?}",
+            query,
+            names
         );
     }
 }
@@ -9484,7 +9574,11 @@ fn test_auto_fix_deduplicates_same_label() {
         hematite::agent::report_export::fix_plan_auto_commands("wsearch stopped windows search");
     let labels: Vec<&str> = fixes.iter().map(|f| f.label).collect();
     let unique: std::collections::HashSet<&str> = labels.iter().copied().collect();
-    assert_eq!(labels.len(), unique.len(), "duplicate labels in auto-fix results");
+    assert_eq!(
+        labels.len(),
+        unique.len(),
+        "duplicate labels in auto-fix results"
+    );
 }
 
 #[test]
@@ -9492,7 +9586,12 @@ fn test_sweep_auto_fixes_no_duplicate_labels() {
     let sweep = hematite::agent::report_export::sweep_auto_fixes();
     let labels: Vec<&str> = sweep.iter().map(|f| f.label).collect();
     let unique: std::collections::HashSet<&str> = labels.iter().copied().collect();
-    assert_eq!(labels.len(), unique.len(), "sweep has duplicate labels: {:?}", labels);
+    assert_eq!(
+        labels.len(),
+        unique.len(),
+        "sweep has duplicate labels: {:?}",
+        labels
+    );
 }
 
 #[test]
@@ -9550,7 +9649,8 @@ fn test_sweep_includes_temp_folder_cleanup() {
     let labels: Vec<&str> = sweep.iter().map(|f| f.label).collect();
     assert!(
         labels.contains(&"Clear Windows Temp folder"),
-        "Temp folder cleanup should be in sweep: {:?}", labels
+        "Temp folder cleanup should be in sweep: {:?}",
+        labels
     );
 }
 
@@ -9560,7 +9660,8 @@ fn test_sweep_includes_firewall_restart() {
     let labels: Vec<&str> = sweep.iter().map(|f| f.label).collect();
     assert!(
         labels.contains(&"Restart Windows Firewall"),
-        "Windows Firewall restart should be in sweep: {:?}", labels
+        "Windows Firewall restart should be in sweep: {:?}",
+        labels
     );
 }
 
@@ -9579,7 +9680,9 @@ fn test_fix_plan_routes_wlansvc_to_wlan_restart() {
     let fixes = hematite::agent::report_export::fix_plan_auto_commands("wlansvc service stopped");
     assert!(!fixes.is_empty(), "wlansvc should match a fix");
     assert!(
-        fixes.iter().any(|f| f.label == "Restart WLAN AutoConfig service"),
+        fixes
+            .iter()
+            .any(|f| f.label == "Restart WLAN AutoConfig service"),
         "wlansvc trigger should map to WLAN AutoConfig restart"
     );
 }
@@ -9589,7 +9692,9 @@ fn test_fix_plan_routes_cryptsvc() {
     let fixes = hematite::agent::report_export::fix_plan_auto_commands("cryptsvc not running");
     assert!(!fixes.is_empty(), "cryptsvc should match a fix");
     assert!(
-        fixes.iter().any(|f| f.label == "Restart Cryptographic Services"),
+        fixes
+            .iter()
+            .any(|f| f.label == "Restart Cryptographic Services"),
         "cryptsvc trigger should map to Cryptographic Services restart"
     );
 }
@@ -9599,19 +9704,25 @@ fn test_fix_plan_routes_cryptsvc() {
 #[test]
 fn test_recipe_matches_no_audio() {
     let out = hematite::agent::fix_recipes::match_recipes(
-        "Core audio services are not running: Audiosrv, AudioEndpointBuilder"
+        "Core audio services are not running: Audiosrv, AudioEndpointBuilder",
     );
     assert!(!out.is_empty(), "should match audio recipe");
-    assert!(out.iter().any(|r| r.title.contains("No audio")), "should match 'No audio' recipe");
+    assert!(
+        out.iter().any(|r| r.title.contains("No audio")),
+        "should match 'No audio' recipe"
+    );
 }
 
 #[test]
 fn test_recipe_matches_bluetooth_not_working() {
     let out = hematite::agent::fix_recipes::match_recipes(
-        "Bluetooth-related services are not fully running: BthServ"
+        "Bluetooth-related services are not fully running: BthServ",
     );
     assert!(!out.is_empty(), "should match bluetooth recipe");
-    assert!(out.iter().any(|r| r.title.contains("Bluetooth")), "should match Bluetooth recipe");
+    assert!(
+        out.iter().any(|r| r.title.contains("Bluetooth")),
+        "should match Bluetooth recipe"
+    );
 }
 
 #[test]
@@ -9632,24 +9743,71 @@ fn test_sweep_list_json_schema_shape() {
     let all = hematite::agent::report_export::sweep_auto_fixes();
     let arr: Vec<serde_json::Value> = all
         .iter()
-        .map(|f| serde_json::json!({
-            "label": f.label,
-            "verify_topic": f.verify_topic,
-            "verify_gone": f.verify_gone,
-        }))
+        .map(|f| {
+            serde_json::json!({
+                "label": f.label,
+                "verify_topic": f.verify_topic,
+                "verify_gone": f.verify_gone,
+            })
+        })
         .collect();
-    let out = serde_json::to_string_pretty(&serde_json::Value::Array(arr))
-        .expect("should serialize");
+    let out =
+        serde_json::to_string_pretty(&serde_json::Value::Array(arr)).expect("should serialize");
     let parsed: serde_json::Value = serde_json::from_str(&out).expect("should parse");
     let items = parsed.as_array().expect("should be array");
     assert!(!items.is_empty(), "sweep list JSON should be non-empty");
     let first = &items[0];
     assert!(first.get("label").is_some(), "each item should have label");
-    assert!(first.get("verify_topic").is_some(), "each item should have verify_topic (may be null)");
-    assert!(first.get("verify_gone").is_some(), "each item should have verify_gone (may be null)");
+    assert!(
+        first.get("verify_topic").is_some(),
+        "each item should have verify_topic (may be null)"
+    );
+    assert!(
+        first.get("verify_gone").is_some(),
+        "each item should have verify_gone (may be null)"
+    );
     // All labels must be non-empty strings
     for item in items {
         let label = item["label"].as_str().expect("label should be string");
         assert!(!label.is_empty(), "label should not be empty");
+    }
+}
+
+#[test]
+fn test_recipe_matches_bsod() {
+    // Trigger strings come from inspect_host(topic:"recent_crashes") output
+    for trigger in &[
+        "bsod (bugcheck)",
+        "unexpected shutdown",
+        "blue screen",
+        "stop code",
+        "keeps crashing",
+        "random restart",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter()
+                .any(|r| r.title.contains("Blue screen") || r.title.contains("BSOD")),
+            "should match BSOD recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_camera_blocked() {
+    // Trigger strings come from inspect_host(topic:"camera") output
+    for trigger in &[
+        "global: deny",
+        "camera access is globally denied",
+        "no camera devices found via pnp",
+        "camera not working",
+        "webcam not working",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter()
+                .any(|r| r.title.contains("Camera") || r.title.contains("webcam")),
+            "should match camera recipe for trigger: {trigger}"
+        );
     }
 }

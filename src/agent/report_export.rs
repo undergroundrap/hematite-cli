@@ -1059,6 +1059,8 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("No audio") => Some("no sound"),
         t if t.contains("Bluetooth not working") => Some("Bluetooth not connecting"),
         t if t.contains("App installation failing") => Some("app install not working"),
+        t if t.contains("Blue screen") || t.contains("BSOD") => Some("BSOD or blue screen"),
+        t if t.contains("Camera") && t.contains("webcam") => Some("camera not working"),
         _ => None,
     }
 }
@@ -1496,8 +1498,7 @@ pub async fn save_diagnosis_report_html() -> (String, PathBuf) {
 pub async fn generate_diagnosis_report_json() -> String {
     let version = env!("CARGO_PKG_VERSION");
     let data = run_diagnosis_phases().await;
-    let mut section_refs: Vec<(&str, &str)> =
-        vec![("health_report", data.health_output.as_str())];
+    let mut section_refs: Vec<(&str, &str)> = vec![("health_report", data.health_output.as_str())];
     for (topic, output) in &data.follow_up_outputs {
         section_refs.push((*topic, output.as_str()));
     }

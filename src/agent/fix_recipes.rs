@@ -716,6 +716,74 @@ static ALL_RECIPES: &[RecipeEntry] = &[
         },
     },
 
+    // ── BSOD / unexpected shutdown ────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "system crashes / unexpected shutdowns:",
+            "bsod (bugcheck)",
+            "unexpected shutdown",
+            "blue screen",
+            "stop code",
+            "critical_process_died",
+            "memory_management",
+            "kernel_security_check_failure",
+            "page_fault_in_nonpaged_area",
+            "irql_not_less_or_equal",
+            "system_thread_exception",
+            "kmode_exception_not_handled",
+            "ntfs_file_system",
+            "bsod after",
+            "keeps crashing",
+            "random restart",
+            "random reboot",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Blue screen (BSOD) or unexpected shutdown",
+            steps: &[
+                "Find the stop code: Settings → System → About → Blue screen of death stop code, or check Event Viewer (Win+X → Event Viewer → Windows Logs → System → filter for Event ID 41 and 1001)",
+                "Run memory diagnostics: Win+R → type 'mdsched' → restart and test now — leave it running overnight if possible; replace RAM if errors found",
+                "Check for corrupted system files: PowerShell (admin) → sfc /scannow, then DISM /Online /Cleanup-Image /RestoreHealth (takes 15–30 min, requires internet)",
+                "Roll back recently installed drivers: Device Manager → look for recently updated drivers (sort by date) → right-click → Properties → Driver → Roll Back Driver",
+                "Check for Windows Update issues: some BSODs after updates are fixed by the next cumulative update — check Windows Update for pending updates",
+                "For memory-related stop codes (MEMORY_MANAGEMENT, PAGE_FAULT_IN_NONPAGED_AREA): reseat RAM sticks (power off, remove and firmly reinsert each stick)",
+                "Read the minidump for the exact faulting module: PowerShell (admin) → Get-ChildItem C:\\Windows\\Minidump | Sort-Object LastWriteTime -Descending | Select-Object -First 3 FullName — open with WinDbg or upload to https://www.osronline.com/page.cfm?name=analyze",
+                "If BSODs persist: run hematite --inspect disk_health,thermal to rule out failing storage or overheating as the root cause",
+            ],
+            dig_deeper: Some("recent_crashes"),
+        },
+    },
+
+    // ── Webcam / camera not working ───────────────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "global: deny",
+            "camera access is globally denied",
+            "no camera devices found via pnp",
+            "camera not working",
+            "webcam not working",
+            "camera not detected",
+            "camera blocked",
+            "camera privacy",
+            "no cameras found",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Camera / webcam not working or blocked",
+            steps: &[
+                "Check Windows camera privacy first: Settings → Privacy & security → Camera → toggle 'Let apps access your camera' ON",
+                "If the global toggle is already on, check the specific app (Teams, Zoom, etc.) — scroll down on the same page and enable it for the app individually",
+                "Test the camera works at all: Win+R → type 'camera' → open the Camera app — if it works there, the issue is app-specific permissions, not the device",
+                "If Camera app also fails: open Device Manager (Win+X) → Cameras — look for a yellow bang (error) on the device, right-click → Update driver → Search automatically",
+                "If no camera appears in Device Manager at all: check if the camera is physically disabled via a keyboard shortcut (often Fn+F key with a camera icon), or disabled in BIOS/UEFI",
+                "Reinstall the camera driver: Device Manager → Cameras → right-click → Uninstall device (check 'Delete driver' box) → restart PC; Windows re-installs the driver on boot",
+                "For external USB cameras: try a different USB port or USB cable; test on another machine to confirm the hardware is not faulty",
+                "In Teams or Zoom: check in-app settings → Video/Camera device selector — make sure the correct camera is selected (especially if multiple cameras exist)",
+            ],
+            dig_deeper: Some("camera"),
+        },
+    },
+
     // ── Windows Firewall service stopped ─────────────────────────────────────
     RecipeEntry {
         triggers: &["firewall service: stopped", "mpssvc: stopped", "windows firewall service: stopped", "firewall: stopped"],
