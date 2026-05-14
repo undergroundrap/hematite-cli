@@ -46,6 +46,10 @@ pub fn match_recipes(output: &str) -> Vec<&'static Recipe> {
     matches
 }
 
+pub fn all_recipes() -> impl Iterator<Item = &'static Recipe> {
+    ALL_RECIPES.iter().map(|e| &e.recipe)
+}
+
 fn collect_unique_recipes(outputs: &[(&str, &str)]) -> Vec<&'static Recipe> {
     let mut all_recipes: Vec<&'static Recipe> = Vec::new();
     let mut seen_titles = std::collections::HashSet::new();

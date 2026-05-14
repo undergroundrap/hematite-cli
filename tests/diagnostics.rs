@@ -10371,3 +10371,24 @@ fn test_fix_issue_categories_covers_advertised_areas() {
         );
     }
 }
+
+#[test]
+fn test_all_action_recipes_have_fix_arg_mapping() {
+    // Every ACTION/INVESTIGATE recipe title should have a recipe_title_to_fix_arg entry so that
+    // suggest_fix_commands can surface it as a hematite --fix hint in reports.
+    // This guards against silently dropping suggestions when a new recipe is added.
+    let mut missing: Vec<&str> = Vec::new();
+    for recipe in hematite::agent::fix_recipes::all_recipes() {
+        if recipe.severity == "MONITOR" {
+            continue;
+        }
+        if hematite::agent::report_export::recipe_title_to_fix_arg(recipe.title).is_none() {
+            missing.push(recipe.title);
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "These ACTION/INVESTIGATE recipes have no recipe_title_to_fix_arg mapping:\n{}",
+        missing.join("\n")
+    );
+}

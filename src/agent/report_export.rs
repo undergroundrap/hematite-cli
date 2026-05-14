@@ -1246,7 +1246,7 @@ pub fn sweep_auto_fixes() -> Vec<&'static AutoFix> {
 
 /// Map a recipe title to the most natural `hematite --fix "<issue>"` argument.
 /// Returns `None` for recipes that don't have a clean fix-command equivalent.
-fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
+pub fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
     match title {
         t if t.contains("disk space") || t.contains("Low disk") => Some("disk full"),
         t if t.contains("Drive health") || t.contains("failure") => Some("disk health warning"),
@@ -1283,7 +1283,7 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("PrintNightmare") => Some("PrintNightmare not mitigated"),
         t if t.contains("Temp folder") => Some("disk full"),
         t if t.contains("Windows Firewall") => Some("Windows Firewall stopped"),
-        t if t.contains("TCP/IP stack") => Some("network not working after update"),
+        t if t.contains("TCP/IP") && t.contains("stack") => Some("network not working after update"),
         t if t.contains("Remote Desktop Services") => Some("RDP not responding"),
         t if t.contains("WLAN AutoConfig") => Some("WiFi service stopped"),
         t if t.contains("Cryptographic Services") => Some("certificates not loading"),
@@ -1314,12 +1314,13 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("Browser") && (t.contains("slow") || t.contains("crashing")) => {
             Some("browser slow or crashing")
         }
+        t if t.contains("Visual C++") => Some("Visual C++ runtime missing"),
+        t if t.contains("Certificate expiring") => Some("certificate expiring soon"),
+        t if t.contains("Page file not configured") => Some("page file not configured"),
         t if t.contains("startup is slow") || t.contains("long time to boot") => {
             Some("slow startup")
         }
-        t if t.contains("Update stuck") || t.contains("Update failing") || t.contains("error code") => {
-            Some("Windows Update stuck")
-        }
+        t if t.contains("Update stuck") => Some("Windows Update stuck"),
         t if t.contains("GPU") && t.contains("driver crash") => Some("GPU driver crash"),
         t if t.contains("Access denied") || t.contains("permission error") => {
             Some("access denied to file or folder")
