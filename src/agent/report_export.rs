@@ -644,6 +644,74 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             ("pending_reboot", "Pending Reboot")
         ]
     );
+    add_if!(
+        &[
+            "usb",
+            "usb not recognized",
+            "usb not working",
+            "device not recognized",
+            "device manager error",
+            "yellow bang",
+            "pnp error",
+            "driver missing"
+        ],
+        &[
+            ("device_health", "Device Health"),
+            ("drivers", "Drivers"),
+            ("usb_history", "USB History")
+        ]
+    );
+    add_if!(
+        &[
+            "no wifi",
+            "no wi-fi",
+            "can't find wifi",
+            "can't find wi-fi",
+            "wifi not showing",
+            "no wireless networks",
+            "no networks found",
+            "wifi adapter",
+            "wireless adapter"
+        ],
+        &[
+            ("wifi", "Wi-Fi"),
+            ("device_health", "Device Health"),
+            ("drivers", "Drivers")
+        ]
+    );
+    add_if!(
+        &[
+            "network share",
+            "shared folder",
+            "mapped drive",
+            "unc path",
+            "can't access share",
+            "network drive",
+            "smb share",
+            "\\\\server",
+            "file share"
+        ],
+        &[
+            ("share_access", "Share Access"),
+            ("connectivity", "Connectivity"),
+            ("shares", "Shares")
+        ]
+    );
+    add_if!(
+        &[
+            "microsoft store",
+            "windows store",
+            "appx",
+            "store not",
+            "store won't",
+            "store app",
+            "wsreset"
+        ],
+        &[
+            ("installer_health", "Installer Health"),
+            ("pending_reboot", "Pending Reboot")
+        ]
+    );
 
     if topics.is_empty() {
         topics.push(("health_report", "System Health"));
@@ -964,6 +1032,15 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 Some("cryptsvc"),
                 false,
             ),
+            // Microsoft Store — wsreset is safe, clears cache only
+            (
+                "microsoft.windowsstore | status: missing",
+                "Reset Microsoft Store cache",
+                "wsreset.exe",
+                None,
+                None,
+                false, // interactive window opens; not suitable for sweep
+            ),
             // VPN — RasMan manages all VPN tunnels; safe to restart
             (
                 "rasman",
@@ -1083,6 +1160,14 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("Microphone not working") => Some("microphone not working"),
         t if t.contains("Login") && t.contains("PIN") => Some("PIN not working"),
         t if t.contains("Disk at 100%") => Some("disk at 100%"),
+        t if t.contains("USB device not recognized") => Some("USB device not working"),
+        t if t.contains("No Wi-Fi networks visible") => Some("no Wi-Fi networks showing"),
+        t if t.contains("Network share") && t.contains("accessible") => {
+            Some("network share not accessible")
+        }
+        t if t.contains("Microsoft Store") && t.contains("AppX") => {
+            Some("Microsoft Store not working")
+        }
         _ => None,
     }
 }

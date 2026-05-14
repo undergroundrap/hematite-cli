@@ -9969,3 +9969,112 @@ fn test_recipe_matches_high_disk_io() {
         );
     }
 }
+
+#[test]
+fn test_recipe_matches_usb_not_recognized() {
+    // Note: triggers that are substrings of existing recipes ("yellow bang", "error code 10")
+    // are intentionally omitted here — the "Hardware device error" recipe owns those.
+    for trigger in &[
+        "[err:",
+        "usb device not recognized",
+        "unknown usb device",
+        "device descriptor request failed",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("USB")),
+            "should match USB recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_no_wifi_networks() {
+    for trigger in &[
+        "there is no wireless interface",
+        "no wi-fi devices found",
+        "wi-fi adapter disconnected",
+        "no wireless networks",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter()
+                .any(|r| r.title.contains("Wi-Fi") || r.title.contains("wireless")),
+            "should match no-Wi-Fi recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_network_share_not_accessible() {
+    for trigger in &[
+        "server unreachable (ping failed)",
+        "reachable:false",
+        "network path not found",
+        "share not accessible",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter()
+                .any(|r| r.title.contains("Network share") || r.title.contains("mapped drive")),
+            "should match network share recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_microsoft_store_not_working() {
+    for trigger in &[
+        "microsoft.windowsstore | status: missing",
+        "wsreset",
+        "appx package",
+        "microsoft store not opening",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter()
+                .any(|r| r.title.contains("Microsoft Store") || r.title.contains("AppX")),
+            "should match Microsoft Store recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_usb_routes_to_device_health() {
+    let topics = hematite::agent::report_export::fix_plan_topics("USB device not recognized");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"device_health"),
+        "USB query should route to device_health"
+    );
+}
+
+#[test]
+fn test_routing_no_wifi_routes_to_wifi_and_device_health() {
+    let topics = hematite::agent::report_export::fix_plan_topics("no Wi-Fi networks showing");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"wifi"),
+        "no-wifi query should route to wifi topic"
+    );
+}
+
+#[test]
+fn test_routing_network_share_routes_to_share_access() {
+    let topics = hematite::agent::report_export::fix_plan_topics("network share not accessible");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"share_access"),
+        "network share query should route to share_access"
+    );
+}
+
+#[test]
+fn test_routing_microsoft_store_routes_to_installer_health() {
+    let topics = hematite::agent::report_export::fix_plan_topics("Microsoft Store not working");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"installer_health"),
+        "Microsoft Store query should route to installer_health"
+    );
+}

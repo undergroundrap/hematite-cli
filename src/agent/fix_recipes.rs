@@ -1007,6 +1007,121 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("processes"),
         },
     },
+
+    // ── USB device not recognized ─────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "[err:",
+            "usb device not recognized",
+            "unknown usb device",
+            "device descriptor request failed",
+            "usb not working",
+            "usb port not working",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "USB device not recognized or not working",
+            steps: &[
+                "Unplug the USB device, wait 10 seconds, then replug it — Windows re-enumerates the USB controller and often clears a bad enumeration state",
+                "Try a different USB port — especially try a USB 2.0 port if the device was on a USB 3.0 port (some older accessories have compatibility issues with 3.x)",
+                "Restart the USB Host Controller: Device Manager → Universal Serial Bus controllers → right-click each 'USB Root Hub' → Disable device, then Enable device",
+                "Run the USB troubleshooter: Settings → System → Troubleshoot → Other troubleshooters → USB",
+                "Check for driver errors: run hematite --inspect device_health to see PnP error codes — Error Code 43 is an unrecoverable device error requiring a driver reinstall or device replacement",
+                "Update chipset and USB controller drivers: go to your motherboard manufacturer's website (ASUS, MSI, Gigabyte, ASRock) and download the latest chipset driver for your platform",
+                "If the device worked before: uninstall the device in Device Manager (right-click → Uninstall device, check 'Delete the driver software'), then replug so Windows installs a fresh driver",
+                "For persistent issues on all ports: run hematite --inspect device_health and check if 'USB Root Hub' itself shows an error — this points to a chipset/driver issue, not the accessory",
+            ],
+            dig_deeper: Some("device_health"),
+        },
+    },
+
+    // ── No Wi-Fi networks visible / can't find networks ───────────────────────
+    RecipeEntry {
+        triggers: &[
+            "there is no wireless interface",
+            "no wireless interface detected",
+            "no wi-fi devices found",
+            "wi-fi adapter disconnected",
+            "no wireless tool available",
+            "no wireless networks",
+            "wifi adapter off",
+            "wireless adapter disabled",
+            "airplane mode",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "No Wi-Fi networks visible — adapter or driver issue",
+            steps: &[
+                "Make sure the Wi-Fi adapter is on: Action Center (bottom-right) → click the Wi-Fi tile to toggle it on; also check the physical Wi-Fi key (Fn+F-key) on laptops",
+                "Check Airplane Mode is off: Settings → Network & Internet → Airplane mode → Off",
+                "Restart WLAN AutoConfig service: PowerShell (admin) → Restart-Service Wlansvc -Force",
+                "Toggle the adapter off and on: Device Manager → Network Adapters → right-click the Wi-Fi adapter → Disable device, wait 5 seconds, Enable device",
+                "Update the Wi-Fi driver: Device Manager → Network Adapters → right-click the Wi-Fi adapter → Update driver → Search automatically",
+                "If no Wi-Fi adapter appears in Device Manager: run hematite --inspect device_health and look for hidden or missing network devices; the adapter may need a driver install from the laptop/motherboard manufacturer",
+                "For Intel Wi-Fi adapters: download the latest driver from Intel's website (search 'Intel Wi-Fi driver') — the Windows generic driver sometimes loses network scan capability after Windows updates",
+                "Reset network settings as a last resort: PowerShell (admin) → netsh wlan delete profile name=* then restart; this removes all saved Wi-Fi profiles but often fixes a corrupt wireless profile store",
+            ],
+            dig_deeper: Some("wifi"),
+        },
+    },
+
+    // ── Network share not accessible ─────────────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "server unreachable (ping failed)",
+            "reachable:false",
+            "share not accessible",
+            "network path not found",
+            "access is denied",
+            "share access failed",
+            "smb share unreachable",
+            "network share",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Network share or mapped drive not accessible",
+            steps: &[
+                "Verify basic connectivity to the server: PowerShell → Test-NetConnection -ComputerName <server> -Port 445 (SMB port) — if this fails, the issue is network-level, not share-level",
+                "Check the server is online: ping <server-name-or-IP> from PowerShell",
+                "Confirm the share name is correct: Net View \\\\<server> lists all shares exposed by the server",
+                "Re-enter credentials: Windows Credential Manager may have stale credentials — Win+R → control keymgr.dll → remove entries for the target server, then retry the share",
+                "If 'Access Denied': verify your account has been granted share and NTFS permissions on the server side — contact the server admin to confirm your permissions",
+                "Check SMB1 is not required: some old NAS devices only speak SMB1. Run hematite --inspect shares to see if SMB1 is disabled locally — if so, either enable it (security risk) or update the NAS firmware",
+                "For domain environments: if the server name resolves but SMB fails, check if Kerberos is working — run hematite --inspect domain_health to verify DC reachability and GPO refresh",
+                "Map the drive manually to force a fresh credential prompt: File Explorer → This PC → Map network drive → \\\\<server>\\<share> → check 'Connect using different credentials'",
+            ],
+            dig_deeper: Some("share_access"),
+        },
+    },
+
+    // ── Microsoft Store / AppX not working ───────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "microsoft.windowsstore | status: missing",
+            "appx |",
+            "desktopappinstaller | status: missing",
+            "store is not responding",
+            "wsreset",
+            "appx package",
+            "microsoft store not opening",
+            "microsoft store not working",
+            "store app not installing",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Microsoft Store or AppX apps not working",
+            steps: &[
+                "Reset the Store cache: open Run (Win+R) → type wsreset.exe → Enter. A blank window opens, waits ~30 seconds, then the Store launches automatically. This clears the Store cache without removing app data.",
+                "If the Store still won't open: PowerShell (admin) → Get-AppXPackage -AllUsers Microsoft.WindowsStore | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"} to re-register the Store package",
+                "Ensure the Windows Update service is running: PowerShell (admin) → Start-Service wuauserv — the Store update pipeline depends on Windows Update",
+                "Check AppX installer services: run hematite --inspect installer_health to see if AppX or Store services are in a failed state",
+                "For 'This app can't open' errors: Settings → Apps → Apps & features → find the app → Advanced options → Reset — this wipes the app's local data but usually fixes launch failures",
+                "If apps fail to install from the Store with error code 0x80073D02 or 0x80073CF9: run: PowerShell (admin) → Get-AppXPackage -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"} to rebuild the full AppX registration",
+                "For persistent Store issues: Settings → System → Troubleshoot → Other troubleshooters → Windows Store Apps",
+            ],
+            dig_deeper: Some("installer_health"),
+        },
+    },
 ];
 
 pub struct HealthScore {

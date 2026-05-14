@@ -288,6 +288,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let has_issues_final = report_indicates_issues(&content);
         if !cockpit.quiet || has_issues_final {
             println!("\nFix plan saved: {}", path.display());
+            if fmt != "json" {
+                print_health_banner(&content);
+                print_fix_suggestions(&content);
+            }
         }
         if cockpit.clipboard {
             copy_to_clipboard(&content);
