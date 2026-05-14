@@ -10527,6 +10527,70 @@ fn test_routing_microphone_still_routes_to_audio() {
 }
 
 #[test]
+fn test_routing_activation_routes_correctly() {
+    let cases = ["Windows license expired", "not activated", "need to activate Windows"];
+    for q in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(&"activation"), "activation routing expected for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_bitlocker_routes_correctly() {
+    let cases = ["BitLocker asking for recovery key", "BitLocker locked", "drive encryption failed"];
+    for q in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(&"bitlocker"), "bitlocker routing expected for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_domain_routes_correctly() {
+    let cases = ["can't join domain", "Group Policy not applying", "domain controller unreachable"];
+    for q in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(&"domain_health"), "domain_health routing expected for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_hyperv_wsl_docker_route_correctly() {
+    let cases = [
+        ("Hyper-V VM won't start", "hyperv"),
+        ("WSL not working", "wsl"),
+        ("Docker container won't start", "docker"),
+    ];
+    for (q, expected_topic) in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(expected_topic), "{expected_topic} routing expected for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_random_restart_routes_to_crashes() {
+    let cases = ["computer restarts randomly", "keeps restarting unexpectedly", "random reboot"];
+    for q in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(&"recent_crashes"), "recent_crashes routing expected for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_disk_filling_routes_to_storage() {
+    let cases = ["SSD getting full fast", "hard drive filling up", "recycle bin won't empty"];
+    for q in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(&"storage"), "storage routing expected for: {q}");
+    }
+}
+
+#[test]
 fn test_all_action_recipes_have_fix_arg_mapping() {
     // Every ACTION/INVESTIGATE recipe title should have a recipe_title_to_fix_arg entry so that
     // suggest_fix_commands can surface it as a hematite --fix hint in reports.

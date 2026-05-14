@@ -927,6 +927,123 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         ]
     );
 
+    add_if!(
+        &[
+            "windows license",
+            "not activated",
+            "activate windows",
+            "activation error",
+            "product key",
+            "license expired",
+            "license invalid",
+            "windows isn't activated"
+        ],
+        &[("activation", "Windows Activation")]
+    );
+    add_if!(
+        &[
+            "bitlocker",
+            "recovery key",
+            "bitlocker locked",
+            "drive encryption",
+            "encrypted drive",
+            "decryption failed"
+        ],
+        &[("bitlocker", "BitLocker"), ("tpm", "TPM / Secure Boot")]
+    );
+    add_if!(
+        &[
+            "can't join domain",
+            "domain join",
+            "domain controller",
+            "domain not reachable",
+            "kerberos error",
+            "ldap error",
+            "dc unreachable",
+            "gpo not applying",
+            "group policy not",
+            "group policy error",
+            "policy not applied"
+        ],
+        &[
+            ("domain_health", "Domain Health"),
+            ("gpo", "Group Policy"),
+            ("identity_auth", "Identity & Auth")
+        ]
+    );
+    add_if!(
+        &[
+            "hyper-v",
+            "hyperv",
+            "vm won't start",
+            "virtual machine won't",
+            "vm not starting",
+            "virtual machine error",
+            "vm crash",
+            "vm network"
+        ],
+        &[("hyperv", "Hyper-V")]
+    );
+    add_if!(
+        &[
+            "wsl",
+            "wsl2",
+            "linux subsystem",
+            "wsl not",
+            "wsl won't",
+            "linux on windows",
+            "bash on windows"
+        ],
+        &[("wsl", "WSL"), ("wsl_filesystems", "WSL Filesystems")]
+    );
+    add_if!(
+        &[
+            "docker",
+            "container",
+            "docker compose",
+            "docker daemon",
+            "docker not",
+            "docker won't"
+        ],
+        &[("docker", "Docker"), ("docker_filesystems", "Docker Filesystems")]
+    );
+    add_if!(
+        &[
+            "restarts randomly",
+            "keeps restarting",
+            "random restart",
+            "random reboot",
+            "reboot randomly",
+            "reboots itself",
+            "spontaneous restart",
+            "unexpected reboot",
+            "auto restart"
+        ],
+        &[
+            ("recent_crashes", "Crash History"),
+            ("log_check", "Event Log"),
+            ("pending_reboot", "Pending Reboot")
+        ]
+    );
+    add_if!(
+        &[
+            "disk filling up",
+            "drive filling",
+            "storage filling",
+            "ssd filling",
+            "getting full",
+            "filling up fast",
+            "recycle bin",
+            "temp files growing",
+            "disk growing"
+        ],
+        &[
+            ("storage", "Storage"),
+            ("disk_health", "Disk Health"),
+            ("shadow_copies", "Shadow Copies")
+        ]
+    );
+
     if topics.is_empty() {
         topics.push(("health_report", "System Health"));
         topics.push(("log_check", "Event Log"));
