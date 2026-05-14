@@ -464,7 +464,13 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "mouse broke",
             "touchpad",
             "trackpad",
-            "peripheral not"
+            "peripheral not",
+            "numpad",
+            "special keys",
+            "fn key",
+            "function key",
+            "key not responding",
+            "keys not working"
         ],
         &[
             ("peripherals", "Peripherals"),
@@ -1325,6 +1331,69 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         ]
     );
 
+    add_if!(
+        &[
+            "how much ram",
+            "what cpu",
+            "cpu model",
+            "what processor",
+            "ram size",
+            "motherboard model",
+            "system specs",
+            "hardware specs",
+            "bios version",
+            "what gpu",
+            "gpu model",
+            "hardware info",
+            "check specs"
+        ],
+        &[("hardware", "Hardware")]
+    );
+    add_if!(
+        &[
+            "windows version",
+            "what version of windows",
+            "windows 10 or 11",
+            "os version",
+            "build number",
+            "windows build",
+            "edition of windows",
+            "which windows"
+        ],
+        &[("os_config", "OS Config")]
+    );
+    add_if!(
+        &[
+            "someone accessed",
+            "unauthorized access",
+            "who logged in",
+            "remote access log",
+            "logon sessions",
+            "active sessions",
+            "who is connected"
+        ],
+        &[("sessions", "Logon Sessions"), ("security", "Security Posture"), ("log_check", "Event Log")]
+    );
+    add_if!(
+        &[
+            "ethernet not",
+            "ethernet port",
+            "wired connection not",
+            "wired network not",
+            "nic not working",
+            "network adapter not",
+            "network card",
+            "ethernet cable"
+        ],
+        &[("network_adapter", "Network Adapter"), ("connectivity", "Connectivity"), ("device_health", "Device Health")]
+    );
+    add_if!(
+        &[
+            "task manager",
+            "process explorer"
+        ],
+        &[("processes", "Processes"), ("resource_load", "Resource Load")]
+    );
     add_if!(
         &[
             "battery",
