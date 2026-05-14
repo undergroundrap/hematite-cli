@@ -9852,3 +9852,120 @@ fn test_fix_execute_json_schema() {
         );
     }
 }
+
+#[test]
+fn test_fix_all_json_execution_result_schema() {
+    // Validate the JSON shape produced by --fix-all --report-format json.
+    // Simulates the serialization logic without running any commands.
+    let checks: Vec<serde_json::Value> = vec![
+        serde_json::json!({"label": "Flush DNS cache", "status": "healthy"}),
+        serde_json::json!({"label": "Restart Windows Search", "status": "fixed"}),
+    ];
+    let obj = serde_json::json!({
+        "generated": "2026-01-01",
+        "host": "TEST-PC",
+        "hematite_version": "0.9.0",
+        "checks_run": 2,
+        "applied": 1,
+        "verified": 1,
+        "unresolved": 0,
+        "summary": "1 fix(es) applied, 1 verified resolved.",
+        "checks": checks,
+    });
+    let out = serde_json::to_string_pretty(&obj).expect("should serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&out).expect("should parse");
+    assert!(parsed.get("generated").is_some(), "must have 'generated'");
+    assert!(parsed.get("host").is_some(), "must have 'host'");
+    assert!(parsed.get("checks_run").is_some(), "must have 'checks_run'");
+    assert!(parsed.get("applied").is_some(), "must have 'applied'");
+    assert!(parsed.get("verified").is_some(), "must have 'verified'");
+    assert!(parsed.get("unresolved").is_some(), "must have 'unresolved'");
+    assert!(parsed.get("summary").is_some(), "must have 'summary'");
+    let checks_arr = parsed["checks"].as_array().expect("'checks' must be array");
+    assert!(!checks_arr.is_empty(), "checks must be non-empty in test");
+    let first = &checks_arr[0];
+    assert!(first.get("label").is_some(), "each check must have 'label'");
+    assert!(
+        first.get("status").is_some(),
+        "each check must have 'status'"
+    );
+}
+
+#[test]
+fn test_recipe_matches_vpn_not_connecting() {
+    for trigger in &["vpn adapter detected", "rasman", "ras/vpn", "vpn tunnel"] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("VPN")),
+            "should match VPN recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_screen_flickering() {
+    for trigger in &[
+        "display driver",
+        "refresh rate:",
+        "screen flickering",
+        "resolution wrong",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter()
+                .any(|r| r.title.contains("Screen flickering") || r.title.contains("display")),
+            "should match screen flickering recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_microphone_not_working() {
+    for trigger in &[
+        "no recording endpoints found",
+        "microphone access: denied",
+        "microphone not working",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("Microphone")),
+            "should match microphone recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_login_pin_not_working() {
+    for trigger in &[
+        "wbiosrvc",
+        "windows hello",
+        "pin not working",
+        "event id 4625",
+        "sign-in failed",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter()
+                .any(|r| r.title.contains("Login") || r.title.contains("PIN")),
+            "should match login/PIN recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_high_disk_io() {
+    for trigger in &[
+        "disk queue length:",
+        "average disk queue",
+        "high disk usage",
+        "disk at 100",
+        "disk thrashing",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter()
+                .any(|r| r.title.contains("Disk at 100%") || r.title.contains("disk I/O")),
+            "should match high disk I/O recipe for trigger: {trigger}"
+        );
+    }
+}

@@ -964,6 +964,23 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 Some("cryptsvc"),
                 false,
             ),
+            // VPN — RasMan manages all VPN tunnels; safe to restart
+            (
+                "rasman",
+                "Restart Remote Access Connection Manager (VPN)",
+                "powershell -Command \"Restart-Service RasMan -Force -ErrorAction SilentlyContinue\"",
+                Some("vpn"),
+                Some("not running"),
+                false, // could drop active VPN tunnel; explicit --fix only
+            ),
+            (
+                "vpn adapter detected",
+                "Restart Remote Access Connection Manager (VPN)",
+                "powershell -Command \"Restart-Service RasMan -Force -ErrorAction SilentlyContinue\"",
+                Some("vpn"),
+                Some("not running"),
+                false, // duplicate label
+            ),
             // Remote Desktop — security-sensitive; only on explicit --fix
             (
                 "remote desktop disabled",
@@ -1061,6 +1078,11 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("App installation failing") => Some("app install not working"),
         t if t.contains("Blue screen") || t.contains("BSOD") => Some("BSOD or blue screen"),
         t if t.contains("Camera") && t.contains("webcam") => Some("camera not working"),
+        t if t.contains("VPN not connecting") => Some("VPN not connecting"),
+        t if t.contains("Screen flickering") => Some("screen flickering"),
+        t if t.contains("Microphone not working") => Some("microphone not working"),
+        t if t.contains("Login") && t.contains("PIN") => Some("PIN not working"),
+        t if t.contains("Disk at 100%") => Some("disk at 100%"),
         _ => None,
     }
 }

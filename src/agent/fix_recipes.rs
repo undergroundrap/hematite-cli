@@ -857,6 +857,156 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("installer_health"),
         },
     },
+
+    // ── VPN not connecting ────────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "vpn adapter detected",
+            "no vpn adapters found",
+            "vpn client service",
+            "vpn tunnel",
+            "vpn not connecting",
+            "vpn disconnecting",
+            "split tunnel",
+            "ras/vpn",
+            "rasman",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "VPN not connecting or disconnecting",
+            steps: &[
+                "Restart the Remote Access Connection Manager service: PowerShell (admin) → Restart-Service RasMan -Force",
+                "Check for a proxy conflict: Settings → Network & Internet → Proxy — disable 'Automatically detect settings' temporarily and test again",
+                "Flush DNS and reset Winsock (VPN can leave stale routes): PowerShell (admin) → ipconfig /flushdns; netsh winsock reset",
+                "If using a corporate VPN client (Cisco AnyConnect, GlobalProtect, Pulse): reinstall the client or run the client's repair option from Add/Remove Programs",
+                "Check Windows Firewall isn't blocking the VPN ports: run hematite --inspect firewall_rules and look for rules blocking UDP 500, UDP 4500, or TCP 1723",
+                "If the VPN adapter shows but won't authenticate: run hematite --inspect identity_auth to check if the AAD/WAM token broker is healthy",
+                "For WireGuard or OpenVPN: verify the tunnel config file is intact and the remote server is reachable: ping <vpn-server-ip>",
+            ],
+            dig_deeper: Some("vpn"),
+        },
+    },
+
+    // ── Screen flickering / display issues ───────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "display driver",
+            "refresh rate:",
+            "bits per pixel:",
+            "monitor:",
+            "screen flickering",
+            "display flickering",
+            "screen flashing",
+            "black screen",
+            "resolution wrong",
+            "wrong resolution",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Screen flickering or display issues",
+            steps: &[
+                "Update or roll back the display driver: Device Manager → Display Adapters → right-click GPU → Update driver (or Roll Back Driver if flickering started after a recent update)",
+                "Check for a refresh rate mismatch: Settings → System → Display → Advanced display → verify the refresh rate matches what your monitor supports",
+                "Inspect the cable: reseat or replace the HDMI/DisplayPort cable — a loose or failing cable is the most common cause of flickering",
+                "Check if Task Manager flickers when you open it (Win+X → Task Manager): if Task Manager does NOT flicker, the cause is a software/app conflict, not the driver",
+                "Disable hardware acceleration in Chrome/Edge: Settings → System → turn off 'Use hardware acceleration when available', then restart the browser",
+                "Run hematite --inspect device_health to check for GPU or display adapter PnP errors (yellow bangs in Device Manager)",
+                "If using NVIDIA: open NVIDIA Control Panel → Manage 3D Settings → verify G-Sync/VRR is correctly enabled or disabled for your panel type",
+                "For laptops: test on an external monitor — if the external is stable, the laptop panel or cable is the likely failure point",
+            ],
+            dig_deeper: Some("display_config"),
+        },
+    },
+
+    // ── Microphone not working ────────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "no recording endpoints found",
+            "recording endpoint",
+            "microphone privacy",
+            "microphone access: denied",
+            "input device",
+            "microphone not working",
+            "mic not working",
+            "mic not detected",
+            "microphone blocked",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Microphone not working or not detected",
+            steps: &[
+                "Check the privacy setting: Settings → Privacy & security → Microphone → ensure 'Microphone access' is On and your app has permission",
+                "Set the correct default input device: right-click the speaker icon in the taskbar → Sound settings → Input → choose the correct microphone",
+                "Restart the Windows Audio service: PowerShell (admin) → Restart-Service Audiosrv -Force; Restart-Service AudioEndpointBuilder -Force",
+                "Check the microphone is not muted at the hardware level — look for a physical mute button on the mic, headset, or laptop keyboard (Fn+F-key)",
+                "Run hematite --inspect audio to see which recording endpoints Windows has found and their current state",
+                "Update the audio driver: Device Manager → Sound, video and game controllers → right-click the audio device → Update driver",
+                "For a USB microphone: unplug, wait 10 seconds, replug — Windows re-enumerates the device and may fix a bad enumeration state",
+                "If the microphone works in one app but not another (e.g. works in Voice Recorder but not Teams): check the app's own audio settings, not Windows settings",
+            ],
+            dig_deeper: Some("audio"),
+        },
+    },
+
+    // ── Login / PIN / Windows Hello not working ───────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "wbiosrvc",
+            "biometric service",
+            "windows hello",
+            "pin not working",
+            "fingerprint not working",
+            "logon failure",
+            "event id 4625",
+            "failed logon",
+            "credential provider",
+            "sign-in failed",
+            "can't sign in",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Login, PIN, or Windows Hello not working",
+            steps: &[
+                "Reset the PIN: on the sign-in screen, click 'I forgot my PIN' — Windows will verify your Microsoft account or Azure AD identity and let you set a new PIN without needing the old one",
+                "Restart the Windows Biometric Service: PowerShell (admin) → Restart-Service WbioSrvc -Force",
+                "If fingerprint or face recognition stopped working: Settings → Accounts → Sign-in options → remove and re-enroll the biometric credential",
+                "For 'something went wrong' on the PIN screen: Settings → Accounts → Sign-in options → PIN (Windows Hello) → I forgot my PIN",
+                "Check for account lockout (repeated failed logins): run hematite --inspect sign_in and look for Event ID 4625 (failed logon) frequency",
+                "If the machine is domain-joined and the domain controller is unreachable, Windows may not accept domain credentials — use a local admin account as a fallback",
+                "If all sign-in methods fail at the lock screen, boot to Windows Recovery (hold Shift while clicking Restart) → Troubleshoot → Reset this PC as a last resort",
+            ],
+            dig_deeper: Some("sign_in"),
+        },
+    },
+
+    // ── High disk I/O — disk at 100% ─────────────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "disk queue length:",
+            "average disk queue",
+            "disk i/o",
+            "high disk usage",
+            "disk at 100",
+            "100% disk",
+            "disk thrashing",
+            "disk saturation",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Disk at 100% — high disk I/O",
+            steps: &[
+                "Identify the process driving disk I/O: run hematite --inspect processes and look at the R/W column for the top consumer",
+                "Common culprits: Windows Search indexer (SearchIndexer.exe), Windows Update (TiWorker.exe, WUDFHost.exe), Antivirus scan, or a runaway backup job",
+                "If Windows Search is the cause: Settings → Search → Windows Search → Indexing Options → Pause indexing for 15 minutes and see if disk drops",
+                "If Windows Update (TiWorker.exe): let it finish — fighting a mid-update installation makes things worse; check Windows Update status in Settings",
+                "Check for a failing drive: run hematite --inspect disk_health — a drive with SMART errors can cause 100% disk usage as the OS retries failing sectors",
+                "Disable Windows Superfetch/SysMain if you have an SSD: PowerShell (admin) → Stop-Service SysMain; Set-Service SysMain -StartupType Disabled",
+                "Check the page file: if RAM is full, Windows pages to disk constantly — run hematite --inspect pagefile and resource_load to verify",
+                "For persistent 100% disk on an HDD: consider upgrading to an SSD — HDDs cannot sustain the I/O demand of modern Windows workloads",
+            ],
+            dig_deeper: Some("processes"),
+        },
+    },
 ];
 
 pub struct HealthScore {
