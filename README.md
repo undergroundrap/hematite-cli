@@ -611,6 +611,7 @@ hematite --fix "DNS issues" --dry-run               # preview topics without run
 hematite --fix-all
 hematite --fix-all --only "Flush DNS Cache"         # run a single named fix
 hematite --fix-all --only list                      # list all available fix labels
+hematite --fix-all --only list --report-format json # machine-readable fix catalog
 hematite --fix-all --dry-run                        # preview sweep without executing
 hematite --fix-all --quiet                          # silent on clean runs (for scheduled tasks)
 hematite --fix-all --report-format json             # structured sweep results
@@ -650,6 +651,9 @@ hematite --diff processes --diff-after 60           # 60-second gap between snap
 hematite --diff thermal --from before-update        # diff live vs saved snapshot
 hematite --diff processes --report-format json      # structured diff with before/after fields
 hematite --compare before-update,after-update       # diff two saved snapshots
+hematite --compare before-update,after-update --report-format json  # structured diff output
+hematite --diff processes --field cpu               # filter diff output to matching lines
+hematite --compare before-update,after-update --field memory  # filter compare output
 
 # Snapshot management
 hematite --snapshots                                # list saved snapshots

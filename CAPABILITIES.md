@@ -362,11 +362,15 @@ Every diagnostic command runs without a model, TUI, or network. The full headles
 
 **Scheduling** — `--fix-all --schedule [weekly|daily|remove|status]` registers a Windows Task Scheduler task that runs the maintenance sweep silently (with `--quiet`) at 03:00.
 
+**`--fix-all --only list --report-format json`** — emits the sweep fix catalog as a JSON array of `{"label", "verify_topic", "verify_gone"}` objects for CI enumeration and selective automation. Supports `--output`.
+
+**`--diff` / `--compare` + `--field`** — `--field <pattern>` filters both snapshot A and B before diffing, so only matching lines appear in the diff output. Works in both ANSI and JSON modes; `before`/`after` fields in JSON reflect the filtered content.
+
 **JSON consistency** — every command's JSON output follows the same envelope:
 ```json
 {"generated": "...", "host": "...", "hematite_version": "...", "grade": "A", "action_count": 0, ...}
 ```
-Fix-all JSON adds sweep-specific fields (`checks_run`, `applied`, `verified`, `unresolved`, `checks[]`). Watch JSON emits NDJSON (one object per line): `{"timestamp", "cycle", "topics", "alert_matched", "output"}`. Diff JSON includes `before`, `after`, `diff_lines[]`, and `changed`.
+Fix-all JSON adds sweep-specific fields (`checks_run`, `applied`, `verified`, `unresolved`, `checks[]`). Watch JSON emits NDJSON (one object per line): `{"timestamp", "cycle", "topics", "alert_matched", "output"}`. Diff/Compare JSON includes `before`, `after`, `diff_lines[]`, and `changed` — with `--field` filtering applied to snapshot content before diffing.
 
 ---
 
