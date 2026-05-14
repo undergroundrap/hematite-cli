@@ -1122,6 +1122,101 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("installer_health"),
         },
     },
+
+    // ── Sleep / hibernate / wake issues ──────────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "kernel-power",
+            "power-troubleshooter",
+            "sleep issue",
+            "hibernate fail",
+            "won't wake",
+            "stuck after sleep",
+            "wake after sleep",
+            "sleep fail",
+            "hibernate issue",
+            "fast startup",
+            "s0 low power idle",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "PC won't sleep, hibernate, or wake properly",
+            steps: &[
+                "Check what's preventing sleep: open PowerShell (admin) → powercfg /requests — shows apps or services actively blocking sleep",
+                "See what woke the PC last time: PowerShell (admin) → powercfg /lastwake — identifies the wake source (scheduled task, device, network adapter)",
+                "Check for wake timers: PowerShell (admin) → powercfg /waketimers — lists all wake timers; if unexpected, disable individual timers in Task Scheduler",
+                "Disable Fast Startup (common cause of wake/sleep issues): Settings → System → Power & sleep → Additional power settings → Choose what the power buttons do → uncheck 'Turn on fast startup'",
+                "Disable wake-on-LAN if not needed: Device Manager → Network Adapters → right-click NIC → Properties → Power Management → uncheck 'Allow this device to wake the computer'",
+                "If the PC wakes immediately after sleeping: a device (USB hub, mouse, keyboard) is triggering wakeup — run PowerShell (admin) → powercfg /devicequery wake_armed to see which device is responsible, then disable its wake permission in Device Manager → Properties → Power Management",
+                "For hibernate-specific issues: PowerShell (admin) → powercfg /h on to ensure hibernation is enabled; or /h off to disable it if you don't use hibernate",
+                "Run the Power troubleshooter: Settings → System → Troubleshoot → Other troubleshooters → Power",
+            ],
+            dig_deeper: Some("log_check"),
+        },
+    },
+
+    // ── Keyboard, mouse, or touchpad not working ──────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "hid keyboard",
+            "hid mouse",
+            "hid-compliant",
+            "no hid devices",
+            "input device",
+            "keyboard not detected",
+            "mouse not detected",
+            "touchpad not working",
+            "trackpad not working",
+            "keyboard frozen",
+            "mouse frozen",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Keyboard, mouse, or touchpad not working",
+            steps: &[
+                "For USB keyboards/mice: unplug, wait 10 seconds, replug into a different USB port — try a USB 2.0 port (blue or black) if it was in a USB 3.0 port (blue-interior)",
+                "For wireless keyboards/mice: replace the battery and re-pair the USB receiver (unplug receiver, replug, hold the pairing button on the device)",
+                "Restart the HID (Human Interface Device) service: PowerShell (admin) → Restart-Service hidserv -Force",
+                "Check for driver errors: run hematite --inspect device_health — look for keyboard or mouse devices showing error codes in Device Manager",
+                "Roll back or update the keyboard/mouse driver: Device Manager → Keyboards or Mice and other pointing devices → right-click → Update driver or Roll Back Driver",
+                "For laptop touchpad: check if a keyboard shortcut disabled it (usually Fn+F7 or a dedicated touchpad key) — press it to toggle",
+                "If touchpad disappears after Windows Update: check the laptop manufacturer's website (Dell, HP, Lenovo, ASUS) for a touchpad driver update — generic Windows HID drivers often lose touchpad gestures",
+                "Run the Hardware troubleshooter: PowerShell (admin) → msdt.exe -id DeviceDiagnostic",
+            ],
+            dig_deeper: Some("peripherals"),
+        },
+    },
+
+    // ── High network usage — bandwidth hog ───────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "bytes sent (mb):",
+            "bytes received (mb):",
+            "rx errors:",
+            "tx errors:",
+            "high bandwidth",
+            "bandwidth usage",
+            "network saturation",
+            "network usage high",
+            "upload high",
+            "download high",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "High network usage — something is using all the bandwidth",
+            steps: &[
+                "Identify the process: run hematite --inspect processes to see CPU/RAM, then hematite --inspect connections to see which process has the most active TCP connections",
+                "Check for Windows Update downloading in the background: Settings → Windows Update — if an update is downloading, let it finish or schedule it for off-hours",
+                "Check for OneDrive or backup software syncing: OneDrive icon in taskbar → pause sync temporarily to test; same for Dropbox, Google Drive, Backup",
+                "Check for delivery optimization (Windows Update peer sharing): Settings → Windows Update → Advanced options → Delivery Optimization → turn off 'Allow downloads from other PCs'",
+                "Look for malware/miners: high sustained upload to unknown IPs is a red flag — run hematite --inspect security to check Defender status, then run a full Defender scan",
+                "Use Resource Monitor for real-time drill-down: Task Manager → Performance tab → Open Resource Monitor → Network tab → shows per-process bytes/sec in real time",
+                "For gaming: check for background game patching (Steam, Epic, Xbox) — pause downloads in each game client's settings",
+                "If a browser is the top consumer: extensions can cause heavy network usage — try a private/incognito window to isolate, then disable extensions one at a time",
+            ],
+            dig_deeper: Some("network_stats"),
+        },
+    },
 ];
 
 pub struct HealthScore {

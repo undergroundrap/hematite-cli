@@ -712,6 +712,59 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             ("pending_reboot", "Pending Reboot")
         ]
     );
+    add_if!(
+        &[
+            "sleep",
+            "hibernate",
+            "won't wake",
+            "won't sleep",
+            "stuck after sleep",
+            "wake from sleep",
+            "keeps waking",
+            "fast startup",
+            "power issue",
+            "power problem"
+        ],
+        &[
+            ("log_check", "Event Log"),
+            ("startup_items", "Startup Items"),
+            ("services", "Services")
+        ]
+    );
+    add_if!(
+        &[
+            "keyboard",
+            "mouse not",
+            "touchpad",
+            "trackpad",
+            "input device",
+            "keyboard not",
+            "mouse frozen",
+            "keyboard frozen"
+        ],
+        &[
+            ("peripherals", "Peripherals"),
+            ("device_health", "Device Health")
+        ]
+    );
+    add_if!(
+        &[
+            "bandwidth",
+            "high network",
+            "network usage",
+            "using all",
+            "slow internet",
+            "data usage",
+            "upload slow",
+            "download slow",
+            "network slow"
+        ],
+        &[
+            ("network_stats", "Network Stats"),
+            ("connections", "Active Connections"),
+            ("processes", "Processes")
+        ]
+    );
 
     if topics.is_empty() {
         topics.push(("health_report", "System Health"));
@@ -1168,6 +1221,9 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("Microsoft Store") && t.contains("AppX") => {
             Some("Microsoft Store not working")
         }
+        t if t.contains("sleep") && t.contains("hibernate") => Some("PC won't sleep or wake"),
+        t if t.contains("Keyboard") && t.contains("mouse") => Some("keyboard not working"),
+        t if t.contains("High network usage") => Some("high network usage"),
         _ => None,
     }
 }
@@ -1294,6 +1350,18 @@ pub fn fix_issue_categories() -> &'static [(&'static str, &'static str)] {
         (
             "Microsoft Store / Apps",
             "microsoft store, store app, uwp, app won't install, winget",
+        ),
+        (
+            "Network Share",
+            "network share, mapped drive, unc path, smb share, can't access share",
+        ),
+        (
+            "High Network Usage",
+            "bandwidth, high network usage, slow internet, what's using network",
+        ),
+        (
+            "USB Device",
+            "usb not recognized, usb not working, device not recognized",
         ),
     ]
 }

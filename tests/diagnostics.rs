@@ -10078,3 +10078,111 @@ fn test_routing_microsoft_store_routes_to_installer_health() {
         "Microsoft Store query should route to installer_health"
     );
 }
+
+#[test]
+fn test_recipe_matches_sleep_wake_issue() {
+    for trigger in &[
+        "kernel-power",
+        "power-troubleshooter",
+        "sleep fail",
+        "won't wake",
+        "fast startup",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("sleep")
+                || r.title.contains("hibernate")
+                || r.title.contains("wake")),
+            "should match sleep/wake recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_keyboard_mouse_not_working() {
+    for trigger in &[
+        "hid keyboard",
+        "hid mouse",
+        "hid-compliant",
+        "keyboard not detected",
+        "touchpad not working",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("Keyboard")
+                || r.title.contains("mouse")
+                || r.title.contains("touchpad")),
+            "should match keyboard/mouse recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_high_network_usage() {
+    for trigger in &[
+        "bytes sent (mb):",
+        "bytes received (mb):",
+        "high bandwidth",
+        "network usage high",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter()
+                .any(|r| r.title.contains("network usage") || r.title.contains("bandwidth")),
+            "should match high network usage recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_sleep_routes_to_log_check() {
+    let topics = hematite::agent::report_export::fix_plan_topics("PC won't sleep");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"log_check"),
+        "sleep query should route to log_check"
+    );
+}
+
+#[test]
+fn test_routing_keyboard_routes_to_peripherals() {
+    let topics = hematite::agent::report_export::fix_plan_topics("keyboard not working");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"peripherals"),
+        "keyboard query should route to peripherals"
+    );
+}
+
+#[test]
+fn test_routing_bandwidth_routes_to_network_stats() {
+    let topics = hematite::agent::report_export::fix_plan_topics("high bandwidth usage");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"network_stats"),
+        "bandwidth query should route to network_stats"
+    );
+}
+
+#[test]
+fn test_fix_issue_categories_covers_advertised_areas() {
+    let cats = hematite::agent::report_export::fix_issue_categories();
+    let names: Vec<&str> = cats.iter().map(|(n, _)| *n).collect();
+    // All advertised category names that users would expect
+    for expected in &[
+        "Sleep / Hibernate",
+        "Keyboard / Mouse",
+        "Network Share",
+        "High Network Usage",
+        "USB Device",
+        "Crash / BSOD",
+        "Audio",
+        "Bluetooth",
+        "Camera",
+    ] {
+        assert!(
+            names.contains(expected),
+            "fix_issue_categories should include '{expected}'"
+        );
+    }
+}
