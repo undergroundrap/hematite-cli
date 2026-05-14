@@ -1094,6 +1094,23 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 None,
                 false, // interactive window opens; not suitable for sweep
             ),
+            // Browser cache — Edge only (Chrome requires profile path resolution; explicit --fix only)
+            (
+                "browser slow",
+                "Clear Microsoft Edge cache",
+                "powershell -Command \"Remove-Item \\\"$env:LOCALAPPDATA\\\\Microsoft\\\\Edge\\\\User Data\\\\Default\\\\Cache\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue\"",
+                None,
+                None,
+                false, // user data — explicit --fix only, never sweep
+            ),
+            (
+                "browser crashing",
+                "Clear Microsoft Edge cache",
+                "powershell -Command \"Remove-Item \\\"$env:LOCALAPPDATA\\\\Microsoft\\\\Edge\\\\User Data\\\\Default\\\\Cache\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue\"",
+                None,
+                None,
+                false, // duplicate label
+            ),
             // VPN — RasMan manages all VPN tunnels; safe to restart
             (
                 "rasman",
@@ -1224,6 +1241,12 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("sleep") && t.contains("hibernate") => Some("PC won't sleep or wake"),
         t if t.contains("Keyboard") && t.contains("mouse") => Some("keyboard not working"),
         t if t.contains("High network usage") => Some("high network usage"),
+        t if t.contains("crackling") || t.contains("distortion") || t.contains("stuttering") => {
+            Some("audio crackling")
+        }
+        t if t.contains("Browser") && (t.contains("slow") || t.contains("crashing")) => {
+            Some("browser slow or crashing")
+        }
         _ => None,
     }
 }

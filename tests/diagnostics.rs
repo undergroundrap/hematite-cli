@@ -10165,6 +10165,56 @@ fn test_routing_bandwidth_routes_to_network_stats() {
 }
 
 #[test]
+fn test_recipe_matches_audio_crackling() {
+    for trigger in &[
+        "crackling",
+        "audio distortion",
+        "audio stuttering",
+        "dpc latency",
+        "exclusive mode",
+        "sound crackling",
+        "audio popping",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("crackling") || r.title.contains("distortion")),
+            "should match audio crackling recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_browser_slow_or_crashing() {
+    for trigger in &[
+        "browser crash",
+        "browser slow",
+        "browser freezing",
+        "browser high cpu",
+        "chrome slow",
+        "edge slow",
+        "webview2 runtime: missing",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("Browser") || r.title.contains("browser")),
+            "should match browser recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_browser_routes_to_browser_health() {
+    for query in &["Chrome running slow", "browser keeps crashing", "Edge not opening"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            topic_ids.contains(&"browser_health"),
+            "browser query '{query}' should route to browser_health"
+        );
+    }
+}
+
+#[test]
 fn test_fix_issue_categories_covers_advertised_areas() {
     let cats = hematite::agent::report_export::fix_issue_categories();
     let names: Vec<&str> = cats.iter().map(|(n, _)| *n).collect();

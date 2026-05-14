@@ -1217,6 +1217,74 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("network_stats"),
         },
     },
+
+    // ── Audio crackling / distortion / stuttering ─────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "crackling",
+            "audio distortion",
+            "audio stuttering",
+            "audio popping",
+            "audio drops out",
+            "audio cutting",
+            "audio lag",
+            "sound crackling",
+            "sound distortion",
+            "sound stuttering",
+            "audio glitch",
+            "dpc latency",
+            "exclusive mode",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Audio crackling, distortion, or stuttering",
+            steps: &[
+                "Check the sample rate and bit depth: right-click the speaker icon → Sound settings → More sound settings → Playback tab → right-click your speaker → Properties → Advanced → set to '24 bit, 48000 Hz (Studio Quality)' or match your headset's spec",
+                "Disable audio enhancements: in the same Advanced tab → uncheck 'Enable audio enhancements' — Realtek/DTS/Nahimic enhancements are a common cause of crackling",
+                "Update or reinstall the audio driver: Device Manager → Sound, video and game controllers → right-click your audio device → Update driver; or download the latest from your motherboard/laptop manufacturer (Realtek, IDT, Intel SST)",
+                "Check DPC (Deferred Procedure Call) latency: download LatencyMon (free, latencymon.com) and run it while crackling occurs — identifies which driver or service is causing audio buffer underruns",
+                "Disable exclusive mode: right-click speaker → Properties → Advanced → uncheck 'Allow applications to take exclusive control of this device' — prevents apps like Spotify or Discord from monopolizing the audio device",
+                "For Bluetooth audio crackling: increase Bluetooth quality by switching codec — in Bluetooth settings, ensure the device is using aptX or AAC instead of SBC; also move the device closer to reduce interference",
+                "Disable power management on the audio adapter: Device Manager → Sound → right-click audio device → Properties → Power Management → uncheck 'Allow the computer to turn off this device to save power'",
+                "If crackling started after a Windows Update: Device Manager → right-click audio device → Roll Back Driver to the previous version",
+            ],
+            dig_deeper: Some("audio"),
+        },
+    },
+
+    // ── Browser slow, crashing, or not working ────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "browser crash",
+            "webview2 runtime: missing",
+            "webview2: not installed",
+            "browser slow",
+            "browser freezing",
+            "browser not responding",
+            "browser high cpu",
+            "chrome slow",
+            "edge slow",
+            "firefox slow",
+            "browser not opening",
+            "browser crashing",
+            "browser keeps closing",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Browser slow, crashing, or not opening",
+            steps: &[
+                "Clear the browser cache: in Chrome/Edge → Ctrl+Shift+Delete → check 'Cached images and files' → All time → Clear data; this is the single most effective fix for browser slowness",
+                "Test in a private/incognito window (Ctrl+Shift+N in Chrome/Edge, Ctrl+Shift+P in Firefox) — if the browser is fast in private mode, an extension is the cause",
+                "Disable extensions one at a time: browser menu → Extensions (or Add-ons) → disable all, then re-enable one at a time to isolate the problem extension",
+                "Disable hardware acceleration if the browser is crashing or displaying glitches: Chrome/Edge → Settings → System → turn off 'Use hardware acceleration when available' → relaunch",
+                "Reset the browser profile as a last resort: Chrome → chrome://settings/resetProfileSettings; Edge → edge://settings/resetProfileSettings — this removes extensions and preferences but keeps bookmarks",
+                "For 'browser not opening' after a Windows update: run hematite --inspect browser_health to check for WebView2 runtime issues; reinstall WebView2 from microsoft.com/en-us/edge/webview2 if it is missing",
+                "Update the browser: Chrome/Edge → menu (⋮) → Help → About → it will auto-update if behind; Firefox → menu → Help → About Firefox",
+                "Check if a browser policy is locking settings: run hematite --inspect browser_health and look for 'Policy:' entries — corporate or malware-deployed policies can prevent changes and cause slowness",
+            ],
+            dig_deeper: Some("browser_health"),
+        },
+    },
 ];
 
 pub struct HealthScore {
