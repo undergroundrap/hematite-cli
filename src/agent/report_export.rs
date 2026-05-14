@@ -1865,6 +1865,70 @@ pub fn fix_issue_categories() -> &'static [(&'static str, &'static str)] {
             "Explorer / Desktop Crashed",
             "desktop crashed, taskbar disappeared, start menu not working, File Explorer crash",
         ),
+        (
+            "Overheating / Fan",
+            "pc overheating, fan running loud, fans spinning, thermal throttling, cpu too hot",
+        ),
+        (
+            "RAM / Memory",
+            "RAM almost full, out of memory, low memory, memory leak, running out of ram",
+        ),
+        (
+            "Windows Activation",
+            "not activated, windows license expired, activate windows, product key",
+        ),
+        (
+            "BitLocker",
+            "bitlocker asking for recovery key, drive encryption, bitlocker locked",
+        ),
+        (
+            "Domain / Group Policy",
+            "can't join domain, group policy not applying, domain controller unreachable",
+        ),
+        (
+            "Hyper-V / VM",
+            "hyper-v vm won't start, virtual machine error, vm network not working",
+        ),
+        (
+            "WSL",
+            "wsl not working, wsl2 error, linux subsystem broken",
+        ),
+        (
+            "Docker",
+            "docker container won't start, docker daemon not running, docker compose error",
+        ),
+        (
+            "Random Restart",
+            "computer restarts randomly, keeps restarting, random reboot",
+        ),
+        (
+            "Disk Filling Up",
+            "ssd getting full fast, disk filling up, recycle bin won't empty, hiberfil.sys too big",
+        ),
+        (
+            "DHCP / IP Address",
+            "no ip address, dhcp not working, ip address conflict, apipa, 169.254",
+        ),
+        (
+            "Certificate / SSL",
+            "certificate expired, ssl error, cert not trusted, tls error",
+        ),
+        (
+            "TPM / Secure Boot",
+            "tpm not detected, secure boot disabled, bitlocker needs tpm",
+        ),
+        (
+            "SMB / NTLM Security",
+            "smb1 enabled, ntlmv1 in use, lan manager authentication",
+        ),
+        (
+            "Windows Search",
+            "windows search eating disk, search indexing not working",
+        ),
+        (
+            "WMI",
+            "wmi not working, wmi corrupt, winmgmt error",
+        ),
     ]
 }
 

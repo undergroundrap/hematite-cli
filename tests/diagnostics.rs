@@ -8086,8 +8086,8 @@ fn test_fix_recipes_printnightmare_triggers() {
 fn test_fix_issue_categories_count() {
     let cats = hematite::agent::report_export::fix_issue_categories();
     assert!(
-        cats.len() >= 20,
-        "expected at least 20 issue categories, got {}",
+        cats.len() >= 45,
+        "expected at least 45 issue categories, got {}",
         cats.len()
     );
     // Every entry must have non-empty label and keywords
@@ -10348,7 +10348,6 @@ fn test_routing_wifi_dropping_routes_to_network_adapter() {
 fn test_fix_issue_categories_covers_advertised_areas() {
     let cats = hematite::agent::report_export::fix_issue_categories();
     let names: Vec<&str> = cats.iter().map(|(n, _)| *n).collect();
-    // All advertised category names that users would expect
     for expected in &[
         "Sleep / Hibernate",
         "Keyboard / Mouse",
@@ -10367,6 +10366,21 @@ fn test_fix_issue_categories_covers_advertised_areas() {
         "Defender High CPU",
         "Monitor Not Detected",
         "Explorer / Desktop Crashed",
+        "Overheating / Fan",
+        "RAM / Memory",
+        "Windows Activation",
+        "BitLocker",
+        "Domain / Group Policy",
+        "Hyper-V / VM",
+        "WSL",
+        "Docker",
+        "Random Restart",
+        "Disk Filling Up",
+        "DHCP / IP Address",
+        "Certificate / SSL",
+        "TPM / Secure Boot",
+        "SMB / NTLM Security",
+        "Windows Search",
     ] {
         assert!(
             names.contains(expected),
