@@ -543,6 +543,108 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         &[("browser_health", "Browser Health")]
     );
 
+    add_if!(
+        &[
+            "screen flicker",
+            "display flicker",
+            "screen blink",
+            "monitor flicker",
+            "display artifact",
+            "screen glitch",
+            "black screen",
+            "screen goes black"
+        ],
+        &[
+            ("display_config", "Display Config"),
+            ("device_health", "Device Health"),
+            ("drivers", "Drivers")
+        ]
+    );
+    add_if!(
+        &[
+            "high disk",
+            "disk 100",
+            "disk usage",
+            "disk is full",
+            "disk almost full",
+            "disk at 100",
+            "storage full",
+            "no space left"
+        ],
+        &[
+            ("storage", "Storage"),
+            ("processes", "Processes"),
+            ("disk_health", "Disk Health")
+        ]
+    );
+    add_if!(
+        &[
+            "gpu",
+            "graphics",
+            "game slow",
+            "games not",
+            "gaming performance",
+            "fps low",
+            "fps drop",
+            "game crash",
+            "video card",
+            "graphics card",
+            "stuttering"
+        ],
+        &[
+            ("overclocker", "GPU / Overclocker Telemetry"),
+            ("thermal", "Thermal"),
+            ("resource_load", "Resource Load"),
+            ("drivers", "Drivers")
+        ]
+    );
+    add_if!(
+        &[
+            "startup slow",
+            "boot slow",
+            "slow boot",
+            "takes long to start",
+            "slow to start",
+            "long boot"
+        ],
+        &[
+            ("startup_items", "Startup Items"),
+            ("resource_load", "Resource Load"),
+            ("services", "Services")
+        ]
+    );
+    add_if!(
+        &[
+            "no sound",
+            "audio not",
+            "sound not",
+            "speaker not",
+            "microphone not",
+            "mic not",
+            "audio stopped",
+            "crackling audio",
+            "distorted sound",
+            "no audio"
+        ],
+        &[("audio", "Audio")]
+    );
+    add_if!(
+        &[
+            "install app",
+            "install fail",
+            "can't install",
+            "installation fail",
+            "app won't install",
+            "setup fail",
+            "winget fail",
+            "store install"
+        ],
+        &[
+            ("installer_health", "Installer Health"),
+            ("pending_reboot", "Pending Reboot")
+        ]
+    );
+
     if topics.is_empty() {
         topics.push(("health_report", "System Health"));
         topics.push(("log_check", "Event Log"));

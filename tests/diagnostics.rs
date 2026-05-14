@@ -9368,6 +9368,68 @@ fn test_fix_routes_browser_health_for_browser_queries() {
     }
 }
 
+// ── New routing coverage ─────────────────────────────────────────────────────
+
+#[test]
+fn test_fix_routes_display_for_flickering() {
+    for query in &["screen flickering", "monitor flicker", "display artifact", "screen goes black"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"display_config"),
+            "\"{}\" should route to display_config, got: {:?}", query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_storage_for_high_disk() {
+    for query in &["high disk usage", "disk 100 percent", "disk is full", "no space left"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"storage"),
+            "\"{}\" should route to storage, got: {:?}", query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_overclocker_for_gpu_gaming() {
+    for query in &["GPU overheating", "game slow", "fps drop", "graphics card issue"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"overclocker"),
+            "\"{}\" should route to overclocker, got: {:?}", query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_startup_items_for_boot_slow() {
+    for query in &["startup slow", "boot slow", "slow boot", "long boot time"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"startup_items"),
+            "\"{}\" should route to startup_items, got: {:?}", query, names
+        );
+    }
+}
+
+#[test]
+fn test_fix_routes_installer_health_for_install_failures() {
+    for query in &["can't install app", "installation failed", "winget fail", "store install stuck"] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"installer_health"),
+            "\"{}\" should route to installer_health, got: {:?}", query, names
+        );
+    }
+}
+
 #[test]
 fn test_report_indicates_issues_true_for_non_a_grade() {
     let content = "Health Score: **D — Action Required**\nLow disk space detected.";
