@@ -10215,6 +10215,79 @@ fn test_routing_browser_routes_to_browser_health() {
 }
 
 #[test]
+fn test_recipe_matches_slow_startup() {
+    for trigger in &[
+        "startup takes",
+        "long boot time",
+        "slow to start up",
+        "startup items high impact",
+        "many startup programs",
+        "boot is slow",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("startup is slow") || r.title.contains("long time to boot")),
+            "should match slow startup recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_windows_update_stuck() {
+    for trigger in &[
+        "update error 0x",
+        "0x8024a105",
+        "0x80070422",
+        "update stuck downloading",
+        "update failed to install",
+        "cumulative update failed",
+        "feature update failed",
+        "update rollback failed",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("Update stuck") || r.title.contains("error code")),
+            "should match Windows Update stuck recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_recipe_matches_gpu_driver_crash() {
+    for trigger in &[
+        "nvlddmkm.sys",
+        "nvlddmkm",
+        "amdkmdag.sys",
+        "tdr failure",
+        "video_tdr_failure",
+        "gpu driver crash",
+        "gpu hang",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("GPU") || r.title.contains("display driver")),
+            "should match GPU driver crash recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_gpu_crash_routes_to_device_health() {
+    for query in &[
+        "GPU driver crash black screen",
+        "nvlddmkm.sys BSOD",
+        "TDR failure video",
+    ] {
+        let topics = hematite::agent::report_export::fix_plan_topics(query);
+        let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            topic_ids.contains(&"device_health") || topic_ids.contains(&"recent_crashes"),
+            "GPU crash query '{query}' should route to device_health or recent_crashes"
+        );
+    }
+}
+
+#[test]
 fn test_fix_issue_categories_covers_advertised_areas() {
     let cats = hematite::agent::report_export::fix_issue_categories();
     let names: Vec<&str> = cats.iter().map(|(n, _)| *n).collect();
@@ -10229,6 +10302,9 @@ fn test_fix_issue_categories_covers_advertised_areas() {
         "Audio",
         "Bluetooth",
         "Camera",
+        "GPU Driver Crash",
+        "Windows Update Stuck",
+        "Slow Boot",
     ] {
         assert!(
             names.contains(expected),

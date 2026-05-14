@@ -600,6 +600,23 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     );
     add_if!(
         &[
+            "nvlddmkm",
+            "amdkmdag",
+            "tdr failure",
+            "video_tdr_failure",
+            "gpu driver crash",
+            "gpu driver stopped",
+            "gpu hang",
+            "display adapter error"
+        ],
+        &[
+            ("device_health", "Device Health"),
+            ("drivers", "Drivers"),
+            ("recent_crashes", "Recent Crashes")
+        ]
+    );
+    add_if!(
+        &[
             "startup slow",
             "boot slow",
             "slow boot",
@@ -1128,6 +1145,23 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 Some("not running"),
                 false, // duplicate label
             ),
+            // Windows Update cache reset — stops services, deletes SoftwareDistribution; explicit only
+            (
+                "update stuck downloading",
+                "Reset Windows Update components",
+                "powershell -Command \"net stop wuauserv; net stop bits; Remove-Item \\\"C:\\\\Windows\\\\SoftwareDistribution\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue; net start wuauserv; net start bits\"",
+                None,
+                None,
+                false, // disruptive — never include in sweep
+            ),
+            (
+                "update error 0x",
+                "Reset Windows Update components",
+                "powershell -Command \"net stop wuauserv; net stop bits; Remove-Item \\\"C:\\\\Windows\\\\SoftwareDistribution\\\\*\\\" -Recurse -Force -ErrorAction SilentlyContinue; net start wuauserv; net start bits\"",
+                None,
+                None,
+                false, // duplicate label
+            ),
             // Remote Desktop — security-sensitive; only on explicit --fix
             (
                 "remote desktop disabled",
@@ -1247,6 +1281,13 @@ fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("Browser") && (t.contains("slow") || t.contains("crashing")) => {
             Some("browser slow or crashing")
         }
+        t if t.contains("startup is slow") || t.contains("long time to boot") => {
+            Some("slow startup")
+        }
+        t if t.contains("Update stuck") || t.contains("Update failing") || t.contains("error code") => {
+            Some("Windows Update stuck")
+        }
+        t if t.contains("GPU") && t.contains("driver crash") => Some("GPU driver crash"),
         _ => None,
     }
 }
@@ -1385,6 +1426,14 @@ pub fn fix_issue_categories() -> &'static [(&'static str, &'static str)] {
         (
             "USB Device",
             "usb not recognized, usb not working, device not recognized",
+        ),
+        (
+            "GPU Driver Crash",
+            "gpu driver crash, tdr failure, nvlddmkm, black screen after driver, display driver stopped",
+        ),
+        (
+            "Windows Update Stuck",
+            "update stuck, update error 0x, update won't install, cumulative update failed",
         ),
     ]
 }

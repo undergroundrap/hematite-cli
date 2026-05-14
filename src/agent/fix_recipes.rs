@@ -1285,6 +1285,86 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             dig_deeper: Some("browser_health"),
         },
     },
+
+    // ── Slow startup / PC takes a long time to boot ───────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "startup takes", "long boot time", "slow to start up", "boot is slow",
+            "computer is slow to start", "windows loads slowly", "pc takes forever to boot",
+            "startup items high impact", "many startup programs", "takes forever to start",
+            "slow to boot up", "boot time is",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Windows startup is slow — PC takes a long time to boot",
+            steps: &[
+                "Open Task Manager (Ctrl+Shift+Esc) → Startup tab → disable 'High impact' programs you don't need at login (RGB controllers, game launchers, chat apps are common culprits)",
+                "Run hematite --inspect startup_items to see the full list of programs set to run at login",
+                "Disable Fast Startup if the machine feels slow or unreliable after restarting: Settings → System → Power & sleep → Additional power settings → Choose what the power buttons do → uncheck 'Turn on fast startup' → Save changes",
+                "Run an SFC scan if slow boot started suddenly (corrupted system files delay boot): PowerShell (admin) → sfc /scannow — then DISM /Online /Cleanup-Image /RestoreHealth to repair the component store",
+                "Check disk health — a failing or near-full HDD is the most common hidden cause of slow boot: run hematite --inspect disk_health and hematite --inspect storage",
+                "Check recent Windows Updates: Settings → Windows Update → View update history — if slowness started after a specific update, note the KB number and consider rolling it back (Settings → Update history → Uninstall updates)",
+                "Check for malware that runs at startup: run hematite --inspect security then a full Defender scan — malware processes running at boot significantly extend startup time",
+                "For laptops: check the active power plan (Settings → Power & sleep → Additional power settings) — 'Power saver' throttles boot-time CPU speed; switch to 'Balanced' or 'High performance'",
+            ],
+            dig_deeper: Some("startup_items"),
+        },
+    },
+
+    // ── Windows Update stuck downloading or failing ───────────────────────────
+    RecipeEntry {
+        // Note: "windows update" is already owned by the "updates pending" recipe (shorter AC pattern).
+        // Use error-code patterns and stuck-download phrases that are unambiguous.
+        triggers: &[
+            "update error 0x", "0x8024a105", "0x800705b4", "0x80070422", "0x8024",
+            "update failed to install", "update stuck downloading", "update downloading at 0%",
+            "update keeps failing", "cumulative update failed", "feature update failed",
+            "update rollback failed", "failed to configure windows updates",
+            "update install failed",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Windows Update stuck downloading or failing with an error code",
+            steps: &[
+                "Run the built-in troubleshooter first: Settings → Update & Security → Troubleshoot → Additional troubleshooters → Windows Update → Run the troubleshooter — it fixes most common stuck states automatically",
+                "Reset the Windows Update cache (most effective fix for stuck downloads): PowerShell (admin) → net stop wuauserv → net stop bits → Remove-Item C:\\Windows\\SoftwareDistribution\\* -Recurse -Force → net start wuauserv → net start bits — then check for updates again",
+                "Free up disk space — updates require 10+ GB free: run hematite --inspect storage; if space is low, empty the Recycle Bin and run Disk Cleanup (cleanmgr.exe) before retrying",
+                "Repair the Windows component store if DISM errors appear: PowerShell (admin) → DISM /Online /Cleanup-Image /RestoreHealth (takes 5–15 min) → then sfc /scannow → then retry the update",
+                "For error 0x80070422 (service disabled): Services (services.msc) → find 'Windows Update' → right-click → Properties → set Startup type to 'Automatic' → click Start",
+                "For error 0x8024a105 or updates stuck at 0%: restart the update services — run hematite --fix 'Windows Update broken' for the automated service restart steps",
+                "Manually install stuck updates: go to Settings → Windows Update → View update history → note the failing KB number → download it from catalog.update.microsoft.com and run the installer directly",
+                "If nothing works: the Windows Update Reset Script resets all update components — download from microsoft.com/en-us/download/details.aspx?id=25232 and run as Administrator",
+            ],
+            dig_deeper: Some("updates"),
+        },
+    },
+
+    // ── GPU / display driver crash (TDR failure, nvlddmkm.sys, black screen) ──
+    // Note: "display driver" is owned by the Screen flickering recipe. Use unique
+    // driver-crash identifiers only: kernel fault names, TDR codes, GPU-specific terms.
+    RecipeEntry {
+        triggers: &[
+            "nvlddmkm.sys", "nvlddmkm", "amdkmdag.sys", "amdkmdag", "atikmpag.sys",
+            "dxgkrnl.sys", "tdr failure", "video_tdr_failure", "gpu driver crash",
+            "gpu driver stopped", "graphics driver stopped", "video hardware error",
+            "gpu hang", "display adapter error code 43",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "GPU or display driver crash — TDR failure or black screen",
+            steps: &[
+                "Run hematite --inspect device_health to check if the GPU shows a yellow bang in Device Manager (error code 43 = driver failure; error code 45 = device not connected at last boot)",
+                "Check crash events: run hematite --inspect recent_crashes and look for VIDEO_TDR_FAILURE, nvlddmkm.sys (NVIDIA), or amdkmdag.sys (AMD) in the BSOD list — confirms this is a driver-level crash",
+                "Update the GPU driver: NVIDIA → download GeForce Experience or go to nvidia.com/drivers; AMD → Radeon Software or amd.com/support — always use the GPU manufacturer's installer, not Windows Update's driver",
+                "If the crash started after a driver update: roll back the driver — Device Manager → Display Adapters → right-click GPU → Properties → Driver tab → Roll Back Driver",
+                "For a clean driver reinstall using DDU: boot into Safe Mode (hold Shift + Restart → Troubleshoot → Advanced options → Startup Settings → F4), download Display Driver Uninstaller from guru3d.com, run DDU → Clean and restart, then install the latest driver fresh",
+                "Check for overheating: run hematite --inspect thermal — GPU TDR failures often happen when the GPU exceeds 90°C; clean the GPU heatsink and reapply thermal paste if temperatures are consistently high",
+                "Check for unstable overclock: if GPU core clock or VRAM frequency is overclocked via MSI Afterburner or AMD Wattman, restore default clocks — even a small instability at high load can cause TDR crashes",
+                "As a temporary diagnostic step, raise the TDR delay to confirm TDR is the cause (not a fix): PowerShell (admin) → reg add HKLM\\System\\CurrentControlSet\\Control\\GraphicsDrivers /v TdrDelay /t REG_DWORD /d 8 /f — if crashes stop happening, a driver reinstall or cooling fix will resolve it permanently",
+            ],
+            dig_deeper: Some("device_health"),
+        },
+    },
 ];
 
 pub struct HealthScore {
