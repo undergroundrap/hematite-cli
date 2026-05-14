@@ -10683,6 +10683,114 @@ fn test_routing_disk_filling_routes_to_storage() {
 }
 
 #[test]
+fn test_routing_fan_phrases_route_to_thermal_query_path() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "fan running loud",
+        "fans spinning at max speed",
+        "laptop fan always on",
+        "fan noise is loud",
+        "fan at max speed",
+        "fans running constantly",
+        "pc running hot",
+        "laptop too hot",
+        "cpu temperature too high",
+    ];
+    for q in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(q),
+            Some("thermal"),
+            "thermal routing expected for query: {q}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_login_loop_routes_to_sign_in() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "login screen stuck",
+        "stuck on login screen",
+        "stuck at login",
+        "login loop",
+        "sign-in loop",
+        "sign in loop",
+    ];
+    for q in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(q),
+            Some("sign_in"),
+            "sign_in routing expected for query: {q}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_time_zone_routes_to_ntp_query_path() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = ["time zone wrong", "wrong timezone", "timezone incorrect"];
+    for q in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(q),
+            Some("ntp"),
+            "ntp routing expected for query: {q}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_git_auth_routes_to_git_config() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "git push denied",
+        "git clone failed authentication",
+        "git identity not set",
+        "git auth not working",
+    ];
+    for q in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(q),
+            Some("git_config"),
+            "git_config routing expected for query: {q}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_dev_conflicts_phrases() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "nvm conflict with node",
+        "pyenv conflict",
+        "version conflict in dev environment",
+    ];
+    for q in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(q),
+            Some("dev_conflicts"),
+            "dev_conflicts routing expected for query: {q}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_path_and_toolchain_phrases() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("path issue with cargo"),
+        Some("path")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("toolchain not found"),
+        Some("toolchains")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("toolchain missing for rust"),
+        Some("toolchains")
+    );
+}
+
+#[test]
 fn test_all_action_recipes_have_fix_arg_mapping() {
     // Every ACTION/INVESTIGATE recipe title should have a recipe_title_to_fix_arg entry so that
     // suggest_fix_commands can surface it as a hematite --fix hint in reports.
