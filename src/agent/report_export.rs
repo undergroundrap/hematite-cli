@@ -163,8 +163,11 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "low disk",
             "disk space",
             "drive full",
+            "drive almost full",
+            "c drive",
             "storage full",
-            "no space"
+            "no space",
+            "disk filling"
         ],
         &[
             ("storage", "Storage"),
@@ -352,6 +355,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "login fail",
             "password",
             "pin not working",
+            "pin broken",
+            "pin stopped",
+            "hello pin",
+            "windows hello",
             "fingerprint",
             "hello not",
             "locked out",
@@ -622,6 +629,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "running out of ram",
             "memory full",
             "ram usage high",
+            "ram usage",
             "memory usage high",
             "physical memory",
             "ram almost",
@@ -945,6 +953,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "dhcp not",
             "dhcp fail",
             "dhcp server",
+            "dhcp lease",
             "ip not assigned",
             "no dhcp"
         ],
@@ -981,12 +990,15 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     add_if!(
         &[
             "certificate expired",
+            "certificate is expired",
             "certificate error",
             "ssl error",
             "cert expired",
             "certificate not trusted",
             "ssl certificate",
             "tls error",
+            "tls handshake",
+            "tls fail",
             "certificate warning"
         ],
         &[("certificates", "Certificates")]
@@ -1027,8 +1039,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "hiberfil",
             "hiberfile",
             "virtual memory file",
-            "swapfile.sys",
-            "virtual memory low"
+            "virtual memory low",
+            "memory commit",
+            "commit charge",
+            "swapfile.sys"
         ],
         &[("pagefile", "Page File"), ("storage", "Storage")]
     );
@@ -1046,6 +1060,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     add_if!(
         &[
             "wmi not",
+            "wmi is",
             "wmi error",
             "wmi corrupt",
             "wmi fail",
@@ -1068,6 +1083,12 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         &[
             "ctrl+alt+del",
             "login screen stuck",
+            "stuck at login",
+            "stuck on login",
+            "login loop",
+            "sign-in loop",
+            "sign in loop",
+            "reboot loop on login",
             "stuck on lock screen",
             "winlogon",
             "sign in screen stuck",
@@ -1175,7 +1196,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "product key",
             "license expired",
             "license invalid",
-            "windows isn't activated"
+            "windows isn't activated",
+            "not genuine",
+            "windows is not genuine",
+            "genuine check"
         ],
         &[("activation", "Windows Activation")]
     );
@@ -1196,7 +1220,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "domain join",
             "domain controller",
             "domain not reachable",
-            "kerberos error",
+            "kerberos",
             "ldap error",
             "dc unreachable",
             "gpo not applying",
