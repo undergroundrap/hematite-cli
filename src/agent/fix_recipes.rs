@@ -377,7 +377,7 @@ static ALL_RECIPES: &[RecipeEntry] = &[
                 "Repair existing runtimes: Control Panel → Programs → find 'Microsoft Visual C++ 20XX' → Repair",
                 "After installing, restart before testing the application again — runtimes must be registered at boot",
             ],
-            dig_deeper: None,
+            dig_deeper: Some("installed_software"),
         },
     },
 
