@@ -1422,6 +1422,32 @@ static ALL_RECIPES: &[RecipeEntry] = &[
         },
     },
 
+    // ── Antimalware Service Executable / Defender high CPU ───────────────────
+    // Note: "malware" (7 chars) is owned by the Threat detected recipe — it's a substring of
+    // "antimalware". Use "msmpeng" and process-name patterns only (not "antimalware service").
+    RecipeEntry {
+        triggers: &[
+            "msmpeng.exe", "msmpeng", "wdnissvc.exe", "wdnissvc",
+            "defender using high cpu", "defender scan high cpu", "mssense.exe high",
+            "windows defender high", "defender cpu",
+        ],
+        recipe: Recipe {
+            severity: "INVESTIGATE",
+            title: "Antimalware Service Executable (MsMpEng.exe) using high CPU",
+            steps: &[
+                "Check if a scheduled scan is running: Task Manager (Ctrl+Shift+Esc) → Details → sort by CPU → if MsMpEng.exe is high, open Windows Security → Virus & threat protection → Current threats — let an active scan complete before taking action",
+                "Exclude the Windows Temp folder and your main development/work directories from real-time scanning: Windows Security → Virus & threat protection → Virus & threat protection settings → Exclusions → Add an exclusion → Folder → add C:\\Windows\\Temp and your project folders",
+                "Change the scheduled scan time to off-peak hours: Task Scheduler → Microsoft → Windows → Windows Defender → Windows Defender Scheduled Scan → Properties → Triggers → change the time to 3:00 AM or whenever you're not working",
+                "Disable 'Sample submission' to reduce network-related CPU spikes: Windows Security → Virus & threat protection settings → Automatic sample submission → Off",
+                "Run hematite --inspect resource_load to confirm MsMpEng is the top CPU consumer — sometimes it's a false lead and a different process (SearchIndexer, WSUS, Windows Update) is the actual culprit",
+                "Run hematite --inspect security to verify Defender is fully updated — outdated signatures force a more exhaustive scan of each file, significantly increasing CPU usage",
+                "If the issue is persistent and not during a scan: check for malware that is forcing Defender to constantly rescan itself — run a manual full scan (Windows Security → Full scan) from Safe Mode to clear any persistent threat",
+                "As a last resort for workstations where Defender conflicts with enterprise AV: use Group Policy to disable MsMpEng real-time monitoring (not recommended on personal machines) — gpedit.msc → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → Turn off Microsoft Defender Antivirus → Enabled",
+            ],
+            dig_deeper: Some("resource_load"),
+        },
+    },
+
     // ── External monitor not detected / no signal ─────────────────────────────
     // Note: "display adapter" is owned by the GPU crash recipe; use monitor-specific phrases.
     RecipeEntry {

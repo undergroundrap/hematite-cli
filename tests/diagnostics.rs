@@ -10364,12 +10364,44 @@ fn test_fix_issue_categories_covers_advertised_areas() {
         "Slow Boot",
         "Access Denied",
         "Wi-Fi Dropping",
+        "Defender High CPU",
+        "Monitor Not Detected",
+        "Explorer / Desktop Crashed",
     ] {
         assert!(
             names.contains(expected),
             "fix_issue_categories should include '{expected}'"
         );
     }
+}
+
+#[test]
+fn test_recipe_matches_msmpeng_high_cpu() {
+    // "antimalware" contains "malware" which is owned by the Threat detected recipe — omit it
+    for trigger in &[
+        "msmpeng.exe",
+        "msmpeng",
+        "defender using high cpu",
+        "defender scan high cpu",
+        "wdnissvc.exe",
+        "windows defender high",
+    ] {
+        let out = hematite::agent::fix_recipes::match_recipes(trigger);
+        assert!(
+            out.iter().any(|r| r.title.contains("Antimalware") || r.title.contains("MsMpEng")),
+            "should match MsMpEng recipe for trigger: {trigger}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_msmpeng_routes_to_resource_load() {
+    let topics = hematite::agent::report_export::fix_plan_topics("MsMpEng.exe high CPU usage");
+    let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        topic_ids.contains(&"resource_load"),
+        "MsMpEng query should route to resource_load"
+    );
 }
 
 #[test]

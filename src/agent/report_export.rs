@@ -801,6 +801,20 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
     );
     add_if!(
         &[
+            "msmpeng",
+            "antimalware service",
+            "defender high cpu",
+            "wdnissvc",
+            "defender scan"
+        ],
+        &[
+            ("resource_load", "Resource Load"),
+            ("security", "Security"),
+            ("processes", "Processes")
+        ]
+    );
+    add_if!(
+        &[
             "monitor not detected",
             "second monitor",
             "hdmi not working",
@@ -1348,6 +1362,9 @@ pub fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("Browser") && (t.contains("slow") || t.contains("crashing")) => {
             Some("browser slow or crashing")
         }
+        t if t.contains("Antimalware Service Executable") || t.contains("MsMpEng") => {
+            Some("Defender high CPU")
+        }
         t if t.contains("External monitor") || t.contains("no signal") => {
             Some("external monitor not detected")
         }
@@ -1520,6 +1537,10 @@ pub fn fix_issue_categories() -> &'static [(&'static str, &'static str)] {
         (
             "Wi-Fi Dropping",
             "wifi drops, wifi disconnects, internet cuts out, wifi intermittent, wifi unstable",
+        ),
+        (
+            "Defender High CPU",
+            "MsMpEng high CPU, antimalware service executable, Defender slow, Defender scan CPU",
         ),
         (
             "Monitor Not Detected",
