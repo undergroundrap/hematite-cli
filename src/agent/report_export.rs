@@ -244,7 +244,8 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "windows update",
             "patch",
             "stuck on update",
-            "update fail"
+            "update fail",
+            "wuauserv"
         ],
         &[
             ("updates", "Windows Updates"),
@@ -420,7 +421,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "wrong timezone",
             "ntp ",
             "ntp:",
-            "w32tm"
+            "w32tm",
+            "w32time",
+            "windows time service",
+            "time service stopped"
         ],
         &[("ntp", "NTP / Time Sync")]
     );
@@ -506,6 +510,9 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "windows store",
             "uwp",
             "app won't install",
+            "installer stuck",
+            "install stuck",
+            "setup stuck",
             "store not working",
             "winget"
         ],
@@ -1076,7 +1083,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "search index",
             "search indexing",
             "wsearch",
-            "search eating"
+            "search eating",
+            "cortana search",
+            "cortana not",
+            "search bar not"
         ],
         &[("search_index", "Search Index"), ("storage", "Storage")]
     );
@@ -1155,7 +1165,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "openssh",
             "ssh not working",
             "ssh key",
-            "sshd"
+            "sshd",
+            "known_hosts",
+            "ssh host key",
+            "ssh permissions"
         ],
         &[
             ("ssh", "SSH"),
@@ -1171,7 +1184,14 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "github auth",
             "git permission",
             "git clone failed",
-            "git identity"
+            "git identity",
+            "git signing",
+            "git commit sign",
+            "commit signing",
+            "fails sign",
+            "gpg signing",
+            "gpg key git",
+            "git gpg"
         ],
         &[("git_config", "Git Config"), ("credentials", "Credentials")]
     );
@@ -1181,6 +1201,13 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "command not found",
             "python not found",
             "node not found",
+            "node.js version",
+            "node.js not",
+            "cargo not",
+            "pip not",
+            "pip install",
+            "conda environment",
+            "conda env",
             "path issue",
             "missing from path",
             "env var not set",
