@@ -10460,6 +10460,73 @@ fn test_routing_explorer_crash_routes_to_processes() {
 }
 
 #[test]
+fn test_routing_overheating_routes_to_thermal() {
+    let cases = [
+        "PC overheating",
+        "cpu temperature too high",
+        "thermal throttling",
+        "fan running loud",
+        "fans spinning at max speed",
+        "laptop fan always on",
+        "fan at 100 percent",
+        "too hot",
+    ];
+    for q in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            ids.contains(&"thermal"),
+            "thermal routing expected for: {q}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_ram_pressure_routes_to_resource_load() {
+    let cases = [
+        "RAM almost full",
+        "out of memory error",
+        "running out of ram",
+        "memory usage high",
+        "memory leak",
+        "low memory",
+    ];
+    for q in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            ids.contains(&"resource_load"),
+            "resource_load routing expected for: {q}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_mic_keyword_no_false_positive_on_microsoft() {
+    // "mic" is a substring of "microsoft" — ensure it does not trigger audio routing
+    let topics = hematite::agent::report_export::fix_plan_topics("can't open Microsoft Store");
+    let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(
+        !ids.contains(&"audio"),
+        "audio should NOT be routed for 'can't open Microsoft Store' (false mic match)"
+    );
+    assert!(
+        ids.contains(&"installer_health"),
+        "installer_health should be routed for 'can't open Microsoft Store'"
+    );
+}
+
+#[test]
+fn test_routing_microphone_still_routes_to_audio() {
+    let cases = ["microphone not working", "mic not working", "mic keeps cutting out", "my mic is broken"];
+    for q in &cases {
+        let topics = hematite::agent::report_export::fix_plan_topics(q);
+        let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(ids.contains(&"audio"), "audio routing expected for: {q}");
+    }
+}
+
+#[test]
 fn test_all_action_recipes_have_fix_arg_mapping() {
     // Every ACTION/INVESTIGATE recipe title should have a recipe_title_to_fix_arg entry so that
     // suggest_fix_commands can surface it as a hematite --fix hint in reports.
