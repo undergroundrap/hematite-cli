@@ -818,12 +818,17 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "monitor not detected",
             "second monitor",
             "hdmi not working",
+            "hdmi not detected",
             "displayport not",
             "external monitor",
             "external display",
             "no signal on monitor",
+            "no signal on screen",
+            "monitor not showing",
+            "screen not detected",
             "extend display",
-            "duplicate display"
+            "duplicate display",
+            "second screen"
         ],
         &[
             ("display_config", "Display Config"),
@@ -836,10 +841,17 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "explorer.exe crash",
             "windows explorer crash",
             "file explorer crash",
+            "file explorer",
+            "explorer crash",
             "desktop icons disappeared",
+            "desktop disappeared",
             "taskbar disappeared",
             "taskbar not responding",
+            "taskbar missing",
+            "taskbar gone",
             "start menu crashed",
+            "start menu not working",
+            "start menu broken",
             "desktop froze"
         ],
         &[
