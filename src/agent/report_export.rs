@@ -208,7 +208,13 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "unexpected restart",
             "unexpected shutdown",
             "kernel panic",
-            "stop error"
+            "stop error",
+            "restart loop",
+            "reboot loop",
+            "boot loop",
+            "stuck on restart",
+            "stuck restarting",
+            "endless reboot"
         ],
         &[
             ("recent_crashes", "Crash History"),
@@ -437,6 +443,9 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "monitor",
             "display",
             "screen resolution",
+            "screen brightness",
+            "brightness not working",
+            "brightness stuck",
             "second monitor",
             "wrong resolution",
             "display settings",
@@ -1316,6 +1325,22 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         ]
     );
 
+    add_if!(
+        &[
+            "battery",
+            "not charging",
+            "battery drain",
+            "battery low",
+            "battery dead",
+            "won't charge",
+            "wont charge",
+            "plugged in not charging",
+            "power adapter",
+            "ac adapter",
+            "battery percentage"
+        ],
+        &[("battery", "Battery"), ("thermal", "Thermal"), ("cpu_power", "CPU Power")]
+    );
     add_if!(
         &[
             "disk benchmark",
