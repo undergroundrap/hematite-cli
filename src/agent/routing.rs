@@ -1435,6 +1435,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("motherboard")
         || lower.contains("bios version");
     let asks_activation = lower.contains("activation")
+        || lower.contains("activated")
+        || lower.contains("not activated")
+        || lower.contains("product key")
+        || lower.contains("license expired")
         || lower.contains("slmgr")
         || lower.contains("license status")
         || lower.contains("is windows genuine");
@@ -1614,6 +1618,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("why did my pc restart")
         || lower.contains("unexpected restart")
         || lower.contains("sudden restart")
+        || lower.contains("keep restarting")
+        || lower.contains("keeps restarting")
+        || lower.contains("restarts randomly")
+        || lower.contains("random restart")
+        || lower.contains("random reboot")
         || lower.contains("kernel panic")
         || (lower.contains("restart") && lower.contains("itself"))
         || (lower.contains("restart") && lower.contains("by itself"));
