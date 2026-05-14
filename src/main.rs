@@ -195,11 +195,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let preset_str = preset.as_str();
 
         if cockpit.dry_run {
-            let topics =
-                hematite::agent::report_export::triage_topics_for_preset(preset_str);
+            let topics = hematite::agent::report_export::triage_topics_for_preset(preset_str);
             println!(
                 "hematite --triage{} --dry-run: {} topic(s) would be inspected\n",
-                if preset_str == "default" { String::new() } else { format!(" {}", preset_str) },
+                if preset_str == "default" {
+                    String::new()
+                } else {
+                    format!(" {}", preset_str)
+                },
                 topics.len()
             );
             for (i, (topic, label)) in topics.iter().enumerate() {
@@ -296,55 +299,97 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if cockpit.execute {
             let auto_cmds = hematite::agent::report_export::fix_plan_auto_commands(&content);
-            if auto_cmds.is_empty() {
-                println!("\nNo safe auto-fixes available for these findings.");
-            } else {
-                println!("\nFound {} safe auto-fix(es):", auto_cmds.len());
-                for (i, fix) in auto_cmds.iter().enumerate() {
-                    println!("  [{}] {}", i + 1, fix.label);
+            if fmt == "json" {
+                // JSON mode: auto-apply without prompt, emit structured results
+                let mut results: Vec<serde_json::Value> = Vec::new();
+                for fix in &auto_cmds {
+                    let cmd_status = std::process::Command::new("cmd")
+                        .args(["/C", fix.cmd])
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .status();
+                    let ok = matches!(cmd_status, Ok(s) if s.success());
+                    let verified = if ok {
+                        if let (Some(topic), Some(gone)) = (fix.verify_topic, fix.verify_gone) {
+                            let verify_out =
+                                hematite::agent::report_export::generate_inspect_output(topic)
+                                    .await;
+                            Some(!verify_out.to_ascii_lowercase().contains(gone))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+                    results.push(serde_json::json!({
+                        "label": fix.label,
+                        "status": if ok { "ok" } else { "failed" },
+                        "verified_resolved": verified,
+                    }));
                 }
-                use std::io::Write;
-                let approved = if cockpit.yes {
-                    println!("\nApplying fixes automatically (--yes)...");
-                    true
+                let json_out = serde_json::json!({
+                    "issue": issue_str,
+                    "fixes_applied": results,
+                });
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&json_out).unwrap_or_default()
+                );
+            } else {
+                if auto_cmds.is_empty() {
+                    println!("\nNo safe auto-fixes available for these findings.");
                 } else {
-                    print!("\nRun these now? [Y/n]: ");
-                    let _ = std::io::stdout().flush();
-                    let mut answer = String::new();
-                    let _ = std::io::stdin().read_line(&mut answer);
-                    !answer.trim().eq_ignore_ascii_case("n")
-                };
-                if approved {
-                    println!();
-                    for fix in &auto_cmds {
-                        print!("  Running: {}... ", fix.label);
+                    println!("\nFound {} safe auto-fix(es):", auto_cmds.len());
+                    for (i, fix) in auto_cmds.iter().enumerate() {
+                        println!("  [{}] {}", i + 1, fix.label);
+                    }
+                    use std::io::Write;
+                    let approved = if cockpit.yes {
+                        println!("\nApplying fixes automatically (--yes)...");
+                        true
+                    } else {
+                        print!("\nRun these now? [Y/n]: ");
                         let _ = std::io::stdout().flush();
-                        let status = std::process::Command::new("cmd")
-                            .args(["/C", fix.cmd])
-                            .stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::null())
-                            .status();
-                        match status {
-                            Ok(s) if s.success() => {
-                                println!("OK");
-                                if let (Some(topic), Some(gone)) =
-                                    (fix.verify_topic, fix.verify_gone)
-                                {
-                                    print!("    Verifying {}... ", topic);
-                                    let _ = std::io::stdout().flush();
-                                    let verify_out = hematite::agent::report_export::generate_inspect_output(topic).await;
-                                    if verify_out.to_ascii_lowercase().contains(gone) {
-                                        println!("\x1B[33m✗ Still present\x1B[0m — run: hematite --fix \"{}\"", issue_str);
-                                    } else {
-                                        println!("\x1B[32m✓ Verified resolved\x1B[0m");
+                        let mut answer = String::new();
+                        let _ = std::io::stdin().read_line(&mut answer);
+                        !answer.trim().eq_ignore_ascii_case("n")
+                    };
+                    if approved {
+                        println!();
+                        for fix in &auto_cmds {
+                            print!("  Running: {}... ", fix.label);
+                            let _ = std::io::stdout().flush();
+                            let status = std::process::Command::new("cmd")
+                                .args(["/C", fix.cmd])
+                                .stdout(std::process::Stdio::null())
+                                .stderr(std::process::Stdio::null())
+                                .status();
+                            match status {
+                                Ok(s) if s.success() => {
+                                    println!("OK");
+                                    if let (Some(topic), Some(gone)) =
+                                        (fix.verify_topic, fix.verify_gone)
+                                    {
+                                        print!("    Verifying {}... ", topic);
+                                        let _ = std::io::stdout().flush();
+                                        let verify_out =
+                                            hematite::agent::report_export::generate_inspect_output(
+                                                topic,
+                                            )
+                                            .await;
+                                        if verify_out.to_ascii_lowercase().contains(gone) {
+                                            println!("\x1B[33m✗ Still present\x1B[0m — run: hematite --fix \"{}\"", issue_str);
+                                        } else {
+                                            println!("\x1B[32m✓ Verified resolved\x1B[0m");
+                                        }
                                     }
                                 }
+                                Ok(s) => println!("Failed (code {})", s.code().unwrap_or(1)),
+                                Err(e) => println!("Error: {}", e),
                             }
-                            Ok(s) => println!("Failed (code {})", s.code().unwrap_or(1)),
-                            Err(e) => println!("Error: {}", e),
                         }
+                        println!("\nAuto-fix run complete.");
                     }
-                    println!("\nAuto-fix run complete.");
                 }
             }
         }
@@ -353,7 +398,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             write_output_copy(&content, out_path);
         }
         if cockpit.notify {
-            let grade = if has_issues_final { "Issues found" } else { "All clear" };
+            let grade = if has_issues_final {
+                "Issues found"
+            } else {
+                "All clear"
+            };
             show_toast("Hematite Fix Plan", &format!("{} — {}", grade, issue_str));
         }
         std::process::exit(if has_issues_final { 1 } else { 0 });
@@ -397,11 +446,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if fmt == "json" {
                 let arr: Vec<serde_json::Value> = all
                     .iter()
-                    .map(|f| serde_json::json!({
-                        "label": f.label,
-                        "verify_topic": f.verify_topic,
-                        "verify_gone": f.verify_gone,
-                    }))
+                    .map(|f| {
+                        serde_json::json!({
+                            "label": f.label,
+                            "verify_topic": f.verify_topic,
+                            "verify_gone": f.verify_gone,
+                        })
+                    })
                     .collect();
                 let out = serde_json::to_string_pretty(&serde_json::Value::Array(arr))
                     .unwrap_or_else(|_| "[]".to_string());
@@ -450,25 +501,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let all_sweep = hematite::agent::report_export::sweep_auto_fixes();
 
         // --fix-all --only <label>: filter to the named fix
-        let sweep: Vec<&hematite::agent::report_export::AutoFix> =
-            if let Some(ref only_label) = cockpit.only {
-                let label_lower = only_label.to_ascii_lowercase();
-                let matches: Vec<_> = all_sweep
-                    .iter()
-                    .filter(|f| f.label.to_ascii_lowercase().contains(&label_lower))
-                    .copied()
-                    .collect();
-                if matches.is_empty() {
-                    eprintln!(
+        let sweep: Vec<&hematite::agent::report_export::AutoFix> = if let Some(ref only_label) =
+            cockpit.only
+        {
+            let label_lower = only_label.to_ascii_lowercase();
+            let matches: Vec<_> = all_sweep
+                .iter()
+                .filter(|f| f.label.to_ascii_lowercase().contains(&label_lower))
+                .copied()
+                .collect();
+            if matches.is_empty() {
+                eprintln!(
                         "No sweep fix found matching {:?}.\nRun `hematite --fix-all --only list` to see all labels.",
                         only_label
                     );
-                    std::process::exit(1);
-                }
-                matches
-            } else {
-                all_sweep
-            };
+                std::process::exit(1);
+            }
+            matches
+        } else {
+            all_sweep
+        };
 
         let ts = hematite::agent::report_export::timestamp_label();
         let quiet_sweep = cockpit.quiet;
@@ -481,11 +533,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("{}", line);
             }
         };
-        emit(&mut progress_buf, format!("Hematite maintenance sweep — {} checks\n", sweep.len()));
+        emit(
+            &mut progress_buf,
+            format!("Hematite maintenance sweep — {} checks\n", sweep.len()),
+        );
 
         struct SweepEntry {
             label: &'static str,
-            status: &'static str,  // "healthy", "fixed", "unresolved", "failed", "done"
+            status: &'static str, // "healthy", "fixed", "unresolved", "failed", "done"
         }
         let mut log: Vec<SweepEntry> = Vec::new();
         let mut applied = 0usize;
@@ -500,18 +555,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .trim_start_matches("Resync ")
                 .trim_start_matches("Empty ")
                 .trim_start_matches("Start ");
-            let needs_fix = if let (Some(topic), Some(gone)) =
-                (fix.verify_topic, fix.verify_gone)
-            {
-                let pre =
-                    hematite::agent::report_export::generate_inspect_output(topic).await;
+            let needs_fix = if let (Some(topic), Some(gone)) = (fix.verify_topic, fix.verify_gone) {
+                let pre = hematite::agent::report_export::generate_inspect_output(topic).await;
                 pre.to_ascii_lowercase().contains(gone)
             } else {
                 true
             };
             if !needs_fix {
                 emit(&mut progress_buf, format!("  Checking {}... OK", display));
-                log.push(SweepEntry { label: fix.label, status: "healthy" });
+                log.push(SweepEntry {
+                    label: fix.label,
+                    status: "healthy",
+                });
                 continue;
             }
             let status = std::process::Command::new("cmd")
@@ -524,36 +579,72 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(s) if s.success() => {
                     if let (Some(topic), Some(gone)) = (fix.verify_topic, fix.verify_gone) {
                         let post =
-                            hematite::agent::report_export::generate_inspect_output(topic)
-                                .await;
+                            hematite::agent::report_export::generate_inspect_output(topic).await;
                         if post.to_ascii_lowercase().contains(gone) {
-                            emit(&mut progress_buf, format!("  Checking {}... needs fix — ✗ still present", display));
-                            log.push(SweepEntry { label: fix.label, status: "unresolved" });
+                            emit(
+                                &mut progress_buf,
+                                format!("  Checking {}... needs fix — ✗ still present", display),
+                            );
+                            log.push(SweepEntry {
+                                label: fix.label,
+                                status: "unresolved",
+                            });
                         } else {
-                            emit(&mut progress_buf, format!("  Checking {}... needs fix — ✓ resolved", display));
+                            emit(
+                                &mut progress_buf,
+                                format!("  Checking {}... needs fix — ✓ resolved", display),
+                            );
                             verified += 1;
-                            log.push(SweepEntry { label: fix.label, status: "fixed" });
+                            log.push(SweepEntry {
+                                label: fix.label,
+                                status: "fixed",
+                            });
                         }
                     } else {
-                        emit(&mut progress_buf, format!("  Checking {}... needs fix — done", display));
+                        emit(
+                            &mut progress_buf,
+                            format!("  Checking {}... needs fix — done", display),
+                        );
                         verified += 1;
-                        log.push(SweepEntry { label: fix.label, status: "done" });
+                        log.push(SweepEntry {
+                            label: fix.label,
+                            status: "done",
+                        });
                     }
                 }
                 Ok(s) => {
-                    emit(&mut progress_buf, format!("  Checking {}... needs fix — failed (code {})", display, s.code().unwrap_or(1)));
-                    log.push(SweepEntry { label: fix.label, status: "failed" });
+                    emit(
+                        &mut progress_buf,
+                        format!(
+                            "  Checking {}... needs fix — failed (code {})",
+                            display,
+                            s.code().unwrap_or(1)
+                        ),
+                    );
+                    log.push(SweepEntry {
+                        label: fix.label,
+                        status: "failed",
+                    });
                 }
                 Err(e) => {
-                    emit(&mut progress_buf, format!("  Checking {}... needs fix — error: {}", display, e));
-                    log.push(SweepEntry { label: fix.label, status: "failed" });
+                    emit(
+                        &mut progress_buf,
+                        format!("  Checking {}... needs fix — error: {}", display, e),
+                    );
+                    log.push(SweepEntry {
+                        label: fix.label,
+                        status: "failed",
+                    });
                 }
             }
         }
         let summary = if applied == 0 {
             "All checks passed — nothing needed fixing.".to_string()
         } else {
-            format!("{} fix(es) applied, {} verified resolved.", applied, verified)
+            format!(
+                "{} fix(es) applied, {} verified resolved.",
+                applied, verified
+            )
         };
         let has_unresolved = applied > verified;
         emit(&mut progress_buf, String::new());
@@ -589,7 +680,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let report_dir = hematite::tools::file_ops::hematite_dir().join("reports");
         let _ = std::fs::create_dir_all(&report_dir);
-        let safe_ts: String = ts.chars().map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' }).collect();
+        let safe_ts: String = ts
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
 
         let report_content: String;
         let report_path: std::path::PathBuf;
@@ -624,8 +724,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "summary": summary,
                 "checks": checks,
             });
-            let json_str = serde_json::to_string_pretty(&json_obj)
-                .unwrap_or_else(|_| "{}".to_string());
+            let json_str =
+                serde_json::to_string_pretty(&json_obj).unwrap_or_else(|_| "{}".to_string());
             report_path = report_dir.join(format!("sweep-{}.json", safe_ts));
             let _ = std::fs::write(&report_path, &json_str);
             report_content = json_str;
@@ -662,7 +762,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if cockpit.open {
             open_path(&report_path);
         }
-        std::process::exit(if applied > 0 && verified < applied { 1 } else { 0 });
+        std::process::exit(if applied > 0 && verified < applied {
+            1
+        } else {
+            0
+        });
     }
 
     if cockpit.inventory {
@@ -796,10 +900,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .and_then(|t| t.elapsed().ok())
                         .map(|d| {
                             let s = d.as_secs();
-                            if s < 60 { format!("{}s ago", s) }
-                            else if s < 3600 { format!("{}m ago", s / 60) }
-                            else if s < 86400 { format!("{}h ago", s / 3600) }
-                            else { format!("{}d ago", s / 86400) }
+                            if s < 60 {
+                                format!("{}s ago", s)
+                            } else if s < 3600 {
+                                format!("{}m ago", s / 60)
+                            } else if s < 86400 {
+                                format!("{}h ago", s / 3600)
+                            } else {
+                                format!("{}d ago", s / 86400)
+                            }
                         })
                         .unwrap_or_else(|| "saved".to_string());
                     Ok((content, age))
@@ -835,8 +944,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for op in &group {
                     for change in diff.iter_changes(op) {
                         let prefix = match change.tag() {
-                            ChangeTag::Delete => { changed = true; "-" }
-                            ChangeTag::Insert => { changed = true; "+" }
+                            ChangeTag::Delete => {
+                                changed = true;
+                                "-"
+                            }
+                            ChangeTag::Insert => {
+                                changed = true;
+                                "+"
+                            }
                             ChangeTag::Equal => " ",
                         };
                         diff_lines.push(format!("{}{}", prefix, change));
@@ -934,10 +1049,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 hematite::agent::report_export::generate_inspect_output(topics_csv).await;
             let content = apply_field_filter(&raw_content, cockpit.field.as_deref());
 
-            let is_json_mode = cockpit
-                .report_format
-                .trim()
-                .eq_ignore_ascii_case("json");
+            let is_json_mode = cockpit.report_format.trim().eq_ignore_ascii_case("json");
 
             if is_json_mode {
                 // JSON mode: emit one newline-delimited JSON object per cycle
@@ -1022,11 +1134,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             "alert_matched": alert_matched,
                             "output": content.as_ref(),
                         });
-                        let _ = writeln!(
-                            file,
-                            "{}",
-                            serde_json::to_string(&obj).unwrap_or_default()
-                        );
+                        let _ =
+                            writeln!(file, "{}", serde_json::to_string(&obj).unwrap_or_default());
                     } else {
                         let _ = writeln!(file, "=== {} (cycle {}) ===", ts, cycle + 1);
                         let _ = write!(file, "{}", content.as_ref());
@@ -1127,8 +1236,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for op in &group {
                     for change in diff.iter_changes(op) {
                         let prefix = match change.tag() {
-                            ChangeTag::Delete => { changed = true; "-" }
-                            ChangeTag::Insert => { changed = true; "+" }
+                            ChangeTag::Delete => {
+                                changed = true;
+                                "-"
+                            }
+                            ChangeTag::Insert => {
+                                changed = true;
+                                "+"
+                            }
                             ChangeTag::Equal => " ",
                         };
                         diff_lines.push(format!("{}{}", prefix, change));

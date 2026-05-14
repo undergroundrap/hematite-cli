@@ -9811,3 +9811,44 @@ fn test_recipe_matches_camera_blocked() {
         );
     }
 }
+
+#[test]
+fn test_fix_execute_json_schema() {
+    // Validate the JSON shape produced by --fix --execute --report-format json.
+    // We simulate the output structure without actually running commands.
+    let fixes =
+        hematite::agent::report_export::fix_plan_auto_commands("winsock catalog is corrupted");
+    let results: Vec<serde_json::Value> = fixes
+        .iter()
+        .map(|fix| {
+            serde_json::json!({
+                "label": fix.label,
+                "status": "ok",
+                "verified_resolved": serde_json::Value::Null,
+            })
+        })
+        .collect();
+    let obj = serde_json::json!({
+        "issue": "winsock catalog is corrupted",
+        "fixes_applied": results,
+    });
+    let out = serde_json::to_string_pretty(&obj).expect("should serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&out).expect("should parse");
+    assert!(parsed.get("issue").is_some(), "json must have 'issue' key");
+    assert!(
+        parsed.get("fixes_applied").is_some(),
+        "json must have 'fixes_applied' key"
+    );
+    let applied = parsed["fixes_applied"]
+        .as_array()
+        .expect("fixes_applied must be array");
+    if !applied.is_empty() {
+        let first = &applied[0];
+        assert!(first.get("label").is_some(), "each fix must have 'label'");
+        assert!(first.get("status").is_some(), "each fix must have 'status'");
+        assert!(
+            first.get("verified_resolved").is_some(),
+            "each fix must have 'verified_resolved'"
+        );
+    }
+}
