@@ -11825,3 +11825,77 @@ fn test_multi_topic_sign_in_login_variants() {
         );
     }
 }
+
+// ── Batch 22: fix-path topic coverage gaps (report_export.rs) ─────────────────
+
+#[test]
+fn test_fix_path_audio_includes_drivers() {
+    use hematite::agent::report_export::fix_plan_topics;
+    let topics = fix_plan_topics("no sound from speakers");
+    let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(names.contains(&"audio"), "expected audio for audio issue, got {names:?}");
+    assert!(names.contains(&"drivers"), "expected drivers for audio issue, got {names:?}");
+}
+
+#[test]
+fn test_fix_path_bluetooth_includes_device_health() {
+    use hematite::agent::report_export::fix_plan_topics;
+    for issue in &["bluetooth won't connect", "can't pair headphones"] {
+        let topics = fix_plan_topics(issue);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"device_health"),
+            "expected device_health for bluetooth issue {issue:?}, got {names:?}"
+        );
+    }
+}
+
+#[test]
+fn test_fix_path_teams_includes_connectivity() {
+    use hematite::agent::report_export::fix_plan_topics;
+    let topics = fix_plan_topics("teams not working");
+    let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(names.contains(&"connectivity"), "expected connectivity for teams issue, got {names:?}");
+}
+
+#[test]
+fn test_fix_path_outlook_includes_connectivity() {
+    use hematite::agent::report_export::fix_plan_topics;
+    let topics = fix_plan_topics("email not working in outlook");
+    let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(names.contains(&"connectivity"), "expected connectivity for outlook issue, got {names:?}");
+}
+
+#[test]
+fn test_fix_path_ssh_includes_services() {
+    use hematite::agent::report_export::fix_plan_topics;
+    let topics = fix_plan_topics("ssh not working");
+    let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(names.contains(&"services"), "expected services for ssh issue, got {names:?}");
+}
+
+#[test]
+fn test_fix_path_hyperv_includes_storage_and_disk_health() {
+    use hematite::agent::report_export::fix_plan_topics;
+    let topics = fix_plan_topics("vm won't start in hyper-v");
+    let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(names.contains(&"storage"), "expected storage for hyperv issue, got {names:?}");
+    assert!(names.contains(&"disk_health"), "expected disk_health for hyperv issue, got {names:?}");
+}
+
+#[test]
+fn test_fix_path_wsl_includes_connectivity_and_dns() {
+    use hematite::agent::report_export::fix_plan_topics;
+    let topics = fix_plan_topics("wsl not working");
+    let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(names.contains(&"connectivity"), "expected connectivity for wsl issue, got {names:?}");
+    assert!(names.contains(&"dns_servers"), "expected dns_servers for wsl issue, got {names:?}");
+}
+
+#[test]
+fn test_fix_path_docker_includes_connectivity() {
+    use hematite::agent::report_export::fix_plan_topics;
+    let topics = fix_plan_topics("docker not connecting");
+    let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+    assert!(names.contains(&"connectivity"), "expected connectivity for docker issue, got {names:?}");
+}

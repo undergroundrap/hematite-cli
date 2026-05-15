@@ -324,7 +324,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "crackling",
             "audio fail"
         ],
-        &[("audio", "Audio")]
+        &[("audio", "Audio"), ("drivers", "Drivers")]
     );
     add_if!(
         &[
@@ -334,7 +334,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "wireless headset",
             "bt "
         ],
-        &[("bluetooth", "Bluetooth"), ("audio", "Audio")]
+        &[("bluetooth", "Bluetooth"), ("audio", "Audio"), ("device_health", "Device Health")]
     );
     add_if!(
         &[
@@ -351,12 +351,17 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         &[
             ("teams", "Teams"),
             ("identity_auth", "Identity & Auth"),
-            ("browser_health", "Browser Health")
+            ("browser_health", "Browser Health"),
+            ("connectivity", "Connectivity")
         ]
     );
     add_if!(
         &["outlook", "email not working", "mail not", "calendar not"],
-        &[("outlook", "Outlook"), ("identity_auth", "Identity & Auth")]
+        &[
+            ("outlook", "Outlook"),
+            ("identity_auth", "Identity & Auth"),
+            ("connectivity", "Connectivity")
+        ]
     );
     add_if!(
         &[
@@ -554,7 +559,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "bluetooth disconnect",
             "bluetooth keep"
         ],
-        &[("bluetooth", "Bluetooth")]
+        &[("bluetooth", "Bluetooth"), ("device_health", "Device Health")]
     );
     add_if!(
         &[
@@ -1187,6 +1192,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         ],
         &[
             ("ssh", "SSH"),
+            ("services", "Services"),
             ("firewall_rules", "Firewall Rules"),
             ("connectivity", "Connectivity")
         ]
@@ -1311,7 +1317,11 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "vm crash",
             "vm network"
         ],
-        &[("hyperv", "Hyper-V")]
+        &[
+            ("hyperv", "Hyper-V"),
+            ("storage", "Storage"),
+            ("disk_health", "Disk Health")
+        ]
     );
     add_if!(
         &[
@@ -1323,7 +1333,12 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "linux on windows",
             "bash on windows"
         ],
-        &[("wsl", "WSL"), ("wsl_filesystems", "WSL Filesystems")]
+        &[
+            ("wsl", "WSL"),
+            ("wsl_filesystems", "WSL Filesystems"),
+            ("connectivity", "Connectivity"),
+            ("dns_servers", "DNS Servers")
+        ]
     );
     add_if!(
         &[
@@ -1334,7 +1349,11 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "docker not",
             "docker won't"
         ],
-        &[("docker", "Docker"), ("docker_filesystems", "Docker Filesystems")]
+        &[
+            ("docker", "Docker"),
+            ("docker_filesystems", "Docker Filesystems"),
+            ("connectivity", "Connectivity")
+        ]
     );
     add_if!(
         &[
