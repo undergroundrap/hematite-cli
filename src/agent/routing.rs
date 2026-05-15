@@ -721,7 +721,16 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("hardware error")
         || lower.contains("malfunctioning")
         || lower.contains("yellow bang")
-        || lower.contains("hardware failing");
+        || lower.contains("hardware failing")
+        || lower.contains("device manager")
+        || lower.contains("unknown device")
+        || lower.contains("code 43")
+        || lower.contains("code 10")
+        || lower.contains("code 28")
+        || lower.contains("pnp device")
+        || lower.contains("exclamation mark in device")
+        || (lower.contains("device") && lower.contains("error code"))
+        || (lower.contains("device") && lower.contains("not recognized"));
     let asks_drivers =
         lower.contains("driver") || lower.contains("kmod") || lower.contains("kernel module");
     let asks_audio = lower.contains("no sound")
@@ -1511,7 +1520,17 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("what hardware") && lower.contains("have"))
         || (lower.contains("gpu") && (lower.contains("what") || lower.contains("show")))
         || lower.contains("motherboard")
-        || lower.contains("bios version");
+        || lower.contains("bios version")
+        || lower.contains("graphics card")
+        || lower.contains("video card")
+        || lower.contains("system information")
+        || lower.contains("system info")
+        || lower.contains("system specs")
+        || lower.contains("computer spec")
+        || lower.contains("display adapter")
+        || (lower.contains("how much") && lower.contains("ram"))
+        || (lower.contains("what") && lower.contains("processor"))
+        || (lower.contains("what") && lower.contains("cpu"));
     let asks_activation = lower.contains("activation")
         || lower.contains("activated")
         || lower.contains("not activated")
@@ -1823,6 +1842,13 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("connection") && lower.contains("open"));
     let asks_vpn = lower.contains("vpn")
         || lower.contains("virtual private network")
+        || lower.contains("wireguard")
+        || lower.contains("anyconnect")
+        || lower.contains("globalprotect")
+        || lower.contains("pulse secure")
+        || lower.contains("openvpn")
+        || lower.contains("split tunnel")
+        || lower.contains("vpn adapter")
         || (lower.contains("tunnel") && (lower.contains("network") || lower.contains("vpn")));
     let asks_proxy = lower.contains("proxy")
         || lower.contains("proxy setting")

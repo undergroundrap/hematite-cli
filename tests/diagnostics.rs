@@ -8066,6 +8066,53 @@ fn test_routing_detects_certificates_expanded() {
     }
 }
 
+// ── Batch 11 routing expansions ─────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_hardware_expanded() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "what graphics card do I have",
+        "show system information",
+        "computer specs",
+        "what video card is installed",
+        "how much ram is in this machine",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("hardware"), "Expected hardware for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_detects_device_health_expanded() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "device manager shows errors",
+        "unknown device in device manager",
+        "error code 43 on USB device",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("device_health"), "Expected device_health for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_detects_vpn_expanded() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "cisco anyconnect not connecting",
+        "wireguard tunnel status",
+        "GlobalProtect VPN client status",
+        "split tunnel configuration",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("vpn"), "Expected vpn for: {q}");
+    }
+}
+
 // ── Fix recipe trigger correctness ──────────────────────────────────────────
 
 #[test]
