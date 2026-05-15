@@ -8113,6 +8113,37 @@ fn test_routing_detects_vpn_expanded() {
     }
 }
 
+// ── Batch 12 routing expansions ─────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_printers_expanded() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "why is printing not working",
+        "print job is stuck in queue",
+        "printer shows offline",
+        "can't print to default printer",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("printers"), "Expected printers for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_detects_connections_expanded() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "show outbound connections from this machine",
+        "what process is connecting to remote hosts",
+        "list inbound connections",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("connections"), "Expected connections for: {q}");
+    }
+}
+
 // ── Fix recipe trigger correctness ──────────────────────────────────────────
 
 #[test]

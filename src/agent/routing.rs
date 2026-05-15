@@ -1838,8 +1838,15 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("established connection")
         || lower.contains("socket")
         || lower.contains("netstat")
+        || lower.contains("outbound connection")
+        || lower.contains("inbound connection")
+        || lower.contains("remote connection")
+        || lower.contains("connection list")
         || (lower.contains("connection") && lower.contains("active"))
-        || (lower.contains("connection") && lower.contains("open"));
+        || (lower.contains("connection") && lower.contains("open"))
+        || (lower.contains("what") && lower.contains("connecting"))
+        || (lower.contains("which") && lower.contains("connecting"))
+        || (lower.contains("process") && lower.contains("network") && lower.contains("connect"));
     let asks_vpn = lower.contains("vpn")
         || lower.contains("virtual private network")
         || lower.contains("wireguard")
@@ -2090,8 +2097,21 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             && (lower.contains("install")
                 || lower.contains("enabled")
                 || lower.contains("turn on")));
-    let asks_printers =
-        lower.contains("printer") || lower.contains("print queue") || lower.contains("get-printer");
+    let asks_printers = lower.contains("printer")
+        || lower.contains("print queue")
+        || lower.contains("get-printer")
+        || lower.contains("printing")
+        || lower.contains("can't print")
+        || lower.contains("cannot print")
+        || lower.contains("print job")
+        || lower.contains("print driver")
+        || lower.contains("default printer")
+        || lower.contains("add printer")
+        || lower.contains("print to pdf")
+        || (lower.contains("print") && lower.contains("not working"))
+        || (lower.contains("print") && lower.contains("stuck"))
+        || (lower.contains("print") && lower.contains("pending"))
+        || (lower.contains("print") && lower.contains("offline"));
     let asks_winrm = lower.contains("winrm")
         || lower.contains("psremoting")
         || (lower.contains("ps") && lower.contains("remoting"))
