@@ -3219,6 +3219,16 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("mirror") && l.contains("drive"))
                 || (l.contains("storage") && l.contains("pool"))
         }),
+        ("disk_benchmark", |l| {
+            l.contains("benchmark")
+                || l.contains("stress test")
+                || l.contains("load test")
+                || l.contains("intensity report")
+                || l.contains("io intensity")
+                || l.contains("disk intensity")
+                || l.contains("thrash")
+                || l.contains("latency report")
+        }),
         ("log_check", |l| {
             l.contains("event log")
                 || l.contains("recent errors")
@@ -3593,7 +3603,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         }),
         ("network_stats", |l| {
             (l.contains("network") && l.contains("stat"))
-                || (l.contains("adapter") && l.contains("stat"))
+                || (l.contains("adapter")
+                    && l.contains("stat")
+                    && !l.contains("wlan")
+                    && !l.contains("wireless"))
                 || l.contains("throughput")
                 || l.contains("packet loss")
                 || l.contains("dropped packet")
@@ -3708,7 +3721,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("computer spec")
                 || l.contains("display adapter")
                 || (l.contains("what") && l.contains("processor"))
-                || (l.contains("what") && l.contains("cpu"))
+                || (l.contains("what") && l.contains("cpu") && !l.contains("using"))
                 || (l.contains("how much") && l.contains("ram"))
                 || (l.contains("gpu") && (l.contains("what") || l.contains("show")))
         }),
@@ -3828,6 +3841,24 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("repo health")
                 || l.contains("git status")
                 || l.contains("uncommitted changes")
+        }),
+        ("desktop", |l| {
+            l.contains("desktop")
+                && (l.contains("show")
+                    || l.contains("list")
+                    || l.contains("what is in")
+                    || l.contains("what's in")
+                    || l.contains("folder")
+                    || l.contains("contents"))
+        }),
+        ("downloads", |l| {
+            l.contains("downloads")
+                && (l.contains("show")
+                    || l.contains("list")
+                    || l.contains("what is in")
+                    || l.contains("what's in")
+                    || l.contains("folder")
+                    || l.contains("contents"))
         }),
     ];
 

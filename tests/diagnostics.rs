@@ -11740,3 +11740,57 @@ fn test_routing_detects_directory_topic() {
     assert_eq!(preferred_host_inspection_topic("what is in the directory /tmp"), Some("directory"));
     assert_eq!(preferred_host_inspection_topic("how big is this folder"), Some("directory"));
 }
+
+// ── Batch 20: multi-topic detection gaps (disk_benchmark, desktop, downloads) ─
+
+#[test]
+fn test_multi_topic_disk_benchmark_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("run a disk benchmark", "disk_benchmark"),
+        ("disk intensity report for this drive", "disk_benchmark"),
+        ("stress test the storage subsystem", "disk_benchmark"),
+        ("io intensity check", "disk_benchmark"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_desktop_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("show desktop folder contents", "desktop"),
+        ("list desktop files", "desktop"),
+        ("what's in the desktop folder", "desktop"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_downloads_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("list downloads folder", "downloads"),
+        ("show what's in downloads folder", "downloads"),
+        ("downloads folder contents", "downloads"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
