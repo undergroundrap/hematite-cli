@@ -11935,3 +11935,75 @@ fn test_routing_detects_shares_for_file_sharing() {
     use hematite::agent::routing::preferred_host_inspection_topic;
     assert_eq!(preferred_host_inspection_topic("file sharing status on this machine"), Some("shares"));
 }
+
+// ── Batch 25: multi-topic tests for batch 23/24 keyword expansions ────────────
+
+#[test]
+fn test_multi_topic_gpo_policy_variant_phrases() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("show active policies on this machine", "gpo"),
+        ("what policy objects are applied here", "gpo"),
+        ("policy applied to this computer", "gpo"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
+    }
+}
+
+#[test]
+fn test_multi_topic_scheduled_tasks_job_variants() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("list all scheduled jobs", "scheduled_tasks"),
+        ("what is running automatically on this machine", "scheduled_tasks"),
+        ("show background task list", "scheduled_tasks"),
+        ("list cron jobs configured", "scheduled_tasks"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
+    }
+}
+
+#[test]
+fn test_multi_topic_pagefile_swap_variants() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("how much swap space is configured", "pagefile"),
+        ("is memory swapping active", "pagefile"),
+        ("show paging file settings", "pagefile"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
+    }
+}
+
+#[test]
+fn test_multi_topic_resource_load_memory_pressure() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("check memory pressure on this machine", "resource_load"),
+        ("what is the current memory load", "resource_load"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
+    }
+}
+
+#[test]
+fn test_multi_topic_shares_file_sharing() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("file sharing status on this machine", "shares"),
+        ("what is shared on this PC", "shares"),
+        ("what am i sharing over the network", "shares"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
+    }
+}
