@@ -11336,6 +11336,117 @@ fn test_multi_topic_print_spooler_expanded() {
     }
 }
 
+// ── Batch 16: routing tests for untested preferred_host_inspection_topic topics ─
+
+#[test]
+fn test_routing_detects_disk_health_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("check disk health"), Some("disk_health"));
+    assert_eq!(preferred_host_inspection_topic("is my drive failing"), Some("disk_health"));
+    assert_eq!(preferred_host_inspection_topic("smart status of the SSD"), Some("disk_health"));
+    assert_eq!(preferred_host_inspection_topic("hard drive dying symptoms"), Some("disk_health"));
+    assert_eq!(preferred_host_inspection_topic("is the drive healthy"), Some("disk_health"));
+}
+
+#[test]
+fn test_routing_detects_pending_reboot_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("does my PC need to restart"), Some("pending_reboot"));
+    assert_eq!(preferred_host_inspection_topic("reboot required after update"), Some("pending_reboot"));
+    assert_eq!(preferred_host_inspection_topic("is a restart pending"), Some("pending_reboot"));
+    assert_eq!(preferred_host_inspection_topic("pending reboot check"), Some("pending_reboot"));
+}
+
+#[test]
+fn test_routing_detects_recent_crashes_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show recent crash history"), Some("recent_crashes"));
+    assert_eq!(preferred_host_inspection_topic("why did my PC blue screen"), Some("recent_crashes"));
+    assert_eq!(preferred_host_inspection_topic("BSOD last night"), Some("recent_crashes"));
+    assert_eq!(preferred_host_inspection_topic("PC keeps restarting randomly"), Some("recent_crashes"));
+}
+
+#[test]
+fn test_routing_detects_processes_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("what processes are running"), Some("processes"));
+    assert_eq!(preferred_host_inspection_topic("show running processes"), Some("processes"));
+    assert_eq!(preferred_host_inspection_topic("top memory consuming processes"), Some("processes"));
+    assert_eq!(preferred_host_inspection_topic("using ram the most"), Some("processes"));
+}
+
+#[test]
+fn test_routing_detects_services_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("list all windows services"), Some("services"));
+    assert_eq!(preferred_host_inspection_topic("what services are running"), Some("services"));
+    assert_eq!(preferred_host_inspection_topic("background service status"), Some("services"));
+    assert_eq!(preferred_host_inspection_topic("get-service output"), Some("services"));
+}
+
+#[test]
+fn test_routing_detects_ports_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("what listening ports does this machine have"), Some("ports"));
+    assert_eq!(preferred_host_inspection_topic("what is listening on this machine"), Some("ports"));
+    assert_eq!(preferred_host_inspection_topic("what port is the web server on"), Some("ports"));
+    assert_eq!(preferred_host_inspection_topic("which ports are exposed on this server"), Some("ports"));
+}
+
+#[test]
+fn test_routing_detects_wifi_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show wifi signal strength"), Some("wifi"));
+    assert_eq!(preferred_host_inspection_topic("show current SSID"), Some("wifi"));
+    assert_eq!(preferred_host_inspection_topic("wi-fi connection status"), Some("wifi"));
+    assert_eq!(preferred_host_inspection_topic("wireless access point info"), Some("wifi"));
+}
+
+#[test]
+fn test_routing_detects_updates_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("check for windows updates"), Some("updates"));
+    assert_eq!(preferred_host_inspection_topic("are there pending updates"), Some("updates"));
+    assert_eq!(preferred_host_inspection_topic("is my PC up to date"), Some("updates"));
+    assert_eq!(preferred_host_inspection_topic("latest update status"), Some("updates"));
+}
+
+#[test]
+fn test_routing_detects_security_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("antivirus status check"), Some("security"));
+    assert_eq!(preferred_host_inspection_topic("is my PC protected from malware"), Some("security"));
+    assert_eq!(preferred_host_inspection_topic("windows security status"), Some("security"));
+    assert_eq!(preferred_host_inspection_topic("is defender running"), Some("security"));
+}
+
+#[test]
+fn test_routing_detects_battery_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("check battery health"), Some("battery"));
+    assert_eq!(preferred_host_inspection_topic("battery life remaining"), Some("battery"));
+    assert_eq!(preferred_host_inspection_topic("charge level of battery"), Some("battery"));
+    assert_eq!(preferred_host_inspection_topic("battery wear after 2 years"), Some("battery"));
+}
+
+#[test]
+fn test_routing_detects_dev_conflicts_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("check for dev conflicts"), Some("dev_conflicts"));
+    assert_eq!(preferred_host_inspection_topic("toolchain conflict between rust versions"), Some("dev_conflicts"));
+    assert_eq!(preferred_host_inspection_topic("nvm conflict with node"), Some("dev_conflicts"));
+    assert_eq!(preferred_host_inspection_topic("pyenv conflict with python"), Some("dev_conflicts"));
+}
+
+#[test]
+fn test_routing_detects_dns_cache_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show dns cache entries"), Some("dns_cache"));
+    assert_eq!(preferred_host_inspection_topic("show locally cached dns"), Some("dns_cache"));
+    assert_eq!(preferred_host_inspection_topic("view the dns cache contents"), Some("dns_cache"));
+    assert_eq!(preferred_host_inspection_topic("inspect the dns cache"), Some("dns_cache"));
+}
+
 // ── Batch 15: all_host_inspection_topics moderate-gap expansions ──────────────
 
 #[test]
