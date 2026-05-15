@@ -11021,3 +11021,126 @@ fn test_all_action_recipes_have_fix_arg_mapping() {
         missing.join("\n")
     );
 }
+
+// ── inspect_host header tests for 0.8.0-wave topics ──────────────────────────
+
+#[test]
+fn test_inspect_host_thermal_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "thermal" });
+        let out = inspect_host(&args).await.expect("thermal must return Ok");
+        assert!(out.contains("Host inspection: thermal"), "missing header; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_activation_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "activation" });
+        let out = inspect_host(&args).await.expect("activation must return Ok");
+        assert!(out.contains("Host inspection: activation"), "missing header; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_patch_history_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "patch_history" });
+        let out = inspect_host(&args).await.expect("patch_history must return Ok");
+        assert!(out.contains("Host inspection: patch_history"), "missing header; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_storage_spaces_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "storage_spaces" });
+        let out = inspect_host(&args).await.expect("storage_spaces must return Ok");
+        assert!(out.contains("Host inspection: storage_spaces"), "missing header; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_defender_quarantine_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "defender_quarantine" });
+        let out = inspect_host(&args).await.expect("defender_quarantine must return Ok");
+        assert!(out.contains("Host inspection: defender_quarantine"), "missing header; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_domain_health_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "domain_health" });
+        let out = inspect_host(&args).await.expect("domain_health must return Ok");
+        assert!(out.contains("Host inspection: domain_health"), "missing header; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_service_dependencies_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "service_dependencies" });
+        let out = inspect_host(&args).await.expect("service_dependencies must return Ok");
+        assert!(out.contains("Host inspection: service_dependencies"), "missing header; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_wmi_health_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "wmi_health" });
+        let out = inspect_host(&args).await.expect("wmi_health must return Ok");
+        assert!(out.contains("Host inspection: wmi_health"), "missing header; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_local_security_policy_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "local_security_policy" });
+        let out = inspect_host(&args).await.expect("local_security_policy must return Ok");
+        assert!(out.contains("Host inspection: local_security_policy"), "missing header; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_usb_history_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "usb_history" });
+        let out = inspect_host(&args).await.expect("usb_history must return Ok");
+        assert!(out.contains("Host inspection: usb_history"), "missing header; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_print_spooler_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "print_spooler" });
+        let out = inspect_host(&args).await.expect("print_spooler must return Ok");
+        assert!(out.contains("Host inspection: print_spooler"), "missing header; got:\n{out}");
+    });
+}
