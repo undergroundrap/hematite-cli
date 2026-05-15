@@ -11176,6 +11176,166 @@ fn test_inspect_host_print_spooler_returns_header() {
     });
 }
 
+// ── Batch 14: all_host_inspection_topics detector expansions ──────────────────
+
+#[test]
+fn test_multi_topic_display_config_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("hdmi port not working", "display_config"),
+        ("displayport not detected", "display_config"),
+        ("how many screens can I connect", "display_config"),
+        ("multi-monitor setup not working", "display_config"),
+        ("external display not showing", "display_config"),
+        ("refresh hz setting", "display_config"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} in multi-topic results for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_ntp_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("system clock is wrong", "ntp"),
+        ("time wrong after reboot", "ntp"),
+        ("wrong timezone shown", "ntp"),
+        ("time server not responding", "ntp"),
+        ("system clock drifting", "ntp"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} in multi-topic results for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_domain_health_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("can the machine reach dc", "domain_health"),
+        ("dc reachable from this host", "domain_health"),
+        ("kerberos connectivity test", "domain_health"),
+        ("gpo refresh not working", "domain_health"),
+        ("dsgetdc command result", "domain_health"),
+        ("ldap error connecting to domain", "domain_health"),
+        ("active directory health check", "domain_health"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} in multi-topic results for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_service_dependencies_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("which services depend on DNS client", "service_dependencies"),
+        ("services depend on this service", "service_dependencies"),
+        ("show service graph", "service_dependencies"),
+        ("service required by another service", "service_dependencies"),
+        ("restart cascade if I stop DHCP", "service_dependencies"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} in multi-topic results for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_wmi_health_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("wmi error in powershell", "wmi_health"),
+        ("wmi not working at all", "wmi_health"),
+        ("wmi query failing", "wmi_health"),
+        ("winmgmt service status", "wmi_health"),
+        ("wmi repository status", "wmi_health"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} in multi-topic results for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_local_security_policy_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("lockout threshold for user accounts", "local_security_policy"),
+        ("ntlm authentication level setting", "local_security_policy"),
+        ("uac prompt appearing too often", "local_security_policy"),
+        ("user account control settings", "local_security_policy"),
+        ("needs elevation to run program", "local_security_policy"),
+        ("run as administrator not working", "local_security_policy"),
+        ("net accounts command output", "local_security_policy"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} in multi-topic results for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_usb_history_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("what usb devices were connected", "usb_history"),
+        ("usb devices ever plugged in", "usb_history"),
+        ("usb devices connected to this pc", "usb_history"),
+        ("usb registry audit", "usb_history"),
+        ("usb forensic investigation", "usb_history"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} in multi-topic results for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_print_spooler_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("print nightmar vulnerability check", "print_spooler"),
+        ("cve-2021-1675 mitigation status", "print_spooler"),
+        ("printer security hardening", "print_spooler"),
+        ("point and print driver policy", "print_spooler"),
+        ("spooler service running status", "print_spooler"),
+        ("spooler hardening applied", "print_spooler"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} in multi-topic results for {query:?}, got {topics:?}"
+        );
+    }
+}
+
 // ── Batch 13: --fix path routing gaps ─────────────────────────────────────────
 
 #[test]
