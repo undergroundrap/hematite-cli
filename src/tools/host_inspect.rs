@@ -407,6 +407,21 @@ fn parse_issue_text(args: &Value) -> Option<String> {
         .map(|value| value.to_string())
 }
 
+// Escape a string for embedding inside a PowerShell single-quoted string literal.
+// In PS single-quoted strings the only special sequence is '' (escaped single quote).
+fn ps_escape_single_quoted(s: &str) -> String {
+    s.replace('\'', "''")
+}
+
+// Restrict DNS record type to a known-safe allowlist; fall back to "A" for unknown input.
+fn validate_dns_record_type(record_type: &str) -> &str {
+    match record_type.to_uppercase().as_str() {
+        "A" | "AAAA" | "MX" | "TXT" | "SRV" | "CNAME" | "NS" | "PTR" | "SOA" | "CAA"
+        | "NAPTR" | "DS" | "DNSKEY" | "ANY" => record_type,
+        _ => "A",
+    }
+}
+
 #[cfg(target_os = "windows")]
 fn is_event_query_no_results_message(message: &str) -> bool {
     let lower = message.to_ascii_lowercase();
@@ -6700,8 +6715,9 @@ fn inspect_ssl_cert(host: &str) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
+        let escaped_host = ps_escape_single_quoted(host);
         let script = format!(
-            r#"$domain = "{host}"
+            r#"$domain = '{escaped_host}'
 try {{
     $tcpClient = New-Object System.Net.Sockets.TcpClient($domain, 443)
     $sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, ({{ $true }} -as [System.Net.Security.RemoteCertificateValidationCallback]))
@@ -11732,9 +11748,11 @@ async fn inspect_disk_benchmark(path: PathBuf) -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
+        let target_display = target.display().to_string();
+        let escaped_target = ps_escape_single_quoted(&target_display);
         let script = format!(
             r#"
-$target = "{}"
+$target = '{escaped_target}'
 if (-not (Test-Path $target)) {{ "ERROR:Target not found"; exit }}
 
 $diskQueue = @()
@@ -11756,10 +11774,10 @@ $stopTime = (Get-Date).AddSeconds($duration)
 while ((Get-Date) -lt $stopTime) {{
     $q = Get-Counter '\PhysicalDisk(_Total)\Avg. Disk Queue Length' -ErrorAction SilentlyContinue
     if ($q) {{ $diskQueue += $q.CounterSamples[0].CookedValue }}
-    
+
     $r = Get-Counter '\PhysicalDisk(_Total)\Disk Reads/sec' -ErrorAction SilentlyContinue
     if ($r) {{ $readStats += $r.CounterSamples[0].CookedValue }}
-    
+
     Start-Sleep -Milliseconds 250
 }}
 
@@ -11772,8 +11790,7 @@ $maxQ = if ($diskQueue) {{ ($diskQueue | Measure-Object -Maximum).Maximum }} els
 $avgR = if ($readStats) {{ ($readStats | Measure-Object -Average).Average }} else {{ 0 }}
 
 "AVG_Q:$([math]::Round($avgQ, 4))|MAX_Q:$([math]::Round($maxQ, 4))|AVG_R:$([math]::Round($avgR, 2))"
-"#,
-            target.display()
+"#
         );
 
         let output = Command::new("powershell")
@@ -11838,9 +11855,10 @@ fn inspect_permissions(path: PathBuf, _max_entries: usize) -> Result<String, Str
 
     #[cfg(target_os = "windows")]
     {
+        let path_str = path.display().to_string();
+        let escaped_path = ps_escape_single_quoted(&path_str);
         let script = format!(
-            "Get-Acl -Path '{}' | Select-Object Owner, AccessToString | ForEach-Object {{ \"OWNER:$($_.Owner)\"; \"RULES:$($_.AccessToString)\" }}",
-            path.display()
+            "Get-Acl -Path '{escaped_path}' | Select-Object Owner, AccessToString | ForEach-Object {{ \"OWNER:$($_.Owner)\"; \"RULES:$($_.AccessToString)\" }}"
         );
         let output = Command::new("powershell")
             .args(["-NoProfile", "-Command", &script])
@@ -11926,9 +11944,11 @@ fn inspect_share_access(path: PathBuf) -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
+        let path_str = path.display().to_string();
+        let escaped_path = ps_escape_single_quoted(&path_str);
         let script = format!(
             r#"
-$p = '{}'
+$p = '{escaped_path}'
 $res = @{{ Reachable = $false; Readable = $false; Error = "" }}
 if (Test-Connection -ComputerName ($p.Split('\')[2]) -Count 1 -Quiet -ErrorAction SilentlyContinue) {{
     $res.Reachable = $true
@@ -11941,8 +11961,7 @@ if (Test-Connection -ComputerName ($p.Split('\')[2]) -Count 1 -Quiet -ErrorActio
 }} else {{
     $res.Error = "Server unreachable (Ping failed)"
 }}
-"REACHABLE:$($res.Reachable)|READABLE:$($res.Readable)|ERROR:$($res.Error)""#,
-            path.display()
+"REACHABLE:$($res.Reachable)|READABLE:$($res.Readable)|ERROR:$($res.Error)""#
         );
 
         let output = Command::new("powershell")
@@ -12217,7 +12236,9 @@ fn inspect_dns_lookup(name: &str, record_type: &str) -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        let script = format!("Resolve-DnsName -Name '{target}' -Type {record_type} -ErrorAction SilentlyContinue | Select-Object Name, Type, TTL, Section, NameHost, Strings, IPAddress, Address | Format-List");
+        let escaped_target = ps_escape_single_quoted(target);
+        let safe_record_type = validate_dns_record_type(record_type);
+        let script = format!("Resolve-DnsName -Name '{escaped_target}' -Type {safe_record_type} -ErrorAction SilentlyContinue | Select-Object Name, Type, TTL, Section, NameHost, Strings, IPAddress, Address | Format-List");
         let output = Command::new("powershell")
             .args(["-NoProfile", "-Command", &script])
             .output()
@@ -12752,13 +12773,15 @@ fn inspect_event_query(
         // Build filter hashtable entries
         let mut filter_parts = vec![format!("StartTime = (Get-Date).AddHours(-{hours})")];
         if log != "*" {
-            filter_parts.push(format!("LogName = '{log}'"));
+            let escaped_log = ps_escape_single_quoted(log);
+            filter_parts.push(format!("LogName = '{escaped_log}'"));
         }
         if let Some(id) = event_id {
             filter_parts.push(format!("Id = {id}"));
         }
         if let Some(src) = source {
-            filter_parts.push(format!("ProviderName = '{src}'"));
+            let escaped_src = ps_escape_single_quoted(src);
+            filter_parts.push(format!("ProviderName = '{escaped_src}'"));
         }
         if let Some(lvl) = level_filter {
             filter_parts.push(format!("Level = {lvl}"));
@@ -17843,6 +17866,7 @@ fn inspect_snmp() -> Result<String, String> {
 fn inspect_port_test(host: Option<&str>, port: Option<u16>) -> Result<String, String> {
     let target_host = host.unwrap_or("8.8.8.8");
     let target_port = port.unwrap_or(443);
+    let escaped_host = ps_escape_single_quoted(target_host);
 
     let script = format!(
         r#"
@@ -17852,7 +17876,7 @@ $result.AppendLine("  Target: {target_host}:{target_port}") | Out-Null
 $result.AppendLine("") | Out-Null
 
 try {{
-    $test = Test-NetConnection -ComputerName '{target_host}' -Port {target_port} -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+    $test = Test-NetConnection -ComputerName '{escaped_host}' -Port {target_port} -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
     if ($test) {{
         $status = if ($test.TcpTestSucceeded) {{ "OPEN (reachable)" }} else {{ "CLOSED or FILTERED" }}
         $result.AppendLine("  Result:          $status") | Out-Null

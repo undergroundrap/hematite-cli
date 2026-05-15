@@ -93,18 +93,44 @@ fn run_python(code: &str, timeout_secs: u64) -> Result<String, String> {
     if python == "py" {
         cmd.arg("-3");
     }
-    let child = cmd
-        .args([
-            "-c",
-            // Wrap the code: block network imports and dangerous builtins before running.
-            &wrap_python(code),
-        ])
+    // Wipe the parent environment so the subprocess cannot read API keys,
+    // tokens, or other secrets from env vars. Add back only the minimum
+    // variables Python needs to function on each platform.
+    let mut builder = cmd.args([
+        "-c",
+        // Wrap the code: block network imports and dangerous builtins before running.
+        &wrap_python(code),
+    ]);
+    builder = builder
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .env("PATH", "")
+        .env_clear()
         .env("PYTHONDONTWRITEBYTECODE", "1")
-        .env("PYTHONIOENCODING", "utf-8")
+        .env("PYTHONIOENCODING", "utf-8");
+
+    // Windows needs SYSTEMROOT for DLL loading; forward TEMP/TMP so the
+    // tempfile module works if sandboxed code needs it.
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(v) = std::env::var("SYSTEMROOT") {
+            builder = builder.env("SYSTEMROOT", v);
+        }
+        if let Ok(v) = std::env::var("TEMP") {
+            builder = builder.env("TEMP", v);
+        }
+        if let Ok(v) = std::env::var("TMP") {
+            builder = builder.env("TMP", v);
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(v) = std::env::var("TMPDIR") {
+            builder = builder.env("TMPDIR", v);
+        }
+    }
+
+    let child = builder
         .spawn()
         .map_err(|e| format!("Failed to spawn Python: {e}"))?;
 

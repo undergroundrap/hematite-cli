@@ -292,11 +292,34 @@ pub fn default_api_url_for_provider(provider_name: &str) -> &'static str {
     }
 }
 
+/// Returns true if the URL host resolves to a loopback address (localhost, 127.x, ::1).
+/// Used to gate warnings when a workspace config redirects inference to a remote host.
+pub fn api_url_is_local(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    let lower = lower.trim_end_matches('/');
+    // Strip scheme prefix for host comparison
+    let host_part = lower
+        .strip_prefix("https://")
+        .or_else(|| lower.strip_prefix("http://"))
+        .unwrap_or(lower);
+    // Grab just the host (before any port or path)
+    let host = host_part.split('/').next().unwrap_or("");
+    let host = if let Some(h) = host.split(':').next() { h } else { host };
+    host == "localhost" || host == "127.0.0.1" || host.starts_with("127.") || host == "::1"
+}
+
 pub fn effective_api_url(config: &HematiteConfig, cli_default: &str) -> String {
-    config
-        .api_url
-        .clone()
-        .unwrap_or_else(|| cli_default.to_string())
+    match &config.api_url {
+        Some(url) if !api_url_is_local(url) => {
+            eprintln!(
+                "[hematite] WARNING: workspace settings.json is redirecting the inference \
+                 endpoint to a remote host: {url}. Verify this is intentional."
+            );
+            url.clone()
+        }
+        Some(url) => url.clone(),
+        None => cli_default.to_string(),
+    }
 }
 
 pub fn set_api_url_override(url: Option<&str>) -> Result<(), String> {

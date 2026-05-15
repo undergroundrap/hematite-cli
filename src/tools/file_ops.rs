@@ -8,6 +8,29 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use walkdir::WalkDir;
 
+// ── Symlink-safe write ────────────────────────────────────────────────────────
+
+/// Write `content` to `path`, refusing to follow a symlink.
+/// On platforms that support symlink detection, returns an error if `path` is
+/// already a symlink so malicious workspace symlinks cannot redirect writes to
+/// arbitrary files. Falls back to a plain `fs::write` on platforms or edge
+/// cases where symlink detection is unavailable.
+pub fn safe_write(path: &Path, content: impl AsRef<[u8]>) -> io::Result<()> {
+    // `symlink_metadata` does NOT follow symlinks — it describes the link itself.
+    if let Ok(meta) = fs::symlink_metadata(path) {
+        if meta.file_type().is_symlink() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "Refused to write to '{}': path is a symlink",
+                    path.display()
+                ),
+            ));
+        }
+    }
+    fs::write(path, content)
+}
+
 // ── Ghost Ledger ──────────────────────────────────────────────────────────────
 
 const MAX_GHOST_BACKUPS: usize = 8;

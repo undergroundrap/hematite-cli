@@ -1809,7 +1809,7 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
             (
                 "microsoft.windowsstore | status: missing",
                 "Reset Microsoft Store cache",
-                "wsreset.exe",
+                "%SystemRoot%\\System32\\wsreset.exe",
                 None,
                 None,
                 false, // interactive window opens; not suitable for sweep

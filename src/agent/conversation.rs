@@ -2278,7 +2278,7 @@ impl ConversationManager {
             turn_count: self.turn_count,
         };
         if let Ok(json) = serde_json::to_string(&saved) {
-            let _ = std::fs::write(&path, json);
+            let _ = crate::tools::file_ops::safe_write(&path, json.as_bytes());
         }
     }
 
@@ -2294,7 +2294,7 @@ impl ConversationManager {
             turn_count: 0,
         };
         if let Ok(json) = serde_json::to_string(&saved) {
-            let _ = std::fs::write(&path, json);
+            let _ = crate::tools::file_ops::safe_write(&path, json.as_bytes());
         }
     }
 

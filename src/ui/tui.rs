@@ -1564,7 +1564,8 @@ impl App {
             self.total_tokens, self.current_session_cost
         );
 
-        let mut child = std::process::Command::new("clip.exe")
+        let clip = system32_exe("clip.exe");
+        let mut child = std::process::Command::new(&clip)
             .stdin(std::process::Stdio::piped())
             .spawn()
             .expect("Failed to spawn clip.exe");
@@ -1718,6 +1719,13 @@ fn should_accept_autocomplete_on_enter(alias_active: bool, filter: &str) -> bool
     true
 }
 
+/// Resolve an absolute path to a System32 binary using %SystemRoot%.
+/// Avoids relying on PATH resolution for known system binaries.
+fn system32_exe(name: &str) -> String {
+    let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
+    format!("{root}\\System32\\{name}")
+}
+
 fn copy_text_to_clipboard(text: &str) {
     if copy_text_to_clipboard_powershell(text) {
         return;
@@ -1725,7 +1733,8 @@ fn copy_text_to_clipboard(text: &str) {
 
     // Fallback: Windows clip.exe is fast and dependency-free, but some
     // terminal/clipboard paths can mangle non-ASCII punctuation.
-    let mut child = std::process::Command::new("clip.exe")
+    let clip = system32_exe("clip.exe");
+    let mut child = std::process::Command::new(&clip)
         .stdin(std::process::Stdio::piped())
         .spawn()
         .expect("Failed to spawn clip.exe");
