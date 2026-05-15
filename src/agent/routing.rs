@@ -475,6 +475,14 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
                 | "hyperv"
                 | "dhcp"
                 | "lease"
+                | "login"
+                | "disk"
+                | "drive"
+                | "backup"
+                | "ssd"
+                | "hdd"
+                | "nvme"
+                | "encryption"
         )
     }) || contains_any(
         lower,
@@ -506,6 +514,9 @@ fn mentions_host_inspection_question(lower: &str) -> bool {
             "monitor resolution",
             "display config",
             "refresh rate",
+            "sign in",
+            "hard drive",
+            "task scheduler",
         ],
     );
 
@@ -639,6 +650,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("virtual machines")
         || lower.contains("virtual machine")
         || (lower.contains("vm")
+            && !lower.contains("nvme")
             && (lower.contains("running")
                 || lower.contains("status")
                 || lower.contains("health")
@@ -825,7 +837,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("login failed")
         || lower.contains("login failure")
         || (lower.contains("login") && lower.contains("not working"))
-        || (lower.contains("login") && lower.contains("problem"));
+        || (lower.contains("login") && lower.contains("problem"))
+        || (lower.contains("login") && lower.contains("status"))
+        || lower.contains("sign-in status")
+        || lower.contains("sign in status");
     let asks_identity_auth = lower.contains("web account manager")
         || lower.contains("token broker")
         || lower.contains("tokenbroker")
@@ -992,8 +1007,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("last backup")
                 || lower.contains("backup health")
                 || lower.contains("backup status")
+                || lower.contains("backup running")
                 || lower.contains("broken")
-                || lower.contains("failed")))
+                || lower.contains("failed")
+                || lower.contains("running")))
         || (lower.contains("recovery")
             && (lower.contains("backup")
                 || lower.contains("restore")
@@ -1680,6 +1697,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("smart status")
         || lower.contains("drive failing")
         || lower.contains("drive fail")
+        || lower.contains("ssd health")
+        || lower.contains("nvme health")
+        || lower.contains("hard drive status")
+        || (lower.contains("drive") && lower.contains("status") && !lower.contains("backup"))
         || (lower.contains("dying") && (lower.contains("drive") || lower.contains("disk")))
         || (lower.contains("healthy")
             && (lower.contains("drive")
@@ -2640,6 +2661,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("vmmem")
                 || l.contains("vmms")
                 || (l.contains("vm")
+                    && !l.contains("nvme")
                     && (l.contains("checkpoint")
                         || l.contains("snapshot")
                         || l.contains("switch")
@@ -2830,6 +2852,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("login failure")
                 || (l.contains("login") && l.contains("not working"))
                 || (l.contains("login") && l.contains("problem"))
+                || (l.contains("login") && l.contains("status"))
+                || l.contains("sign-in status")
+                || l.contains("sign in status")
                 || (l.contains("can't log in") && !l.contains("vpn") && !l.contains("ssh"))
                 || (l.contains("pin") && (l.contains("broken") || l.contains("not working")))
                 || l.contains("credential provider")
@@ -3168,6 +3193,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("disk health")
                 || l.contains("drive health")
                 || l.contains("smart status")
+                || l.contains("ssd health")
+                || l.contains("nvme health")
+                || l.contains("hard drive status")
+                || (l.contains("drive") && l.contains("status") && !l.contains("backup"))
                 || (l.contains("healthy")
                     && (l.contains("drive") || l.contains("disk") || l.contains("ssd")))
         }),
@@ -3220,13 +3249,14 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("virtual machine")
                 || l.contains("running vms")
                 || (l.contains("vm")
+                    && !l.contains("nvme")
                     && (l.contains("running")
                         || l.contains("checkpoint")
                         || l.contains("snapshot")
                         || l.contains("switch")
                         || l.contains("ram")
                         || l.contains("memory")))
-                || (l.contains("list") && l.contains("vm"))
+                || (l.contains("list") && l.contains("vm") && !l.contains("nvme"))
         }),
         ("ip_config", |l| {
             l.contains("ipconfig") && (l.contains("all") || l.contains("detail"))

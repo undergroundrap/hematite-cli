@@ -12007,3 +12007,80 @@ fn test_multi_topic_shares_file_sharing() {
         assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
     }
 }
+
+// ── Batch 26: host_scope gateway expansion + targeted routing fixes ────────────
+
+/// "check login status" previously routed to None because login+status was not
+/// in asks_sign_in and "login" was not in host_scope for the fallback path.
+#[test]
+fn test_routing_login_status_routes_to_sign_in() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "check login status",
+        "what is the sign-in status",
+        "what is sign in status for this machine",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("sign_in"),
+            "expected sign_in for {query:?}"
+        );
+    }
+}
+
+/// "check ssd health" and "nvme health" were not matched by asks_disk_health
+/// because the existing check required "healthy" (adjective) not "health" (noun).
+#[test]
+fn test_routing_ssd_nvme_health_routes_to_disk_health() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "check ssd health",
+        "what is my nvme health",
+        "what is my ssd health",
+        "hard drive status",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("disk_health"),
+            "expected disk_health for {query:?}"
+        );
+    }
+}
+
+/// Multi-topic: login status should appear in all_host_inspection_topics.
+#[test]
+fn test_multi_topic_sign_in_login_status_variant() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("check login status on this PC", "sign_in"),
+        ("what is the login status here", "sign_in"),
+        ("sign in status for this account", "sign_in"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+/// Multi-topic: ssd/nvme health should appear in all_host_inspection_topics.
+#[test]
+fn test_multi_topic_disk_health_ssd_nvme_variants() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("check ssd health and performance", "disk_health"),
+        ("nvme health report for this machine", "disk_health"),
+        ("what is the hard drive status", "disk_health"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
