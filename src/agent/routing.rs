@@ -3190,7 +3190,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("crash") || l.contains("bsod") || l.contains("blue screen")
         }),
         ("scheduled_tasks", |l| {
-            l.contains("scheduled task") || l.contains("task scheduler")
+            l.contains("scheduled task")
+                || l.contains("task scheduler")
+                || l.contains("scheduled job")
+                || l.contains("runs automatically")
+                || l.contains("running automatically")
+                || l.contains("auto-run task")
+                || l.contains("what runs on a timer")
+                || l.contains("cron job")
+                || l.contains("background task")
         }),
         ("ad_user", |l| {
             l.contains("ad user")
@@ -3288,6 +3296,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("ram %")
                 || l.contains("cpu %")
                 || l.contains("performance")
+                || l.contains("memory pressure")
+                || l.contains("memory load")
                 || l.contains("slow")
                 || l.contains("lag")
                 || l.contains("sluggish")
@@ -3574,6 +3584,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("network share")
                 || l.contains("shared folder")
                 || l.contains("mapped drive")
+                || l.contains("file sharing")
+                || l.contains("what is shared")
+                || l.contains("what am i sharing")
                 || l.contains("smb1")
                 || l.contains("nfs export")
         }),
@@ -3609,6 +3622,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("page file")
                 || l.contains("virtual memory")
                 || l.contains("swap file")
+                || l.contains("swap space")
+                || l.contains("memory swapping")
+                || l.contains("paging file")
         }),
         ("windows_features", |l| {
             (l.contains("window") && l.contains("feature"))
@@ -3674,7 +3690,14 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("udp") && l.contains("listening"))
         }),
         ("gpo", |l| {
-            l.contains("gpo") || l.contains("group policy") || l.contains("gpresult")
+            l.contains("gpo")
+                || l.contains("group policy")
+                || l.contains("gpresult")
+                || l.contains("applied policy")
+                || l.contains("active policies")
+                || l.contains("what policies")
+                || l.contains("policy objects")
+                || l.contains("policy applied")
         }),
         ("certificates", |l| {
             l.contains("cert")
