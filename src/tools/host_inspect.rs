@@ -12181,19 +12181,20 @@ $u = [System.Security.Principal.WindowsIdentity]::GetCurrent()
 
     #[cfg(target_os = "windows")]
     {
+        let escaped_ident = ps_escape_single_quoted(ident);
         let script = format!(
             r#"
 try {{
-    $u = Get-ADUser -Identity "{ident}" -Properties MemberOf, LastLogonDate, Enabled, PasswordExpired -ErrorAction Stop
+    $u = Get-ADUser -Identity '{escaped_ident}' -Properties MemberOf, LastLogonDate, Enabled, PasswordExpired -ErrorAction Stop
     "NAME: " + $u.Name
     "SID: " + $u.SID
     "ENABLED: " + $u.Enabled
     "EXPIRED: " + $u.PasswordExpired
     "LOGON: " + $u.LastLogonDate
-    "GROUPS: " + ($u.MemberOf -replace "CN=([^,]+),.*", "$1" -join ", ")
+    "GROUPS: " + ($u.MemberOf -replace 'CN=([^,]+),.*', '$1' -join ", ")
 }} catch {{
     # Fallback to net user if AD module is missing or fails
-    $net = net user "{ident}" /domain 2>&1
+    $net = net user '{escaped_ident}' /domain 2>&1
     if ($LASTEXITCODE -eq 0) {{
         $net | Select-String "User name", "Full Name", "Account active", "Password expires", "Last logon", "Local Group Memberships", "Global Group memberships" | ForEach-Object {{ $_.ToString().Trim() }}
     }} else {{
