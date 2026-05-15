@@ -11447,6 +11447,67 @@ fn test_routing_detects_dns_cache_topic() {
     assert_eq!(preferred_host_inspection_topic("inspect the dns cache"), Some("dns_cache"));
 }
 
+// ── Batch 17: routing tests for remaining untested preferred_host topics ──────
+
+#[test]
+fn test_routing_detects_activation_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("check windows activation status"), Some("activation"));
+    assert_eq!(preferred_host_inspection_topic("is windows genuine"), Some("activation"));
+    assert_eq!(preferred_host_inspection_topic("my product key is invalid"), Some("activation"));
+    assert_eq!(preferred_host_inspection_topic("run slmgr /xpr"), Some("activation"));
+}
+
+#[test]
+fn test_routing_detects_patch_history_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show patch history"), Some("patch_history"));
+    assert_eq!(preferred_host_inspection_topic("list installed hotfixes"), Some("patch_history"));
+    assert_eq!(preferred_host_inspection_topic("kb history for this machine"), Some("patch_history"));
+    assert_eq!(preferred_host_inspection_topic("show installed updates history"), Some("patch_history"));
+}
+
+#[test]
+fn test_routing_detects_scheduled_tasks_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show all scheduled tasks"), Some("scheduled_tasks"));
+    assert_eq!(preferred_host_inspection_topic("task scheduler jobs that run daily"), Some("scheduled_tasks"));
+    assert_eq!(preferred_host_inspection_topic("list background tasks"), Some("scheduled_tasks"));
+    assert_eq!(preferred_host_inspection_topic("what cron jobs are configured"), Some("scheduled_tasks"));
+}
+
+#[test]
+fn test_routing_detects_share_access_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("can I access the network share"), Some("share_access"));
+    assert_eq!(preferred_host_inspection_topic("test UNC path access"), Some("share_access"));
+    assert_eq!(preferred_host_inspection_topic("show the net share listing"), Some("share_access"));
+}
+
+#[test]
+fn test_routing_detects_health_report_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("run a system health report"), Some("health_report"));
+    assert_eq!(preferred_host_inspection_topic("show system health status"), Some("health_report"));
+    assert_eq!(preferred_host_inspection_topic("how is my machine doing overall"), Some("health_report"));
+}
+
+#[test]
+fn test_routing_detects_registry_audit_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show registry audit details"), Some("registry_audit"));
+    assert_eq!(preferred_host_inspection_topic("check for registry persistence"), Some("registry_audit"));
+    assert_eq!(preferred_host_inspection_topic("sticky keys registry check"), Some("registry_audit"));
+}
+
+#[test]
+fn test_routing_detects_login_history_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show login history for this user"), Some("login_history"));
+    assert_eq!(preferred_host_inspection_topic("last logon history for this account"), Some("login_history"));
+    assert_eq!(preferred_host_inspection_topic("show recent logon events"), Some("login_history"));
+}
+
 // ── Batch 15: all_host_inspection_topics moderate-gap expansions ──────────────
 
 #[test]
