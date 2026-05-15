@@ -3270,12 +3270,27 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("connections", |l| {
             l.contains("tcp connection")
                 || l.contains("active connection")
+                || l.contains("established connection")
+                || l.contains("socket")
                 || l.contains("netstat")
-                || l.contains("open socket")
-                || (l.contains("established") && l.contains("connection"))
+                || l.contains("outbound connection")
+                || l.contains("inbound connection")
+                || l.contains("remote connection")
+                || l.contains("connection list")
+                || (l.contains("connection") && l.contains("active"))
+                || (l.contains("connection") && l.contains("open"))
+                || (l.contains("what") && l.contains("connecting"))
+                || (l.contains("which") && l.contains("connecting"))
         }),
         ("vpn", |l| {
-            l.contains("vpn") || l.contains("virtual private network")
+            l.contains("vpn")
+                || l.contains("virtual private network")
+                || l.contains("wireguard")
+                || l.contains("anyconnect")
+                || l.contains("globalprotect")
+                || l.contains("pulse secure")
+                || l.contains("split tunnel")
+                || l.contains("vpn adapter")
         }),
         ("proxy", |l| {
             l.contains("proxy setting") || l.contains("system proxy") || l.contains("winhttp proxy")
@@ -3536,7 +3551,17 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("dropped packet")
         }),
         ("startup_items", |l| {
-            l.contains("startup") || l.contains("boot program") || l.contains("autorun")
+            l.contains("startup")
+                || l.contains("boot program")
+                || l.contains("autorun")
+                || l.contains("run at boot")
+                || l.contains("startup program")
+                || l.contains("startup app")
+                || l.contains("starts with windows")
+                || l.contains("start with windows")
+                || l.contains("launch at startup")
+                || l.contains("msconfig")
+                || l.contains("login item")
         }),
         ("udp_ports", |l| {
             l.contains("udp port")
@@ -3547,7 +3572,19 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("gpo") || l.contains("group policy") || l.contains("gpresult")
         }),
         ("certificates", |l| {
-            l.contains("cert") || l.contains("ssl") || l.contains("thumbprint")
+            l.contains("cert")
+                || l.contains("ssl")
+                || l.contains("thumbprint")
+                || l.contains("x509")
+                || l.contains("x.509")
+                || l.contains(".pfx")
+                || l.contains(".p12")
+                || l.contains(".pem")
+                || l.contains("pkcs")
+                || l.contains("trust store")
+                || l.contains("certificate expir")
+                || l.contains("untrusted cert")
+                || (l.contains("tls") && (l.contains("check") || l.contains("status") || l.contains("valid")))
         }),
         ("integrity", |l| {
             l.contains("integrity") || l.contains("sfc") || l.contains("dism")
@@ -3560,6 +3597,14 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("hardware error")
                 || l.contains("yellow bang")
                 || l.contains("malfunctioning")
+                || l.contains("device manager")
+                || l.contains("unknown device")
+                || l.contains("code 43")
+                || l.contains("code 10")
+                || l.contains("code 28")
+                || l.contains("hardware failing")
+                || (l.contains("device") && l.contains("error code"))
+                || (l.contains("device") && l.contains("not recognized"))
         }),
         ("drivers", |l| {
             l.contains("driver") || l.contains("system driver")
@@ -3572,13 +3617,38 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("monitor")
         }),
         ("sessions", |l| {
-            l.contains("session") || l.contains("who is logged") || l.contains("active login")
+            l.contains("session")
+                || l.contains("who is logged")
+                || l.contains("active login")
+                || l.contains("who is on")
+                || l.contains("connected users")
+                || l.contains("logged on users")
+                || l.contains("logged in users")
+                || l.contains("query session")
+                || l.contains("qwinsta")
+                || (l.contains("who") && l.contains("logged"))
         }),
         ("hardware", |l| {
             l.contains("virtualization")
                 || l.contains("hypervisor")
                 || l.contains("vt-x")
                 || l.contains("slat")
+                || l.contains("cpu model")
+                || l.contains("ram size")
+                || l.contains("hardware spec")
+                || l.contains("motherboard")
+                || l.contains("bios version")
+                || l.contains("graphics card")
+                || l.contains("video card")
+                || l.contains("system information")
+                || l.contains("system info")
+                || l.contains("system specs")
+                || l.contains("computer spec")
+                || l.contains("display adapter")
+                || (l.contains("what") && l.contains("processor"))
+                || (l.contains("what") && l.contains("cpu"))
+                || (l.contains("how much") && l.contains("ram"))
+                || (l.contains("gpu") && (l.contains("what") || l.contains("show")))
         }),
         ("ipv6", |l| {
             l.contains("ipv6")
