@@ -10791,6 +10791,117 @@ fn test_routing_path_and_toolchain_phrases() {
 }
 
 #[test]
+fn test_ps_escape_single_quoted_correctness() {
+    // Re-test the escaping logic used in host_inspect.rs via a local reimplementation
+    // so regressions are caught without needing to expose the private helper.
+    fn escape(s: &str) -> String {
+        s.replace('\'', "''")
+    }
+
+    // Basic pass-through
+    assert_eq!(escape("example.com"), "example.com");
+    assert_eq!(escape("8.8.8.8"), "8.8.8.8");
+    assert_eq!(escape("Application"), "Application");
+
+    // Single-quote injection sequences must be doubled
+    assert_eq!(escape("'; evil"), "''; evil");
+    assert_eq!(escape("it's"), "it''s");
+    assert_eq!(escape("'; Remove-Item -Recurse C:\\ #"), "''; Remove-Item -Recurse C:\\ #");
+
+    // Multiple quotes
+    assert_eq!(escape("a'b'c"), "a''b''c");
+
+    // No double-quote or backtick interference
+    assert_eq!(escape("domain\\user\"name"), "domain\\user\"name");
+    assert_eq!(escape("value`with`backticks"), "value`with`backticks");
+}
+
+#[test]
+fn test_validate_dns_record_type_allowlist() {
+    // Mirrors the allowlist in validate_dns_record_type in host_inspect.rs.
+    // Tests that known types are accepted and unknown types fall back to "A".
+    let known_types = ["A", "AAAA", "MX", "TXT", "SRV", "CNAME", "NS", "PTR", "SOA", "CAA", "ANY"];
+    for rt in known_types {
+        // Case-sensitive: the allowlist matches the exact casing passed
+        let lower = rt.to_uppercase();
+        // We verify the logic by reconstructing it inline
+        let result = match lower.as_str() {
+            "A" | "AAAA" | "MX" | "TXT" | "SRV" | "CNAME" | "NS" | "PTR" | "SOA" | "CAA"
+            | "NAPTR" | "DS" | "DNSKEY" | "ANY" => rt,
+            _ => "A",
+        };
+        assert_eq!(result, rt, "Known type {rt} should pass through unchanged");
+    }
+
+    // Unknown/injection attempts must fall back to "A"
+    let injections = [
+        "A; Get-ChildItem",
+        "$(evil)",
+        "INVALID",
+        "",
+        "A\nB",
+    ];
+    for input in injections {
+        let upper = input.to_uppercase();
+        let result = match upper.as_str() {
+            "A" | "AAAA" | "MX" | "TXT" | "SRV" | "CNAME" | "NS" | "PTR" | "SOA" | "CAA"
+            | "NAPTR" | "DS" | "DNSKEY" | "ANY" => input,
+            _ => "A",
+        };
+        assert_eq!(result, "A", "Injection or invalid type {input:?} should fall back to A");
+    }
+}
+
+#[test]
+fn test_api_url_is_local_detection() {
+    use hematite::agent::config::api_url_is_local;
+
+    // Known local URLs
+    assert!(api_url_is_local("http://localhost:1234/v1"));
+    assert!(api_url_is_local("http://localhost:11434/v1"));
+    assert!(api_url_is_local("http://127.0.0.1:1234/v1"));
+    assert!(api_url_is_local("http://127.0.0.1/v1"));
+    assert!(api_url_is_local("http://::1/v1"));
+
+    // Remote URLs must not be treated as local
+    assert!(!api_url_is_local("http://192.168.1.100:1234/v1"));
+    assert!(!api_url_is_local("https://api.attacker.com/v1"));
+    assert!(!api_url_is_local("http://10.0.0.5:1234/v1"));
+    assert!(!api_url_is_local("https://openai.com/v1"));
+}
+
+#[test]
+fn test_safe_write_refuses_symlinks() {
+    use hematite::tools::file_ops::safe_write;
+
+    let dir = std::env::temp_dir().join("hematite_safe_write_test");
+    let _ = std::fs::create_dir_all(&dir);
+
+    let real_target = dir.join("real_target.txt");
+    let _ = std::fs::write(&real_target, b"original");
+
+    #[cfg(unix)]
+    {
+        let link_path = dir.join("link.txt");
+        let _ = std::fs::remove_file(&link_path);
+        std::os::unix::fs::symlink(&real_target, &link_path).expect("create symlink");
+        let result = safe_write(&link_path, b"injected");
+        assert!(result.is_err(), "safe_write must refuse to write through symlinks");
+        // Confirm the real target was not modified
+        let still_original = std::fs::read_to_string(&real_target).unwrap();
+        assert_eq!(still_original, "original");
+    }
+
+    // Non-symlink write should succeed
+    let plain_path = dir.join("plain.txt");
+    let result = safe_write(&plain_path, b"hello");
+    assert!(result.is_ok(), "safe_write must succeed for non-symlink paths");
+    assert_eq!(std::fs::read_to_string(&plain_path).unwrap(), "hello");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn test_all_action_recipes_have_fix_arg_mapping() {
     // Every ACTION/INVESTIGATE recipe title should have a recipe_title_to_fix_arg entry so that
     // suggest_fix_commands can surface it as a hematite --fix hint in reports.

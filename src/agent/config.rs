@@ -302,10 +302,30 @@ pub fn api_url_is_local(url: &str) -> bool {
         .strip_prefix("https://")
         .or_else(|| lower.strip_prefix("http://"))
         .unwrap_or(lower);
-    // Grab just the host (before any port or path)
-    let host = host_part.split('/').next().unwrap_or("");
-    let host = if let Some(h) = host.split(':').next() { h } else { host };
-    host == "localhost" || host == "127.0.0.1" || host.starts_with("127.") || host == "::1"
+    // Grab just the authority (before the first path slash)
+    let authority = host_part.split('/').next().unwrap_or("");
+    // Handle bracketed IPv6: [::1] or [::1]:port
+    let host = if authority.starts_with('[') {
+        authority
+            .trim_start_matches('[')
+            .split(']')
+            .next()
+            .unwrap_or("")
+    } else {
+        // IPv4 or hostname — strip port by taking everything before the last ':'
+        // only when what remains looks like a host (not an IPv6 raw address)
+        if authority.contains("::") {
+            // Bare IPv6 without brackets (non-standard but handle gracefully)
+            authority.split('/').next().unwrap_or(authority)
+        } else {
+            authority.split(':').next().unwrap_or(authority)
+        }
+    };
+    host == "localhost"
+        || host == "127.0.0.1"
+        || host.starts_with("127.")
+        || host == "::1"
+        || host == "[::1]"
 }
 
 pub fn effective_api_url(config: &HematiteConfig, cli_default: &str) -> String {
