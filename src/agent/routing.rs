@@ -3510,7 +3510,18 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("feature") && (l.contains("install") || l.contains("enabled")))
         }),
         ("printers", |l| {
-            l.contains("printer") || l.contains("print queue") || l.contains("get-printer")
+            l.contains("printer")
+                || l.contains("print queue")
+                || l.contains("get-printer")
+                || l.contains("printing")
+                || l.contains("can't print")
+                || l.contains("cannot print")
+                || l.contains("print job")
+                || l.contains("print driver")
+                || l.contains("default printer")
+                || (l.contains("print") && l.contains("not working"))
+                || (l.contains("print") && l.contains("stuck"))
+                || (l.contains("print") && l.contains("offline"))
         }),
         ("winrm", |l| {
             l.contains("winrm")
