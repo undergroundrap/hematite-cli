@@ -11696,3 +11696,47 @@ fn test_routing_whats_using_cpu_goes_to_processes_not_hardware() {
         "what cpu does this machine have should still route to hardware"
     );
 }
+
+// ── Batch 19: untested preferred_host_inspection_topic topics ──────────────
+
+#[test]
+fn test_routing_detects_ad_user_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("look up the ad user account"), Some("ad_user"));
+    assert_eq!(preferred_host_inspection_topic("show domain user membership"), Some("ad_user"));
+}
+
+#[test]
+fn test_routing_detects_network_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show network overview"), Some("network"));
+    assert_eq!(preferred_host_inspection_topic("show current network interfaces"), Some("network"));
+}
+
+#[test]
+fn test_routing_detects_permissions_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("check file permissions on this folder"), Some("permissions"));
+    assert_eq!(preferred_host_inspection_topic("view access control for a directory"), Some("permissions"));
+}
+
+#[test]
+fn test_routing_detects_desktop_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show desktop folder contents"), Some("desktop"));
+    assert_eq!(preferred_host_inspection_topic("list desktop files"), Some("desktop"));
+}
+
+#[test]
+fn test_routing_detects_downloads_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("list downloads folder"), Some("downloads"));
+    assert_eq!(preferred_host_inspection_topic("show what's in downloads folder"), Some("downloads"));
+}
+
+#[test]
+fn test_routing_detects_directory_topic() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("what is in the directory /tmp"), Some("directory"));
+    assert_eq!(preferred_host_inspection_topic("how big is this folder"), Some("directory"));
+}
