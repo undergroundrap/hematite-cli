@@ -11794,3 +11794,34 @@ fn test_multi_topic_downloads_expanded() {
         );
     }
 }
+
+// ── Batch 21: sign_in login-variant routing gap fix ───────────────────────────
+
+/// "can't login" and "login failed" are common Windows support phrasings that
+/// previously routed to None because asks_sign_in only checked "sign in" variants.
+#[test]
+fn test_routing_detects_sign_in_for_login_variants() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("can't login to Windows"), Some("sign_in"));
+    assert_eq!(preferred_host_inspection_topic("login failed after update"), Some("sign_in"));
+    assert_eq!(preferred_host_inspection_topic("login not working on this machine"), Some("sign_in"));
+    assert_eq!(preferred_host_inspection_topic("login problem since restart"), Some("sign_in"));
+}
+
+#[test]
+fn test_multi_topic_sign_in_login_variants() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("can't login to Windows", "sign_in"),
+        ("login failed suddenly", "sign_in"),
+        ("login not working", "sign_in"),
+        ("login screen stuck after boot", "sign_in"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
