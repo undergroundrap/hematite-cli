@@ -11648,3 +11648,51 @@ fn test_fix_path_routes_device_manager_terms() {
         );
     }
 }
+
+// ── Batch 18: routing precision bug fix regression tests ──────────────────────
+
+/// "wlan adapter status" must route to wifi, not network_stats.
+/// The network_stats (adapter && stat) compound had no wlan/wireless exclusion.
+#[test]
+fn test_routing_wlan_adapter_goes_to_wifi_not_network_stats() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("wlan adapter status"),
+        Some("wifi"),
+        "wlan adapter status should route to wifi, not network_stats"
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("wireless adapter stats"),
+        Some("wifi"),
+        "wireless adapter stats should route to wifi, not network_stats"
+    );
+    // Non-wireless adapter+stat queries must still reach network_stats.
+    assert_eq!(
+        preferred_host_inspection_topic("show adapter statistics for ethernet"),
+        Some("network_stats"),
+        "ethernet adapter statistics should still route to network_stats"
+    );
+}
+
+/// "what's using my CPU" must route to processes, not hardware.
+/// The hardware (what && cpu) compound had no 'using' exclusion.
+#[test]
+fn test_routing_whats_using_cpu_goes_to_processes_not_hardware() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what's using my CPU"),
+        Some("processes"),
+        "what's using my CPU should route to processes, not hardware"
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is using the CPU"),
+        Some("processes"),
+        "what is using the CPU should route to processes, not hardware"
+    );
+    // Plain "what cpu" query must still reach hardware.
+    assert_eq!(
+        preferred_host_inspection_topic("what cpu does this machine have"),
+        Some("hardware"),
+        "what cpu does this machine have should still route to hardware"
+    );
+}

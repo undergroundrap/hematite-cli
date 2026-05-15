@@ -1423,6 +1423,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("using my ram")
         || lower.contains("using ram")
         || lower.contains("using my cpu")
+        || lower.contains("using the cpu")
         || lower.contains("top memory")
         || lower.contains("top ram")
         || lower.contains("high memory")
@@ -1530,7 +1531,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("display adapter")
         || (lower.contains("how much") && lower.contains("ram"))
         || (lower.contains("what") && lower.contains("processor"))
-        || (lower.contains("what") && lower.contains("cpu"));
+        || (lower.contains("what") && lower.contains("cpu") && !lower.contains("using"));
     let asks_activation = lower.contains("activation")
         || lower.contains("activated")
         || lower.contains("not activated")
@@ -2117,7 +2118,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("ps") && lower.contains("remoting"))
         || (lower.contains("remote") && lower.contains("management") && !lower.contains("rdp"));
     let asks_network_stats = (lower.contains("network") && lower.contains("stat"))
-        || (lower.contains("adapter") && lower.contains("stat"))
+        || (lower.contains("adapter")
+            && lower.contains("stat")
+            && !lower.contains("wlan")
+            && !lower.contains("wireless"))
         || (lower.contains("nic") && lower.contains("stat"))
         || lower.contains("throughput")
         || lower.contains("dropped packet");
@@ -3250,6 +3254,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("task manager")
                 || l.contains("what is running")
                 || l.contains("using my ram")
+                || l.contains("using my cpu")
+                || l.contains("using the cpu")
                 || l.contains("hitting the disk")
                 || l.contains("disk thrasher")
         }),
