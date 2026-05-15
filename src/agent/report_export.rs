@@ -149,7 +149,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         ]
     );
     add_if!(
-        &["vpn ", "vpn:", "tunnel", "remote access"],
+        &["vpn ", "vpn:", "tunnel", "remote access", "wireguard", "anyconnect", "globalprotect", "pulse secure", "split tunnel"],
         &[
             ("vpn", "VPN"),
             ("connectivity", "Connectivity"),
@@ -775,6 +775,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "usb not working",
             "device not recognized",
             "device manager error",
+            "device manager",
+            "unknown device",
+            "code 43",
+            "code 10",
             "yellow bang",
             "pnp error",
             "driver missing"

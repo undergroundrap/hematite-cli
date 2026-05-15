@@ -11175,3 +11175,48 @@ fn test_inspect_host_print_spooler_returns_header() {
         assert!(out.contains("Host inspection: print_spooler"), "missing header; got:\n{out}");
     });
 }
+
+// ── Batch 13: --fix path routing gaps ─────────────────────────────────────────
+
+#[test]
+fn test_fix_path_routes_vpn_vendor_names() {
+    use hematite::agent::report_export::fix_plan_topics;
+    let cases = [
+        "wireguard tunnel not connecting",
+        "cisco anyconnect keeps disconnecting",
+        "GlobalProtect VPN client error",
+        "pulse secure connection failed",
+        "split tunnel not working",
+    ];
+    for issue in &cases {
+        let topics = fix_plan_topics(issue);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"vpn"),
+            "expected vpn topic for {:?}, got {:?}",
+            issue,
+            names
+        );
+    }
+}
+
+#[test]
+fn test_fix_path_routes_device_manager_terms() {
+    use hematite::agent::report_export::fix_plan_topics;
+    let cases = [
+        "device manager shows errors",
+        "unknown device in device manager",
+        "error code 43 on USB",
+        "code 10 device cannot start",
+    ];
+    for issue in &cases {
+        let topics = fix_plan_topics(issue);
+        let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
+        assert!(
+            names.contains(&"device_health"),
+            "expected device_health topic for {:?}, got {:?}",
+            issue,
+            names
+        );
+    }
+}
