@@ -7970,6 +7970,10 @@ fn test_routing_detects_local_security_policy_topic() {
         "What is the password policy on this machine?",
         "Show account lockout threshold",
         "Check LM compatibility level",
+        "UAC prompt keeps appearing",
+        "user account control is disabled",
+        "run as administrator not working",
+        "needs elevation every time I open it",
     ];
     for q in &queries {
         let topic = preferred_host_inspection_topic(q);
