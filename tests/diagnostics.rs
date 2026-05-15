@@ -11336,6 +11336,102 @@ fn test_multi_topic_print_spooler_expanded() {
     }
 }
 
+// ── Batch 15: all_host_inspection_topics moderate-gap expansions ──────────────
+
+#[test]
+fn test_multi_topic_defender_quarantine_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("defender detected a virus", "defender_quarantine"),
+        ("malware history on this PC", "defender_quarantine"),
+        ("threats found by defender", "defender_quarantine"),
+        ("virus found in quarantine", "defender_quarantine"),
+        ("defender scan results history", "defender_quarantine"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_mdm_enrollment_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("is this device enrolled in MDM", "mdm_enrollment"),
+        ("microsoft endpoint manager status", "mdm_enrollment"),
+        ("aad join status for this device", "mdm_enrollment"),
+        ("device management policy applied", "mdm_enrollment"),
+        ("enroll device in intune", "mdm_enrollment"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_storage_spaces_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("storage pool health status", "storage_spaces"),
+        ("virtual disks in storage spaces", "storage_spaces"),
+        ("resiliency setting for storage pool", "storage_spaces"),
+        ("software raid array status", "storage_spaces"),
+        ("disk pool degraded warning", "storage_spaces"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_startup_items_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("show startup item list", "startup_items"),
+        ("what runs on boot automatically", "startup_items"),
+        ("open at startup programs", "startup_items"),
+        ("disable startup entries", "startup_items"),
+        ("run at login items", "startup_items"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_certificates_expanded() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("client cert installed for auth", "certificates"),
+        ("expiring cert in the store", "certificates"),
+        ("tls certificate valid for this domain", "certificates"),
+        ("certificate store contents", "certificates"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
+
 // ── Batch 13: --fix path routing gaps ─────────────────────────────────────────
 
 #[test]
