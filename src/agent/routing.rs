@@ -570,7 +570,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_gpo = lower.contains("gpo")
         || lower.contains("group policy")
         || lower.contains("gpresult")
-        || lower.contains("applied policy");
+        || lower.contains("applied policy")
+        || lower.contains("active policies")
+        || lower.contains("what policies")
+        || lower.contains("policy objects")
+        || lower.contains("policy applied");
     let asks_certificates = lower.contains("cert")
         || lower.contains("ssl")
         || lower.contains("client cert")
@@ -1760,7 +1764,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("what runs on a timer")
         || lower.contains("what runs at")
         || lower.contains("cron job")
-        || lower.contains("background task");
+        || lower.contains("background task")
+        || lower.contains("scheduled job")
+        || lower.contains("runs automatically")
+        || lower.contains("running automatically")
+        || lower.contains("auto-run task");
     let asks_dev_conflicts = lower.contains("dev conflict")
         || lower.contains("environment conflict")
         || lower.contains("toolchain conflict")
@@ -1808,6 +1816,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("current load")
         || lower.contains("why is it slow")
         || lower.contains("why is it laggy")
+        || lower.contains("memory pressure")
+        || lower.contains("memory load")
+        || lower.contains("process overhead")
         || lower.contains("slow")
         || lower.contains("lag")
         || lower.contains("sluggish")
@@ -2047,6 +2058,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("get-smbshare")
         || lower.contains("what is shared")
         || lower.contains("what am i sharing")
+        || lower.contains("file sharing")
         || lower.contains("smb session")
         || lower.contains("lanmanager")
         || lower.contains("netlanmanager")
@@ -2096,7 +2108,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("page file")
         || lower.contains("virtual memory")
         || lower.contains("swap file")
-        || (lower.contains("paging") && lower.contains("file"));
+        || lower.contains("swap space")
+        || lower.contains("memory swapping")
+        || lower.contains("paging file")
+        || (lower.contains("paging") && lower.contains("file"))
+        || (lower.contains("paging") && lower.contains("active"));
     let asks_windows_features = (lower.contains("window") && lower.contains("feature"))
         || lower.contains("optional feature")
         || lower.contains("iis")

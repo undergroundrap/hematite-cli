@@ -11899,3 +11899,39 @@ fn test_fix_path_docker_includes_connectivity() {
     let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
     assert!(names.contains(&"connectivity"), "expected connectivity for docker issue, got {names:?}");
 }
+
+// ── Batch 23: sparse-keyword routing expansions ───────────────────────────────
+
+#[test]
+fn test_routing_detects_gpo_for_active_policies() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show active policies on this machine"), Some("gpo"));
+    assert_eq!(preferred_host_inspection_topic("what policy objects are applied"), Some("gpo"));
+}
+
+#[test]
+fn test_routing_detects_scheduled_tasks_for_job_variants() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("show all scheduled jobs"), Some("scheduled_tasks"));
+    assert_eq!(preferred_host_inspection_topic("what is running automatically on this machine"), Some("scheduled_tasks"));
+}
+
+#[test]
+fn test_routing_detects_pagefile_for_swap_space() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("how much swap space is configured"), Some("pagefile"));
+    assert_eq!(preferred_host_inspection_topic("is memory swapping happening"), Some("pagefile"));
+}
+
+#[test]
+fn test_routing_detects_resource_load_for_memory_pressure() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("check memory pressure on this machine"), Some("resource_load"));
+    assert_eq!(preferred_host_inspection_topic("what is the current memory load"), Some("resource_load"));
+}
+
+#[test]
+fn test_routing_detects_shares_for_file_sharing() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(preferred_host_inspection_topic("file sharing status on this machine"), Some("shares"));
+}
