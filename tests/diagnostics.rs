@@ -4877,7 +4877,7 @@ fn test_inspect_host_user_accounts_reports_elevation() {
 fn test_routing_detects_user_accounts_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
     assert_eq!(
-        preferred_host_inspection_topic("who is logged in right now?"),
+        preferred_host_inspection_topic("list all local user accounts"),
         Some("user_accounts")
     );
     assert_eq!(
@@ -8014,6 +8014,55 @@ fn test_routing_detects_print_spooler_topic() {
             Some("print_spooler"),
             "Expected print_spooler for: {q}"
         );
+    }
+}
+
+// ── Batch 10 routing expansions ─────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_sessions_expanded() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "who is logged on right now",
+        "show connected users",
+        "list user sessions",
+        "query session",
+        "who is logged in to this machine",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("sessions"), "Expected sessions for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_detects_startup_expanded() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "what startup programs are enabled",
+        "disable startup apps",
+        "what starts with windows",
+        "show msconfig startup entries",
+        "what runs on boot",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("startup_items"), "Expected startup_items for: {q}");
+    }
+}
+
+#[test]
+fn test_routing_detects_certificates_expanded() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let queries = [
+        "check tls certificate status",
+        "x509 certificate expiring",
+        "list pfx certificates",
+        "is there a pem file in the cert store",
+    ];
+    for q in &queries {
+        let topic = preferred_host_inspection_topic(q);
+        assert_eq!(topic, Some("certificates"), "Expected certificates for: {q}");
     }
 }
 
