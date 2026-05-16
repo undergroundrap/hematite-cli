@@ -12084,3 +12084,129 @@ fn test_multi_topic_disk_health_ssd_nvme_variants() {
         );
     }
 }
+
+// ── Batch 27: sparse-keyword expansions for credentials, battery, installed_software,
+//              usb_history, print_spooler, user_accounts ──────────────────────────
+
+#[test]
+fn test_routing_cached_credentials_routes_to_credentials() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "clear all cached credentials",
+        "view my stored credentials",
+        "delete all credentials from this machine",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("credentials"),
+            "expected credentials for {query:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_charge_percentage_routes_to_battery() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "what is my current charge",
+        "show charge percentage",
+        "what is the charge status of my laptop",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("battery"),
+            "expected battery for {query:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_list_applications_routes_to_installed_software() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "list all applications on my machine",
+        "show programs installed here",
+        "list apps on this PC",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("installed_software"),
+            "expected installed_software for {query:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_usb_plugged_routes_to_usb_history() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "what usb drives have been plugged into this machine",
+        "show usb devices that were connected",
+        "usb drives ever connected to this PC",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("usb_history"),
+            "expected usb_history for {query:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_printer_service_routes_to_print_spooler() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "is the printer service running",
+        "check print spooler security",
+        "is PrintNightmare mitigated on this machine",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("print_spooler"),
+            "expected print_spooler for {query:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_what_accounts_routes_to_user_accounts() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "what accounts have admin rights on this machine",
+        "list all users on this computer",
+        "who has admin rights here",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("user_accounts"),
+            "expected user_accounts for {query:?}"
+        );
+    }
+}
+
+/// Multi-topic: batch 27 expansions should also appear in all_host_inspection_topics.
+#[test]
+fn test_multi_topic_batch27_keyword_expansions() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("clear all cached credentials from this PC", "credentials"),
+        ("what is my current charge on this laptop", "battery"),
+        ("list all applications installed here", "installed_software"),
+        ("what usb devices have been plugged in", "usb_history"),
+        ("is the printer service running on this machine", "print_spooler"),
+        ("what accounts have admin rights", "user_accounts"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}

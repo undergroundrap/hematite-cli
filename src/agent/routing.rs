@@ -624,7 +624,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("running as admin")
         || lower.contains("is this elevated")
         || lower.contains("net user")
-        || lower.contains("net localgroup");
+        || lower.contains("net localgroup")
+        || lower.contains("who has admin rights")
+        || lower.contains("list all users")
+        || lower.contains("list users")
+        || lower.contains("what accounts")
+        || (lower.contains("accounts") && lower.contains("admin"));
     let asks_ad_user = lower.contains("ad user")
         || lower.contains("domain user")
         || (lower.contains("user") && (lower.contains("sid") || lower.contains("membership")));
@@ -1094,7 +1099,13 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("cmdkey")
         || (lower.contains("credential") && lower.contains("list"))
         || (lower.contains("password") && lower.contains("vault"))
-        || (lower.contains("windows") && lower.contains("credential"));
+        || (lower.contains("windows") && lower.contains("credential"))
+        || (lower.contains("credential")
+            && (lower.contains("clear")
+                || lower.contains("cached")
+                || lower.contains("view")
+                || lower.contains("delete")
+                || lower.contains("remove")));
     let asks_tpm = lower.contains("tpm")
         || lower.contains("secure boot")
         || lower.contains("secureboot")
@@ -1712,6 +1723,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("battery health")
         || lower.contains("battery wear")
         || lower.contains("charge level")
+        || lower.contains("charge percentage")
+        || lower.contains("current charge")
+        || lower.contains("charge status")
         || lower.contains("how long until")
         || (lower.contains("dying") && lower.contains("batter"));
     let asks_app_crashes = lower.contains("application crash")
@@ -2022,6 +2036,13 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("what's installed")
         || lower.contains("winget list")
         || lower.contains("list programs")
+        || lower.contains("list applications")
+        || lower.contains("list all apps")
+        || lower.contains("list apps")
+        || lower.contains("show applications")
+        || lower.contains("show programs")
+        || (lower.contains("list") && lower.contains("application"))
+        || (lower.contains("show") && lower.contains("application"))
         || (lower.contains("installed")
             && (lower.contains("on this machine")
                 || lower.contains("on my machine")
@@ -2256,12 +2277,17 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("what usb")
         || lower.contains("ever connected usb")
         || lower.contains("usb devices ever")
+        || lower.contains("usb drives ever")
         || (lower.contains("usb")
             && (lower.contains("history")
                 || lower.contains("forensic")
                 || lower.contains("audit")
                 || lower.contains("ever connected")
-                || lower.contains("registry")));
+                || lower.contains("registry")
+                || lower.contains("plugged")
+                || lower.contains("were connected")
+                || lower.contains("have been connected")
+                || lower.contains("has been connected")));
     let asks_print_spooler = lower.contains("print spooler")
         || lower.contains("spooler service")
         || lower.contains("printnightmare")
@@ -2270,6 +2296,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("cve-2021-1675")
         || lower.contains("print security")
         || lower.contains("printer security")
+        || lower.contains("printer service")
         || lower.contains("point and print")
         || lower.contains("rpcauthnlevel")
         || (lower.contains("print") && lower.contains("vulnerab"))
@@ -3048,6 +3075,12 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("cmdkey")
                 || (l.contains("credential") && l.contains("list"))
                 || (l.contains("windows") && l.contains("credential"))
+                || (l.contains("credential")
+                    && (l.contains("clear")
+                        || l.contains("cached")
+                        || l.contains("view")
+                        || l.contains("delete")
+                        || l.contains("remove")))
         }),
         ("tpm", |l| {
             l.contains("tpm")
@@ -3200,7 +3233,12 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("healthy")
                     && (l.contains("drive") || l.contains("disk") || l.contains("ssd")))
         }),
-        ("battery", |l| l.contains("battery")),
+        ("battery", |l| {
+            l.contains("battery")
+                || l.contains("charge percentage")
+                || l.contains("current charge")
+                || l.contains("charge status")
+        }),
         ("app_crashes", |l| {
             l.contains("application crash")
                 || l.contains("application error")
@@ -3569,9 +3607,17 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("installed_software", |l| {
             l.contains("installed software")
                 || l.contains("installed program")
+                || l.contains("installed app")
                 || l.contains("what is installed")
                 || l.contains("what's installed")
                 || l.contains("winget list")
+                || l.contains("list programs")
+                || l.contains("list applications")
+                || l.contains("list apps")
+                || l.contains("show applications")
+                || l.contains("show programs")
+                || (l.contains("list") && l.contains("application"))
+                || (l.contains("show") && l.contains("application"))
         }),
         ("env", |l| {
             (l.contains("environment variable") || l.contains("env var") || l.contains("env vars"))
@@ -3601,6 +3647,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("local admin")
                 || l.contains("active sessions")
                 || l.contains("running as admin")
+                || l.contains("who has admin rights")
+                || l.contains("list all users")
+                || l.contains("list users")
+                || l.contains("what accounts")
+                || (l.contains("accounts") && l.contains("admin"))
         }),
         ("audit_policy", |l| {
             l.contains("audit policy")
@@ -3897,6 +3948,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("usb forensic")
                 || l.contains("usb devices connected")
                 || l.contains("usb devices ever")
+                || l.contains("usb drives ever")
                 || l.contains("what usb")
                 || l.contains("usbstor")
                 || l.contains("usb registry")
@@ -3905,6 +3957,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("usb") && l.contains("forensic"))
                 || (l.contains("usb") && l.contains("history"))
                 || (l.contains("usb") && l.contains("registry"))
+                || (l.contains("usb") && l.contains("plugged"))
+                || (l.contains("usb") && l.contains("were connected"))
+                || (l.contains("usb") && l.contains("have been connected"))
+                || (l.contains("usb") && l.contains("has been connected"))
         }),
         ("print_spooler", |l| {
             l.contains("print spooler")
@@ -3915,6 +3971,7 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("cve-2021-34527")
                 || l.contains("cve-2021-1675")
                 || l.contains("printer security")
+                || l.contains("printer service")
                 || l.contains("point and print")
                 || l.contains("rpcauthnlevel")
                 || (l.contains("print") && l.contains("vulnerab"))
