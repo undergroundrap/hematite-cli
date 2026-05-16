@@ -1933,6 +1933,26 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("disk intensity")
         || lower.contains("thrash")
         || lower.contains("latency report");
+    let asks_storage_deep = lower.contains("where did my")
+        && (lower.contains("space") || lower.contains("disk") || lower.contains("storage"))
+        || lower.contains("what is taking up")
+        || lower.contains("what is using my disk")
+        || lower.contains("what is eating my disk")
+        || lower.contains("biggest folders")
+        || lower.contains("largest folders")
+        || lower.contains("largest directories")
+        || lower.contains("what is filling")
+        || lower.contains("storage breakdown")
+        || lower.contains("disk breakdown")
+        || lower.contains("find large files")
+        || lower.contains("find big files")
+        || lower.contains("storage deep")
+        || lower.contains("deep storage")
+        || lower.contains("storage analysis")
+        || lower.contains("disk analysis")
+        || (lower.contains("clean up") && (lower.contains("disk") || lower.contains("drive") || lower.contains("space") || lower.contains("storage")))
+        || (lower.contains("clean") && lower.contains("c drive"))
+        || (lower.contains("analyze") && (lower.contains("storage") || lower.contains("disk")));
     let asks_storage = lower.contains("storage")
         || lower.contains("disk space")
         || lower.contains("drive capacity")
@@ -2607,6 +2627,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         Some("storage_spaces")
     } else if asks_defender_quarantine {
         Some("defender_quarantine")
+    } else if asks_storage_deep {
+        Some("storage_deep")
     } else if asks_storage {
         Some("storage")
     } else if asks_gpo {
@@ -3608,6 +3630,25 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("dev conflict")
                 || l.contains("toolchain conflict")
                 || l.contains("duplicate path")
+        }),
+        ("storage_deep", |l| {
+            (l.contains("where did my") && (l.contains("space") || l.contains("disk") || l.contains("storage")))
+                || l.contains("what is taking up")
+                || l.contains("what is using my disk")
+                || l.contains("what is eating my disk")
+                || l.contains("biggest folders")
+                || l.contains("largest folders")
+                || l.contains("largest directories")
+                || l.contains("what is filling")
+                || l.contains("storage breakdown")
+                || l.contains("disk breakdown")
+                || l.contains("find large files")
+                || l.contains("find big files")
+                || l.contains("storage analysis")
+                || l.contains("disk analysis")
+                || (l.contains("clean up") && (l.contains("disk") || l.contains("drive") || l.contains("space") || l.contains("storage")))
+                || (l.contains("clean") && l.contains("c drive"))
+                || (l.contains("analyze") && (l.contains("storage") || l.contains("disk")))
         }),
         ("storage", |l| {
             l.contains("disk space")

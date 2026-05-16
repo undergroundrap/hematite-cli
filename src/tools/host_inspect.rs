@@ -84,6 +84,7 @@ pub async fn inspect_host(args: &Value) -> Result<String, String> {
         "startup_items" | "startup" | "boot" | "autorun" => inspect_startup_items(max_entries),
         "health_report" | "system_health" => inspect_health_report(),
         "storage" => inspect_storage(max_entries),
+        "storage_deep" | "disk_deep" | "where_is_space" => inspect_storage_deep(),
         "hardware" => inspect_hardware(),
         "updates" | "windows_update" => inspect_updates(),
         "security" | "antivirus" | "defender" => inspect_security(),
@@ -5363,6 +5364,352 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
         }
         if !found_any {
             out.push_str("  (none of the common cache directories found)\n");
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
+// ── storage_deep ──────────────────────────────────────────────────────────────
+
+fn inspect_storage_deep() -> Result<String, String> {
+    let mut out = String::from("Host inspection: storage_deep\n\n");
+    out.push_str("Deep storage analysis — scanning drives, top directories, and dev artifact caches.\n\n");
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = r#"
+# Fast FSO folder sizer
+function sz($p) {
+    try { [long](New-Object -ComObject Scripting.FileSystemObject).GetFolder($p).Size }
+    catch { -1L }
+}
+
+# ── Section 1: Drive overview ──
+$drives = Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue |
+    Where-Object { $_.Used -ne $null -and ($_.Used + $_.Free) -gt 0 }
+foreach ($d in $drives) {
+    $total = $d.Used + $d.Free
+    $pct = [math]::Round($d.Used / $total * 100, 1)
+    "DRIVE|$($d.Root)|$($d.Used)|$($d.Free)|$total|$pct"
+}
+"---END_DRIVES---"
+
+# ── Section 2: Known large user paths ──
+$H = $env:USERPROFILE
+$knownPaths = @(
+    @{ l="Downloads";                  p="$H\Downloads";                                    hint="Review — delete old files or move to external drive" },
+    @{ l="Videos";                     p="$H\Videos";                                       hint="Review — move to external drive or NAS" },
+    @{ l="Documents";                  p="$H\Documents";                                    hint="Review for large files" },
+    @{ l="Pictures";                   p="$H\Pictures";                                     hint="Review for duplicates" },
+    @{ l="Desktop";                    p="$H\Desktop";                                      hint="Move large files off desktop" },
+    @{ l="User Temp";                  p="$H\AppData\Local\Temp";                           hint="Safe to delete — clear with: cleanmgr /sageset:1" },
+    @{ l="Windows Temp";               p="C:\Windows\Temp";                                 hint="Safe to delete (close apps first)" },
+    @{ l="WU Download Cache";          p="C:\Windows\SoftwareDistribution\Download";        hint="Safe after reboot: net stop wuauserv, delete contents, net start wuauserv" },
+    @{ l="IE/Edge Cache";              p="$H\AppData\Local\Microsoft\Windows\INetCache";    hint="Clear in browser settings" },
+    @{ l="Chrome Cache";               p="$H\AppData\Local\Google\Chrome\User Data\Default\Cache"; hint="Clear in Chrome: chrome://settings/clearBrowserData" },
+    @{ l="Edge Cache";                 p="$H\AppData\Local\Microsoft\Edge\User Data\Default\Cache"; hint="Clear in Edge: edge://settings/clearBrowserData" },
+    @{ l="Teams Cache (classic)";      p="$H\AppData\Roaming\Microsoft\Teams";              hint="Safe to clear — close Teams first, delete contents of Cache/ and blob_storage/" },
+    @{ l="Teams Cache (new)";          p="$H\AppData\Local\Packages\MSTeams_8wekyb3d8bbwe\LocalCache"; hint="Close new Teams, then clear LocalCache" },
+    @{ l="Cargo Registry";             p="$H\.cargo\registry";                              hint="cargo cache --autoclean  OR  delete registry\src\* to reclaim" },
+    @{ l="Cargo Git";                  p="$H\.cargo\git";                                   hint="cargo cache --autoclean" },
+    @{ l="Rustup Toolchains";          p="$H\.rustup\toolchains";                           hint="rustup toolchain remove <old-version> to prune" },
+    @{ l="npm Cache";                  p="$H\AppData\Roaming\npm-cache";                    hint="npm cache clean --force" },
+    @{ l="Yarn Cache";                 p="$H\AppData\Local\Yarn\Cache";                     hint="yarn cache clean" },
+    @{ l="pip Cache";                  p="$H\AppData\Local\pip\cache";                      hint="pip cache purge" },
+    @{ l="Gradle Cache";               p="$H\.gradle\caches";                               hint="gradle cleanBuildCache  OR  delete .gradle\caches" },
+    @{ l="Maven Repository";           p="$H\.m2\repository";                               hint="mvn dependency:purge-local-repository" },
+    @{ l="NuGet Packages";             p="$H\.nuget\packages";                              hint="dotnet nuget locals all --clear" },
+    @{ l="Docker Desktop Disk Image";  p="$H\AppData\Local\Docker\wsl\data";                hint="docker system prune -a to reclaim unused images/containers" },
+    @{ l="WSL ext4 VHD";              p="$H\AppData\Local\Packages\CanonicalGroupLimited.Ubuntu_79rhkp1fndgsc\LocalState"; hint="Compact with: wsl --shutdown; Optimize-VHD" }
+)
+
+foreach ($item in $knownPaths) {
+    if (Test-Path $item.p -ErrorAction SilentlyContinue) {
+        $bytes = sz $item.p
+        if ($bytes -gt 1MB) {
+            "PATH|$($item.l)|$($item.p)|$bytes|$($item.hint)"
+        }
+    }
+}
+"---END_PATHS---"
+
+# ── Section 3: Dev artifact discovery ──
+$devRoots = @(
+    "$env:USERPROFILE\source", "$env:USERPROFILE\repos", "$env:USERPROFILE\projects",
+    "$env:USERPROFILE\dev",    "$env:USERPROFILE\code",   "$env:USERPROFILE\Desktop",
+    "$env:USERPROFILE\Documents", "C:\source", "C:\repos", "C:\projects", "C:\dev", "C:\code"
+) | Where-Object { Test-Path $_ -ErrorAction SilentlyContinue }
+
+$artDefs = @(
+    @{ filter="node_modules"; label="node_modules (JS/TS)"; fix="Delete folder then run: npm install" },
+    @{ filter="target";       label="target/ (Rust build)"; fix="cargo clean  (rebuilds on next cargo build)" },
+    @{ filter=".venv";        label=".venv (Python venv)";  fix="Delete and recreate: python -m venv .venv" },
+    @{ filter="venv";         label="venv (Python venv)";   fix="Delete and recreate: python -m venv venv" },
+    @{ filter="dist";         label="dist/ (build output)"; fix="Delete — regenerated by your build tool" },
+    @{ filter=".next";        label=".next (Next.js cache)"; fix="Delete — regenerated by next build" },
+    @{ filter=".nuxt";        label=".nuxt (Nuxt cache)";   fix="Delete — regenerated by nuxt build" }
+)
+
+foreach ($root in $devRoots) {
+    foreach ($art in $artDefs) {
+        $dirs = Get-ChildItem -Path $root -Recurse -Directory -Depth 5 `
+                              -Filter $art.filter -ErrorAction SilentlyContinue |
+                Select-Object -First 40
+        foreach ($dir in $dirs) {
+            $bytes = sz $dir.FullName
+            if ($bytes -gt 5MB) {
+                "ARTIFACT|$($art.label)|$($dir.FullName)|$bytes|$($art.fix)"
+            }
+        }
+    }
+}
+"---END_ARTIFACTS---"
+"#;
+
+        match Command::new("powershell")
+            .args(["-NoProfile", "-Command", script])
+            .output()
+        {
+            Ok(o) => {
+                let raw = String::from_utf8_lossy(&o.stdout);
+                let sections: Vec<&str> = raw.split("---END_").collect();
+
+                // Parse drives
+                let mut drive_lines: Vec<String> = Vec::new();
+                if let Some(sec) = sections.first() {
+                    for line in sec.lines() {
+                        if !line.starts_with("DRIVE|") { continue; }
+                        let mut it = line.splitn(7, '|');
+                        it.next(); // "DRIVE"
+                        if let (Some(root), Some(used_s), Some(free_s), Some(total_s), Some(_pct)) =
+                            (it.next(), it.next(), it.next(), it.next(), it.next())
+                        {
+                            let used: u64 = used_s.trim().parse().unwrap_or(0);
+                            let free: u64 = free_s.trim().parse().unwrap_or(0);
+                            let total: u64 = total_s.trim().parse().unwrap_or(0);
+                            if total == 0 { continue; }
+                            let pct = (used as f64 / total as f64 * 100.0) as u64;
+                            let bar_len = 28usize;
+                            let filled = (pct as usize * bar_len / 100).min(bar_len);
+                            let bar = "#".repeat(filled) + &".".repeat(bar_len - filled);
+                            let warn = if free < 5_368_709_120 { " [!] CRITICALLY LOW" }
+                                       else if free < 16_106_127_360 { " [-] LOW" }
+                                       else { "" };
+                            drive_lines.push(format!(
+                                "  {root}  [{bar}] {pct}% used — {} free of {}{}",
+                                human_bytes(free), human_bytes(total), warn
+                            ));
+                        }
+                    }
+                }
+
+                // Parse known paths
+                struct PathEntry { label: String, bytes: u64, path: String, hint: String }
+                let mut path_entries: Vec<PathEntry> = Vec::new();
+                if let Some(sec) = sections.get(1) {
+                    for line in sec.lines() {
+                        if !line.starts_with("PATH|") { continue; }
+                        let mut it = line.splitn(6, '|');
+                        it.next();
+                        if let (Some(label), Some(path), Some(bytes_s), Some(hint)) =
+                            (it.next(), it.next(), it.next(), it.next())
+                        {
+                            let bytes: u64 = bytes_s.trim().parse().unwrap_or(0);
+                            if bytes == 0 { continue; }
+                            path_entries.push(PathEntry {
+                                label: label.to_string(),
+                                bytes,
+                                path: path.to_string(),
+                                hint: hint.to_string(),
+                            });
+                        }
+                    }
+                    path_entries.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+                }
+
+                // Parse artifacts
+                struct ArtEntry { label: String, path: String, bytes: u64, fix: String }
+                let mut art_entries: Vec<ArtEntry> = Vec::new();
+                if let Some(sec) = sections.get(2) {
+                    for line in sec.lines() {
+                        if !line.starts_with("ARTIFACT|") { continue; }
+                        let mut it = line.splitn(6, '|');
+                        it.next();
+                        if let (Some(label), Some(path), Some(bytes_s), Some(fix)) =
+                            (it.next(), it.next(), it.next(), it.next())
+                        {
+                            let bytes: u64 = bytes_s.trim().parse().unwrap_or(0);
+                            art_entries.push(ArtEntry {
+                                label: label.to_string(),
+                                path: path.to_string(),
+                                bytes,
+                                fix: fix.to_string(),
+                            });
+                        }
+                    }
+                    art_entries.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+                }
+
+                // ── Output: Drive overview ────────────────────────────────
+                out.push_str("Drives:\n");
+                if drive_lines.is_empty() {
+                    out.push_str("  (could not enumerate drives)\n");
+                } else {
+                    for line in &drive_lines { out.push_str(line); out.push('\n'); }
+                }
+
+                // ── Output: Top space consumers ───────────────────────────
+                out.push_str("\nTop space consumers:\n");
+                if path_entries.is_empty() {
+                    out.push_str("  (no large directories found in known locations)\n");
+                } else {
+                    for e in path_entries.iter().take(20) {
+                        let _ = writeln!(out, "  {:>8}  {}  ({})",
+                            human_bytes(e.bytes), e.label, e.path);
+                    }
+                }
+
+                // ── Output: Dev artifact caches ───────────────────────────
+                if !art_entries.is_empty() {
+                    let total_artifact_bytes: u64 = art_entries.iter().map(|a| a.bytes).sum();
+                    let _ = writeln!(out, "\nDev artifact caches found ({} total across {} directories):",
+                        human_bytes(total_artifact_bytes), art_entries.len());
+                    for e in art_entries.iter().take(30) {
+                        let _ = writeln!(out, "  {:>8}  [{}]  {}\n            Fix: {}", human_bytes(e.bytes), e.label, e.path, e.fix);
+                    }
+                } else {
+                    out.push_str("\nDev artifact caches: none found in common project locations.\n");
+                }
+
+                // ── Findings ──────────────────────────────────────────────
+                out.push_str("\nFindings:\n");
+                let mut findings: Vec<String> = Vec::new();
+
+                // Low disk findings from drive data
+                for line in &drive_lines {
+                    if line.contains("[!] CRITICALLY LOW") {
+                        let drive_name = line.trim().chars().take(3).collect::<String>();
+                        findings.push(format!(
+                            "  [ACTION] Drive {} is critically low on space — immediate cleanup required.", drive_name
+                        ));
+                    } else if line.contains("[-] LOW") {
+                        let drive_name = line.trim().chars().take(3).collect::<String>();
+                        findings.push(format!(
+                            "  [INVESTIGATE] Drive {} is low on space — review and clean up soon.", drive_name
+                        ));
+                    }
+                }
+
+                // Large temp/cache findings
+                if let Some(e) = path_entries.iter().find(|e| e.label.contains("Temp") || e.label.contains("Cache")) {
+                    if e.bytes > 1_073_741_824 {
+                        findings.push(format!(
+                            "  [ACTION] {} is using {} — {}",
+                            e.label, human_bytes(e.bytes), e.hint
+                        ));
+                    }
+                }
+
+                // Teams cache
+                if let Some(e) = path_entries.iter().find(|e| e.label.contains("Teams Cache")) {
+                    if e.bytes > 536_870_912 {
+                        findings.push(format!(
+                            "  [ACTION] {} using {} — {}",
+                            e.label, human_bytes(e.bytes), e.hint
+                        ));
+                    }
+                }
+
+                // Large artifact collections
+                if !art_entries.is_empty() {
+                    let total: u64 = art_entries.iter().map(|a| a.bytes).sum();
+                    if total > 1_073_741_824 {
+                        findings.push(format!(
+                            "  [ACTION] Dev build artifacts total {} across {} directories — safe to delete and rebuild.",
+                            human_bytes(total), art_entries.len()
+                        ));
+                    }
+                }
+
+                // Large downloads
+                if let Some(e) = path_entries.iter().find(|e| e.label == "Downloads") {
+                    if e.bytes > 5_368_709_120 {
+                        findings.push(format!(
+                            "  [MONITOR] Downloads folder is {} — review for large files to archive or delete.",
+                            human_bytes(e.bytes)
+                        ));
+                    }
+                }
+
+                if findings.is_empty() {
+                    out.push_str("  Storage usage looks healthy — no major space issues detected.\n");
+                } else {
+                    for f in &findings { out.push_str(f); out.push('\n'); }
+                }
+
+                out.push_str("\nTip: ask the AI 'where did my disk space go?' or 'help me clean up my C drive' for a guided cleanup plan.\n");
+            }
+            Err(e) => {
+                let _ = writeln!(out, "(storage deep scan failed: {e})");
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let home = std::env::var("HOME").unwrap_or_default();
+        // Drive overview
+        out.push_str("Drives:\n");
+        if let Ok(o) = Command::new("df").args(["-h", "--output=target,size,avail,pcent"]).output() {
+            for line in String::from_utf8_lossy(&o.stdout).lines().skip(1) {
+                let mut it = line.split_whitespace();
+                if let (Some(fs), Some(sz), Some(av), Some(pct)) = (it.next(), it.next(), it.next(), it.next()) {
+                    if !fs.starts_with("tmpfs") {
+                        let _ = writeln!(out, "  {fs}  size: {sz}  avail: {av}  used: {pct}");
+                    }
+                }
+            }
+        }
+
+        // Known large paths
+        out.push_str("\nTop space consumers:\n");
+        let check: &[(&str, &str, &str)] = &[
+            ("Downloads",       "Downloads",            "review for large files"),
+            ("npm Cache",       ".npm",                 "npm cache clean --force"),
+            ("Cargo Registry",  ".cargo/registry",      "cargo cache --autoclean"),
+            ("Cargo Git",       ".cargo/git",           "cargo cache --autoclean"),
+            ("pip Cache",       ".cache/pip",           "pip cache purge"),
+            ("Rustup",          ".rustup/toolchains",   "rustup toolchain remove <old>"),
+            ("Gradle",          ".gradle/caches",       "gradle cleanBuildCache"),
+            ("Maven",           ".m2/repository",       "mvn dependency:purge-local-repository"),
+        ];
+        for (label, rel, hint) in check {
+            let full = format!("{home}/{rel}");
+            if std::path::Path::new(&full).exists() {
+                if let Ok(o) = Command::new("du").args(["-sh", &full]).output() {
+                    let sz = String::from_utf8_lossy(&o.stdout);
+                    let sz = sz.split_whitespace().next().unwrap_or("?");
+                    let _ = writeln!(out, "  {sz:>8}  {label}  ({full})  — {hint}");
+                }
+            }
+        }
+
+        // Dev artifact search
+        out.push_str("\nDev artifact caches:\n");
+        for pattern in &["node_modules", "target", ".venv", "venv", "dist", ".next"] {
+            if let Ok(o) = Command::new("find")
+                .args([&home, "-name", pattern, "-maxdepth", "7", "-type", "d"])
+                .output()
+            {
+                for dir in String::from_utf8_lossy(&o.stdout).lines().take(20) {
+                    if let Ok(o2) = Command::new("du").args(["-sh", dir]).output() {
+                        let sz = String::from_utf8_lossy(&o2.stdout);
+                        let sz = sz.split_whitespace().next().unwrap_or("?");
+                        let _ = writeln!(out, "  {sz:>8}  [{pattern}]  {dir}");
+                    }
+                }
+            }
         }
     }
 

@@ -13431,3 +13431,104 @@ fn test_diagnose_why_total_category_count() {
         );
     }
 }
+
+// ── storage_deep routing tests ─────────────────────────────────────────────
+
+#[test]
+fn test_routing_storage_deep_where_did_space_go() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("where did my disk space go"),
+        Some("storage_deep")
+    );
+}
+
+#[test]
+fn test_routing_storage_deep_largest_folders() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show me the largest folders on my drive"),
+        Some("storage_deep")
+    );
+}
+
+#[test]
+fn test_routing_storage_deep_clean_up_disk() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("help me clean up my C drive"),
+        Some("storage_deep")
+    );
+}
+
+#[test]
+fn test_routing_storage_deep_find_large_files() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("find large files taking up space"),
+        Some("storage_deep")
+    );
+}
+
+#[test]
+fn test_routing_storage_deep_what_is_taking_up() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what is taking up all my storage"),
+        Some("storage_deep")
+    );
+}
+
+#[test]
+fn test_routing_storage_deep_disk_analysis() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("run a disk analysis"),
+        Some("storage_deep")
+    );
+}
+
+#[test]
+fn test_multi_topic_storage_deep_routing() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let queries = [
+        "where did my disk space go",
+        "largest folders on C:",
+        "find large files",
+        "storage breakdown",
+        "help me clean up my disk",
+    ];
+    for query in &queries {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(&"storage_deep"),
+            "query={query:?} expected storage_deep, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_inspect_host_storage_deep_returns_header() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "storage_deep" });
+        let out = inspect_host(&args).await.expect("storage_deep must return Ok");
+        assert!(out.contains("storage_deep"), "missing header; got:\n{out}");
+        assert!(out.contains("Drives:"), "missing Drives section; got:\n{out}");
+    });
+}
+
+#[test]
+fn test_inspect_host_storage_deep_has_sections() {
+    use hematite::tools::host_inspect::inspect_host;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let args = serde_json::json!({ "topic": "storage_deep" });
+        let out = inspect_host(&args).await.expect("storage_deep must return Ok");
+        assert!(
+            out.contains("Top space consumers:") || out.contains("Drives:"),
+            "expected at least one section; got:\n{out}"
+        );
+    });
+}
