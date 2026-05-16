@@ -1842,7 +1842,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("scheduled job")
         || lower.contains("runs automatically")
         || lower.contains("running automatically")
-        || lower.contains("auto-run task");
+        || lower.contains("auto-run task")
+        || (lower.contains("background") && lower.contains("run"))
+        || (lower.contains("periodic") && lower.contains("run"))
+        || (lower.contains("what") && lower.contains("schedule"));
     let asks_dev_conflicts = lower.contains("dev conflict")
         || lower.contains("environment conflict")
         || lower.contains("toolchain conflict")
@@ -2250,7 +2253,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_udp_ports = lower.contains("udp port")
         || lower.contains("udp listener")
         || (lower.contains("udp")
-            && (lower.contains("port") || lower.contains("listen") || lower.contains("open")));
+            && (lower.contains("port")
+                || lower.contains("listen")
+                || lower.contains("open")
+                || lower.contains("service")
+                || lower.contains("connection")));
 
     let asks_domain_health = lower.contains("domain health")
         || lower.contains("dc connectivity")
@@ -2270,9 +2277,18 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             && (lower.contains("reach")
                 || lower.contains("connect")
                 || lower.contains("test")
-                || lower.contains("check")))
+                || lower.contains("check")
+                || lower.contains("online")
+                || lower.contains("up")))
         || (lower.contains("active directory")
-            && (lower.contains("connect") || lower.contains("reach") || lower.contains("health")));
+            && (lower.contains("connect")
+                || lower.contains("reach")
+                || lower.contains("health")
+                || lower.contains("working")
+                || lower.contains("accessible")))
+        || (lower.contains("can reach") && lower.contains("domain"))
+        || (lower.contains("kerberos") && lower.contains("issue"))
+        || (lower.contains("kerberos") && lower.contains("fail"));
     let asks_service_dependencies = lower.contains("service depend")
         || lower.contains("services depend")
         || lower.contains("depends on")
@@ -2281,11 +2297,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("what depends on")
         || lower.contains("restart cascade")
         || lower.contains("svc dep")
+        || lower.contains("service prerequisite")
         || (lower.contains("service")
             && (lower.contains("dependency")
                 || lower.contains("dependencies")
                 || lower.contains("required by")
-                || lower.contains("needed by")));
+                || lower.contains("needed by")
+                || lower.contains("requirement")
+                || lower.contains("relationship")));
     let asks_wmi_health = lower.contains("wmi health")
         || lower.contains("wmi corrupt")
         || lower.contains("wmi repository")
@@ -3349,6 +3368,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("what runs on a timer")
                 || l.contains("cron job")
                 || l.contains("background task")
+                || (l.contains("background") && l.contains("run"))
+                || (l.contains("periodic") && l.contains("run"))
+                || (l.contains("what") && l.contains("schedule"))
         }),
         ("ad_user", |l| {
             l.contains("ad user")
@@ -3886,7 +3908,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         ("udp_ports", |l| {
             l.contains("udp port")
                 || l.contains("udp listener")
-                || (l.contains("udp") && l.contains("listening"))
+                || (l.contains("udp")
+                    && (l.contains("listening")
+                        || l.contains("service")
+                        || l.contains("connection")
+                        || l.contains("open")))
         }),
         ("gpo", |l| {
             l.contains("gpo")
@@ -4013,6 +4039,12 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("active directory") && l.contains("connect"))
                 || (l.contains("active directory") && l.contains("reach"))
                 || (l.contains("active directory") && l.contains("health"))
+                || (l.contains("active directory") && l.contains("working"))
+                || (l.contains("active directory") && l.contains("accessible"))
+                || (l.contains("domain controller") && l.contains("online"))
+                || (l.contains("can reach") && l.contains("domain"))
+                || (l.contains("kerberos") && l.contains("issue"))
+                || (l.contains("kerberos") && l.contains("fail"))
         }),
         ("service_dependencies", |l| {
             l.contains("service depend")
@@ -4026,6 +4058,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("service") && l.contains("dependenc"))
                 || (l.contains("service") && l.contains("required by"))
                 || (l.contains("service") && l.contains("needed by"))
+                || l.contains("service prerequisite")
+                || (l.contains("service") && l.contains("requirement"))
+                || (l.contains("service") && l.contains("relationship"))
         }),
         ("wmi_health", |l| {
             l.contains("wmi health")

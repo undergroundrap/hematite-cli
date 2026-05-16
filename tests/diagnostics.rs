@@ -12457,3 +12457,97 @@ fn test_multi_topic_batch31_integrity_ntp_cpu_network() {
         );
     }
 }
+
+#[test]
+fn test_routing_udp_services_routes_to_udp_ports() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "what udp services are running",
+        "show udp connections",
+        "which ports are open for udp",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("udp_ports"),
+            "expected udp_ports for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_domain_controller_online_routes_to_domain_health() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "are domain controllers online",
+        "is active directory working",
+        "can reach domain from this machine",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("domain_health"),
+            "expected domain_health for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_scheduled_tasks_background_run() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "what runs in the background on this PC",
+        "what is scheduled to run",
+        "what runs periodically",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("scheduled_tasks"),
+            "expected scheduled_tasks for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_service_requirements_routes_to_service_dependencies() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "what are the service requirements for this",
+        "service relationships for wuauserv",
+        "service prerequisites for print spooler",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("service_dependencies"),
+            "expected service_dependencies for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_batch32_udp_domain_scheduled_svc_deps() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("what udp services are running", "udp_ports"),
+        ("show udp connections on this PC", "udp_ports"),
+        ("are domain controllers online", "domain_health"),
+        ("is active directory working", "domain_health"),
+        ("can reach domain from this machine", "domain_health"),
+        ("what runs in the background", "scheduled_tasks"),
+        ("what is scheduled to run today", "scheduled_tasks"),
+        ("service requirements for svchost", "service_dependencies"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
