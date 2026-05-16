@@ -1141,6 +1141,8 @@ static ALL_RECIPES: &[RecipeEntry] = &[
             "hibernate issue",
             "fast startup",
             "s0 low power idle",
+            "system restart is pending",
+            "pending file rename operations",
         ],
         recipe: Recipe {
             severity: "INVESTIGATE",
@@ -1497,6 +1499,59 @@ static ALL_RECIPES: &[RecipeEntry] = &[
                 "Create a new user profile as a diagnostic: Settings → Accounts → Family & other users → Add someone else — if Explorer works fine in the new profile, your current profile is corrupt",
             ],
             dig_deeper: Some("log_check"),
+        },
+    },
+
+    // ── Application crash history ─────────────────────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "application crash event(s)",
+            "application hang event(s)",
+            "most-crashed application:",
+            "wer reports archived",
+            "faulting module:",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Application crash history detected",
+            steps: &[
+                "Identify the faulting app and module from the crash list above — the module name tells you whether it's a system DLL, a runtime, or an app-specific component",
+                "If the faulting module is a system DLL (ntdll.dll, kernelbase.dll): run SFC and DISM — PowerShell (admin): sfc /scannow then DISM /Online /Cleanup-Image /RestoreHealth",
+                "If the faulting module is a Visual C++ runtime (vcruntime*.dll, msvcp*.dll, vcomp*.dll): download and reinstall all Visual C++ Redistributable packages from microsoft.com/download",
+                "For the most-crashed app: uninstall it (Settings → Apps), reboot, then reinstall a fresh copy from the publisher — cached corrupted app data often causes repeat crashes",
+                "Try running the crashing app as Administrator: right-click its shortcut → Run as administrator — some apps need elevation to access resources they depend on",
+                "Check for conflicting third-party AV or security software injecting into the process: temporarily disable real-time protection and test; if the crash stops, add the app folder to AV exclusions",
+                "Check for pending Windows Updates: Settings → Windows Update → Check for updates — a pending cumulative update may patch the faulting module",
+                "Run hematite --inspect recent_crashes to also check for BSOD events — kernel crashes near the same time as app crashes often share a root cause (bad driver, failing RAM)",
+            ],
+            dig_deeper: Some("app_crashes"),
+        },
+    },
+
+    // ── Outlook add-in resiliency / crash evidence ────────────────────────────
+    RecipeEntry {
+        triggers: &[
+            "resiliencydisableditems:",
+            "outlook's crash resiliency has auto-disabled",
+            "active outlook add-ins detected — add-in overload",
+            "add-in pressure, large ost files",
+            "large ost files can cause outlook slowness",
+            "application error |",
+            "recent outlook crash evidence found",
+        ],
+        recipe: Recipe {
+            severity: "ACTION",
+            title: "Outlook add-in crash or OST / memory pressure",
+            steps: &[
+                "Start Outlook in safe mode to confirm add-ins are the cause: hold Ctrl and click the Outlook icon (or run: outlook.exe /safe) — if Outlook works fine in safe mode, an add-in is crashing it",
+                "Identify and remove the crashing add-in: File → Options → Add-ins → Manage: COM Add-ins → Go → uncheck add-ins one at a time, restarting between each to find the culprit",
+                "Clear resiliency-disabled add-ins from the registry: in PowerShell (admin) → Remove-Item 'HKCU:\\Software\\Microsoft\\Office\\16.0\\Outlook\\Resiliency\\DisabledItems' -Recurse -ErrorAction SilentlyContinue — then re-enable your needed add-ins",
+                "If Outlook RAM is very high (1500+ MB): a large or corrupt OST file is the likely cause — in Outlook: File → Account Settings → Account Settings → Data Files → select the OST → open file location, close Outlook, rename the OST to .old, then reopen Outlook (it rebuilds from the server)",
+                "Repair the Office installation: Control Panel → Programs → Microsoft 365 → Change → Quick Repair (fast), then Online Repair (thorough, requires internet) if Quick Repair doesn't fix it",
+                "Check the Application event log for the faulting module: run hematite --inspect app_crashes and filter for OUTLOOK.EXE — this shows which DLL (often a third-party add-in or mso.dll) is faulting",
+                "Update all Office add-ins: COM add-ins from vendors (Grammarly, Adobe, Zoom) often break after major Office updates — download the latest version of each from the vendor's website",
+            ],
+            dig_deeper: Some("outlook"),
         },
     },
 ];

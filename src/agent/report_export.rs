@@ -149,7 +149,17 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         ]
     );
     add_if!(
-        &["vpn ", "vpn:", "tunnel", "remote access", "wireguard", "anyconnect", "globalprotect", "pulse secure", "split tunnel"],
+        &[
+            "vpn ",
+            "vpn:",
+            "tunnel",
+            "remote access",
+            "wireguard",
+            "anyconnect",
+            "globalprotect",
+            "pulse secure",
+            "split tunnel"
+        ],
         &[
             ("vpn", "VPN"),
             ("connectivity", "Connectivity"),
@@ -334,7 +344,11 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "wireless headset",
             "bt "
         ],
-        &[("bluetooth", "Bluetooth"), ("audio", "Audio"), ("device_health", "Device Health")]
+        &[
+            ("bluetooth", "Bluetooth"),
+            ("audio", "Audio"),
+            ("device_health", "Device Health")
+        ]
     );
     add_if!(
         &[
@@ -559,7 +573,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "bluetooth disconnect",
             "bluetooth keep"
         ],
-        &[("bluetooth", "Bluetooth"), ("device_health", "Device Health")]
+        &[
+            ("bluetooth", "Bluetooth"),
+            ("device_health", "Device Health")
+        ]
     );
     add_if!(
         &[
@@ -970,10 +987,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "start menu broken",
             "desktop froze"
         ],
-        &[
-            ("processes", "Processes"),
-            ("log_check", "Event Log")
-        ]
+        &[("processes", "Processes"), ("log_check", "Event Log")]
     );
     add_if!(
         &[
@@ -986,10 +1000,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "folder access denied",
             "unauthorized access"
         ],
-        &[
-            ("user_accounts", "User Accounts"),
-            ("shares", "Shares")
-        ]
+        &[("user_accounts", "User Accounts"), ("shares", "Shares")]
     );
 
     // ── Network addressing ──────────────────────────────────────────────────
@@ -1149,7 +1160,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "can't get past login",
             "welcome screen stuck"
         ],
-        &[("sign_in", "Sign-In / Windows Hello"), ("services", "Services")]
+        &[
+            ("sign_in", "Sign-In / Windows Hello"),
+            ("services", "Services")
+        ]
     );
     add_if!(
         &[
@@ -1175,7 +1189,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "scheduled job",
             "task failed"
         ],
-        &[("scheduled_tasks", "Scheduled Tasks"), ("log_check", "Event Log")]
+        &[
+            ("scheduled_tasks", "Scheduled Tasks"),
+            ("log_check", "Event Log")
+        ]
     );
     add_if!(
         &[
@@ -1234,7 +1251,11 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "env var not set",
             "toolchain not found"
         ],
-        &[("toolchains", "Toolchains"), ("env", "Environment Vars"), ("path", "PATH")]
+        &[
+            ("toolchains", "Toolchains"),
+            ("env", "Environment Vars"),
+            ("path", "PATH")
+        ]
     );
     add_if!(
         &[
@@ -1247,7 +1268,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "nvm conflict",
             "pyenv conflict"
         ],
-        &[("dev_conflicts", "Dev Conflicts"), ("toolchains", "Toolchains")]
+        &[
+            ("dev_conflicts", "Dev Conflicts"),
+            ("toolchains", "Toolchains")
+        ]
     );
     add_if!(
         &[
@@ -1437,7 +1461,11 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "active sessions",
             "who is connected"
         ],
-        &[("sessions", "Logon Sessions"), ("security", "Security Posture"), ("log_check", "Event Log")]
+        &[
+            ("sessions", "Logon Sessions"),
+            ("security", "Security Posture"),
+            ("log_check", "Event Log")
+        ]
     );
     add_if!(
         &[
@@ -1450,7 +1478,11 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "network card",
             "ethernet cable"
         ],
-        &[("network_adapter", "Network Adapter"), ("connectivity", "Connectivity"), ("device_health", "Device Health")]
+        &[
+            ("network_adapter", "Network Adapter"),
+            ("connectivity", "Connectivity"),
+            ("device_health", "Device Health")
+        ]
     );
     add_if!(
         &[
@@ -1462,7 +1494,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "top processes",
             "resource hog"
         ],
-        &[("processes", "Processes"), ("resource_load", "Resource Load")]
+        &[
+            ("processes", "Processes"),
+            ("resource_load", "Resource Load")
+        ]
     );
     add_if!(
         &[
@@ -1478,7 +1513,11 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "ac adapter",
             "battery percentage"
         ],
-        &[("battery", "Battery"), ("thermal", "Thermal"), ("cpu_power", "CPU Power")]
+        &[
+            ("battery", "Battery"),
+            ("thermal", "Thermal"),
+            ("cpu_power", "CPU Power")
+        ]
     );
     add_if!(
         &[
@@ -1506,7 +1545,10 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "run as administrator",
             "administrator permission"
         ],
-        &[("local_security_policy", "Local Security Policy"), ("user_accounts", "User Accounts")]
+        &[
+            ("local_security_policy", "Local Security Policy"),
+            ("user_accounts", "User Accounts")
+        ]
     );
 
     if topics.is_empty() {
@@ -1976,7 +2018,9 @@ pub fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         t if t.contains("PrintNightmare") => Some("PrintNightmare not mitigated"),
         t if t.contains("Temp folder") => Some("disk full"),
         t if t.contains("Windows Firewall") => Some("Windows Firewall stopped"),
-        t if t.contains("TCP/IP") && t.contains("stack") => Some("network not working after update"),
+        t if t.contains("TCP/IP") && t.contains("stack") => {
+            Some("network not working after update")
+        }
         t if t.contains("Remote Desktop Services") => Some("RDP not responding"),
         t if t.contains("WLAN AutoConfig") => Some("WiFi service stopped"),
         t if t.contains("Cryptographic Services") => Some("certificates not loading"),
@@ -2027,6 +2071,10 @@ pub fn recipe_title_to_fix_arg(title: &str) -> Option<&'static str> {
         }
         t if t.contains("Wi-Fi keeps disconnecting") || t.contains("dropping intermittently") => {
             Some("Wi-Fi keeps dropping")
+        }
+        t if t.contains("Application crash history") => Some("app keeps crashing"),
+        t if t.contains("Outlook add-in") || (t.contains("Outlook") && t.contains("OST")) => {
+            Some("Outlook crashing or slow")
         }
         _ => None,
     }
