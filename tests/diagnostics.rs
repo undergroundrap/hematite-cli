@@ -12265,3 +12265,58 @@ fn test_multi_topic_batch28_hog_and_freeze() {
         );
     }
 }
+
+// ── Batch 29: thermal (temperature compound) + overclocker (gpu usage/utilization) ──
+
+#[test]
+fn test_routing_system_temperature_routes_to_thermal() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "check system temperature",
+        "what is the cpu temperature right now",
+        "monitor gpu temperature on this machine",
+        "check temps on this PC",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("thermal"),
+            "expected thermal for {query:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_gpu_usage_routes_to_overclocker() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "what is my gpu usage",
+        "show gpu utilization",
+        "check gpu performance on this machine",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("overclocker"),
+            "expected overclocker for {query:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_batch29_thermal_and_overclocker() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("check cpu temperature on this PC", "thermal"),
+        ("gpu temperature is too high", "thermal"),
+        ("what is the gpu usage right now", "overclocker"),
+        ("show gpu utilization for this system", "overclocker"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}

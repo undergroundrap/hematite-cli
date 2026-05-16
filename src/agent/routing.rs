@@ -1542,6 +1542,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("temperature high")
         || lower.contains("cpu temp")
         || lower.contains("cpu temperature")
+        || lower.contains("temp sensor")
+        || lower.contains("check temps")
         || lower.contains("fan loud")
         || lower.contains("fan noise")
         || lower.contains("fan running")
@@ -1552,7 +1554,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("fan always on")
         || lower.contains("fan constantly")
         || lower.contains("fan at max")
-        || lower.contains("fan at 100");
+        || lower.contains("fan at 100")
+        || (lower.contains("temperature")
+            && (lower.contains("cpu")
+                || lower.contains("gpu")
+                || lower.contains("system")
+                || lower.contains("sensor")
+                || lower.contains("check")
+                || lower.contains("monitor")));
     let asks_overclocker = lower.contains("overclocker")
         || lower.contains("nvidia stats")
         || lower.contains("silicon health")
@@ -1569,7 +1578,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("fan")
                 || lower.contains("power draw")
                 || lower.contains("frequency")
-                || lower.contains("overheating")));
+                || lower.contains("overheating")
+                || lower.contains("usage")
+                || lower.contains("utilization")
+                || lower.contains("performance")));
     let asks_hardware = lower.contains("cpu model")
         || lower.contains("ram size")
         || lower.contains("hardware spec")
@@ -2639,7 +2651,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                     && (l.contains("throttle")
                         || l.contains("bottleneck")
                         || l.contains("performance")
-                        || l.contains("overheating")))
+                        || l.contains("overheating")
+                        || l.contains("usage")
+                        || l.contains("utilization")))
         }),
         ("data_audit", |l| {
             l.contains("data audit")
@@ -2812,7 +2826,23 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("net share")
         }),
         ("thermal", |l| {
-            l.contains("thermal") || l.contains("throttling") || l.contains("overheat")
+            l.contains("thermal")
+                || l.contains("throttling")
+                || l.contains("overheat")
+                || l.contains("too hot")
+                || l.contains("running hot")
+                || l.contains("cpu temp")
+                || l.contains("cpu temperature")
+                || l.contains("temp sensor")
+                || l.contains("fan loud")
+                || l.contains("fan noise")
+                || l.contains("fan spinning")
+                || (l.contains("temperature")
+                    && (l.contains("cpu")
+                        || l.contains("gpu")
+                        || l.contains("system")
+                        || l.contains("sensor")
+                        || l.contains("check")))
         }),
         ("overclocker", |l| {
             l.contains("overclocker")
@@ -2820,6 +2850,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("nvidia stats")
                 || l.contains("silicon health")
                 || l.contains("mhz")
+                || (l.contains("gpu")
+                    && (l.contains("usage") || l.contains("utilization") || l.contains("performance")))
         }),
         ("activation", |l| {
             l.contains("activation") || l.contains("slmgr") || l.contains("license status")
@@ -3582,7 +3614,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("gpu")
                     && (l.contains("throttle")
                         || l.contains("bottleneck")
-                        || l.contains("overheating")))
+                        || l.contains("overheating")
+                        || l.contains("usage")
+                        || l.contains("utilization")
+                        || l.contains("performance")))
         }),
         ("path", |l| {
             l.contains("path entries") || l.contains("raw path")
