@@ -12777,3 +12777,94 @@ fn test_multi_topic_batch34_bitlocker_tpm_policy_audit_shares_spooler() {
         );
     }
 }
+
+#[test]
+fn test_routing_group_policies_plural_routes_to_gpo() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "which group policies are currently in effect",
+        "are any policies applied to this computer",
+        "show me active group policies",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("gpo"),
+            "expected gpo for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_bond_adapter_routes_to_nic_teaming() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "how do i bond two network adapters",
+        "bond these two interfaces together",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("nic_teaming"),
+            "expected nic_teaming for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_remembered_wifi_routes_to_wlan_profiles() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "show me all remembered wifi networks",
+        "what wireless networks does this PC remember",
+        "what is my saved wifi password",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("wlan_profiles"),
+            "expected wlan_profiles for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_tcp_window_routes_to_tcp_params() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "what is my tcp window size",
+        "how do i speed up tcp connections",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("tcp_params"),
+            "expected tcp_params for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_batch35_gpo_teaming_wlan_tcp() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("which group policies are in effect", "gpo"),
+        ("are any policies applied to this PC", "gpo"),
+        ("bond two network adapters together", "nic_teaming"),
+        ("what is the snmp community name", "snmp"),
+        ("show me remembered wifi networks", "wlan_profiles"),
+        ("what is my tcp window size", "tcp_params"),
+        ("how do i speed up tcp", "tcp_params"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}

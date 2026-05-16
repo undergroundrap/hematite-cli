@@ -579,13 +579,16 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("path variable")
         || (lower.contains("path") && (lower.contains("show") || lower.contains("what is")));
     let asks_gpo = lower.contains("gpo")
-        || lower.contains("group policy")
+        || lower.contains("group polic")
         || lower.contains("gpresult")
         || lower.contains("applied policy")
         || lower.contains("active policies")
         || lower.contains("what policies")
         || lower.contains("policy objects")
-        || lower.contains("policy applied");
+        || lower.contains("policy applied")
+        || (lower.contains("policies") && lower.contains("applied"))
+        || (lower.contains("policies") && lower.contains("effect"))
+        || (lower.contains("policy") && lower.contains("in effect"));
     let asks_certificates = lower.contains("cert")
         || lower.contains("ssl")
         || lower.contains("client cert")
@@ -1241,11 +1244,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("rwin")
         || lower.contains("receive window")
         || lower.contains("dynamic port range")
+        || lower.contains("tcp window")
         || (lower.contains("tcp")
             && (lower.contains("slow")
                 || lower.contains("throughput")
                 || lower.contains("performance")
-                || lower.contains("config")));
+                || lower.contains("config")
+                || lower.contains("speed")
+                || lower.contains("window size")));
     let asks_wlan_profiles = lower.contains("saved wifi")
         || lower.contains("saved wireless")
         || lower.contains("wifi profile")
@@ -1258,9 +1264,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             && (lower.contains("security")
                 || lower.contains("audit")
                 || lower.contains("wep")
-                || lower.contains("saved")))
+                || lower.contains("saved")
+                || lower.contains("remember")
+                || lower.contains("password")))
         || (lower.contains("wireless")
-            && (lower.contains("profile") || lower.contains("saved") || lower.contains("audit")));
+            && (lower.contains("profile") || lower.contains("saved") || lower.contains("audit") || lower.contains("remember")));
     let asks_ipsec = lower.contains("ipsec")
         || lower.contains("ip sec")
         || lower.contains("ipsec sa")
@@ -1293,11 +1301,14 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("bond interface")
         || lower.contains("lbfo")
         || (lower.contains("team")
-            && (lower.contains("nic") || lower.contains("adapter") || lower.contains("network")));
+            && (lower.contains("nic") || lower.contains("adapter") || lower.contains("network")))
+        || (lower.contains("bond")
+            && (lower.contains("adapter") || lower.contains("interface") || lower.contains("nic")));
     let asks_snmp = lower.contains("snmp")
         || lower.contains("snmp agent")
         || lower.contains("snmp trap")
         || lower.contains("community string")
+        || lower.contains("community name")
         || lower.contains("snmp service")
         || lower.contains("snmpd");
     let asks_port_test = lower.contains("port test")
@@ -3309,7 +3320,12 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("tcp chimney")
                 || l.contains("ecn")
                 || l.contains("receive window")
-                || (l.contains("tcp") && (l.contains("slow") || l.contains("throughput")))
+                || l.contains("tcp window")
+                || (l.contains("tcp")
+                    && (l.contains("slow")
+                        || l.contains("throughput")
+                        || l.contains("speed")
+                        || l.contains("window size")))
         }),
         ("wlan_profiles", |l| {
             l.contains("saved wifi")
@@ -3318,7 +3334,12 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("wireless profile")
                 || l.contains("saved network")
                 || l.contains("netsh wlan")
-                || (l.contains("wifi") && (l.contains("security") || l.contains("audit")))
+                || (l.contains("wifi")
+                    && (l.contains("security")
+                        || l.contains("audit")
+                        || l.contains("remember")
+                        || l.contains("password")))
+                || (l.contains("wireless") && l.contains("remember"))
         }),
         ("ipsec", |l| {
             l.contains("ipsec")
@@ -3340,9 +3361,14 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("link aggregation")
                 || l.contains("lbfo")
                 || l.contains("bonding")
+                || (l.contains("bond")
+                    && (l.contains("adapter") || l.contains("interface") || l.contains("nic")))
         }),
         ("snmp", |l| {
-            l.contains("snmp") || l.contains("community string") || l.contains("snmpd")
+            l.contains("snmp")
+                || l.contains("community string")
+                || l.contains("community name")
+                || l.contains("snmpd")
         }),
         ("port_test", |l| {
             l.contains("port test")
@@ -3988,13 +4014,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
         }),
         ("gpo", |l| {
             l.contains("gpo")
-                || l.contains("group policy")
+                || l.contains("group polic")
                 || l.contains("gpresult")
                 || l.contains("applied policy")
                 || l.contains("active policies")
                 || l.contains("what policies")
                 || l.contains("policy objects")
                 || l.contains("policy applied")
+                || (l.contains("policies") && l.contains("applied"))
+                || (l.contains("policies") && l.contains("effect"))
         }),
         ("certificates", |l| {
             l.contains("cert")
