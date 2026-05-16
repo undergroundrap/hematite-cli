@@ -605,8 +605,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_integrity = lower.contains("integrity")
         || lower.contains("sfc")
         || lower.contains("dism")
-        || lower.contains("corruption")
-        || lower.contains("os health");
+        || lower.contains("corrupt")
+        || lower.contains("os health")
+        || lower.contains("system file")
+        || (lower.contains("windows") && lower.contains("damaged"))
+        || (lower.contains("check") && lower.contains("system") && lower.contains("file"));
     let asks_user_accounts = (lower.contains("user account") && !lower.contains("user account control"))
         || lower.contains("local user")
         || lower.contains("local group")
@@ -1074,7 +1077,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("wrong timezone")
         || (lower.contains("time") && lower.contains("drift"))
         || (lower.contains("clock") && lower.contains("wrong"))
-        || (lower.contains("time") && lower.contains("wrong"));
+        || (lower.contains("time") && lower.contains("wrong"))
+        || (lower.contains("clock") && lower.contains("off"))
+        || (lower.contains("time") && lower.contains("off") && lower.contains("sync"))
+        || lower.contains("system time")
+        || (lower.contains("time") && lower.contains("accurate"))
+        || (lower.contains("time") && lower.contains("correct"));
     let asks_cpu_power = lower.contains("turbo boost")
         || lower.contains("cpu frequency")
         || lower.contains("cpu freq")
@@ -1089,7 +1097,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("processor state")
         || (lower.contains("cpu") && lower.contains("slow"))
         || (lower.contains("cpu") && lower.contains("underclocking"))
-        || (lower.contains("boost") && lower.contains("disabled"));
+        || (lower.contains("boost") && lower.contains("disabled"))
+        || (lower.contains("processor") && lower.contains("slow"))
+        || (lower.contains("processor") && lower.contains("running slow"))
+        || lower.contains("processor running at");
     let asks_credentials = lower.contains("credential manager")
         || lower.contains("credential store")
         || lower.contains("saved password")
@@ -2230,7 +2241,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             && !lower.contains("wireless"))
         || (lower.contains("nic") && lower.contains("stat"))
         || lower.contains("throughput")
-        || lower.contains("dropped packet");
+        || lower.contains("dropped packet")
+        || (lower.contains("network") && lower.contains("usage"))
+        || (lower.contains("data") && lower.contains("transferred"))
+        || (lower.contains("bytes") && lower.contains("transferred"))
+        || lower.contains("network traffic")
+        || (lower.contains("packet") && lower.contains("error"));
     let asks_udp_ports = lower.contains("udp port")
         || lower.contains("udp listener")
         || (lower.contains("udp")
@@ -3117,7 +3133,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("clock wrong")
                 || l.contains("time wrong")
                 || l.contains("system clock")
+                || l.contains("system time")
                 || (l.contains("time") && l.contains("drift"))
+                || (l.contains("clock") && l.contains("off"))
+                || (l.contains("time") && l.contains("accurate"))
+                || (l.contains("time") && l.contains("correct"))
         }),
         ("cpu_power", |l| {
             l.contains("turbo boost")
@@ -3126,6 +3146,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("cpu power")
                 || l.contains("power plan")
                 || (l.contains("cpu") && l.contains("slow"))
+                || (l.contains("processor") && l.contains("slow"))
+                || l.contains("processor running at")
         }),
         ("credentials", |l| {
             l.contains("credential manager")
@@ -3833,6 +3855,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("throughput")
                 || l.contains("packet loss")
                 || l.contains("dropped packet")
+                || (l.contains("network") && l.contains("usage"))
+                || (l.contains("data") && l.contains("transferred"))
+                || (l.contains("bytes") && l.contains("transferred"))
+                || l.contains("network traffic")
+                || (l.contains("packet") && l.contains("error"))
         }),
         ("startup_items", |l| {
             l.contains("startup")
@@ -3892,7 +3919,13 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                     && (l.contains("check") || l.contains("status") || l.contains("valid")))
         }),
         ("integrity", |l| {
-            l.contains("integrity") || l.contains("sfc") || l.contains("dism")
+            l.contains("integrity")
+                || l.contains("sfc")
+                || l.contains("dism")
+                || l.contains("corrupt")
+                || l.contains("system file")
+                || (l.contains("windows") && l.contains("damaged"))
+                || (l.contains("check") && l.contains("system") && l.contains("file"))
         }),
         ("domain", |l| {
             l.contains("domain") || l.contains("workgroup") || l.contains("active directory")

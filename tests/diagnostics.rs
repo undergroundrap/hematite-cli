@@ -12362,3 +12362,98 @@ fn test_multi_topic_batch30_connectivity_browse_variants() {
         );
     }
 }
+
+#[test]
+fn test_routing_corrupted_routes_to_integrity() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "check if windows is corrupted",
+        "are my system files corrupted",
+        "windows system file check",
+        "are my system files damaged",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("integrity"),
+            "expected integrity for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_system_time_routes_to_ntp() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "is my system time correct",
+        "my clock is off",
+        "is the time accurate",
+        "check if time is correct",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("ntp"),
+            "expected ntp for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_processor_slow_routes_to_cpu_power() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "why is my processor running slow",
+        "processor is running slowly",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("cpu_power"),
+            "expected cpu_power for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_network_usage_routes_to_network_stats() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "what is my network usage",
+        "how much data was transferred",
+        "show network traffic",
+        "are there packet errors",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("network_stats"),
+            "expected network_stats for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_batch31_integrity_ntp_cpu_network() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("check if windows is corrupted", "integrity"),
+        ("are my system files damaged", "integrity"),
+        ("is my system time correct", "ntp"),
+        ("my clock is off today", "ntp"),
+        ("processor is running slowly", "cpu_power"),
+        ("what is my network usage", "network_stats"),
+        ("show network traffic on this adapter", "network_stats"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
