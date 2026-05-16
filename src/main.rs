@@ -1223,6 +1223,186 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // ── Alert Rules ───────────────────────────────────────────────────────────
+
+    fn alert_rules_path() -> std::path::PathBuf {
+        hematite::tools::file_ops::hematite_dir().join("alert_rules.json")
+    }
+
+    #[derive(Debug)]
+    struct AlertRule {
+        id: u64,
+        label: String,
+        topic: String,
+        pattern: String,
+        negate: bool,
+    }
+
+    fn load_alert_rules() -> Vec<AlertRule> {
+        let path = alert_rules_path();
+        let content = match std::fs::read_to_string(&path) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        let arr: Vec<serde_json::Value> =
+            serde_json::from_str(&content).unwrap_or_default();
+        arr.into_iter()
+            .filter_map(|v| {
+                Some(AlertRule {
+                    id: v["id"].as_u64()?,
+                    label: v["label"].as_str()?.to_string(),
+                    topic: v["topic"].as_str()?.to_string(),
+                    pattern: v["pattern"].as_str()?.to_string(),
+                    negate: v["negate"].as_bool().unwrap_or(false),
+                })
+            })
+            .collect()
+    }
+
+    fn save_alert_rules(rules: &[AlertRule]) {
+        let arr: Vec<serde_json::Value> = rules
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "id": r.id,
+                    "label": r.label,
+                    "topic": r.topic,
+                    "pattern": r.pattern,
+                    "negate": r.negate,
+                })
+            })
+            .collect();
+        let json = serde_json::to_string_pretty(&serde_json::Value::Array(arr))
+            .unwrap_or_else(|_| "[]".to_string());
+        let _ = std::fs::write(alert_rules_path(), json);
+    }
+
+    if let Some(ref spec) = cockpit.alert_rule_add.clone() {
+        let (topic, pattern) = if let Some(pos) = spec.find(':') {
+            (spec[..pos].trim().to_string(), spec[pos + 1..].trim().to_string())
+        } else {
+            eprintln!(
+                "Error: --alert-rule-add requires TOPIC:PATTERN format.\n\
+                 Example: hematite --alert-rule-add thermal:throttl --alert-rule-label \"CPU Throttling\""
+            );
+            std::process::exit(1);
+        };
+        if topic.is_empty() || pattern.is_empty() {
+            eprintln!("Error: both topic and pattern must be non-empty.");
+            std::process::exit(1);
+        }
+        let mut rules = load_alert_rules();
+        let next_id = rules.iter().map(|r| r.id).max().unwrap_or(0) + 1;
+        let label = cockpit
+            .alert_rule_label
+            .as_deref()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("{} matches \"{}\"", topic, pattern));
+        let negate = cockpit.alert_rule_negate;
+        rules.push(AlertRule { id: next_id, label: label.clone(), topic: topic.clone(), pattern: pattern.clone(), negate });
+        save_alert_rules(&rules);
+        let neg_note = if negate { " (fires when ABSENT)" } else { "" };
+        println!("Alert rule #{} added: \"{}\"", next_id, label);
+        println!("  Topic:   {}", topic);
+        println!("  Pattern: \"{}\"{}",  pattern, neg_note);
+        println!();
+        println!("Evaluate now:    hematite --alert-rule-run");
+        println!("Schedule hourly: hematite --alert-rule-run --schedule hourly");
+        return Ok(());
+    }
+
+    if cockpit.alert_rules {
+        let rules = load_alert_rules();
+        if rules.is_empty() {
+            println!("No alert rules defined.");
+            println!();
+            println!("Add a rule:  hematite --alert-rule-add TOPIC:PATTERN --alert-rule-label \"Name\"");
+            println!("Examples:");
+            println!("  hematite --alert-rule-add thermal:throttl --alert-rule-label \"CPU Throttling\"");
+            println!("  hematite --alert-rule-add startup_items:HKCU\\\\Software --alert-rule-label \"New user startup entry\"");
+            println!("  hematite --alert-rule-add services:Defender --alert-rule-negate --alert-rule-label \"Defender stopped\"");
+            return Ok(());
+        }
+        println!("Alert Rules ({} rule{})", rules.len(), if rules.len() == 1 { "" } else { "s" });
+        println!("{}", "\u{2500}".repeat(64));
+        for r in &rules {
+            let neg = if r.negate { "  [fires when ABSENT]" } else { "" };
+            println!("  {:>3}  {:<28}  {:<20}  \"{}\"{}",
+                r.id, r.label, r.topic, r.pattern, neg);
+        }
+        println!();
+        println!("Evaluate all:    hematite --alert-rule-run");
+        println!("Remove rule N:   hematite --alert-rule-remove <ID>");
+        println!("Schedule hourly: hematite --alert-rule-run --schedule hourly");
+        return Ok(());
+    }
+
+    if let Some(remove_id) = cockpit.alert_rule_remove {
+        let mut rules = load_alert_rules();
+        let before = rules.len();
+        rules.retain(|r| r.id != remove_id);
+        if rules.len() == before {
+            eprintln!("No alert rule with ID {} found. Run `hematite --alert-rules` to list rules.", remove_id);
+            std::process::exit(1);
+        }
+        save_alert_rules(&rules);
+        println!("Alert rule #{} removed.", remove_id);
+        return Ok(());
+    }
+
+    if cockpit.alert_rule_run {
+        if let Some(ref cadence) = cockpit.schedule {
+            let cs = cadence.trim();
+            let exe_path = std::env::current_exe()
+                .unwrap_or_else(|_| std::path::PathBuf::from("hematite"))
+                .to_string_lossy()
+                .to_string();
+            match cs {
+                "remove" => match hematite::agent::scheduler::remove_alert_task() {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => eprintln!("Error: {}", e),
+                },
+                "status" => println!("{}", hematite::agent::scheduler::query_alert_task()),
+                _ => match hematite::agent::scheduler::register_alert_task(cs, &exe_path) {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => eprintln!("Error: {}", e),
+                },
+            }
+            return Ok(());
+        }
+
+        let rules = load_alert_rules();
+        if rules.is_empty() {
+            println!("No alert rules defined. Add one with --alert-rule-add.");
+            return Ok(());
+        }
+
+        let mut fired = 0usize;
+        for rule in &rules {
+            let output =
+                hematite::agent::report_export::generate_inspect_output(&rule.topic).await;
+            let matched = output.to_ascii_lowercase().contains(&rule.pattern.to_ascii_lowercase());
+            let should_fire = if rule.negate { !matched } else { matched };
+            let status = if should_fire { "ALERT" } else { "ok" };
+            println!("[{}] {} — topic:{} pattern:\"{}\"{}",
+                status, rule.label, rule.topic, rule.pattern,
+                if rule.negate { " (negate)" } else { "" });
+            if should_fire {
+                fired += 1;
+                show_toast(&format!("Hematite Alert: {}", rule.label), &rule.pattern);
+            }
+        }
+        println!();
+        if fired == 0 {
+            println!("All {} rule(s) OK — no alerts fired.", rules.len());
+        } else {
+            println!("{} alert(s) fired out of {} rule(s).", fired, rules.len());
+        }
+        return Ok(());
+    }
+
+    // ── End Alert Rules ───────────────────────────────────────────────────────
+
     // ── Timeline ──────────────────────────────────────────────────────────────
 
     const TIMELINE_TOPICS: &str = "health_report,startup_items,ports,services";

@@ -466,6 +466,51 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Modelless Inspection",
+        value_name = "TOPIC:PATTERN",
+        help = "Add a persistent alert rule. Format: TOPIC:PATTERN (e.g. thermal:throttl). Add --alert-rule-label to name it. Add --alert-rule-negate to fire when pattern is absent."
+    )]
+    pub alert_rule_add: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        value_name = "NAME",
+        help = "Label for the alert rule being added with --alert-rule-add."
+    )]
+    pub alert_rule_label: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        help = "With --alert-rule-add: fire when pattern is ABSENT (e.g. alert if antivirus is not running)."
+    )]
+    pub alert_rule_negate: bool,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        help = "List all saved alert rules."
+    )]
+    pub alert_rules: bool,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        value_name = "ID",
+        help = "Remove alert rule by ID (see --alert-rules for IDs)."
+    )]
+    pub alert_rule_remove: Option<u64>,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        help = "Evaluate all saved alert rules against live machine data and fire toast notifications for matches. Add --schedule hourly|daily to automate."
+    )]
+    pub alert_rule_run: bool,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
         help = "Take today's timeline snapshot (health_report, startup_items, ports, services). Skips if already captured today. Add --schedule daily to register a Task Scheduler task."
     )]
     pub timeline_capture: bool,
