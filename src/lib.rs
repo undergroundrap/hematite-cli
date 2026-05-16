@@ -530,6 +530,14 @@ pub struct CliCockpit {
     )]
     pub timeline_diff: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        value_name = "SYMPTOM",
+        help = "Symptom-driven root-cause diagnosis — describe the problem in plain English. Runs all relevant topics and returns ranked probable causes with evidence. No model required. Example: hematite --diagnose-why \"PC is slow and freezing\""
+    )]
+    pub diagnose_why: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

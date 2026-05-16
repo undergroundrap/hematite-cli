@@ -1671,6 +1671,133 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── End Timeline ──────────────────────────────────────────────────────────
 
+    // ── Diagnose Why ─────────────────────────────────────────────────────────
+
+    if let Some(ref symptom) = cockpit.diagnose_why.clone() {
+        use hematite::agent::diagnose_why::{build_diagnosis, match_symptom};
+
+        let group = match match_symptom(symptom.trim()) {
+            Some(g) => g,
+            None => {
+                eprintln!(
+                    "No matching symptom category for: \"{}\"\n\
+                     Try describing the symptom differently, e.g.:\n\
+                       hematite --diagnose-why \"PC running slow\"\n\
+                       hematite --diagnose-why \"blue screen\"\n\
+                       hematite --diagnose-why \"no internet\"",
+                    symptom.trim()
+                );
+                std::process::exit(1);
+            }
+        };
+
+        let topics_csv = group.topics.join(",");
+        eprintln!(
+            "Symptom: {} | Category: {} | Topics: {}",
+            symptom.trim(),
+            group.category,
+            topics_csv
+        );
+        eprintln!("Running {} topic(s)...", group.topics.len());
+
+        let raw_output =
+            hematite::agent::report_export::generate_inspect_output(&topics_csv).await;
+        let diagnosis = build_diagnosis(group, &raw_output);
+
+        // ── Format report ────────────────────────────────────────────────────
+        let mut md = String::new();
+        md.push_str(&format!("# Diagnose Why: {}\n\n", symptom.trim()));
+        md.push_str(&format!("**Category:** {}\n", diagnosis.category));
+        md.push_str(&format!(
+            "**Topics inspected:** {}\n\n",
+            diagnosis.topics_run.join(", ")
+        ));
+
+        if diagnosis.findings.is_empty() {
+            md.push_str("## Result\n\nNo actionable issues detected across all topics.\n");
+        } else {
+            md.push_str("## Probable Causes (ranked by severity)\n\n");
+            for (i, f) in diagnosis.findings.iter().enumerate() {
+                md.push_str(&format!(
+                    "### [{}] {} — {}\n\n",
+                    i + 1,
+                    f.severity,
+                    f.title
+                ));
+                if !f.evidence.is_empty() {
+                    md.push_str("**Evidence:**\n");
+                    for line in &f.evidence {
+                        md.push_str(&format!("> {}\n", line));
+                    }
+                    md.push('\n');
+                }
+                if !f.steps.is_empty() {
+                    md.push_str("**Steps to fix:**\n");
+                    for (n, step) in f.steps.iter().enumerate() {
+                        md.push_str(&format!("{}. {}\n", n + 1, step));
+                    }
+                    md.push('\n');
+                }
+                if let Some(cmd) = f.dig_deeper {
+                    md.push_str(&format!("**Dig deeper:** `{}`\n\n", cmd));
+                }
+            }
+        }
+
+        println!("{}", md.trim_end());
+
+        // ── Save report ──────────────────────────────────────────────────────
+        let ts = hematite::agent::report_export::timestamp_label();
+        let safe_ts: String = ts
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+            .collect();
+        let report_dir = hematite::tools::file_ops::hematite_dir().join("reports");
+        let _ = std::fs::create_dir_all(&report_dir);
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let report_path = if fmt == "html" {
+            let html = hematite::agent::html_template::build_html_shell(
+                &format!("Diagnose Why: {}", symptom.trim()),
+                &hematite::hematite_version(),
+                &hematite::agent::html_template::markdown_to_html(&md),
+            );
+            let p = report_dir.join(format!("diagnose-why-{}.html", safe_ts));
+            let _ = std::fs::write(&p, &html);
+            p
+        } else {
+            let p = report_dir.join(format!("diagnose-why-{}.md", safe_ts));
+            let _ = std::fs::write(&p, &md);
+            p
+        };
+        println!("\nDiagnosis saved: {}", report_path.display());
+
+        if let Some(ref out_path) = cockpit.output {
+            write_output_copy(&md, out_path);
+        }
+        if cockpit.clipboard {
+            copy_to_clipboard(&md);
+            println!("Copied to clipboard.");
+        }
+        if cockpit.open {
+            open_path(&report_path);
+        }
+        if cockpit.notify {
+            let summary = if diagnosis.findings.is_empty() {
+                "No issues detected.".to_string()
+            } else {
+                format!(
+                    "{} probable cause(s) found — top: {}",
+                    diagnosis.findings.len(),
+                    diagnosis.findings[0].title
+                )
+            };
+            show_toast("Hematite Diagnose Why", &summary);
+        }
+        std::process::exit(if diagnosis.findings.is_empty() { 0 } else { 1 });
+    }
+
+    // ── End Diagnose Why ──────────────────────────────────────────────────────
+
     if let Some(ref topics_csv) = cockpit.watch {
         let interval = cockpit.watch_interval.max(1);
         let alert_pat = cockpit.alert.as_deref().map(|p| p.to_ascii_lowercase());

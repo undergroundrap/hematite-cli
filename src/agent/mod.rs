@@ -3,6 +3,7 @@ pub mod compaction;
 pub mod config;
 pub mod conversation;
 pub mod diagnose;
+pub mod diagnose_why;
 pub mod diff_tracker;
 pub mod direct_answers;
 pub mod economics;
