@@ -12967,3 +12967,144 @@ fn test_multi_topic_batch36_sessions_patch_activation_reboot_device() {
     let topics = all_host_inspection_topics("a device stopped working");
     assert!(topics.contains(&"device_health"), "device_health missing: {topics:?}");
 }
+
+#[test]
+fn test_routing_batch37_cant_hear_routes_to_audio() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("I can't hear anything from my computer"),
+        Some("audio")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("cannot hear any sound"),
+        Some("audio")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("there is no audio coming out"),
+        Some("audio")
+    );
+}
+
+#[test]
+fn test_routing_batch37_network_drive_routes_to_share_access() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("can't access the network drive"),
+        Some("share_access")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("my mapped drive disappeared"),
+        Some("share_access")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("shared folder is not accessible"),
+        Some("share_access")
+    );
+}
+
+#[test]
+fn test_routing_batch37_disk_full_routes_to_storage() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("my disk is full"),
+        Some("storage")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("C drive is almost full"),
+        Some("storage")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("I'm out of space on this drive"),
+        Some("storage")
+    );
+}
+
+#[test]
+fn test_routing_batch37_bad_sector_routes_to_disk_health() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("my drive has bad sectors"),
+        Some("disk_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show me the SMART data for the disk"),
+        Some("disk_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("the disk is failing"),
+        Some("disk_health")
+    );
+}
+
+#[test]
+fn test_routing_batch37_network_not_working_routes_to_connectivity() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("the network is not working"),
+        Some("connectivity")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("internet not working on this PC"),
+        Some("connectivity")
+    );
+}
+
+#[test]
+fn test_routing_batch37_autostart_loads_on_boot_routes_to_startup() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what autostart programs are enabled"),
+        Some("startup_items")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what loads on boot"),
+        Some("startup_items")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what loads on startup"),
+        Some("startup_items")
+    );
+}
+
+#[test]
+fn test_routing_batch37_check_updates_routes_to_updates() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("check updates for Windows"),
+        Some("updates")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("update windows please"),
+        Some("updates")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("windows is out of date"),
+        Some("updates")
+    );
+}
+
+#[test]
+fn test_multi_topic_batch37_audio_share_storage_disk_connectivity_startup_updates() {
+    use hematite::agent::routing::all_host_inspection_topics;
+
+    let topics = all_host_inspection_topics("I can't hear anything");
+    assert!(topics.contains(&"audio"), "audio missing: {topics:?}");
+
+    let topics = all_host_inspection_topics("network drive is not accessible");
+    assert!(topics.contains(&"share_access"), "share_access missing: {topics:?}");
+
+    let topics = all_host_inspection_topics("the disk is full");
+    assert!(topics.contains(&"storage"), "storage missing: {topics:?}");
+
+    let topics = all_host_inspection_topics("my drive has bad sectors");
+    assert!(topics.contains(&"disk_health"), "disk_health missing: {topics:?}");
+
+    let topics = all_host_inspection_topics("network not working");
+    assert!(topics.contains(&"connectivity"), "connectivity missing: {topics:?}");
+
+    let topics = all_host_inspection_topics("what loads on boot");
+    assert!(topics.contains(&"startup_items"), "startup_items missing: {topics:?}");
+
+    let topics = all_host_inspection_topics("check updates");
+    assert!(topics.contains(&"updates"), "updates missing: {topics:?}");
+}

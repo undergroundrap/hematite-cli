@@ -779,6 +779,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("recording device")
         || lower.contains("audio endpoint")
         || lower.contains("audioendpointbuilder")
+        || lower.contains("can't hear")
+        || lower.contains("cannot hear")
+        || lower.contains("cant hear")
+        || lower.contains("no audio")
         || ((lower.contains("audio") || lower.contains("sound"))
             && (lower.contains("device")
                 || lower.contains("driver")
@@ -1427,8 +1431,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("run at login")
         || lower.contains("msconfig")
         || lower.contains("login item")
+        || lower.contains("autostart")
         || (lower.contains("disable") && lower.contains("startup"))
-        || (lower.contains("what") && lower.contains("start") && lower.contains("boot"));
+        || (lower.contains("what") && lower.contains("start") && lower.contains("boot"))
+        || (lower.contains("load") && lower.contains("boot"))
+        || (lower.contains("load") && lower.contains("startup") && !lower.contains("reload"));
     let asks_env_doctor = lower.contains("env doctor")
         || lower.contains("environment doctor")
         || lower.contains("package manager")
@@ -1580,7 +1587,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("share is reachable")
         || lower.contains("reachable share")
         || (lower.contains("network share")
-            && (lower.contains("reach") || lower.contains("access") || lower.contains("test")));
+            && (lower.contains("reach") || lower.contains("access") || lower.contains("test")))
+        || (lower.contains("network drive") && !lower.contains("network drives"))
+        || lower.contains("mapped drive")
+        || lower.contains("shared folder");
     let asks_thermal = lower.contains("thermal")
         || (lower.contains("throttl") && !lower.contains("gpu"))
         || lower.contains("overheat")
@@ -1756,7 +1766,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("update")
             && (lower.contains("my pc")
                 || lower.contains("my computer")
-                || lower.contains("my machine")));
+                || lower.contains("my machine")))
+        || lower.contains("check updates")
+        || lower.contains("update windows")
+        || lower.contains("windows needs update")
+        || (lower.contains("windows") && lower.contains("out of date"));
     let asks_security = lower.contains("antivirus")
         || lower.contains("defender")
         || lower.contains("virus protection")
@@ -1803,7 +1817,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
             && (lower.contains("drive")
                 || lower.contains("disk")
                 || lower.contains("ssd")
-                || lower.contains("hdd")));
+                || lower.contains("hdd")))
+        || lower.contains("bad sector")
+        || lower.contains("smart data")
+        || (lower.contains("disk") && lower.contains("fail"));
     let asks_battery = lower.contains("battery")
         || lower.contains("battery life")
         || lower.contains("battery health")
@@ -1929,7 +1946,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("cache size")
         || (lower.contains("drive") && lower.contains("usage"))
         || (lower.contains("drives") && lower.contains("usage"))
-        || (lower.contains("where") && lower.contains("space") && lower.contains("go"));
+        || (lower.contains("where") && lower.contains("space") && lower.contains("go"))
+        || ((lower.contains("disk") || lower.contains("drive")) && lower.contains("full"))
+        || lower.contains("out of space");
     let asks_resource_load = lower.contains("resource load")
         || lower.contains("system load")
         || lower.contains("performance")
@@ -1980,7 +1999,9 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("no network")
         || (lower.contains("network") && lower.contains("down"))
         || (lower.contains("can't") && lower.contains("connect to internet"))
-        || (lower.contains("cannot") && lower.contains("connect to internet"));
+        || (lower.contains("cannot") && lower.contains("connect to internet"))
+        || (lower.contains("network") && lower.contains("not working"))
+        || (lower.contains("internet") && lower.contains("not working"));
     let asks_wifi = lower.contains("wi-fi")
         || lower.contains("wifi")
         || lower.contains("wireless")
@@ -2883,6 +2904,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("windows update")
                 || l.contains("pending update")
                 || l.contains("update available")
+                || l.contains("check updates")
+                || l.contains("update windows")
+                || (l.contains("windows") && l.contains("out of date"))
         }),
         ("security", |l| {
             l.contains("antivirus")
@@ -2932,6 +2956,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("unc path")
                 || l.contains("smbshare")
                 || l.contains("net share")
+                || (l.contains("network drive") && !l.contains("network drives"))
+                || l.contains("mapped drive")
+                || l.contains("shared folder")
         }),
         ("thermal", |l| {
             l.contains("thermal")
@@ -3007,6 +3034,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("recording device")
                 || l.contains("audio endpoint")
                 || l.contains("audioendpointbuilder")
+                || l.contains("can't hear")
+                || l.contains("cannot hear")
+                || l.contains("cant hear")
+                || l.contains("no audio")
                 || (((l.contains("audio") || l.contains("sound"))
                     && (l.contains("device")
                         || l.contains("driver")
@@ -3443,12 +3474,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("disk health")
                 || l.contains("drive health")
                 || l.contains("smart status")
+                || l.contains("smart data")
+                || l.contains("bad sector")
                 || l.contains("ssd health")
                 || l.contains("nvme health")
                 || l.contains("hard drive status")
                 || (l.contains("drive") && l.contains("status") && !l.contains("backup"))
                 || (l.contains("healthy")
                     && (l.contains("drive") || l.contains("disk") || l.contains("ssd")))
+                || (l.contains("disk") && l.contains("fail"))
         }),
         ("battery", |l| {
             l.contains("battery")
@@ -3531,6 +3565,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("cache size")
                 || l.contains("i/o pressure")
                 || l.contains("disk usage")
+                || ((l.contains("disk") || l.contains("drive")) && l.contains("full"))
+                || l.contains("out of space")
         }),
         ("storage_spaces", |l| {
             l.contains("storage spaces")
@@ -3677,6 +3713,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || (l.contains("network") && l.contains("down"))
                 || (l.contains("can't") && l.contains("connect to internet"))
                 || (l.contains("cannot") && l.contains("connect to internet"))
+                || (l.contains("network") && l.contains("not working"))
+                || (l.contains("internet") && l.contains("not working"))
         }),
         ("wifi", |l| {
             l.contains("wi-fi")
@@ -4031,6 +4069,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("login item")
                 || (l.contains("disable") && l.contains("startup"))
                 || (l.contains("what") && l.contains("start") && l.contains("boot"))
+                || l.contains("autostart")
+                || (l.contains("load") && l.contains("boot"))
+                || (l.contains("load") && l.contains("startup") && !l.contains("reload"))
         }),
         ("udp_ports", |l| {
             l.contains("udp port")
