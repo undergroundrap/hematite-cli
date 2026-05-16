@@ -13283,3 +13283,151 @@ fn test_multi_topic_parity38_hardware_thermal_activation_crashes_storage() {
         );
     }
 }
+
+// ── diagnose-why category expansion (Teams, Outlook, Bluetooth, Camera, USB, Sleep, App Crashes) ──
+
+#[test]
+fn test_diagnose_why_teams_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("teams keeps crashing when I try to join a meeting");
+    assert!(g.is_some(), "expected Teams group, got None");
+    assert_eq!(g.unwrap().category, "Microsoft Teams Problems");
+}
+
+#[test]
+fn test_diagnose_why_teams_audio_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("teams microphone not working in calls");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "Microsoft Teams Problems");
+}
+
+#[test]
+fn test_diagnose_why_outlook_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("outlook not syncing email");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "Outlook / Email Problems");
+}
+
+#[test]
+fn test_diagnose_why_outlook_email_sync_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("email not syncing in outlook");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "Outlook / Email Problems");
+}
+
+#[test]
+fn test_diagnose_why_bluetooth_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("bluetooth won't pair with my headphones");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "Bluetooth Problems");
+}
+
+#[test]
+fn test_diagnose_why_bluetooth_disconnect_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("bluetooth keeps disconnecting");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "Bluetooth Problems");
+}
+
+#[test]
+fn test_diagnose_why_camera_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("camera not working in Teams");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "Camera / Webcam Problems");
+}
+
+#[test]
+fn test_diagnose_why_camera_blocked_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("camera blocked by privacy settings");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "Camera / Webcam Problems");
+}
+
+#[test]
+fn test_diagnose_why_usb_not_recognized_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("usb device not recognized when I plug it in");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "USB / Device Not Recognized");
+}
+
+#[test]
+fn test_diagnose_why_external_drive_not_detected_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("external hard drive not detected");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "USB / Device Not Recognized");
+}
+
+#[test]
+fn test_diagnose_why_sleep_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("pc won't go to sleep and wakes itself up");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "Sleep / Wake Problems");
+}
+
+#[test]
+fn test_diagnose_why_black_screen_after_sleep_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("black screen after sleep and won't resume");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "Sleep / Wake Problems");
+}
+
+#[test]
+fn test_diagnose_why_app_crash_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("chrome keeps crashing every time I open it");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "App / Program Crashing");
+}
+
+#[test]
+fn test_diagnose_why_app_crash_word_keyword_match() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("word keeps crashing when I save a document");
+    assert!(g.is_some());
+    assert_eq!(g.unwrap().category, "App / Program Crashing");
+}
+
+#[test]
+fn test_diagnose_why_teams_topics_include_audio_and_camera() {
+    use hematite::agent::diagnose_why::match_symptom;
+    let g = match_symptom("microsoft teams").unwrap();
+    assert!(g.topics.contains(&"audio"), "expected audio in Teams topics");
+    assert!(g.topics.contains(&"camera"), "expected camera in Teams topics");
+    assert!(g.topics.contains(&"identity_auth"), "expected identity_auth in Teams topics");
+}
+
+#[test]
+fn test_diagnose_why_total_category_count() {
+    use hematite::agent::diagnose_why::match_symptom;
+    // Smoke-test: all 8 new categories match at least one representative query
+    let cases = [
+        ("microsoft teams not working", "Microsoft Teams Problems"),
+        ("outlook crashing", "Outlook / Email Problems"),
+        ("bluetooth won't pair", "Bluetooth Problems"),
+        ("webcam not working", "Camera / Webcam Problems"),
+        ("usb not recognized", "USB / Device Not Recognized"),
+        ("pc won't sleep", "Sleep / Wake Problems"),
+        ("app keeps crashing", "App / Program Crashing"),
+    ];
+    for (query, expected) in &cases {
+        let g = match_symptom(query);
+        assert!(g.is_some(), "no match for {query:?}");
+        assert_eq!(
+            g.unwrap().category,
+            *expected,
+            "query={query:?} expected category {expected}, got {:?}",
+            g.map(|x| x.category)
+        );
+    }
+}

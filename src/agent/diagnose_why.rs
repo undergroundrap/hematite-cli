@@ -23,9 +23,9 @@ static SYMPTOM_GROUPS: &[SymptomGroup] = &[
     SymptomGroup {
         category: "Crash / Blue Screen",
         keywords: &[
-            "crash", "crashed", "crashing", "bsod", "blue screen",
-            "unexpected restart", "restart unexpectedly", "kernel panic",
-            "stop error", "bugcheck",
+            "bsod", "blue screen", "unexpected restart", "restart unexpectedly",
+            "kernel panic", "stop error", "bugcheck", "system crash",
+            "pc crashed", "computer crashed", "pc restart unexpectedly",
         ],
         topics: &["recent_crashes", "disk_health", "drivers", "device_health", "memory"],
     },
@@ -161,6 +161,86 @@ static SYMPTOM_GROUPS: &[SymptomGroup] = &[
             "can't see network", "network share",
         ],
         topics: &["shares", "services", "connectivity", "firewall_rules"],
+    },
+    SymptomGroup {
+        category: "Microsoft Teams Problems",
+        keywords: &[
+            "teams not working", "teams crashing", "teams won't open", "teams won't start",
+            "teams black screen", "teams slow", "teams freezing", "teams keeps crashing",
+            "teams microphone", "teams camera", "teams audio", "teams video",
+            "teams sign-in", "teams login", "teams can't join", "teams meeting issue",
+            "teams echo", "teams no sound", "teams not loading", "microsoft teams",
+            "teams", "meeting",
+        ],
+        topics: &["teams", "identity_auth", "audio", "camera", "browser_health"],
+    },
+    SymptomGroup {
+        category: "Outlook / Email Problems",
+        keywords: &[
+            "outlook not working", "outlook crashing", "outlook won't open", "outlook slow",
+            "outlook not syncing", "email not working", "email not syncing",
+            "outlook freezing", "outlook keeps crashing", "outlook error",
+            "can't send email", "can't receive email", "outlook profile",
+            "outlook add-in", "new outlook", "outlook calendar", "ost file",
+            "outlook", "email not",
+        ],
+        topics: &["outlook", "identity_auth", "installer_health"],
+    },
+    SymptomGroup {
+        category: "Bluetooth Problems",
+        keywords: &[
+            "bluetooth not working", "bluetooth won't pair", "can't pair",
+            "bluetooth device not found", "bluetooth keeps disconnecting",
+            "bluetooth headphones not working", "bluetooth speaker not working",
+            "bluetooth mouse not working", "bluetooth keyboard not working",
+            "bluetooth adapter", "bluetooth radio", "pairing failed",
+            "bluetooth audio", "airpods not connecting",
+        ],
+        topics: &["bluetooth", "audio", "device_health", "services"],
+    },
+    SymptomGroup {
+        category: "Camera / Webcam Problems",
+        keywords: &[
+            "camera not working", "webcam not working", "camera not detected",
+            "camera blocked", "camera privacy", "webcam black screen",
+            "camera in use", "camera busy", "no camera", "webcam not showing",
+            "camera not found", "video not working", "can't use camera",
+        ],
+        topics: &["camera", "device_health", "drivers", "services"],
+    },
+    SymptomGroup {
+        category: "USB / Device Not Recognized",
+        keywords: &[
+            "usb not recognized", "usb not working", "device not recognized",
+            "usb device not found", "usb keeps disconnecting", "usb drops",
+            "flash drive not showing", "external drive not showing",
+            "usb port not working", "keyboard not working", "mouse not working",
+            "external hard drive not detected", "usb connection",
+        ],
+        topics: &["peripherals", "device_health", "drivers", "usb_history"],
+    },
+    SymptomGroup {
+        category: "Sleep / Wake Problems",
+        keywords: &[
+            "won't sleep", "won't wake", "can't wake", "sleep not working",
+            "sleep mode broken", "pc won't go to sleep", "wakes up randomly",
+            "wakes itself", "wake on lan", "hibernate not working",
+            "screen won't turn off", "sleep then restart", "stuck after sleep",
+            "black screen after sleep", "won't resume",
+        ],
+        topics: &["services", "device_health", "drivers", "scheduled_tasks", "pending_reboot"],
+    },
+    SymptomGroup {
+        category: "App / Program Crashing",
+        keywords: &[
+            "app keeps crashing", "program crashing", "application crash",
+            "keeps closing", "randomly closes", "crashes after opening",
+            "word crashing", "excel crashing", "chrome crashing", "edge crashing",
+            "firefox crashing", "discord crashing", "photoshop crashing",
+            "app crash", "software crash", "program won't open",
+            "keeps crashing",
+        ],
+        topics: &["app_crashes", "installer_health", "device_health", "log_check"],
     },
 ];
 
