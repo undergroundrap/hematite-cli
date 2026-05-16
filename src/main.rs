@@ -1595,6 +1595,128 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if cockpit.timeline_trend {
+        let entries = load_timeline_index();
+        if entries.is_empty() {
+            println!("No timeline entries yet. Run `hematite --timeline-capture` to start.");
+            return Ok(());
+        }
+
+        let grade_score = |g: char| -> i32 {
+            match g {
+                'A' => 6,
+                'B' => 5,
+                'C' => 4,
+                'D' => 3,
+                'F' => 2,
+                _ => 1,
+            }
+        };
+        let grade_bar_width = |g: char| -> usize {
+            match g {
+                'A' => 30,
+                'B' => 24,
+                'C' => 18,
+                'D' => 12,
+                'F' => 6,
+                _ => 3,
+            }
+        };
+        let grade_color = |g: char| -> &'static str {
+            match g {
+                'A' => "\x1B[32m",
+                'B' => "\x1B[92m",
+                'C' => "\x1B[33m",
+                'D' => "\x1B[31m",
+                'F' => "\x1B[91m",
+                _ => "",
+            }
+        };
+        let reset = "\x1B[0m";
+
+        let first_date = entries.first().map(|e| e.date.as_str()).unwrap_or("");
+        let last_date = entries.last().map(|e| e.date.as_str()).unwrap_or("");
+        println!(
+            "Machine Health Trend \u{2014} {} entries ({} \u{2192} {})\n",
+            entries.len(), first_date, last_date
+        );
+
+        // Bar chart
+        println!(" {:<12}  {:^5}  Health", "Date", "Grade");
+        println!(" {}", "\u{2500}".repeat(62));
+        for e in &entries {
+            let w = grade_bar_width(e.grade);
+            let bar: String = "\u{2588}".repeat(w);
+            let color = grade_color(e.grade);
+            let summary_short = if e.summary.chars().count() > 36 {
+                let truncated: String = e.summary.chars().take(33).collect();
+                format!("{}...", truncated)
+            } else {
+                e.summary.clone()
+            };
+            println!(
+                " {:<12}  {}{:^5}{}  {}{}{}  {}",
+                e.date, color, e.grade, reset, color, bar, reset, summary_short
+            );
+        }
+
+        // Sparkline
+        let spark: String = entries
+            .iter()
+            .map(|e| match e.grade {
+                'A' => "\u{2588}",
+                'B' => "\u{2586}",
+                'C' => "\u{2584}",
+                'D' => "\u{2582}",
+                'F' => "\u{2581}",
+                _ => "\u{2591}",
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        println!("\n Sparkline: {}", spark);
+
+        // Worst / best / trajectory
+        let worst = entries.iter().min_by_key(|e| grade_score(e.grade));
+        let best  = entries.iter().max_by_key(|e| grade_score(e.grade));
+        let first_score = grade_score(entries[0].grade);
+        let last_score  = grade_score(entries[entries.len() - 1].grade);
+        let trajectory = if last_score > first_score {
+            "\u{2191} improving"
+        } else if last_score < first_score {
+            "\u{2193} degraded"
+        } else {
+            "\u{2192} stable"
+        };
+
+        // Recent trend (up to last 7 entries)
+        let recent_trend = if entries.len() >= 3 {
+            let window = &entries[entries.len().saturating_sub(7)..];
+            let rs = grade_score(window[0].grade);
+            let re = grade_score(window[window.len() - 1].grade);
+            if re > rs { "improving recently" }
+            else if re < rs { "degrading recently" }
+            else { "stable recently" }
+        } else {
+            "not enough data for recent trend"
+        };
+
+        println!("\n Summary:");
+        if let Some(w) = worst {
+            let color = grade_color(w.grade);
+            println!("   Worst:   {}{}{} ({})", color, w.grade, reset, w.date);
+        }
+        if let Some(b) = best {
+            let color = grade_color(b.grade);
+            println!("   Best:    {}{}{} ({})", color, b.grade, reset, b.date);
+        }
+        let last = &entries[entries.len() - 1];
+        let lc = grade_color(last.grade);
+        println!("   Latest:  {}{}{} {} \u{2014} {}", lc, last.grade, reset, trajectory, recent_trend);
+        println!("\n Tip: run `hematite --timeline-diff DATE` to see what changed on a specific day.");
+
+        return Ok(());
+    }
+
     if let Some(ref spec) = cockpit.timeline_diff.clone() {
         let parts: Vec<&str> = spec.splitn(2, ',').collect();
         let (date_a, date_b) = if parts.len() == 2 {

@@ -533,6 +533,13 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Modelless Inspection",
+        help = "Show an ASCII health grade trend chart from all captured timeline entries. Renders a bar chart, sparkline, and trajectory summary."
+    )]
+    pub timeline_trend: bool,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
         value_name = "SYMPTOM",
         help = "Symptom-driven root-cause diagnosis — describe the problem in plain English. Runs all relevant topics and returns ranked probable causes with evidence. No model required. Example: hematite --diagnose-why \"PC is slow and freezing\""
     )]

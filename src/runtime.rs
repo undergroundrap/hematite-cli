@@ -839,6 +839,7 @@ mod tests {
             timeline_capture: false,
             timeline: false,
             timeline_diff: None,
+            timeline_trend: false,
             diagnose_why: None,
             pdf_extract_helper: None,
             teleported_from: None,
