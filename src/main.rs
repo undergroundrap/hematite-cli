@@ -1223,6 +1223,274 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // ── Timeline ──────────────────────────────────────────────────────────────
+
+    const TIMELINE_TOPICS: &str = "health_report,startup_items,ports,services";
+
+    fn timeline_dir() -> std::path::PathBuf {
+        hematite::tools::file_ops::hematite_dir().join("timeline")
+    }
+
+    fn timeline_entry_path(date: &str) -> std::path::PathBuf {
+        let safe: String = date
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+            .collect();
+        timeline_dir().join(format!("{}.txt", safe))
+    }
+
+    fn timeline_index_path() -> std::path::PathBuf {
+        timeline_dir().join("index.jsonl")
+    }
+
+    fn timeline_today_date() -> String {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let days = now / 86400;
+        let years_400 = days / 146097;
+        let rem = days % 146097;
+        let years_100 = rem.min(146096) / 36524;
+        let rem = rem - years_100 * 36524;
+        let years_4 = rem / 1461;
+        let rem = rem % 1461;
+        let years_1 = rem.min(1460) / 365;
+        let rem = rem - years_1 * 365;
+        let year = 1970 + years_400 * 400 + years_100 * 100 + years_4 * 4 + years_1;
+        let leap = u64::from(year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+        let month_days: [u64; 12] = [31, 28 + leap, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let mut rem = rem;
+        let mut month = 1u64;
+        for &md in &month_days {
+            if rem < md {
+                break;
+            }
+            rem -= md;
+            month += 1;
+        }
+        format!("{:04}-{:02}-{:02}", year, month, rem + 1)
+    }
+
+    struct TimelineEntry {
+        date: String,
+        grade: char,
+        summary: String,
+    }
+
+    fn load_timeline_index() -> Vec<TimelineEntry> {
+        let path = timeline_index_path();
+        let content = match std::fs::read_to_string(&path) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        content
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .filter_map(|line| {
+                let date = line
+                    .split('"')
+                    .skip_while(|s| *s != "date")
+                    .nth(2)?
+                    .to_string();
+                let grade = line
+                    .split('"')
+                    .skip_while(|s| *s != "grade")
+                    .nth(2)?
+                    .chars()
+                    .next()
+                    .unwrap_or('?');
+                let summary = line
+                    .split('"')
+                    .skip_while(|s| *s != "summary")
+                    .nth(2)
+                    .unwrap_or("")
+                    .to_string();
+                Some(TimelineEntry { date, grade, summary })
+            })
+            .collect()
+    }
+
+    fn append_timeline_index(date: &str, grade: char, summary: &str) {
+        let path = timeline_index_path();
+        let line = format!(
+            "{{\"date\":\"{}\",\"grade\":\"{}\",\"summary\":\"{}\"}}\n",
+            date,
+            grade,
+            summary.replace('"', "'")
+        );
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+            let _ = f.write_all(line.as_bytes());
+        }
+    }
+
+    if cockpit.timeline_capture {
+        if let Some(ref cadence) = cockpit.schedule {
+            let cadence_str = cadence.trim();
+            if cadence_str == "daily" || cadence_str == "remove" || cadence_str == "status" {
+                let exe_path = std::env::current_exe()
+                    .unwrap_or_else(|_| std::path::PathBuf::from("hematite"))
+                    .to_string_lossy()
+                    .to_string();
+                match cadence_str {
+                    "remove" => match hematite::agent::scheduler::remove_timeline_task() {
+                        Ok(msg) => println!("{}", msg),
+                        Err(e) => eprintln!("Error: {}", e),
+                    },
+                    "status" => println!("{}", hematite::agent::scheduler::query_timeline_task()),
+                    _ => match hematite::agent::scheduler::register_timeline_task(&exe_path) {
+                        Ok(msg) => println!("{}", msg),
+                        Err(e) => eprintln!("Error: {}", e),
+                    },
+                }
+                return Ok(());
+            }
+        }
+
+        let today = timeline_today_date();
+        let entry_path = timeline_entry_path(&today);
+
+        if entry_path.exists() && !cockpit.yes {
+            println!("Timeline entry for {} already exists.", today);
+            println!("Path: {}", entry_path.display());
+            println!("Use --yes to overwrite.");
+            return Ok(());
+        }
+
+        let _ = std::fs::create_dir_all(timeline_dir());
+        eprintln!("Capturing timeline snapshot for {}...", today);
+        eprintln!("Topics: {}", TIMELINE_TOPICS);
+        let content =
+            hematite::agent::report_export::generate_inspect_output(TIMELINE_TOPICS).await;
+        let _ = std::fs::write(&entry_path, content.as_str());
+
+        let score = hematite::agent::report_export::score_health_from_content(&content);
+        let summary = score.summary_line();
+
+        // Rebuild index removing any existing entry for today, then append.
+        let index_path = timeline_index_path();
+        let existing = match std::fs::read_to_string(&index_path) {
+            Ok(s) => s
+                .lines()
+                .filter(|l| !l.contains(&format!("\"date\":\"{}\"", today)))
+                .map(|l| format!("{}\n", l))
+                .collect::<String>(),
+            Err(_) => String::new(),
+        };
+        let _ = std::fs::write(&index_path, existing);
+        append_timeline_index(&today, score.grade, &summary);
+
+        println!("Timeline snapshot: {}", today);
+        println!("Health grade:      {} — {}", score.grade, summary);
+        println!("Saved:             {}", entry_path.display());
+        return Ok(());
+    }
+
+    if cockpit.timeline {
+        let entries = load_timeline_index();
+        if entries.is_empty() {
+            println!("No timeline entries yet.");
+            println!();
+            println!("Start capturing daily snapshots:");
+            println!("  hematite --timeline-capture");
+            println!("  hematite --timeline-capture --schedule daily  (automated, daily at 03:00)");
+            return Ok(());
+        }
+        let first = entries.first().map(|e| e.date.as_str()).unwrap_or("");
+        let last = entries.last().map(|e| e.date.as_str()).unwrap_or("");
+        println!(
+            "Machine State Timeline  ({} entries, {} \u{2192} {})",
+            entries.len(),
+            first,
+            last
+        );
+        println!("{}", "\u{2500}".repeat(60));
+        for e in &entries {
+            println!("  {}  {}  {}", e.date, e.grade, e.summary);
+        }
+        println!();
+        println!("Diff two dates:  hematite --timeline-diff DATE1,DATE2");
+        println!("Capture today:   hematite --timeline-capture");
+        return Ok(());
+    }
+
+    if let Some(ref spec) = cockpit.timeline_diff.clone() {
+        let parts: Vec<&str> = spec.splitn(2, ',').collect();
+        let (date_a, date_b) = if parts.len() == 2 {
+            (parts[0].trim().to_string(), parts[1].trim().to_string())
+        } else {
+            // Single date: find the previous entry from the index.
+            let date_a_str = parts[0].trim().to_string();
+            let entries = load_timeline_index();
+            let prev = entries
+                .windows(2)
+                .find(|w| w[1].date == date_a_str)
+                .map(|w| w[0].date.clone());
+            match prev {
+                Some(p) => (p, date_a_str),
+                None => {
+                    eprintln!(
+                        "Error: no previous timeline entry found before '{}'.\n\
+                         Run `hematite --timeline` to see available entries.\n\
+                         To diff two specific dates: hematite --timeline-diff DATE1,DATE2",
+                        date_a_str
+                    );
+                    std::process::exit(1);
+                }
+            }
+        };
+
+        let load = |date: &str| -> Result<String, String> {
+            let p = timeline_entry_path(date);
+            std::fs::read_to_string(&p)
+                .map_err(|_| format!("No timeline entry for '{}'. Run `hematite --timeline` to see available dates.", date))
+        };
+
+        let snap_a = match load(&date_a) {
+            Ok(s) => s,
+            Err(e) => { eprintln!("{}", e); std::process::exit(1); }
+        };
+        let snap_b = match load(&date_b) {
+            Ok(s) => s,
+            Err(e) => { eprintln!("{}", e); std::process::exit(1); }
+        };
+
+        println!("--- {}", date_a);
+        println!("+++ {}", date_b);
+        println!();
+
+        use similar::{ChangeTag, TextDiff};
+        let diff = TextDiff::from_lines(&snap_a, &snap_b);
+        let mut changed = false;
+        for group in diff.grouped_ops(2) {
+            for op in &group {
+                for change in diff.iter_changes(op) {
+                    match change.tag() {
+                        ChangeTag::Delete => {
+                            print!("\x1B[31m- {}\x1B[0m", change);
+                            changed = true;
+                        }
+                        ChangeTag::Insert => {
+                            print!("\x1B[32m+ {}\x1B[0m", change);
+                            changed = true;
+                        }
+                        ChangeTag::Equal => {
+                            print!("  {}", change);
+                        }
+                    }
+                }
+            }
+            println!();
+        }
+        if !changed {
+            println!("No differences between {} and {}.", date_a, date_b);
+        }
+        return Ok(());
+    }
+
+    // ── End Timeline ──────────────────────────────────────────────────────────
+
     if let Some(ref topics_csv) = cockpit.watch {
         let interval = cockpit.watch_interval.max(1);
         let alert_pat = cockpit.alert.as_deref().map(|p| p.to_ascii_lowercase());

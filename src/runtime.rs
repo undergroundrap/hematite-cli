@@ -830,6 +830,9 @@ mod tests {
             audit_start: None,
             audit_end: None,
             audit_topics: None,
+            timeline_capture: false,
+            timeline: false,
+            timeline_diff: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

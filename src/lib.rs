@@ -463,6 +463,28 @@ pub struct CliCockpit {
     )]
     pub audit_topics: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        help = "Take today's timeline snapshot (health_report, startup_items, ports, services). Skips if already captured today. Add --schedule daily to register a Task Scheduler task."
+    )]
+    pub timeline_capture: bool,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        help = "Show the machine state timeline — all captured daily entries with date, health grade, and summary."
+    )]
+    pub timeline: bool,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        value_name = "DATE or DATE1,DATE2",
+        help = "Diff timeline entries. Single date diffs against the previous entry; two dates diff each other. Example: hematite --timeline-diff 2025-05-10"
+    )]
+    pub timeline_diff: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
