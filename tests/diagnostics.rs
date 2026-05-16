@@ -12210,3 +12210,58 @@ fn test_multi_topic_batch27_keyword_expansions() {
         );
     }
 }
+
+// ── Batch 28: processes (hogging/hog) + resource_load (frozen/freeze) ─────────
+
+#[test]
+fn test_routing_hogging_cpu_routes_to_processes() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "something is hogging cpu on my machine",
+        "which process is a cpu hog",
+        "what is eating my memory right now",
+        "eating up all my ram",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("processes"),
+            "expected processes for {query:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_frozen_routes_to_resource_load() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "my computer is frozen",
+        "the machine keeps freezing up",
+        "computer freeze happening randomly",
+    ];
+    for query in &cases {
+        assert_eq!(
+            preferred_host_inspection_topic(query),
+            Some("resource_load"),
+            "expected resource_load for {query:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_batch28_hog_and_freeze() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("something is hogging all the cpu on this PC", "processes"),
+        ("memory hog identified on this machine", "processes"),
+        ("the computer is frozen and unresponsive", "resource_load"),
+        ("PC keeps freezing up under load", "resource_load"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
