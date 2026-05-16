@@ -827,6 +827,9 @@ mod tests {
             from: None,
             snapshots: false,
             compare: None,
+            audit_start: None,
+            audit_end: None,
+            audit_topics: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

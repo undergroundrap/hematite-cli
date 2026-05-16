@@ -1012,6 +1012,217 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    const AUDIT_DEFAULT_TOPICS: &str =
+        "services,startup_items,ports,scheduled_tasks,shares,firewall_rules,processes,connections";
+
+    if let Some(ref audit_name) = cockpit.audit_start.clone() {
+        let topics = cockpit
+            .audit_topics
+            .as_deref()
+            .unwrap_or(AUDIT_DEFAULT_TOPICS);
+        eprintln!("Starting audit session '{}'...", audit_name);
+        eprintln!("Topics: {}", topics);
+        let content = hematite::agent::report_export::generate_inspect_output(topics).await;
+        let before_name = format!("{}_before", audit_name);
+        let snap_path = snapshot_path(&before_name);
+        if let Some(parent) = snap_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::write(&snap_path, content.as_str());
+        let meta_path = {
+            let safe: String = audit_name
+                .chars()
+                .map(|c| {
+                    if c.is_alphanumeric() || c == '-' || c == '_' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect();
+            hematite::tools::file_ops::hematite_dir()
+                .join("snapshots")
+                .join(format!("{}.audit.json", safe))
+        };
+        let started_at = hematite::agent::report_export::timestamp_label();
+        let meta = format!(
+            "{{\"topics\":\"{}\",\"started_at\":\"{}\"}}",
+            topics.replace('"', "\\\""),
+            started_at
+        );
+        let _ = std::fs::write(&meta_path, meta);
+        println!("Audit session '{}' started.", audit_name);
+        println!("Baseline: {}", snap_path.display());
+        println!("Topics:   {}", topics);
+        println!();
+        println!("Make your changes, then run:");
+        println!("  hematite --audit-end {}", audit_name);
+        return Ok(());
+    }
+
+    if let Some(ref audit_name) = cockpit.audit_end.clone() {
+        let meta_path = {
+            let safe: String = audit_name
+                .chars()
+                .map(|c| {
+                    if c.is_alphanumeric() || c == '-' || c == '_' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect();
+            hematite::tools::file_ops::hematite_dir()
+                .join("snapshots")
+                .join(format!("{}.audit.json", safe))
+        };
+        let meta_str = match std::fs::read_to_string(&meta_path) {
+            Ok(s) => s,
+            Err(_) => {
+                eprintln!(
+                    "Error: no audit session named '{}' found.\n\
+                     Start one with: hematite --audit-start {}",
+                    audit_name, audit_name
+                );
+                std::process::exit(1);
+            }
+        };
+        // Parse topics from metadata JSON without pulling in serde_json.
+        let topics = meta_str
+            .split('"')
+            .skip_while(|s| *s != "topics")
+            .nth(2)
+            .unwrap_or(AUDIT_DEFAULT_TOPICS);
+        let started_at = meta_str
+            .split('"')
+            .skip_while(|s| *s != "started_at")
+            .nth(2)
+            .unwrap_or("unknown");
+
+        let before_name = format!("{}_before", audit_name);
+        let before_path = snapshot_path(&before_name);
+        let snap_a = match std::fs::read_to_string(&before_path) {
+            Ok(s) => s,
+            Err(_) => {
+                eprintln!(
+                    "Error: baseline snapshot '{}' not found.\n\
+                     Start a new session with: hematite --audit-start {}",
+                    before_name, audit_name
+                );
+                std::process::exit(1);
+            }
+        };
+
+        eprintln!("Audit session '{}': capturing post-change snapshot...", audit_name);
+        eprintln!("Topics: {}", topics);
+        let snap_b = hematite::agent::report_export::generate_inspect_output(topics).await;
+        let after_name = format!("{}_after", audit_name);
+        let after_path = snapshot_path(&after_name);
+        let _ = std::fs::write(&after_path, snap_b.as_str());
+
+        use similar::{ChangeTag, TextDiff};
+        let diff = TextDiff::from_lines(&snap_a, &snap_b);
+        let mut diff_md = String::new();
+        let mut any_changed = false;
+        for group in diff.grouped_ops(3) {
+            for op in &group {
+                for change in diff.iter_changes(op) {
+                    match change.tag() {
+                        ChangeTag::Delete => {
+                            any_changed = true;
+                            diff_md.push('-');
+                            diff_md.push(' ');
+                            diff_md.push_str(change.value());
+                        }
+                        ChangeTag::Insert => {
+                            any_changed = true;
+                            diff_md.push('+');
+                            diff_md.push(' ');
+                            diff_md.push_str(change.value());
+                        }
+                        ChangeTag::Equal => {
+                            diff_md.push(' ');
+                            diff_md.push(' ');
+                            diff_md.push_str(change.value());
+                        }
+                    }
+                }
+            }
+            diff_md.push('\n');
+        }
+
+        let ended_at = hematite::agent::report_export::timestamp_label();
+        let change_summary = if any_changed {
+            "Changes detected — review the diff below."
+        } else {
+            "No changes detected across all topics."
+        };
+
+        let mut report = String::new();
+        report.push_str(&format!("# Change Audit: {}\n\n", audit_name));
+        report.push_str(&format!("**Started:** {}\n", started_at));
+        report.push_str(&format!("**Completed:** {}\n", ended_at));
+        report.push_str(&format!("**Topics:** {}\n\n", topics));
+        report.push_str(&format!("## Result\n\n{}\n\n", change_summary));
+        if any_changed {
+            report.push_str("## Diff\n\n```diff\n");
+            report.push_str(&diff_md);
+            report.push_str("```\n");
+        }
+
+        let report_dir = hematite::tools::file_ops::hematite_dir().join("reports");
+        let _ = std::fs::create_dir_all(&report_dir);
+        let safe_name: String = audit_name
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        let safe_ts: String = ended_at
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+            .collect();
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let report_path = if fmt == "html" {
+            let html = hematite::agent::html_template::build_html_shell(
+                &format!("Change Audit: {}", audit_name),
+                &hematite::hematite_version(),
+                &hematite::agent::html_template::markdown_to_html(&report),
+            );
+            let p = report_dir.join(format!("audit-{}-{}.html", safe_name, safe_ts));
+            let _ = std::fs::write(&p, &html);
+            p
+        } else {
+            let p = report_dir.join(format!("audit-{}-{}.md", safe_name, safe_ts));
+            let _ = std::fs::write(&p, &report);
+            p
+        };
+
+        print!("{}", report);
+        println!("Audit report saved: {}", report_path.display());
+
+        if cockpit.clipboard {
+            copy_to_clipboard(&report);
+            println!("Copied to clipboard.");
+        }
+        if cockpit.open {
+            open_path(&report_path);
+        }
+        if cockpit.notify {
+            show_toast(
+                "Hematite Audit",
+                if any_changed { "Changes detected" } else { "No changes" },
+            );
+        }
+        // Clean up the metadata file now that the session is complete.
+        let _ = std::fs::remove_file(&meta_path);
+        return Ok(());
+    }
+
     if let Some(ref topics_csv) = cockpit.watch {
         let interval = cockpit.watch_interval.max(1);
         let alert_pat = cockpit.alert.as_deref().map(|p| p.to_ascii_lowercase());

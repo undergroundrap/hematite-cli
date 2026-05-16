@@ -439,6 +439,30 @@ pub struct CliCockpit {
     )]
     pub compare: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        value_name = "NAME",
+        help = "Start a change audit session — takes a baseline snapshot of key system topics. Example: hematite --audit-start pre-patch"
+    )]
+    pub audit_start: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        value_name = "NAME",
+        help = "End a change audit session — re-runs the baseline topics and generates a diff report. Example: hematite --audit-end pre-patch"
+    )]
+    pub audit_end: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Modelless Inspection",
+        value_name = "TOPIC[,TOPIC2,...]",
+        help = "Topics to capture for --audit-start (default: services,startup_items,ports,scheduled_tasks,shares,firewall_rules,processes,connections)"
+    )]
+    pub audit_topics: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
