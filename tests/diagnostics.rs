@@ -13108,3 +13108,178 @@ fn test_multi_topic_batch37_audio_share_storage_disk_connectivity_startup_update
     let topics = all_host_inspection_topics("check updates");
     assert!(topics.contains(&"updates"), "updates missing: {topics:?}");
 }
+
+// ── Parity audit batch 38 ──────────────────────────────────────────────────
+
+#[test]
+fn test_routing_parity38_system_specs_routes_to_hardware() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("what are my system specs");
+    assert_eq!(t.as_deref(), Some("hardware"));
+    let topics = all_host_inspection_topics("what are my system specs");
+    assert!(topics.contains(&"hardware"), "hardware missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_graphics_card_routes_to_hardware() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("tell me about my graphics card");
+    assert_eq!(t.as_deref(), Some("hardware"));
+    let topics = all_host_inspection_topics("tell me about my graphics card");
+    assert!(topics.contains(&"hardware"), "hardware missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_fan_always_on_routes_to_thermal() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("my fan is always on");
+    assert_eq!(t.as_deref(), Some("thermal"));
+    let topics = all_host_inspection_topics("my fan is always on");
+    assert!(topics.contains(&"thermal"), "thermal missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_laptop_hot_routes_to_thermal() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("my laptop is getting hot");
+    assert_eq!(t.as_deref(), Some("thermal"));
+    let topics = all_host_inspection_topics("my laptop is getting hot");
+    assert!(topics.contains(&"thermal"), "thermal missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_product_key_routes_to_activation() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("where is my product key");
+    assert_eq!(t.as_deref(), Some("activation"));
+    let topics = all_host_inspection_topics("where is my product key");
+    assert!(topics.contains(&"activation"), "activation missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_not_activated_routes_to_activation() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("windows is not activated");
+    assert_eq!(t.as_deref(), Some("activation"));
+    let topics = all_host_inspection_topics("windows is not activated");
+    assert!(topics.contains(&"activation"), "activation missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_keeps_restarting_routes_to_recent_crashes() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("my PC keeps restarting");
+    assert_eq!(t.as_deref(), Some("recent_crashes"));
+    let topics = all_host_inspection_topics("my PC keeps restarting");
+    assert!(topics.contains(&"recent_crashes"), "recent_crashes missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_random_reboot_routes_to_recent_crashes() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("random reboot overnight");
+    assert_eq!(t.as_deref(), Some("recent_crashes"));
+    let topics = all_host_inspection_topics("random reboot overnight");
+    assert!(topics.contains(&"recent_crashes"), "recent_crashes missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_apps_crashing_routes_to_app_crashes() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("apps crashing constantly");
+    assert_eq!(t.as_deref(), Some("app_crashes"));
+    let topics = all_host_inspection_topics("apps crashing constantly");
+    assert!(topics.contains(&"app_crashes"), "app_crashes missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_what_crashed_routes_to_app_crashes() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("what crashed today");
+    assert_eq!(t.as_deref(), Some("app_crashes"));
+    let topics = all_host_inspection_topics("what crashed today");
+    assert!(topics.contains(&"app_crashes"), "app_crashes missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_windows_log_routes_to_log_check() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("show me the windows log");
+    assert_eq!(t.as_deref(), Some("log_check"));
+    let topics = all_host_inspection_topics("show me the windows log");
+    assert!(topics.contains(&"log_check"), "log_check missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_high_cpu_routes_to_resource_load() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("high cpu usage right now");
+    assert_eq!(t.as_deref(), Some("resource_load"));
+    let topics = all_host_inspection_topics("high cpu usage right now");
+    assert!(topics.contains(&"resource_load"), "resource_load missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_free_space_routes_to_storage() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("how much free space do I have");
+    assert_eq!(t.as_deref(), Some("storage"));
+    let topics = all_host_inspection_topics("how much free space do I have");
+    assert!(topics.contains(&"storage"), "storage missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_running_out_of_space_routes_to_storage() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("I'm running out of space");
+    assert_eq!(t.as_deref(), Some("storage"));
+    let topics = all_host_inspection_topics("I'm running out of space");
+    assert!(topics.contains(&"storage"), "storage missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_what_is_listening_routes_to_ports() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("what is listening on this machine");
+    assert_eq!(t.as_deref(), Some("ports"));
+    let topics = all_host_inspection_topics("what is listening on this machine");
+    assert!(topics.contains(&"ports"), "ports missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_cpu_speed_routes_to_cpu_power() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("why is my cpu speed so low");
+    assert_eq!(t.as_deref(), Some("cpu_power"));
+    let topics = all_host_inspection_topics("why is my cpu speed so low");
+    assert!(topics.contains(&"cpu_power"), "cpu_power missing: {topics:?}");
+}
+
+#[test]
+fn test_routing_parity38_boost_disabled_routes_to_cpu_power() {
+    use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
+    let t = preferred_host_inspection_topic("boost is disabled on my processor");
+    assert_eq!(t.as_deref(), Some("cpu_power"));
+    let topics = all_host_inspection_topics("boost is disabled on my processor");
+    assert!(topics.contains(&"cpu_power"), "cpu_power missing: {topics:?}");
+}
+
+#[test]
+fn test_multi_topic_parity38_hardware_thermal_activation_crashes_storage() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let queries = [
+        ("what are my system specs", "hardware"),
+        ("my fan is always on and laptop is getting hot", "thermal"),
+        ("windows is not activated", "activation"),
+        ("apps crashing all day", "app_crashes"),
+        ("how much free space on C:", "storage"),
+        ("what is listening on this machine", "ports"),
+    ];
+    for (query, expected_topic) in &queries {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected_topic),
+            "query={query:?} expected {expected_topic}, got {topics:?}"
+        );
+    }
+}
