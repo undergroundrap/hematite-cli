@@ -1137,6 +1137,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("trusted platform module")
         || lower.contains("firmware security")
         || lower.contains("uefi security")
+        || lower.contains("uefi mode")
+        || lower.contains("uefi enabled")
+        || lower.contains("uefi settings")
+        || lower.contains("legacy bios")
+        || lower.contains("uefi bios")
+        || (lower.contains("uefi") && (lower.contains("boot") || lower.contains("secure") || lower.contains("status") || lower.contains("check")))
         || (lower.contains("bitlocker") && lower.contains("chip"))
         || (lower.contains("windows 11") && lower.contains("tpm"));
     let asks_dhcp = lower.contains("dhcp lease")
@@ -2159,8 +2165,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("what is being logged")
         || lower.contains("security audit")
         || lower.contains("logon event")
+        || lower.contains("login event")
         || lower.contains("audit category")
-        || lower.contains("event auditing");
+        || lower.contains("event auditing")
+        || (lower.contains("audit") && lower.contains("event"))
+        || (lower.contains("what") && lower.contains("being audited"))
+        || (lower.contains("audit") && lower.contains("enable"));
     let asks_shares = lower.contains("smb share")
         || lower.contains("network share")
         || lower.contains("shared folder")
@@ -2175,7 +2185,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("netlanmanager")
         || lower.contains("smb1")
         || lower.contains("smb signing")
-        || lower.contains("nfs export");
+        || lower.contains("nfs export")
+        || (lower.contains("folder") && lower.contains("shared"))
+        || (lower.contains("sharing") && lower.contains("network"))
+        || lower.contains("what am i sharing");
     let asks_dns_servers = (lower.contains("dns server")
         || lower.contains("dns resolver")
         || lower.contains("nameserver")
@@ -2206,7 +2219,12 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
     let asks_bitlocker = lower.contains("bitlocker")
         || (lower.contains("drive") && lower.contains("encrypt"))
         || (lower.contains("disk") && lower.contains("encrypt"))
-        || lower.contains("encryption status");
+        || (lower.contains("ssd") && lower.contains("encrypt"))
+        || (lower.contains("volume") && lower.contains("encrypt"))
+        || (lower.contains("machine") && lower.contains("encrypt"))
+        || lower.contains("encryption status")
+        || lower.contains("full disk encryption")
+        || lower.contains("drive encryption");
     let asks_rdp = lower.contains("rdp")
         || lower.contains("remote desktop")
         || (lower.contains("remote") && lower.contains("access") && !lower.contains("git"));
@@ -2353,6 +2371,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("administrator permission")
         || lower.contains("lmcompatibilitylevel")
         || lower.contains("net accounts")
+        || lower.contains("lockout")
+        || (lower.contains("uac") && (lower.contains("off") || lower.contains("status") || lower.contains("check") || lower.contains("on")))
         || (lower.contains("password")
             && (lower.contains("minimum")
                 || lower.contains("maximum age")
@@ -2390,6 +2410,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("point and print")
         || lower.contains("rpcauthnlevel")
         || (lower.contains("print") && lower.contains("vulnerab"))
+        || lower.contains("print service")
+        || (lower.contains("printer") && lower.contains("spooler"))
         || (lower.contains("spooler")
             && (lower.contains("status")
                 || lower.contains("running")
@@ -3219,6 +3241,15 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("trusted platform module")
                 || l.contains("firmware security")
                 || l.contains("uefi security")
+                || l.contains("uefi mode")
+                || l.contains("uefi enabled")
+                || l.contains("legacy bios")
+                || l.contains("uefi bios")
+                || (l.contains("uefi")
+                    && (l.contains("boot")
+                        || l.contains("secure")
+                        || l.contains("status")
+                        || l.contains("check")))
         }),
         ("dhcp", |l| {
             l.contains("dhcp lease")
@@ -3823,6 +3854,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("what is being logged")
                 || l.contains("security audit")
                 || l.contains("event auditing")
+                || l.contains("login event")
+                || l.contains("logon event")
+                || (l.contains("audit") && l.contains("event"))
+                || (l.contains("what") && l.contains("being audited"))
+                || (l.contains("audit") && l.contains("enable"))
         }),
         ("shares", |l| {
             l.contains("smb share")
@@ -3834,6 +3870,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("what am i sharing")
                 || l.contains("smb1")
                 || l.contains("nfs export")
+                || (l.contains("folder") && l.contains("shared"))
+                || (l.contains("sharing") && l.contains("network"))
         }),
         ("dns_servers", |l| {
             (l.contains("dns server")
@@ -3848,7 +3886,12 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
             l.contains("bitlocker")
                 || (l.contains("drive") && l.contains("encrypt"))
                 || (l.contains("disk") && l.contains("encrypt"))
+                || (l.contains("ssd") && l.contains("encrypt"))
+                || (l.contains("volume") && l.contains("encrypt"))
+                || (l.contains("machine") && l.contains("encrypt"))
                 || l.contains("encryption status")
+                || l.contains("full disk encryption")
+                || l.contains("drive encryption")
         }),
         ("rdp", |l| {
             l.contains("rdp")
@@ -4130,6 +4173,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("administrator permission")
                 || l.contains("account policy")
                 || l.contains("net accounts")
+                || l.contains("lockout")
+                || (l.contains("uac") && (l.contains("off") || l.contains("status") || l.contains("check") || l.contains("on")))
         }),
         ("usb_history", |l| {
             l.contains("usb history")
@@ -4162,6 +4207,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("printer service")
                 || l.contains("point and print")
                 || l.contains("rpcauthnlevel")
+                || l.contains("print service")
+                || (l.contains("printer") && l.contains("spooler"))
                 || (l.contains("print") && l.contains("vulnerab"))
                 || (l.contains("spooler") && l.contains("status"))
                 || (l.contains("spooler") && l.contains("running"))

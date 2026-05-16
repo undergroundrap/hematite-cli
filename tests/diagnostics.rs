@@ -12645,3 +12645,135 @@ fn test_multi_topic_batch33_installer_identity_browser_backup() {
         );
     }
 }
+
+#[test]
+fn test_routing_ssd_encrypted_routes_to_bitlocker() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "is my ssd encrypted",
+        "what is my drive encryption status",
+        "is my machine encrypted",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("bitlocker"),
+            "expected bitlocker for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_uefi_routes_to_tpm() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "is my PC in uefi mode",
+        "check uefi boot settings",
+        "is uefi enabled on this machine",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("tpm"),
+            "expected tpm for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_lockout_uac_routes_to_local_security_policy() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "how many failed logins before lockout",
+        "is uac turned off",
+        "what is the uac status",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("local_security_policy"),
+            "expected local_security_policy for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_login_event_routes_to_audit_policy() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "which logon events are being audited",
+        "what events are being audited on this PC",
+        "are audit events enabled on this machine",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("audit_policy"),
+            "expected audit_policy for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_folders_shared_routes_to_shares() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "which folders are being shared on this PC",
+        "show network sharing configuration",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("shares"),
+            "expected shares for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_printer_spooler_routes_to_print_spooler() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "is my printer spooler running",
+        "what is the print service status",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("print_spooler"),
+            "expected print_spooler for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_batch34_bitlocker_tpm_policy_audit_shares_spooler() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("is my ssd encrypted", "bitlocker"),
+        ("drive encryption status", "bitlocker"),
+        ("is uefi enabled on this machine", "tpm"),
+        ("check uefi boot status", "tpm"),
+        ("how many failed logins before lockout", "local_security_policy"),
+        ("what is the uac status", "local_security_policy"),
+        ("which logon events are being audited", "audit_policy"),
+        ("are audit events enabled on this machine", "audit_policy"),
+        ("which folders are shared on this PC", "shares"),
+        ("show network sharing", "shares"),
+        ("is my printer spooler running", "print_spooler"),
+        ("what is the print service status", "print_spooler"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
