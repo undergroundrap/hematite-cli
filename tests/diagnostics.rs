@@ -12328,7 +12328,7 @@ fn test_routing_cant_browse_web_routes_to_connectivity() {
         "I can't browse the web",
         "cannot browse the internet",
         "web browsing is not working",
-        "browser not loading pages",
+        "pages not loading on any site",
         "websites not loading",
         "no network connection",
         "the network is down",
@@ -12542,6 +12542,100 @@ fn test_multi_topic_batch32_udp_domain_scheduled_svc_deps() {
         ("what runs in the background", "scheduled_tasks"),
         ("what is scheduled to run today", "scheduled_tasks"),
         ("service requirements for svchost", "service_dependencies"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_unable_to_install_routes_to_installer_health() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "I'm unable to install this app",
+        "unable to install the software",
+        "installation is hanging and won't finish",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("installer_health"),
+            "expected installer_health for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_organizational_account_routes_to_identity_auth() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "my organizational account isn't working",
+        "corporate account not signing in",
+        "is my device azure registered",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("identity_auth"),
+            "expected identity_auth for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_browser_unresponsive_routes_to_browser_health() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "chrome is unresponsive",
+        "firefox is not loading pages",
+        "edge is not starting",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("browser_health"),
+            "expected browser_health for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_routing_backup_enabled_routes_to_windows_backup() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "is my backup enabled",
+        "is backup working on this PC",
+        "is backup set up correctly",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("windows_backup"),
+            "expected windows_backup for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_batch33_installer_identity_browser_backup() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("unable to install this app", "installer_health"),
+        ("installation is hanging", "installer_health"),
+        ("organizational account not working", "identity_auth"),
+        ("is my device azure registered", "identity_auth"),
+        ("chrome is unresponsive right now", "browser_health"),
+        ("edge is not loading", "browser_health"),
+        ("is my backup enabled", "windows_backup"),
+        ("is backup working", "windows_backup"),
     ];
     for (query, expected) in &cases {
         let topics = all_host_inspection_topics(query);
