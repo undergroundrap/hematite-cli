@@ -12320,3 +12320,45 @@ fn test_multi_topic_batch29_thermal_and_overclocker() {
         );
     }
 }
+
+#[test]
+fn test_routing_cant_browse_web_routes_to_connectivity() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    let cases = [
+        "I can't browse the web",
+        "cannot browse the internet",
+        "web browsing is not working",
+        "browser not loading pages",
+        "websites not loading",
+        "no network connection",
+        "the network is down",
+        "can't connect to internet",
+        "cannot connect to internet",
+    ];
+    for query in &cases {
+        let result = preferred_host_inspection_topic(query);
+        assert_eq!(
+            result,
+            Some("connectivity"),
+            "expected connectivity for {query:?}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_multi_topic_batch30_connectivity_browse_variants() {
+    use hematite::agent::routing::all_host_inspection_topics;
+    let cases = [
+        ("I can't browse the web at all", "connectivity"),
+        ("websites not loading on my PC", "connectivity"),
+        ("the network is down right now", "connectivity"),
+        ("cannot connect to internet today", "connectivity"),
+    ];
+    for (query, expected) in &cases {
+        let topics = all_host_inspection_topics(query);
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
+    }
+}
