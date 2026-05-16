@@ -757,7 +757,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("pnp device")
         || lower.contains("exclamation mark in device")
         || (lower.contains("device") && lower.contains("error code"))
-        || (lower.contains("device") && lower.contains("not recognized"));
+        || (lower.contains("device") && lower.contains("not recognized"))
+        || (lower.contains("device") && lower.contains("broken"))
+        || (lower.contains("device") && lower.contains("not working"))
+        || (lower.contains("device") && lower.contains("stopped working"))
+        || (lower.contains("hardware") && lower.contains("broken"));
     let asks_drivers =
         lower.contains("driver") || lower.contains("kmod") || lower.contains("kernel module");
     let asks_audio = lower.contains("no sound")
@@ -1383,7 +1387,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("connected users")
         || lower.contains("user sessions")
         || lower.contains("terminal session")
-        || (lower.contains("who") && lower.contains("logged"));
+        || (lower.contains("who") && lower.contains("logged"))
+        || (lower.contains("who")
+            && lower.contains("using")
+            && (lower.contains("computer") || lower.contains("machine")));
     let asks_virtualization = lower.contains("virtualization")
         || lower.contains("hypervisor")
         || lower.contains("vt-x")
@@ -1648,11 +1655,16 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("license expired")
         || lower.contains("slmgr")
         || lower.contains("license status")
-        || lower.contains("is windows genuine");
+        || lower.contains("is windows genuine")
+        || lower.contains("licensed")
+        || lower.contains("unlicensed")
+        || (lower.contains("activate") && lower.contains("window"));
     let asks_patch_history = lower.contains("patch history")
         || lower.contains("hotfix")
         || lower.contains("kb history")
-        || lower.contains("installed updates");
+        || lower.contains("installed updates")
+        || lower.contains("security patch")
+        || (lower.contains("update") && lower.contains("applied"));
     let asks_ports = lower.contains("listening on port")
         || lower.contains("listening port")
         || lower.contains("open port")
@@ -1771,7 +1783,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("required")))
         || (lower.contains("reboot") && lower.contains("required"))
         || (lower.contains("reboot") && lower.contains("pending"))
-        || (lower.contains("restart") && lower.contains("pending"));
+        || (lower.contains("restart") && lower.contains("pending"))
+        || (lower.contains("have to")
+            && (lower.contains("restart") || lower.contains("reboot")))
+        || (lower.contains("do i need to")
+            && (lower.contains("restart") || lower.contains("reboot")));
     let asks_disk_health = lower.contains("disk health")
         || lower.contains("drive health")
         || lower.contains("hard drive dying")
@@ -2946,10 +2962,19 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                     && (l.contains("usage") || l.contains("utilization") || l.contains("performance")))
         }),
         ("activation", |l| {
-            l.contains("activation") || l.contains("slmgr") || l.contains("license status")
+            l.contains("activation")
+                || l.contains("slmgr")
+                || l.contains("license status")
+                || l.contains("licensed")
+                || l.contains("unlicensed")
+                || (l.contains("activate") && l.contains("window"))
         }),
         ("patch_history", |l| {
-            l.contains("patch history") || l.contains("hotfix") || l.contains("kb history")
+            l.contains("patch history")
+                || l.contains("hotfix")
+                || l.contains("kb history")
+                || l.contains("security patch")
+                || (l.contains("update") && l.contains("applied"))
         }),
         ("bluetooth", |l| {
             l.contains("bluetooth")
@@ -3409,6 +3434,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("reboot required")
                 || (l.contains("reboot") && l.contains("pending"))
                 || (l.contains("restart") && l.contains("pending"))
+                || (l.contains("have to")
+                    && (l.contains("restart") || l.contains("reboot")))
+                || (l.contains("do i need to")
+                    && (l.contains("restart") || l.contains("reboot")))
         }),
         ("disk_health", |l| {
             l.contains("disk health")
@@ -4069,6 +4098,10 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("hardware failing")
                 || (l.contains("device") && l.contains("error code"))
                 || (l.contains("device") && l.contains("not recognized"))
+                || (l.contains("device") && l.contains("broken"))
+                || (l.contains("device") && l.contains("not working"))
+                || (l.contains("device") && l.contains("stopped working"))
+                || (l.contains("hardware") && l.contains("broken"))
         }),
         ("drivers", |l| {
             l.contains("driver") || l.contains("system driver")
@@ -4091,6 +4124,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("query session")
                 || l.contains("qwinsta")
                 || (l.contains("who") && l.contains("logged"))
+                || (l.contains("who")
+                    && l.contains("using")
+                    && (l.contains("computer") || l.contains("machine")))
         }),
         ("hardware", |l| {
             l.contains("virtualization")

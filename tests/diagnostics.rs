@@ -12868,3 +12868,102 @@ fn test_multi_topic_batch35_gpo_teaming_wlan_tcp() {
         );
     }
 }
+
+// ── Batch 36: sessions, patch_history, activation, pending_reboot, device_health ──
+
+#[test]
+fn test_routing_who_using_machine_routes_to_sessions() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("show me who's currently using the machine"),
+        Some("sessions")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("who is using this computer right now"),
+        Some("sessions")
+    );
+}
+
+#[test]
+fn test_routing_updates_applied_routes_to_patch_history() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("what updates have been applied to my system"),
+        Some("patch_history")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show me security patches installed"),
+        Some("patch_history")
+    );
+}
+
+#[test]
+fn test_routing_windows_licensed_routes_to_activation() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("is my windows licensed"),
+        Some("activation")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("windows is unlicensed"),
+        Some("activation")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("how do I activate windows"),
+        Some("activation")
+    );
+}
+
+#[test]
+fn test_routing_have_to_reboot_routes_to_pending_reboot() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("do I have to reboot my machine"),
+        Some("pending_reboot")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("do i need to restart after the update"),
+        Some("pending_reboot")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("do I have to restart"),
+        Some("pending_reboot")
+    );
+}
+
+#[test]
+fn test_routing_device_not_working_routes_to_device_health() {
+    use hematite::agent::routing::preferred_host_inspection_topic;
+    assert_eq!(
+        preferred_host_inspection_topic("my device is not working"),
+        Some("device_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("a device stopped working after the update"),
+        Some("device_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("some hardware is broken"),
+        Some("device_health")
+    );
+}
+
+#[test]
+fn test_multi_topic_batch36_sessions_patch_activation_reboot_device() {
+    use hematite::agent::routing::all_host_inspection_topics;
+
+    let topics = all_host_inspection_topics("who is using this computer");
+    assert!(topics.contains(&"sessions"), "sessions missing: {topics:?}");
+
+    let topics = all_host_inspection_topics("what security patches were applied");
+    assert!(topics.contains(&"patch_history"), "patch_history missing: {topics:?}");
+
+    let topics = all_host_inspection_topics("is windows licensed on this machine");
+    assert!(topics.contains(&"activation"), "activation missing: {topics:?}");
+
+    let topics = all_host_inspection_topics("do I have to restart the computer");
+    assert!(topics.contains(&"pending_reboot"), "pending_reboot missing: {topics:?}");
+
+    let topics = all_host_inspection_topics("a device stopped working");
+    assert!(topics.contains(&"device_health"), "device_health missing: {topics:?}");
+}
