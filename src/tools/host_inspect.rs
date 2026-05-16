@@ -417,8 +417,8 @@ fn ps_escape_single_quoted(s: &str) -> String {
 // Restrict DNS record type to a known-safe allowlist; fall back to "A" for unknown input.
 fn validate_dns_record_type(record_type: &str) -> &str {
     match record_type.to_uppercase().as_str() {
-        "A" | "AAAA" | "MX" | "TXT" | "SRV" | "CNAME" | "NS" | "PTR" | "SOA" | "CAA"
-        | "NAPTR" | "DS" | "DNSKEY" | "ANY" => record_type,
+        "A" | "AAAA" | "MX" | "TXT" | "SRV" | "CNAME" | "NS" | "PTR" | "SOA" | "CAA" | "NAPTR"
+        | "DS" | "DNSKEY" | "ANY" => record_type,
         _ => "A",
     }
 }
@@ -5374,7 +5374,9 @@ fn inspect_storage(max_entries: usize) -> Result<String, String> {
 
 fn inspect_storage_deep() -> Result<String, String> {
     let mut out = String::from("Host inspection: storage_deep\n\n");
-    out.push_str("Deep storage analysis — scanning drives, top directories, and dev artifact caches.\n\n");
+    out.push_str(
+        "Deep storage analysis — scanning drives, top directories, and dev artifact caches.\n\n",
+    );
 
     #[cfg(target_os = "windows")]
     {
@@ -5479,7 +5481,9 @@ foreach ($root in $devRoots) {
                 let mut drive_lines: Vec<String> = Vec::new();
                 if let Some(sec) = sections.first() {
                     for line in sec.lines() {
-                        if !line.starts_with("DRIVE|") { continue; }
+                        if !line.starts_with("DRIVE|") {
+                            continue;
+                        }
                         let mut it = line.splitn(7, '|');
                         it.next(); // "DRIVE"
                         if let (Some(root), Some(used_s), Some(free_s), Some(total_s), Some(_pct)) =
@@ -5488,35 +5492,52 @@ foreach ($root in $devRoots) {
                             let used: u64 = used_s.trim().parse().unwrap_or(0);
                             let free: u64 = free_s.trim().parse().unwrap_or(0);
                             let total: u64 = total_s.trim().parse().unwrap_or(0);
-                            if total == 0 { continue; }
+                            if total == 0 {
+                                continue;
+                            }
                             let pct = (used as f64 / total as f64 * 100.0) as u64;
                             let bar_len = 28usize;
                             let filled = (pct as usize * bar_len / 100).min(bar_len);
                             let bar = "#".repeat(filled) + &".".repeat(bar_len - filled);
-                            let warn = if free < 5_368_709_120 { " [!] CRITICALLY LOW" }
-                                       else if free < 16_106_127_360 { " [-] LOW" }
-                                       else { "" };
+                            let warn = if free < 5_368_709_120 {
+                                " [!] CRITICALLY LOW"
+                            } else if free < 16_106_127_360 {
+                                " [-] LOW"
+                            } else {
+                                ""
+                            };
                             drive_lines.push(format!(
                                 "  {root}  [{bar}] {pct}% used — {} free of {}{}",
-                                human_bytes(free), human_bytes(total), warn
+                                human_bytes(free),
+                                human_bytes(total),
+                                warn
                             ));
                         }
                     }
                 }
 
                 // Parse known paths
-                struct PathEntry { label: String, bytes: u64, path: String, hint: String }
+                struct PathEntry {
+                    label: String,
+                    bytes: u64,
+                    path: String,
+                    hint: String,
+                }
                 let mut path_entries: Vec<PathEntry> = Vec::new();
                 if let Some(sec) = sections.get(1) {
                     for line in sec.lines() {
-                        if !line.starts_with("PATH|") { continue; }
+                        if !line.starts_with("PATH|") {
+                            continue;
+                        }
                         let mut it = line.splitn(6, '|');
                         it.next();
                         if let (Some(label), Some(path), Some(bytes_s), Some(hint)) =
                             (it.next(), it.next(), it.next(), it.next())
                         {
                             let bytes: u64 = bytes_s.trim().parse().unwrap_or(0);
-                            if bytes == 0 { continue; }
+                            if bytes == 0 {
+                                continue;
+                            }
                             path_entries.push(PathEntry {
                                 label: label.to_string(),
                                 bytes,
@@ -5529,11 +5550,18 @@ foreach ($root in $devRoots) {
                 }
 
                 // Parse artifacts
-                struct ArtEntry { label: String, path: String, bytes: u64, fix: String }
+                struct ArtEntry {
+                    label: String,
+                    path: String,
+                    bytes: u64,
+                    fix: String,
+                }
                 let mut art_entries: Vec<ArtEntry> = Vec::new();
                 if let Some(sec) = sections.get(2) {
                     for line in sec.lines() {
-                        if !line.starts_with("ARTIFACT|") { continue; }
+                        if !line.starts_with("ARTIFACT|") {
+                            continue;
+                        }
                         let mut it = line.splitn(6, '|');
                         it.next();
                         if let (Some(label), Some(path), Some(bytes_s), Some(fix)) =
@@ -5556,7 +5584,10 @@ foreach ($root in $devRoots) {
                 if drive_lines.is_empty() {
                     out.push_str("  (could not enumerate drives)\n");
                 } else {
-                    for line in &drive_lines { out.push_str(line); out.push('\n'); }
+                    for line in &drive_lines {
+                        out.push_str(line);
+                        out.push('\n');
+                    }
                 }
 
                 // ── Output: Top space consumers ───────────────────────────
@@ -5565,21 +5596,39 @@ foreach ($root in $devRoots) {
                     out.push_str("  (no large directories found in known locations)\n");
                 } else {
                     for e in path_entries.iter().take(20) {
-                        let _ = writeln!(out, "  {:>8}  {}  ({})",
-                            human_bytes(e.bytes), e.label, e.path);
+                        let _ = writeln!(
+                            out,
+                            "  {:>8}  {}  ({})",
+                            human_bytes(e.bytes),
+                            e.label,
+                            e.path
+                        );
                     }
                 }
 
                 // ── Output: Dev artifact caches ───────────────────────────
                 if !art_entries.is_empty() {
                     let total_artifact_bytes: u64 = art_entries.iter().map(|a| a.bytes).sum();
-                    let _ = writeln!(out, "\nDev artifact caches found ({} total across {} directories):",
-                        human_bytes(total_artifact_bytes), art_entries.len());
+                    let _ = writeln!(
+                        out,
+                        "\nDev artifact caches found ({} total across {} directories):",
+                        human_bytes(total_artifact_bytes),
+                        art_entries.len()
+                    );
                     for e in art_entries.iter().take(30) {
-                        let _ = writeln!(out, "  {:>8}  [{}]  {}\n            Fix: {}", human_bytes(e.bytes), e.label, e.path, e.fix);
+                        let _ = writeln!(
+                            out,
+                            "  {:>8}  [{}]  {}\n            Fix: {}",
+                            human_bytes(e.bytes),
+                            e.label,
+                            e.path,
+                            e.fix
+                        );
                     }
                 } else {
-                    out.push_str("\nDev artifact caches: none found in common project locations.\n");
+                    out.push_str(
+                        "\nDev artifact caches: none found in common project locations.\n",
+                    );
                 }
 
                 // ── Findings ──────────────────────────────────────────────
@@ -5596,27 +5645,38 @@ foreach ($root in $devRoots) {
                     } else if line.contains("[-] LOW") {
                         let drive_name = line.trim().chars().take(3).collect::<String>();
                         findings.push(format!(
-                            "  [INVESTIGATE] Drive {} is low on space — review and clean up soon.", drive_name
+                            "  [INVESTIGATE] Drive {} is low on space — review and clean up soon.",
+                            drive_name
                         ));
                     }
                 }
 
                 // Large temp/cache findings
-                if let Some(e) = path_entries.iter().find(|e| e.label.contains("Temp") || e.label.contains("Cache")) {
+                if let Some(e) = path_entries
+                    .iter()
+                    .find(|e| e.label.contains("Temp") || e.label.contains("Cache"))
+                {
                     if e.bytes > 1_073_741_824 {
                         findings.push(format!(
                             "  [ACTION] {} is using {} — {}",
-                            e.label, human_bytes(e.bytes), e.hint
+                            e.label,
+                            human_bytes(e.bytes),
+                            e.hint
                         ));
                     }
                 }
 
                 // Teams cache
-                if let Some(e) = path_entries.iter().find(|e| e.label.contains("Teams Cache")) {
+                if let Some(e) = path_entries
+                    .iter()
+                    .find(|e| e.label.contains("Teams Cache"))
+                {
                     if e.bytes > 536_870_912 {
                         findings.push(format!(
                             "  [ACTION] {} using {} — {}",
-                            e.label, human_bytes(e.bytes), e.hint
+                            e.label,
+                            human_bytes(e.bytes),
+                            e.hint
                         ));
                     }
                 }
@@ -5643,9 +5703,14 @@ foreach ($root in $devRoots) {
                 }
 
                 if findings.is_empty() {
-                    out.push_str("  Storage usage looks healthy — no major space issues detected.\n");
+                    out.push_str(
+                        "  Storage usage looks healthy — no major space issues detected.\n",
+                    );
                 } else {
-                    for f in &findings { out.push_str(f); out.push('\n'); }
+                    for f in &findings {
+                        out.push_str(f);
+                        out.push('\n');
+                    }
                 }
 
                 out.push_str("\nTip: ask the AI 'where did my disk space go?' or 'help me clean up my C drive' for a guided cleanup plan.\n");
@@ -5661,10 +5726,15 @@ foreach ($root in $devRoots) {
         let home = std::env::var("HOME").unwrap_or_default();
         // Drive overview
         out.push_str("Drives:\n");
-        if let Ok(o) = Command::new("df").args(["-h", "--output=target,size,avail,pcent"]).output() {
+        if let Ok(o) = Command::new("df")
+            .args(["-h", "--output=target,size,avail,pcent"])
+            .output()
+        {
             for line in String::from_utf8_lossy(&o.stdout).lines().skip(1) {
                 let mut it = line.split_whitespace();
-                if let (Some(fs), Some(sz), Some(av), Some(pct)) = (it.next(), it.next(), it.next(), it.next()) {
+                if let (Some(fs), Some(sz), Some(av), Some(pct)) =
+                    (it.next(), it.next(), it.next(), it.next())
+                {
                     if !fs.starts_with("tmpfs") {
                         let _ = writeln!(out, "  {fs}  size: {sz}  avail: {av}  used: {pct}");
                     }
@@ -5675,14 +5745,26 @@ foreach ($root in $devRoots) {
         // Known large paths
         out.push_str("\nTop space consumers:\n");
         let check: &[(&str, &str, &str)] = &[
-            ("Downloads",       "Downloads",            "review for large files"),
-            ("npm Cache",       ".npm",                 "npm cache clean --force"),
-            ("Cargo Registry",  ".cargo/registry",      "cargo cache --autoclean"),
-            ("Cargo Git",       ".cargo/git",           "cargo cache --autoclean"),
-            ("pip Cache",       ".cache/pip",           "pip cache purge"),
-            ("Rustup",          ".rustup/toolchains",   "rustup toolchain remove <old>"),
-            ("Gradle",          ".gradle/caches",       "gradle cleanBuildCache"),
-            ("Maven",           ".m2/repository",       "mvn dependency:purge-local-repository"),
+            ("Downloads", "Downloads", "review for large files"),
+            ("npm Cache", ".npm", "npm cache clean --force"),
+            (
+                "Cargo Registry",
+                ".cargo/registry",
+                "cargo cache --autoclean",
+            ),
+            ("Cargo Git", ".cargo/git", "cargo cache --autoclean"),
+            ("pip Cache", ".cache/pip", "pip cache purge"),
+            (
+                "Rustup",
+                ".rustup/toolchains",
+                "rustup toolchain remove <old>",
+            ),
+            ("Gradle", ".gradle/caches", "gradle cleanBuildCache"),
+            (
+                "Maven",
+                ".m2/repository",
+                "mvn dependency:purge-local-repository",
+            ),
         ];
         for (label, rel, hint) in check {
             let full = format!("{home}/{rel}");

@@ -8047,7 +8047,11 @@ fn test_routing_detects_startup_expanded() {
     ];
     for q in &queries {
         let topic = preferred_host_inspection_topic(q);
-        assert_eq!(topic, Some("startup_items"), "Expected startup_items for: {q}");
+        assert_eq!(
+            topic,
+            Some("startup_items"),
+            "Expected startup_items for: {q}"
+        );
     }
 }
 
@@ -8062,7 +8066,11 @@ fn test_routing_detects_certificates_expanded() {
     ];
     for q in &queries {
         let topic = preferred_host_inspection_topic(q);
-        assert_eq!(topic, Some("certificates"), "Expected certificates for: {q}");
+        assert_eq!(
+            topic,
+            Some("certificates"),
+            "Expected certificates for: {q}"
+        );
     }
 }
 
@@ -8094,7 +8102,11 @@ fn test_routing_detects_device_health_expanded() {
     ];
     for q in &queries {
         let topic = preferred_host_inspection_topic(q);
-        assert_eq!(topic, Some("device_health"), "Expected device_health for: {q}");
+        assert_eq!(
+            topic,
+            Some("device_health"),
+            "Expected device_health for: {q}"
+        );
     }
 }
 
@@ -10308,7 +10320,8 @@ fn test_recipe_matches_audio_crackling() {
     ] {
         let out = hematite::agent::fix_recipes::match_recipes(trigger);
         assert!(
-            out.iter().any(|r| r.title.contains("crackling") || r.title.contains("distortion")),
+            out.iter()
+                .any(|r| r.title.contains("crackling") || r.title.contains("distortion")),
             "should match audio crackling recipe for trigger: {trigger}"
         );
     }
@@ -10327,7 +10340,8 @@ fn test_recipe_matches_browser_slow_or_crashing() {
     ] {
         let out = hematite::agent::fix_recipes::match_recipes(trigger);
         assert!(
-            out.iter().any(|r| r.title.contains("Browser") || r.title.contains("browser")),
+            out.iter()
+                .any(|r| r.title.contains("Browser") || r.title.contains("browser")),
             "should match browser recipe for trigger: {trigger}"
         );
     }
@@ -10335,7 +10349,11 @@ fn test_recipe_matches_browser_slow_or_crashing() {
 
 #[test]
 fn test_routing_browser_routes_to_browser_health() {
-    for query in &["Chrome running slow", "browser keeps crashing", "Edge not opening"] {
+    for query in &[
+        "Chrome running slow",
+        "browser keeps crashing",
+        "Edge not opening",
+    ] {
         let topics = hematite::agent::report_export::fix_plan_topics(query);
         let topic_ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
         assert!(
@@ -10357,7 +10375,9 @@ fn test_recipe_matches_slow_startup() {
     ] {
         let out = hematite::agent::fix_recipes::match_recipes(trigger);
         assert!(
-            out.iter().any(|r| r.title.contains("startup is slow") || r.title.contains("long time to boot")),
+            out.iter()
+                .any(|r| r.title.contains("startup is slow")
+                    || r.title.contains("long time to boot")),
             "should match slow startup recipe for trigger: {trigger}"
         );
     }
@@ -10377,7 +10397,8 @@ fn test_recipe_matches_windows_update_stuck() {
     ] {
         let out = hematite::agent::fix_recipes::match_recipes(trigger);
         assert!(
-            out.iter().any(|r| r.title.contains("Update stuck") || r.title.contains("error code")),
+            out.iter()
+                .any(|r| r.title.contains("Update stuck") || r.title.contains("error code")),
             "should match Windows Update stuck recipe for trigger: {trigger}"
         );
     }
@@ -10396,7 +10417,8 @@ fn test_recipe_matches_gpu_driver_crash() {
     ] {
         let out = hematite::agent::fix_recipes::match_recipes(trigger);
         assert!(
-            out.iter().any(|r| r.title.contains("GPU") || r.title.contains("display driver")),
+            out.iter()
+                .any(|r| r.title.contains("GPU") || r.title.contains("display driver")),
             "should match GPU driver crash recipe for trigger: {trigger}"
         );
     }
@@ -10431,7 +10453,8 @@ fn test_recipe_matches_access_denied() {
     ] {
         let out = hematite::agent::fix_recipes::match_recipes(trigger);
         assert!(
-            out.iter().any(|r| r.title.contains("Access denied") || r.title.contains("permission")),
+            out.iter()
+                .any(|r| r.title.contains("Access denied") || r.title.contains("permission")),
             "should match access denied recipe for trigger: {trigger}"
         );
     }
@@ -10449,7 +10472,8 @@ fn test_recipe_matches_wifi_dropping() {
     ] {
         let out = hematite::agent::fix_recipes::match_recipes(trigger);
         assert!(
-            out.iter().any(|r| r.title.contains("Wi-Fi keeps") || r.title.contains("dropping")),
+            out.iter()
+                .any(|r| r.title.contains("Wi-Fi keeps") || r.title.contains("dropping")),
             "should match wifi dropping recipe for trigger: {trigger}"
         );
     }
@@ -10533,7 +10557,8 @@ fn test_recipe_matches_msmpeng_high_cpu() {
     ] {
         let out = hematite::agent::fix_recipes::match_recipes(trigger);
         assert!(
-            out.iter().any(|r| r.title.contains("Antimalware") || r.title.contains("MsMpEng")),
+            out.iter()
+                .any(|r| r.title.contains("Antimalware") || r.title.contains("MsMpEng")),
             "should match MsMpEng recipe for trigger: {trigger}"
         );
     }
@@ -10561,7 +10586,8 @@ fn test_recipe_matches_external_monitor_not_detected() {
     ] {
         let out = hematite::agent::fix_recipes::match_recipes(trigger);
         assert!(
-            out.iter().any(|r| r.title.contains("External monitor") || r.title.contains("no signal")),
+            out.iter()
+                .any(|r| r.title.contains("External monitor") || r.title.contains("no signal")),
             "should match external monitor recipe for trigger: {trigger}"
         );
     }
@@ -10578,7 +10604,8 @@ fn test_recipe_matches_explorer_crash() {
     ] {
         let out = hematite::agent::fix_recipes::match_recipes(trigger);
         assert!(
-            out.iter().any(|r| r.title.contains("Explorer") || r.title.contains("taskbar")),
+            out.iter()
+                .any(|r| r.title.contains("Explorer") || r.title.contains("taskbar")),
             "should match explorer crash recipe for trigger: {trigger}"
         );
     }
@@ -10663,7 +10690,12 @@ fn test_routing_mic_keyword_no_false_positive_on_microsoft() {
 
 #[test]
 fn test_routing_microphone_still_routes_to_audio() {
-    let cases = ["microphone not working", "mic not working", "mic keeps cutting out", "my mic is broken"];
+    let cases = [
+        "microphone not working",
+        "mic not working",
+        "mic keeps cutting out",
+        "my mic is broken",
+    ];
     for q in &cases {
         let topics = hematite::agent::report_export::fix_plan_topics(q);
         let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
@@ -10676,7 +10708,10 @@ fn test_routing_ntp_no_false_positive_on_sync_fail() {
     // "NTP sync failing" previously matched onedrive's "sync fail" keyword
     let topics = hematite::agent::report_export::fix_plan_topics("NTP sync failing");
     let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
-    assert!(!ids.contains(&"onedrive"), "onedrive should NOT match 'NTP sync failing'");
+    assert!(
+        !ids.contains(&"onedrive"),
+        "onedrive should NOT match 'NTP sync failing'"
+    );
     assert!(ids.contains(&"ntp"), "ntp should match 'NTP sync failing'");
 }
 
@@ -10703,11 +10738,18 @@ fn test_routing_ip_dhcp_routes_correctly() {
 #[test]
 fn test_routing_ipv6_mtu_route_correctly() {
     let ipv6_topics = hematite::agent::report_export::fix_plan_topics("IPv6 not working");
-    let mtu_topics = hematite::agent::report_export::fix_plan_topics("MTU issues causing packet loss");
+    let mtu_topics =
+        hematite::agent::report_export::fix_plan_topics("MTU issues causing packet loss");
     let ipv6_ids: Vec<_> = ipv6_topics.iter().map(|(t, _)| *t).collect();
     let mtu_ids: Vec<_> = mtu_topics.iter().map(|(t, _)| *t).collect();
-    assert!(ipv6_ids.contains(&"ipv6"), "ipv6 routing expected for IPv6 query");
-    assert!(mtu_ids.contains(&"mtu"), "mtu routing expected for MTU query");
+    assert!(
+        ipv6_ids.contains(&"ipv6"),
+        "ipv6 routing expected for IPv6 query"
+    );
+    assert!(
+        mtu_ids.contains(&"mtu"),
+        "mtu routing expected for MTU query"
+    );
 }
 
 #[test]
@@ -10721,7 +10763,10 @@ fn test_routing_certificates_tpm_smb_route_correctly() {
     for (q, expected) in &cases {
         let topics = hematite::agent::report_export::fix_plan_topics(q);
         let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
-        assert!(ids.contains(expected), "{expected} routing expected for: {q}");
+        assert!(
+            ids.contains(expected),
+            "{expected} routing expected for: {q}"
+        );
     }
 }
 
@@ -10735,7 +10780,10 @@ fn test_routing_pagefile_search_index_route_correctly() {
     for (q, expected) in &cases {
         let topics = hematite::agent::report_export::fix_plan_topics(q);
         let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
-        assert!(ids.contains(expected), "{expected} routing expected for: {q}");
+        assert!(
+            ids.contains(expected),
+            "{expected} routing expected for: {q}"
+        );
     }
 }
 
@@ -10745,37 +10793,64 @@ fn test_routing_wmi_event_log_route_correctly() {
     let log_topics = hematite::agent::report_export::fix_plan_topics("event log full");
     let wmi_ids: Vec<_> = wmi_topics.iter().map(|(t, _)| *t).collect();
     let log_ids: Vec<_> = log_topics.iter().map(|(t, _)| *t).collect();
-    assert!(wmi_ids.contains(&"wmi_health"), "wmi_health routing expected for WMI query");
-    assert!(log_ids.contains(&"log_check"), "log_check routing expected for event log query");
+    assert!(
+        wmi_ids.contains(&"wmi_health"),
+        "wmi_health routing expected for WMI query"
+    );
+    assert!(
+        log_ids.contains(&"log_check"),
+        "log_check routing expected for event log query"
+    );
 }
 
 #[test]
 fn test_routing_activation_routes_correctly() {
-    let cases = ["Windows license expired", "not activated", "need to activate Windows"];
+    let cases = [
+        "Windows license expired",
+        "not activated",
+        "need to activate Windows",
+    ];
     for q in &cases {
         let topics = hematite::agent::report_export::fix_plan_topics(q);
         let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
-        assert!(ids.contains(&"activation"), "activation routing expected for: {q}");
+        assert!(
+            ids.contains(&"activation"),
+            "activation routing expected for: {q}"
+        );
     }
 }
 
 #[test]
 fn test_routing_bitlocker_routes_correctly() {
-    let cases = ["BitLocker asking for recovery key", "BitLocker locked", "drive encryption failed"];
+    let cases = [
+        "BitLocker asking for recovery key",
+        "BitLocker locked",
+        "drive encryption failed",
+    ];
     for q in &cases {
         let topics = hematite::agent::report_export::fix_plan_topics(q);
         let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
-        assert!(ids.contains(&"bitlocker"), "bitlocker routing expected for: {q}");
+        assert!(
+            ids.contains(&"bitlocker"),
+            "bitlocker routing expected for: {q}"
+        );
     }
 }
 
 #[test]
 fn test_routing_domain_routes_correctly() {
-    let cases = ["can't join domain", "Group Policy not applying", "domain controller unreachable"];
+    let cases = [
+        "can't join domain",
+        "Group Policy not applying",
+        "domain controller unreachable",
+    ];
     for q in &cases {
         let topics = hematite::agent::report_export::fix_plan_topics(q);
         let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
-        assert!(ids.contains(&"domain_health"), "domain_health routing expected for: {q}");
+        assert!(
+            ids.contains(&"domain_health"),
+            "domain_health routing expected for: {q}"
+        );
     }
 }
 
@@ -10789,27 +10864,44 @@ fn test_routing_hyperv_wsl_docker_route_correctly() {
     for (q, expected_topic) in &cases {
         let topics = hematite::agent::report_export::fix_plan_topics(q);
         let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
-        assert!(ids.contains(expected_topic), "{expected_topic} routing expected for: {q}");
+        assert!(
+            ids.contains(expected_topic),
+            "{expected_topic} routing expected for: {q}"
+        );
     }
 }
 
 #[test]
 fn test_routing_random_restart_routes_to_crashes() {
-    let cases = ["computer restarts randomly", "keeps restarting unexpectedly", "random reboot"];
+    let cases = [
+        "computer restarts randomly",
+        "keeps restarting unexpectedly",
+        "random reboot",
+    ];
     for q in &cases {
         let topics = hematite::agent::report_export::fix_plan_topics(q);
         let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
-        assert!(ids.contains(&"recent_crashes"), "recent_crashes routing expected for: {q}");
+        assert!(
+            ids.contains(&"recent_crashes"),
+            "recent_crashes routing expected for: {q}"
+        );
     }
 }
 
 #[test]
 fn test_routing_disk_filling_routes_to_storage() {
-    let cases = ["SSD getting full fast", "hard drive filling up", "recycle bin won't empty"];
+    let cases = [
+        "SSD getting full fast",
+        "hard drive filling up",
+        "recycle bin won't empty",
+    ];
     for q in &cases {
         let topics = hematite::agent::report_export::fix_plan_topics(q);
         let ids: Vec<_> = topics.iter().map(|(t, _)| *t).collect();
-        assert!(ids.contains(&"storage"), "storage routing expected for: {q}");
+        assert!(
+            ids.contains(&"storage"),
+            "storage routing expected for: {q}"
+        );
     }
 }
 
@@ -10937,7 +11029,10 @@ fn test_ps_escape_single_quoted_correctness() {
     // Single-quote injection sequences must be doubled
     assert_eq!(escape("'; evil"), "''; evil");
     assert_eq!(escape("it's"), "it''s");
-    assert_eq!(escape("'; Remove-Item -Recurse C:\\ #"), "''; Remove-Item -Recurse C:\\ #");
+    assert_eq!(
+        escape("'; Remove-Item -Recurse C:\\ #"),
+        "''; Remove-Item -Recurse C:\\ #"
+    );
 
     // Multiple quotes
     assert_eq!(escape("a'b'c"), "a''b''c");
@@ -10951,7 +11046,9 @@ fn test_ps_escape_single_quoted_correctness() {
 fn test_validate_dns_record_type_allowlist() {
     // Mirrors the allowlist in validate_dns_record_type in host_inspect.rs.
     // Tests that known types are accepted and unknown types fall back to "A".
-    let known_types = ["A", "AAAA", "MX", "TXT", "SRV", "CNAME", "NS", "PTR", "SOA", "CAA", "ANY"];
+    let known_types = [
+        "A", "AAAA", "MX", "TXT", "SRV", "CNAME", "NS", "PTR", "SOA", "CAA", "ANY",
+    ];
     for rt in known_types {
         // Case-sensitive: the allowlist matches the exact casing passed
         let lower = rt.to_uppercase();
@@ -10965,13 +11062,7 @@ fn test_validate_dns_record_type_allowlist() {
     }
 
     // Unknown/injection attempts must fall back to "A"
-    let injections = [
-        "A; Get-ChildItem",
-        "$(evil)",
-        "INVALID",
-        "",
-        "A\nB",
-    ];
+    let injections = ["A; Get-ChildItem", "$(evil)", "INVALID", "", "A\nB"];
     for input in injections {
         let upper = input.to_uppercase();
         let result = match upper.as_str() {
@@ -10979,7 +11070,10 @@ fn test_validate_dns_record_type_allowlist() {
             | "NAPTR" | "DS" | "DNSKEY" | "ANY" => input,
             _ => "A",
         };
-        assert_eq!(result, "A", "Injection or invalid type {input:?} should fall back to A");
+        assert_eq!(
+            result, "A",
+            "Injection or invalid type {input:?} should fall back to A"
+        );
     }
 }
 
@@ -11017,7 +11111,10 @@ fn test_safe_write_refuses_symlinks() {
         let _ = std::fs::remove_file(&link_path);
         std::os::unix::fs::symlink(&real_target, &link_path).expect("create symlink");
         let result = safe_write(&link_path, b"injected");
-        assert!(result.is_err(), "safe_write must refuse to write through symlinks");
+        assert!(
+            result.is_err(),
+            "safe_write must refuse to write through symlinks"
+        );
         // Confirm the real target was not modified
         let still_original = std::fs::read_to_string(&real_target).unwrap();
         assert_eq!(still_original, "original");
@@ -11026,7 +11123,10 @@ fn test_safe_write_refuses_symlinks() {
     // Non-symlink write should succeed
     let plain_path = dir.join("plain.txt");
     let result = safe_write(&plain_path, b"hello");
-    assert!(result.is_ok(), "safe_write must succeed for non-symlink paths");
+    assert!(
+        result.is_ok(),
+        "safe_write must succeed for non-symlink paths"
+    );
     assert_eq!(std::fs::read_to_string(&plain_path).unwrap(), "hello");
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -11062,7 +11162,10 @@ fn test_inspect_host_thermal_returns_header() {
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "thermal" });
         let out = inspect_host(&args).await.expect("thermal must return Ok");
-        assert!(out.contains("Host inspection: thermal"), "missing header; got:\n{out}");
+        assert!(
+            out.contains("Host inspection: thermal"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11072,8 +11175,13 @@ fn test_inspect_host_activation_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "activation" });
-        let out = inspect_host(&args).await.expect("activation must return Ok");
-        assert!(out.contains("Host inspection: activation"), "missing header; got:\n{out}");
+        let out = inspect_host(&args)
+            .await
+            .expect("activation must return Ok");
+        assert!(
+            out.contains("Host inspection: activation"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11083,8 +11191,13 @@ fn test_inspect_host_patch_history_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "patch_history" });
-        let out = inspect_host(&args).await.expect("patch_history must return Ok");
-        assert!(out.contains("Host inspection: patch_history"), "missing header; got:\n{out}");
+        let out = inspect_host(&args)
+            .await
+            .expect("patch_history must return Ok");
+        assert!(
+            out.contains("Host inspection: patch_history"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11094,8 +11207,13 @@ fn test_inspect_host_storage_spaces_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "storage_spaces" });
-        let out = inspect_host(&args).await.expect("storage_spaces must return Ok");
-        assert!(out.contains("Host inspection: storage_spaces"), "missing header; got:\n{out}");
+        let out = inspect_host(&args)
+            .await
+            .expect("storage_spaces must return Ok");
+        assert!(
+            out.contains("Host inspection: storage_spaces"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11105,8 +11223,13 @@ fn test_inspect_host_defender_quarantine_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "defender_quarantine" });
-        let out = inspect_host(&args).await.expect("defender_quarantine must return Ok");
-        assert!(out.contains("Host inspection: defender_quarantine"), "missing header; got:\n{out}");
+        let out = inspect_host(&args)
+            .await
+            .expect("defender_quarantine must return Ok");
+        assert!(
+            out.contains("Host inspection: defender_quarantine"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11116,8 +11239,13 @@ fn test_inspect_host_domain_health_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "domain_health" });
-        let out = inspect_host(&args).await.expect("domain_health must return Ok");
-        assert!(out.contains("Host inspection: domain_health"), "missing header; got:\n{out}");
+        let out = inspect_host(&args)
+            .await
+            .expect("domain_health must return Ok");
+        assert!(
+            out.contains("Host inspection: domain_health"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11127,8 +11255,13 @@ fn test_inspect_host_service_dependencies_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "service_dependencies" });
-        let out = inspect_host(&args).await.expect("service_dependencies must return Ok");
-        assert!(out.contains("Host inspection: service_dependencies"), "missing header; got:\n{out}");
+        let out = inspect_host(&args)
+            .await
+            .expect("service_dependencies must return Ok");
+        assert!(
+            out.contains("Host inspection: service_dependencies"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11138,8 +11271,13 @@ fn test_inspect_host_wmi_health_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "wmi_health" });
-        let out = inspect_host(&args).await.expect("wmi_health must return Ok");
-        assert!(out.contains("Host inspection: wmi_health"), "missing header; got:\n{out}");
+        let out = inspect_host(&args)
+            .await
+            .expect("wmi_health must return Ok");
+        assert!(
+            out.contains("Host inspection: wmi_health"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11149,8 +11287,13 @@ fn test_inspect_host_local_security_policy_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "local_security_policy" });
-        let out = inspect_host(&args).await.expect("local_security_policy must return Ok");
-        assert!(out.contains("Host inspection: local_security_policy"), "missing header; got:\n{out}");
+        let out = inspect_host(&args)
+            .await
+            .expect("local_security_policy must return Ok");
+        assert!(
+            out.contains("Host inspection: local_security_policy"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11160,8 +11303,13 @@ fn test_inspect_host_usb_history_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "usb_history" });
-        let out = inspect_host(&args).await.expect("usb_history must return Ok");
-        assert!(out.contains("Host inspection: usb_history"), "missing header; got:\n{out}");
+        let out = inspect_host(&args)
+            .await
+            .expect("usb_history must return Ok");
+        assert!(
+            out.contains("Host inspection: usb_history"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11171,8 +11319,13 @@ fn test_inspect_host_print_spooler_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "print_spooler" });
-        let out = inspect_host(&args).await.expect("print_spooler must return Ok");
-        assert!(out.contains("Host inspection: print_spooler"), "missing header; got:\n{out}");
+        let out = inspect_host(&args)
+            .await
+            .expect("print_spooler must return Ok");
+        assert!(
+            out.contains("Host inspection: print_spooler"),
+            "missing header; got:\n{out}"
+        );
     });
 }
 
@@ -11242,10 +11395,16 @@ fn test_multi_topic_domain_health_expanded() {
 fn test_multi_topic_service_dependencies_expanded() {
     use hematite::agent::routing::all_host_inspection_topics;
     let cases = [
-        ("which services depend on DNS client", "service_dependencies"),
+        (
+            "which services depend on DNS client",
+            "service_dependencies",
+        ),
         ("services depend on this service", "service_dependencies"),
         ("show service graph", "service_dependencies"),
-        ("service required by another service", "service_dependencies"),
+        (
+            "service required by another service",
+            "service_dependencies",
+        ),
         ("restart cascade if I stop DHCP", "service_dependencies"),
     ];
     for (query, expected) in &cases {
@@ -11280,7 +11439,10 @@ fn test_multi_topic_wmi_health_expanded() {
 fn test_multi_topic_local_security_policy_expanded() {
     use hematite::agent::routing::all_host_inspection_topics;
     let cases = [
-        ("lockout threshold for user accounts", "local_security_policy"),
+        (
+            "lockout threshold for user accounts",
+            "local_security_policy",
+        ),
         ("ntlm authentication level setting", "local_security_policy"),
         ("uac prompt appearing too often", "local_security_policy"),
         ("user account control settings", "local_security_policy"),
@@ -11341,110 +11503,257 @@ fn test_multi_topic_print_spooler_expanded() {
 #[test]
 fn test_routing_detects_disk_health_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("check disk health"), Some("disk_health"));
-    assert_eq!(preferred_host_inspection_topic("is my drive failing"), Some("disk_health"));
-    assert_eq!(preferred_host_inspection_topic("smart status of the SSD"), Some("disk_health"));
-    assert_eq!(preferred_host_inspection_topic("hard drive dying symptoms"), Some("disk_health"));
-    assert_eq!(preferred_host_inspection_topic("is the drive healthy"), Some("disk_health"));
+    assert_eq!(
+        preferred_host_inspection_topic("check disk health"),
+        Some("disk_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is my drive failing"),
+        Some("disk_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("smart status of the SSD"),
+        Some("disk_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("hard drive dying symptoms"),
+        Some("disk_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is the drive healthy"),
+        Some("disk_health")
+    );
 }
 
 #[test]
 fn test_routing_detects_pending_reboot_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("does my PC need to restart"), Some("pending_reboot"));
-    assert_eq!(preferred_host_inspection_topic("reboot required after update"), Some("pending_reboot"));
-    assert_eq!(preferred_host_inspection_topic("is a restart pending"), Some("pending_reboot"));
-    assert_eq!(preferred_host_inspection_topic("pending reboot check"), Some("pending_reboot"));
+    assert_eq!(
+        preferred_host_inspection_topic("does my PC need to restart"),
+        Some("pending_reboot")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("reboot required after update"),
+        Some("pending_reboot")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is a restart pending"),
+        Some("pending_reboot")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("pending reboot check"),
+        Some("pending_reboot")
+    );
 }
 
 #[test]
 fn test_routing_detects_recent_crashes_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show recent crash history"), Some("recent_crashes"));
-    assert_eq!(preferred_host_inspection_topic("why did my PC blue screen"), Some("recent_crashes"));
-    assert_eq!(preferred_host_inspection_topic("BSOD last night"), Some("recent_crashes"));
-    assert_eq!(preferred_host_inspection_topic("PC keeps restarting randomly"), Some("recent_crashes"));
+    assert_eq!(
+        preferred_host_inspection_topic("show recent crash history"),
+        Some("recent_crashes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("why did my PC blue screen"),
+        Some("recent_crashes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("BSOD last night"),
+        Some("recent_crashes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("PC keeps restarting randomly"),
+        Some("recent_crashes")
+    );
 }
 
 #[test]
 fn test_routing_detects_processes_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("what processes are running"), Some("processes"));
-    assert_eq!(preferred_host_inspection_topic("show running processes"), Some("processes"));
-    assert_eq!(preferred_host_inspection_topic("top memory consuming processes"), Some("processes"));
-    assert_eq!(preferred_host_inspection_topic("using ram the most"), Some("processes"));
+    assert_eq!(
+        preferred_host_inspection_topic("what processes are running"),
+        Some("processes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show running processes"),
+        Some("processes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("top memory consuming processes"),
+        Some("processes")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("using ram the most"),
+        Some("processes")
+    );
 }
 
 #[test]
 fn test_routing_detects_services_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("list all windows services"), Some("services"));
-    assert_eq!(preferred_host_inspection_topic("what services are running"), Some("services"));
-    assert_eq!(preferred_host_inspection_topic("background service status"), Some("services"));
-    assert_eq!(preferred_host_inspection_topic("get-service output"), Some("services"));
+    assert_eq!(
+        preferred_host_inspection_topic("list all windows services"),
+        Some("services")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what services are running"),
+        Some("services")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("background service status"),
+        Some("services")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("get-service output"),
+        Some("services")
+    );
 }
 
 #[test]
 fn test_routing_detects_ports_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("what listening ports does this machine have"), Some("ports"));
-    assert_eq!(preferred_host_inspection_topic("what is listening on this machine"), Some("ports"));
-    assert_eq!(preferred_host_inspection_topic("what port is the web server on"), Some("ports"));
-    assert_eq!(preferred_host_inspection_topic("which ports are exposed on this server"), Some("ports"));
+    assert_eq!(
+        preferred_host_inspection_topic("what listening ports does this machine have"),
+        Some("ports")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is listening on this machine"),
+        Some("ports")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what port is the web server on"),
+        Some("ports")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("which ports are exposed on this server"),
+        Some("ports")
+    );
 }
 
 #[test]
 fn test_routing_detects_wifi_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show wifi signal strength"), Some("wifi"));
-    assert_eq!(preferred_host_inspection_topic("show current SSID"), Some("wifi"));
-    assert_eq!(preferred_host_inspection_topic("wi-fi connection status"), Some("wifi"));
-    assert_eq!(preferred_host_inspection_topic("wireless access point info"), Some("wifi"));
+    assert_eq!(
+        preferred_host_inspection_topic("show wifi signal strength"),
+        Some("wifi")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show current SSID"),
+        Some("wifi")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("wi-fi connection status"),
+        Some("wifi")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("wireless access point info"),
+        Some("wifi")
+    );
 }
 
 #[test]
 fn test_routing_detects_updates_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("check for windows updates"), Some("updates"));
-    assert_eq!(preferred_host_inspection_topic("are there pending updates"), Some("updates"));
-    assert_eq!(preferred_host_inspection_topic("is my PC up to date"), Some("updates"));
-    assert_eq!(preferred_host_inspection_topic("latest update status"), Some("updates"));
+    assert_eq!(
+        preferred_host_inspection_topic("check for windows updates"),
+        Some("updates")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("are there pending updates"),
+        Some("updates")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is my PC up to date"),
+        Some("updates")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("latest update status"),
+        Some("updates")
+    );
 }
 
 #[test]
 fn test_routing_detects_security_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("antivirus status check"), Some("security"));
-    assert_eq!(preferred_host_inspection_topic("is my PC protected from malware"), Some("security"));
-    assert_eq!(preferred_host_inspection_topic("windows security status"), Some("security"));
-    assert_eq!(preferred_host_inspection_topic("is defender running"), Some("security"));
+    assert_eq!(
+        preferred_host_inspection_topic("antivirus status check"),
+        Some("security")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is my PC protected from malware"),
+        Some("security")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("windows security status"),
+        Some("security")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is defender running"),
+        Some("security")
+    );
 }
 
 #[test]
 fn test_routing_detects_battery_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("check battery health"), Some("battery"));
-    assert_eq!(preferred_host_inspection_topic("battery life remaining"), Some("battery"));
-    assert_eq!(preferred_host_inspection_topic("charge level of battery"), Some("battery"));
-    assert_eq!(preferred_host_inspection_topic("battery wear after 2 years"), Some("battery"));
+    assert_eq!(
+        preferred_host_inspection_topic("check battery health"),
+        Some("battery")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("battery life remaining"),
+        Some("battery")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("charge level of battery"),
+        Some("battery")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("battery wear after 2 years"),
+        Some("battery")
+    );
 }
 
 #[test]
 fn test_routing_detects_dev_conflicts_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("check for dev conflicts"), Some("dev_conflicts"));
-    assert_eq!(preferred_host_inspection_topic("toolchain conflict between rust versions"), Some("dev_conflicts"));
-    assert_eq!(preferred_host_inspection_topic("nvm conflict with node"), Some("dev_conflicts"));
-    assert_eq!(preferred_host_inspection_topic("pyenv conflict with python"), Some("dev_conflicts"));
+    assert_eq!(
+        preferred_host_inspection_topic("check for dev conflicts"),
+        Some("dev_conflicts")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("toolchain conflict between rust versions"),
+        Some("dev_conflicts")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("nvm conflict with node"),
+        Some("dev_conflicts")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("pyenv conflict with python"),
+        Some("dev_conflicts")
+    );
 }
 
 #[test]
 fn test_routing_detects_dns_cache_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show dns cache entries"), Some("dns_cache"));
-    assert_eq!(preferred_host_inspection_topic("show locally cached dns"), Some("dns_cache"));
-    assert_eq!(preferred_host_inspection_topic("view the dns cache contents"), Some("dns_cache"));
-    assert_eq!(preferred_host_inspection_topic("inspect the dns cache"), Some("dns_cache"));
+    assert_eq!(
+        preferred_host_inspection_topic("show dns cache entries"),
+        Some("dns_cache")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show locally cached dns"),
+        Some("dns_cache")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("view the dns cache contents"),
+        Some("dns_cache")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("inspect the dns cache"),
+        Some("dns_cache")
+    );
 }
 
 // ── Batch 17: routing tests for remaining untested preferred_host topics ──────
@@ -11452,60 +11761,132 @@ fn test_routing_detects_dns_cache_topic() {
 #[test]
 fn test_routing_detects_activation_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("check windows activation status"), Some("activation"));
-    assert_eq!(preferred_host_inspection_topic("is windows genuine"), Some("activation"));
-    assert_eq!(preferred_host_inspection_topic("my product key is invalid"), Some("activation"));
-    assert_eq!(preferred_host_inspection_topic("run slmgr /xpr"), Some("activation"));
+    assert_eq!(
+        preferred_host_inspection_topic("check windows activation status"),
+        Some("activation")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is windows genuine"),
+        Some("activation")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("my product key is invalid"),
+        Some("activation")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("run slmgr /xpr"),
+        Some("activation")
+    );
 }
 
 #[test]
 fn test_routing_detects_patch_history_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show patch history"), Some("patch_history"));
-    assert_eq!(preferred_host_inspection_topic("list installed hotfixes"), Some("patch_history"));
-    assert_eq!(preferred_host_inspection_topic("kb history for this machine"), Some("patch_history"));
-    assert_eq!(preferred_host_inspection_topic("show installed updates history"), Some("patch_history"));
+    assert_eq!(
+        preferred_host_inspection_topic("show patch history"),
+        Some("patch_history")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("list installed hotfixes"),
+        Some("patch_history")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("kb history for this machine"),
+        Some("patch_history")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show installed updates history"),
+        Some("patch_history")
+    );
 }
 
 #[test]
 fn test_routing_detects_scheduled_tasks_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show all scheduled tasks"), Some("scheduled_tasks"));
-    assert_eq!(preferred_host_inspection_topic("task scheduler jobs that run daily"), Some("scheduled_tasks"));
-    assert_eq!(preferred_host_inspection_topic("list background tasks"), Some("scheduled_tasks"));
-    assert_eq!(preferred_host_inspection_topic("what cron jobs are configured"), Some("scheduled_tasks"));
+    assert_eq!(
+        preferred_host_inspection_topic("show all scheduled tasks"),
+        Some("scheduled_tasks")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("task scheduler jobs that run daily"),
+        Some("scheduled_tasks")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("list background tasks"),
+        Some("scheduled_tasks")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what cron jobs are configured"),
+        Some("scheduled_tasks")
+    );
 }
 
 #[test]
 fn test_routing_detects_share_access_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("can I access the network share"), Some("share_access"));
-    assert_eq!(preferred_host_inspection_topic("test UNC path access"), Some("share_access"));
-    assert_eq!(preferred_host_inspection_topic("show the net share listing"), Some("share_access"));
+    assert_eq!(
+        preferred_host_inspection_topic("can I access the network share"),
+        Some("share_access")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("test UNC path access"),
+        Some("share_access")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show the net share listing"),
+        Some("share_access")
+    );
 }
 
 #[test]
 fn test_routing_detects_health_report_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("run a system health report"), Some("health_report"));
-    assert_eq!(preferred_host_inspection_topic("show system health status"), Some("health_report"));
-    assert_eq!(preferred_host_inspection_topic("how is my machine doing overall"), Some("health_report"));
+    assert_eq!(
+        preferred_host_inspection_topic("run a system health report"),
+        Some("health_report")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show system health status"),
+        Some("health_report")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("how is my machine doing overall"),
+        Some("health_report")
+    );
 }
 
 #[test]
 fn test_routing_detects_registry_audit_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show registry audit details"), Some("registry_audit"));
-    assert_eq!(preferred_host_inspection_topic("check for registry persistence"), Some("registry_audit"));
-    assert_eq!(preferred_host_inspection_topic("sticky keys registry check"), Some("registry_audit"));
+    assert_eq!(
+        preferred_host_inspection_topic("show registry audit details"),
+        Some("registry_audit")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("check for registry persistence"),
+        Some("registry_audit")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("sticky keys registry check"),
+        Some("registry_audit")
+    );
 }
 
 #[test]
 fn test_routing_detects_login_history_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show login history for this user"), Some("login_history"));
-    assert_eq!(preferred_host_inspection_topic("last logon history for this account"), Some("login_history"));
-    assert_eq!(preferred_host_inspection_topic("show recent logon events"), Some("login_history"));
+    assert_eq!(
+        preferred_host_inspection_topic("show login history for this user"),
+        Some("login_history")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("last logon history for this account"),
+        Some("login_history")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show recent logon events"),
+        Some("login_history")
+    );
 }
 
 // ── Batch 15: all_host_inspection_topics moderate-gap expansions ──────────────
@@ -11702,43 +12083,79 @@ fn test_routing_whats_using_cpu_goes_to_processes_not_hardware() {
 #[test]
 fn test_routing_detects_ad_user_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("look up the ad user account"), Some("ad_user"));
-    assert_eq!(preferred_host_inspection_topic("show domain user membership"), Some("ad_user"));
+    assert_eq!(
+        preferred_host_inspection_topic("look up the ad user account"),
+        Some("ad_user")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show domain user membership"),
+        Some("ad_user")
+    );
 }
 
 #[test]
 fn test_routing_detects_network_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show network overview"), Some("network"));
-    assert_eq!(preferred_host_inspection_topic("show current network interfaces"), Some("network"));
+    assert_eq!(
+        preferred_host_inspection_topic("show network overview"),
+        Some("network")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show current network interfaces"),
+        Some("network")
+    );
 }
 
 #[test]
 fn test_routing_detects_permissions_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("check file permissions on this folder"), Some("permissions"));
-    assert_eq!(preferred_host_inspection_topic("view access control for a directory"), Some("permissions"));
+    assert_eq!(
+        preferred_host_inspection_topic("check file permissions on this folder"),
+        Some("permissions")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("view access control for a directory"),
+        Some("permissions")
+    );
 }
 
 #[test]
 fn test_routing_detects_desktop_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show desktop folder contents"), Some("desktop"));
-    assert_eq!(preferred_host_inspection_topic("list desktop files"), Some("desktop"));
+    assert_eq!(
+        preferred_host_inspection_topic("show desktop folder contents"),
+        Some("desktop")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("list desktop files"),
+        Some("desktop")
+    );
 }
 
 #[test]
 fn test_routing_detects_downloads_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("list downloads folder"), Some("downloads"));
-    assert_eq!(preferred_host_inspection_topic("show what's in downloads folder"), Some("downloads"));
+    assert_eq!(
+        preferred_host_inspection_topic("list downloads folder"),
+        Some("downloads")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("show what's in downloads folder"),
+        Some("downloads")
+    );
 }
 
 #[test]
 fn test_routing_detects_directory_topic() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("what is in the directory /tmp"), Some("directory"));
-    assert_eq!(preferred_host_inspection_topic("how big is this folder"), Some("directory"));
+    assert_eq!(
+        preferred_host_inspection_topic("what is in the directory /tmp"),
+        Some("directory")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("how big is this folder"),
+        Some("directory")
+    );
 }
 
 // ── Batch 20: multi-topic detection gaps (disk_benchmark, desktop, downloads) ─
@@ -11802,10 +12219,22 @@ fn test_multi_topic_downloads_expanded() {
 #[test]
 fn test_routing_detects_sign_in_for_login_variants() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("can't login to Windows"), Some("sign_in"));
-    assert_eq!(preferred_host_inspection_topic("login failed after update"), Some("sign_in"));
-    assert_eq!(preferred_host_inspection_topic("login not working on this machine"), Some("sign_in"));
-    assert_eq!(preferred_host_inspection_topic("login problem since restart"), Some("sign_in"));
+    assert_eq!(
+        preferred_host_inspection_topic("can't login to Windows"),
+        Some("sign_in")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("login failed after update"),
+        Some("sign_in")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("login not working on this machine"),
+        Some("sign_in")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("login problem since restart"),
+        Some("sign_in")
+    );
 }
 
 #[test]
@@ -11833,8 +12262,14 @@ fn test_fix_path_audio_includes_drivers() {
     use hematite::agent::report_export::fix_plan_topics;
     let topics = fix_plan_topics("no sound from speakers");
     let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
-    assert!(names.contains(&"audio"), "expected audio for audio issue, got {names:?}");
-    assert!(names.contains(&"drivers"), "expected drivers for audio issue, got {names:?}");
+    assert!(
+        names.contains(&"audio"),
+        "expected audio for audio issue, got {names:?}"
+    );
+    assert!(
+        names.contains(&"drivers"),
+        "expected drivers for audio issue, got {names:?}"
+    );
 }
 
 #[test]
@@ -11855,7 +12290,10 @@ fn test_fix_path_teams_includes_connectivity() {
     use hematite::agent::report_export::fix_plan_topics;
     let topics = fix_plan_topics("teams not working");
     let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
-    assert!(names.contains(&"connectivity"), "expected connectivity for teams issue, got {names:?}");
+    assert!(
+        names.contains(&"connectivity"),
+        "expected connectivity for teams issue, got {names:?}"
+    );
 }
 
 #[test]
@@ -11863,7 +12301,10 @@ fn test_fix_path_outlook_includes_connectivity() {
     use hematite::agent::report_export::fix_plan_topics;
     let topics = fix_plan_topics("email not working in outlook");
     let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
-    assert!(names.contains(&"connectivity"), "expected connectivity for outlook issue, got {names:?}");
+    assert!(
+        names.contains(&"connectivity"),
+        "expected connectivity for outlook issue, got {names:?}"
+    );
 }
 
 #[test]
@@ -11871,7 +12312,10 @@ fn test_fix_path_ssh_includes_services() {
     use hematite::agent::report_export::fix_plan_topics;
     let topics = fix_plan_topics("ssh not working");
     let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
-    assert!(names.contains(&"services"), "expected services for ssh issue, got {names:?}");
+    assert!(
+        names.contains(&"services"),
+        "expected services for ssh issue, got {names:?}"
+    );
 }
 
 #[test]
@@ -11879,8 +12323,14 @@ fn test_fix_path_hyperv_includes_storage_and_disk_health() {
     use hematite::agent::report_export::fix_plan_topics;
     let topics = fix_plan_topics("vm won't start in hyper-v");
     let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
-    assert!(names.contains(&"storage"), "expected storage for hyperv issue, got {names:?}");
-    assert!(names.contains(&"disk_health"), "expected disk_health for hyperv issue, got {names:?}");
+    assert!(
+        names.contains(&"storage"),
+        "expected storage for hyperv issue, got {names:?}"
+    );
+    assert!(
+        names.contains(&"disk_health"),
+        "expected disk_health for hyperv issue, got {names:?}"
+    );
 }
 
 #[test]
@@ -11888,8 +12338,14 @@ fn test_fix_path_wsl_includes_connectivity_and_dns() {
     use hematite::agent::report_export::fix_plan_topics;
     let topics = fix_plan_topics("wsl not working");
     let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
-    assert!(names.contains(&"connectivity"), "expected connectivity for wsl issue, got {names:?}");
-    assert!(names.contains(&"dns_servers"), "expected dns_servers for wsl issue, got {names:?}");
+    assert!(
+        names.contains(&"connectivity"),
+        "expected connectivity for wsl issue, got {names:?}"
+    );
+    assert!(
+        names.contains(&"dns_servers"),
+        "expected dns_servers for wsl issue, got {names:?}"
+    );
 }
 
 #[test]
@@ -11897,7 +12353,10 @@ fn test_fix_path_docker_includes_connectivity() {
     use hematite::agent::report_export::fix_plan_topics;
     let topics = fix_plan_topics("docker not connecting");
     let names: Vec<&str> = topics.iter().map(|(t, _)| *t).collect();
-    assert!(names.contains(&"connectivity"), "expected connectivity for docker issue, got {names:?}");
+    assert!(
+        names.contains(&"connectivity"),
+        "expected connectivity for docker issue, got {names:?}"
+    );
 }
 
 // ── Batch 23: sparse-keyword routing expansions ───────────────────────────────
@@ -11905,35 +12364,62 @@ fn test_fix_path_docker_includes_connectivity() {
 #[test]
 fn test_routing_detects_gpo_for_active_policies() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show active policies on this machine"), Some("gpo"));
-    assert_eq!(preferred_host_inspection_topic("what policy objects are applied"), Some("gpo"));
+    assert_eq!(
+        preferred_host_inspection_topic("show active policies on this machine"),
+        Some("gpo")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what policy objects are applied"),
+        Some("gpo")
+    );
 }
 
 #[test]
 fn test_routing_detects_scheduled_tasks_for_job_variants() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("show all scheduled jobs"), Some("scheduled_tasks"));
-    assert_eq!(preferred_host_inspection_topic("what is running automatically on this machine"), Some("scheduled_tasks"));
+    assert_eq!(
+        preferred_host_inspection_topic("show all scheduled jobs"),
+        Some("scheduled_tasks")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is running automatically on this machine"),
+        Some("scheduled_tasks")
+    );
 }
 
 #[test]
 fn test_routing_detects_pagefile_for_swap_space() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("how much swap space is configured"), Some("pagefile"));
-    assert_eq!(preferred_host_inspection_topic("is memory swapping happening"), Some("pagefile"));
+    assert_eq!(
+        preferred_host_inspection_topic("how much swap space is configured"),
+        Some("pagefile")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("is memory swapping happening"),
+        Some("pagefile")
+    );
 }
 
 #[test]
 fn test_routing_detects_resource_load_for_memory_pressure() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("check memory pressure on this machine"), Some("resource_load"));
-    assert_eq!(preferred_host_inspection_topic("what is the current memory load"), Some("resource_load"));
+    assert_eq!(
+        preferred_host_inspection_topic("check memory pressure on this machine"),
+        Some("resource_load")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("what is the current memory load"),
+        Some("resource_load")
+    );
 }
 
 #[test]
 fn test_routing_detects_shares_for_file_sharing() {
     use hematite::agent::routing::preferred_host_inspection_topic;
-    assert_eq!(preferred_host_inspection_topic("file sharing status on this machine"), Some("shares"));
+    assert_eq!(
+        preferred_host_inspection_topic("file sharing status on this machine"),
+        Some("shares")
+    );
 }
 
 // ── Batch 25: multi-topic tests for batch 23/24 keyword expansions ────────────
@@ -11948,7 +12434,10 @@ fn test_multi_topic_gpo_policy_variant_phrases() {
     ];
     for (query, expected) in &cases {
         let topics = all_host_inspection_topics(query);
-        assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
     }
 }
 
@@ -11957,13 +12446,19 @@ fn test_multi_topic_scheduled_tasks_job_variants() {
     use hematite::agent::routing::all_host_inspection_topics;
     let cases = [
         ("list all scheduled jobs", "scheduled_tasks"),
-        ("what is running automatically on this machine", "scheduled_tasks"),
+        (
+            "what is running automatically on this machine",
+            "scheduled_tasks",
+        ),
         ("show background task list", "scheduled_tasks"),
         ("list cron jobs configured", "scheduled_tasks"),
     ];
     for (query, expected) in &cases {
         let topics = all_host_inspection_topics(query);
-        assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
     }
 }
 
@@ -11977,7 +12472,10 @@ fn test_multi_topic_pagefile_swap_variants() {
     ];
     for (query, expected) in &cases {
         let topics = all_host_inspection_topics(query);
-        assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
     }
 }
 
@@ -11990,7 +12488,10 @@ fn test_multi_topic_resource_load_memory_pressure() {
     ];
     for (query, expected) in &cases {
         let topics = all_host_inspection_topics(query);
-        assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
     }
 }
 
@@ -12004,7 +12505,10 @@ fn test_multi_topic_shares_file_sharing() {
     ];
     for (query, expected) in &cases {
         let topics = all_host_inspection_topics(query);
-        assert!(topics.contains(expected), "expected {expected} for {query:?}, got {topics:?}");
+        assert!(
+            topics.contains(expected),
+            "expected {expected} for {query:?}, got {topics:?}"
+        );
     }
 }
 
@@ -12199,7 +12703,10 @@ fn test_multi_topic_batch27_keyword_expansions() {
         ("what is my current charge on this laptop", "battery"),
         ("list all applications installed here", "installed_software"),
         ("what usb devices have been plugged in", "usb_history"),
-        ("is the printer service running on this machine", "print_spooler"),
+        (
+            "is the printer service running on this machine",
+            "print_spooler",
+        ),
         ("what accounts have admin rights", "user_accounts"),
     ];
     for (query, expected) in &cases {
@@ -12760,7 +13267,10 @@ fn test_multi_topic_batch34_bitlocker_tpm_policy_audit_shares_spooler() {
         ("drive encryption status", "bitlocker"),
         ("is uefi enabled on this machine", "tpm"),
         ("check uefi boot status", "tpm"),
-        ("how many failed logins before lockout", "local_security_policy"),
+        (
+            "how many failed logins before lockout",
+            "local_security_policy",
+        ),
         ("what is the uac status", "local_security_policy"),
         ("which logon events are being audited", "audit_policy"),
         ("are audit events enabled on this machine", "audit_policy"),
@@ -12956,16 +13466,28 @@ fn test_multi_topic_batch36_sessions_patch_activation_reboot_device() {
     assert!(topics.contains(&"sessions"), "sessions missing: {topics:?}");
 
     let topics = all_host_inspection_topics("what security patches were applied");
-    assert!(topics.contains(&"patch_history"), "patch_history missing: {topics:?}");
+    assert!(
+        topics.contains(&"patch_history"),
+        "patch_history missing: {topics:?}"
+    );
 
     let topics = all_host_inspection_topics("is windows licensed on this machine");
-    assert!(topics.contains(&"activation"), "activation missing: {topics:?}");
+    assert!(
+        topics.contains(&"activation"),
+        "activation missing: {topics:?}"
+    );
 
     let topics = all_host_inspection_topics("do I have to restart the computer");
-    assert!(topics.contains(&"pending_reboot"), "pending_reboot missing: {topics:?}");
+    assert!(
+        topics.contains(&"pending_reboot"),
+        "pending_reboot missing: {topics:?}"
+    );
 
     let topics = all_host_inspection_topics("a device stopped working");
-    assert!(topics.contains(&"device_health"), "device_health missing: {topics:?}");
+    assert!(
+        topics.contains(&"device_health"),
+        "device_health missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13091,19 +13613,31 @@ fn test_multi_topic_batch37_audio_share_storage_disk_connectivity_startup_update
     assert!(topics.contains(&"audio"), "audio missing: {topics:?}");
 
     let topics = all_host_inspection_topics("network drive is not accessible");
-    assert!(topics.contains(&"share_access"), "share_access missing: {topics:?}");
+    assert!(
+        topics.contains(&"share_access"),
+        "share_access missing: {topics:?}"
+    );
 
     let topics = all_host_inspection_topics("the disk is full");
     assert!(topics.contains(&"storage"), "storage missing: {topics:?}");
 
     let topics = all_host_inspection_topics("my drive has bad sectors");
-    assert!(topics.contains(&"disk_health"), "disk_health missing: {topics:?}");
+    assert!(
+        topics.contains(&"disk_health"),
+        "disk_health missing: {topics:?}"
+    );
 
     let topics = all_host_inspection_topics("network not working");
-    assert!(topics.contains(&"connectivity"), "connectivity missing: {topics:?}");
+    assert!(
+        topics.contains(&"connectivity"),
+        "connectivity missing: {topics:?}"
+    );
 
     let topics = all_host_inspection_topics("what loads on boot");
-    assert!(topics.contains(&"startup_items"), "startup_items missing: {topics:?}");
+    assert!(
+        topics.contains(&"startup_items"),
+        "startup_items missing: {topics:?}"
+    );
 
     let topics = all_host_inspection_topics("check updates");
     assert!(topics.contains(&"updates"), "updates missing: {topics:?}");
@@ -13153,7 +13687,10 @@ fn test_routing_parity38_product_key_routes_to_activation() {
     let t = preferred_host_inspection_topic("where is my product key");
     assert_eq!(t.as_deref(), Some("activation"));
     let topics = all_host_inspection_topics("where is my product key");
-    assert!(topics.contains(&"activation"), "activation missing: {topics:?}");
+    assert!(
+        topics.contains(&"activation"),
+        "activation missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13162,7 +13699,10 @@ fn test_routing_parity38_not_activated_routes_to_activation() {
     let t = preferred_host_inspection_topic("windows is not activated");
     assert_eq!(t.as_deref(), Some("activation"));
     let topics = all_host_inspection_topics("windows is not activated");
-    assert!(topics.contains(&"activation"), "activation missing: {topics:?}");
+    assert!(
+        topics.contains(&"activation"),
+        "activation missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13171,7 +13711,10 @@ fn test_routing_parity38_keeps_restarting_routes_to_recent_crashes() {
     let t = preferred_host_inspection_topic("my PC keeps restarting");
     assert_eq!(t.as_deref(), Some("recent_crashes"));
     let topics = all_host_inspection_topics("my PC keeps restarting");
-    assert!(topics.contains(&"recent_crashes"), "recent_crashes missing: {topics:?}");
+    assert!(
+        topics.contains(&"recent_crashes"),
+        "recent_crashes missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13180,7 +13723,10 @@ fn test_routing_parity38_random_reboot_routes_to_recent_crashes() {
     let t = preferred_host_inspection_topic("random reboot overnight");
     assert_eq!(t.as_deref(), Some("recent_crashes"));
     let topics = all_host_inspection_topics("random reboot overnight");
-    assert!(topics.contains(&"recent_crashes"), "recent_crashes missing: {topics:?}");
+    assert!(
+        topics.contains(&"recent_crashes"),
+        "recent_crashes missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13189,7 +13735,10 @@ fn test_routing_parity38_apps_crashing_routes_to_app_crashes() {
     let t = preferred_host_inspection_topic("apps crashing constantly");
     assert_eq!(t.as_deref(), Some("app_crashes"));
     let topics = all_host_inspection_topics("apps crashing constantly");
-    assert!(topics.contains(&"app_crashes"), "app_crashes missing: {topics:?}");
+    assert!(
+        topics.contains(&"app_crashes"),
+        "app_crashes missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13198,7 +13747,10 @@ fn test_routing_parity38_what_crashed_routes_to_app_crashes() {
     let t = preferred_host_inspection_topic("what crashed today");
     assert_eq!(t.as_deref(), Some("app_crashes"));
     let topics = all_host_inspection_topics("what crashed today");
-    assert!(topics.contains(&"app_crashes"), "app_crashes missing: {topics:?}");
+    assert!(
+        topics.contains(&"app_crashes"),
+        "app_crashes missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13207,7 +13759,10 @@ fn test_routing_parity38_windows_log_routes_to_log_check() {
     let t = preferred_host_inspection_topic("show me the windows log");
     assert_eq!(t.as_deref(), Some("log_check"));
     let topics = all_host_inspection_topics("show me the windows log");
-    assert!(topics.contains(&"log_check"), "log_check missing: {topics:?}");
+    assert!(
+        topics.contains(&"log_check"),
+        "log_check missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13216,7 +13771,10 @@ fn test_routing_parity38_high_cpu_routes_to_resource_load() {
     let t = preferred_host_inspection_topic("high cpu usage right now");
     assert_eq!(t.as_deref(), Some("resource_load"));
     let topics = all_host_inspection_topics("high cpu usage right now");
-    assert!(topics.contains(&"resource_load"), "resource_load missing: {topics:?}");
+    assert!(
+        topics.contains(&"resource_load"),
+        "resource_load missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13252,7 +13810,10 @@ fn test_routing_parity38_cpu_speed_routes_to_cpu_power() {
     let t = preferred_host_inspection_topic("why is my cpu speed so low");
     assert_eq!(t.as_deref(), Some("cpu_power"));
     let topics = all_host_inspection_topics("why is my cpu speed so low");
-    assert!(topics.contains(&"cpu_power"), "cpu_power missing: {topics:?}");
+    assert!(
+        topics.contains(&"cpu_power"),
+        "cpu_power missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13261,7 +13822,10 @@ fn test_routing_parity38_boost_disabled_routes_to_cpu_power() {
     let t = preferred_host_inspection_topic("boost is disabled on my processor");
     assert_eq!(t.as_deref(), Some("cpu_power"));
     let topics = all_host_inspection_topics("boost is disabled on my processor");
-    assert!(topics.contains(&"cpu_power"), "cpu_power missing: {topics:?}");
+    assert!(
+        topics.contains(&"cpu_power"),
+        "cpu_power missing: {topics:?}"
+    );
 }
 
 #[test]
@@ -13402,9 +13966,18 @@ fn test_diagnose_why_app_crash_word_keyword_match() {
 fn test_diagnose_why_teams_topics_include_audio_and_camera() {
     use hematite::agent::diagnose_why::match_symptom;
     let g = match_symptom("microsoft teams").unwrap();
-    assert!(g.topics.contains(&"audio"), "expected audio in Teams topics");
-    assert!(g.topics.contains(&"camera"), "expected camera in Teams topics");
-    assert!(g.topics.contains(&"identity_auth"), "expected identity_auth in Teams topics");
+    assert!(
+        g.topics.contains(&"audio"),
+        "expected audio in Teams topics"
+    );
+    assert!(
+        g.topics.contains(&"camera"),
+        "expected camera in Teams topics"
+    );
+    assert!(
+        g.topics.contains(&"identity_auth"),
+        "expected identity_auth in Teams topics"
+    );
 }
 
 #[test]
@@ -13513,9 +14086,14 @@ fn test_inspect_host_storage_deep_returns_header() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "storage_deep" });
-        let out = inspect_host(&args).await.expect("storage_deep must return Ok");
+        let out = inspect_host(&args)
+            .await
+            .expect("storage_deep must return Ok");
         assert!(out.contains("storage_deep"), "missing header; got:\n{out}");
-        assert!(out.contains("Drives:"), "missing Drives section; got:\n{out}");
+        assert!(
+            out.contains("Drives:"),
+            "missing Drives section; got:\n{out}"
+        );
     });
 }
 
@@ -13525,7 +14103,9 @@ fn test_inspect_host_storage_deep_has_sections() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let args = serde_json::json!({ "topic": "storage_deep" });
-        let out = inspect_host(&args).await.expect("storage_deep must return Ok");
+        let out = inspect_host(&args)
+            .await
+            .expect("storage_deep must return Ok");
         assert!(
             out.contains("Top space consumers:") || out.contains("Drives:"),
             "expected at least one section; got:\n{out}"

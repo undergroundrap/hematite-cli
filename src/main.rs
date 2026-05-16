@@ -1113,7 +1113,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        eprintln!("Audit session '{}': capturing post-change snapshot...", audit_name);
+        eprintln!(
+            "Audit session '{}': capturing post-change snapshot...",
+            audit_name
+        );
         eprintln!("Topics: {}", topics);
         let snap_b = hematite::agent::report_export::generate_inspect_output(topics).await;
         let after_name = format!("{}_after", audit_name);
@@ -1184,7 +1187,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
         let safe_ts: String = ended_at
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let report_path = if fmt == "html" {
@@ -1215,7 +1224,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if cockpit.notify {
             show_toast(
                 "Hematite Audit",
-                if any_changed { "Changes detected" } else { "No changes" },
+                if any_changed {
+                    "Changes detected"
+                } else {
+                    "No changes"
+                },
             );
         }
         // Clean up the metadata file now that the session is complete.
@@ -1244,8 +1257,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(s) => s,
             Err(_) => return Vec::new(),
         };
-        let arr: Vec<serde_json::Value> =
-            serde_json::from_str(&content).unwrap_or_default();
+        let arr: Vec<serde_json::Value> = serde_json::from_str(&content).unwrap_or_default();
         arr.into_iter()
             .filter_map(|v| {
                 Some(AlertRule {
@@ -1279,7 +1291,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(ref spec) = cockpit.alert_rule_add.clone() {
         let (topic, pattern) = if let Some(pos) = spec.find(':') {
-            (spec[..pos].trim().to_string(), spec[pos + 1..].trim().to_string())
+            (
+                spec[..pos].trim().to_string(),
+                spec[pos + 1..].trim().to_string(),
+            )
         } else {
             eprintln!(
                 "Error: --alert-rule-add requires TOPIC:PATTERN format.\n\
@@ -1299,12 +1314,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("{} matches \"{}\"", topic, pattern));
         let negate = cockpit.alert_rule_negate;
-        rules.push(AlertRule { id: next_id, label: label.clone(), topic: topic.clone(), pattern: pattern.clone(), negate });
+        rules.push(AlertRule {
+            id: next_id,
+            label: label.clone(),
+            topic: topic.clone(),
+            pattern: pattern.clone(),
+            negate,
+        });
         save_alert_rules(&rules);
         let neg_note = if negate { " (fires when ABSENT)" } else { "" };
         println!("Alert rule #{} added: \"{}\"", next_id, label);
         println!("  Topic:   {}", topic);
-        println!("  Pattern: \"{}\"{}",  pattern, neg_note);
+        println!("  Pattern: \"{}\"{}", pattern, neg_note);
         println!();
         println!("Evaluate now:    hematite --alert-rule-run");
         println!("Schedule hourly: hematite --alert-rule-run --schedule hourly");
@@ -1316,19 +1337,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if rules.is_empty() {
             println!("No alert rules defined.");
             println!();
-            println!("Add a rule:  hematite --alert-rule-add TOPIC:PATTERN --alert-rule-label \"Name\"");
+            println!(
+                "Add a rule:  hematite --alert-rule-add TOPIC:PATTERN --alert-rule-label \"Name\""
+            );
             println!("Examples:");
-            println!("  hematite --alert-rule-add thermal:throttl --alert-rule-label \"CPU Throttling\"");
+            println!(
+                "  hematite --alert-rule-add thermal:throttl --alert-rule-label \"CPU Throttling\""
+            );
             println!("  hematite --alert-rule-add startup_items:HKCU\\\\Software --alert-rule-label \"New user startup entry\"");
             println!("  hematite --alert-rule-add services:Defender --alert-rule-negate --alert-rule-label \"Defender stopped\"");
             return Ok(());
         }
-        println!("Alert Rules ({} rule{})", rules.len(), if rules.len() == 1 { "" } else { "s" });
+        println!(
+            "Alert Rules ({} rule{})",
+            rules.len(),
+            if rules.len() == 1 { "" } else { "s" }
+        );
         println!("{}", "\u{2500}".repeat(64));
         for r in &rules {
-            let neg = if r.negate { "  [fires when ABSENT]" } else { "" };
-            println!("  {:>3}  {:<28}  {:<20}  \"{}\"{}",
-                r.id, r.label, r.topic, r.pattern, neg);
+            let neg = if r.negate {
+                "  [fires when ABSENT]"
+            } else {
+                ""
+            };
+            println!(
+                "  {:>3}  {:<28}  {:<20}  \"{}\"{}",
+                r.id, r.label, r.topic, r.pattern, neg
+            );
         }
         println!();
         println!("Evaluate all:    hematite --alert-rule-run");
@@ -1342,7 +1377,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let before = rules.len();
         rules.retain(|r| r.id != remove_id);
         if rules.len() == before {
-            eprintln!("No alert rule with ID {} found. Run `hematite --alert-rules` to list rules.", remove_id);
+            eprintln!(
+                "No alert rule with ID {} found. Run `hematite --alert-rules` to list rules.",
+                remove_id
+            );
             std::process::exit(1);
         }
         save_alert_rules(&rules);
@@ -1379,14 +1417,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut fired = 0usize;
         for rule in &rules {
-            let output =
-                hematite::agent::report_export::generate_inspect_output(&rule.topic).await;
-            let matched = output.to_ascii_lowercase().contains(&rule.pattern.to_ascii_lowercase());
+            let output = hematite::agent::report_export::generate_inspect_output(&rule.topic).await;
+            let matched = output
+                .to_ascii_lowercase()
+                .contains(&rule.pattern.to_ascii_lowercase());
             let should_fire = if rule.negate { !matched } else { matched };
             let status = if should_fire { "ALERT" } else { "ok" };
-            println!("[{}] {} — topic:{} pattern:\"{}\"{}",
-                status, rule.label, rule.topic, rule.pattern,
-                if rule.negate { " (negate)" } else { "" });
+            println!(
+                "[{}] {} — topic:{} pattern:\"{}\"{}",
+                status,
+                rule.label,
+                rule.topic,
+                rule.pattern,
+                if rule.negate { " (negate)" } else { "" }
+            );
             if should_fire {
                 fired += 1;
                 show_toast(&format!("Hematite Alert: {}", rule.label), &rule.pattern);
@@ -1414,7 +1458,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     fn timeline_entry_path(date: &str) -> std::path::PathBuf {
         let safe: String = date
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         timeline_dir().join(format!("{}.txt", safe))
     }
@@ -1486,7 +1536,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .nth(2)
                     .unwrap_or("")
                     .to_string();
-                Some(TimelineEntry { date, grade, summary })
+                Some(TimelineEntry {
+                    date,
+                    grade,
+                    summary,
+                })
             })
             .collect()
     }
@@ -1500,7 +1554,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             summary.replace('"', "'")
         );
         use std::io::Write;
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        {
             let _ = f.write_all(line.as_bytes());
         }
     }
@@ -1638,7 +1696,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let last_date = entries.last().map(|e| e.date.as_str()).unwrap_or("");
         println!(
             "Machine Health Trend \u{2014} {} entries ({} \u{2192} {})\n",
-            entries.len(), first_date, last_date
+            entries.len(),
+            first_date,
+            last_date
         );
 
         // Bar chart
@@ -1677,9 +1737,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Worst / best / trajectory
         let worst = entries.iter().min_by_key(|e| grade_score(e.grade));
-        let best  = entries.iter().max_by_key(|e| grade_score(e.grade));
+        let best = entries.iter().max_by_key(|e| grade_score(e.grade));
         let first_score = grade_score(entries[0].grade);
-        let last_score  = grade_score(entries[entries.len() - 1].grade);
+        let last_score = grade_score(entries[entries.len() - 1].grade);
         let trajectory = if last_score > first_score {
             "\u{2191} improving"
         } else if last_score < first_score {
@@ -1693,9 +1753,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let window = &entries[entries.len().saturating_sub(7)..];
             let rs = grade_score(window[0].grade);
             let re = grade_score(window[window.len() - 1].grade);
-            if re > rs { "improving recently" }
-            else if re < rs { "degrading recently" }
-            else { "stable recently" }
+            if re > rs {
+                "improving recently"
+            } else if re < rs {
+                "degrading recently"
+            } else {
+                "stable recently"
+            }
         } else {
             "not enough data for recent trend"
         };
@@ -1711,8 +1775,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let last = &entries[entries.len() - 1];
         let lc = grade_color(last.grade);
-        println!("   Latest:  {}{}{} {} \u{2014} {}", lc, last.grade, reset, trajectory, recent_trend);
-        println!("\n Tip: run `hematite --timeline-diff DATE` to see what changed on a specific day.");
+        println!(
+            "   Latest:  {}{}{} {} \u{2014} {}",
+            lc, last.grade, reset, trajectory, recent_trend
+        );
+        println!(
+            "\n Tip: run `hematite --timeline-diff DATE` to see what changed on a specific day."
+        );
 
         return Ok(());
     }
@@ -1745,17 +1814,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let load = |date: &str| -> Result<String, String> {
             let p = timeline_entry_path(date);
-            std::fs::read_to_string(&p)
-                .map_err(|_| format!("No timeline entry for '{}'. Run `hematite --timeline` to see available dates.", date))
+            std::fs::read_to_string(&p).map_err(|_| {
+                format!(
+                    "No timeline entry for '{}'. Run `hematite --timeline` to see available dates.",
+                    date
+                )
+            })
         };
 
         let snap_a = match load(&date_a) {
             Ok(s) => s,
-            Err(e) => { eprintln!("{}", e); std::process::exit(1); }
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            }
         };
         let snap_b = match load(&date_b) {
             Ok(s) => s,
-            Err(e) => { eprintln!("{}", e); std::process::exit(1); }
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            }
         };
 
         println!("--- {}", date_a);
@@ -1822,8 +1901,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         eprintln!("Running {} topic(s)...", group.topics.len());
 
-        let raw_output =
-            hematite::agent::report_export::generate_inspect_output(&topics_csv).await;
+        let raw_output = hematite::agent::report_export::generate_inspect_output(&topics_csv).await;
         let diagnosis = build_diagnosis(group, &raw_output);
 
         // ── Format report ────────────────────────────────────────────────────
@@ -1840,12 +1918,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             md.push_str("## Probable Causes (ranked by severity)\n\n");
             for (i, f) in diagnosis.findings.iter().enumerate() {
-                md.push_str(&format!(
-                    "### [{}] {} — {}\n\n",
-                    i + 1,
-                    f.severity,
-                    f.title
-                ));
+                md.push_str(&format!("### [{}] {} — {}\n\n", i + 1, f.severity, f.title));
                 if !f.evidence.is_empty() {
                     md.push_str("**Evidence:**\n");
                     for line in &f.evidence {
@@ -1872,7 +1945,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ts = hematite::agent::report_export::timestamp_label();
         let safe_ts: String = ts
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         let report_dir = hematite::tools::file_ops::hematite_dir().join("reports");
         let _ = std::fs::create_dir_all(&report_dir);

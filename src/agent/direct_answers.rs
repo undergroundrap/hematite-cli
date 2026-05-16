@@ -205,8 +205,7 @@ pub fn build_inspect_inventory_json() -> String {
             "repo_doctor","databases","docker","docker_filesystems","wsl",
             "wsl_filesystems","hosts_file","data_audit","fix_plan"]},
     ]);
-    serde_json::to_string_pretty(&categories)
-        .unwrap_or_else(|_| "[]".to_string())
+    serde_json::to_string_pretty(&categories).unwrap_or_else(|_| "[]".to_string())
 }
 
 pub(crate) fn build_help_answer() -> String {

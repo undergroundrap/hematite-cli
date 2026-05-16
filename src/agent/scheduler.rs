@@ -93,7 +93,10 @@ pub fn query_alert_task() -> String {
                 if stderr.contains("cannot find") || stderr.contains("does not exist") {
                     format!("Task \"{}\" is not registered.", TASK_ALERT_NAME)
                 } else {
-                    format!("Not registered: {}", String::from_utf8_lossy(&o.stderr).trim())
+                    format!(
+                        "Not registered: {}",
+                        String::from_utf8_lossy(&o.stderr).trim()
+                    )
                 }
             }
             Err(e) => format!("Error querying task: {}", e),
@@ -168,7 +171,10 @@ pub fn remove_timeline_task() -> Result<String, String> {
             Err(if !stderr.is_empty() {
                 stderr
             } else {
-                format!("Task \"{}\" not found — nothing to remove.", TASK_TIMELINE_NAME)
+                format!(
+                    "Task \"{}\" not found — nothing to remove.",
+                    TASK_TIMELINE_NAME
+                )
             })
         }
     }
@@ -191,7 +197,10 @@ pub fn query_timeline_task() -> String {
                 if stderr.contains("cannot find") || stderr.contains("does not exist") {
                     format!("Task \"{}\" is not registered.", TASK_TIMELINE_NAME)
                 } else {
-                    format!("Not registered: {}", String::from_utf8_lossy(&o.stderr).trim())
+                    format!(
+                        "Not registered: {}",
+                        String::from_utf8_lossy(&o.stderr).trim()
+                    )
                 }
             }
             Err(e) => format!("Error querying task: {}", e),
@@ -277,7 +286,10 @@ pub fn remove_sweep_task() -> Result<String, String> {
             Err(if !stderr.is_empty() {
                 stderr
             } else {
-                format!("Task \"{}\" not found — nothing to remove.", TASK_SWEEP_NAME)
+                format!(
+                    "Task \"{}\" not found — nothing to remove.",
+                    TASK_SWEEP_NAME
+                )
             })
         }
     }

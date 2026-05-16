@@ -604,7 +604,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("certificate store")
         || lower.contains("certificate expir")
         || lower.contains("untrusted cert")
-        || (lower.contains("tls") && (lower.contains("check") || lower.contains("inspect") || lower.contains("status") || lower.contains("valid")));
+        || (lower.contains("tls")
+            && (lower.contains("check")
+                || lower.contains("inspect")
+                || lower.contains("status")
+                || lower.contains("valid")));
     let asks_integrity = lower.contains("integrity")
         || lower.contains("sfc")
         || lower.contains("dism")
@@ -613,7 +617,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("system file")
         || (lower.contains("windows") && lower.contains("damaged"))
         || (lower.contains("check") && lower.contains("system") && lower.contains("file"));
-    let asks_user_accounts = (lower.contains("user account") && !lower.contains("user account control"))
+    let asks_user_accounts = (lower.contains("user account")
+        && !lower.contains("user account control"))
         || lower.contains("local user")
         || lower.contains("local group")
         || lower.contains("get-localuser")
@@ -1153,7 +1158,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("uefi settings")
         || lower.contains("legacy bios")
         || lower.contains("uefi bios")
-        || (lower.contains("uefi") && (lower.contains("boot") || lower.contains("secure") || lower.contains("status") || lower.contains("check")))
+        || (lower.contains("uefi")
+            && (lower.contains("boot")
+                || lower.contains("secure")
+                || lower.contains("status")
+                || lower.contains("check")))
         || (lower.contains("bitlocker") && lower.contains("chip"))
         || (lower.contains("windows 11") && lower.contains("tpm"));
     let asks_dhcp = lower.contains("dhcp lease")
@@ -1276,7 +1285,10 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
                 || lower.contains("remember")
                 || lower.contains("password")))
         || (lower.contains("wireless")
-            && (lower.contains("profile") || lower.contains("saved") || lower.contains("audit") || lower.contains("remember")));
+            && (lower.contains("profile")
+                || lower.contains("saved")
+                || lower.contains("audit")
+                || lower.contains("remember")));
     let asks_ipsec = lower.contains("ipsec")
         || lower.contains("ip sec")
         || lower.contains("ipsec sa")
@@ -1754,7 +1766,8 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("windows build")
         || lower.contains("edition of windows")
         || lower.contains("which windows")
-        || (lower.contains("windows") && (lower.contains("10 or 11") || lower.contains("11 or 10")));
+        || (lower.contains("windows")
+            && (lower.contains("10 or 11") || lower.contains("11 or 10")));
     let asks_health_report = lower.contains("health report")
         || lower.contains("system health")
         || (lower.contains("how") && lower.contains("machine") && lower.contains("doing"))
@@ -1800,8 +1813,7 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || (lower.contains("reboot") && lower.contains("required"))
         || (lower.contains("reboot") && lower.contains("pending"))
         || (lower.contains("restart") && lower.contains("pending"))
-        || (lower.contains("have to")
-            && (lower.contains("restart") || lower.contains("reboot")))
+        || (lower.contains("have to") && (lower.contains("restart") || lower.contains("reboot")))
         || (lower.contains("do i need to")
             && (lower.contains("restart") || lower.contains("reboot")));
     let asks_disk_health = lower.contains("disk health")
@@ -1950,7 +1962,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("deep storage")
         || lower.contains("storage analysis")
         || lower.contains("disk analysis")
-        || (lower.contains("clean up") && (lower.contains("disk") || lower.contains("drive") || lower.contains("space") || lower.contains("storage")))
+        || (lower.contains("clean up")
+            && (lower.contains("disk")
+                || lower.contains("drive")
+                || lower.contains("space")
+                || lower.contains("storage")))
         || (lower.contains("clean") && lower.contains("c drive"))
         || (lower.contains("analyze") && (lower.contains("storage") || lower.contains("disk")));
     let asks_storage = lower.contains("storage")
@@ -2442,7 +2458,11 @@ pub fn preferred_host_inspection_topic(user_input: &str) -> Option<&'static str>
         || lower.contains("lmcompatibilitylevel")
         || lower.contains("net accounts")
         || lower.contains("lockout")
-        || (lower.contains("uac") && (lower.contains("off") || lower.contains("status") || lower.contains("check") || lower.contains("on")))
+        || (lower.contains("uac")
+            && (lower.contains("off")
+                || lower.contains("status")
+                || lower.contains("check")
+                || lower.contains("on")))
         || (lower.contains("password")
             && (lower.contains("minimum")
                 || lower.contains("maximum age")
@@ -3022,7 +3042,9 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("silicon health")
                 || l.contains("mhz")
                 || (l.contains("gpu")
-                    && (l.contains("usage") || l.contains("utilization") || l.contains("performance")))
+                    && (l.contains("usage")
+                        || l.contains("utilization")
+                        || l.contains("performance")))
         }),
         ("activation", |l| {
             l.contains("activation")
@@ -3515,10 +3537,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("reboot required")
                 || (l.contains("reboot") && l.contains("pending"))
                 || (l.contains("restart") && l.contains("pending"))
-                || (l.contains("have to")
-                    && (l.contains("restart") || l.contains("reboot")))
-                || (l.contains("do i need to")
-                    && (l.contains("restart") || l.contains("reboot")))
+                || (l.contains("have to") && (l.contains("restart") || l.contains("reboot")))
+                || (l.contains("do i need to") && (l.contains("restart") || l.contains("reboot")))
         }),
         ("disk_health", |l| {
             l.contains("disk health")
@@ -3632,7 +3652,8 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("duplicate path")
         }),
         ("storage_deep", |l| {
-            (l.contains("where did my") && (l.contains("space") || l.contains("disk") || l.contains("storage")))
+            (l.contains("where did my")
+                && (l.contains("space") || l.contains("disk") || l.contains("storage")))
                 || l.contains("what is taking up")
                 || l.contains("what is using my disk")
                 || l.contains("what is eating my disk")
@@ -3646,7 +3667,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("find big files")
                 || l.contains("storage analysis")
                 || l.contains("disk analysis")
-                || (l.contains("clean up") && (l.contains("disk") || l.contains("drive") || l.contains("space") || l.contains("storage")))
+                || (l.contains("clean up")
+                    && (l.contains("disk")
+                        || l.contains("drive")
+                        || l.contains("space")
+                        || l.contains("storage")))
                 || (l.contains("clean") && l.contains("c drive"))
                 || (l.contains("analyze") && (l.contains("storage") || l.contains("disk")))
         }),
@@ -4411,7 +4436,11 @@ pub fn all_host_inspection_topics(user_input: &str) -> Vec<&'static str> {
                 || l.contains("account policy")
                 || l.contains("net accounts")
                 || l.contains("lockout")
-                || (l.contains("uac") && (l.contains("off") || l.contains("status") || l.contains("check") || l.contains("on")))
+                || (l.contains("uac")
+                    && (l.contains("off")
+                        || l.contains("status")
+                        || l.contains("check")
+                        || l.contains("on")))
         }),
         ("usb_history", |l| {
             l.contains("usb history")
