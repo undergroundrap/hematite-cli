@@ -14317,3 +14317,62 @@ fn test_correlate_high_confidence_before_medium() {
         }
     }
 }
+
+#[test]
+fn test_correlate_thermal_throttling_causes_high_cpu() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "[Warning] CPU load is extremely high. System may be unresponsive.\nThrottle Reason: Power Limit\nCore Temp: 94°C";
+    let results = correlate_findings(raw);
+    assert!(!results.is_empty(), "thermal throttle + high CPU must fire");
+    assert_eq!(results[0].confidence, "HIGH");
+    assert!(results[0].summary.contains("thermal throttl") || results[0].summary.contains("Thermal"));
+}
+
+#[test]
+fn test_correlate_thermal_throttle_no_fire_without_cpu_warning() {
+    use hematite::agent::correlation::correlate_findings;
+    // throttle present but no CPU warning — rule must not fire
+    let raw = "Throttle Reason: Power Limit\nCore Temp: 92°C";
+    let results = correlate_findings(raw);
+    let fired = results.iter().any(|r| r.summary.contains("thermal throttl") || r.summary.contains("Thermal throttl"));
+    assert!(!fired, "thermal CPU rule must not fire without the CPU load warning");
+}
+
+#[test]
+fn test_correlate_ram_pressure_disk_saturation() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "[Warning] Memory usage is near capacity. Swap activity may slow down the machine.\nAverage Disk Queue Length: 12.4\nDrive C: 92% full";
+    let results = correlate_findings(raw);
+    assert!(!results.is_empty(), "RAM pressure + disk queue must fire");
+    assert_eq!(results[0].confidence, "HIGH");
+    assert!(results[0].summary.contains("RAM") || results[0].summary.contains("disk saturation"));
+}
+
+#[test]
+fn test_correlate_ram_pressure_no_fire_without_disk_queue() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "[Warning] Memory usage is near capacity. Swap activity may slow down the machine.";
+    let results = correlate_findings(raw);
+    let fired = results.iter().any(|r| r.summary.contains("RAM") || r.summary.contains("pagefile"));
+    assert!(!fired, "RAM+disk rule must not fire without disk queue signal");
+}
+
+#[test]
+fn test_correlate_installer_disabled_plus_cbs_reboot() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "Windows Installer service (msiserver) is disabled - MSI installs cannot start until it is re-enabled.\nWindows component install/update requires a restart";
+    let results = correlate_findings(raw);
+    assert!(!results.is_empty(), "installer disabled + CBS reboot must fire");
+    assert_eq!(results[0].confidence, "HIGH");
+    assert!(results[0].summary.contains("Installer") || results[0].summary.contains("installer"));
+}
+
+#[test]
+fn test_correlate_installer_no_fire_without_both_signals() {
+    use hematite::agent::correlation::correlate_findings;
+    // only one of the two signals — must not fire
+    let raw = "Windows Installer service (msiserver) is disabled - MSI installs cannot start until it is re-enabled.";
+    let results = correlate_findings(raw);
+    let fired = results.iter().any(|r| r.summary.contains("Installer") || r.summary.contains("installer"));
+    assert!(!fired, "installer rule must not fire with only one signal");
+}

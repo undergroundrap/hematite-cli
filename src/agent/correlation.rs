@@ -230,6 +230,71 @@ static RULES: &[CorrelationRule] = &[
             "If you cannot turn Defender back on, a third-party AV or Group Policy may be blocking it — run hematite --inspect security for the full picture",
         ],
     },
+
+    // ── Thermal throttling causing high CPU readings (no crash) ──────────────
+    CorrelationRule {
+        signals: &["[warning] cpu load is extremely high", "throttle reason:"],
+        confidence: "HIGH",
+        summary: "Thermal throttling is the root cause of the high CPU readings",
+        detail: "The system reports near-100% CPU at the same time the thermal subsystem \
+                 is actively throttling the processor. Windows measures CPU utilization as \
+                 a fraction of the current throttled frequency — a CPU running at 30% of \
+                 its rated speed will show 100% load even under a light workload. Fixing \
+                 the thermal issue will resolve the apparent CPU saturation without touching \
+                 any running applications.",
+        unified_steps: &[
+            "Clean the CPU and GPU heatsinks with compressed air — dust buildup is the most common cause of thermal throttling",
+            "Check that all case fans are spinning and airflow paths are not blocked",
+            "For laptops: run on a hard flat surface with bottom vents unobstructed, or use a cooling pad",
+            "Run hematite --inspect thermal to see current temperatures under load",
+            "Run hematite --inspect overclocker to see the active throttle reason (Power vs Thermal)",
+            "If temperatures are normal but throttling persists: check the active power plan — Power Saver or Balanced can cap CPU frequency",
+            "After fixing cooling: the high CPU reading will drop because the chip can now run at its rated speed",
+        ],
+    },
+
+    // ── RAM pressure causing disk saturation via pagefile swapping ───────────
+    CorrelationRule {
+        signals: &["[warning] memory usage is near capacity", "average disk queue"],
+        confidence: "HIGH",
+        summary: "Low RAM is causing disk saturation through pagefile swapping",
+        detail: "Resource monitor shows RAM near capacity at the same time disk queue \
+                 length is elevated. When physical RAM is exhausted, Windows offloads \
+                 active memory pages to the pagefile on the system drive. This appears \
+                 as near-100% disk usage and makes the machine feel completely \
+                 unresponsive. The root cause is RAM pressure, not a disk hardware problem.",
+        unified_steps: &[
+            "Identify the RAM consumer: Task Manager → Performance → Memory → Open Resource Monitor → Memory tab",
+            "Close unused apps — browsers (50–200 MB per tab), Electron apps (Teams, Slack, VS Code), and IDEs are the most common culprits",
+            "Run hematite --inspect resource_load to rank processes by memory consumption right now",
+            "If RAM is chronically full with normal use: this machine needs a RAM upgrade",
+            "Short-term relief: increase the pagefile size — System Properties → Advanced → Performance Settings → Advanced → Virtual Memory → Custom size",
+            "Do not defrag while this condition is active — the disk is already under heavy pagefile I/O load",
+        ],
+    },
+
+    // ── Windows Installer disabled + CBS reboot pending ──────────────────────
+    CorrelationRule {
+        signals: &[
+            "windows installer service (msiserver) is disabled",
+            "windows component install/update requires a restart",
+        ],
+        confidence: "HIGH",
+        summary: "Pending reboot and disabled Windows Installer are both blocking software installations",
+        detail: "The Windows Installer service (msiserver) is disabled — no MSI-based \
+                 application can install or update. A Windows component update is also \
+                 staged and waiting for a restart. The pending reboot may restore the \
+                 Installer service as part of CBS completion, so restart first before \
+                 manually re-enabling.",
+        unified_steps: &[
+            "Restart the computer first — this completes the pending Windows component update (CBS)",
+            "After restart: check if Windows Installer recovered: PowerShell → Get-Service msiserver",
+            "If msiserver is still disabled: PowerShell (admin) → Set-Service msiserver -StartupType Manual; Start-Service msiserver",
+            "Verify: Get-Service msiserver | Select Status, StartType — expect Running / Manual",
+            "Retry the failed installation once both fixes are confirmed",
+            "Run hematite --inspect installer_health after restart to verify all install-related services are healthy",
+        ],
+    },
 ];
 
 /// Run all correlation rules against the combined raw inspect output.
