@@ -139,6 +139,7 @@ fn run_python(code: &str, timeout_secs: u64) -> Result<String, String> {
 
 /// Wraps the user's Python in a minimal sandbox: blocks socket, subprocess,
 /// os.system, and __import__ to prevent the most obvious escapes.
+/// Also pre-imports the full math/stats stdlib so the model never needs to.
 fn wrap_python(code: &str) -> String {
     format!(
         r#"
@@ -162,6 +163,26 @@ def _safe_import(name, *args, **kwargs):
     return _real_import(name, *args, **kwargs)
 import builtins
 builtins.__import__ = _safe_import
+
+# ── Math / data science prelude — always available, no import needed ──────────
+import math
+import statistics
+import datetime
+import json
+import re
+import decimal
+import fractions
+import itertools
+from collections import Counter, defaultdict, OrderedDict
+from functools import reduce
+
+# Optional: numpy / pandas — available if installed on the host
+try:
+    import numpy as np
+    import pandas as pd
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
 
 # Run the actual code
 try:

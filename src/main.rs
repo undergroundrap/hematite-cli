@@ -2395,6 +2395,60 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref path_str) = cockpit.analyze {
+        let path_str = path_str.trim();
+        eprintln!("Analyzing: {}...", path_str);
+        let profile = match hematite::tools::scientific::analyze_dataset(path_str).await {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        };
+
+        let ts = hematite::agent::report_export::timestamp_label();
+        let safe_ts: String = ts
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+            .collect();
+        let fmt = cockpit.report_format.trim().to_ascii_lowercase();
+        let report_dir = hematite::tools::file_ops::hematite_dir().join("reports");
+        let _ = std::fs::create_dir_all(&report_dir);
+
+        let (content, report_path) = if fmt == "html" {
+            let html = hematite::agent::html_template::build_html_shell(
+                &format!("Dataset Analysis: {}", path_str),
+                &hematite::hematite_version(),
+                &hematite::agent::html_template::markdown_to_html(&profile),
+            );
+            let p = report_dir.join(format!("analysis-{}.html", safe_ts));
+            let _ = std::fs::write(&p, &html);
+            (html, p)
+        } else {
+            let p = report_dir.join(format!("analysis-{}.md", safe_ts));
+            let _ = std::fs::write(&p, &profile);
+            (profile.clone(), p)
+        };
+
+        if let Some(ref out_path) = cockpit.output {
+            write_output_copy(&profile, out_path);
+        } else if fmt != "html" {
+            print!("{}", profile);
+        }
+        println!("\nAnalysis saved: {}", report_path.display());
+        if cockpit.clipboard {
+            copy_to_clipboard(&content);
+            println!("Copied to clipboard.");
+        }
+        if cockpit.open {
+            open_path(&report_path);
+        }
+        if cockpit.notify {
+            show_toast("Hematite Analyze", &format!("Profile complete: {}", path_str));
+        }
+        return Ok(());
+    }
+
     if let Some(ref cadence) = cockpit.schedule {
         let cadence_str = cadence.trim();
 
