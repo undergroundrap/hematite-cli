@@ -2417,6 +2417,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref file_path) = cockpit.query_data {
+        let file_path = file_path.trim();
+        let sql = cockpit.sql.as_deref().unwrap_or("").trim().to_string();
+        if sql.is_empty() {
+            eprintln!(
+                "Error: --query-data requires --sql \"SELECT ...\"\n\
+                 The file is loaded as a table named 'data'.\n\
+                 Example: hematite --query-data employees.csv --sql \"SELECT department, COUNT(*) FROM data GROUP BY department\""
+            );
+            std::process::exit(1);
+        }
+        match hematite::tools::scientific::query_data(file_path, &sql).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
     if let Some(ref path_str) = cockpit.plot {
         let path_str = path_str.trim();
         let plot_type = cockpit

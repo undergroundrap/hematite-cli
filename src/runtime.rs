@@ -844,6 +844,8 @@ mod tests {
             analyze: None,
             compute: None,
             convert: None,
+            query_data: None,
+            sql: None,
             plot: None,
             plot_type: None,
             plot_x: None,

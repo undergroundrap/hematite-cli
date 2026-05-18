@@ -565,9 +565,25 @@ pub struct CliCockpit {
         long,
         help_heading = "Headless Reports",
         value_name = "EXPR",
-        help = "Convert between units — no model, no cloud. Supports length, mass, time, speed, energy, power, pressure, temperature, volume, area, digital storage, force, frequency, and angle. Examples: hematite --convert \"100 km to miles\", hematite --convert \"72 F to C\", hematite --convert \"1 GiB to MB\""
+        help = "Convert between units or number bases — no model, no cloud. Supports length, mass, time, speed, energy, power, pressure, temperature, volume, area, digital storage, force, frequency, angle, and hex/binary/octal. Examples: hematite --convert \"100 km to miles\", hematite --convert \"72 F to C\", hematite --convert \"0xFF to decimal\""
     )]
     pub convert: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "FILE",
+        help = "Run a SQL query against a local data file (CSV, TSV, JSON, SQLite). The file is loaded as a table named 'data'. Pair with --sql to provide the query. Example: hematite --query-data employees.csv --sql \"SELECT department, COUNT(*) FROM data GROUP BY department\""
+    )]
+    pub query_data: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "QUERY",
+        help = "SQL query to run against the file specified by --query-data. The table is always named 'data'. Example: --sql \"SELECT AVG(salary) FROM data WHERE department='Engineering'\""
+    )]
+    pub sql: Option<String>,
 
     #[arg(
         long,

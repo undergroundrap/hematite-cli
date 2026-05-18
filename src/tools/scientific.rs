@@ -754,6 +754,58 @@ variance = _stat.variance
 try:    mode = _stat.mode
 except Exception: pass
 
+# ── Financial functions ───────────────────────────────────────────────
+def pmt(rate, nper, pv, fv=0, when=0):
+    """Periodic loan payment. pmt(0.05/12, 360, 300000)"""
+    if rate == 0: return -(pv + fv) / nper
+    pvif = (1 + rate) ** nper
+    r = rate / (pvif - 1) * -(pv * pvif + fv)
+    return r / (1 + rate) if when == 1 else r
+
+def fv(rate, nper, pmt_v, pv=0, when=0):
+    """Future value. fv(0.06/12, 120, -500)"""
+    if rate == 0: return -pv - pmt_v * nper
+    pvif = (1 + rate) ** nper
+    return -(pv * pvif + pmt_v * (1 + rate * when) * (pvif - 1) / rate)
+
+def pv(rate, nper, pmt_v, fv=0, when=0):
+    """Present value. pv(0.05/12, 360, -1500)"""
+    if rate == 0: return -fv - pmt_v * nper
+    pvif = (1 + rate) ** nper
+    return -(fv + pmt_v * (1 + rate * when) * (pvif - 1) / rate) / pvif
+
+def npv(rate, cashflows):
+    """Net present value. npv(0.1, [-1000, 200, 300, 400, 500])"""
+    return sum(cf / (1 + rate) ** t for t, cf in enumerate(cashflows))
+
+def irr(cashflows, guess=0.1):
+    """Internal rate of return (Newton-Raphson). irr([-1000, 300, 400, 500])"""
+    r = guess
+    for _ in range(200):
+        f  = sum(cf / (1 + r) ** t for t, cf in enumerate(cashflows))
+        df = sum(-t * cf / (1 + r) ** (t + 1) for t, cf in enumerate(cashflows))
+        if df == 0: break
+        r2 = r - f / df
+        if abs(r2 - r) < 1e-10: return r2
+        r = r2
+    return r
+
+def compound(principal, rate, n=1, t=1):
+    """Compound interest. compound(1000, 0.05, 12, 10)"""
+    return principal * (1 + rate / n) ** (n * t)
+
+def cagr(start, end, years):
+    """Compound annual growth rate. cagr(1000, 2000, 5) -> 0.1487"""
+    return (end / start) ** (1.0 / years) - 1
+
+def roi(gain, cost):
+    """Return on investment %. roi(1500, 1000) -> 50.0"""
+    return (gain - cost) / cost * 100.0
+
+def breakeven(fixed, price, var_cost):
+    """Break-even units. breakeven(10000, 25, 15) -> 1000"""
+    return fixed / (price - var_cost)
+
 def _fmt(v):
     if isinstance(v, bool):    return str(v)
     if isinstance(v, int):     return str(v)
@@ -1441,6 +1493,23 @@ import re as _re, sys, math
 _raw  = "{safe_expr}"
 _expr = _raw.strip()
 
+# ── Number base conversion (prefix check) ────────────────────────────
+_bm = _re.match(
+    r'^(0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+|\d+)\s+to\s+(hex(?:adecimal)?|dec(?:imal)?|bin(?:ary)?|oct(?:al)?)\s*$',
+    _expr, _re.I)
+if _bm:
+    _bv, _bt = _bm.group(1), _bm.group(2).lower()
+    try:
+        _n = int(_bv, 0)
+        if   _bt.startswith('hex'): _out = hex(_n)
+        elif _bt.startswith('bin'): _out = bin(_n)
+        elif _bt.startswith('oct'): _out = oct(_n)
+        else:                        _out = str(_n)
+        print("%s  =  %s" % (_bv, _out))
+    except ValueError as _e:
+        print("Error: " + str(_e)); sys.exit(1)
+    sys.exit(0)
+
 _m = _re.match(
     r'^([\d.,eE+\-]+)\s+(.+?)\s+(?:to|->|=|in)\s+(.+)$', _expr, _re.I)
 if not _m:
@@ -1681,6 +1750,104 @@ print(_out_path)
         plot_type = plot_type,
         safe_x    = safe_x,
         safe_y    = safe_y,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ─── SQL-on-local-files ────────────────────────────────────────────────────────
+
+pub async fn query_data(file_path: &str, sql: &str) -> Result<String, String> {
+    if file_path.trim().is_empty() {
+        return Err("No data file specified.".into());
+    }
+    if sql.trim().is_empty() {
+        return Err("No SQL query specified.".into());
+    }
+    let safe_path = file_path.replace('\\', "\\\\").replace('"', "\\\"");
+    // Hex-encode the SQL to eliminate all escaping concerns.
+    let sql_hex: String = sql.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(
+        r####"import sqlite3 as _sq, csv as _csv, json as _js, sys, os
+
+_path = "{safe_path}"
+_sql  = bytes.fromhex("{sql_hex}").decode()
+_ext  = os.path.splitext(_path)[1].lower().lstrip('.')
+_con  = _sq.connect(':memory:')
+
+def _load_csv(path, delim):
+    with open(path, encoding='utf-8-sig', errors='replace', newline='') as _fh:
+        _rdr = _csv.DictReader(_fh, delimiter=delim)
+        _rows = list(_rdr)
+    if not _rows:
+        print("No data in file."); sys.exit(1)
+    _cols = list(_rows[0].keys())
+    _con.execute('CREATE TABLE data (' + ', '.join('"' + c + '"' for c in _cols) + ')')
+    _con.executemany(
+        'INSERT INTO data VALUES (' + ','.join(['?'] * len(_cols)) + ')',
+        [tuple(_r.get(c, '') for c in _cols) for _r in _rows])
+
+def _load_json(path):
+    with open(path, encoding='utf-8') as _fh:
+        _d = _js.load(_fh)
+    _rows = _d if isinstance(_d, list) else next(iter(_d.values()), []) if isinstance(_d, dict) else []
+    if not _rows:
+        print("No rows found in JSON."); sys.exit(1)
+    _cols = list(_rows[0].keys()) if isinstance(_rows[0], dict) else [str(i) for i in range(len(_rows[0]))]
+    _con.execute('CREATE TABLE data (' + ', '.join('"' + c + '"' for c in _cols) + ')')
+    _con.executemany(
+        'INSERT INTO data VALUES (' + ','.join(['?'] * len(_cols)) + ')',
+        [tuple(str(_r.get(c, '') if isinstance(_r, dict) else _r[i]) for i, c in enumerate(_cols)) for _r in _rows])
+
+try:
+    if _ext == 'csv':                      _load_csv(_path, ',')
+    elif _ext == 'tsv':                    _load_csv(_path, '\t')
+    elif _ext == 'json':                   _load_json(_path)
+    elif _ext in ('db','sqlite','sqlite3'):
+        _src = _sq.connect(_path); _src.backup(_con); _src.close()
+    else:
+        print("Unsupported format: " + _ext + ". Use csv, tsv, json, or sqlite.")
+        sys.exit(1)
+except Exception as _e:
+    print("Load error: " + str(_e), file=sys.stderr); sys.exit(1)
+
+try:
+    _cur = _con.execute(_sql)
+except Exception as _e:
+    print("Query error: " + str(_e), file=sys.stderr); sys.exit(1)
+
+_hdrs  = [_d[0] for _d in _cur.description] if _cur.description else []
+_rows2 = _cur.fetchall()
+_con.close()
+
+if not _rows2:
+    print("(no rows returned)")
+    sys.exit(0)
+
+_rs = [[str(c) if c is not None else 'NULL' for c in _r] for _r in _rows2[:2000]]
+_ws = [max(len(_h), max((len(_r[_i]) for _r in _rs), default=0))
+       for _i, _h in enumerate(_hdrs)]
+_sep = '+-' + '-+-'.join('-' * _w for _w in _ws) + '-+'
+_hr  = '| ' + ' | '.join(_h.ljust(_ws[_i]) for _i, _h in enumerate(_hdrs)) + ' |'
+print(_sep)
+print(_hr)
+print(_sep)
+for _r in _rs:
+    print('| ' + ' | '.join(_r[_i].ljust(_ws[_i]) for _i in range(len(_hdrs))) + ' |')
+print(_sep)
+_total = len(_rows2)
+_label = str(_total) + (' rows' if _total != 1 else ' row')
+if _total > 2000: _label += ' (showing first 2000)'
+print('(' + _label + ')')
+"####,
+        safe_path = safe_path,
+        sql_hex   = sql_hex,
     );
 
     let sandbox_args = serde_json::json!({
