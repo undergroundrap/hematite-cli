@@ -3188,6 +3188,14 @@ pub async fn generate_fix_plan_markdown(issue: &str) -> String {
     md.push_str("---\n\n## Fix Steps\n\n");
     md.push_str(&action_plan);
     md.push_str("---\n\n");
+    let combined_raw: String = data
+        .sections
+        .iter()
+        .map(|(_, o)| o.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let correlation_block = correlation_md_block(&combined_raw);
+    md.push_str(&correlation_block);
     for (label, output) in &data.sections {
         let _ = write!(md, "## {}\n\n```\n", label);
         md.push_str(output.trim_end());
@@ -3220,6 +3228,19 @@ pub async fn generate_fix_plan_html(issue: &str) -> String {
         );
     }
 
+    let combined_raw: String = data
+        .sections
+        .iter()
+        .map(|(_, o)| o.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let corr_html = correlation_html_block(&combined_raw);
+    let corr_section = if corr_html.is_empty() {
+        String::new()
+    } else {
+        format!("<section>\n<h2>Root Cause Correlation</h2>\n{corr_html}\n</section>")
+    };
+
     let content = format!(
         r#"<header>
 <h1>Fix Plan</h1>
@@ -3242,6 +3263,7 @@ pub async fn generate_fix_plan_html(issue: &str) -> String {
 <h2>Fix Steps</h2>
 {action_plan_html}
 </section>
+{corr_section}
 <section>
 <h2>Diagnostic Data</h2>
 {sections_html}
@@ -3255,6 +3277,7 @@ pub async fn generate_fix_plan_html(issue: &str) -> String {
         summary = he(&score.summary_line()),
         copy_btn = COPY_BUTTON_HTML,
         action_plan_html = action_plan_html,
+        corr_section = corr_section,
         sections_html = sections_html,
     );
 
@@ -3301,6 +3324,14 @@ pub async fn save_fix_plan_with_summary(issue: &str) -> (String, String, PathBuf
     md.push_str("---\n\n## Fix Steps\n\n");
     md.push_str(&action_plan);
     md.push_str("---\n\n");
+    let combined_raw: String = data
+        .sections
+        .iter()
+        .map(|(_, o)| o.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let correlation_block = correlation_md_block(&combined_raw);
+    md.push_str(&correlation_block);
     for (label, output) in &data.sections {
         let _ = write!(md, "## {}\n\n```\n", label);
         md.push_str(output.trim_end());
