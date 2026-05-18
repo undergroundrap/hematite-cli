@@ -14174,7 +14174,7 @@ fn test_correlate_thermal_causing_crashes() {
 #[test]
 fn test_correlate_m365_auth_cascade_both_apps() {
     use hematite::agent::correlation::correlate_findings;
-    let raw = "Token Broker: Not Running\nClassic Teams Cache: 4.2 GB\nProfileCount: 2";
+    let raw = "TokenBroker | Status: Stopped\nClassicTeamsCache | SizeMB: 4200\nProfileCount: 2";
     let results = correlate_findings(raw);
     assert!(
         results
@@ -14188,7 +14188,7 @@ fn test_correlate_m365_auth_cascade_both_apps() {
 #[test]
 fn test_correlate_auth_broker_teams_only() {
     use hematite::agent::correlation::correlate_findings;
-    let raw = "Token Broker: Not Running\nClassic Teams Cache: 1.1 GB";
+    let raw = "TokenBroker | Status: Stopped\nClassicTeamsCache | SizeMB: 1100";
     let results = correlate_findings(raw);
     assert!(
         results
@@ -14202,7 +14202,7 @@ fn test_correlate_auth_broker_teams_only() {
 #[test]
 fn test_correlate_auth_broker_outlook_only() {
     use hematite::agent::correlation::correlate_findings;
-    let raw = "Token Broker: Not Running\nProfileCount: 1";
+    let raw = "TokenBroker | Status: Stopped\nProfileCount: 1";
     let results = correlate_findings(raw);
     assert!(
         results
@@ -14256,7 +14256,7 @@ fn test_correlate_vpn_blocking_connectivity() {
 #[test]
 fn test_correlate_teams_cache_crash() {
     use hematite::agent::correlation::correlate_findings;
-    let raw = "Teams Cache: 3.8 GB (bloated)\nApplication Error | Microsoft Teams";
+    let raw = "ClassicTeamsCache | SizeMB: 3800\nApplication Error | Microsoft Teams";
     let results = correlate_findings(raw);
     assert!(
         results

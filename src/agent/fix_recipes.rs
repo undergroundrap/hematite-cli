@@ -525,7 +525,7 @@ static ALL_RECIPES: &[RecipeEntry] = &[
 
     // ── Teams cache ───────────────────────────────────────────────────────────
     RecipeEntry {
-        triggers: &["classic teams cache:", "new teams cache:", "msteams cache:", "teams cache size"],
+        triggers: &["classic teams cache:", "new teams cache:", "msteams cache:", "teams cache size", "classicteamscache |", "newteamscache |"],
         recipe: Recipe {
             severity: "INVESTIGATE",
             title: "Teams cache — clear to resolve most Teams issues",
@@ -542,7 +542,7 @@ static ALL_RECIPES: &[RecipeEntry] = &[
 
     // ── M365 token broker not running ─────────────────────────────────────────
     RecipeEntry {
-        triggers: &["token broker: not running", "aad broker plugin: not found", "web account manager: not running", "wam: not running", "aad broker: not found"],
+        triggers: &["token broker: not running", "tokenbroker | status: stopped", "aad broker plugin: not found", "web account manager: not running", "wam: not running", "aad broker: not found"],
         recipe: Recipe {
             severity: "ACTION",
             title: "Microsoft 365 authentication broker not running",

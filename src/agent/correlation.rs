@@ -91,8 +91,8 @@ static RULES: &[CorrelationRule] = &[
     // ── M365 auth broker cascade: Teams + Outlook both affected ──────────────
     CorrelationRule {
         signals: &[
-            "token broker: not running",
-            "classic teams cache:",
+            "tokenbroker | status: stopped",
+            "classicteamscache |",
             "profilecount:",
         ],
         confidence: "HIGH",
@@ -113,7 +113,7 @@ static RULES: &[CorrelationRule] = &[
 
     // ── Auth broker + Teams only ──────────────────────────────────────────────
     CorrelationRule {
-        signals: &["token broker: not running", "classic teams cache:"],
+        signals: &["tokenbroker | status: stopped", "classicteamscache |"],
         confidence: "HIGH",
         summary: "Teams sign-in failure is caused by the M365 auth broker, not the cache",
         detail: "The token broker (WAM) is not running. Clearing the Teams cache without \
@@ -129,7 +129,7 @@ static RULES: &[CorrelationRule] = &[
 
     // ── Auth broker + Outlook only ────────────────────────────────────────────
     CorrelationRule {
-        signals: &["token broker: not running", "profilecount:"],
+        signals: &["tokenbroker | status: stopped", "profilecount:"],
         confidence: "HIGH",
         summary: "Outlook sign-in failure is caused by the M365 auth broker",
         detail: "The WAM token broker is not running. Outlook will loop on the sign-in screen \
@@ -200,7 +200,7 @@ static RULES: &[CorrelationRule] = &[
 
     // ── Teams cache + crash evidence ─────────────────────────────────────────
     CorrelationRule {
-        signals: &["teams cache:", "application error |"],
+        signals: &["classicteamscache |", "application error |"],
         confidence: "MEDIUM",
         summary: "Bloated Teams cache is likely causing Teams to crash",
         detail: "The Teams cache directory is large and there is crash evidence in the \

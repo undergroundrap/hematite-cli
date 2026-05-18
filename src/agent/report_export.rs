@@ -1939,6 +1939,50 @@ fn auto_cmd_ac() -> &'static AutoCmdAc {
                 Some("disabled"),
                 false,
             ),
+            // M365 Token Broker — safe to restart; resolves Teams + Outlook sign-in silently
+            (
+                "tokenbroker | status: stopped",
+                "Restart M365 Token Broker",
+                "powershell -Command \"Restart-Service TokenBroker -Force -ErrorAction SilentlyContinue\"",
+                Some("identity_auth"),
+                Some("tokenbroker | status: stopped"),
+                true,
+            ),
+            (
+                "token broker: not running",
+                "Restart M365 Token Broker",
+                "powershell -Command \"Restart-Service TokenBroker -Force -ErrorAction SilentlyContinue\"",
+                Some("identity_auth"),
+                Some("tokenbroker | status: stopped"),
+                false, // duplicate label
+            ),
+            // Windows Installer service — re-enable and start when disabled; explicit --fix only
+            (
+                "msiserver | status: stopped | starttype: disabled",
+                "Re-enable Windows Installer service",
+                "powershell -Command \"Set-Service msiserver -StartupType Manual; Start-Service msiserver -ErrorAction SilentlyContinue\"",
+                Some("installer_health"),
+                Some("msiserver | status: stopped"),
+                false,
+            ),
+            // Delivery Optimization — clear peer cache to free disk; explicit --fix only
+            (
+                "delivery optimization",
+                "Clear Delivery Optimization cache",
+                "powershell -Command \"Delete-DeliveryOptimizationCache -Force -ErrorAction SilentlyContinue\"",
+                None,
+                None,
+                false,
+            ),
+            // SysMain (Superfetch) — explicit --fix only; restarting unnecessarily is low-value
+            (
+                "sysmain",
+                "Restart SysMain service",
+                "powershell -Command \"Restart-Service SysMain -ErrorAction SilentlyContinue\"",
+                None,
+                None,
+                false,
+            ),
         ];
         let mut patterns: Vec<&str> = Vec::with_capacity(SAFE.len());
         let mut entries: Vec<AutoFix> = Vec::with_capacity(SAFE.len());
