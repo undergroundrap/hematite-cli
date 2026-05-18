@@ -1,9 +1,9 @@
 use serde_json::Value;
 
 pub async fn scientific_compute(args: &Value) -> Result<String, String> {
-    let mode = args["mode"]
-        .as_str()
-        .ok_or("Missing 'mode' (symbolic, units, complexity, ledger, dataset, regression, hypothesis)")?;
+    let mode = args["mode"].as_str().ok_or(
+        "Missing 'mode' (symbolic, units, complexity, ledger, dataset, regression, hypothesis, matrix)",
+    )?;
 
     match mode {
         "symbolic" => solve_symbolic(args).await,
@@ -13,6 +13,7 @@ pub async fn scientific_compute(args: &Value) -> Result<String, String> {
         "dataset" => calculate_on_dataset(args).await,
         "regression" => run_regression(args).await,
         "hypothesis" => run_hypothesis(args).await,
+        "matrix" => run_matrix(args).await,
         _ => Err(format!("Unknown scientific mode: {}", mode)),
     }
 }
@@ -1049,6 +1050,637 @@ print("\n".join(_out))
         safe_path = safe_path,
         col_a = col_a,
         col_b = col_b,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ─── Matrix operations ────────────────────────────────────────────────────────
+
+async fn run_matrix(args: &Value) -> Result<String, String> {
+    let operation = args["operation"].as_str().unwrap_or("det");
+
+    let a_json = match &args["a"] {
+        Value::Array(arr) => serde_json::to_string(arr).unwrap_or_else(|_| "None".to_string()),
+        _ => return Err("Missing 'a' (matrix as nested array) for matrix mode".into()),
+    };
+    let b_json = match &args["b"] {
+        Value::Array(arr) => serde_json::to_string(arr).unwrap_or_else(|_| "None".to_string()),
+        _ => "None".to_string(),
+    };
+
+    let script = format!(
+        r####"import sys, math
+
+_op = "{operation}"
+_a  = {a_json}
+_b  = {b_json}
+
+try:
+    import numpy as _np
+    _HAS_NP = True
+except ImportError:
+    _HAS_NP = False
+
+_A = _np.array(_a, dtype=float) if _HAS_NP else _a
+_B = _np.array(_b, dtype=float) if (_HAS_NP and _b is not None) else _b
+
+_H2 = "##"
+_out = []
+
+def _fmt_row(row):
+    return "  " + "  ".join("%12.6g" % float(x) for x in row)
+
+def _pp(M):
+    if _HAS_NP:
+        if M.ndim == 1:
+            _out.append("  [" + ", ".join("%.6g" % x for x in M) + "]")
+        else:
+            for row in M: _out.append(_fmt_row(row))
+    else:
+        if isinstance(M[0], list):
+            for row in M: _out.append(_fmt_row(row))
+        else:
+            _out.append("  [" + ", ".join("%.6g" % x for x in M) + "]")
+
+def _det_py(m):
+    n = len(m); m = [list(r) for r in m]; sign = 1
+    for i in range(n):
+        p = max(range(i, n), key=lambda r: abs(m[r][i]))
+        if abs(m[p][i]) < 1e-12: return 0.0
+        if p != i: m[i], m[p] = m[p], m[i]; sign *= -1
+        for j in range(i+1, n):
+            f = m[j][i] / m[i][i]
+            for k in range(i, n): m[j][k] -= f * m[i][k]
+    d = sign
+    for i in range(n): d *= m[i][i]
+    return d
+
+def _matmul_py(A, B):
+    n, m = len(A), len(A[0])
+    if isinstance(B[0], list):
+        p = len(B[0])
+        return [[sum(A[i][k]*B[k][j] for k in range(m)) for j in range(p)] for i in range(n)]
+    return [sum(A[i][k]*B[k] for k in range(m)) for i in range(n)]
+
+if _op == "det":
+    _out.append(_H2 + " Determinant")
+    _out.append("")
+    _d = float(_np.linalg.det(_A)) if _HAS_NP else _det_py(_a)
+    _out.append("det(A) = %.10g" % _d)
+    if _HAS_NP:
+        _out.append("Shape: %dx%d" % (_A.shape[0], _A.shape[1]))
+
+elif _op == "invert":
+    if not _HAS_NP:
+        print("ERROR: invert requires numpy (pip install numpy)"); sys.exit(1)
+    _out.append(_H2 + " Matrix Inverse")
+    _out.append("")
+    try:
+        _R = _np.linalg.inv(_A)
+        _pp(_R)
+        _out.append("")
+        _out.append("Condition number: %.4g" % _np.linalg.cond(_A))
+    except _np.linalg.LinAlgError as _e:
+        print("ERROR: " + str(_e)); sys.exit(1)
+
+elif _op == "eigenvalues":
+    if not _HAS_NP:
+        print("ERROR: eigenvalues requires numpy (pip install numpy)"); sys.exit(1)
+    _out.append(_H2 + " Eigenvalues & Eigenvectors")
+    _out.append("")
+    _evals, _evecs = _np.linalg.eig(_A)
+    for i, (ev, vec) in enumerate(zip(_evals, _evecs.T)):
+        if abs(ev.imag) < 1e-10:
+            _out.append("lambda_%d = %.8g" % (i+1, ev.real))
+        else:
+            _out.append("lambda_%d = %.6g + %.6gi" % (i+1, ev.real, ev.imag))
+        _out.append("  eigenvector: [" + ", ".join("%.4f" % x.real for x in vec) + "]")
+
+elif _op == "solve":
+    if _b is None:
+        print("ERROR: solve requires 'b' (right-hand side vector or matrix)"); sys.exit(1)
+    if not _HAS_NP:
+        print("ERROR: solve requires numpy (pip install numpy)"); sys.exit(1)
+    _out.append(_H2 + " Solution to Ax = b")
+    _out.append("")
+    try:
+        _x = _np.linalg.solve(_A, _B.flatten() if _B.ndim > 1 else _B)
+        _out.append("x = [" + ", ".join("%.8g" % v for v in _x) + "]")
+        _out.append("")
+        _out.append("Residual ||Ax-b||: %.2e" % float(_np.linalg.norm(_A @ _x - _B.flatten())))
+    except _np.linalg.LinAlgError as _e:
+        print("ERROR: " + str(_e)); sys.exit(1)
+
+elif _op == "transpose":
+    _out.append(_H2 + " Transpose")
+    _out.append("")
+    if _HAS_NP:
+        _pp(_A.T)
+    else:
+        _pp([[_a[j][i] for j in range(len(_a))] for i in range(len(_a[0]))])
+
+elif _op == "multiply":
+    if _b is None:
+        print("ERROR: multiply requires both 'a' and 'b'"); sys.exit(1)
+    _out.append(_H2 + " Matrix Product (A @ B)")
+    _out.append("")
+    if _HAS_NP:
+        _pp(_A @ _B)
+    else:
+        _pp(_matmul_py(_a, _b))
+
+elif _op == "rank":
+    if not _HAS_NP:
+        print("ERROR: rank requires numpy (pip install numpy)"); sys.exit(1)
+    _out.append(_H2 + " Matrix Rank")
+    _out.append("")
+    _out.append("rank(A) = %d" % _np.linalg.matrix_rank(_A))
+    _out.append("Shape:   %dx%d" % (_A.shape[0], _A.shape[1]))
+
+elif _op == "svd":
+    if not _HAS_NP:
+        print("ERROR: SVD requires numpy (pip install numpy)"); sys.exit(1)
+    _out.append(_H2 + " Singular Value Decomposition")
+    _out.append("")
+    _U, _S, _Vt = _np.linalg.svd(_A)
+    _out.append("Singular values: [" + ", ".join("%.6g" % s for s in _S) + "]")
+    _out.append("Rank (numerical): %d" % _np.linalg.matrix_rank(_A))
+    _out.append("")
+    _out.append("U (%dx%d):" % (_U.shape[0], _U.shape[1]))
+    _pp(_U)
+    _out.append("Vt (%dx%d):" % (_Vt.shape[0], _Vt.shape[1]))
+    _pp(_Vt)
+
+else:
+    print("ERROR: unknown operation '%s'. Supported: det, invert, eigenvalues, solve, transpose, multiply, rank, svd" % _op)
+    sys.exit(1)
+
+print("\n".join(_out))
+"####,
+        operation = operation,
+        a_json = a_json,
+        b_json = b_json,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 20
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ─── Unit conversion ─────────────────────────────────────────────────────────
+
+// The unit table is a `const` so Python dict braces never touch format!().
+const UNIT_TABLE_PY: &str = r####"
+_U = {}
+def _r(names, factor, cat):
+    for n in names: _U[n] = (factor, cat)
+
+# Length (SI base: metre)
+_r(['m','meter','meters','metre','metres'], 1.0, 'length')
+_r(['km','kilometer','kilometers','kilometre','kilometres'], 1e3, 'length')
+_r(['cm','centimeter','centimeters'], 1e-2, 'length')
+_r(['mm','millimeter','millimeters'], 1e-3, 'length')
+_r(['um','micrometer','micron','microns'], 1e-6, 'length')
+_r(['nm','nanometer','nanometers'], 1e-9, 'length')
+_r(['pm','picometer'], 1e-12, 'length')
+_r(['in','inch','inches'], 0.0254, 'length')
+_r(['ft','foot','feet'], 0.3048, 'length')
+_r(['yd','yard','yards'], 0.9144, 'length')
+_r(['mi','mile','miles'], 1609.344, 'length')
+_r(['nmi','nautical_mile','nautical_miles'], 1852.0, 'length')
+_r(['ly','lightyear','light_year','lightyears'], 9.4607304725808e15, 'length')
+_r(['au','astronomical_unit'], 1.495978707e11, 'length')
+_r(['pc','parsec','parsecs'], 3.085677581e16, 'length')
+_r(['ang','angstrom'], 1e-10, 'length')
+_r(['fathom','fathoms'], 1.8288, 'length')
+# Mass (SI base: kilogram)
+_r(['kg','kilogram','kilograms'], 1.0, 'mass')
+_r(['g','gram','grams'], 1e-3, 'mass')
+_r(['mg','milligram','milligrams'], 1e-6, 'mass')
+_r(['ug','microgram','micrograms'], 1e-9, 'mass')
+_r(['t','tonne','metric_ton','metric_tons'], 1e3, 'mass')
+_r(['lb','lbs','pound','pounds'], 0.45359237, 'mass')
+_r(['oz','ounce','ounces'], 0.028349523125, 'mass')
+_r(['ton','short_ton'], 907.18474, 'mass')
+_r(['long_ton'], 1016.0469088, 'mass')
+_r(['stone','stones'], 6.35029318, 'mass')
+_r(['slug','slugs'], 14.593903, 'mass')
+_r(['carat','carats','ct'], 2e-4, 'mass')
+# Time (SI base: second)
+_r(['s','sec','second','seconds'], 1.0, 'time')
+_r(['ms','millisecond','milliseconds'], 1e-3, 'time')
+_r(['us','microsecond','microseconds'], 1e-6, 'time')
+_r(['ns','nanosecond','nanoseconds'], 1e-9, 'time')
+_r(['min','minute','minutes'], 60.0, 'time')
+_r(['h','hr','hour','hours'], 3600.0, 'time')
+_r(['d','day','days'], 86400.0, 'time')
+_r(['wk','week','weeks'], 604800.0, 'time')
+_r(['month','months'], 2629746.0, 'time')
+_r(['yr','year','years'], 31556952.0, 'time')
+_r(['decade','decades'], 315569520.0, 'time')
+_r(['century','centuries'], 3155695200.0, 'time')
+# Speed (SI base: m/s)
+_r(['m/s','mps','meters_per_second'], 1.0, 'speed')
+_r(['km/h','kph','kmh','kilometers_per_hour'], 1.0/3.6, 'speed')
+_r(['mph','miles_per_hour'], 0.44704, 'speed')
+_r(['knot','knots','kn'], 0.514444, 'speed')
+_r(['ft/s','fps','feet_per_second'], 0.3048, 'speed')
+_r(['mach'], 340.29, 'speed')
+_r(['c_speed','speed_of_light'], 299792458.0, 'speed')
+# Energy (SI base: joule)
+_r(['j','joule','joules'], 1.0, 'energy')
+_r(['kj','kilojoule','kilojoules'], 1e3, 'energy')
+_r(['mj','megajoule','megajoules'], 1e6, 'energy')
+_r(['gj','gigajoule','gigajoules'], 1e9, 'energy')
+_r(['cal','calorie','calories'], 4.184, 'energy')
+_r(['kcal','kilocalorie','kilocalories','cal_food'], 4184.0, 'energy')
+_r(['kwh','kw*h','kilowatt_hour','kilowatt_hours'], 3.6e6, 'energy')
+_r(['mwh','megawatt_hour'], 3.6e9, 'energy')
+_r(['ev','electronvolt','electronvolts'], 1.602176634e-19, 'energy')
+_r(['btu','british_thermal_unit'], 1055.06, 'energy')
+_r(['erg','ergs'], 1e-7, 'energy')
+_r(['therm'], 1.05506e8, 'energy')
+# Power (SI base: watt)
+_r(['w','watt','watts'], 1.0, 'power')
+_r(['kw','kilowatt','kilowatts'], 1e3, 'power')
+_r(['mw','megawatt','megawatts'], 1e6, 'power')
+_r(['gw','gigawatt','gigawatts'], 1e9, 'power')
+_r(['hp','horsepower'], 745.69987, 'power')
+_r(['ps','metric_horsepower'], 735.49875, 'power')
+_r(['btu/h','btu_per_hour'], 0.293071, 'power')
+# Pressure (SI base: pascal)
+_r(['pa','pascal','pascals'], 1.0, 'pressure')
+_r(['kpa','kilopascal','kilopascals'], 1e3, 'pressure')
+_r(['mpa','megapascal','megapascals'], 1e6, 'pressure')
+_r(['gpa','gigapascal','gigapascals'], 1e9, 'pressure')
+_r(['atm','atmosphere','atmospheres'], 101325.0, 'pressure')
+_r(['bar','bars'], 1e5, 'pressure')
+_r(['mbar','millibar','millibars'], 100.0, 'pressure')
+_r(['psi','pounds_per_square_inch'], 6894.757, 'pressure')
+_r(['mmhg','torr'], 133.322, 'pressure')
+_r(['inhg','inches_of_mercury'], 3386.39, 'pressure')
+_r(['atm_tech','at','technical_atmosphere'], 98066.5, 'pressure')
+# Temperature — special (handled separately, marker category)
+_r(['c','celsius','degc','deg_c'], ('temp', 'C'), 'temperature')
+_r(['f','fahrenheit','degf','deg_f'], ('temp', 'F'), 'temperature')
+_r(['k','kelvin','degk','deg_k'], ('temp', 'K'), 'temperature')
+_r(['r','rankine','degr','deg_r'], ('temp', 'R'), 'temperature')
+# Volume (SI base: litre)
+_r(['l','liter','liters','litre','litres'], 1.0, 'volume')
+_r(['ml','milliliter','milliliters'], 1e-3, 'volume')
+_r(['cl','centiliter','centiliters'], 1e-2, 'volume')
+_r(['dl','deciliter','deciliters'], 0.1, 'volume')
+_r(['ul','microliter','microliters'], 1e-6, 'volume')
+_r(['m3','cubic_meter','cubic_meters'], 1e3, 'volume')
+_r(['cm3','cc','cubic_centimeter'], 1e-3, 'volume')
+_r(['mm3','cubic_millimeter'], 1e-6, 'volume')
+_r(['gal','gallon','gallons','us_gal'], 3.785411784, 'volume')
+_r(['qt','quart','quarts'], 0.946352946, 'volume')
+_r(['pt','pint','pints'], 0.473176473, 'volume')
+_r(['cup','cups'], 0.2365882365, 'volume')
+_r(['fl_oz','fluid_ounce','fluid_ounces'], 0.0295735296, 'volume')
+_r(['tsp','teaspoon','teaspoons'], 0.00492892, 'volume')
+_r(['tbsp','tablespoon','tablespoons'], 0.01478676, 'volume')
+_r(['imp_gal','imperial_gallon','imperial_gallons'], 4.54609, 'volume')
+_r(['barrel','bbl'], 158.9873, 'volume')
+# Area (SI base: square metre)
+_r(['m2','sq_m','square_meter','square_meters'], 1.0, 'area')
+_r(['km2','square_kilometer','square_kilometers'], 1e6, 'area')
+_r(['cm2','square_centimeter'], 1e-4, 'area')
+_r(['mm2','square_millimeter'], 1e-6, 'area')
+_r(['ft2','sq_ft','square_foot','square_feet'], 0.09290304, 'area')
+_r(['in2','sq_in','square_inch','square_inches'], 6.4516e-4, 'area')
+_r(['yd2','sq_yd','square_yard','square_yards'], 0.83612736, 'area')
+_r(['mi2','square_mile','square_miles'], 2589988.11, 'area')
+_r(['acre','acres'], 4046.8564224, 'area')
+_r(['ha','hectare','hectares'], 1e4, 'area')
+# Digital storage (SI base: byte)
+_r(['bit','bits'], 0.125, 'digital')
+_r(['b','byte','bytes'], 1.0, 'digital')
+_r(['kb','kilobyte','kilobytes'], 1e3, 'digital')
+_r(['mb','megabyte','megabytes'], 1e6, 'digital')
+_r(['gb','gigabyte','gigabytes'], 1e9, 'digital')
+_r(['tb','terabyte','terabytes'], 1e12, 'digital')
+_r(['pb','petabyte','petabytes'], 1e15, 'digital')
+_r(['kib','kibibyte','kibibytes'], 1024.0, 'digital')
+_r(['mib','mebibyte','mebibytes'], 1048576.0, 'digital')
+_r(['gib','gibibyte','gibibytes'], 1073741824.0, 'digital')
+_r(['tib','tebibyte','tebibytes'], 1099511627776.0, 'digital')
+# Force (SI base: newton)
+_r(['n','newton','newtons'], 1.0, 'force')
+_r(['kn','kilonewton','kilonewtons'], 1e3, 'force')
+_r(['mn_force','meganewton'], 1e6, 'force')
+_r(['lbf','pound_force','pounds_force'], 4.44822, 'force')
+_r(['kgf','kilogram_force'], 9.80665, 'force')
+_r(['dyn','dyne','dynes'], 1e-5, 'force')
+# Frequency (SI base: Hz)
+_r(['hz','hertz'], 1.0, 'frequency')
+_r(['khz','kilohertz'], 1e3, 'frequency')
+_r(['mhz','megahertz'], 1e6, 'frequency')
+_r(['ghz','gigahertz'], 1e9, 'frequency')
+_r(['thz','terahertz'], 1e12, 'frequency')
+_r(['rpm','rev_per_min','revolutions_per_minute'], 1.0/60, 'frequency')
+# Angle (SI base: radian)
+_r(['rad','radian','radians'], 1.0, 'angle')
+_r(['deg','degree','degrees'], 3.14159265358979/180, 'angle')
+_r(['grad','gradian','gradians'], 3.14159265358979/200, 'angle')
+_r(['arcmin','arcminute','arcminutes'], 3.14159265358979/10800, 'angle')
+_r(['arcsec','arcsecond','arcseconds'], 3.14159265358979/648000, 'angle')
+_r(['rev','revolution','revolutions','turn','turns'], 2*3.14159265358979, 'angle')
+
+def _to_celsius(v, scale):
+    if scale=='C': return v
+    if scale=='F': return (v-32)*5/9
+    if scale=='K': return v-273.15
+    if scale=='R': return (v-491.67)*5/9
+    return None
+
+def _from_celsius(c, scale):
+    if scale=='C': return c
+    if scale=='F': return c*9/5+32
+    if scale=='K': return c+273.15
+    if scale=='R': return (c+273.15)*9/5
+    return None
+
+def _convert(val, from_u, to_u):
+    _fk = from_u.lower().strip().replace(' ','_').replace('/','/')
+    _tk = to_u.lower().strip().replace(' ','_').replace('/','/')
+    _fi = _U.get(_fk)
+    _ti = _U.get(_tk)
+    if _fi is None: return None, "Unknown unit: " + from_u
+    if _ti is None: return None, "Unknown unit: " + to_u
+    if _fi[1] == 'temperature' or _ti[1] == 'temperature':
+        if _fi[1] != 'temperature' or _ti[1] != 'temperature':
+            return None, "Cannot mix temperature and non-temperature units"
+        _c = _to_celsius(val, _fi[0][1])
+        return _from_celsius(_c, _ti[0][1]), None
+    if _fi[1] != _ti[1]:
+        return None, "Dimension mismatch: %s (%s) vs %s (%s)" % (from_u, _fi[1], to_u, _ti[1])
+    return val * _fi[0] / _ti[0], None
+"####;
+
+pub async fn convert_units(expr: &str) -> Result<String, String> {
+    if expr.trim().is_empty() {
+        return Err("No expression provided.".into());
+    }
+    let safe_expr = expr.replace('\\', "\\\\").replace('"', "\\\"");
+
+    let script = format!(
+        r####"{unit_table}
+import re as _re, sys, math
+
+_raw  = "{safe_expr}"
+_expr = _raw.strip()
+
+_m = _re.match(
+    r'^([\d.,eE+\-]+)\s+(.+?)\s+(?:to|->|=|in)\s+(.+)$', _expr, _re.I)
+if not _m:
+    print("Format: VALUE UNIT to UNIT")
+    print("Examples:  100 mph to km/h  |  72 F to C  |  1 lightyear to km  |  5 kg to lbs")
+    sys.exit(1)
+
+_val   = float(_m.group(1).replace(',',''))
+_from  = _m.group(2).strip()
+_to    = _m.group(3).strip()
+
+_result, _err = _convert(_val, _from, _to)
+if _err:
+    print("Error: " + _err)
+    sys.exit(1)
+
+def _fmtv(v):
+    if v == 0: return "0"
+    if abs(v) >= 1e12 or (abs(v) < 1e-4 and abs(v) > 0):
+        return "%.6e" % v
+    if v == int(v) and abs(v) < 1e15: return str(int(v))
+    return "%.10g" % v
+
+print("%s %s  =  %s %s" % (_fmtv(_val), _from, _fmtv(_result), _to))
+"####,
+        unit_table = UNIT_TABLE_PY,
+        safe_expr = safe_expr,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 15
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ─── Data visualization ───────────────────────────────────────────────────────
+
+pub async fn plot_dataset(
+    path_str: &str,
+    plot_type: &str,
+    x_col: &str,
+    y_col: &str,
+    out_path: &str,
+) -> Result<String, String> {
+    let safe_path = path_str.replace('\\', "\\\\").replace('"', "\\\"");
+    let safe_out  = out_path.replace('\\', "\\\\").replace('"', "\\\"");
+    let safe_x    = x_col.replace('"', "\\\"");
+    let safe_y    = y_col.replace('"', "\\\"");
+
+    let script = format!(
+        r####"import os, sys, csv as _csv, sqlite3 as _sql3
+
+os.environ['MPLBACKEND']   = 'Agg'
+os.environ['MPLCONFIGDIR'] = os.environ.get('TEMP', os.environ.get('TMP', '/tmp')) + '/hematite_mpl'
+
+_path      = "{safe_path}"
+_out_path  = "{safe_out}"
+_plot_type = "{plot_type}"
+_x_col     = "{safe_x}"
+_y_col     = "{safe_y}"
+_ext       = os.path.splitext(_path)[1].lower().lstrip('.')
+_data      = []
+
+if _ext in ('csv', 'tsv'):
+    _delim = '\t' if _ext == 'tsv' else ','
+    with open(_path, encoding='utf-8-sig', errors='replace', newline='') as _fh:
+        _rdr = _csv.DictReader(_fh, delimiter=_delim)
+        for _i, _r in enumerate(_rdr):
+            if _i >= 10000: break
+            _data.append(_r)
+elif _ext == 'json':
+    with open(_path, encoding='utf-8') as _fh:
+        _raw2 = json.load(_fh)
+    _data = _raw2[:10000] if isinstance(_raw2, list) else list(_raw2.values())[0][:10000] if isinstance(_raw2, dict) else []
+elif _ext in ('db','sqlite','sqlite3'):
+    with _sql3.connect(_path) as _con:
+        _cur = _con.cursor()
+        _cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        _t = _cur.fetchone()
+        if _t:
+            _cur.execute("SELECT * FROM [%s] LIMIT 10000" % _t[0])
+            _cs = [_d[0] for _d in _cur.description]
+            _data = [dict(zip(_cs, _r)) for _r in _cur.fetchall()]
+else:
+    print("ERROR: unsupported format"); sys.exit(1)
+
+if not _data:
+    print("No data found."); sys.exit(1)
+
+_cols = list(_data[0].keys())
+
+def _tryf(v):
+    try: return float(str(v or '').replace(',','').strip())
+    except: return None
+
+_num_cols = []
+for _c in _cols:
+    _s = [_tryf(_r.get(_c)) for _r in _data[:200]]
+    if sum(1 for x in _s if x is not None) >= len(_s)*0.8: _num_cols.append(_c)
+
+_x_col2 = _x_col or (_num_cols[0] if _num_cols else _cols[0])
+_y_col2 = _y_col or (_num_cols[1] if len(_num_cols) > 1 else None)
+
+_x_vals = [_tryf(_r.get(_x_col2)) for _r in _data]
+_x_vals = [v for v in _x_vals if v is not None]
+_y_vals = []
+if _y_col2:
+    _y_vals = [_tryf(_r.get(_y_col2)) for _r in _data]
+    _y_vals = [v for v in _y_vals if v is not None]
+
+_title = os.path.basename(_path)
+if _y_col2:
+    _sub = "%s vs %s" % (_x_col2, _y_col2)
+else:
+    _sub = _x_col2
+
+# ── Attempt matplotlib ────────────────────────────────────────────────
+_used_mpl = False
+_svg_str   = ""
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as _plt
+    _fig, _ax = _plt.subplots(figsize=(8, 5))
+    _fig.patch.set_facecolor('#0d0d1a')
+    _ax.set_facecolor('#16213e')
+    for _sp in _ax.spines.values(): _sp.set_color('#444')
+    _ax.tick_params(colors='#999', labelsize=9)
+    _ax.xaxis.label.set_color('#bbb')
+    _ax.yaxis.label.set_color('#bbb')
+    _ax.title.set_color('#7fc3ff')
+    _C = '#4a9eff'
+    if _plot_type == 'histogram':
+        _ax.hist(_x_vals, bins=min(40, max(10, int(len(_x_vals)**0.5)+1)),
+                 color=_C, alpha=0.85, edgecolor='#0d0d1a')
+        _ax.set_xlabel(_x_col2); _ax.set_ylabel('Count')
+        _ax.set_title('Histogram — ' + _x_col2)
+    elif _plot_type in ('scatter',''):
+        _nx = min(len(_x_vals), len(_y_vals))
+        _ax.scatter(_x_vals[:_nx], _y_vals[:_nx], color=_C, alpha=0.6, s=15)
+        _ax.set_xlabel(_x_col2); _ax.set_ylabel(_y_col2 or '')
+        _ax.set_title('Scatter — ' + _sub)
+    elif _plot_type == 'line':
+        _pairs = sorted(zip(_x_vals, _y_vals))
+        _ax.plot([p[0] for p in _pairs], [p[1] for p in _pairs], color=_C, lw=1.5)
+        _ax.set_xlabel(_x_col2); _ax.set_ylabel(_y_col2 or '')
+        _ax.set_title('Line — ' + _sub)
+    elif _plot_type == 'bar':
+        from collections import Counter as _Ctr
+        _raw_x = [str(_r.get(_x_col2, '') or '').strip() for _r in _data if _r.get(_x_col2)]
+        _ct = _Ctr(_raw_x)
+        _lbls = [k for k, _ in _ct.most_common(20)]
+        _vals2 = [_ct[k] for k in _lbls]
+        _ax.bar(range(len(_lbls)), _vals2, color=_C, alpha=0.85)
+        _ax.set_xticks(list(range(len(_lbls))))
+        _ax.set_xticklabels(_lbls, rotation=40, ha='right', fontsize=8)
+        _ax.set_title('Bar — ' + _x_col2)
+    from io import StringIO as _SIO
+    _buf = _SIO()
+    _fig.tight_layout(pad=1.2)
+    _fig.savefig(_buf, format='svg', bbox_inches='tight', facecolor=_fig.get_facecolor())
+    _plt.close(_fig)
+    _sv = _buf.getvalue()
+    _svg_str = _sv[_sv.find('<svg'):]
+    _used_mpl = True
+except Exception:
+    pass
+
+# ── Pure-Python SVG fallback ──────────────────────────────────────────
+if not _used_mpl:
+    def _hist_svg(vals, lbl, W=640, H=380):
+        if not vals: return ""
+        mn, mx = min(vals), max(vals)
+        if mn == mx: mn -= 0.5; mx += 0.5
+        nb = min(30, max(8, int(len(vals)**0.5)+1))
+        bw2 = (mx-mn)/nb
+        bins = [0]*nb
+        for v in vals:
+            i = min(int((v-mn)/bw2), nb-1)
+            bins[i] += 1
+        mc = max(bins) or 1
+        P=50; PW=W-2*P; PH=H-2*P
+        rects = ''.join(
+            '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#4a9eff" opacity=".82"/>' %
+            (P+i*PW/nb, P+PH-bins[i]/mc*PH, max(PW/nb-1,1), bins[i]/mc*PH)
+            for i in range(nb))
+        xt = ''.join('<text x="%.1f" y="%d" text-anchor="middle" font-size="10" fill="#888">%.3g</text>' %
+                     (P+k*PW/4, H-8, mn+(mx-mn)*k/4) for k in range(5))
+        yt = ''.join('<text x="%d" y="%.1f" text-anchor="end" font-size="10" fill="#888">%d</text>' %
+                     (P-4, P+PH-k*PH/4+4, int(mc*k/4)) for k in range(5))
+        axs = '<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#444"/><line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#444"/>'%(P,P,P,P+PH,P,P+PH,P+PW,P+PH)
+        ttl = '<text x="%d" y="22" text-anchor="middle" font-size="13" fill="#7fc3ff" font-weight="bold">Histogram — %s</text>'%(W//2,lbl[:50])
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" style="background:#16213e">%s%s%s%s%s</svg>'%(W,H,ttl,axs,rects,xt,yt)
+
+    def _scatter_svg(xs, ys, xl, yl, W=640, H=400):
+        if not xs or not ys: return ""
+        xmn,xmx=min(xs),max(xs); ymn,ymx=min(ys),max(ys)
+        if xmn==xmx: xmn-=1;xmx+=1
+        if ymn==ymx: ymn-=1;ymx+=1
+        P=60; PW=W-2*P; PH=H-2*P
+        def xp(v): return P+(v-xmn)/(xmx-xmn)*PW
+        def yp(v): return P+PH-(v-ymn)/(ymx-ymn)*PH
+        dots=''.join('<circle cx="%.1f" cy="%.1f" r="3" fill="#4a9eff" opacity=".65"/>'%(xp(x),yp(y)) for x,y in zip(xs[:3000],ys[:3000]))
+        axs='<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#444"/><line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#444"/>'%(P,P,P,P+PH,P,P+PH,P+PW,P+PH)
+        xt=''.join('<text x="%.1f" y="%d" text-anchor="middle" font-size="10" fill="#888">%.3g</text>'%(P+k*PW/4,P+PH+16,xmn+(xmx-xmn)*k/4) for k in range(5))
+        yt=''.join('<text x="%d" y="%.1f" text-anchor="end" font-size="10" fill="#888">%.3g</text>'%(P-4,P+PH-k*PH/4+4,ymn+(ymx-ymn)*k/4) for k in range(5))
+        xl2='<text x="%d" y="%d" text-anchor="middle" font-size="11" fill="#bbb">%s</text>'%(W//2,H-2,xl[:40])
+        ttl='<text x="%d" y="20" text-anchor="middle" font-size="13" fill="#7fc3ff" font-weight="bold">Scatter — %s vs %s</text>'%(W//2,xl[:25],yl[:25])
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" style="background:#16213e">%s%s%s%s%s%s</svg>'%(W,H,ttl,axs,dots,xt,yt,xl2)
+
+    if _plot_type in ('scatter','line') and _x_vals and _y_vals:
+        _nx = min(len(_x_vals), len(_y_vals))
+        _svg_str = _scatter_svg(_x_vals[:_nx], _y_vals[:_nx], _x_col2, _y_col2 or '')
+    else:
+        _svg_str = _hist_svg(_x_vals, _x_col2)
+
+# ── Write HTML ────────────────────────────────────────────────────────
+_engine = "matplotlib" if _used_mpl else "pure-Python SVG"
+_html = (
+    "<!DOCTYPE html><html><head><meta charset='utf-8'><title>" + _title + "</title>"
+    "<style>body{{background:#0d0d1a;color:#e0e0e0;font-family:monospace;padding:24px;margin:0}}"
+    "h2{{color:#7fc3ff;margin-bottom:4px}}p{{color:#666;font-size:.85em;margin:0 0 20px}}"
+    ".chart{{display:block;margin:0 auto;max-width:700px}}</style></head><body>"
+    "<h2>" + _title + " &mdash; " + _sub + "</h2>"
+    "<p>Generated by Hematite &middot; engine: " + _engine + " &middot; n=" + str(len(_x_vals)) + " rows</p>"
+    "<div class='chart'>" + _svg_str + "</div>"
+    "</body></html>"
+)
+os.makedirs(os.path.dirname(_out_path), exist_ok=True)
+with open(_out_path, 'w', encoding='utf-8') as _f:
+    _f.write(_html)
+print(_out_path)
+"####,
+        safe_path = safe_path,
+        safe_out  = safe_out,
+        plot_type = plot_type,
+        safe_x    = safe_x,
+        safe_y    = safe_y,
     );
 
     let sandbox_args = serde_json::json!({

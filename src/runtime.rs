@@ -843,6 +843,11 @@ mod tests {
             diagnose_why: None,
             analyze: None,
             compute: None,
+            convert: None,
+            plot: None,
+            plot_type: None,
+            plot_x: None,
+            plot_y: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

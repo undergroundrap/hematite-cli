@@ -561,6 +561,47 @@ pub struct CliCockpit {
     )]
     pub compute: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "EXPR",
+        help = "Convert between units — no model, no cloud. Supports length, mass, time, speed, energy, power, pressure, temperature, volume, area, digital storage, force, frequency, and angle. Examples: hematite --convert \"100 km to miles\", hematite --convert \"72 F to C\", hematite --convert \"1 GiB to MB\""
+    )]
+    pub convert: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "FILE",
+        help = "Generate a chart from a data file — no model, no cloud. Supports CSV, TSV, JSON, and SQLite. Uses matplotlib when available; falls back to a pure-Python SVG generator. Example: hematite --plot data.csv --plot-type histogram --plot-x age"
+    )]
+    pub plot: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "TYPE",
+        default_value = "histogram",
+        help = "Chart type for --plot: histogram, scatter, line, or bar. Default: histogram."
+    )]
+    pub plot_type: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "COLUMN",
+        help = "X-axis column name for --plot. Auto-detected from numeric columns if omitted."
+    )]
+    pub plot_x: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "COLUMN",
+        help = "Y-axis column name for --plot (scatter/line charts). Auto-detected if omitted."
+    )]
+    pub plot_y: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
