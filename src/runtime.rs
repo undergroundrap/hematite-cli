@@ -842,6 +842,7 @@ mod tests {
             timeline_trend: false,
             diagnose_why: None,
             analyze: None,
+            compute: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

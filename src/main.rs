@@ -2395,6 +2395,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref expr) = cockpit.compute {
+        match hematite::tools::scientific::compute_expr(expr.trim()).await {
+            Ok(result) => println!("{}", result.trim()),
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
     if let Some(ref path_str) = cockpit.analyze {
         let path_str = path_str.trim();
         eprintln!("Analyzing: {}...", path_str);

@@ -3,7 +3,7 @@ use serde_json::Value;
 pub async fn scientific_compute(args: &Value) -> Result<String, String> {
     let mode = args["mode"]
         .as_str()
-        .ok_or("Missing 'mode' (symbolic, units, complexity, ledger, dataset, regression)")?;
+        .ok_or("Missing 'mode' (symbolic, units, complexity, ledger, dataset, regression, hypothesis)")?;
 
     match mode {
         "symbolic" => solve_symbolic(args).await,
@@ -12,6 +12,7 @@ pub async fn scientific_compute(args: &Value) -> Result<String, String> {
         "ledger" => manage_ledger(args).await,
         "dataset" => calculate_on_dataset(args).await,
         "regression" => run_regression(args).await,
+        "hypothesis" => run_hypothesis(args).await,
         _ => Err(format!("Unknown scientific mode: {}", mode)),
     }
 }
@@ -703,6 +704,351 @@ print("\n".join(_out))
         safe_y = safe_y,
         reg_type = reg_type,
         degree = degree,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+/// Zero-model expression evaluator for `hematite --compute`.
+/// Evaluates arithmetic, trig, statistics, and common physical constants
+/// entirely inside the Python sandbox — no network, no model required.
+pub async fn compute_expr(expr: &str) -> Result<String, String> {
+    if expr.trim().is_empty() {
+        return Err("No expression provided.".into());
+    }
+    let safe_expr = expr.replace('\\', "\\\\").replace('"', "\\\"");
+
+    let script = format!(
+        r####"from math import *
+import statistics as _stat, re as _re, sys
+
+# ── Physical & mathematical constants ────────────────────────────────
+c_light  = 299_792_458.0          # m/s  — speed of light (exact)
+h_planck = 6.62607015e-34         # J·s  — Planck constant (exact)
+hbar     = h_planck / (2 * pi)    # J·s  — reduced Planck constant
+G_grav   = 6.67430e-11            # m³/(kg·s²) — gravitational constant
+k_B      = 1.380649e-23           # J/K  — Boltzmann constant (exact)
+N_A      = 6.02214076e23          # /mol — Avogadro's number (exact)
+R_gas    = 8.314462618            # J/(mol·K) — molar gas constant
+g_std    = 9.80665                # m/s² — standard gravity (exact)
+e_q      = 1.602176634e-19        # C    — elementary charge (exact)
+m_e      = 9.1093837015e-31       # kg   — electron mass
+m_p      = 1.67262192369e-27      # kg   — proton mass
+sigma_SB = 5.670374419e-8         # W/(m²·K⁴) — Stefan-Boltzmann
+eps_0    = 8.8541878128e-12       # F/m  — vacuum permittivity
+mu_0     = 1.25663706212e-6       # H/m  — vacuum permeability
+alpha_fs = 7.2973525693e-3        # — fine-structure constant
+atm      = 101_325.0              # Pa   — standard atmosphere
+
+# ── Statistics helpers ────────────────────────────────────────────────
+mean     = _stat.mean
+median   = _stat.median
+stdev    = _stat.stdev
+variance = _stat.variance
+try:    mode = _stat.mode
+except Exception: pass
+
+def _fmt(v):
+    if isinstance(v, bool):    return str(v)
+    if isinstance(v, int):     return str(v)
+    if isinstance(v, float):
+        if isnan(v):           return "nan"
+        if isinf(v):           return "inf" if v > 0 else "-inf"
+        if v == int(v) and abs(v) < 1e15:
+            return str(int(v))
+        return "%.10g" % v
+    if isinstance(v, complex): return str(v)
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(_fmt(x) for x in v) + "]"
+    return str(v)
+
+_raw   = "{safe_expr}"
+_clean = _raw.strip()
+if _clean.endswith('='): _clean = _clean[:-1].strip()
+_clean = _clean.replace('^', '**').replace('×', '*').replace('÷', '/')
+
+# "X% of Y" — e.g. "15% of 89.99"
+_pm = _re.match(r'^([\d.]+)\s*(?:%%|percent)\s+of\s+([\d,. ]+)$', _clean, _re.I)
+if _pm:
+    print(_fmt(float(_pm.group(1)) / 100.0 *
+               float(_pm.group(2).replace(',','').replace(' ',''))))
+    sys.exit(0)
+
+try:
+    _r = eval(_clean)
+    print(_fmt(_r))
+except SyntaxError as _se:
+    print("Syntax error: " + str(_se))
+    sys.exit(1)
+except Exception as _e:
+    print("Error: " + str(_e))
+    sys.exit(1)
+"####,
+        safe_expr = safe_expr,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 15
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+async fn run_hypothesis(args: &Value) -> Result<String, String> {
+    let test_type = args["test"].as_str().unwrap_or("ttest_ind");
+    let alpha = args["alpha"].as_f64().unwrap_or(0.05);
+    let mu = args["mu"].as_f64().unwrap_or(0.0);
+
+    let a_json = match &args["a"] {
+        Value::Array(arr) => serde_json::to_string(arr).unwrap_or_else(|_| "None".to_string()),
+        _ => "None".to_string(),
+    };
+    let b_json = match &args["b"] {
+        Value::Array(arr) => serde_json::to_string(arr).unwrap_or_else(|_| "None".to_string()),
+        _ => "None".to_string(),
+    };
+    let safe_path = args["path"]
+        .as_str()
+        .unwrap_or("")
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"");
+    let col_a = args["column_a"].as_str().unwrap_or("a").replace('"', "\\\"");
+    let col_b = args["column_b"].as_str().unwrap_or("").replace('"', "\\\"");
+
+    let script = format!(
+        r####"import math, sys, os
+
+_test  = "{test_type}"
+_alpha = {alpha}
+_mu    = {mu}
+_a     = {a_json}
+_b     = {b_json}
+_path  = "{safe_path}"
+_col_a = "{col_a}"
+_col_b = "{col_b}"
+
+if _a is None and _path:
+    import csv as _csv, sqlite3 as _sql3
+    _ext  = os.path.splitext(_path)[1].lower().lstrip('.')
+    _rows = []
+    if _ext in ('csv', 'tsv'):
+        _delim = '\t' if _ext == 'tsv' else ','
+        with open(_path, encoding='utf-8-sig', errors='replace', newline='') as _fh:
+            for _r in _csv.DictReader(_fh, delimiter=_delim):
+                _rows.append(_r)
+    elif _ext in ('db', 'sqlite', 'sqlite3'):
+        with _sql3.connect(_path) as _con:
+            _cur = _con.cursor()
+            _cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+            _t = _cur.fetchone()
+            if _t:
+                _cur.execute("SELECT * FROM [%s]" % _t[0])
+                _cs = [_d[0] for _d in _cur.description]
+                _rows = [dict(zip(_cs, _r)) for _r in _cur.fetchall()]
+    def _tryf(v):
+        try: return float(str(v or '').replace(',','').strip())
+        except: return None
+    _a = [_tryf(_r.get(_col_a)) for _r in _rows]
+    _a = [v for v in _a if v is not None]
+    if _col_b:
+        _b = [_tryf(_r.get(_col_b)) for _r in _rows]
+        _b = [v for v in _b if v is not None]
+
+if not _a:
+    print("ERROR: no numeric data found for group A")
+    sys.exit(1)
+
+_na = len(_a)
+_nb = len(_b) if _b else 0
+
+try:
+    from scipy import stats as _sc
+    _HAS_SCI = True
+except ImportError:
+    _HAS_SCI = False
+
+def _betainc(a, b, x):
+    if x <= 0: return 0.0
+    if x >= 1: return 1.0
+    if x > (a + 1.0) / (a + b + 2.0):
+        return 1.0 - _betainc(b, a, 1.0 - x)
+    TINY = 1e-30; EPS = 3e-7
+    lbeta = math.lgamma(a) + math.lgamma(b) - math.lgamma(a + b)
+    front = math.exp(a*math.log(x) + b*math.log(1.0-x) - lbeta) / a
+    f = 1.0; C = 1.0
+    D = 1.0 - (a+b)*x/(a+1.0)
+    if abs(D) < TINY: D = TINY
+    D = 1.0/D; f = D
+    for m in range(1, 201):
+        n1 = m*(b-m)*x/((a+2*m-1)*(a+2*m))
+        D = 1.0+n1*D; C = 1.0+n1/C
+        if abs(D) < TINY: D = TINY
+        if abs(C) < TINY: C = TINY
+        D = 1.0/D; f *= D*C
+        n2 = -(a+m)*(a+b+m)*x/((a+2*m)*(a+2*m+1))
+        D = 1.0+n2*D; C = 1.0+n2/C
+        if abs(D) < TINY: D = TINY
+        if abs(C) < TINY: C = TINY
+        D = 1.0/D; delta = D*C; f *= delta
+        if abs(delta-1.0) < EPS: break
+    return front * f
+
+def _t2p(t, df):
+    return _betainc(df/2.0, 0.5, df/(df + t*t))
+
+def _gammaincc(a, x):
+    if x <= 0: return 1.0
+    if x < a + 1:
+        _ap = a; _s = 1.0/a; _d = 1.0/a
+        for _ in range(200):
+            _ap += 1; _d *= x/_ap; _s += _d
+            if abs(_d) < abs(_s)*3e-7: break
+        return 1.0 - _s*math.exp(-x + a*math.log(x) - math.lgamma(a))
+    _b2 = x+1-a; _c = 1e30; _d = 1.0/_b2; _h = _d
+    for i in range(1, 201):
+        _an = -i*(i-a); _b2 += 2
+        _d = _an*_d + _b2
+        if abs(_d) < 1e-30: _d = 1e-30
+        _c = _b2 + _an/_c
+        if abs(_c) < 1e-30: _c = 1e-30
+        _d = 1.0/_d; _del = _d*_c; _h *= _del
+        if abs(_del-1.0) < 3e-7: break
+    return math.exp(-x + a*math.log(x) - math.lgamma(a)) * _h
+
+_stat_v = None; _p_val = None; _extra = []; _test_name = ""; _n_info = ""
+
+if _test == "ttest_1samp":
+    _test_name = "One-Sample t-Test"
+    _ma = sum(_a)/_na
+    _sd = math.sqrt(sum((x-_ma)**2 for x in _a)/(_na-1)) if _na>1 else 0.0
+    _se = _sd/math.sqrt(_na)
+    _stat_v = (_ma - _mu)/_se if _se > 0 else 0.0
+    _df = _na - 1
+    _n_info = "n=%d  H0: mean=%.6g" % (_na, _mu)
+    if _HAS_SCI:
+        _res = _sc.ttest_1samp(_a, _mu)
+        _stat_v, _p_val = float(_res.statistic), float(_res.pvalue)
+    else:
+        _p_val = _t2p(abs(_stat_v), _df)
+    _extra = ["Sample mean: %.6g" % _ma, "Sample std dev: %.6g" % _sd, "df: %d" % _df]
+
+elif _test == "ttest_ind":
+    _test_name = "Independent-Samples t-Test (Welch)"
+    if not _b:
+        print("ERROR: ttest_ind requires two groups — provide 'a' and 'b'"); sys.exit(1)
+    _ma = sum(_a)/_na; _mb = sum(_b)/_nb
+    _va = sum((x-_ma)**2 for x in _a)/(_na-1) if _na>1 else 0.0
+    _vb = sum((x-_mb)**2 for x in _b)/(_nb-1) if _nb>1 else 0.0
+    _se = math.sqrt(_va/_na + _vb/_nb)
+    _stat_v = (_ma - _mb)/_se if _se > 0 else 0.0
+    _df_n = (_va/_na + _vb/_nb)**2
+    _df_d = (_va/_na)**2/(_na-1) + (_vb/_nb)**2/(_nb-1) if _na>1 and _nb>1 else 1
+    _df = _df_n/_df_d if _df_d > 0 else 1.0
+    _n_info = "n_a=%d  n_b=%d" % (_na, _nb)
+    if _HAS_SCI:
+        _res = _sc.ttest_ind(_a, _b, equal_var=False)
+        _stat_v, _p_val = float(_res.statistic), float(_res.pvalue)
+    else:
+        _p_val = _t2p(abs(_stat_v), _df)
+    _extra = ["Mean A: %.6g" % _ma, "Mean B: %.6g" % _mb,
+              "Std Dev A: %.6g" % math.sqrt(_va),
+              "Std Dev B: %.6g" % math.sqrt(_vb),
+              "df (Welch): %.1f" % _df]
+
+elif _test == "ttest_rel":
+    _test_name = "Paired t-Test"
+    if not _b:
+        print("ERROR: ttest_rel requires two paired groups — provide 'a' and 'b'"); sys.exit(1)
+    _np2 = min(_na, _nb)
+    _diffs = [_a[i]-_b[i] for i in range(_np2)]
+    _md = sum(_diffs)/_np2
+    _sd = math.sqrt(sum((d-_md)**2 for d in _diffs)/(_np2-1)) if _np2>1 else 0.0
+    _se = _sd/math.sqrt(_np2) if _np2>0 else 0.0
+    _stat_v = _md/_se if _se > 0 else 0.0
+    _df = _np2 - 1
+    _n_info = "n_pairs=%d" % _np2
+    if _HAS_SCI:
+        _res = _sc.ttest_rel(_a[:_np2], _b[:_np2])
+        _stat_v, _p_val = float(_res.statistic), float(_res.pvalue)
+    else:
+        _p_val = _t2p(abs(_stat_v), _df)
+    _extra = ["Mean difference: %.6g" % _md,
+              "Std dev of diffs: %.6g" % _sd, "df: %d" % _df]
+
+elif _test == "mannwhitney":
+    _test_name = "Mann-Whitney U Test (non-parametric)"
+    if not _b:
+        print("ERROR: mannwhitney requires two groups — provide 'a' and 'b'"); sys.exit(1)
+    _n_info = "n_a=%d  n_b=%d" % (_na, _nb)
+    if _HAS_SCI:
+        _res = _sc.mannwhitneyu(_a, _b, alternative='two-sided')
+        _stat_v, _p_val = float(_res.statistic), float(_res.pvalue)
+    else:
+        _U = sum(1 if x>y else 0.5 if x==y else 0 for x in _a for y in _b)
+        _stat_v = _U
+        _mu_U = _na*_nb/2.0
+        _sg_U = math.sqrt(_na*_nb*(_na+_nb+1)/12.0)
+        _z = (_U - _mu_U)/_sg_U if _sg_U > 0 else 0.0
+        _p_val = math.erfc(abs(_z)/math.sqrt(2))
+        _extra.append("(Normal approximation — install scipy for exact result)")
+
+elif _test == "chi2":
+    _test_name = "Chi-Squared Goodness-of-Fit"
+    _n_info = "k=%d bins" % _na
+    _expected = list(_b) if _b else [sum(_a)/_na]*_na
+    if len(_expected) != _na:
+        print("ERROR: 'a' (observed) and 'b' (expected) must have equal length"); sys.exit(1)
+    if _HAS_SCI:
+        _res = _sc.chisquare(_a, f_exp=_expected)
+        _stat_v, _p_val = float(_res.statistic), float(_res.pvalue)
+    else:
+        _stat_v = sum((o-e)**2/e for o, e in zip(_a, _expected) if e > 0)
+        _df2 = _na - 1
+        _p_val = _gammaincc(_df2/2.0, _stat_v/2.0)
+        _extra.append("df=%d" % _df2)
+else:
+    print("ERROR: unknown test '%s'. Supported: ttest_1samp, ttest_ind, ttest_rel, mannwhitney, chi2" % _test)
+    sys.exit(1)
+
+_H2 = "##"
+_out = []
+_out.append(_H2 + " Hypothesis Test Results")
+_out.append("")
+_out.append("**Test:** " + _test_name)
+_out.append("**Alpha:** %.3g" % _alpha)
+_out.append("**Samples:** " + _n_info)
+for _ex in _extra:
+    _out.append("  - " + _ex)
+_out.append("")
+if _stat_v is not None:
+    _out.append("**Test Statistic:** %.6g" % _stat_v)
+if _p_val is not None:
+    _out.append("**p-value:** %.6g" % _p_val)
+    _out.append("")
+    if _p_val < _alpha:
+        _out.append("**Result: REJECT H0**  (p=%.5f < alpha=%.3g)" % (_p_val, _alpha))
+        _out.append("Statistically significant — unlikely under the null hypothesis.")
+    else:
+        _out.append("**Result: FAIL TO REJECT H0**  (p=%.5f >= alpha=%.3g)" % (_p_val, _alpha))
+        _out.append("Insufficient evidence to reject the null hypothesis.")
+_out.append("")
+_out.append("*Engine: %s*" % ("scipy.stats" if _HAS_SCI else "pure-Python (Lentz CF)"))
+print("\n".join(_out))
+"####,
+        test_type = test_type,
+        alpha = alpha,
+        mu = mu,
+        a_json = a_json,
+        b_json = b_json,
+        safe_path = safe_path,
+        col_a = col_a,
+        col_b = col_b,
     );
 
     let sandbox_args = serde_json::json!({

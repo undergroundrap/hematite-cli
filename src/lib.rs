@@ -553,6 +553,14 @@ pub struct CliCockpit {
     )]
     pub analyze: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "EXPR",
+        help = "Evaluate a math or science expression locally — no model, no cloud. Supports arithmetic, trig, stats, physical constants, and percentages. Examples: hematite --compute \"sqrt(2)*pi\", hematite --compute \"15% of 89.99\", hematite --compute \"N_A * k_B\""
+    )]
+    pub compute: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
