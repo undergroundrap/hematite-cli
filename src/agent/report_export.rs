@@ -117,6 +117,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             ("thermal", "Thermal"),
             ("cpu_power", "CPU Power"),
             ("pagefile", "Page File"),
+            ("storage", "Storage"),
             ("startup_items", "Startup Items")
         ]
     );
@@ -651,6 +652,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
             "no space left"
         ],
         &[
+            ("resource_load", "Resource Load"),
             ("storage", "Storage"),
             ("processes", "Processes"),
             ("disk_health", "Disk Health")
@@ -703,6 +705,7 @@ fn topics_for_issue(issue: &str) -> Vec<(&'static str, &'static str)> {
         &[
             ("resource_load", "Resource Load"),
             ("pagefile", "Page File"),
+            ("storage", "Storage"),
             ("processes", "Processes")
         ]
     );
