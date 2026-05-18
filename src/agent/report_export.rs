@@ -2422,6 +2422,78 @@ async fn run_diagnosis_phases() -> DiagnosisData {
     }
 }
 
+/// Format correlated findings as a markdown block. Returns empty string if none fired.
+fn correlation_md_block(combined_raw: &str) -> String {
+    let correlations = crate::agent::correlation::correlate_findings(combined_raw);
+    if correlations.is_empty() {
+        return String::new();
+    }
+    let mut md = String::from("## Root Cause Correlation\n\n");
+    md.push_str("> Independent findings across multiple topics point to a shared root cause.\n\n");
+    for (i, rc) in correlations.iter().enumerate() {
+        let _ = write!(
+            md,
+            "### [{}] [{}] {}\n\n{}\n\n",
+            i + 1,
+            rc.confidence,
+            rc.summary,
+            rc.detail
+        );
+        if !rc.unified_steps.is_empty() {
+            md.push_str("**Consolidated fix steps:**\n\n");
+            for (n, step) in rc.unified_steps.iter().enumerate() {
+                let _ = writeln!(md, "{}. {}", n + 1, step);
+            }
+            md.push('\n');
+        }
+    }
+    md.push_str("---\n\n");
+    md
+}
+
+/// Format correlated findings as an HTML block reusing `.recipe` card styles.
+/// Returns empty string if none fired.
+fn correlation_html_block(combined_raw: &str) -> String {
+    use crate::agent::html_template::he;
+    let correlations = crate::agent::correlation::correlate_findings(combined_raw);
+    if correlations.is_empty() {
+        return String::new();
+    }
+    let mut html = String::from(
+        "<section><h2>Root Cause Correlation</h2>\
+         <p style=\"color:#a3a3a3;font-size:.85rem;margin-bottom:1rem\">\
+         Independent findings across multiple topics point to a shared root cause.</p>",
+    );
+    for (i, rc) in correlations.iter().enumerate() {
+        let (sev_class, badge_class) = if rc.confidence == "HIGH" {
+            ("sev-action", "b-action")
+        } else {
+            ("sev-investigate", "b-investigate")
+        };
+        let _ = write!(
+            html,
+            "<div class=\"recipe {sev}\"><h3><span class=\"badge {badge}\">{conf}</span> [{n}] {summary}</h3>\
+             <p style=\"color:#d4d4d4;font-size:.85rem;margin-bottom:.75rem\">{detail}</p>",
+            sev = sev_class,
+            badge = badge_class,
+            conf = rc.confidence,
+            n = i + 1,
+            summary = he(rc.summary),
+            detail = he(rc.detail),
+        );
+        if !rc.unified_steps.is_empty() {
+            html.push_str("<ol>");
+            for step in rc.unified_steps {
+                let _ = write!(html, "<li>{}</li>", he(step));
+            }
+            html.push_str("</ol>");
+        }
+        html.push_str("</div>");
+    }
+    html.push_str("</section>");
+    html
+}
+
 /// Run a full staged diagnosis — health_report → triage → targeted follow-ups → fix recipes.
 /// No TUI, no model required. Output is self-contained markdown for cloud model ingestion.
 pub async fn generate_diagnosis_report() -> String {
@@ -2434,6 +2506,12 @@ pub async fn generate_diagnosis_report() -> String {
     }
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
+
+    let combined_raw: String = std::iter::once(data.health_output.as_str())
+        .chain(data.follow_up_outputs.iter().map(|(_, o)| o.as_str()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let correlation_block = correlation_md_block(&combined_raw);
 
     let mut md =
         String::with_capacity(action_plan.len() + data.follow_up_outputs.len() * 512 + 256);
@@ -2451,6 +2529,7 @@ pub async fn generate_diagnosis_report() -> String {
     md.push_str("## Action Plan\n\n");
     md.push_str(&action_plan);
     md.push_str("---\n\n");
+    md.push_str(&correlation_block);
     md.push_str("## System Health\n\n```\n");
     md.push_str(data.health_output.trim_end());
     md.push_str("\n```\n\n");
@@ -2479,6 +2558,12 @@ pub async fn generate_diagnosis_report_html() -> String {
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan_html = crate::agent::fix_recipes::format_action_plan_html(&section_refs);
 
+    let combined_raw: String = std::iter::once(data.health_output.as_str())
+        .chain(data.follow_up_outputs.iter().map(|(_, o)| o.as_str()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let corr_html = correlation_html_block(&combined_raw);
+
     let mut sections: Vec<(&str, String)> = vec![("System Health", data.health_output.clone())];
     for (topic, output) in &data.follow_up_outputs {
         sections.push((*topic, output.clone()));
@@ -2491,6 +2576,11 @@ pub async fn generate_diagnosis_report_html() -> String {
         version,
         &score,
         &action_plan_html,
+        if corr_html.is_empty() {
+            None
+        } else {
+            Some(&corr_html)
+        },
         &sections,
     )
 }
@@ -2582,6 +2672,7 @@ pub async fn generate_report_html() -> String {
         version,
         &score,
         &action_plan_html,
+        None,
         &sections,
     )
 }
@@ -2679,6 +2770,7 @@ fn build_html_document(
     version: &str,
     score: &crate::agent::fix_recipes::HealthScore,
     action_plan_html: &str,
+    correlation_html: Option<&str>,
     sections: &[(&str, String)],
 ) -> String {
     use crate::agent::html_template::{build_html_shell, he, COPY_BUTTON_HTML};
@@ -2693,6 +2785,8 @@ fn build_html_document(
             he(output.trim_end())
         );
     }
+
+    let corr_section = correlation_html.unwrap_or("");
 
     let content = format!(
         r#"<header>
@@ -2716,6 +2810,7 @@ fn build_html_document(
 <h2>Action Plan</h2>
 {action_plan_html}
 </section>
+{corr_section}
 <section>
 <h2>Diagnostic Data</h2>
 {sections_html}
@@ -2730,6 +2825,7 @@ fn build_html_document(
         intro = he(score.grade_intro()),
         copy_btn = COPY_BUTTON_HTML,
         action_plan_html = action_plan_html,
+        corr_section = corr_section,
         sections_html = sections_html,
     );
 
@@ -2797,6 +2893,14 @@ pub async fn generate_triage_report_markdown(preset: &str) -> String {
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan = crate::agent::fix_recipes::format_action_plan(&section_refs);
 
+    let combined_raw: String = data
+        .sections
+        .iter()
+        .map(|(_, o)| o.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let correlation_block = correlation_md_block(&combined_raw);
+
     let mut md = String::with_capacity(action_plan.len() + data.sections.len() * 512 + 256);
     let _ = write!(md, "# {}\n\n", title);
     let _ = writeln!(md, "**Generated:** {}  ", data.timestamp);
@@ -2811,6 +2915,7 @@ pub async fn generate_triage_report_markdown(preset: &str) -> String {
     md.push_str("---\n\n## Action Plan\n\n");
     md.push_str(&action_plan);
     md.push_str("---\n\n");
+    md.push_str(&correlation_block);
     for (label, output) in &data.sections {
         let _ = write!(md, "## {}\n\n```\n", label);
         md.push_str(output.trim_end());
@@ -2832,6 +2937,14 @@ pub async fn generate_triage_report_html(preset: &str) -> String {
     let score = crate::agent::fix_recipes::score_health(&section_refs);
     let action_plan_html = crate::agent::fix_recipes::format_action_plan_html(&section_refs);
 
+    let combined_raw: String = data
+        .sections
+        .iter()
+        .map(|(_, o)| o.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let corr_html = correlation_html_block(&combined_raw);
+
     build_html_document(
         title,
         &data.timestamp,
@@ -2839,6 +2952,11 @@ pub async fn generate_triage_report_html(preset: &str) -> String {
         version,
         &score,
         &action_plan_html,
+        if corr_html.is_empty() {
+            None
+        } else {
+            Some(&corr_html)
+        },
         &data.sections,
     )
 }
