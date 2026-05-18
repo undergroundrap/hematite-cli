@@ -168,6 +168,7 @@ static SYMPTOM_GROUPS: &[SymptomGroup] = &[
         ],
         topics: &[
             "processes",
+            "resource_load",
             "storage",
             "storage_deep",
             "pagefile",
@@ -243,7 +244,7 @@ static SYMPTOM_GROUPS: &[SymptomGroup] = &[
             "high ram",
             "high memory",
         ],
-        topics: &["resource_load", "processes", "pagefile"],
+        topics: &["resource_load", "processes", "pagefile", "storage"],
     },
     SymptomGroup {
         category: "Battery / Power",
