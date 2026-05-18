@@ -181,7 +181,8 @@ static ALL_RECIPES: &[RecipeEntry] = &[
 
     // ── RAM ───────────────────────────────────────────────────────────────────
     RecipeEntry {
-        triggers: &["ram:", "very low", "running a bit low", "free of"],
+        triggers: &["ram:", "very low", "running a bit low", "free of",
+                    "[warning] memory usage is near capacity", "swap activity may slow"],
         recipe: Recipe {
             severity: "MONITOR",
             title: "High memory usage",
@@ -198,7 +199,8 @@ static ALL_RECIPES: &[RecipeEntry] = &[
 
     // ── Thermal ───────────────────────────────────────────────────────────────
     RecipeEntry {
-        triggers: &["very high", "check cooling", "elevated under load", "°c — very high"],
+        triggers: &["very high", "check cooling", "elevated under load", "°c — very high",
+                    "[warning] cpu load is extremely high", "throttle reason:"],
         recipe: Recipe {
             severity: "ACTION",
             title: "CPU running hot",
