@@ -198,13 +198,21 @@ pub fn bash_is_safe(cmd: &str) -> Result<(), String> {
         "python3 -c ",
         "node -e ",
         "node --eval",
+        // Shell math utilities — bc, expr, perl one-liners are all run_code jobs
+        "| bc",
+        "bc -l",
+        "bc -e",
+        "expr ",
+        "perl -e ",
+        "perl -E ",
     ];
     for pattern in sandbox_redirects {
         if lower.contains(pattern) {
             return Err(format!(
-                "Use the run_code tool instead of shell for executing {} code. \
-                 Shell is blocked for sandbox-style execution.",
-                pattern.split_whitespace().next().unwrap_or("code")
+                "Use the run_code tool instead of shell for computation. \
+                 Shell math utilities ({}) are blocked — run_code gives exact, \
+                 auditable results with no floating-point shell quirks.",
+                pattern.trim()
             ));
         }
     }

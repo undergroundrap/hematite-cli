@@ -5553,33 +5553,127 @@ pub fn needs_github_ops(user_input: &str) -> bool {
 /// Used by the harness to inject a pre-turn nudge toward run_code instead of model memory.
 pub fn needs_computation_sandbox(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
+
+    // ── Computation verb set (reused by multiple categories) ─────────────────
+    let has_compute_verb = lower.contains("calculat")
+        || lower.contains("compute")
+        || lower.contains("what is")
+        || lower.contains("what's")
+        || lower.contains("how much is")
+        || lower.contains("how much does")
+        || lower.contains("solve")
+        || lower.contains("evaluate")
+        || lower.contains("find the")
+        || lower.contains("work out");
+
+    // ── Hash / checksum ───────────────────────────────────────────────────────
     let hash_or_checksum = lower.contains("sha")
         || lower.contains("md5")
         || lower.contains("checksum")
         || lower.contains("crc")
         || lower.contains("hash")
         || lower.contains("fingerprint");
-    let financial =
-        (lower.contains("calculat") || lower.contains("compute") || lower.contains("what is"))
-            && (lower.contains("percent")
-                || lower.contains("%")
-                || lower.contains("interest")
-                || lower.contains("compound")
-                || lower.contains("roi")
-                || lower.contains("tax")
-                || lower.contains("discount")
-                || lower.contains("profit")
-                || lower.contains("loss"));
+
+    // ── Simple arithmetic (any inline operator with digits) ───────────────────
+    let simple_arithmetic = {
+        let has_operator = lower.contains(" + ")
+            || lower.contains(" - ")
+            || lower.contains(" * ")
+            || lower.contains(" / ")
+            || lower.contains(" × ")
+            || lower.contains(" ÷ ")
+            || lower.contains(" ^ ")
+            || lower.contains("squared")
+            || lower.contains("cubed")
+            || lower.contains("times ")
+            || lower.contains("divided by")
+            || lower.contains("multiplied by")
+            || lower.contains("plus ")
+            || lower.contains("minus ");
+        let has_digit = lower.chars().any(|c| c.is_ascii_digit());
+        has_operator && has_digit && has_compute_verb
+    };
+
+    // ── Financial / percentage ────────────────────────────────────────────────
+    let financial = has_compute_verb
+        && (lower.contains("percent")
+            || lower.contains("%")
+            || lower.contains("interest")
+            || lower.contains("compound")
+            || lower.contains("roi")
+            || lower.contains("tax")
+            || lower.contains("discount")
+            || lower.contains("profit")
+            || lower.contains("loss")
+            || lower.contains("salary")
+            || lower.contains("annuali")
+            || lower.contains("amortiz")
+            || lower.contains("mortgage")
+            || lower.contains("exchange rate")
+            || lower.contains("currency"));
+
+    // ── Statistics / data analysis ────────────────────────────────────────────
     let statistics = lower.contains("standard deviation")
         || lower.contains("std dev")
         || lower.contains("mean of")
         || lower.contains("median of")
         || lower.contains("average of")
-        || lower.contains("variance")
+        || lower.contains("variance of")
         || lower.contains("regression")
-        || lower.contains("correlation");
+        || lower.contains("correlation")
+        || lower.contains("percentile")
+        || lower.contains("quartile")
+        || lower.contains("sum of")
+        || lower.contains("total of")
+        || lower.contains("count of")
+        || lower.contains("these numbers")
+        || lower.contains("the following numbers")
+        || lower.contains("the following data")
+        || lower.contains("from the data")
+        || lower.contains("in this dataset")
+        || lower.contains("from this csv")
+        || lower.contains("from this table")
+        || lower.contains("analyze the data")
+        || lower.contains("analyze this data")
+        || lower.contains("analyze these numbers");
+
+    // ── Geometry / trigonometry ───────────────────────────────────────────────
+    let geometry = lower.contains("area of")
+        || lower.contains("volume of")
+        || lower.contains("circumference")
+        || lower.contains("perimeter of")
+        || lower.contains("hypotenuse")
+        || lower.contains("pythagorean")
+        || lower.contains("square root")
+        || lower.contains("sqrt")
+        || lower.contains("cube root")
+        || (has_compute_verb
+            && (lower.contains(" sine ")
+                || lower.contains(" sin ")
+                || lower.contains(" cosine ")
+                || lower.contains(" cos ")
+                || lower.contains(" tangent ")
+                || lower.contains(" tan ")))
+        || lower.contains("logarithm")
+        || lower.contains("log base")
+        || lower.contains("natural log")
+        || lower.contains(" ln ")
+        || (has_compute_verb
+            && (lower.contains("exponent")
+                || lower.contains("power of")
+                || lower.contains("to the power")
+                || lower.contains("raised to")))
+        || (has_compute_verb && lower.contains("derivative"))
+        || (has_compute_verb && lower.contains("integral"));
+
+    // ── Date / time arithmetic ────────────────────────────────────────────────
     let date_math = (lower.contains("how many days")
+        || lower.contains("how many hours")
+        || lower.contains("how many weeks")
+        || lower.contains("how many months")
         || lower.contains("days between")
+        || lower.contains("hours between")
+        || lower.contains("weeks between")
         || lower.contains("days until")
         || lower.contains("days since")
         || lower.contains("unix timestamp")
@@ -5588,8 +5682,13 @@ pub fn needs_computation_sandbox(user_input: &str) -> bool {
         || lower.contains("timezone"))
         && (lower.contains("date")
             || lower.contains("day")
+            || lower.contains("hour")
+            || lower.contains("week")
+            || lower.contains("month")
             || lower.contains("timestamp")
             || lower.contains("time"));
+
+    // ── Algorithms / code execution ───────────────────────────────────────────
     let algorithmic = lower.contains("is prime")
         || lower.contains("prime number")
         || lower.contains("factori")
@@ -5598,7 +5697,12 @@ pub fn needs_computation_sandbox(user_input: &str) -> bool {
         || lower.contains("sort this")
         || lower.contains("verify this algorithm")
         || lower.contains("run this code")
-        || lower.contains("execute this");
+        || lower.contains("execute this")
+        || lower.contains("big-o")
+        || lower.contains("time complexity")
+        || lower.contains("space complexity");
+
+    // ── Unit conversion ───────────────────────────────────────────────────────
     let unit_conversion = (lower.contains("convert") || lower.contains("how many"))
         && (lower.contains(" bytes")
             || lower.contains(" kb")
@@ -5611,10 +5715,34 @@ pub fn needs_computation_sandbox(user_input: &str) -> bool {
             || lower.contains("fahrenheit")
             || lower.contains("kelvin")
             || lower.contains("kilometers")
+            || lower.contains("kilometres")
             || lower.contains("miles")
+            || lower.contains("meters")
+            || lower.contains("metres")
+            || lower.contains("feet")
+            || lower.contains("inches")
+            || lower.contains("centimeter")
+            || lower.contains("centimetre")
             || lower.contains("pounds")
-            || lower.contains("kilograms"));
-    hash_or_checksum || financial || statistics || date_math || algorithmic || unit_conversion
+            || lower.contains("kilograms")
+            || lower.contains("ounces")
+            || lower.contains("liters")
+            || lower.contains("litres")
+            || lower.contains("gallons")
+            || lower.contains("watts")
+            || lower.contains("kilowatts")
+            || lower.contains("volts")
+            || lower.contains("ampere")
+            || lower.contains("horsepower"));
+
+    hash_or_checksum
+        || simple_arithmetic
+        || financial
+        || statistics
+        || date_math
+        || algorithmic
+        || unit_conversion
+        || geometry
 }
 
 #[cfg(test)]

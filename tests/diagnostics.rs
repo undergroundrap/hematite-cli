@@ -5415,6 +5415,110 @@ fn test_computation_sandbox_detector_does_not_trigger_on_normal_queries() {
     ));
 }
 
+#[test]
+fn test_computation_sandbox_detector_triggers_on_simple_arithmetic() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    // contractions + inline operators
+    assert!(needs_computation_sandbox("what's 847 * 23?"));
+    assert!(needs_computation_sandbox("what is 1500 / 4?"));
+    assert!(needs_computation_sandbox("what's 2500 + 1337?"));
+    assert!(needs_computation_sandbox("calculate 9999 - 4567"));
+    assert!(needs_computation_sandbox("what's 6 squared?"));
+    assert!(needs_computation_sandbox("compute 12 divided by 4"));
+    assert!(needs_computation_sandbox("find the value of 17 times 6"));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_geometry_and_trig() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox(
+        "what is the area of a circle with radius 7?"
+    ));
+    assert!(needs_computation_sandbox(
+        "calculate the volume of a sphere with radius 3"
+    ));
+    assert!(needs_computation_sandbox(
+        "what is the circumference of a circle with diameter 10?"
+    ));
+    assert!(needs_computation_sandbox(
+        "what is the hypotenuse of a right triangle with sides 3 and 4?"
+    ));
+    assert!(needs_computation_sandbox("what is the square root of 144?"));
+    assert!(needs_computation_sandbox("compute sqrt 256"));
+    assert!(needs_computation_sandbox(
+        "what is the natural log of 2.718?"
+    ));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_data_analysis() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox(
+        "what is the sum of these numbers: 10, 20, 30, 40?"
+    ));
+    assert!(needs_computation_sandbox(
+        "calculate the total of the following numbers: 5, 15, 25"
+    ));
+    assert!(needs_computation_sandbox(
+        "analyze this data and find the average"
+    ));
+    assert!(needs_computation_sandbox(
+        "what is the median of the following data: 3, 1, 4, 1, 5, 9?"
+    ));
+    assert!(needs_computation_sandbox(
+        "from this csv, compute the monthly totals"
+    ));
+    assert!(needs_computation_sandbox(
+        "analyze these numbers and tell me the variance"
+    ));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_percentage_with_contraction() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    // "what's" is a contraction of "what is" — must match
+    assert!(needs_computation_sandbox("what's 15% of 2500?"));
+    assert!(needs_computation_sandbox("what's the tax on $1200 at 8%?"));
+    assert!(needs_computation_sandbox(
+        "what's the discount if I save 20% on $350?"
+    ));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_extended_unit_conversions() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox("convert 70 kilograms to pounds"));
+    assert!(needs_computation_sandbox("how many liters in 5 gallons?"));
+    assert!(needs_computation_sandbox("convert 100 watts to kilowatts"));
+    assert!(needs_computation_sandbox("how many feet in 10 meters?"));
+    assert!(needs_computation_sandbox("convert 500 horsepower to watts"));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_extended_date_math() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox(
+        "how many hours between 9am and 5pm?"
+    ));
+    assert!(needs_computation_sandbox(
+        "how many weeks between January 1 and March 31?"
+    ));
+}
+
+#[test]
+fn test_computation_sandbox_detector_triggers_on_financial_extensions() {
+    use hematite::agent::routing::needs_computation_sandbox;
+    assert!(needs_computation_sandbox(
+        "calculate my mortgage payment on a $400,000 loan"
+    ));
+    assert!(needs_computation_sandbox(
+        "what is the annualized return on this investment?"
+    ));
+    assert!(needs_computation_sandbox(
+        "compute the currency exchange rate from USD to EUR"
+    ));
+}
+
 // ── inspect_host: missing topic coverage ─────────────────────────────────────
 
 #[tokio::test]

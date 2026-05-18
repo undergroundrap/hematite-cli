@@ -4964,13 +4964,17 @@ impl ConversationManager {
 
         if loop_intervention.is_none() && needs_computation_sandbox(&effective_user_input) {
             loop_intervention = Some(
-                "COMPUTATION INTEGRITY NOTICE: This query involves precise numeric computation. \
-                 Do NOT answer from training-data memory — memory answers for math are guesses. \
-                 Use `run_code` to compute the real result and return the actual output. \
-                 IMPORTANT: the `run_code` tool defaults to JavaScript (Deno). \
-                 If you write Python code, you MUST pass `language: \"python\"` explicitly. \
-                 If you write JavaScript/TypeScript, omit the language field or pass `language: \"javascript\"`. \
-                 Write the code, run it, return the result."
+                "COMPUTATION INTEGRITY NOTICE: This query requires a real numeric result. \
+                 You MUST NOT answer from training-data memory — that is a hallucination. \
+                 TOOL SELECTION: \
+                 • Use `run_code` for direct computation: arithmetic, percentages, unit conversion, \
+                   date math, statistics on given numbers, hashes. \
+                   Pass `language: \"python\"` for Python; omit or pass `language: \"javascript\"` for JS/Deno. \
+                 • Use `scientific_compute` for: symbolic algebra/calculus (mode: \"symbolic\"), \
+                   dimensional unit safety (mode: \"units\"), Big-O auditing (mode: \"complexity\"), \
+                   SQL/Python analysis of a CSV/JSON/SQLite file (mode: \"dataset\"). \
+                 RULE: every number in your response must come from tool output, not your weights. \
+                 Write the code, run it, show the result."
                     .to_string(),
             );
         }
