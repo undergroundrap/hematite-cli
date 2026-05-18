@@ -1913,6 +1913,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             diagnosis.topics_run.join(", ")
         ));
 
+        // ── Root cause correlation (shown first when present) ────────────────
+        if !diagnosis.root_causes.is_empty() {
+            md.push_str("## Root Cause Correlation\n\n");
+            md.push_str(
+                "> These findings co-occur across multiple topics and likely share one root cause.\n\n",
+            );
+            for (i, rc) in diagnosis.root_causes.iter().enumerate() {
+                md.push_str(&format!(
+                    "### [{}] [{}] {}\n\n",
+                    i + 1,
+                    rc.confidence,
+                    rc.summary
+                ));
+                md.push_str(&format!("{}\n\n", rc.detail));
+                if !rc.unified_steps.is_empty() {
+                    md.push_str("**Consolidated fix steps:**\n\n");
+                    for (n, step) in rc.unified_steps.iter().enumerate() {
+                        md.push_str(&format!("{}. {}\n", n + 1, step));
+                    }
+                    md.push('\n');
+                }
+            }
+            md.push_str("---\n\n");
+        }
+
         if diagnosis.findings.is_empty() {
             md.push_str("## Result\n\nNo actionable issues detected across all topics.\n");
         } else {

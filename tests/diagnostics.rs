@@ -14112,3 +14112,208 @@ fn test_inspect_host_storage_deep_has_sections() {
         );
     });
 }
+
+// ── Correlation engine ────────────────────────────────────────────────────────
+
+#[test]
+fn test_correlate_drive_failure_causes_crashes() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "HealthStatus: Unhealthy\nSystem Crashes / Unexpected Shutdowns:\nBSOD (BugCheck) event found";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("Failing drive") && r.confidence == "HIGH"),
+        "expected drive failure + crash rule to fire; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_drive_failure_plus_full() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "HealthStatus: Unhealthy\nFree Space: Very Low (2 GB remaining)";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("both failing and almost full")),
+        "expected drive failure + full rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_disk_saturation_smart() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "Average Disk Queue: 4.2\nHealthStatus: Unhealthy";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("100% disk usage")),
+        "expected disk saturation + SMART rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_thermal_causing_crashes() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "Throttle Reason: Thermal\nBSOD (BugCheck) event found in crash log";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("Overheating") && r.confidence == "HIGH"),
+        "expected thermal + BSOD rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_m365_auth_cascade_both_apps() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "Token Broker: Not Running\nClassic Teams Cache: 4.2 GB\nProfileCount: 2";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("Teams AND Outlook") && r.confidence == "HIGH"),
+        "expected full M365 auth cascade rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_auth_broker_teams_only() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "Token Broker: Not Running\nClassic Teams Cache: 1.1 GB";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("Teams sign-in failure") && r.confidence == "HIGH"),
+        "expected auth broker + Teams rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_auth_broker_outlook_only() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "Token Broker: Not Running\nProfileCount: 1";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("Outlook sign-in failure") && r.confidence == "HIGH"),
+        "expected auth broker + Outlook rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_pending_reboot_crashes() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "Windows Update requires a restart\nSystem Crashes / Unexpected Shutdowns: 3 events";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("Incomplete Windows Update")),
+        "expected pending reboot + crashes rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_wmi_corruption_crashes() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "WMI repository is inconsistent\nSystem Crashes / Unexpected Shutdowns: detected";
+    let results = correlate_findings(raw);
+    assert!(
+        results.iter().any(|r| r.summary.contains("WMI corruption")),
+        "expected WMI corruption rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_vpn_blocking_connectivity() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "VPN Adapter Detected: Cisco AnyConnect\nGateway: Unreachable";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("VPN") && r.confidence == "MEDIUM"),
+        "expected VPN + unreachable rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_teams_cache_crash() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "Teams Cache: 3.8 GB (bloated)\nApplication Error | Microsoft Teams";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("Teams cache") && r.confidence == "MEDIUM"),
+        "expected Teams cache + crash rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_defender_off_active_connections() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "Real-time Protection: Off\nEstablished TCP connection to 93.184.216.34:443";
+    let results = correlate_findings(raw);
+    assert!(
+        results
+            .iter()
+            .any(|r| r.summary.contains("Defender is disabled")),
+        "expected defender off + connections rule; got {:?}",
+        results.iter().map(|r| r.summary).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_correlate_and_logic_partial_signals_no_fire() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "HealthStatus: Unhealthy";
+    let results = correlate_findings(raw);
+    assert!(
+        !results
+            .iter()
+            .any(|r| r.summary.contains("Failing drive") && r.confidence == "HIGH"),
+        "rule should NOT fire with only one signal present"
+    );
+}
+
+#[test]
+fn test_correlate_empty_output_returns_empty() {
+    use hematite::agent::correlation::correlate_findings;
+    let results = correlate_findings("");
+    assert!(
+        results.is_empty(),
+        "empty input must produce no correlations"
+    );
+}
+
+#[test]
+fn test_correlate_high_confidence_before_medium() {
+    use hematite::agent::correlation::correlate_findings;
+    let raw = "HealthStatus: Unhealthy\nSystem Crashes / Unexpected Shutdowns:\nVPN Adapter Detected: WireGuard\nGateway: Unreachable";
+    let results = correlate_findings(raw);
+    if results.len() >= 2 {
+        let first_high = results.iter().position(|r| r.confidence == "HIGH");
+        let first_medium = results.iter().position(|r| r.confidence == "MEDIUM");
+        if let (Some(h), Some(m)) = (first_high, first_medium) {
+            assert!(h < m, "HIGH confidence results must come before MEDIUM");
+        }
+    }
+}

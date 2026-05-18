@@ -496,6 +496,7 @@ pub struct DiagnosisResult {
     pub category: &'static str,
     pub topics_run: Vec<&'static str>,
     pub findings: Vec<Finding>,
+    pub root_causes: Vec<crate::agent::correlation::CorrelatedFinding>,
     pub raw_output: String,
 }
 
@@ -561,10 +562,13 @@ pub fn build_diagnosis(group: &'static SymptomGroup, raw_output: &str) -> Diagno
         })
         .collect();
 
+    let root_causes = crate::agent::correlation::correlate_findings(raw_output);
+
     DiagnosisResult {
         category: group.category,
         topics_run: group.topics.to_vec(),
         findings,
+        root_causes,
         raw_output: raw_output.to_string(),
     }
 }
