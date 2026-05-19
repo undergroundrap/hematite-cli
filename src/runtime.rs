@@ -952,6 +952,7 @@ mod tests {
             finance: None,
             logic: None,
             signal: None,
+            interpolate: None,
             hypothesis: None,
             hypothesis_test: None,
             hypothesis_group2: None,

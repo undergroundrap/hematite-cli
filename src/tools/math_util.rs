@@ -5122,3 +5122,216 @@ fn signal_usage() -> String {
      Window types: rectangular hann hamming blackman\n\
      Wave shapes:  sine cosine square sawtooth triangle noise".into()
 }
+
+// ── Interpolation & curve fitting ─────────────────────────────────────────────
+// Linear, Lagrange polynomial, natural cubic spline, nearest-neighbor,
+// and linear extrapolation — all pure-Rust, instant, no subprocess.
+
+fn interp_parse_points(s: &str) -> Option<Vec<(f64, f64)>> {
+    // Accept:  "x1,y1 x2,y2 ..."  or  "x1,y1; x2,y2; ..."  or  "(x,y),(x,y)"
+    let clean = s.replace('(', "").replace(')', "").replace(';', " ");
+    let tokens: Vec<f64> = clean.split([',', ' ', '\t'].as_ref())
+        .filter_map(|t| t.trim().parse::<f64>().ok())
+        .collect();
+    if tokens.len() < 4 || tokens.len() % 2 != 0 { return None; }
+    Some(tokens.chunks(2).map(|c| (c[0], c[1])).collect())
+}
+
+fn interp_linear(points: &[(f64, f64)], x: f64) -> f64 {
+    let n = points.len();
+    if n == 0 { return f64::NAN; }
+    if n == 1 { return points[0].1; }
+    // extrapolate with end segments
+    if x <= points[0].0 {
+        let (x0, y0) = points[0]; let (x1, y1) = points[1];
+        return y0 + (x - x0) * (y1 - y0) / (x1 - x0);
+    }
+    if x >= points[n - 1].0 {
+        let (x0, y0) = points[n - 2]; let (x1, y1) = points[n - 1];
+        return y0 + (x - x0) * (y1 - y0) / (x1 - x0);
+    }
+    for i in 0..n - 1 {
+        let (x0, y0) = points[i]; let (x1, y1) = points[i + 1];
+        if x >= x0 && x <= x1 { return y0 + (x - x0) * (y1 - y0) / (x1 - x0); }
+    }
+    f64::NAN
+}
+
+fn interp_nearest(points: &[(f64, f64)], x: f64) -> f64 {
+    points.iter()
+        .min_by(|a, b| (a.0 - x).abs().partial_cmp(&(b.0 - x).abs()).unwrap())
+        .map(|p| p.1)
+        .unwrap_or(f64::NAN)
+}
+
+fn interp_lagrange(points: &[(f64, f64)], x: f64) -> f64 {
+    let n = points.len();
+    (0..n).map(|i| {
+        let (xi, yi) = points[i];
+        let li = (0..n).filter(|&j| j != i)
+            .fold(1.0_f64, |acc, j| acc * (x - points[j].0) / (xi - points[j].0));
+        yi * li
+    }).sum()
+}
+
+// Natural cubic spline via tridiagonal solve
+fn interp_spline_build(points: &[(f64, f64)]) -> Vec<(f64, f64, f64, f64)> {
+    let n = points.len();
+    if n < 2 { return vec![]; }
+    let h: Vec<f64> = (0..n - 1).map(|i| points[i + 1].0 - points[i].0).collect();
+    let mut alpha = vec![0.0_f64; n];
+    for i in 1..n - 1 {
+        alpha[i] = (3.0 / h[i]) * (points[i + 1].1 - points[i].1)
+                 - (3.0 / h[i - 1]) * (points[i].1 - points[i - 1].1);
+    }
+    let mut l = vec![1.0_f64; n];
+    let mut mu = vec![0.0_f64; n];
+    let mut z = vec![0.0_f64; n];
+    for i in 1..n - 1 {
+        l[i] = 2.0 * (points[i + 1].0 - points[i - 1].0) - h[i - 1] * mu[i - 1];
+        mu[i] = h[i] / l[i];
+        z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i];
+    }
+    let mut c = vec![0.0_f64; n];
+    let mut b = vec![0.0_f64; n];
+    let mut d = vec![0.0_f64; n];
+    for j in (0..n - 1).rev() {
+        c[j] = z[j] - mu[j] * c[j + 1];
+        b[j] = (points[j + 1].1 - points[j].1) / h[j] - h[j] * (c[j + 1] + 2.0 * c[j]) / 3.0;
+        d[j] = (c[j + 1] - c[j]) / (3.0 * h[j]);
+    }
+    (0..n - 1).map(|i| (b[i], c[i], d[i], points[i].1)).collect()
+}
+
+fn interp_spline_eval(points: &[(f64, f64)], coeffs: &[(f64, f64, f64, f64)], x: f64) -> f64 {
+    let n = points.len();
+    if n == 0 { return f64::NAN; }
+    let i = if x <= points[0].0 { 0 }
+            else if x >= points[n - 1].0 { n - 2 }
+            else {
+                points[..n - 1].iter().enumerate()
+                    .find(|(i, p)| x >= p.0 && x <= points[i + 1].0)
+                    .map(|(i, _)| i)
+                    .unwrap_or(n - 2)
+            };
+    let i = i.min(coeffs.len().saturating_sub(1));
+    let dx = x - points[i].0;
+    let (b, c, d, a) = coeffs[i];
+    a + b * dx + c * dx * dx + d * dx * dx * dx
+}
+
+fn interp_ascii_curve(points: &[(f64, f64)], eval_fn: &dyn Fn(f64) -> f64, width: usize, height: usize) -> String {
+    if points.is_empty() { return String::new(); }
+    let xs: Vec<f64> = points.iter().map(|p| p.0).collect();
+    let ys: Vec<f64> = points.iter().map(|p| p.1).collect();
+    let xmin = xs.iter().cloned().fold(f64::INFINITY, f64::min);
+    let xmax = xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let step = (xmax - xmin) / (width - 1) as f64;
+    let curve_y: Vec<f64> = (0..width).map(|i| eval_fn(xmin + i as f64 * step)).collect();
+    let ymin = curve_y.iter().cloned().chain(ys.iter().cloned()).fold(f64::INFINITY, f64::min);
+    let ymax = curve_y.iter().cloned().chain(ys.iter().cloned()).fold(f64::NEG_INFINITY, f64::max);
+    let yrange = (ymax - ymin).max(1e-12);
+    let mut grid = vec![vec![' '; width]; height];
+    for (col, &y) in curve_y.iter().enumerate() {
+        let row = height - 1 - ((y - ymin) / yrange * (height - 1) as f64).round() as usize;
+        let row = row.min(height - 1);
+        grid[row][col] = '·';
+    }
+    for &(xp, yp) in points {
+        let col = ((xp - xmin) / (xmax - xmin) * (width - 1) as f64).round() as usize;
+        let row = height - 1 - ((yp - ymin) / yrange * (height - 1) as f64).round() as usize;
+        let col = col.min(width - 1); let row = row.min(height - 1);
+        grid[row][col] = '●';
+    }
+    let result = grid.iter().map(|r| r.iter().collect::<String>()).collect::<Vec<_>>().join("\n");
+    format!("{}\n  y: [{:.4} .. {:.4}]\n  x: [{:.4} .. {:.4}]\n  ● = data point  · = curve", result, ymin, ymax, xmin, xmax)
+}
+
+pub fn interpolate_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "═".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  INTERPOLATION & CURVE FITTING");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let lower = q.to_lowercase();
+
+    // parse method prefix: "linear POINTS at X", "spline POINTS at X", etc.
+    let (method, rest) = if lower.starts_with("linear ") { ("linear", &q[7..]) }
+        else if lower.starts_with("spline ") || lower.starts_with("cubic ") { ("spline", &q[7..]) }
+        else if lower.starts_with("lagrange ") || lower.starts_with("poly ") { ("lagrange", &q[lower.find(' ').unwrap_or(0)+1..]) }
+        else if lower.starts_with("nearest ") { ("nearest", &q[8..]) }
+        else { ("linear", q) };
+
+    // split on "at" keyword for evaluation point(s)
+    let (pts_str, query_str) = if let Some(pos) = rest.to_lowercase().rfind(" at ") {
+        (&rest[..pos], rest[pos + 4..].trim())
+    } else {
+        (rest, "")
+    };
+
+    let mut points = match interp_parse_points(pts_str.trim()) {
+        Some(p) => p,
+        None => {
+            let _ = writeln!(out, "  ERROR: could not parse data points.");
+            let _ = writeln!(out, "  Format: x1,y1 x2,y2 x3,y3 ...");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+    };
+    points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+    let _ = writeln!(out, "  Method: {}  |  {} data points", method, points.len());
+    let _ = writeln!(out, "  Points: {}", points.iter().map(|(x, y)| format!("({:.4},{:.4})", x, y)).collect::<Vec<_>>().join("  "));
+    let _ = writeln!(out, "");
+
+    // Build spline coefficients once if needed
+    let spline_coeffs = if method == "spline" { interp_spline_build(&points) } else { vec![] };
+
+    let eval_fn: Box<dyn Fn(f64) -> f64> = match method {
+        "spline"   => { let pts = points.clone(); let sc = spline_coeffs.clone();
+                        Box::new(move |x| interp_spline_eval(&pts, &sc, x)) }
+        "lagrange" => { let pts = points.clone(); Box::new(move |x| interp_lagrange(&pts, x)) }
+        "nearest"  => { let pts = points.clone(); Box::new(move |x| interp_nearest(&pts, x)) }
+        _          => { let pts = points.clone(); Box::new(move |x| interp_linear(&pts, x)) }
+    };
+
+    // Evaluate at requested x values
+    if !query_str.is_empty() {
+        let xs: Vec<f64> = query_str.split([',', ' '].as_ref())
+            .filter_map(|s| s.trim().parse::<f64>().ok())
+            .collect();
+        if !xs.is_empty() {
+            let _ = writeln!(out, "  {:>12}  {:>14}", "x", "y (interpolated)");
+            let _ = writeln!(out, "  {}", "-".repeat(28));
+            for &x in &xs {
+                let y = eval_fn(x);
+                let xmin = points[0].0; let xmax = points[points.len()-1].0;
+                let tag = if x < xmin || x > xmax { "  [extrapolated]" } else { "" };
+                let _ = writeln!(out, "  {:>12.6}  {:>14.8}{}", x, y, tag);
+            }
+            let _ = writeln!(out, "");
+        }
+    }
+
+    // Always show a dense evaluation table and ASCII curve
+    let xmin = points[0].0; let xmax = points[points.len()-1].0;
+    let steps = 9_usize;
+    let _ = writeln!(out, "  Sampled curve ({} pts across range):", steps + 1);
+    let _ = writeln!(out, "  {:>10}  {:>14}", "x", "y");
+    let _ = writeln!(out, "  {}", "-".repeat(26));
+    for i in 0..=steps {
+        let x = xmin + i as f64 * (xmax - xmin) / steps as f64;
+        let y = eval_fn(x);
+        let _ = writeln!(out, "  {:>10.4}  {:>14.8}", x, y);
+    }
+    let _ = writeln!(out, "");
+
+    // ASCII curve
+    let curve_str = interp_ascii_curve(&points, &eval_fn, 56, 10);
+    for line in curve_str.lines() { let _ = writeln!(out, "  {}", line); }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
