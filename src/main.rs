@@ -2407,13 +2407,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref expr) = cockpit.convert {
-        match hematite::tools::scientific::convert_units(expr.trim()).await {
-            Ok(result) => println!("{}", result.trim()),
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                std::process::exit(1);
-            }
-        }
+        let result = hematite::tools::math_util::unit_convert(expr.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
         return Ok(());
     }
 

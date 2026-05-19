@@ -565,7 +565,7 @@ pub struct CliCockpit {
         long,
         help_heading = "Headless Reports",
         value_name = "EXPR",
-        help = "Convert between units or number bases — no model, no cloud. Supports length, mass, time, speed, energy, power, pressure, temperature, volume, area, digital storage, force, frequency, angle, and hex/binary/octal. Examples: hematite --convert \"100 km to miles\", hematite --convert \"72 F to C\", hematite --convert \"0xFF to decimal\""
+        help = "Unit conversion — instant, no model, no cloud. 15 categories: length, mass, time, area, volume, speed, force, pressure, energy, power, data, angle, frequency, illuminance, fuel economy, temperature. Examples: hematite --convert '5 km to miles'  '100 f to c'  '1 atm to Pa'  '60 mph to km/h'  '1 GiB to MB'  '1 kcal to J'  'list' (show all units)"
     )]
     pub convert: Option<String>,
 

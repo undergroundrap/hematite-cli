@@ -1104,3 +1104,391 @@ pub fn stat_normal(query: &str) -> String {
     }
     out
 }
+
+// ── Unit conversion ───────────────────────────────────────────────────────────
+// Query forms:
+//   "5 km to miles"   "32 F to C"   "1 atm to Pa"   "100 mph to km/h"
+//   "list" or "units" — show all supported categories and units
+
+pub fn unit_convert(query: &str) -> String {
+    let q = query.trim();
+    if q.eq_ignore_ascii_case("list") || q.eq_ignore_ascii_case("units") || q.eq_ignore_ascii_case("help") {
+        return unit_convert_list();
+    }
+
+    // Parse: "<value> <from_unit> to <to_unit>"
+    // Also accept: "<value> <from_unit> in <to_unit>"
+    let lower = q.to_lowercase();
+    let sep = if lower.contains(" to ") { " to " } else if lower.contains(" in ") { " in " } else { "" };
+
+    if sep.is_empty() {
+        return format!(
+            "Usage: hematite --convert '5 km to miles'\n\
+             Common examples:\n\
+             hematite --convert '100 f to c'\n\
+             hematite --convert '1 atm to Pa'\n\
+             hematite --convert '60 mph to km/h'\n\
+             hematite --convert '1 GiB to MB'\n\
+             hematite --convert '1 cal to J'\n\
+             hematite --convert 'list'    (show all units)"
+        );
+    }
+
+    let parts: Vec<&str> = q.splitn(2, &sep.to_uppercase().as_str().to_string()).collect();
+    let parts: Vec<&str> = if parts.len() < 2 {
+        q.splitn(2, sep).collect()
+    } else { parts };
+
+    if parts.len() < 2 {
+        return format!("Could not parse: '{}'. Try: '5 km to miles'", q);
+    }
+
+    let lhs = parts[0].trim();
+    let to_unit = parts[1].trim();
+
+    // Split lhs into numeric value and unit
+    let (value_str, from_unit) = split_value_unit(lhs);
+    let value: f64 = match value_str.parse() {
+        Ok(v) => v,
+        Err(_) => return format!("Cannot parse value: '{}'", value_str),
+    };
+
+    match convert(value, from_unit.trim(), to_unit.trim()) {
+        Ok((result, category)) => {
+            let result_str = if result.abs() >= 1e-3 && result.abs() < 1e7 {
+                format!("{:.8}", result).trim_end_matches('0').trim_end_matches('.').to_string()
+            } else {
+                format!("{:.6e}", result)
+            };
+            format!(
+                "{} {} = {} {}\n({})",
+                value_str.trim(), from_unit.trim(), result_str, to_unit.trim(), category
+            )
+        }
+        Err(e) => e,
+    }
+}
+
+fn split_value_unit(s: &str) -> (&str, &str) {
+    // Find the boundary between the numeric part and the unit part
+    let s = s.trim();
+    let mut end = 0;
+    for (i, c) in s.char_indices() {
+        if c.is_ascii_digit() || c == '.' || c == '-' || c == '+' || c == 'e' || c == 'E' {
+            end = i + c.len_utf8();
+        } else if i == 0 && (c == '-' || c == '+') {
+            end = 1;
+        } else if i > 0 {
+            break;
+        }
+    }
+    if end == 0 { end = s.len(); }
+    (&s[..end], s[end..].trim())
+}
+
+// Returns (converted_value, category_name) or Err(message)
+fn convert(value: f64, from: &str, to: &str) -> Result<(f64, &'static str), String> {
+    // Normalize unit names
+    let from_n = norm_unit(from);
+    let to_n   = norm_unit(to);
+
+    // Walk categories
+    for (cat_name, units) in UNIT_CATEGORIES {
+        // Find from_unit base factor
+        let from_entry = units.iter().find(|(names, _)| names.iter().any(|n| *n == from_n.as_str()));
+        let to_entry   = units.iter().find(|(names, _)| names.iter().any(|n| *n == to_n.as_str()));
+
+        if let (Some(fe), Some(te)) = (from_entry, to_entry) {
+            // Temperature handled specially
+            if *cat_name == "Temperature" {
+                return Ok((convert_temperature(value, from_n.as_str(), to_n.as_str()), "Temperature"));
+            }
+            // For all other categories: value * from_factor = SI base; SI base / to_factor = result
+            let si = value * fe.1;
+            let result = si / te.1;
+            return Ok((result, cat_name));
+        }
+    }
+
+    // Try to give a helpful error
+    let known: Vec<&str> = UNIT_CATEGORIES
+        .iter()
+        .flat_map(|(_, units)| units.iter().flat_map(|(names, _)| names.iter().copied()))
+        .collect();
+    let mut close: Vec<&str> = known.iter().filter(|n| levenshtein(n, from_n.as_str()) <= 2).copied().collect();
+    close.extend(known.iter().filter(|n| levenshtein(n, to_n.as_str()) <= 2).copied());
+    close.dedup();
+
+    if close.is_empty() {
+        Err(format!("Unknown units: '{}' or '{}'. Run 'hematite --convert list' to see all.", from, to))
+    } else {
+        Err(format!("Unknown unit(s). Did you mean: {}?\nRun 'hematite --convert list' for all supported units.", close.join(", ")))
+    }
+}
+
+fn norm_unit(s: &str) -> String {
+    s.trim().to_lowercase()
+        .replace("°", "")
+        .replace("²", "2")
+        .replace("³", "3")
+        .replace("/s", "_per_s")
+        .replace("per second", "_per_s")
+}
+
+fn convert_temperature(value: f64, from: &str, to: &str) -> f64 {
+    // Convert to Kelvin first
+    let kelvin = match from {
+        "c" | "celsius"     => value + 273.15,
+        "f" | "fahrenheit"  => (value - 32.0) * 5.0 / 9.0 + 273.15,
+        "k" | "kelvin"      => value,
+        "r" | "rankine"     => value * 5.0 / 9.0,
+        _                   => value,
+    };
+    match to {
+        "c" | "celsius"     => kelvin - 273.15,
+        "f" | "fahrenheit"  => (kelvin - 273.15) * 9.0 / 5.0 + 32.0,
+        "k" | "kelvin"      => kelvin,
+        "r" | "rankine"     => kelvin * 9.0 / 5.0,
+        _                   => kelvin,
+    }
+}
+
+fn levenshtein(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
+    let b: Vec<char> = b.chars().collect();
+    let (m, n) = (a.len(), b.len());
+    let mut dp = vec![vec![0usize; n + 1]; m + 1];
+    for i in 0..=m { dp[i][0] = i; }
+    for j in 0..=n { dp[0][j] = j; }
+    for i in 1..=m {
+        for j in 1..=n {
+            dp[i][j] = if a[i-1] == b[j-1] {
+                dp[i-1][j-1]
+            } else {
+                1 + dp[i-1][j].min(dp[i][j-1]).min(dp[i-1][j-1])
+            };
+        }
+    }
+    dp[m][n]
+}
+
+// Each entry: (&[unit_aliases], factor_to_SI_base)
+// Temperature is handled separately (non-linear)
+type UnitEntry = (&'static [&'static str], f64);
+type UnitCategory = (&'static str, &'static [UnitEntry]);
+
+static UNIT_CATEGORIES: &[UnitCategory] = &[
+    ("Length", &[
+        (&["m", "meter", "meters", "metre", "metres"],                   1.0),
+        (&["km", "kilometer", "kilometers", "kilometre", "kilometres"],   1000.0),
+        (&["cm", "centimeter", "centimeters", "centimetre", "centimetres"], 0.01),
+        (&["mm", "millimeter", "millimeters", "millimetre", "millimetres"], 0.001),
+        (&["um", "micrometer", "micrometers", "micron", "microns"],       1e-6),
+        (&["nm", "nanometer", "nanometers", "nanometre", "nanometres"],   1e-9),
+        (&["mi", "mile", "miles"],                                        1609.344),
+        (&["yd", "yard", "yards"],                                        0.9144),
+        (&["ft", "foot", "feet"],                                         0.3048),
+        (&["in", "inch", "inches"],                                       0.0254),
+        (&["nmi", "nautical_mile", "nautical_miles"],                     1852.0),
+        (&["ly", "light_year", "light_years", "lightyear", "lightyears"], 9.460730472580800e15),
+        (&["au", "astronomical_unit", "astronomical_units"],              1.495978707e11),
+        (&["pc", "parsec", "parsecs"],                                    3.085677581e16),
+        (&["ang", "angstrom", "angstroms"],                               1e-10),
+    ]),
+    ("Mass", &[
+        (&["kg", "kilogram", "kilograms", "kilogramme"],                  1.0),
+        (&["g", "gram", "grams", "gramme"],                               0.001),
+        (&["mg", "milligram", "milligrams", "milligramme"],               1e-6),
+        (&["ug", "microgram", "micrograms"],                              1e-9),
+        (&["t", "tonne", "tonnes", "metric_ton", "metric_tons"],          1000.0),
+        (&["lb", "lbs", "pound", "pounds"],                               0.45359237),
+        (&["oz", "ounce", "ounces"],                                      0.028349523125),
+        (&["st", "stone", "stones"],                                      6.35029318),
+        (&["ton", "short_ton", "short_tons"],                             907.18474),
+        (&["long_ton", "long_tons"],                                      1016.0469088),
+        (&["gr", "grain", "grains"],                                      6.479891e-5),
+        (&["u", "amu", "dalton", "daltons", "da"],                        1.66053906660e-27),
+    ]),
+    ("Temperature", &[
+        (&["c", "celsius"],                                               1.0),  // factors unused
+        (&["f", "fahrenheit"],                                            1.0),
+        (&["k", "kelvin"],                                                1.0),
+        (&["r", "rankine"],                                               1.0),
+    ]),
+    ("Time", &[
+        (&["s", "sec", "second", "seconds"],                              1.0),
+        (&["ms", "millisecond", "milliseconds"],                          0.001),
+        (&["us", "microsecond", "microseconds"],                          1e-6),
+        (&["ns", "nanosecond", "nanoseconds"],                            1e-9),
+        (&["min", "minute", "minutes"],                                   60.0),
+        (&["h", "hr", "hour", "hours"],                                   3600.0),
+        (&["d", "day", "days"],                                           86400.0),
+        (&["wk", "week", "weeks"],                                        604800.0),
+        (&["mo", "month", "months"],                                      2629800.0),
+        (&["yr", "year", "years"],                                        31557600.0),
+    ]),
+    ("Area", &[
+        (&["m2", "sqm", "square_meter", "square_meters", "square_metre"],  1.0),
+        (&["km2", "sqkm", "square_kilometer", "square_km"],                1e6),
+        (&["cm2", "sqcm", "square_centimeter", "square_centimeters"],      1e-4),
+        (&["mm2", "sqmm", "square_millimeter", "square_millimeters"],      1e-6),
+        (&["ha", "hectare", "hectares"],                                    1e4),
+        (&["ac", "acre", "acres"],                                          4046.8564224),
+        (&["sqft", "sq_ft", "square_foot", "square_feet"],                 0.09290304),
+        (&["sqin", "sq_in", "square_inch", "square_inches"],               6.4516e-4),
+        (&["sqmi", "sq_mi", "square_mile", "square_miles"],                2589988.110336),
+        (&["sqyd", "sq_yd", "square_yard", "square_yards"],                0.83612736),
+    ]),
+    ("Volume", &[
+        (&["m3", "cubic_meter", "cubic_meters", "cubic_metre"],            1.0),
+        (&["l", "liter", "liters", "litre", "litres"],                     0.001),
+        (&["ml", "milliliter", "milliliters", "millilitre"],               1e-6),
+        (&["cl", "centiliter", "centiliters"],                             1e-5),
+        (&["dl", "deciliter", "deciliters"],                               1e-4),
+        (&["ul", "microliter", "microliters"],                             1e-9),
+        (&["cm3", "cc", "cubic_centimeter", "cubic_centimeters"],          1e-6),
+        (&["mm3", "cubic_millimeter", "cubic_millimeters"],                1e-9),
+        (&["km3", "cubic_kilometer", "cubic_kilometers"],                  1e9),
+        (&["ft3", "cubic_foot", "cubic_feet"],                             0.0283168466),
+        (&["in3", "cubic_inch", "cubic_inches"],                           1.6387064e-5),
+        (&["yd3", "cubic_yard", "cubic_yards"],                            0.764554858),
+        (&["gal", "gallon", "gallons"],                                    0.003785411784),
+        (&["qt", "quart", "quarts"],                                       9.46352946e-4),
+        (&["pt", "pint", "pints"],                                         4.73176473e-4),
+        (&["cup", "cups"],                                                 2.36588237e-4),
+        (&["floz", "fl_oz", "fluid_ounce", "fluid_ounces"],                2.95735296e-5),
+        (&["tbsp", "tablespoon", "tablespoons"],                           1.47867648e-5),
+        (&["tsp", "teaspoon", "teaspoons"],                                4.92892159e-6),
+        (&["bbl", "barrel", "barrels"],                                    0.158987295),
+        (&["gal_uk", "uk_gallon", "imperial_gallon", "imperial_gallons"],  0.00454609),
+    ]),
+    ("Speed", &[
+        (&["m_per_s", "m/s", "mps"],                                       1.0),
+        (&["km_per_s", "km/s", "kmps"],                                    1000.0),
+        (&["km/h", "kmh", "kph", "km_per_h", "km_per_hour"],              1.0/3.6),
+        (&["mph", "mi/h", "mi_per_h", "miles_per_hour"],                   0.44704),
+        (&["knot", "knots", "kn"],                                          0.514444),
+        (&["ft_per_s", "ft/s", "fps"],                                      0.3048),
+        (&["c_speed", "speed_of_light"],                                    299792458.0),
+        (&["mach"],                                                          340.29),
+    ]),
+    ("Force", &[
+        (&["n", "newton", "newtons"],                                       1.0),
+        (&["kn", "kilonewton", "kilonewtons"],                              1000.0),
+        (&["mn", "meganewton", "meganewtons"],                              1e6),
+        (&["lbf", "pound_force", "pound-force"],                            4.44822162),
+        (&["kgf", "kilogram_force", "kilogram-force"],                      9.80665),
+        (&["dyn", "dyne", "dynes"],                                         1e-5),
+        (&["ozf", "ounce_force"],                                           0.278013851),
+    ]),
+    ("Pressure", &[
+        (&["pa", "pascal", "pascals"],                                      1.0),
+        (&["kpa", "kilopascal", "kilopascals"],                             1000.0),
+        (&["mpa", "megapascal", "megapascals"],                             1e6),
+        (&["gpa", "gigapascal", "gigapascals"],                             1e9),
+        (&["hpa", "hectopascal", "hectopascals", "mbar", "millibar", "millibars"], 100.0),
+        (&["bar", "bars"],                                                  1e5),
+        (&["atm", "atmosphere", "atmospheres"],                             101325.0),
+        (&["torr"],                                                         133.322368),
+        (&["mmhg", "mm_hg", "millimeter_of_mercury"],                       133.322368),
+        (&["psi", "pound_per_square_inch"],                                 6894.75729),
+        (&["inhg", "in_hg", "inch_of_mercury"],                             3386.389),
+    ]),
+    ("Energy", &[
+        (&["j", "joule", "joules"],                                         1.0),
+        (&["kj", "kilojoule", "kilojoules"],                                1000.0),
+        (&["mj", "megajoule", "megajoules"],                                1e6),
+        (&["gj", "gigajoule", "gigajoules"],                                1e9),
+        (&["cal", "calorie", "calories", "thermochemical_calorie"],         4.184),
+        (&["kcal", "kilocalorie", "kilocalories", "food_calorie"],          4184.0),
+        (&["wh", "watt_hour", "watt_hours"],                                3600.0),
+        (&["kwh", "kilowatt_hour", "kilowatt_hours"],                       3.6e6),
+        (&["mwh", "megawatt_hour", "megawatt_hours"],                       3.6e9),
+        (&["ev", "electronvolt", "electronvolts"],                          1.602176634e-19),
+        (&["kev", "kiloelectronvolt", "kiloelectronvolts"],                 1.602176634e-16),
+        (&["mev", "megaelectronvolt", "megaelectronvolts"],                 1.602176634e-13),
+        (&["gev", "gigaelectronvolt", "gigaelectronvolts"],                 1.602176634e-10),
+        (&["tev", "teraelectronvolt", "teraelectronvolts"],                 1.602176634e-7),
+        (&["btu", "british_thermal_unit"],                                  1055.05585),
+        (&["erg", "ergs"],                                                  1e-7),
+        (&["ft_lb", "foot_pound", "foot_pounds"],                           1.35581795),
+        (&["therm", "therms"],                                              1.05480400e8),
+    ]),
+    ("Power", &[
+        (&["w", "watt", "watts"],                                           1.0),
+        (&["kw", "kilowatt", "kilowatts"],                                  1000.0),
+        (&["mw", "megawatt", "megawatts"],                                  1e6),
+        (&["gw", "gigawatt", "gigawatts"],                                  1e9),
+        (&["tw", "terawatt", "terawatts"],                                  1e12),
+        (&["mw_milli", "milliwatt", "milliwatts"],                          0.001),
+        (&["hp", "horsepower"],                                             745.69987),
+        (&["ps", "metric_horsepower"],                                      735.49875),
+        (&["btu_h", "btu/h", "btu_per_hour"],                              0.29307107),
+        (&["erg_s", "erg/s", "erg_per_second"],                            1e-7),
+        (&["ft_lb_s", "ft_lb/s"],                                          1.35581795),
+    ]),
+    ("Data", &[
+        (&["bit", "bits"],                                                   1.0),
+        (&["byte", "bytes", "b"],                                            8.0),
+        (&["kb", "kilobit", "kilobits"],                                    1e3),
+        (&["kib", "kibibit", "kibibits"],                                   1024.0),
+        (&["mb", "megabit", "megabits"],                                    1e6),
+        (&["mib", "mebibit", "mebibits"],                                   1024.0*1024.0),
+        (&["gb", "gigabit", "gigabits"],                                    1e9),
+        (&["gib", "gibibit", "gibibits"],                                   1024.0*1024.0*1024.0),
+        (&["tb", "terabit", "terabits"],                                    1e12),
+        (&["tib", "tebibit", "tebibits"],                                   1024.0*1024.0*1024.0*1024.0),
+        (&["pb", "petabit", "petabits"],                                    1e15),
+        (&["kb_byte", "kilobyte", "kilobytes"],                             8e3),
+        (&["kib_byte", "kibibyte", "kibibytes"],                            8.0*1024.0),
+        (&["mb_byte", "megabyte", "megabytes"],                             8e6),
+        (&["mib_byte", "mebibyte", "mebibytes"],                            8.0*1024.0*1024.0),
+        (&["gb_byte", "gigabyte", "gigabytes"],                             8e9),
+        (&["gib_byte", "gibibyte", "gibibytes"],                            8.0*1024.0*1024.0*1024.0),
+        (&["tb_byte", "terabyte", "terabytes"],                             8e12),
+        (&["tib_byte", "tebibyte", "tebibytes"],                            8.0*1024.0*1024.0*1024.0*1024.0),
+    ]),
+    ("Angle", &[
+        (&["rad", "radian", "radians"],                                      1.0),
+        (&["deg", "degree", "degrees"],                                      std::f64::consts::PI / 180.0),
+        (&["grad", "gradian", "gradians", "gon", "gons"],                   std::f64::consts::PI / 200.0),
+        (&["arcmin", "arc_minute", "arc_minutes", "minute_of_arc"],         std::f64::consts::PI / 10800.0),
+        (&["arcsec", "arc_second", "arc_seconds", "second_of_arc"],         std::f64::consts::PI / 648000.0),
+        (&["rev", "revolution", "revolutions", "turn", "turns"],            2.0 * std::f64::consts::PI),
+    ]),
+    ("Frequency", &[
+        (&["hz", "hertz"],                                                   1.0),
+        (&["khz", "kilohertz"],                                              1e3),
+        (&["mhz", "megahertz"],                                              1e6),
+        (&["ghz", "gigahertz"],                                              1e9),
+        (&["thz", "terahertz"],                                              1e12),
+        (&["rpm", "revolutions_per_minute"],                                 1.0/60.0),
+        (&["rad_per_s", "rad/s"],                                            1.0/(2.0*std::f64::consts::PI)),
+    ]),
+    ("Illuminance", &[
+        (&["lx", "lux"],                                                     1.0),
+        (&["fc", "footcandle", "footcandles"],                               10.7639),
+        (&["phot", "phots"],                                                 1e4),
+    ]),
+    ("Fuel Economy", &[
+        (&["mpg", "miles_per_gallon"],                                       1.0),
+        (&["mpg_uk", "miles_per_gallon_uk", "imperial_mpg"],                 1.20095),
+        (&["l_per_100km", "l/100km", "liters_per_100km"],                    235.214583),
+        (&["km_per_l", "km/l", "km_per_liter"],                              2.35214583),
+    ]),
+];
+
+fn unit_convert_list() -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "Supported unit categories and aliases:");
+    let _ = writeln!(out, "Usage: hematite --convert '<value> <from> to <to>'");
+    let _ = writeln!(out);
+    for (cat, units) in UNIT_CATEGORIES {
+        let _ = writeln!(out, "  {}:", cat);
+        for (names, _) in *units {
+            let _ = writeln!(out, "    {}", names.join(", "));
+        }
+        let _ = writeln!(out);
+    }
+    out
+}
