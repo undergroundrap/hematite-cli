@@ -978,6 +978,7 @@ mod tests {
             cipher: None,
             text_stats: None,
             levenshtein: None,
+            number_format: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

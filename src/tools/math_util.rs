@@ -7937,6 +7937,208 @@ fn cipher_usage() -> &'static str {
      Ciphers: rot13, atbash, caesar, vigenere, railfence, columnar, morse"
 }
 
+// ─── Number formatter ─────────────────────────────────────────────────────────
+
+pub fn number_format(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  NUMBER FORMAT CONVERTER");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    // Try parsing as integer first, then float
+    let val: f64 = match q.replace('_', "").replace(',', "").parse::<f64>() {
+        Ok(v) => v,
+        Err(_) => {
+            let _ = writeln!(out, "  Cannot parse: {}", q);
+            let _ = writeln!(out, "  Usage: hematite --number-format '1234567890'");
+            let _ = writeln!(out, "         hematite --number-format '6.022e23'");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+    };
+
+    let _ = writeln!(out, "  Input: {}", q);
+    let _ = writeln!(out, "");
+
+    // ─── Thousands-separated form ───
+    let fmt_thousands = |v: f64| -> String {
+        if v == v.floor() && v.abs() < 1e15 {
+            let i = v as i64;
+            let s = format!("{}", i.abs());
+            let with_sep: String = s.chars().rev().enumerate()
+                .flat_map(|(i, c)| {
+                    if i > 0 && i % 3 == 0 { vec![',', c] } else { vec![c] }
+                })
+                .collect::<String>()
+                .chars().rev().collect();
+            if i < 0 { format!("-{}", with_sep) } else { with_sep }
+        } else {
+            // Show decimal with commas on integer part
+            let int_part = v.abs().floor() as i64;
+            let frac = (v.abs() - int_part as f64).to_string();
+            let frac_str = if frac.len() > 2 { &frac[1..] } else { "" };
+            let s = format!("{}", int_part);
+            let with_sep: String = s.chars().rev().enumerate()
+                .flat_map(|(i, c)| {
+                    if i > 0 && i % 3 == 0 { vec![',', c] } else { vec![c] }
+                })
+                .collect::<String>()
+                .chars().rev().collect();
+            let signed = if v < 0.0 { format!("-{}{}", with_sep, frac_str) }
+                         else { format!("{}{}", with_sep, frac_str) };
+            signed
+        }
+    };
+
+    // ─── Scientific notation ───
+    let sci = if val == 0.0 { "0.000000e0".to_string() }
+    else {
+        let exp = val.abs().log10().floor() as i32;
+        let mantissa = val / 10f64.powi(exp);
+        format!("{:.6}e{}", mantissa, exp)
+    };
+
+    // ─── Engineering notation (exponent multiple of 3) ───
+    let eng = if val == 0.0 { "0.000e0".to_string() }
+    else {
+        let exp = val.abs().log10().floor() as i32;
+        let eng_exp = (exp as f64 / 3.0).floor() as i32 * 3;
+        let mantissa = val / 10f64.powi(eng_exp);
+        format!("{:.3}e{}", mantissa, eng_exp)
+    };
+
+    // ─── SI prefix ───
+    let si = {
+        let si_prefixes: &[(f64, &str, &str)] = &[
+            (1e24,  "Y", "yotta"),
+            (1e21,  "Z", "zetta"),
+            (1e18,  "E", "exa"),
+            (1e15,  "P", "peta"),
+            (1e12,  "T", "tera"),
+            (1e9,   "G", "giga"),
+            (1e6,   "M", "mega"),
+            (1e3,   "k", "kilo"),
+            (1e0,   "",  ""),
+            (1e-3,  "m", "milli"),
+            (1e-6,  "μ", "micro"),
+            (1e-9,  "n", "nano"),
+            (1e-12, "p", "pico"),
+            (1e-15, "f", "femto"),
+        ];
+        let abs_val = val.abs();
+        let mut result = format!("{:.6}", val);
+        for &(scale, sym, name) in si_prefixes {
+            if abs_val >= scale * 0.999 || scale <= 1e-12 {
+                let scaled = val / scale;
+                if sym.is_empty() { result = format!("{:.4}", scaled); }
+                else { result = format!("{:.4} {} ({})", scaled, sym, name); }
+                break;
+            }
+        }
+        result
+    };
+
+    // ─── Binary / Hex (integers only) ───
+    let int_forms = if val == val.floor() && val.abs() < 2e63 {
+        let i = val as i64;
+        let u = i as u64;
+        Some((
+            format!("0x{:X}", u),
+            format!("0b{:b}", u),
+            format!("0o{:o}", u),
+        ))
+    } else { None };
+
+    // ─── Word form (English) ───
+    let word_form = number_to_words(val);
+
+    let _ = writeln!(out, "  ─── Number Representations ───");
+    let _ = writeln!(out, "  Decimal (formatted):  {}", fmt_thousands(val));
+    let _ = writeln!(out, "  Scientific notation:  {}", sci);
+    let _ = writeln!(out, "  Engineering notation: {}", eng);
+    let _ = writeln!(out, "  SI prefix:            {}", si);
+    if let Some((hex, bin, oct)) = int_forms {
+        let _ = writeln!(out, "  Hexadecimal:          {}", hex);
+        let _ = writeln!(out, "  Binary:               {}", bin);
+        let _ = writeln!(out, "  Octal:                {}", oct);
+    }
+    let _ = writeln!(out, "  Word form:            {}", word_form);
+    if val != 0.0 {
+        let _ = writeln!(out, "  Reciprocal:           {:.6} (1/{})", 1.0 / val, q);
+        let _ = writeln!(out, "  Percentage:           {:.4}%", val * 100.0);
+        let log10 = val.abs().log10();
+        let ln_v  = val.abs().ln();
+        let _ = writeln!(out, "  log₁₀:               {:.6}", log10);
+        let _ = writeln!(out, "  ln:                   {:.6}", ln_v);
+        let _ = writeln!(out, "  √:                    {:.6}", val.abs().sqrt());
+        if val == val.floor() && val.abs() < 1e15 {
+            let _ = writeln!(out, "  ²:                    {}", fmt_thousands(val * val));
+        }
+    }
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+fn number_to_words(v: f64) -> String {
+    if v == 0.0 { return "zero".to_string(); }
+    let is_neg = v < 0.0;
+    let abs_v = v.abs();
+
+    // Only handle integers up to ~999 trillion
+    if abs_v != abs_v.floor() || abs_v >= 1e15 {
+        return format!("(too large or fractional for word form)");
+    }
+    let n = abs_v as u64;
+
+    let ones = ["", "one","two","three","four","five","six","seven","eight","nine",
+                "ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen",
+                "seventeen","eighteen","nineteen"];
+    let tens = ["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
+
+    let under100 = |n: u64| -> String {
+        if n < 20 { ones[n as usize].to_string() }
+        else {
+            let t = tens[(n / 10) as usize];
+            let o = ones[(n % 10) as usize];
+            if o.is_empty() { t.to_string() } else { format!("{}-{}", t, o) }
+        }
+    };
+
+    let under1000 = |n: u64| -> String {
+        if n < 100 { under100(n) }
+        else {
+            let h = ones[(n / 100) as usize];
+            let rem = n % 100;
+            if rem == 0 { format!("{} hundred", h) }
+            else { format!("{} hundred {}", h, under100(rem)) }
+        }
+    };
+
+    let scales: &[(u64, &str)] = &[
+        (1_000_000_000_000, "trillion"),
+        (1_000_000_000,     "billion"),
+        (1_000_000,         "million"),
+        (1_000,             "thousand"),
+    ];
+
+    let mut parts: Vec<String> = Vec::new();
+    let mut remaining = n;
+    for &(scale, name) in scales {
+        if remaining >= scale {
+            let chunk = remaining / scale;
+            remaining %= scale;
+            parts.push(format!("{} {}", under1000(chunk), name));
+        }
+    }
+    if remaining > 0 { parts.push(under1000(remaining)); }
+
+    let result = parts.join(" ");
+    if is_neg { format!("negative {}", result) } else { result }
+}
+
 // ─── String distance metrics ──────────────────────────────────────────────────
 
 pub fn string_dist(query: &str) -> String {

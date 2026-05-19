@@ -811,6 +811,14 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "NUMBER",
+        help = "Number format converter — instant, no model, no cloud. Shows every representation of a number: thousands-separated decimal, scientific notation, engineering notation, SI prefix, hex/binary/octal (integers), English word form, log₁₀, ln, square root, reciprocal. Examples: hematite --number-format 1234567890 | hematite --number-format 6.022e23 | hematite --number-format 0xFF"
+    )]
+    pub number_format: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"
