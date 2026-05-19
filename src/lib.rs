@@ -701,6 +701,9 @@ pub struct CliCockpit {
     #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Symbolic calculus — differentiate, integrate, simplify, or evaluate. Example: hematite --symbolic 'diff x^3 + sin(x)'  or  'integrate 3*x^2'  or  'x^2+1 at x=5'")]
     pub symbolic: Option<String>,
 
+    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Financial math — NPV, IRR, loan amortization, compound interest, bond pricing, Black-Scholes. Example: hematite --finance 'loan 200000 6.5% 30'  or  'bs 100 100 5% 20% 1 call'")]
+    pub finance: Option<String>,
+
     #[arg(
         long,
         help_heading = "Headless Reports",

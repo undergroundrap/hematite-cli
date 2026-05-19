@@ -949,6 +949,7 @@ mod tests {
             pca_output: None,
             graph: None,
             symbolic: None,
+            finance: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

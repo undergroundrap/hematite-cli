@@ -2250,6 +2250,239 @@ impl Lcg64 {
     }
 }
 
+// ── Financial math ───────────────────────────────────────────────────────────
+// NPV / IRR / loan amortization / compound interest / bond pricing / Black-Scholes
+// Pure-Rust, instant, no sandbox.
+//
+// Query syntax:
+//   npv RATE CF0 CF1 CF2 ...          net present value
+//   irr CF0 CF1 CF2 ...               internal rate of return (bisection)
+//   loan PRINCIPAL RATE_PCT YEARS     loan amortization schedule summary
+//   compound PRINCIPAL RATE_PCT YEARS [PERIODS_PER_YEAR]
+//   bond FACE COUPON_PCT YIELD_PCT YEARS [PERIODS_PER_YEAR]
+//   bs SPOT STRIKE RATE_PCT SIGMA_PCT YEARS [call|put]   Black-Scholes
+
+pub fn finance_calc(query: &str) -> String {
+    let q = query.trim();
+    let tokens: Vec<&str> = q.split_whitespace().collect();
+    if tokens.is_empty() { return finance_usage(); }
+
+    let mut out = String::new();
+    let w = 64usize;
+    let _ = writeln!(out, "{}", "=".repeat(w));
+
+    match tokens[0].to_lowercase().as_str() {
+        "npv" => {
+            if tokens.len() < 3 { let _ = writeln!(out, "  Usage: npv RATE CF0 CF1 CF2 ..."); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            let rate: f64 = match tokens[1].trim_end_matches('%').parse() {
+                Ok(v) => if tokens[1].contains('%') { v / 100.0 } else { v },
+                Err(_) => { let _ = writeln!(out, "  Error: bad rate '{}'", tokens[1]); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            };
+            let cfs: Vec<f64> = tokens[2..].iter().filter_map(|s| s.replace(',', "").parse::<f64>().ok()).collect();
+            if cfs.is_empty() { let _ = writeln!(out, "  Error: no cash flows found"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            let npv: f64 = cfs.iter().enumerate().map(|(t, &cf)| cf / (1.0 + rate).powi(t as i32)).sum();
+            let _ = writeln!(out, "  NPV Analysis");
+            let _ = writeln!(out, "  Discount rate : {:.4}%", rate * 100.0);
+            let _ = writeln!(out, "  Cash flows    : {}", cfs.iter().map(|cf| format!("{:.2}", cf)).collect::<Vec<_>>().join("  "));
+            let _ = writeln!(out, "  NPV           : {:.4}", npv);
+            let _ = writeln!(out, "  Decision      : {}", if npv > 0.0 { "Accept (NPV > 0)" } else if npv < 0.0 { "Reject (NPV < 0)" } else { "Indifferent" });
+        }
+        "irr" => {
+            if tokens.len() < 3 { let _ = writeln!(out, "  Usage: irr CF0 CF1 CF2 ..."); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            let cfs: Vec<f64> = tokens[1..].iter().filter_map(|s| s.replace(',', "").parse::<f64>().ok()).collect();
+            if cfs.is_empty() { let _ = writeln!(out, "  Error: no cash flows"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            fn npv_at(rate: f64, cfs: &[f64]) -> f64 {
+                cfs.iter().enumerate().map(|(t, &cf)| cf / (1.0 + rate).powi(t as i32)).sum()
+            }
+            // Bisection search for IRR in (-0.9999, 10.0)
+            let mut lo = -0.9999f64;
+            let mut hi = 10.0f64;
+            let npv_lo = npv_at(lo, &cfs);
+            let npv_hi = npv_at(hi, &cfs);
+            let _ = writeln!(out, "  IRR Analysis");
+            if npv_lo * npv_hi > 0.0 {
+                let _ = writeln!(out, "  IRR: no unique root found in (-99.99%, 1000%) — check sign changes in cash flows");
+            } else {
+                for _ in 0..200 {
+                    let mid = (lo + hi) / 2.0;
+                    if npv_at(mid, &cfs) * npv_at(lo, &cfs) < 0.0 { hi = mid; } else { lo = mid; }
+                    if (hi - lo).abs() < 1e-10 { break; }
+                }
+                let irr = (lo + hi) / 2.0;
+                let _ = writeln!(out, "  Cash flows : {}", cfs.iter().map(|cf| format!("{:.2}", cf)).collect::<Vec<_>>().join("  "));
+                let _ = writeln!(out, "  IRR        : {:.6}%", irr * 100.0);
+                let npv_check = npv_at(irr, &cfs);
+                let _ = writeln!(out, "  NPV @ IRR  : {:.8} (should be ~0)", npv_check);
+            }
+        }
+        "loan" => {
+            if tokens.len() < 4 { let _ = writeln!(out, "  Usage: loan PRINCIPAL RATE_PCT YEARS"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            let principal: f64 = tokens[1].replace(',', "").parse().unwrap_or(0.0);
+            let annual_rate: f64 = tokens[2].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
+            let years: f64 = tokens[3].parse().unwrap_or(0.0);
+            let n = (years * 12.0).round() as u32;
+            let r = annual_rate / 12.0;
+            let payment = if r.abs() < 1e-12 {
+                principal / n as f64
+            } else {
+                principal * r * (1.0 + r).powi(n as i32) / ((1.0 + r).powi(n as i32) - 1.0)
+            };
+            let total_paid = payment * n as f64;
+            let total_interest = total_paid - principal;
+            let _ = writeln!(out, "  Loan Amortization");
+            let _ = writeln!(out, "  Principal      : {:>12.2}", principal);
+            let _ = writeln!(out, "  Annual rate    : {:>12.4}%", annual_rate * 100.0);
+            let _ = writeln!(out, "  Term           : {:>12} months ({} years)", n, years);
+            let _ = writeln!(out, "  Monthly payment: {:>12.2}", payment);
+            let _ = writeln!(out, "  Total paid     : {:>12.2}", total_paid);
+            let _ = writeln!(out, "  Total interest : {:>12.2}", total_interest);
+            let _ = writeln!(out, "  Interest ratio : {:>12.2}%", total_interest / total_paid * 100.0);
+            // Show amortization table for first/last few months if reasonable
+            if n <= 60 || n <= 360 {
+                let show_rows = 6usize.min(n as usize);
+                let _ = writeln!(out, "\n  {:<6}  {:>12}  {:>12}  {:>12}  {:>12}", "Month", "Payment", "Principal", "Interest", "Balance");
+                let _ = writeln!(out, "  {}", "-".repeat(58));
+                let mut balance = principal;
+                for mo in 1..=n {
+                    let interest_part = balance * r;
+                    let principal_part = payment - interest_part;
+                    balance -= principal_part;
+                    if balance < 0.0 { balance = 0.0; }
+                    if mo as usize <= show_rows || mo as usize > n as usize - show_rows {
+                        let _ = writeln!(out, "  {:<6}  {:>12.2}  {:>12.2}  {:>12.2}  {:>12.2}", mo, payment, principal_part, interest_part, balance);
+                    } else if mo as usize == show_rows + 1 {
+                        let _ = writeln!(out, "  {:^58}", "...");
+                    }
+                }
+            }
+        }
+        "compound" => {
+            if tokens.len() < 4 { let _ = writeln!(out, "  Usage: compound PRINCIPAL RATE_PCT YEARS [PERIODS]"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            let p: f64 = tokens[1].replace(',', "").parse().unwrap_or(0.0);
+            let r: f64 = tokens[2].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
+            let t: f64 = tokens[3].parse().unwrap_or(1.0);
+            let n: f64 = tokens.get(4).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+            let fv = p * (1.0 + r / n).powf(n * t);
+            let fv_cont = p * (r * t).exp();
+            let _ = writeln!(out, "  Compound Interest");
+            let _ = writeln!(out, "  Principal     : {:>12.2}", p);
+            let _ = writeln!(out, "  Annual rate   : {:>12.4}%", r * 100.0);
+            let _ = writeln!(out, "  Years         : {:>12}", t);
+            let _ = writeln!(out, "  Periods/year  : {:>12}", n);
+            let _ = writeln!(out, "  Future value  : {:>12.4}", fv);
+            let _ = writeln!(out, "  Interest earned: {:>12.4}", fv - p);
+            let _ = writeln!(out, "  Continuous FV : {:>12.4}", fv_cont);
+            let eff_rate = (1.0 + r / n).powf(n) - 1.0;
+            let _ = writeln!(out, "  Effective rate: {:>12.4}%", eff_rate * 100.0);
+        }
+        "bond" => {
+            if tokens.len() < 6 { let _ = writeln!(out, "  Usage: bond FACE COUPON_PCT YIELD_PCT YEARS [PERIODS]"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            let face: f64 = tokens[1].replace(',', "").parse().unwrap_or(1000.0);
+            let coupon_rate: f64 = tokens[2].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
+            let yield_rate: f64 = tokens[3].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
+            let years: f64 = tokens[4].parse().unwrap_or(1.0);
+            let m: f64 = tokens.get(5).and_then(|s| s.parse().ok()).unwrap_or(2.0); // semi-annual default
+            let n = (years * m).round() as i32;
+            let r = yield_rate / m;
+            let c = face * coupon_rate / m;
+            // Price = PV of coupons + PV of face
+            let pv_coupons = if r.abs() < 1e-12 { c * n as f64 } else { c * (1.0 - (1.0 + r).powi(-n)) / r };
+            let pv_face = face / (1.0 + r).powi(n);
+            let price = pv_coupons + pv_face;
+            let duration_num: f64 = (1..=n).map(|t| t as f64 / m * c / (1.0 + r).powi(t)).sum::<f64>()
+                + years * pv_face;
+            let duration = duration_num / price;
+            let _ = writeln!(out, "  Bond Pricing");
+            let _ = writeln!(out, "  Face value     : {:>12.2}", face);
+            let _ = writeln!(out, "  Coupon rate    : {:>12.4}%  ({:.2} per period)", coupon_rate * 100.0, c);
+            let _ = writeln!(out, "  Yield to mat.  : {:>12.4}%", yield_rate * 100.0);
+            let _ = writeln!(out, "  Years to mat.  : {:>12}", years);
+            let _ = writeln!(out, "  Periods/year   : {:>12}", m);
+            let _ = writeln!(out, "  Total periods  : {:>12}", n);
+            let _ = writeln!(out, "  Bond price     : {:>12.4}", price);
+            let _ = writeln!(out, "  PV of coupons  : {:>12.4}", pv_coupons);
+            let _ = writeln!(out, "  PV of face     : {:>12.4}", pv_face);
+            let status = if price > face { "Premium" } else if price < face { "Discount" } else { "Par" };
+            let _ = writeln!(out, "  Bond trades at : {} ({:.2}% of face)", status, price / face * 100.0);
+            let _ = writeln!(out, "  Macaulay dur.  : {:>12.4} years", duration);
+        }
+        "bs" | "black-scholes" | "blackscholes" | "option" => {
+            if tokens.len() < 6 { let _ = writeln!(out, "  Usage: bs SPOT STRIKE RATE_PCT SIGMA_PCT YEARS [call|put]"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            let s: f64 = tokens[1].replace(',', "").parse().unwrap_or(0.0);
+            let k: f64 = tokens[2].replace(',', "").parse().unwrap_or(0.0);
+            let r: f64 = tokens[3].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
+            let sigma: f64 = tokens[4].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
+            let t: f64 = tokens[5].parse().unwrap_or(1.0);
+            let opt_type = tokens.get(6).copied().unwrap_or("call");
+            let d1 = ((s / k).ln() + (r + 0.5 * sigma * sigma) * t) / (sigma * t.sqrt());
+            let d2 = d1 - sigma * t.sqrt();
+            let nd1 = bs_ncdf(d1);
+            let nd2 = bs_ncdf(d2);
+            let (price, delta) = if opt_type.to_lowercase().starts_with('p') {
+                let p = k * (-r * t).exp() * bs_ncdf(-d2) - s * bs_ncdf(-d1);
+                (p, nd1 - 1.0)
+            } else {
+                let c = s * nd1 - k * (-r * t).exp() * nd2;
+                (c, nd1)
+            };
+            let gamma = bs_npdf(d1) / (s * sigma * t.sqrt());
+            let vega  = s * bs_npdf(d1) * t.sqrt() / 100.0;
+            let theta_call = (-s * bs_npdf(d1) * sigma / (2.0 * t.sqrt()) - r * k * (-r * t).exp() * nd2) / 365.0;
+            let _ = writeln!(out, "  Black-Scholes Option Pricing");
+            let _ = writeln!(out, "  Spot price     : {:>12.4}", s);
+            let _ = writeln!(out, "  Strike price   : {:>12.4}", k);
+            let _ = writeln!(out, "  Risk-free rate : {:>12.4}%", r * 100.0);
+            let _ = writeln!(out, "  Volatility (σ) : {:>12.4}%", sigma * 100.0);
+            let _ = writeln!(out, "  Time (years)   : {:>12.4}", t);
+            let _ = writeln!(out, "  Option type    : {:>12}", opt_type.to_uppercase());
+            let _ = writeln!(out, "  ─────────────────────────────────────────────");
+            let _ = writeln!(out, "  d1             : {:>12.6}", d1);
+            let _ = writeln!(out, "  d2             : {:>12.6}", d2);
+            let _ = writeln!(out, "  N(d1) / N(d2)  : {:>12.6} / {:>12.6}", nd1, nd2);
+            let _ = writeln!(out, "  ─────────────────────────────────────────────");
+            let _ = writeln!(out, "  Option price   : {:>12.6}", price);
+            let _ = writeln!(out, "  Delta          : {:>12.6}", delta);
+            let _ = writeln!(out, "  Gamma          : {:>12.6}", gamma);
+            let _ = writeln!(out, "  Vega (per 1%σ) : {:>12.6}", vega);
+            let _ = writeln!(out, "  Theta (per day): {:>12.6}", theta_call);
+        }
+        _ => {
+            let _ = writeln!(out, "{}", finance_usage());
+            let _ = writeln!(out, "{}", "=".repeat(w));
+            return out;
+        }
+    }
+
+    let _ = writeln!(out, "{}", "=".repeat(w));
+    out
+}
+
+fn bs_ncdf(x: f64) -> f64 {
+    // Abramowitz & Stegun approximation (max error 7.5e-8)
+    if x < -8.0 { return 0.0; }
+    if x >  8.0 { return 1.0; }
+    if x >= 0.0 {
+        0.5 * (1.0 + erf_approx(x / std::f64::consts::SQRT_2))
+    } else {
+        0.5 * (1.0 - erf_approx(-x / std::f64::consts::SQRT_2))
+    }
+}
+
+fn bs_npdf(x: f64) -> f64 {
+    (-0.5 * x * x).exp() / (2.0 * std::f64::consts::PI).sqrt()
+}
+
+fn finance_usage() -> String {
+    "Financial math:\n\
+     hematite --finance 'npv 10% -1000 300 400 500 200'      NPV\n\
+     hematite --finance 'irr -1000 300 400 500 200'           IRR\n\
+     hematite --finance 'loan 200000 6.5% 30'                 30yr mortgage\n\
+     hematite --finance 'compound 10000 7% 10 12'             compound interest\n\
+     hematite --finance 'bond 1000 5% 4% 10 2'               bond pricing\n\
+     hematite --finance 'bs 100 100 5% 20% 1 call'           Black-Scholes call\n\
+     hematite --finance 'bs 100 105 5% 20% 0.5 put'          Black-Scholes put".into()
+}
+
 // ── Graph theory ──────────────────────────────────────────────────────────────
 // Parses an edge list, then runs BFS/DFS/Dijkstra/components/topo-sort.
 //
