@@ -115,20 +115,14 @@ fn levenshtein_comma_separator() {
 fn validate_luhn_visa_test_card_valid() {
     // 4532015112830366 is a standard Luhn-valid Visa test number
     let out = validate_calc("4532015112830366");
-    assert!(
-        out.contains("YES ✓"),
-        "Expected Luhn VALID (YES ✓): {out}"
-    );
+    assert!(out.contains("YES ✓"), "Expected Luhn VALID (YES ✓): {out}");
 }
 
 #[test]
 fn validate_luhn_invalid_number() {
     // Flip the last digit — must fail
     let out = validate_calc("4532015112830365");
-    assert!(
-        out.contains("NO ✗"),
-        "Expected Luhn INVALID (NO ✗): {out}"
-    );
+    assert!(out.contains("NO ✗"), "Expected Luhn INVALID (NO ✗): {out}");
 }
 
 #[test]
@@ -224,25 +218,40 @@ fn set_union_basic() {
 fn set_intersection_basic() {
     let out = set_calc("{1,2,3,4} intersection {3,4,5}");
     // Intersection: {3, 4}
-    assert!(out.contains("3, 4") || (out.contains('3') && out.contains('4')), "Intersection: {out}");
+    assert!(
+        out.contains("3, 4") || (out.contains('3') && out.contains('4')),
+        "Intersection: {out}"
+    );
     // 5 should not be in the result line
     let result_line = out.lines().find(|l| l.contains('∩')).unwrap_or("");
-    assert!(!result_line.contains('5'), "5 should not be in intersection: {result_line}");
+    assert!(
+        !result_line.contains('5'),
+        "5 should not be in intersection: {result_line}"
+    );
 }
 
 #[test]
 fn set_difference_basic() {
     let out = set_calc("{1,2,3} difference {2,3}");
     // A\B = {1}
-    let diff_line = out.lines().find(|l| l.contains('\\') || l.contains("A \\ B")).unwrap_or("");
-    assert!(diff_line.contains('1'), "Difference A\\B should be {{1}}: {diff_line}\n{out}");
+    let diff_line = out
+        .lines()
+        .find(|l| l.contains('\\') || l.contains("A \\ B"))
+        .unwrap_or("");
+    assert!(
+        diff_line.contains('1'),
+        "Difference A\\B should be {{1}}: {diff_line}\n{out}"
+    );
 }
 
 #[test]
 fn set_union_deduplicates() {
     let out = set_calc("{1,1,2} union {2,3}");
     // Result should contain 1, 2, 3 without duplicates
-    assert!(out.contains("1, 2, 3") || out.contains("{1, 2, 3}"), "Dedup union: {out}");
+    assert!(
+        out.contains("1, 2, 3") || out.contains("{1, 2, 3}"),
+        "Dedup union: {out}"
+    );
 }
 
 #[test]
@@ -271,17 +280,17 @@ fn number_format_small_number() {
 #[test]
 fn number_format_negative() {
     let out = number_format("-1000000");
-    assert!(
-        out.contains("1,000,000"),
-        "Negative thousands: {out}"
-    );
+    assert!(out.contains("1,000,000"), "Negative thousands: {out}");
 }
 
 #[test]
 fn number_format_scientific_notation() {
     let out = number_format("6.022e23");
     assert!(!out.is_empty(), "Should handle scientific notation");
-    assert!(out.contains("Scientific") || out.contains("6.02"), "Sci notation: {out}");
+    assert!(
+        out.contains("Scientific") || out.contains("6.02"),
+        "Sci notation: {out}"
+    );
 }
 
 #[test]
@@ -368,9 +377,14 @@ fn bitwise_xor_same_operands_is_zero() {
 fn bitwise_ieee754_one_point_zero() {
     let out = bitwise_calc("ieee754 1.0");
     // IEEE 754 bit pattern for 1.0 = 0x3FF0000000000000
-    assert!(out.contains("3FF0000000000000") || out.contains("3ff0000000000000"),
-            "IEEE754 1.0 pattern: {out}");
-    assert!(out.contains("Value") || out.contains("1.0"), "IEEE754: {out}");
+    assert!(
+        out.contains("3FF0000000000000") || out.contains("3ff0000000000000"),
+        "IEEE754 1.0 pattern: {out}"
+    );
+    assert!(
+        out.contains("Value") || out.contains("1.0"),
+        "IEEE754: {out}"
+    );
 }
 
 #[test]
