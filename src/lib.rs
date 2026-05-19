@@ -933,6 +933,30 @@ pub struct CliCockpit {
     )]
     pub color: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "FORMULA",
+        help = "Molecular weight from a chemical formula — no model, no cloud. Supports nested groups: Ca(NO3)2, (NH4)2SO4. Example: hematite --mw H2O  or  --mw 'C6H12O6'"
+    )]
+    pub mw: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "NAME",
+        help = "Physical constants lookup — no model, no cloud. Use 'list' to see all. Example: hematite --const c  --const planck  --const avogadro  --const list"
+    )]
+    pub r#const: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "QUERY",
+        help = "Standard normal distribution — no model, no cloud. Modes: 'cdf X [mu sigma]'  'pdf X'  'inv P'  'between A B'  'table'. Example: hematite --normal 'cdf 1.96'  --normal 'inv 0.975'  --normal table"
+    )]
+    pub normal: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

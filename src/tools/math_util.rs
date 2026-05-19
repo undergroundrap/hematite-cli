@@ -781,3 +781,326 @@ pub fn color_convert(input: &str) -> String {
     let _ = writeln!(out, "Contrast vs white: {:.2}:1  (WCAG AA needs 4.5:1)", contrast_white);
     out
 }
+
+// ── Molecular weight calculator ───────────────────────────────────────────────
+// Parses chemical formulas like H2O, C6H12O6, Ca(NO3)2, (NH4)2SO4
+
+// Symbol → atomic mass (standard atomic weights, IUPAC 2021)
+fn atomic_masses() -> &'static [(&'static str, f64)] {
+    &[
+        ("H",1.008),("He",4.0026),("Li",6.94),("Be",9.0122),("B",10.81),
+        ("C",12.011),("N",14.007),("O",15.999),("F",18.998),("Ne",20.180),
+        ("Na",22.990),("Mg",24.305),("Al",26.982),("Si",28.085),("P",30.974),
+        ("S",32.06),("Cl",35.45),("Ar",39.948),("K",39.098),("Ca",40.078),
+        ("Sc",44.956),("Ti",47.867),("V",50.942),("Cr",51.996),("Mn",54.938),
+        ("Fe",55.845),("Co",58.933),("Ni",58.693),("Cu",63.546),("Zn",65.38),
+        ("Ga",69.723),("Ge",72.630),("As",74.922),("Se",78.971),("Br",79.904),
+        ("Kr",83.798),("Rb",85.468),("Sr",87.62),("Y",88.906),("Zr",91.224),
+        ("Nb",92.906),("Mo",95.95),("Tc",98.0),("Ru",101.07),("Rh",102.906),
+        ("Pd",106.42),("Ag",107.868),("Cd",112.414),("In",114.818),("Sn",118.710),
+        ("Sb",121.760),("Te",127.60),("I",126.904),("Xe",131.293),("Cs",132.905),
+        ("Ba",137.327),("La",138.905),("Ce",140.116),("Pr",140.908),("Nd",144.242),
+        ("Pm",145.0),("Sm",150.36),("Eu",151.964),("Gd",157.25),("Tb",158.925),
+        ("Dy",162.500),("Ho",164.930),("Er",167.259),("Tm",168.934),("Yb",173.045),
+        ("Lu",174.967),("Hf",178.49),("Ta",180.948),("W",183.84),("Re",186.207),
+        ("Os",190.23),("Ir",192.217),("Pt",195.084),("Au",196.967),("Hg",200.592),
+        ("Tl",204.38),("Pb",207.2),("Bi",208.980),("Po",209.0),("At",210.0),
+        ("Rn",222.0),("Fr",223.0),("Ra",226.0),("Ac",227.0),("Th",232.038),
+        ("Pa",231.036),("U",238.029),("Np",237.0),("Pu",244.0),("Am",243.0),
+        ("Cm",247.0),("Bk",247.0),("Cf",251.0),("Es",252.0),("Fm",257.0),
+        ("Md",258.0),("No",259.0),("Lr",266.0),("Rf",267.0),("Db",268.0),
+        ("Sg",271.0),("Bh",270.0),("Hs",277.0),("Mt",278.0),("Ds",281.0),
+        ("Rg",282.0),("Cn",285.0),("Nh",286.0),("Fl",289.0),("Mc",290.0),
+        ("Lv",293.0),("Ts",294.0),("Og",294.0),
+    ]
+}
+
+fn lookup_mass(sym: &str) -> Option<f64> {
+    atomic_masses().iter().find(|(s, _)| *s == sym).map(|(_, m)| *m)
+}
+
+fn parse_formula(chars: &[char], pos: &mut usize) -> Result<Vec<(String, u32)>, String> {
+    let mut items: Vec<(String, u32)> = Vec::new();
+    while *pos < chars.len() {
+        match chars[*pos] {
+            '(' => {
+                *pos += 1;
+                let inner = parse_formula(chars, pos)?;
+                if *pos >= chars.len() || chars[*pos] != ')' {
+                    return Err("Missing closing ')'".into());
+                }
+                *pos += 1;
+                let count = read_number(chars, pos).unwrap_or(1);
+                for (sym, n) in inner { items.push((sym, n * count)); }
+            }
+            '[' => {
+                *pos += 1;
+                let inner = parse_formula(chars, pos)?;
+                if *pos >= chars.len() || chars[*pos] != ']' {
+                    return Err("Missing closing ']'".into());
+                }
+                *pos += 1;
+                let count = read_number(chars, pos).unwrap_or(1);
+                for (sym, n) in inner { items.push((sym, n * count)); }
+            }
+            ')' | ']' => break,
+            c if c.is_ascii_uppercase() => {
+                let mut sym = c.to_string();
+                *pos += 1;
+                while *pos < chars.len() && chars[*pos].is_ascii_lowercase() {
+                    sym.push(chars[*pos]);
+                    *pos += 1;
+                }
+                let count = read_number(chars, pos).unwrap_or(1);
+                items.push((sym, count));
+            }
+            '·' | '•' | '.' => { *pos += 1; } // hydrate dot
+            ' ' | '\t' => { *pos += 1; }
+            other => return Err(format!("Unexpected character: '{}'", other)),
+        }
+    }
+    Ok(items)
+}
+
+fn read_number(chars: &[char], pos: &mut usize) -> Option<u32> {
+    let start = *pos;
+    while *pos < chars.len() && chars[*pos].is_ascii_digit() { *pos += 1; }
+    if *pos == start { None } else {
+        chars[start..*pos].iter().collect::<String>().parse().ok()
+    }
+}
+
+pub fn molecular_weight(formula: &str) -> String {
+    let chars: Vec<char> = formula.chars().collect();
+    let mut pos = 0usize;
+    let items = match parse_formula(&chars, &mut pos) {
+        Ok(v) => v,
+        Err(e) => return format!("Parse error: {}. Example: H2O, C6H12O6, Ca(NO3)2", e),
+    };
+
+    // Aggregate counts by element
+    let mut counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    for (sym, n) in &items {
+        *counts.entry(sym.clone()).or_insert(0) += n;
+    }
+
+    let mut mw = 0.0f64;
+    let mut breakdown: Vec<(String, u32, f64)> = Vec::new();
+    let mut unknown: Vec<String> = Vec::new();
+    let mut syms: Vec<String> = counts.keys().cloned().collect();
+    syms.sort();
+    for sym in &syms {
+        let n = counts[sym];
+        if let Some(mass) = lookup_mass(sym) {
+            let contrib = mass * n as f64;
+            mw += contrib;
+            breakdown.push((sym.clone(), n, contrib));
+        } else {
+            unknown.push(sym.clone());
+        }
+    }
+
+    if !unknown.is_empty() {
+        return format!("Unknown element(s): {}. Check your formula.", unknown.join(", "));
+    }
+
+    let mut out = String::new();
+    let _ = writeln!(out, "Formula: {}", formula.trim());
+    let _ = writeln!(out, "Molecular weight: {:.4} g/mol", mw);
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "Composition:");
+    for (sym, n, contrib) in &breakdown {
+        let pct = 100.0 * contrib / mw;
+        let _ = writeln!(out, "  {:2} × {:2}  {:8.4} g/mol  ({:.2}%)", n, sym, contrib, pct);
+    }
+    // Common derived values
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "1 mole = {:.4} g", mw);
+    let _ = writeln!(out, "1 g    = {:.6} mol", 1.0 / mw);
+    out
+}
+
+// ── Physical constants ────────────────────────────────────────────────────────
+
+const CONSTANTS: &[(&str, &str, &str, &str)] = &[
+    // (name, value, unit, aliases)
+    ("Speed of light",          "299792458",                     "m/s",            "c,light,speed of light,c0"),
+    ("Planck constant",         "6.62607015e-34",                "J·s",            "h,planck,planck constant"),
+    ("Reduced Planck (ℏ)",      "1.054571817e-34",               "J·s",            "hbar,h-bar,reduced planck,hbar"),
+    ("Gravitational constant",  "6.67430e-11",                   "N·m²/kg²",       "G,gravity,gravitational,newton gravity"),
+    ("Elementary charge",       "1.602176634e-19",               "C",              "e,electron charge,elementary charge,charge"),
+    ("Electron mass",           "9.1093837015e-31",              "kg",             "me,electron mass,m_e"),
+    ("Proton mass",             "1.67262192369e-27",             "kg",             "mp,proton mass,m_p"),
+    ("Neutron mass",            "1.67492749804e-27",             "kg",             "mn,neutron mass,m_n"),
+    ("Avogadro constant",       "6.02214076e23",                 "mol⁻¹",          "NA,avogadro,avogadro constant,N_A"),
+    ("Boltzmann constant",      "1.380649e-23",                  "J/K",            "k,kb,boltzmann,boltzmann constant,k_B"),
+    ("Gas constant",            "8.314462618",                   "J/(mol·K)",      "R,gas constant,universal gas constant,molar gas"),
+    ("Stefan-Boltzmann",        "5.670374419e-8",                "W/(m²·K⁴)",      "sigma,stefan,stefan-boltzmann,σ"),
+    ("Vacuum permittivity",     "8.8541878128e-12",              "F/m",            "eps0,epsilon0,vacuum permittivity,ε₀"),
+    ("Vacuum permeability",     "1.25663706212e-6",              "N/A²",           "mu0,mu_0,vacuum permeability,μ₀"),
+    ("Bohr radius",             "5.29177210903e-11",             "m",              "a0,bohr,bohr radius,a_0"),
+    ("Fine structure constant", "7.2973525693e-3",               "dimensionless",  "alpha,fine structure,α"),
+    ("Rydberg constant",        "10973731.568160",               "m⁻¹",            "Ry,rydberg,rydberg constant"),
+    ("Faraday constant",        "96485.33212",                   "C/mol",          "F,faraday,faraday constant"),
+    ("Standard gravity",        "9.80665",                       "m/s²",           "g,grav,standard gravity,g0,g_n"),
+    ("Atomic mass unit",        "1.66053906660e-27",             "kg",             "amu,u,dalton,atomic mass unit"),
+    ("Standard atmosphere",     "101325",                        "Pa",             "atm,atmosphere,standard atmosphere"),
+    ("Electron volt",           "1.602176634e-19",               "J",              "eV,electronvolt,electron volt"),
+    ("Speed of sound (20°C)",   "343",                           "m/s",            "sound,speed of sound,vsound"),
+    ("Molar volume (STP)",      "22.414",                        "L/mol",          "molar volume,vm,STP volume"),
+    ("Wien displacement",       "2.897771955e-3",                "m·K",            "wien,wien displacement,b"),
+];
+
+pub fn physical_const(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    let mut out = String::new();
+
+    if q.is_empty() || q == "list" || q == "all" {
+        let _ = writeln!(out, "Physical Constants  (use --const NAME to look up)");
+        let _ = writeln!(out, "{}", "─".repeat(60));
+        for (name, val, unit, _) in CONSTANTS {
+            let _ = writeln!(out, "  {:<30} {} {}", name, val, unit);
+        }
+        return out;
+    }
+
+    let matches: Vec<_> = CONSTANTS.iter().filter(|(name, _, _, aliases)| {
+        name.to_lowercase().contains(&q) || aliases.to_lowercase().contains(&q)
+    }).collect();
+
+    if matches.is_empty() {
+        let _ = writeln!(out, "No constant found for '{}'. Use --const list to see all.", query.trim());
+        return out;
+    }
+
+    for (name, val, unit, aliases) in matches {
+        let _ = writeln!(out, "{}", name);
+        let _ = writeln!(out, "  Value:   {}", val);
+        let _ = writeln!(out, "  Unit:    {}", unit);
+        let _ = writeln!(out, "  Aliases: {}", aliases);
+        // Parse as f64 for display
+        if let Ok(v) = val.parse::<f64>() {
+            if v.abs() > 1e6 || v.abs() < 1e-4 {
+                let _ = writeln!(out, "  ≈        {:.6e}", v);
+            }
+        }
+        let _ = writeln!(out, "");
+    }
+    out
+}
+
+// ── Normal distribution (statistics) ─────────────────────────────────────────
+// CDF, PDF, and inverse CDF (quantile) using rational approximations.
+
+fn erf_approx(x: f64) -> f64 {
+    // Abramowitz & Stegun 7.1.26 — max error 1.5e-7
+    let sign = if x < 0.0 { -1.0 } else { 1.0 };
+    let x = x.abs();
+    let t = 1.0 / (1.0 + 0.3275911 * x);
+    let y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * (-x * x).exp();
+    sign * y
+}
+
+fn normal_cdf(x: f64, mu: f64, sigma: f64) -> f64 {
+    0.5 * (1.0 + erf_approx((x - mu) / (sigma * 2.0f64.sqrt())))
+}
+
+fn normal_pdf(x: f64, mu: f64, sigma: f64) -> f64 {
+    let z = (x - mu) / sigma;
+    (-0.5 * z * z).exp() / (sigma * (2.0 * std::f64::consts::PI).sqrt())
+}
+
+fn normal_inv_cdf(p: f64) -> f64 {
+    // Rational approximation (Peter Acklam)
+    let p = p.clamp(1e-10, 1.0 - 1e-10);
+    let (a, b) = if p < 0.5 {
+        let t = (-2.0 * p.ln()).sqrt();
+        let c = [2.515517, 0.802853, 0.010328];
+        let d = [1.432788, 0.189269, 0.001308];
+        let num = c[0] + c[1]*t + c[2]*t*t;
+        let den = 1.0 + d[0]*t + d[1]*t*t + d[2]*t*t*t;
+        (-(t - num/den), p)
+    } else {
+        let t = (-2.0 * (1.0 - p).ln()).sqrt();
+        let c = [2.515517, 0.802853, 0.010328];
+        let d = [1.432788, 0.189269, 0.001308];
+        let num = c[0] + c[1]*t + c[2]*t*t;
+        let den = 1.0 + d[0]*t + d[1]*t*t + d[2]*t*t*t;
+        (t - num/den, p)
+    };
+    let _ = b;
+    a
+}
+
+pub fn stat_normal(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    let mut out = String::new();
+
+    // Parse: "cdf X", "cdf X mu sigma", "pdf X", "inv P", "z-score X mu sigma", "p-value Z"
+    let parts: Vec<&str> = q.split_whitespace().collect();
+    if parts.is_empty() {
+        out.push_str("Usage:\n  --normal 'cdf 1.96'             P(Z ≤ 1.96) for standard normal\n  --normal 'cdf 70 60 10'        P(X ≤ 70) for N(60, 10)\n  --normal 'pdf 1.96'            Standard normal PDF at x=1.96\n  --normal 'inv 0.975'           z-score for 97.5th percentile\n  --normal 'between -1.96 1.96'  P(-1.96 ≤ Z ≤ 1.96)");
+        return out;
+    }
+
+    let parse_f = |s: &str| s.parse::<f64>().ok();
+
+    match parts[0] {
+        "cdf" if parts.len() >= 2 => {
+            let x  = parse_f(parts[1]).unwrap_or(0.0);
+            let mu = if parts.len() > 2 { parse_f(parts[2]).unwrap_or(0.0) } else { 0.0 };
+            let sg = if parts.len() > 3 { parse_f(parts[3]).unwrap_or(1.0) } else { 1.0 };
+            let p  = normal_cdf(x, mu, sg);
+            let z  = (x - mu) / sg;
+            let _ = writeln!(out, "Distribution: N({}, {})", mu, sg);
+            let _ = writeln!(out, "x = {}", x);
+            let _ = writeln!(out, "z-score = {:.6}", z);
+            let _ = writeln!(out, "P(X ≤ {}) = {:.8}  ({:.4}%)", x, p, p * 100.0);
+            let _ = writeln!(out, "P(X > {}) = {:.8}  ({:.4}%)", x, 1.0 - p, (1.0-p)*100.0);
+        }
+        "pdf" if parts.len() >= 2 => {
+            let x  = parse_f(parts[1]).unwrap_or(0.0);
+            let mu = if parts.len() > 2 { parse_f(parts[2]).unwrap_or(0.0) } else { 0.0 };
+            let sg = if parts.len() > 3 { parse_f(parts[3]).unwrap_or(1.0) } else { 1.0 };
+            let p  = normal_pdf(x, mu, sg);
+            let _ = writeln!(out, "PDF at x={}: {:.8}", x, p);
+        }
+        "inv" | "quantile" | "ppf" if parts.len() >= 2 => {
+            let p  = parse_f(parts[1]).unwrap_or(0.5);
+            let mu = if parts.len() > 2 { parse_f(parts[2]).unwrap_or(0.0) } else { 0.0 };
+            let sg = if parts.len() > 3 { parse_f(parts[3]).unwrap_or(1.0) } else { 1.0 };
+            let z  = normal_inv_cdf(p);
+            let x  = mu + sg * z;
+            let _ = writeln!(out, "P = {} → z-score = {:.6} → x = {:.6}", p, z, x);
+            let _ = writeln!(out, "Interpretation: P(X ≤ {:.6}) = {:.4}%", x, p*100.0);
+        }
+        "between" | "interval" if parts.len() >= 3 => {
+            let a  = parse_f(parts[1]).unwrap_or(-1.96);
+            let b  = parse_f(parts[2]).unwrap_or( 1.96);
+            let mu = if parts.len() > 3 { parse_f(parts[3]).unwrap_or(0.0) } else { 0.0 };
+            let sg = if parts.len() > 4 { parse_f(parts[4]).unwrap_or(1.0) } else { 1.0 };
+            let p  = normal_cdf(b, mu, sg) - normal_cdf(a, mu, sg);
+            let _ = writeln!(out, "P({} ≤ X ≤ {}) = {:.8}  ({:.4}%)", a, b, p, p*100.0);
+        }
+        "table" | "z-table" => {
+            let _ = writeln!(out, "Standard Normal CDF  P(Z ≤ z)");
+            let _ = writeln!(out, "  z     P(Z ≤ z)   P(Z > z)");
+            let _ = writeln!(out, "  ─────────────────────────────");
+            for &z in &[-3.0f64, -2.576, -2.326, -1.960, -1.645, -1.282, -0.842, 0.0,
+                         0.842, 1.282, 1.645, 1.960, 2.326, 2.576, 3.0] {
+                let p = normal_cdf(z, 0.0, 1.0);
+                let _ = writeln!(out, "  {:6.3}   {:.6}   {:.6}", z, p, 1.0 - p);
+            }
+        }
+        _ => {
+            // Try to parse as a plain z-score
+            if let Some(z) = parse_f(parts[0]) {
+                let p = normal_cdf(z, 0.0, 1.0);
+                let _ = writeln!(out, "Standard normal CDF at z={}: {:.8}", z, p);
+            } else {
+                out.push_str("Usage: --normal 'cdf 1.96'  --normal 'inv 0.975'  --normal 'table'\n       --normal 'between -1.96 1.96'  --normal 'pdf 0'");
+            }
+        }
+    }
+    out
+}

@@ -898,6 +898,9 @@ mod tests {
             date: None,
             subnet: None,
             color: None,
+            mw: None,
+            r#const: None,
+            normal: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

@@ -2763,6 +2763,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref formula) = cockpit.mw {
+        let result = hematite::tools::math_util::molecular_weight(formula.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.r#const {
+        let result = hematite::tools::math_util::physical_const(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.normal {
+        let result = hematite::tools::math_util::stat_normal(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.query_data {
         let file_path = file_path.trim();
         let sql = cockpit.sql.as_deref().unwrap_or("").trim().to_string();
