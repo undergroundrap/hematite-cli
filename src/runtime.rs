@@ -973,6 +973,8 @@ mod tests {
             polyfit_degree: None,
             polyfit_predict: None,
             probability: None,
+            bitwise: None,
+            set: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

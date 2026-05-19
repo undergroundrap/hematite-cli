@@ -7100,3 +7100,473 @@ fn optimize_usage() -> &'static str {
                   iter=  max iterations (default 500)\n\
      Expressions: x y t sin cos exp ln sqrt ^ + - * /"
 }
+
+// ─── Bitwise calculator ────────────────────────────────────────────────────────
+
+pub fn bitwise_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  BITWISE CALCULATOR");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    // Parse a token that might be decimal, 0x hex, 0b binary, 0o octal, or a single char
+    let parse_val = |s: &str| -> Option<u64> {
+        let s = s.trim();
+        if s.is_empty() { return None; }
+        if let Some(h) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
+            return u64::from_str_radix(h, 16).ok();
+        }
+        if let Some(b) = s.strip_prefix("0b").or_else(|| s.strip_prefix("0B")) {
+            return u64::from_str_radix(b, 2).ok();
+        }
+        if let Some(o) = s.strip_prefix("0o").or_else(|| s.strip_prefix("0O")) {
+            return u64::from_str_radix(o, 8).ok();
+        }
+        if s.starts_with('\'') && s.ends_with('\'') && s.len() >= 3 {
+            let inner = &s[1..s.len()-1];
+            let mut chars = inner.chars();
+            if let Some(c) = chars.next() {
+                if chars.next().is_none() { return Some(c as u64); }
+            }
+        }
+        s.parse::<u64>().ok()
+            .or_else(|| s.parse::<i64>().ok().map(|v| v as u64))
+    };
+
+    let fmt_row = |out: &mut String, label: &str, v: u64| {
+        let _ = writeln!(out, "  {:<18} {:>20}  (0x{:016X})", label, v as i64, v);
+    };
+
+    let fmt_bin = |out: &mut String, label: &str, v: u64| {
+        // Show as 4 groups of 16 bits
+        let b = format!("{:064b}", v);
+        let groups: Vec<&str> = [
+            &b[0..16], &b[16..32], &b[32..48], &b[48..64],
+        ].iter().map(|s| *s).collect();
+        let _ = writeln!(out, "  {:<18} {}_{}_{}_{}", label,
+            groups[0], groups[1], groups[2], groups[3]);
+    };
+
+    // ─── ieee754: float bit pattern analysis ───
+    if q.starts_with("ieee754 ") || q.starts_with("float ") {
+        let raw = q.splitn(2, ' ').nth(1).unwrap_or("").trim();
+        let fval: f64 = match raw.parse::<f64>() {
+            Ok(v) => v,
+            Err(_) => { let _ = writeln!(out, "  Cannot parse float: {}", raw); return out; }
+        };
+        let bits = fval.to_bits();
+        let sign = (bits >> 63) & 1;
+        let exp_raw = ((bits >> 52) & 0x7FF) as i64;
+        let mantissa = bits & 0x000F_FFFF_FFFF_FFFF;
+        let exp_actual = exp_raw - 1023;
+
+        let _ = writeln!(out, "  Value:    {}", fval);
+        let _ = writeln!(out, "  Bits:     0x{:016X}", bits);
+        let b = format!("{:064b}", bits);
+        let _ = writeln!(out, "  Binary:   {} {} {} {}",
+            &b[0..1], &b[1..12], &b[12..32], &b[32..64]);
+        let _ = writeln!(out, "  Sign:     {} ({})", sign, if sign == 0 { "positive" } else { "negative" });
+        let _ = writeln!(out, "  Exponent: {:011b} raw={} actual={}", exp_raw, exp_raw, exp_actual);
+        let _ = writeln!(out, "  Mantissa: {:052b}", mantissa);
+        let category = if exp_raw == 0x7FF {
+            if mantissa == 0 { if sign == 0 { "+Infinity" } else { "-Infinity" } } else { "NaN" }
+        } else if exp_raw == 0 {
+            if mantissa == 0 { "Zero" } else { "Subnormal" }
+        } else {
+            "Normal"
+        };
+        let _ = writeln!(out, "  Category: {}", category);
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── single value inspection ───
+    let words: Vec<&str> = q.split_whitespace().collect();
+
+    // Two-operand ops: A op B
+    if words.len() >= 3 {
+        let a_str = words[0];
+        let op    = words[1];
+        let b_str = words[2];
+        let a = match parse_val(a_str) {
+            Some(v) => v,
+            None => { let _ = writeln!(out, "  Cannot parse operand: {}", a_str); return out; }
+        };
+        match op.to_lowercase().as_str() {
+            "and" | "&" => {
+                let result = a & parse_val(b_str).unwrap_or(0);
+                let _ = writeln!(out, "  A (dec):  {}", a as i64);
+                let _ = writeln!(out, "  B (dec):  {}", parse_val(b_str).unwrap_or(0) as i64);
+                let b_val = parse_val(b_str).unwrap_or(0);
+                fmt_bin(&mut out, "  A binary:", a);
+                fmt_bin(&mut out, "  B binary:", b_val);
+                fmt_bin(&mut out, "  AND:     ", result);
+                fmt_row(&mut out, "  Result:", result);
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            }
+            "or" | "|" => {
+                let b_val = parse_val(b_str).unwrap_or(0);
+                let result = a | b_val;
+                fmt_bin(&mut out, "  A binary:", a);
+                fmt_bin(&mut out, "  B binary:", b_val);
+                fmt_bin(&mut out, "  OR:      ", result);
+                fmt_row(&mut out, "  Result:", result);
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            }
+            "xor" | "^" => {
+                let b_val = parse_val(b_str).unwrap_or(0);
+                let result = a ^ b_val;
+                fmt_bin(&mut out, "  A binary:", a);
+                fmt_bin(&mut out, "  B binary:", b_val);
+                fmt_bin(&mut out, "  XOR:     ", result);
+                fmt_row(&mut out, "  Result:", result);
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            }
+            "shl" | "<<" | "lsh" => {
+                let n = parse_val(b_str).unwrap_or(0) as u32;
+                let result = a.checked_shl(n).unwrap_or(0);
+                fmt_bin(&mut out, "  Before:  ", a);
+                fmt_bin(&mut out, "  SHL by:", result);
+                let _ = writeln!(out, "  Shift by: {}", n);
+                fmt_row(&mut out, "  Result:", result);
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            }
+            "shr" | ">>" | "rsh" => {
+                let n = parse_val(b_str).unwrap_or(0) as u32;
+                let result = a.checked_shr(n).unwrap_or(0);
+                fmt_bin(&mut out, "  Before:  ", a);
+                fmt_bin(&mut out, "  SHR by:", result);
+                let _ = writeln!(out, "  Shift by: {}", n);
+                fmt_row(&mut out, "  Result:", result);
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            }
+            "rol" | "rotl" => {
+                let n = (parse_val(b_str).unwrap_or(0) % 64) as u32;
+                let result = a.rotate_left(n);
+                fmt_bin(&mut out, "  Before:  ", a);
+                fmt_bin(&mut out, "  ROL:     ", result);
+                let _ = writeln!(out, "  Rotate by: {}", n);
+                fmt_row(&mut out, "  Result:", result);
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            }
+            "ror" | "rotr" => {
+                let n = (parse_val(b_str).unwrap_or(0) % 64) as u32;
+                let result = a.rotate_right(n);
+                fmt_bin(&mut out, "  Before:  ", a);
+                fmt_bin(&mut out, "  ROR:     ", result);
+                let _ = writeln!(out, "  Rotate by: {}", n);
+                fmt_row(&mut out, "  Result:", result);
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            }
+            _ => {}
+        }
+    }
+
+    // Single operand or unknown → full inspection
+    let val_str = if words.len() == 2 && words[0].to_lowercase() == "not" {
+        words[1]
+    } else {
+        words[0]
+    };
+    let is_not = words.len() == 2 && words[0].to_lowercase() == "not";
+
+    let val = match parse_val(val_str) {
+        Some(v) => v,
+        None => {
+            let _ = writeln!(out, "{}", bitwise_usage());
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+    };
+    let display_val = if is_not { !val } else { val };
+    let label = if is_not { "NOT result" } else { "Value" };
+
+    let popcount = display_val.count_ones();
+    let parity   = popcount % 2;
+    let leading  = display_val.leading_zeros();
+    let trailing = display_val.trailing_zeros();
+    let msb_pos  = if display_val == 0 { 0u32 } else { 63 - leading };
+
+    let _ = writeln!(out, "  {} (input): {}", label, val as i64);
+    if is_not { let _ = writeln!(out, "  NOT {:016X} = {:016X}", val, !val); }
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Representations ───");
+    let _ = writeln!(out, "  Decimal (signed):    {}", display_val as i64);
+    let _ = writeln!(out, "  Decimal (unsigned):  {}", display_val);
+    let _ = writeln!(out, "  Hexadecimal:         0x{:016X}", display_val);
+    let _ = writeln!(out, "  Octal:               0o{:o}", display_val);
+
+    // Binary with spacing every 8 bits
+    let b = format!("{:064b}", display_val);
+    let _ = writeln!(out, "  Binary (64-bit):");
+    let _ = writeln!(out, "    Bit 63-48:  {}_{}", &b[0..8], &b[8..16]);
+    let _ = writeln!(out, "    Bit 47-32:  {}_{}", &b[16..24], &b[24..32]);
+    let _ = writeln!(out, "    Bit 31-16:  {}_{}", &b[32..40], &b[40..48]);
+    let _ = writeln!(out, "    Bit 15- 0:  {}_{}", &b[48..56], &b[56..64]);
+
+    // Two's complement (flip bits + 1)
+    let twos = (!display_val).wrapping_add(1);
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Bit Properties ───");
+    let _ = writeln!(out, "  Popcount (set bits): {}", popcount);
+    let _ = writeln!(out, "  Parity:              {} ({})", parity, if parity == 0 { "even" } else { "odd" });
+    let _ = writeln!(out, "  Leading zeros:       {}", leading);
+    let _ = writeln!(out, "  Trailing zeros:      {}", trailing);
+    let _ = writeln!(out, "  MSB position:        {}", msb_pos);
+    let _ = writeln!(out, "  Two's complement:    {} (0x{:016X})", twos as i64, twos);
+    let is_pow2 = display_val != 0 && (display_val & display_val.wrapping_sub(1)) == 0;
+    let _ = writeln!(out, "  Power of 2:          {}", if is_pow2 { "yes" } else { "no" });
+
+    // Low byte / word / dword breakdown
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Byte Decomposition (little-endian) ───");
+    for i in 0..8usize {
+        let byte = ((display_val >> (i * 8)) & 0xFF) as u8;
+        let _ = writeln!(out, "  Byte {}: 0x{:02X}  {:08b}  dec={}", i, byte, byte, byte);
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+fn bitwise_usage() -> &'static str {
+    "Bitwise calculator — no model, no cloud:\n\
+     \n\
+     hematite --bitwise '255'                  inspect value (dec/hex/bin/octal/bytes)\n\
+     hematite --bitwise '0xFF'                 hex input\n\
+     hematite --bitwise '0b11001010'           binary input\n\
+     hematite --bitwise 'NOT 0xFF'             bitwise NOT\n\
+     hematite --bitwise '0xF0 AND 0x3C'        AND\n\
+     hematite --bitwise '0xF0 OR 0x0F'         OR\n\
+     hematite --bitwise '0xAB XOR 0xFF'        XOR\n\
+     hematite --bitwise '1 SHL 7'              left shift\n\
+     hematite --bitwise '256 SHR 4'            right shift\n\
+     hematite --bitwise '0xDEAD ROL 4'         rotate left\n\
+     hematite --bitwise '0xDEAD ROR 4'         rotate right\n\
+     hematite --bitwise 'ieee754 3.14159'       IEEE 754 float breakdown\n\
+     hematite --bitwise 'ieee754 NaN'           special float analysis\n\
+     \n\
+     Inputs: decimal, 0x hex, 0b binary, 0o octal, negative (-1)"
+}
+
+// ─── Set theory calculator ─────────────────────────────────────────────────────
+
+pub fn set_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  SET THEORY CALCULATOR");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    // Parse a set literal: {1,2,3} or [1,2,3] or bare comma list
+    // Items are strings (so sets of anything work)
+    let parse_set = |s: &str| -> Vec<String> {
+        let s = s.trim().trim_start_matches('{').trim_end_matches('}')
+                         .trim_start_matches('[').trim_end_matches(']');
+        let mut items: Vec<String> = s.split(',').map(|x| x.trim().to_string())
+            .filter(|x| !x.is_empty()).collect();
+        items.sort();
+        items.dedup();
+        items
+    };
+
+    let fmt_set = |v: &[String]| -> String {
+        if v.is_empty() { "{}".to_string() }
+        else { format!("{{{}}}", v.join(", ")) }
+    };
+
+    let q_lower = q.to_lowercase();
+
+    // ─── power set ───
+    if q_lower.starts_with("powerset ") || q_lower.starts_with("power_set ") || q_lower.starts_with("power set ") {
+        let raw = q.splitn(2, ' ').nth(1).unwrap_or("").trim();
+        let set = parse_set(raw);
+        if set.len() > 20 {
+            let _ = writeln!(out, "  Set too large for power set (max 20 elements).");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        let n = set.len();
+        let count = 1usize << n;
+        let _ = writeln!(out, "  Set A = {}", fmt_set(&set));
+        let _ = writeln!(out, "  |A| = {}   |P(A)| = {}", n, count);
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  Power set P(A):");
+        let mut subsets: Vec<Vec<String>> = Vec::with_capacity(count);
+        for mask in 0..count {
+            let subset: Vec<String> = (0..n)
+                .filter(|&i| mask & (1 << i) != 0)
+                .map(|i| set[i].clone())
+                .collect();
+            subsets.push(subset);
+        }
+        // Sort by cardinality then lexicographic
+        subsets.sort_by(|a, b| a.len().cmp(&b.len()).then(a.cmp(b)));
+        for (i, subset) in subsets.iter().enumerate() {
+            let _ = writeln!(out, "  {:3}. {}", i + 1, fmt_set(subset));
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── cartesian product ───
+    if q_lower.starts_with("cartesian ") || q_lower.starts_with("product ") || q_lower.contains(" x ") {
+        // Split on " x " or keyword
+        let parts: Vec<&str> = if q_lower.contains(" x ") {
+            q.splitn(3, " x ").collect()
+        } else {
+            let kw = if q_lower.starts_with("cartesian ") { "cartesian " } else { "product " };
+            let rest = &q[kw.len()..];
+            rest.splitn(2, " x ").collect()
+        };
+        if parts.len() < 2 {
+            let _ = writeln!(out, "  Usage: cartesian {{1,2}} x {{a,b,c}}");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        let a = parse_set(parts[0]);
+        let b = parse_set(parts[1]);
+        let _ = writeln!(out, "  A = {}  (|A|={})", fmt_set(&a), a.len());
+        let _ = writeln!(out, "  B = {}  (|B|={})", fmt_set(&b), b.len());
+        let _ = writeln!(out, "  |A × B| = {}", a.len() * b.len());
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  A × B:");
+        for x in &a {
+            for y in &b {
+                let _ = writeln!(out, "    ({}, {})", x, y);
+            }
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── two-set operations — split on keyword ───
+    // Supported: union, intersection, difference, symmetric_difference, subset, superset, disjoint
+    let ops = ["symmetric_difference", "sym_diff", "symdiff", "difference",
+               "intersection", "intersect", "union", "subset", "superset", "disjoint", "equal"];
+    let mut op_found: Option<(&str, Vec<String>, Vec<String>)> = None;
+    for &op in &ops {
+        let needle = format!(" {} ", op);
+        if let Some(pos) = q_lower.find(needle.as_str()) {
+            let a_raw = q[..pos].trim();
+            let b_raw = q[pos + needle.len()..].trim();
+            op_found = Some((op, parse_set(a_raw), parse_set(b_raw)));
+            break;
+        }
+    }
+
+    if let Some((op, a, b)) = op_found {
+        let _ = writeln!(out, "  A = {}  (|A|={})", fmt_set(&a), a.len());
+        let _ = writeln!(out, "  B = {}  (|B|={})", fmt_set(&b), b.len());
+        let _ = writeln!(out, "");
+        match op {
+            "union" => {
+                let mut result = a.clone();
+                for x in &b { if !result.contains(x) { result.push(x.clone()); } }
+                result.sort();
+                let _ = writeln!(out, "  A ∪ B = {}", fmt_set(&result));
+                let _ = writeln!(out, "  |A ∪ B| = {}", result.len());
+            }
+            "intersection" | "intersect" => {
+                let result: Vec<String> = a.iter().filter(|x| b.contains(x)).cloned().collect();
+                let _ = writeln!(out, "  A ∩ B = {}", fmt_set(&result));
+                let _ = writeln!(out, "  |A ∩ B| = {}", result.len());
+            }
+            "difference" => {
+                let result: Vec<String> = a.iter().filter(|x| !b.contains(x)).cloned().collect();
+                let _ = writeln!(out, "  A \\ B = {}", fmt_set(&result));
+                let _ = writeln!(out, "  |A \\ B| = {}", result.len());
+                let result2: Vec<String> = b.iter().filter(|x| !a.contains(x)).cloned().collect();
+                let _ = writeln!(out, "  B \\ A = {}", fmt_set(&result2));
+            }
+            "symmetric_difference" | "sym_diff" | "symdiff" => {
+                let in_a_not_b: Vec<String> = a.iter().filter(|x| !b.contains(x)).cloned().collect();
+                let in_b_not_a: Vec<String> = b.iter().filter(|x| !a.contains(x)).cloned().collect();
+                let mut result = in_a_not_b.clone();
+                result.extend(in_b_not_a.clone());
+                result.sort();
+                let _ = writeln!(out, "  A Δ B = {}", fmt_set(&result));
+                let _ = writeln!(out, "  |A Δ B| = {}", result.len());
+                let _ = writeln!(out, "  (in A not B: {})", fmt_set(&in_a_not_b));
+                let _ = writeln!(out, "  (in B not A: {})", fmt_set(&in_b_not_a));
+            }
+            "subset" => {
+                let is_sub = a.iter().all(|x| b.contains(x));
+                let is_proper = is_sub && a.len() < b.len();
+                let _ = writeln!(out, "  A ⊆ B: {}", if is_sub { "YES" } else { "NO" });
+                let _ = writeln!(out, "  A ⊂ B (proper): {}", if is_proper { "YES" } else { "NO" });
+            }
+            "superset" => {
+                let is_super = b.iter().all(|x| a.contains(x));
+                let is_proper = is_super && a.len() > b.len();
+                let _ = writeln!(out, "  A ⊇ B: {}", if is_super { "YES" } else { "NO" });
+                let _ = writeln!(out, "  A ⊃ B (proper): {}", if is_proper { "YES" } else { "NO" });
+            }
+            "disjoint" => {
+                let is_disj = !a.iter().any(|x| b.contains(x));
+                let _ = writeln!(out, "  A ∩ B = ∅ (disjoint): {}", if is_disj { "YES" } else { "NO" });
+                if !is_disj {
+                    let common: Vec<String> = a.iter().filter(|x| b.contains(x)).cloned().collect();
+                    let _ = writeln!(out, "  Common elements: {}", fmt_set(&common));
+                }
+            }
+            "equal" => {
+                let equal = a.iter().all(|x| b.contains(x)) && b.iter().all(|x| a.contains(x));
+                let _ = writeln!(out, "  A = B: {}", if equal { "YES" } else { "NO" });
+            }
+            _ => {}
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── single set inspection ───
+    let set = parse_set(q);
+    if !set.is_empty() {
+        let _ = writeln!(out, "  Set = {}", fmt_set(&set));
+        let _ = writeln!(out, "  Cardinality: {}", set.len());
+        let _ = writeln!(out, "  Min: {}   Max: {}", set.first().unwrap_or(&String::new()), set.last().unwrap_or(&String::new()));
+        // numeric stats if all parse as f64
+        let nums: Vec<f64> = set.iter().filter_map(|x| x.parse::<f64>().ok()).collect();
+        if nums.len() == set.len() && !nums.is_empty() {
+            let sum: f64 = nums.iter().sum();
+            let mean = sum / nums.len() as f64;
+            let _ = writeln!(out, "  Sum: {}   Mean: {:.4}", sum, mean);
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let _ = writeln!(out, "{}", set_usage());
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+fn set_usage() -> &'static str {
+    "Set theory calculator — no model, no cloud:\n\
+     \n\
+     hematite --set '{1,2,3} union {3,4,5}'           A ∪ B\n\
+     hematite --set '{1,2,3} intersection {2,3,4}'    A ∩ B\n\
+     hematite --set '{1,2,3,4} difference {2,4}'      A \\ B\n\
+     hematite --set '{1,2,3} sym_diff {2,3,4}'        A Δ B\n\
+     hematite --set '{1,2} subset {1,2,3}'            subset check\n\
+     hematite --set '{1,2,3} superset {1,2}'          superset check\n\
+     hematite --set '{1,2,3} disjoint {4,5,6}'        disjoint check\n\
+     hematite --set 'powerset {a,b,c}'                P(A) — all subsets\n\
+     hematite --set 'cartesian {1,2} x {a,b}'         A × B\n\
+     hematite --set '{5,3,1,4,2}'                     inspect a set\n\
+     \n\
+     Elements can be numbers or strings. Sets are auto-deduplicated and sorted."
+}

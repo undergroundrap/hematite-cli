@@ -771,6 +771,22 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Bitwise calculator — instant, no model, no cloud. Inspect any integer in decimal/hex/binary/octal with full bit breakdown (popcount, parity, leading/trailing zeros, two's complement, byte decomposition). Operations: AND, OR, XOR, NOT, SHL, SHR, ROL, ROR. Also: IEEE 754 float bit-pattern analysis. Examples: hematite --bitwise '0xFF AND 0x3C' | hematite --bitwise 'NOT 0xAB' | hematite --bitwise '1 SHL 7' | hematite --bitwise 'ieee754 3.14159'"
+    )]
+    pub bitwise: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Set theory calculator — instant, no model, no cloud. Operations: union, intersection, difference, symmetric difference, power set, Cartesian product, subset/superset/disjoint checks. Elements can be numbers or strings. Examples: hematite --set '{1,2,3} union {3,4,5}' | hematite --set 'powerset {a,b,c}' | hematite --set 'cartesian {1,2} x {a,b,c}'"
+    )]
+    pub set: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"
