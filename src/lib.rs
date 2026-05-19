@@ -737,6 +737,18 @@ pub struct CliCockpit {
     #[arg(long, help_heading = "Data Analysis", value_name = "MU", help = "Null hypothesis mean or proportion for --hypothesis one-t or proportion tests (default: 0.0).")]
     pub hypothesis_mu: Option<f64>,
 
+    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Classification (k-NN or Naive Bayes) — train on labeled CSV, LOO cross-validate, predict new samples. Example: hematite --classify data.csv --classify-label species --classify-k 3")]
+    pub classify: Option<String>,
+    #[arg(long, value_name = "COL", help = "Label column for --classify (default: last column).")]
+    pub classify_label: Option<String>,
+    #[arg(long, value_name = "COL1,COL2,...", help = "Feature columns for --classify (default: all except label).")]
+    pub classify_cols: Option<String>,
+    #[arg(long, value_name = "V1,V2,...", help = "Predict class for this comma-separated feature vector.")]
+    pub classify_predict: Option<String>,
+    #[arg(long, value_name = "N", help = "k neighbors for --classify k-NN (default: 3).")]
+    pub classify_k: Option<usize>,
+    #[arg(long, value_name = "METHOD", help = "Algorithm for --classify: knn (default) or nb (Naive Bayes).")]
+    pub classify_method: Option<String>,
 
     #[arg(
         long,

@@ -961,6 +961,12 @@ mod tests {
             hypothesis_group2: None,
             hypothesis_alpha: None,
             hypothesis_mu: None,
+            classify: None,
+            classify_label: None,
+            classify_cols: None,
+            classify_predict: None,
+            classify_k: None,
+            classify_method: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

@@ -2871,6 +2871,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref file_path) = cockpit.classify {
+        let label   = cockpit.classify_label.as_deref().unwrap_or("");
+        let feats   = cockpit.classify_cols.as_deref().unwrap_or("");
+        let predict = cockpit.classify_predict.as_deref().unwrap_or("");
+        let k       = cockpit.classify_k.unwrap_or(3);
+        let method  = cockpit.classify_method.as_deref().unwrap_or("knn");
+        match hematite::tools::data_tools::classify_data(file_path.trim(), label, feats, predict, k, method).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("classify error: {}", e),
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.fourier {
         let col         = cockpit.fourier_col.as_deref().unwrap_or("");
         let top_n       = cockpit.fourier_top.unwrap_or(10);
