@@ -959,6 +959,45 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Headless Reports",
+        value_name = "EXPR",
+        help = "2D/3D vector math — instant, no model. Ops: dot, cross, +, -, scalar*, mag, norm, angle, proj. Example: hematite --vectors '[1,2,3] dot [4,5,6]'  'mag [3,4]'  '[1,2,3] cross [0,0,1]'"
+    )]
+    pub vectors: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Percentile/quantile report for all numeric columns (or --percentile-col COL for a specific column). Example: hematite --percentile data.csv --percentile-col salary"
+    )]
+    pub percentile: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Column to analyze with --percentile (default: all numeric columns).")]
+    pub percentile_col: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Pivot table — group rows by two columns and aggregate a value column. Use --pivot-row, --pivot-col, --pivot-val, --pivot-agg (count/sum/mean/min/max). Example: hematite --pivot sales.csv --pivot-row region --pivot-col quarter --pivot-val revenue --pivot-agg sum"
+    )]
+    pub pivot: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Row grouping column for --pivot.")]
+    pub pivot_row: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Column grouping column for --pivot.")]
+    pub pivot_col: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Value column for --pivot aggregation.")]
+    pub pivot_val: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "AGG", help = "Aggregation for --pivot: count (default), sum, mean, min, max.")]
+    pub pivot_agg: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Data Analysis",
         value_name = "FILE",
         help = "Random-sample rows from a CSV/TSV/JSON/SQLite file. Use --sample-n or --sample-frac for size; --split for train/test; --sample-output DIR to save files. Example: hematite --sample data.csv --sample-n 200 --split 0.8 --sample-output out/"

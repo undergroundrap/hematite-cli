@@ -407,3 +407,232 @@ print("="*W)
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── Percentile / quantile report ──────────────────────────────────────────────
+// Computes P1 P5 P10 P25 P50 P75 P90 P95 P99 for each numeric column
+// (or a specific column if col is non-empty).
+
+pub async fn percentile_report(file_path: &str, col: &str) -> Result<String, String> {
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_col:  String = col.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+
+_path   = bytes.fromhex("{hex_path}").decode().strip()
+_col    = bytes.fromhex("{hex_col}").decode().strip()
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r)
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        return d if isinstance(d, list) else next(iter(d.values()), [])
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d[0] for d in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2
+    print("Unsupported: "+ext, file=sys.stderr); sys.exit(1)
+
+def _tf(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+def _percentile(data, p):
+    if not data: return float('nan')
+    s = sorted(data)
+    n = len(s)
+    idx = (p/100.0) * (n-1)
+    lo = int(idx); hi = lo + 1
+    frac = idx - lo
+    if hi >= n: return s[-1]
+    return s[lo] + frac*(s[hi]-s[lo])
+
+rows = _load(_path)
+if not rows:
+    print("No rows found."); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+if _col:
+    target_cols = [c for c in all_cols if c.lower() == _col.lower()]
+    if not target_cols:
+        print("Column '%s' not found. Available: %s" % (_col, ', '.join(all_cols)))
+        sys.exit(1)
+else:
+    target_cols = [c for c in all_cols
+                   if sum(1 for r in rows if _tf(r.get(c,'')) is not None) >= len(rows)*0.5]
+    if not target_cols:
+        print("No numeric columns found."); sys.exit(0)
+
+W = 72
+print("="*W)
+print(" Percentile Report — %s  (%d rows)" % (os.path.basename(_path), len(rows)))
+print("-"*W)
+hdr = "%-20s %8s %8s %8s %8s %8s %8s %8s" % ("Column", "P25", "P50", "P75", "P90", "P99", "Min", "Max")
+print(hdr)
+print("-"*W)
+for c in target_cols:
+    vals = [_tf(r.get(c,'')) for r in rows]
+    vals = [v for v in vals if v is not None]
+    if not vals: continue
+    p25=_percentile(vals,25); p50=_percentile(vals,50); p75=_percentile(vals,75)
+    p90=_percentile(vals,90); p99=_percentile(vals,99)
+    mn=min(vals); mx=max(vals)
+    def _f(v): return "%8g" % v
+    print("%-20s %s %s %s %s %s %s %s" % (c[:20], _f(p25), _f(p50), _f(p75), _f(p90), _f(p99), _f(mn), _f(mx)))
+print("="*W)
+print()
+if len(target_cols) == 1:
+    c = target_cols[0]
+    vals = [_tf(r.get(c,'')) for r in rows if _tf(r.get(c,'')) is not None]
+    print("Detailed percentile table for '%s':" % c)
+    for p in [1, 5, 10, 25, 50, 75, 90, 95, 99]:
+        v = _percentile(vals, p)
+        print("  P%-3d  %g" % (p, v))
+    mean = sum(vals)/len(vals)
+    std  = math.sqrt(sum((x-mean)**2 for x in vals)/len(vals))
+    iqr  = _percentile(vals,75) - _percentile(vals,25)
+    print()
+    print("  Mean: %g   Std: %g   IQR: %g   N: %d" % (mean, std, iqr, len(vals)))
+"####,
+        hex_path = hex_path,
+        hex_col  = hex_col,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ── Pivot table ───────────────────────────────────────────────────────────────
+// Groups rows by row_col × col_col and aggregates value_col.
+// Agg: count (default), sum, mean, min, max.
+
+pub async fn pivot_table(
+    file_path: &str,
+    row_col: &str,
+    col_col: &str,
+    value_col: &str,
+    agg: &str,
+) -> Result<String, String> {
+    let hex_path:    String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_row_col: String = row_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_col_col: String = col_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_val_col: String = value_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_agg:     String = agg.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys
+
+_path    = bytes.fromhex("{hex_path}").decode().strip()
+_row_col = bytes.fromhex("{hex_row_col}").decode().strip()
+_col_col = bytes.fromhex("{hex_col_col}").decode().strip()
+_val_col = bytes.fromhex("{hex_val_col}").decode().strip()
+_agg     = bytes.fromhex("{hex_agg}").decode().strip().lower() or "count"
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r)
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        return d if isinstance(d, list) else next(iter(d.values()), [])
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d[0] for d in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2
+    print("Unsupported: "+ext, file=sys.stderr); sys.exit(1)
+
+def _tf(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+rows = _load(_path)
+if not rows:
+    print("No rows found."); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+
+if not _row_col:
+    cat_cols = [c for c in all_cols if sum(1 for r in rows if _tf(r.get(c,'')) is None) > len(rows)*0.3]
+    _row_col = cat_cols[0] if cat_cols else all_cols[0]
+if not _col_col:
+    cat_cols = [c for c in all_cols if sum(1 for r in rows if _tf(r.get(c,'')) is None) > len(rows)*0.3]
+    _col_col = cat_cols[1] if len(cat_cols) > 1 else (all_cols[1] if len(all_cols) > 1 else _row_col)
+if not _val_col and _agg != 'count':
+    num_cols = [c for c in all_cols if c not in (_row_col, _col_col) and
+                sum(1 for r in rows if _tf(r.get(c,'')) is not None) >= len(rows)*0.5]
+    _val_col = num_cols[0] if num_cols else ''
+
+data = {{}}
+for r in rows:
+    rk = str(r.get(_row_col, '')).strip()
+    ck = str(r.get(_col_col, '')).strip()
+    v  = _tf(r.get(_val_col, '')) if _val_col else 1.0
+    if rk not in data: data[rk] = {{}}
+    if ck not in data[rk]: data[rk][ck] = []
+    if v is not None: data[rk][ck].append(v)
+
+row_keys = sorted(data.keys())
+col_keys = sorted({{ck for rv in data.values() for ck in rv}})
+
+def _agg_fn(vals):
+    if not vals: return ''
+    if _agg == 'count':  return str(len(vals))
+    if _agg == 'sum':    return "%.4g" % sum(vals)
+    if _agg == 'mean':   return "%.4g" % (sum(vals)/len(vals))
+    if _agg == 'min':    return "%.4g" % min(vals)
+    if _agg == 'max':    return "%.4g" % max(vals)
+    return str(len(vals))
+
+CW = 10
+RW = 16
+print("Pivot: %s x %s  (%s of %s)  |  rows=%d  cols=%d" % (
+    _row_col, _col_col, _agg, _val_col or 'rows', len(row_keys), len(col_keys)))
+print()
+print("%-*s" % (RW, _row_col[:RW]), end="")
+for ck in col_keys: print("  %-*s" % (CW, ck[:CW]), end="")
+print()
+print("-" * (RW + len(col_keys)*(CW+2)))
+for rk in row_keys:
+    print("%-*s" % (RW, rk[:RW]), end="")
+    for ck in col_keys:
+        vals = data.get(rk, {{}}).get(ck, [])
+        cell = _agg_fn(vals) if vals else '-'
+        print("  %-*s" % (CW, cell[:CW]), end="")
+    print()
+"####,
+        hex_path    = hex_path,
+        hex_row_col = hex_row_col,
+        hex_col_col = hex_col_col,
+        hex_val_col = hex_val_col,
+        hex_agg     = hex_agg,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}

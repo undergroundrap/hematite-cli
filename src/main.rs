@@ -2780,6 +2780,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref expr) = cockpit.vectors {
+        let result = hematite::tools::math_util::vector_calc(expr.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref file_path) = cockpit.percentile {
+        let col = cockpit.percentile_col.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::percentile_report(file_path.trim(), col).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
+    if let Some(ref file_path) = cockpit.pivot {
+        let row_col = cockpit.pivot_row.as_deref().unwrap_or("");
+        let col_col = cockpit.pivot_col.as_deref().unwrap_or("");
+        let val_col = cockpit.pivot_val.as_deref().unwrap_or("");
+        let agg     = cockpit.pivot_agg.as_deref().unwrap_or("count");
+        match hematite::tools::data_tools::pivot_table(file_path.trim(), row_col, col_col, val_col, agg).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.sample {
         let n       = cockpit.sample_n.unwrap_or(0);
         let frac    = cockpit.sample_frac.unwrap_or(0.0);

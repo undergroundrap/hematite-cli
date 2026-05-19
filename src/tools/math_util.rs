@@ -1492,3 +1492,273 @@ fn unit_convert_list() -> String {
     }
     out
 }
+
+// ── Vector / linear-algebra calculator ───────────────────────────────────────
+// Pure-Rust — no sandbox, instant results.
+// Supports 2D and 3D vectors, arbitrary-dimension for dot/mag/normalize.
+//
+// Query forms:
+//   "[1,2,3] dot [4,5,6]"
+//   "[1,2,3] cross [4,5,6]"
+//   "[1,2,3] + [4,5,6]"    (add)
+//   "[1,2,3] - [4,5,6]"    (subtract)
+//   "3 * [1,2,3]"          (scalar multiply)
+//   "mag [3,4]"            (magnitude)
+//   "norm [1,2,3]"         (normalize)
+//   "angle [1,0] [0,1]"    (angle in degrees)
+//   "proj [1,2] onto [3,4]" (vector projection)
+//   "[1,2,3]"              (info about a single vector)
+
+pub fn vector_calc(query: &str) -> String {
+    let q = query.trim();
+
+    // ── unary ops ────────────────────────────────────────────────────────────
+    if let Some(rest) = strip_prefix_ci(q, "mag") {
+        if let Some(v) = parse_vec(rest.trim()) {
+            return format_vec_result("Magnitude", &[], vec_mag(&v));
+        }
+    }
+    if let Some(rest) = strip_prefix_ci(q, "magnitude") {
+        if let Some(v) = parse_vec(rest.trim()) {
+            return format_vec_result("Magnitude", &[], vec_mag(&v));
+        }
+    }
+    if let Some(rest) = strip_prefix_ci(q, "norm") {
+        if let Some(v) = parse_vec(rest.trim()) {
+            let mag = vec_mag(&v);
+            if mag == 0.0 { return "Zero vector has no unit direction.".into(); }
+            let n: Vec<f64> = v.iter().map(|x| x / mag).collect();
+            return format_vec_display("Unit vector (normalized)", &n);
+        }
+    }
+    if let Some(rest) = strip_prefix_ci(q, "normalize") {
+        if let Some(v) = parse_vec(rest.trim()) {
+            let mag = vec_mag(&v);
+            if mag == 0.0 { return "Zero vector has no unit direction.".into(); }
+            let n: Vec<f64> = v.iter().map(|x| x / mag).collect();
+            return format_vec_display("Unit vector (normalized)", &n);
+        }
+    }
+
+    // ── angle between two vectors ─────────────────────────────────────────────
+    if let Some(rest) = strip_prefix_ci(q, "angle") {
+        let vecs = find_all_vecs(rest.trim());
+        if vecs.len() >= 2 {
+            let a = &vecs[0]; let b = &vecs[1];
+            if a.len() != b.len() { return "Vectors must have the same dimension for angle.".into(); }
+            let dot = vec_dot(a, b);
+            let ma = vec_mag(a); let mb = vec_mag(b);
+            if ma == 0.0 || mb == 0.0 { return "Cannot compute angle involving a zero vector.".into(); }
+            let cos_theta = (dot / (ma * mb)).clamp(-1.0, 1.0);
+            let deg = cos_theta.acos().to_degrees();
+            let rad = cos_theta.acos();
+            return format!(
+                "Angle between {} and {}:\n  {:.6}°  ({:.6} radians)\n  cos θ = {:.6}",
+                fmt_vec(a), fmt_vec(b), deg, rad, cos_theta
+            );
+        }
+    }
+
+    // ── projection ────────────────────────────────────────────────────────────
+    if q.to_lowercase().contains("proj") && q.to_lowercase().contains("onto") {
+        let vecs = find_all_vecs(q);
+        if vecs.len() >= 2 {
+            let a = &vecs[0]; let b = &vecs[1];
+            if a.len() != b.len() { return "Vectors must have the same dimension for projection.".into(); }
+            let b_mag2: f64 = b.iter().map(|x| x * x).sum();
+            if b_mag2 == 0.0 { return "Cannot project onto a zero vector.".into(); }
+            let scalar = vec_dot(a, b) / b_mag2;
+            let proj: Vec<f64> = b.iter().map(|x| x * scalar).collect();
+            let mut out = String::new();
+            let _ = writeln!(out, "Projection of {} onto {}:", fmt_vec(a), fmt_vec(b));
+            let _ = writeln!(out, "  proj = {}", fmt_vec(&proj));
+            let _ = writeln!(out, "  scalar factor = {:.6}", scalar);
+            return out;
+        }
+    }
+
+    // ── binary ops: look for keyword between two vectors ──────────────────────
+    let lower = q.to_lowercase();
+
+    // dot product
+    if lower.contains(" dot ") {
+        if let Some(idx) = lower.find(" dot ") {
+            let left = &q[..idx]; let right = &q[idx+5..];
+            if let (Some(a), Some(b)) = (parse_vec(left.trim()), parse_vec(right.trim())) {
+                if a.len() != b.len() { return format!("Dimension mismatch: {} vs {}", a.len(), b.len()); }
+                let d = vec_dot(&a, &b);
+                return format!("{} · {} = {}", fmt_vec(&a), fmt_vec(&b), fmt_scalar(d));
+            }
+        }
+    }
+
+    // cross product
+    if lower.contains(" cross ") {
+        if let Some(idx) = lower.find(" cross ") {
+            let left = &q[..idx]; let right = &q[idx+7..];
+            if let (Some(a), Some(b)) = (parse_vec(left.trim()), parse_vec(right.trim())) {
+                if a.len() != 3 || b.len() != 3 {
+                    return "Cross product requires two 3D vectors.".into();
+                }
+                let c = vec_cross(&a, &b);
+                return format!(
+                    "{} × {} = {}\n  |result| = {}",
+                    fmt_vec(&a), fmt_vec(&b), fmt_vec(&c), fmt_scalar(vec_mag(&c))
+                );
+            }
+        }
+    }
+
+    // scalar × vector: "3 * [1,2,3]" or "[1,2,3] * 3"
+    if lower.contains(" * ") {
+        if let Some(idx) = q.find(" * ") {
+            let left = q[..idx].trim(); let right = q[idx+3..].trim();
+            // scalar * vec
+            if let (Ok(s), Some(v)) = (left.parse::<f64>(), parse_vec(right)) {
+                let result: Vec<f64> = v.iter().map(|x| x * s).collect();
+                return format!("{} × {} = {}", s, fmt_vec(&v), fmt_vec(&result));
+            }
+            // vec * scalar
+            if let (Some(v), Ok(s)) = (parse_vec(left), right.parse::<f64>()) {
+                let result: Vec<f64> = v.iter().map(|x| x * s).collect();
+                return format!("{} × {} = {}", fmt_vec(&v), s, fmt_vec(&result));
+            }
+        }
+    }
+
+    // vector + vector
+    if let Some(idx) = q.find(" + ") {
+        let left = q[..idx].trim(); let right = q[idx+3..].trim();
+        if let (Some(a), Some(b)) = (parse_vec(left), parse_vec(right)) {
+            if a.len() != b.len() { return format!("Dimension mismatch: {} vs {}", a.len(), b.len()); }
+            let c: Vec<f64> = a.iter().zip(b.iter()).map(|(x,y)| x + y).collect();
+            return format!("{} + {} = {}", fmt_vec(&a), fmt_vec(&b), fmt_vec(&c));
+        }
+    }
+
+    // vector - vector
+    if let Some(idx) = q.rfind(" - ") {
+        let left = q[..idx].trim(); let right = q[idx+3..].trim();
+        if let (Some(a), Some(b)) = (parse_vec(left), parse_vec(right)) {
+            if a.len() != b.len() { return format!("Dimension mismatch: {} vs {}", a.len(), b.len()); }
+            let c: Vec<f64> = a.iter().zip(b.iter()).map(|(x,y)| x - y).collect();
+            return format!("{} - {} = {}", fmt_vec(&a), fmt_vec(&b), fmt_vec(&c));
+        }
+    }
+
+    // single vector — info card
+    if let Some(v) = parse_vec(q) {
+        let mut out = String::new();
+        let mag = vec_mag(&v);
+        let _ = writeln!(out, "Vector:    {}", fmt_vec(&v));
+        let _ = writeln!(out, "Dimension: {}", v.len());
+        let _ = writeln!(out, "Magnitude: {}", fmt_scalar(mag));
+        if mag > 0.0 {
+            let unit: Vec<f64> = v.iter().map(|x| x / mag).collect();
+            let _ = writeln!(out, "Unit vec:  {}", fmt_vec(&unit));
+        }
+        if v.len() == 2 {
+            let angle = v[1].atan2(v[0]).to_degrees();
+            let _ = writeln!(out, "Angle (from +x): {:.4}°", angle);
+        }
+        return out;
+    }
+
+    format!(
+        "Could not parse: '{}'\n\
+         Examples:\n\
+           hematite --vectors '[1,2,3] dot [4,5,6]'\n\
+           hematite --vectors '[1,2,3] cross [4,5,6]'\n\
+           hematite --vectors '[1,2,3] + [4,5,6]'\n\
+           hematite --vectors 'mag [3,4]'\n\
+           hematite --vectors 'norm [1,2,3]'\n\
+           hematite --vectors 'angle [1,0] [0,1]'\n\
+           hematite --vectors 'proj [1,2] onto [3,4]'\n\
+           hematite --vectors '3 * [1,2,3]'",
+        q
+    )
+}
+
+fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
+    if s.len() >= prefix.len() && s[..prefix.len()].eq_ignore_ascii_case(prefix) {
+        Some(&s[prefix.len()..])
+    } else {
+        None
+    }
+}
+
+fn parse_vec(s: &str) -> Option<Vec<f64>> {
+    // Accepts: [1,2,3]  (1,2,3)  1,2,3  1 2 3
+    let s = s.trim().trim_start_matches(['[', '(']).trim_end_matches([']', ')']);
+    let parts: Vec<&str> = if s.contains(',') {
+        s.split(',').collect()
+    } else {
+        s.split_whitespace().collect()
+    };
+    if parts.is_empty() { return None; }
+    let nums: Vec<f64> = parts.iter()
+        .filter_map(|p| p.trim().parse::<f64>().ok())
+        .collect();
+    if nums.len() == parts.len() && !nums.is_empty() { Some(nums) } else { None }
+}
+
+fn find_all_vecs(s: &str) -> Vec<Vec<f64>> {
+    // Find all bracket-delimited vectors in a string
+    let mut result = Vec::new();
+    let mut i = 0;
+    let chars: Vec<char> = s.chars().collect();
+    while i < chars.len() {
+        if chars[i] == '[' || chars[i] == '(' {
+            let close = if chars[i] == '[' { ']' } else { ')' };
+            if let Some(j) = chars[i+1..].iter().position(|&c| c == close) {
+                let inner: String = chars[i+1..i+1+j].iter().collect();
+                if let Some(v) = parse_vec(&inner) {
+                    result.push(v);
+                }
+                i += j + 2;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    result
+}
+
+fn vec_dot(a: &[f64], b: &[f64]) -> f64 {
+    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
+}
+
+fn vec_mag(v: &[f64]) -> f64 {
+    v.iter().map(|x| x * x).sum::<f64>().sqrt()
+}
+
+fn vec_cross(a: &[f64], b: &[f64]) -> Vec<f64> {
+    vec![
+        a[1]*b[2] - a[2]*b[1],
+        a[2]*b[0] - a[0]*b[2],
+        a[0]*b[1] - a[1]*b[0],
+    ]
+}
+
+fn fmt_vec(v: &[f64]) -> String {
+    let inner: Vec<String> = v.iter().map(|x| fmt_scalar(*x)).collect();
+    format!("[{}]", inner.join(", "))
+}
+
+fn fmt_scalar(x: f64) -> String {
+    if x.fract() == 0.0 && x.abs() < 1e12 {
+        format!("{}", x as i64)
+    } else if x.abs() >= 1e-3 && x.abs() < 1e7 {
+        format!("{:.6}", x).trim_end_matches('0').trim_end_matches('.').to_string()
+    } else {
+        format!("{:.6e}", x)
+    }
+}
+
+fn format_vec_result(label: &str, _v: &[f64], val: f64) -> String {
+    format!("{}: {}", label, fmt_scalar(val))
+}
+
+fn format_vec_display(label: &str, v: &[f64]) -> String {
+    format!("{}: {}", label, fmt_vec(v))
+}
