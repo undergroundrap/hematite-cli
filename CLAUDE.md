@@ -405,6 +405,37 @@ When a local model gets uncertain, the answer is usually not "give it more freed
 
 **Large-file edit discipline:** Before editing files over ~500 lines (`inference.rs`, `conversation.rs`, `tui.rs`, and similar large modules), recommend `/architect` or a read-only inspection pass first unless the user has already provided a clear plan or target line range. Direct `/code` on large files without orientation leads to missed context and off-target edits on 9B models. This applies to any large codebase the user runs Hematite against, not just Hematite's own source.
 
+## Math, Science & Data Analysis CLI
+
+Hematite includes a comprehensive offline math/science/data toolkit — no model, no cloud, no internet required. All commands run instantly from the CLI.
+
+**Pure-Rust math (sub-millisecond):**
+- `hematite --matrix 'det [[1,2],[3,4]]'` — linear algebra: det, inv, solve, mul, transpose, eigen, rank, LU
+- `hematite --symbolic 'diff x^3 + sin(x)'` — symbolic calculus: differentiate, integrate, simplify, evaluate
+- `hematite --finance 'npv 8% -100 30 40 50'` — financial math: NPV, IRR, loan, bond, Black-Scholes
+- `hematite --logic 'A and (B or not C)'` — propositional logic: truth table, SAT, tautology, CNF/DNF
+- `hematite --graph 'shortest A D\nA B 2\nB D 3'` — graph theory: BFS/DFS/Dijkstra/components/topo-sort
+- `hematite --signal 'dft 1,0,-1,0,1,0,-1,0'` — DSP: DFT, FIR filter design, convolution, waveform gen
+- `hematite --interpolate 'spline 0,0 1,1 2,4 3,9 at 1.5'` — interpolation: linear, cubic spline, Lagrange
+- `hematite --units '100 km to miles'` — unit conversion: 14 categories, 130+ units, broadcast mode
+- `hematite --ode 'dy/dt = -y y0=1 t=5'` — ODE solver: Euler/RK4/RK45, Lotka-Volterra, SIR, logistic
+- `hematite --optimize 'min x^2-4*x+3 a=0 b=5'` — optimization: golden section, Nelder-Mead, gradient descent, root finder
+
+**Python-sandbox data analysis (no external libs, uses Python stdlib only):**
+- `hematite --sample data.csv --sample-n 100` — random sampling, train/test split
+- `hematite --correlate data.csv` — Pearson/Spearman correlation matrix with heatmap
+- `hematite --timeseries data.csv` — trend, seasonality, moving averages, change points
+- `hematite --fourier data.csv` — FFT frequency analysis
+- `hematite --cluster data.csv --cluster-k 3` — k-means clustering
+- `hematite --normalize data.csv` — feature scaling: z-score, min-max, robust, L2
+- `hematite --pca data.csv --pca-components 3` — principal component analysis
+- `hematite --hypothesis '2.1,2.8,3.2' --hypothesis-test one-t --hypothesis-mu 2.0` — hypothesis tests: t-tests, chi-square, ANOVA, Mann-Whitney, Pearson, proportion z-test, CI
+
+**Other instant utilities:**
+- `hematite --periodic Au` — periodic table element lookup
+- `hematite --random password --length 24` — cryptographic random values
+- `hematite --compute '2^10 + factorial(20)'` — arbitrary precision arithmetic
+
 ## MCP Server Mode
 
 Hematite can run as an MCP server, exposing its 128+ host inspection tools to any MCP-capable agent over the stdio transport.
