@@ -2051,3 +2051,201 @@ fn format_vec_result(label: &str, _v: &[f64], val: f64) -> String {
 fn format_vec_display(label: &str, v: &[f64]) -> String {
     format!("{}: {}", label, fmt_vec(v))
 }
+
+// ── Monte Carlo simulation ────────────────────────────────────────────────────
+// Pure Rust — no Python sandbox, instant results.
+// Query forms:
+//   "pi N"             — estimate π by random darts (N trials, default 1e6)
+//   "dice NdM [+K] R"  — roll N d-M dice R times, show distribution
+//   "birthday N"       — birthday problem: probability ≥2 share a birthday in room of N
+//   "ruin P A B N"     — gambler's ruin: win prob P, start $A, goal $B, N simulations
+//   "ci N MEAN STD"    — 95%/99% confidence interval via bootstrap-style simulation
+//   "walk N STEPS"     — N random walks of STEPS steps, report stats
+
+pub fn simulate(query: &str) -> String {
+    let q = query.trim();
+    let tokens: Vec<&str> = q.split_whitespace().collect();
+    if tokens.is_empty() {
+        return simulate_usage();
+    }
+
+    match tokens[0].to_lowercase().as_str() {
+        "pi" => {
+            let n: u64 = tokens.get(1).and_then(|s| s.parse().ok()).unwrap_or(1_000_000);
+            let n = n.min(100_000_000);
+            let mut inside = 0u64;
+            let mut rng = Lcg64::new(0xdeadbeef_12345678);
+            for _ in 0..n {
+                let x = rng.next_f64() * 2.0 - 1.0;
+                let y = rng.next_f64() * 2.0 - 1.0;
+                if x*x + y*y <= 1.0 { inside += 1; }
+            }
+            let pi_est = 4.0 * inside as f64 / n as f64;
+            let error = (pi_est - std::f64::consts::PI).abs();
+            format!(
+                "Monte Carlo π estimate ({} trials):\n  π ≈ {:.8}\n  True π = {:.8}\n  Error: {:.6e}\n  Inside circle: {} / {}",
+                n, pi_est, std::f64::consts::PI, error, inside, n
+            )
+        }
+        "birthday" => {
+            let n: u32 = tokens.get(1).and_then(|s| s.parse().ok()).unwrap_or(23);
+            // Exact probability via inclusion-exclusion
+            let p_no_match = (0..n as u64).fold(1.0f64, |acc, i| acc * (365 - i) as f64 / 365.0);
+            let p_match = 1.0 - p_no_match;
+            let mut out = format!("Birthday problem — room of {} people:\n", n);
+            out.push_str(&format!("  P(at least 2 share a birthday) = {:.6} ({:.2}%)\n", p_match, p_match*100.0));
+            out.push_str(&format!("  P(all different birthdays)      = {:.6} ({:.2}%)\n", p_no_match, p_no_match*100.0));
+            // Find 50% threshold
+            let n50 = (1..366u32).find(|&k| {
+                let p = 1.0 - (0..k as u64).fold(1.0f64, |a,i| a*(365-i) as f64/365.0);
+                p >= 0.5
+            }).unwrap_or(23);
+            out.push_str(&format!("  Minimum group for ≥50% chance: {} people\n", n50));
+            out
+        }
+        "dice" => {
+            // dice 2d6 1000   or   dice 1d20+3 500
+            let spec = tokens.get(1).copied().unwrap_or("1d6");
+            let rolls: u64 = tokens.get(2).and_then(|s| s.parse().ok()).unwrap_or(1000);
+            let rolls = rolls.min(1_000_000);
+            // Parse NdM+K
+            let (n_dice, sides, bonus) = parse_dice_spec(spec);
+            let mut counts: std::collections::HashMap<i64, u64> = std::collections::HashMap::new();
+            let mut rng = Lcg64::new(0xcafe_babe_dead_beef);
+            for _ in 0..rolls {
+                let total: i64 = (0..n_dice).map(|_| (rng.next_u64() % sides as u64) as i64 + 1).sum::<i64>() + bonus;
+                *counts.entry(total).or_insert(0) += 1;
+            }
+            let mut sorted_keys: Vec<i64> = counts.keys().copied().collect();
+            sorted_keys.sort();
+            let mean: f64 = sorted_keys.iter().map(|&k| k as f64 * counts[&k] as f64).sum::<f64>() / rolls as f64;
+            let mut out = format!("Dice simulation: {} × {} rolls\n", rolls, spec);
+            let _ = write!(out, "  Mean: {:.3}   Range: {}–{}\n", mean, sorted_keys.first().unwrap_or(&0), sorted_keys.last().unwrap_or(&0));
+            out.push_str("  Distribution:\n");
+            let max_count = counts.values().copied().max().unwrap_or(1);
+            for k in &sorted_keys {
+                let c = counts[k];
+                let pct = 100.0 * c as f64 / rolls as f64;
+                let bar_len = (c as f64 / max_count as f64 * 30.0) as usize;
+                let _ = write!(out, "    {:4}  {:6.2}%  {}\n", k, pct, "█".repeat(bar_len));
+            }
+            out
+        }
+        "ruin" | "gambler" => {
+            let p: f64   = tokens.get(1).and_then(|s| s.parse().ok()).unwrap_or(0.5);
+            let a: i64   = tokens.get(2).and_then(|s| s.parse().ok()).unwrap_or(10);
+            let b: i64   = tokens.get(3).and_then(|s| s.parse().ok()).unwrap_or(20);
+            let n: u64   = tokens.get(4).and_then(|s| s.parse().ok()).unwrap_or(10_000);
+            let n = n.min(100_000);
+            if a <= 0 || b <= a { return "Usage: ruin PROB START GOAL N_SIM (GOAL > START > 0)".into(); }
+
+            let mut wins = 0u64;
+            let mut steps_total = 0u64;
+            let mut rng = Lcg64::new(0x1234_5678_9abc_def0);
+            for _ in 0..n {
+                let mut money = a;
+                let mut steps = 0u64;
+                while money > 0 && money < b {
+                    let r = rng.next_f64();
+                    money += if r < p { 1 } else { -1 };
+                    steps += 1;
+                    if steps > 100_000 { break; }
+                }
+                if money >= b { wins += 1; }
+                steps_total += steps;
+            }
+            let win_rate = wins as f64 / n as f64;
+            let avg_steps = steps_total as f64 / n as f64;
+            // Exact formula for fair/unfair game
+            let exact = if (p - 0.5).abs() < 1e-10 {
+                a as f64 / b as f64
+            } else {
+                let q = 1.0 - p;
+                let r = q / p;
+                (1.0 - r.powi(a as i32)) / (1.0 - r.powi(b as i32))
+            };
+            format!(
+                "Gambler's Ruin ({} simulations):\n  Win prob p={:.4}  Start=${} → Goal=${}\n\
+                 \n  Simulated win rate:  {:.4} ({:.2}%)\n  Exact formula:       {:.4} ({:.2}%)\n\
+                 \n  Average steps to finish: {:.1}",
+                n, p, a, b, win_rate, win_rate*100.0, exact, exact*100.0, avg_steps
+            )
+        }
+        "walk" | "random_walk" => {
+            let n_walks: u64 = tokens.get(1).and_then(|s| s.parse().ok()).unwrap_or(1000);
+            let steps: u64   = tokens.get(2).and_then(|s| s.parse().ok()).unwrap_or(100);
+            let n_walks = n_walks.min(100_000);
+            let steps = steps.min(100_000);
+            let mut final_positions: Vec<f64> = Vec::with_capacity(n_walks as usize);
+            let mut max_deviation: f64 = 0.0;
+            let mut rng = Lcg64::new(0xabcdef01_23456789);
+            for _ in 0..n_walks {
+                let mut pos = 0.0f64;
+                for _ in 0..steps {
+                    pos += if rng.next_f64() < 0.5 { 1.0 } else { -1.0 };
+                }
+                final_positions.push(pos);
+                if pos.abs() > max_deviation { max_deviation = pos.abs(); }
+            }
+            let mean = final_positions.iter().sum::<f64>() / n_walks as f64;
+            let variance: f64 = final_positions.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n_walks as f64;
+            let std_dev = variance.sqrt();
+            let theoretical_std = (steps as f64).sqrt();
+            format!(
+                "Random Walk simulation ({} walks × {} steps):\n  Mean final position: {:.4}\n  Std deviation:       {:.4}  (theoretical √N = {:.4})\n  Max |deviation|:     {:.0}\n  Expected: walk ends within ±{:.1} of origin with 95% probability",
+                n_walks, steps, mean, std_dev, theoretical_std, max_deviation, 1.96 * theoretical_std
+            )
+        }
+        _ => {
+            // Try to parse as "pi N" with the number as first token
+            if let Ok(n) = tokens[0].parse::<u64>() {
+                // Assume it's an N for pi estimation
+                return simulate(&format!("pi {}", n));
+            }
+            simulate_usage()
+        }
+    }
+}
+
+fn simulate_usage() -> String {
+    "Monte Carlo simulation:\n\
+     hematite --simulate 'pi 1000000'           estimate π with N darts\n\
+     hematite --simulate 'birthday 23'          birthday problem\n\
+     hematite --simulate 'dice 2d6 10000'       roll 2d6 × 10000\n\
+     hematite --simulate 'ruin 0.48 10 20 5000' gambler's ruin\n\
+     hematite --simulate 'walk 1000 200'        random walk simulation".into()
+}
+
+fn parse_dice_spec(spec: &str) -> (i64, i64, i64) {
+    // NdM+K or NdM-K
+    let lower = spec.to_lowercase();
+    let (dice_part, bonus) = if let Some(idx) = lower.rfind('+') {
+        let b: i64 = spec[idx+1..].parse().unwrap_or(0);
+        (&spec[..idx], b)
+    } else if let Some(idx) = lower[1..].rfind('-').map(|i| i+1) {
+        let b: i64 = spec[idx+1..].parse().unwrap_or(0);
+        (&spec[..idx], -b)
+    } else {
+        (spec, 0i64)
+    };
+    if let Some(d_pos) = dice_part.to_lowercase().find('d') {
+        let n: i64 = dice_part[..d_pos].parse().unwrap_or(1).max(1);
+        let s: i64 = dice_part[d_pos+1..].parse().unwrap_or(6).max(2);
+        (n, s, bonus)
+    } else {
+        (1, 6, 0)
+    }
+}
+
+// Minimal 64-bit LCG PRNG — no stdlib rng needed
+struct Lcg64 { state: u64 }
+impl Lcg64 {
+    fn new(seed: u64) -> Self { Self { state: seed.wrapping_add(1) } }
+    fn next_u64(&mut self) -> u64 {
+        self.state = self.state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        self.state
+    }
+    fn next_f64(&mut self) -> f64 {
+        (self.next_u64() >> 11) as f64 / (1u64 << 53) as f64
+    }
+}

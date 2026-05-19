@@ -2794,6 +2794,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref query) = cockpit.simulate {
+        let result = hematite::tools::math_util::simulate(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref file_path) = cockpit.fourier {
+        let col         = cockpit.fourier_col.as_deref().unwrap_or("");
+        let top_n       = cockpit.fourier_top.unwrap_or(10);
+        let sample_rate = cockpit.fourier_rate.unwrap_or(1.0);
+        match hematite::tools::data_tools::fourier_analysis(file_path.trim(), col, top_n, sample_rate).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.percentile {
         let col = cockpit.percentile_col.as_deref().unwrap_or("");
         match hematite::tools::data_tools::percentile_report(file_path.trim(), col).await {

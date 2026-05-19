@@ -1142,3 +1142,128 @@ print("Open in any browser to view.")
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── Discrete Fourier Transform / frequency analysis ───────────────────────────
+// Pure-Python DFT. Reads numeric column, reports top-N frequency components.
+
+pub async fn fourier_analysis(
+    file_path: &str,
+    col: &str,
+    top_n: usize,
+    sample_rate: f64,
+) -> Result<String, String> {
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_col:  String = col.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+
+_path        = bytes.fromhex("{hex_path}").decode().strip()
+_col         = bytes.fromhex("{hex_col}").decode().strip()
+_top_n       = {top_n}
+_sample_rate = {sample_rate}
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r)
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        return d if isinstance(d, list) else next(iter(d.values()), [])
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d2[0] for d2 in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2
+    print("Unsupported: "+ext, file=sys.stderr); sys.exit(1)
+
+def _tf(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+rows = _load(_path)
+if not rows:
+    print("No rows found."); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+if _col:
+    target_col = next((c for c in all_cols if c.lower() == _col.lower()), None)
+    if not target_col:
+        print("Column '%s' not found. Available: %s" % (_col, ', '.join(all_cols))); sys.exit(1)
+else:
+    num_cols = [c for c in all_cols if sum(1 for r in rows if _tf(r.get(c,'')) is not None) >= len(rows)*0.5]
+    target_col = num_cols[0] if num_cols else None
+    if not target_col:
+        print("No numeric column found."); sys.exit(0)
+
+vals = [_tf(r.get(target_col,'')) for r in rows]
+vals = [v for v in vals if v is not None]
+n = len(vals)
+if n < 4:
+    print("Need at least 4 data points for DFT."); sys.exit(0)
+
+mean = sum(vals)/n
+x = [v - mean for v in vals]
+
+if n > 512:
+    x = x[:512]; n = 512
+    print("Note: DFT computed on first 512 points (large dataset).")
+
+def dft(x2):
+    N = len(x2)
+    result = []
+    for k in range(N//2 + 1):
+        re = sum(x2[t]*math.cos(2*math.pi*k*t/N) for t in range(N))
+        im = sum(x2[t]*math.sin(2*math.pi*k*t/N) for t in range(N))
+        amp = math.sqrt(re**2 + im**2) / N
+        phase = math.atan2(-im, re)
+        result.append((k, amp, phase))
+    return result
+
+spectrum = dft(x)
+spectrum_sorted = sorted(spectrum[1:], key=lambda t: -t[1])
+
+sr = _sample_rate if _sample_rate > 0 else 1.0
+top = spectrum_sorted[:min(_top_n, len(spectrum_sorted))]
+
+W = 64
+print("="*W)
+print(" Fourier / Frequency Analysis: %s" % os.path.basename(_path))
+print(" Column: %-20s   N=%d   Sample rate: %g Hz" % (target_col, n, sr))
+print("-"*W)
+print("  DC component (mean offset): %.6f" % spectrum[0][1])
+print()
+print("  %-5s  %-12s  %-12s  %-10s  %-10s" % ("Rank", "Freq (Hz)", "Period", "Amplitude", "Phase (deg)"))
+print("  " + "-"*58)
+for i,(k,amp,phase) in enumerate(top):
+    freq = k * sr / n
+    period = (1.0/freq) if freq > 0 else float('inf')
+    period_str = "%.4g" % period if period < 1e10 else "inf"
+    print("  %-5d  %-12.6g  %-12s  %-10.6f  %-10.2f" % (
+        i+1, freq, period_str, amp, math.degrees(phase)))
+total_power = sum(t[1]**2 for t in spectrum[1:])
+top_power   = sum(t[1]**2 for t in top)
+print()
+print("  Top %d components contain %.1f%% of signal power." % (len(top), 100*top_power/max(total_power,1e-30)))
+print("="*W)
+"####,
+        hex_path    = hex_path,
+        hex_col     = hex_col,
+        top_n       = top_n,
+        sample_rate = sample_rate,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 60
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}

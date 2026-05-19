@@ -627,6 +627,31 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Headless Reports",
+        value_name = "QUERY",
+        help = "Monte Carlo simulation — instant, no model. Modes: 'pi N' (estimate π), 'birthday N', 'dice 2d6 1000', 'ruin P START GOAL N', 'walk WALKS STEPS'. Example: hematite --simulate 'pi 1000000'  'dice 2d6+3 5000'  'birthday 30'"
+    )]
+    pub simulate: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Discrete Fourier Transform on a numeric column — finds dominant frequencies. Use --fourier-col COL, --fourier-top N, --fourier-rate Hz. Example: hematite --fourier signal.csv --fourier-col value --fourier-top 10 --fourier-rate 44100"
+    )]
+    pub fourier: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Column to analyze with --fourier (auto-detected if omitted).")]
+    pub fourier_col: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "N", help = "Number of top frequency components to report for --fourier (default 10).")]
+    pub fourier_top: Option<usize>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "HZ", help = "Sample rate in Hz for --fourier (default 1.0 — reports normalized frequencies).")]
+    pub fourier_rate: Option<f64>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"
     )]
