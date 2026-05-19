@@ -819,6 +819,14 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Sorting algorithm visualizer — instant, no model, no cloud. Shows step-by-step ASCII bar-chart visualization with comparison and swap counts. Algorithms: bubble, insertion, selection, merge, quick, heap. Pass all to compare all 6. Examples: hematite --sort-viz '5,3,8,1,9,2' | hematite --sort-viz 'bubble 5,3,8,1,9,2' | hematite --sort-viz 'merge 9,7,5,3,1'"
+    )]
+    pub sort_viz: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"

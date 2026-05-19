@@ -7937,6 +7937,246 @@ fn cipher_usage() -> &'static str {
      Ciphers: rot13, atbash, caesar, vigenere, railfence, columnar, morse"
 }
 
+// ─── Sorting algorithm visualizer ─────────────────────────────────────────────
+
+pub fn sort_viz(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  SORTING ALGORITHM VISUALIZER");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    // Format: "<algorithm> <n1,n2,n3,...>"  or just "<n1,n2,...>" for all algorithms
+    let words: Vec<&str> = q.splitn(2, ' ').collect();
+    let algos_all = ["bubble","insertion","selection","merge","quick","heap"];
+
+    let (algos, data_str) = if words.len() == 2 {
+        let first_lower = words[0].to_lowercase();
+        if algos_all.iter().any(|&a| a == first_lower.as_str()) {
+            (vec![first_lower], words[1])
+        } else {
+            (algos_all.iter().map(|s| s.to_string()).collect(), q)
+        }
+    } else {
+        (algos_all.iter().map(|s| s.to_string()).collect(), q)
+    };
+
+    // Parse data
+    let data: Vec<i64> = data_str.split(|c: char| !c.is_numeric() && c != '-')
+        .filter_map(|s| s.parse().ok())
+        .collect();
+
+    if data.is_empty() || data.len() < 2 {
+        let _ = writeln!(out, "  Provide at least 2 numbers: hematite --sort-viz '5,3,8,1,9,2'");
+        let _ = writeln!(out, "  Or specify an algorithm:    hematite --sort-viz 'bubble 5,3,8,1'");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+    if data.len() > 20 {
+        let _ = writeln!(out, "  Max 20 elements for visualization (got {})", data.len());
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let _ = writeln!(out, "  Input: {:?}", data);
+    let _ = writeln!(out, "");
+
+    let max_val = *data.iter().max().unwrap_or(&1);
+    let min_val = *data.iter().min().unwrap_or(&0);
+    let range = (max_val - min_val).max(1);
+
+    // Bar chart renderer
+    let bar_height = 8usize;
+    let bar_render = |arr: &[i64]| -> String {
+        let mut lines = vec![String::new(); bar_height + 1];
+        for &v in arr {
+            let h = ((v - min_val) as f64 / range as f64 * bar_height as f64).round() as usize;
+            let h = h.min(bar_height);
+            for row in 0..bar_height {
+                let bar_row = bar_height - 1 - row;
+                if bar_row < h {
+                    lines[row].push_str("██ ");
+                } else {
+                    lines[row].push_str("   ");
+                }
+            }
+            lines[bar_height].push_str(&format!("{:<3}", v));
+        }
+        lines.iter().map(|l| format!("  {}", l)).collect::<Vec<_>>().join("\n")
+    };
+
+    for algo in &algos {
+        let _ = writeln!(out, "  ═══ {} Sort ═══", algo.to_uppercase());
+        let _ = writeln!(out, "");
+
+        let mut arr = data.clone();
+        let mut steps: Vec<(Vec<i64>, String)> = Vec::new();
+        let mut comparisons = 0usize;
+        let mut swaps = 0usize;
+
+        match algo.as_str() {
+            "bubble" => {
+                let n = arr.len();
+                for i in 0..n {
+                    let mut swapped = false;
+                    for j in 0..n-1-i {
+                        comparisons += 1;
+                        if arr[j] > arr[j+1] {
+                            arr.swap(j, j+1);
+                            swaps += 1;
+                            swapped = true;
+                        }
+                    }
+                    steps.push((arr.clone(), format!("Pass {} (sorted tail: {})", i+1, i+1)));
+                    if !swapped { break; }
+                }
+            }
+            "insertion" => {
+                for i in 1..arr.len() {
+                    let key = arr[i];
+                    let mut j = i as i64 - 1;
+                    while j >= 0 {
+                        comparisons += 1;
+                        if arr[j as usize] > key {
+                            arr[(j+1) as usize] = arr[j as usize];
+                            swaps += 1;
+                            j -= 1;
+                        } else { break; }
+                    }
+                    arr[(j+1) as usize] = key;
+                    steps.push((arr.clone(), format!("Insert {} at position {}", key, j+1)));
+                }
+            }
+            "selection" => {
+                let n = arr.len();
+                for i in 0..n-1 {
+                    let mut min_idx = i;
+                    for j in i+1..n {
+                        comparisons += 1;
+                        if arr[j] < arr[min_idx] { min_idx = j; }
+                    }
+                    if min_idx != i {
+                        arr.swap(i, min_idx);
+                        swaps += 1;
+                    }
+                    steps.push((arr.clone(), format!("Select min={} → position {}", arr[i], i)));
+                }
+            }
+            "merge" => {
+                fn merge_sort_steps(arr: &mut Vec<i64>, steps: &mut Vec<(Vec<i64>, String)>,
+                                     comparisons: &mut usize, swaps: &mut usize,
+                                     lo: usize, hi: usize) {
+                    if hi - lo <= 1 { return; }
+                    let mid = (lo + hi) / 2;
+                    merge_sort_steps(arr, steps, comparisons, swaps, lo, mid);
+                    merge_sort_steps(arr, steps, comparisons, swaps, mid, hi);
+                    let left: Vec<i64> = arr[lo..mid].to_vec();
+                    let right: Vec<i64> = arr[mid..hi].to_vec();
+                    let (mut li, mut ri) = (0, 0);
+                    let mut idx = lo;
+                    while li < left.len() && ri < right.len() {
+                        *comparisons += 1;
+                        if left[li] <= right[ri] { arr[idx] = left[li]; li += 1; }
+                        else { arr[idx] = right[ri]; ri += 1; *swaps += 1; }
+                        idx += 1;
+                    }
+                    while li < left.len() { arr[idx] = left[li]; li += 1; idx += 1; }
+                    while ri < right.len() { arr[idx] = right[ri]; ri += 1; idx += 1; }
+                    steps.push((arr.clone(), format!("Merge [{}, {})", lo, hi)));
+                }
+                let n = arr.len();
+                merge_sort_steps(&mut arr, &mut steps, &mut comparisons, &mut swaps, 0, n);
+            }
+            "quick" => {
+                fn quick_sort_steps(arr: &mut Vec<i64>, steps: &mut Vec<(Vec<i64>, String)>,
+                                     comparisons: &mut usize, swaps: &mut usize,
+                                     lo: usize, hi: usize) {
+                    if lo + 1 >= hi { return; }
+                    let pivot = arr[hi - 1];
+                    let mut i = lo;
+                    for j in lo..hi-1 {
+                        *comparisons += 1;
+                        if arr[j] <= pivot { arr.swap(i, j); i += 1; *swaps += 1; }
+                    }
+                    arr.swap(i, hi - 1);
+                    *swaps += 1;
+                    steps.push((arr.clone(), format!("Pivot={} partitioned at {}", pivot, i)));
+                    if i > lo { quick_sort_steps(arr, steps, comparisons, swaps, lo, i); }
+                    if i + 1 < hi { quick_sort_steps(arr, steps, comparisons, swaps, i + 1, hi); }
+                }
+                let n = arr.len();
+                quick_sort_steps(&mut arr, &mut steps, &mut comparisons, &mut swaps, 0, n);
+            }
+            "heap" => {
+                let n = arr.len();
+                // Build max-heap
+                for i in (0..n/2).rev() {
+                    let mut root = i;
+                    loop {
+                        let left = 2*root+1;
+                        let right = 2*root+2;
+                        let mut largest = root;
+                        if left < n { comparisons += 1; if arr[left] > arr[largest] { largest = left; } }
+                        if right < n { comparisons += 1; if arr[right] > arr[largest] { largest = right; } }
+                        if largest != root { arr.swap(root, largest); swaps += 1; root = largest; }
+                        else { break; }
+                    }
+                }
+                steps.push((arr.clone(), "Heap built".to_string()));
+                for end in (1..n).rev() {
+                    arr.swap(0, end);
+                    swaps += 1;
+                    // Sift down
+                    let mut root = 0;
+                    loop {
+                        let left = 2*root+1;
+                        let right = 2*root+2;
+                        let mut largest = root;
+                        if left < end { comparisons += 1; if arr[left] > arr[largest] { largest = left; } }
+                        if right < end { comparisons += 1; if arr[right] > arr[largest] { largest = right; } }
+                        if largest != root { arr.swap(root, largest); swaps += 1; root = largest; }
+                        else { break; }
+                    }
+                    steps.push((arr.clone(), format!("Extracted max, sorted: {} elements", n-end)));
+                }
+            }
+            _ => {}
+        }
+
+        // Show steps (cap at 12 to avoid walls of text)
+        let max_steps = 12usize;
+        let step_count = steps.len();
+        let show_steps = if step_count > max_steps {
+            // Show first 4, last 4, mark ellipsis
+            let mut s = steps[..4].to_vec();
+            s.push((vec![], format!("... {} more steps ...", step_count - 8)));
+            s.extend_from_slice(&steps[step_count-4..]);
+            s
+        } else {
+            steps.clone()
+        };
+
+        for (step_arr, label) in &show_steps {
+            if step_arr.is_empty() {
+                let _ = writeln!(out, "  {}", label);
+                continue;
+            }
+            let _ = writeln!(out, "  → {}", label);
+            let _ = write!(out, "{}", bar_render(step_arr));
+            let _ = writeln!(out, "");
+        }
+
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  Final: {:?}", arr);
+        let _ = writeln!(out, "  Comparisons: {}  |  Swaps/moves: {}  |  Steps: {}", comparisons, swaps, step_count);
+        let _ = writeln!(out, "");
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
 // ─── Number formatter ─────────────────────────────────────────────────────────
 
 pub fn number_format(query: &str) -> String {
