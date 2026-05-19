@@ -2250,6 +2250,520 @@ impl Lcg64 {
     }
 }
 
+// ── Linear algebra / matrix operations ───────────────────────────────────────
+// det / inv / solve / mul / transpose / eigenvalues / rank — pure-Rust
+//
+// Matrix input formats (any mix):
+//   [[1,2,3],[4,5,6],[7,8,9]]   JSON-style
+//   1 2 3; 4 5 6; 7 8 9         semicolon rows
+//   1 2 3\n4 5 6\n7 8 9         newline rows
+//
+// Modes (first token of query):
+//   det A         determinant
+//   inv A         inverse
+//   solve A b     Ax = b  (b is an extra row/column vector)
+//   mul A B       A × B
+//   transpose A   transpose
+//   eigen A       eigenvalues & eigenvectors (up to 8×8)
+//   rank A        matrix rank
+//   lu A          LU decomposition
+//   info A        all basic info (default)
+
+type Matrix = Vec<Vec<f64>>;
+
+fn mat_rows(m: &Matrix) -> usize { m.len() }
+fn mat_cols(m: &Matrix) -> usize { m.first().map(|r| r.len()).unwrap_or(0) }
+
+fn parse_matrix(s: &str) -> Result<Matrix, String> {
+    let s = s.trim();
+    // Try [[...],[...]] JSON-like
+    if s.starts_with('[') {
+        return parse_matrix_json(s);
+    }
+    // Semicolon or newline rows
+    let row_strs: Vec<&str> = s.split(|c: char| c == ';' || c == '\n')
+        .map(str::trim)
+        .filter(|r| !r.is_empty())
+        .collect();
+    if row_strs.is_empty() { return Err("empty matrix".into()); }
+    let mut mat: Matrix = Vec::new();
+    for row_str in &row_strs {
+        let row: Vec<f64> = row_str.split(|c: char| c == ',' || c == ' ' || c == '\t')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|tok| tok.parse::<f64>().map_err(|_| format!("bad number: {}", tok)))
+            .collect::<Result<Vec<_>, _>>()?;
+        mat.push(row);
+    }
+    let ncols = mat[0].len();
+    for (i, row) in mat.iter().enumerate() {
+        if row.len() != ncols {
+            return Err(format!("row {} has {} columns, expected {}", i, row.len(), ncols));
+        }
+    }
+    Ok(mat)
+}
+
+fn parse_matrix_json(s: &str) -> Result<Matrix, String> {
+    // Simple recursive bracket parser — no serde needed
+    let chars: Vec<char> = s.chars().collect();
+    let mut pos = 0;
+    fn skip(chars: &[char], pos: &mut usize) {
+        while *pos < chars.len() && chars[*pos].is_whitespace() { *pos += 1; }
+    }
+    fn parse_num(chars: &[char], pos: &mut usize) -> Result<f64, String> {
+        skip(chars, pos);
+        let start = *pos;
+        while *pos < chars.len() && (chars[*pos].is_ascii_digit() || matches!(chars[*pos], '.' | '-' | '+' | 'e' | 'E')) {
+            *pos += 1;
+        }
+        let s: String = chars[start..*pos].iter().collect();
+        s.trim().parse::<f64>().map_err(|_| format!("bad number: '{}'", s))
+    }
+    fn parse_row(chars: &[char], pos: &mut usize) -> Result<Vec<f64>, String> {
+        skip(chars, pos);
+        if chars.get(*pos) != Some(&'[') { return Err("expected '[' for row".into()); }
+        *pos += 1;
+        let mut row = Vec::new();
+        loop {
+            skip(chars, pos);
+            if chars.get(*pos) == Some(&']') { *pos += 1; break; }
+            if !row.is_empty() {
+                if chars.get(*pos) == Some(&',') { *pos += 1; } else { return Err("expected ','".into()); }
+            }
+            row.push(parse_num(chars, pos)?);
+        }
+        Ok(row)
+    }
+    skip(&chars, &mut pos);
+    if chars.get(pos) != Some(&'[') { return Err("expected outer '['".into()); }
+    pos += 1;
+    let mut mat: Matrix = Vec::new();
+    loop {
+        skip(&chars, &mut pos);
+        if chars.get(pos) == Some(&']') { pos += 1; break; }
+        if !mat.is_empty() {
+            if chars.get(pos) == Some(&',') { pos += 1; } else { return Err("expected ','".into()); }
+        }
+        skip(&chars, &mut pos);
+        // Check if this is a number (1-D vector case) or another row
+        if chars.get(pos) == Some(&'[') {
+            mat.push(parse_row(&chars, &mut pos)?);
+        } else {
+            // flat 1-D vector — wrap as single row
+            let n = parse_num(&chars, &mut pos)?;
+            mat.push(vec![n]);
+        }
+    }
+    if mat.is_empty() { return Err("empty matrix".into()); }
+    let ncols = mat[0].len();
+    for (i, row) in mat.iter().enumerate() {
+        if row.len() != ncols {
+            return Err(format!("row {} has {} cols, expected {}", i, row.len(), ncols));
+        }
+    }
+    Ok(mat)
+}
+
+fn mat_clone(m: &Matrix) -> Matrix { m.clone() }
+
+fn mat_identity(n: usize) -> Matrix {
+    (0..n).map(|i| (0..n).map(|j| if i==j { 1.0 } else { 0.0 }).collect()).collect()
+}
+
+fn mat_fmt(m: &Matrix) -> String {
+    let rows = mat_rows(m);
+    let cols = mat_cols(m);
+    let cells: Vec<String> = m.iter().flat_map(|row| row.iter().map(|v| {
+        if v.abs() < 1e-12 { "0".to_string() }
+        else if v.fract() == 0.0 && v.abs() < 1e9 { format!("{}", *v as i64) }
+        else { format!("{:.6}", v).trim_end_matches('0').trim_end_matches('.').to_string() }
+    })).collect();
+    // Align columns
+    let mut col_widths: Vec<usize> = vec![0; cols];
+    for r in 0..rows {
+        for c in 0..cols {
+            col_widths[c] = col_widths[c].max(cells[r*cols+c].len());
+        }
+    }
+    let mut out = String::new();
+    for r in 0..rows {
+        out.push_str("  [ ");
+        for c in 0..cols {
+            let s = &cells[r*cols+c];
+            out.push_str(&format!("{:>w$}", s, w = col_widths[c]));
+            if c < cols-1 { out.push_str("  "); }
+        }
+        out.push_str(" ]\n");
+    }
+    out
+}
+
+// Returns (L, U, P, sign) where P*A = L*U and sign is the permutation sign
+fn lu_decompose(a: &Matrix) -> Result<(Matrix, Matrix, Vec<usize>, i32), String> {
+    let n = mat_rows(a);
+    if mat_cols(a) != n { return Err("LU requires square matrix".into()); }
+    let mut u = mat_clone(a);
+    let mut l = mat_identity(n);
+    let mut perm: Vec<usize> = (0..n).collect();
+    let mut sign = 1i32;
+
+    for col in 0..n {
+        // Partial pivoting
+        let mut max_row = col;
+        let mut max_val = u[col][col].abs();
+        for row in (col+1)..n {
+            if u[row][col].abs() > max_val { max_val = u[row][col].abs(); max_row = row; }
+        }
+        if max_val < 1e-14 { return Err("matrix is singular (or near-singular)".into()); }
+        if max_row != col {
+            u.swap(col, max_row);
+            perm.swap(col, max_row);
+            sign = -sign;
+            // Also swap l columns already filled
+            for j in 0..col {
+                let tmp = l[col][j];
+                l[col][j] = l[max_row][j];
+                l[max_row][j] = tmp;
+            }
+        }
+        for row in (col+1)..n {
+            let factor = u[row][col] / u[col][col];
+            l[row][col] = factor;
+            for k in col..n { u[row][k] -= factor * u[col][k]; }
+        }
+    }
+    Ok((l, u, perm, sign))
+}
+
+fn mat_det(a: &Matrix) -> Result<f64, String> {
+    match lu_decompose(a) {
+        Ok((_, u, _, sign)) => {
+            let d: f64 = (0..mat_rows(a)).map(|i| u[i][i]).product();
+            Ok(d * sign as f64)
+        }
+        Err(_) => Ok(0.0), // singular
+    }
+}
+
+fn mat_solve_lu(l: &Matrix, u: &Matrix, perm: &[usize], b: &[f64]) -> Vec<f64> {
+    let n = l.len();
+    // Apply permutation to b
+    let pb: Vec<f64> = (0..n).map(|i| b[perm[i]]).collect();
+    // Forward substitution Ly = Pb
+    let mut y = vec![0.0f64; n];
+    for i in 0..n {
+        y[i] = pb[i] - (0..i).map(|j| l[i][j] * y[j]).sum::<f64>();
+    }
+    // Back substitution Ux = y
+    let mut x = vec![0.0f64; n];
+    for i in (0..n).rev() {
+        x[i] = (y[i] - (i+1..n).map(|j| u[i][j] * x[j]).sum::<f64>()) / u[i][i];
+    }
+    x
+}
+
+fn mat_inv(a: &Matrix) -> Result<Matrix, String> {
+    let n = mat_rows(a);
+    let (l, u, perm, _) = lu_decompose(a)?;
+    let mut inv = mat_identity(n);
+    for col in 0..n {
+        let b: Vec<f64> = (0..n).map(|i| if i==col { 1.0 } else { 0.0 }).collect();
+        let x = mat_solve_lu(&l, &u, &perm, &b);
+        for row in 0..n { inv[row][col] = x[row]; }
+    }
+    Ok(inv)
+}
+
+fn mat_mul(a: &Matrix, b: &Matrix) -> Result<Matrix, String> {
+    let (ar, ac) = (mat_rows(a), mat_cols(a));
+    let (br, bc) = (mat_rows(b), mat_cols(b));
+    if ac != br { return Err(format!("incompatible dimensions {}×{} × {}×{}", ar, ac, br, bc)); }
+    let mut c = vec![vec![0.0f64; bc]; ar];
+    for i in 0..ar { for j in 0..bc { for k in 0..ac { c[i][j] += a[i][k] * b[k][j]; } } }
+    Ok(c)
+}
+
+fn mat_transpose(a: &Matrix) -> Matrix {
+    let (r, c) = (mat_rows(a), mat_cols(a));
+    (0..c).map(|j| (0..r).map(|i| a[i][j]).collect()).collect()
+}
+
+fn mat_rank(a: &Matrix) -> usize {
+    let mut m = mat_clone(a);
+    let rows = mat_rows(&m);
+    let cols = mat_cols(&m);
+    let mut rank = 0usize;
+    let mut row_cursor = 0usize;
+    for col in 0..cols {
+        let pivot = (row_cursor..rows).find(|&r| m[r][col].abs() > 1e-10);
+        if let Some(pr) = pivot {
+            m.swap(row_cursor, pr);
+            let pivot_val = m[row_cursor][col];
+            for j in col..cols { m[row_cursor][j] /= pivot_val; }
+            for r in 0..rows {
+                if r != row_cursor && m[r][col].abs() > 1e-10 {
+                    let factor = m[r][col];
+                    for j in col..cols { m[r][j] -= factor * m[row_cursor][j]; }
+                }
+            }
+            rank += 1;
+            row_cursor += 1;
+        }
+    }
+    rank
+}
+
+// Power iteration eigenvalue (largest eigenvalue only)
+fn mat_eigen_power(a: &Matrix, max_iter: usize) -> Option<(f64, Vec<f64>)> {
+    let n = mat_rows(a);
+    if n == 0 { return None; }
+    let mut v: Vec<f64> = (0..n).map(|i| if i==0 { 1.0 } else { 0.1 }).collect();
+    let mut lam = 0.0f64;
+    for _ in 0..max_iter {
+        // Av
+        let av: Vec<f64> = (0..n).map(|i| (0..n).map(|j| a[i][j] * v[j]).sum::<f64>()).collect();
+        let norm = av.iter().map(|x| x*x).sum::<f64>().sqrt();
+        if norm < 1e-14 { break; }
+        lam = av.iter().zip(&v).map(|(a,b)| a*b).sum::<f64>();
+        v = av.iter().map(|x| x/norm).collect();
+    }
+    Some((lam, v))
+}
+
+pub fn matrix_calc(query: &str) -> String {
+    let q = query.trim();
+
+    // Detect mode
+    let (mode, rest) = {
+        let words: Vec<&str> = q.splitn(2, char::is_whitespace).collect();
+        let m = words[0].to_lowercase();
+        let rest = words.get(1).copied().unwrap_or("").trim();
+        match m.as_str() {
+            "det"|"determinant" => ("det", rest.to_string()),
+            "inv"|"inverse"     => ("inv", rest.to_string()),
+            "solve"             => ("solve", rest.to_string()),
+            "mul"|"multiply"    => ("mul", rest.to_string()),
+            "transpose"|"trans" => ("transpose", rest.to_string()),
+            "eigen"|"eigenvalues"|"eig" => ("eigen", rest.to_string()),
+            "rank"              => ("rank", rest.to_string()),
+            "lu"                => ("lu", rest.to_string()),
+            _                   => ("info", q.to_string()),
+        }
+    };
+
+    let mut out = String::new();
+    let w = 64usize;
+    let _ = writeln!(out, "{}", "=".repeat(w));
+
+    // For "solve" we need two matrices: A and b
+    if mode == "solve" {
+        // rest should be "A_matrix b_vector" — split on " / " or last matrix
+        // Try to split at ']  [' or ']; [' or just split the two bracket groups
+        let parts = split_two_matrices(&rest);
+        if parts.len() < 2 {
+            let _ = writeln!(out, "  Matrix — Solve Ax = b");
+            let _ = writeln!(out, "  Error: provide matrix A and vector b, e.g.:");
+            let _ = writeln!(out, "  --matrix 'solve [[1,2],[3,4]] [[5],[6]]'");
+            let _ = writeln!(out, "{}", "=".repeat(w));
+            return out;
+        }
+        let a_str = &parts[0];
+        let b_str = &parts[1];
+        let a = match parse_matrix(a_str) { Ok(m) => m, Err(e) => { let _ = writeln!(out, "  Parse error (A): {}", e); let _ = writeln!(out, "{}", "=".repeat(w)); return out; } };
+        let b_mat = match parse_matrix(b_str) { Ok(m) => m, Err(e) => { let _ = writeln!(out, "  Parse error (b): {}", e); let _ = writeln!(out, "{}", "=".repeat(w)); return out; } };
+        let n = mat_rows(&a);
+        let b_vec: Vec<f64> = if mat_cols(&b_mat) == 1 {
+            b_mat.iter().map(|r| r[0]).collect()
+        } else if mat_rows(&b_mat) == 1 {
+            b_mat[0].clone()
+        } else {
+            let _ = writeln!(out, "  Error: b must be a column or row vector"); let _ = writeln!(out, "{}", "=".repeat(w)); return out;
+        };
+        if b_vec.len() != n { let _ = writeln!(out, "  Error: A is {}×{} but b has {} elements", n, mat_cols(&a), b_vec.len()); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+        let _ = writeln!(out, "  Matrix — Solve Ax = b");
+        let _ = writeln!(out, "  A ({}×{}):", n, mat_cols(&a));
+        out.push_str(&mat_fmt(&a));
+        let _ = writeln!(out, "  b:");
+        let b_col: Matrix = b_vec.iter().map(|&v| vec![v]).collect();
+        out.push_str(&mat_fmt(&b_col));
+        match lu_decompose(&a) {
+            Ok((l, u, perm, _)) => {
+                let x = mat_solve_lu(&l, &u, &perm, &b_vec);
+                let _ = writeln!(out, "  Solution x:");
+                for (i, &xi) in x.iter().enumerate() {
+                    let _ = writeln!(out, "    x[{}] = {:.8}", i, xi);
+                }
+                // Verify: Ax - b residual
+                let residual: f64 = (0..n).map(|i| {
+                    let ax_i: f64 = (0..n).map(|j| a[i][j] * x[j]).sum();
+                    (ax_i - b_vec[i]).powi(2)
+                }).sum::<f64>().sqrt();
+                let _ = writeln!(out, "  Residual |Ax - b| = {:.2e}", residual);
+            }
+            Err(e) => { let _ = writeln!(out, "  Error: {}", e); }
+        }
+        let _ = writeln!(out, "{}", "=".repeat(w));
+        return out;
+    }
+
+    // For mul we need two matrices
+    if mode == "mul" {
+        let parts = split_two_matrices(&rest);
+        if parts.len() < 2 {
+            let _ = writeln!(out, "  Matrix multiply: provide two matrices, e.g.:");
+            let _ = writeln!(out, "  --matrix 'mul [[1,2],[3,4]] [[5,6],[7,8]]'");
+            let _ = writeln!(out, "{}", "=".repeat(w));
+            return out;
+        }
+        let a = match parse_matrix(&parts[0]) { Ok(m) => m, Err(e) => { let _ = writeln!(out, "  Parse error (A): {}", e); let _ = writeln!(out, "{}", "=".repeat(w)); return out; } };
+        let b = match parse_matrix(&parts[1]) { Ok(m) => m, Err(e) => { let _ = writeln!(out, "  Parse error (B): {}", e); let _ = writeln!(out, "{}", "=".repeat(w)); return out; } };
+        let _ = writeln!(out, "  Matrix Multiply  A × B");
+        let _ = writeln!(out, "  A ({}×{}):", mat_rows(&a), mat_cols(&a));
+        out.push_str(&mat_fmt(&a));
+        let _ = writeln!(out, "  B ({}×{}):", mat_rows(&b), mat_cols(&b));
+        out.push_str(&mat_fmt(&b));
+        match mat_mul(&a, &b) {
+            Ok(c) => { let _ = writeln!(out, "  A × B ({}×{}):", mat_rows(&c), mat_cols(&c)); out.push_str(&mat_fmt(&c)); }
+            Err(e) => { let _ = writeln!(out, "  Error: {}", e); }
+        }
+        let _ = writeln!(out, "{}", "=".repeat(w));
+        return out;
+    }
+
+    // Single-matrix operations
+    let mat_str = &rest;
+    let a = match parse_matrix(mat_str) {
+        Ok(m) => m,
+        Err(e) => {
+            let _ = writeln!(out, "  Parse error: {}", e);
+            let _ = writeln!(out, "  Input: {}", mat_str.chars().take(80).collect::<String>());
+            let _ = writeln!(out, "  Formats: [[1,2],[3,4]]  or  1 2; 3 4");
+            let _ = writeln!(out, "{}", "=".repeat(w));
+            return out;
+        }
+    };
+
+    let (rows, cols) = (mat_rows(&a), mat_cols(&a));
+    let _ = writeln!(out, "  Matrix Operations  ({}×{})", rows, cols);
+    out.push_str(&mat_fmt(&a));
+
+    match mode {
+        "det" => {
+            if rows != cols { let _ = writeln!(out, "  Error: det requires square matrix"); }
+            else {
+                match mat_det(&a) {
+                    Ok(d) => { let _ = writeln!(out, "  det(A) = {:.8}", d); }
+                    Err(e) => { let _ = writeln!(out, "  Error: {}", e); }
+                }
+            }
+        }
+        "inv" => {
+            if rows != cols { let _ = writeln!(out, "  Error: inv requires square matrix"); }
+            else {
+                match mat_inv(&a) {
+                    Ok(inv) => { let _ = writeln!(out, "  A⁻¹:"); out.push_str(&mat_fmt(&inv)); }
+                    Err(e)  => { let _ = writeln!(out, "  Error: {}", e); }
+                }
+            }
+        }
+        "transpose" => {
+            let t = mat_transpose(&a);
+            let _ = writeln!(out, "  Aᵀ ({}×{}):", mat_cols(&a), rows);
+            out.push_str(&mat_fmt(&t));
+        }
+        "rank" => {
+            let r = mat_rank(&a);
+            let _ = writeln!(out, "  rank(A) = {}", r);
+            if rows == cols {
+                let _ = writeln!(out, "  {} ({}×{} square, rank {})", if r == rows { "Full rank" } else { "Rank-deficient" }, rows, cols, r);
+            }
+        }
+        "lu" => {
+            if rows != cols { let _ = writeln!(out, "  Error: LU requires square matrix"); }
+            else {
+                match lu_decompose(&a) {
+                    Ok((l, u, perm, _)) => {
+                        let _ = writeln!(out, "  L (lower triangular):");
+                        out.push_str(&mat_fmt(&l));
+                        let _ = writeln!(out, "  U (upper triangular):");
+                        out.push_str(&mat_fmt(&u));
+                        let perm_str = perm.iter().map(|&p| p.to_string()).collect::<Vec<_>>().join(", ");
+                        let _ = writeln!(out, "  Pivot permutation: [{}]", perm_str);
+                    }
+                    Err(e) => { let _ = writeln!(out, "  Error: {}", e); }
+                }
+            }
+        }
+        "eigen" => {
+            if rows != cols { let _ = writeln!(out, "  Error: eigenvalues require square matrix"); }
+            else if rows > 8 { let _ = writeln!(out, "  Error: power iteration limited to 8×8 (matrix is {}×{})", rows, cols); }
+            else {
+                let _ = writeln!(out, "  Eigenvalues (power iteration + deflation):");
+                let mut a_copy = mat_clone(&a);
+                for k in 0..rows {
+                    match mat_eigen_power(&a_copy, 500) {
+                        Some((lam, v)) => {
+                            let v_str = v.iter().map(|x| format!("{:.4}", x)).collect::<Vec<_>>().join(", ");
+                            let _ = writeln!(out, "  λ{} = {:.6}  eigenvector ≈ [{}]", k+1, lam, v_str);
+                            // Deflate
+                            for i in 0..rows { for j in 0..rows { a_copy[i][j] -= lam * v[i] * v[j]; } }
+                        }
+                        None => break,
+                    }
+                }
+                let trace: f64 = (0..rows).map(|i| a[i][i]).sum();
+                let _ = writeln!(out, "  Trace = {:.6}", trace);
+                if let Ok(d) = mat_det(&a) { let _ = writeln!(out, "  Det   = {:.6}", d); }
+            }
+        }
+        _ => {
+            // "info" — show all applicable results
+            let _ = writeln!(out, "  Rank: {}", mat_rank(&a));
+            if rows == cols {
+                if let Ok(d) = mat_det(&a) { let _ = writeln!(out, "  Det:  {:.6}", d); }
+                match mat_inv(&a) {
+                    Ok(inv) => { let _ = writeln!(out, "  Inverse:"); out.push_str(&mat_fmt(&inv)); }
+                    Err(_)  => { let _ = writeln!(out, "  Inverse: N/A (singular)"); }
+                }
+                let trace: f64 = (0..rows).map(|i| a[i][i]).sum();
+                let _ = writeln!(out, "  Trace: {:.6}", trace);
+                let frobenius: f64 = a.iter().flat_map(|r| r.iter()).map(|v| v*v).sum::<f64>().sqrt();
+                let _ = writeln!(out, "  Frobenius norm: {:.6}", frobenius);
+            }
+            let t = mat_transpose(&a);
+            let _ = writeln!(out, "  Transpose:"); out.push_str(&mat_fmt(&t));
+        }
+    }
+
+    let _ = writeln!(out, "{}", "=".repeat(w));
+    out
+}
+
+fn split_two_matrices(s: &str) -> Vec<String> {
+    // Split "A B" where A and B are either [[...]] or "row; row" groups
+    let s = s.trim();
+    if s.starts_with('[') {
+        // Find the end of the first [[...]] group
+        let mut depth = 0;
+        let mut end = 0;
+        for (i, c) in s.chars().enumerate() {
+            if c == '[' { depth += 1; }
+            else if c == ']' { depth -= 1; if depth == 0 { end = i+1; break; } }
+        }
+        if end == 0 || end >= s.len() { return vec![s.to_string()]; }
+        let a_str = s[..end].trim().to_string();
+        let b_str = s[end..].trim().trim_start_matches(|c: char| c == ',' || c == ' ').to_string();
+        if b_str.is_empty() { return vec![a_str]; }
+        return vec![a_str, b_str];
+    }
+    // For semicolon format: split on " / " or "| " or just try natural language split
+    if let Some(pos) = s.find(" / ") {
+        return vec![s[..pos].trim().to_string(), s[pos+3..].trim().to_string()];
+    }
+    vec![s.to_string()]
+}
+
 // ── Financial math ───────────────────────────────────────────────────────────
 // NPV / IRR / loan amortization / compound interest / bond pricing / Black-Scholes
 // Pure-Rust, instant, no sandbox.

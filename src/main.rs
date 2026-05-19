@@ -2544,28 +2544,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref op) = cockpit.matrix {
-        let mat_a = cockpit.matrix_a.as_deref().unwrap_or("").trim().to_string();
-        if mat_a.is_empty() {
-            eprintln!(
-                "Error: --matrix requires --matrix-a '[[...]]'\n\
-                 Example: hematite --matrix det --matrix-a '[[1,2],[3,4]]'"
-            );
-            std::process::exit(1);
-        }
-        let mat_b = cockpit.matrix_b.as_deref().unwrap_or("").trim().to_string();
-        match hematite::tools::scientific_ext::matrix_op(op.trim(), &mat_a, &mat_b).await {
-            Ok(result) => {
-                println!("{}", result.trim());
-                if cockpit.clipboard {
-                    copy_to_clipboard(&result);
-                    println!("Copied to clipboard.");
-                }
+        // New unified format: --matrix 'det [[1,2],[3,4]]'
+        // Legacy format: --matrix det --matrix-a '[[1,2],[3,4]]' [--matrix-b '[[5],[6]]']
+        let query = if cockpit.matrix_a.is_some() {
+            let mat_a = cockpit.matrix_a.as_deref().unwrap_or("").trim().to_string();
+            let mat_b = cockpit.matrix_b.as_deref().unwrap_or("").trim().to_string();
+            if mat_b.is_empty() {
+                format!("{} {}", op.trim(), mat_a)
+            } else {
+                format!("{} {} {}", op.trim(), mat_a, mat_b)
             }
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                std::process::exit(1);
-            }
-        }
+        } else {
+            op.trim().to_string()
+        };
+        let result = hematite::tools::math_util::matrix_calc(&query);
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
         return Ok(());
     }
 
