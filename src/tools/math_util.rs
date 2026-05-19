@@ -7570,3 +7570,369 @@ fn set_usage() -> &'static str {
      \n\
      Elements can be numbers or strings. Sets are auto-deduplicated and sorted."
 }
+
+// ─── Classical cipher encoder / decoder ───────────────────────────────────────
+
+pub fn cipher_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  CLASSICAL CIPHER");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let words: Vec<&str> = q.splitn(3, ' ').collect();
+    if words.is_empty() {
+        let _ = writeln!(out, "{}", cipher_usage());
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let cipher_name = words[0].to_lowercase();
+
+    // ─── ROT13 ───
+    if cipher_name == "rot13" {
+        let text = words[1..].join(" ");
+        let result: String = text.chars().map(|c| {
+            if c.is_ascii_alphabetic() {
+                let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                (((c as u8 - base + 13) % 26) + base) as char
+            } else { c }
+        }).collect();
+        let _ = writeln!(out, "  Cipher:  ROT13 (symmetric)");
+        let _ = writeln!(out, "  Input:   {}", text);
+        let _ = writeln!(out, "  Output:  {}", result);
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── Atbash ───
+    if cipher_name == "atbash" {
+        let text = words[1..].join(" ");
+        let result: String = text.chars().map(|c| {
+            if c.is_ascii_alphabetic() {
+                let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                (base + 25 - (c as u8 - base)) as char
+            } else { c }
+        }).collect();
+        let _ = writeln!(out, "  Cipher:  Atbash (symmetric)");
+        let _ = writeln!(out, "  Input:   {}", text);
+        let _ = writeln!(out, "  Output:  {}", result);
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── Caesar / ROT-N ───
+    if cipher_name == "caesar" || cipher_name == "rot" {
+        if words.len() < 3 {
+            let _ = writeln!(out, "  Usage: caesar <shift> <text>   or   rot <n> <text>");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        let shift: i32 = words[1].parse().unwrap_or(13);
+        let text = words[2];
+        let shift_norm = ((shift % 26) + 26) as u8 % 26;
+        let result: String = text.chars().map(|c| {
+            if c.is_ascii_alphabetic() {
+                let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                ((c as u8 - base + shift_norm) % 26 + base) as char
+            } else { c }
+        }).collect();
+        let decode: String = text.chars().map(|c| {
+            if c.is_ascii_alphabetic() {
+                let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                let s = (26 - shift_norm) % 26;
+                ((c as u8 - base + s) % 26 + base) as char
+            } else { c }
+        }).collect();
+        let _ = writeln!(out, "  Cipher:  Caesar / ROT-{}", shift);
+        let _ = writeln!(out, "  Input:   {}", text);
+        let _ = writeln!(out, "  Encoded: {}", result);
+        let _ = writeln!(out, "  Decoded: {}", decode);
+        // Show all 25 rotations in compact form
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  ─── Brute-force all rotations ───");
+        for n in 0u8..26 {
+            let r: String = text.chars().map(|c| {
+                if c.is_ascii_alphabetic() {
+                    let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                    ((c as u8 - base + n) % 26 + base) as char
+                } else { c }
+            }).collect();
+            let _ = writeln!(out, "  ROT-{:2}:  {}", n, r);
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── Vigenère encode/decode ───
+    if cipher_name == "vigenere" || cipher_name == "vigenère" {
+        // vigenere encode <key> <text>  OR  vigenere decode <key> <text>
+        let parts: Vec<&str> = q.splitn(4, ' ').collect();
+        if parts.len() < 4 {
+            let _ = writeln!(out, "  Usage: vigenere encode <key> <text>");
+            let _ = writeln!(out, "         vigenere decode <key> <text>");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        let mode   = parts[1].to_lowercase();
+        let key    = parts[2];
+        let text   = parts[3];
+        let decode = mode == "decode" || mode == "dec" || mode == "d";
+
+        let key_clean: Vec<u8> = key.chars()
+            .filter(|c| c.is_ascii_alphabetic())
+            .map(|c| c.to_ascii_uppercase() as u8 - b'A')
+            .collect();
+        if key_clean.is_empty() {
+            let _ = writeln!(out, "  Key must contain at least one letter.");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        let mut ki = 0usize;
+        let result: String = text.chars().map(|c| {
+            if c.is_ascii_alphabetic() {
+                let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                let shift = key_clean[ki % key_clean.len()];
+                ki += 1;
+                if decode {
+                    ((c as u8 - base + 26 - shift) % 26 + base) as char
+                } else {
+                    ((c as u8 - base + shift) % 26 + base) as char
+                }
+            } else { c }
+        }).collect();
+        let _ = writeln!(out, "  Cipher:  Vigenère");
+        let _ = writeln!(out, "  Mode:    {}", if decode { "decode" } else { "encode" });
+        let _ = writeln!(out, "  Key:     {}", key);
+        let _ = writeln!(out, "  Input:   {}", text);
+        let _ = writeln!(out, "  Output:  {}", result);
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── Rail Fence encode/decode ───
+    if cipher_name == "railfence" || cipher_name == "rail_fence" || cipher_name == "rail" {
+        let parts: Vec<&str> = q.splitn(4, ' ').collect();
+        if parts.len() < 4 {
+            let _ = writeln!(out, "  Usage: railfence encode <rails> <text>");
+            let _ = writeln!(out, "         railfence decode <rails> <text>");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        let mode   = parts[1].to_lowercase();
+        let rails: usize = parts[2].parse().unwrap_or(2).max(2);
+        let text   = parts[3];
+        let decode = mode == "decode" || mode == "dec" || mode == "d";
+
+        let chars: Vec<char> = text.chars().collect();
+        let n = chars.len();
+
+        if decode {
+            // Reconstruct rail assignment pattern, fill, then read
+            let mut pattern = vec![0usize; n];
+            let mut rail = 0i32;
+            let mut dir  = 1i32;
+            for i in 0..n {
+                pattern[i] = rail as usize;
+                if rail == 0 { dir = 1; }
+                else if rail == (rails as i32 - 1) { dir = -1; }
+                rail += dir;
+            }
+            let mut rail_len = vec![0usize; rails];
+            for &r in &pattern { rail_len[r] += 1; }
+            let mut rail_start = vec![0usize; rails];
+            for r in 1..rails { rail_start[r] = rail_start[r-1] + rail_len[r-1]; }
+            let char_arr: Vec<char> = chars.iter().cloned().collect();
+            let mut result = vec![' '; n];
+            let mut rail_idx: Vec<usize> = rail_start.clone();
+            for i in 0..n {
+                result[i] = char_arr[rail_idx[pattern[i]]];
+                rail_idx[pattern[i]] += 1;
+            }
+            let decoded: String = result.into_iter().collect();
+            let _ = writeln!(out, "  Cipher:  Rail Fence");
+            let _ = writeln!(out, "  Rails:   {}", rails);
+            let _ = writeln!(out, "  Input:   {}", text);
+            let _ = writeln!(out, "  Decoded: {}", decoded);
+        } else {
+            let mut fence: Vec<Vec<char>> = vec![Vec::new(); rails];
+            let mut rail = 0i32;
+            let mut dir  = 1i32;
+            for &ch in &chars {
+                fence[rail as usize].push(ch);
+                if rail == 0 { dir = 1; }
+                else if rail == (rails as i32 - 1) { dir = -1; }
+                rail += dir;
+            }
+            let encoded: String = fence.iter().flat_map(|r| r.iter()).collect();
+            let _ = writeln!(out, "  Cipher:  Rail Fence");
+            let _ = writeln!(out, "  Rails:   {}", rails);
+            let _ = writeln!(out, "  Input:   {}", text);
+            let _ = writeln!(out, "  Encoded: {}", encoded);
+            let _ = writeln!(out, "");
+            let _ = writeln!(out, "  ─── Rail diagram ───");
+            for (i, rail_row) in fence.iter().enumerate() {
+                let s: String = rail_row.iter().collect();
+                let _ = writeln!(out, "  Rail {}: {}", i, s);
+            }
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── Columnar transposition ───
+    if cipher_name == "columnar" || cipher_name == "transposition" {
+        let parts: Vec<&str> = q.splitn(4, ' ').collect();
+        if parts.len() < 4 {
+            let _ = writeln!(out, "  Usage: columnar encode <key> <text>");
+            let _ = writeln!(out, "         columnar decode <key> <text>");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        let mode  = parts[1].to_lowercase();
+        let key   = parts[2];
+        let text  = parts[3];
+        let decode = mode == "decode" || mode == "dec" || mode == "d";
+
+        let num_cols = key.len();
+        let mut key_chars: Vec<(usize, char)> = key.chars().enumerate().collect();
+        key_chars.sort_by_key(|&(_, c)| c);
+        let col_order: Vec<usize> = key_chars.iter().map(|&(i, _)| i).collect();
+
+        let pad: usize = if text.len() % num_cols == 0 { 0 } else { num_cols - text.len() % num_cols };
+        let padded: Vec<char> = text.chars().chain(std::iter::repeat('_').take(pad)).collect();
+        let num_rows = padded.len() / num_cols;
+
+        if decode {
+            // Reconstruct by filling columns in sorted key order
+            let col_lens: Vec<usize> = (0..num_cols).map(|_| num_rows).collect();
+            let mut cols: Vec<Vec<char>> = vec![Vec::new(); num_cols];
+            let mut idx = 0;
+            for &ci in &col_order {
+                for _ in 0..col_lens[ci] {
+                    if idx < text.len() {
+                        cols[ci].push(text.chars().nth(idx).unwrap_or('_'));
+                        idx += 1;
+                    }
+                }
+            }
+            let mut decoded = String::new();
+            for r in 0..num_rows {
+                for c in 0..num_cols {
+                    if r < cols[c].len() { decoded.push(cols[c][r]); }
+                }
+            }
+            let decoded = decoded.trim_end_matches('_');
+            let _ = writeln!(out, "  Cipher:  Columnar Transposition");
+            let _ = writeln!(out, "  Key:     {}", key);
+            let _ = writeln!(out, "  Input:   {}", text);
+            let _ = writeln!(out, "  Decoded: {}", decoded);
+        } else {
+            // Read row by row, output column by column in sorted key order
+            let grid: Vec<Vec<char>> = padded.chunks(num_cols)
+                .map(|r| r.to_vec()).collect();
+            let mut encoded = String::new();
+            for &ci in &col_order {
+                for row in &grid { encoded.push(row[ci]); }
+            }
+            let _ = writeln!(out, "  Cipher:  Columnar Transposition");
+            let _ = writeln!(out, "  Key:     {} (sorted order: {:?})", key, col_order);
+            let _ = writeln!(out, "  Input:   {}", text);
+            let _ = writeln!(out, "  Encoded: {}", encoded);
+            let _ = writeln!(out, "");
+            let _ = writeln!(out, "  ─── Grid ───");
+            // Print key header
+            let _ = writeln!(out, "  Key:  {}", key.chars().map(|c| format!("{} ", c)).collect::<String>());
+            for row in &grid {
+                let row_str: String = row.iter().map(|c| format!("{} ", c)).collect();
+                let _ = writeln!(out, "        {}", row_str);
+            }
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── Morse code ───
+    if cipher_name == "morse" {
+        let parts: Vec<&str> = q.splitn(3, ' ').collect();
+        if parts.len() < 3 {
+            let _ = writeln!(out, "  Usage: morse encode <text>");
+            let _ = writeln!(out, "         morse decode <morse>");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        let mode  = parts[1].to_lowercase();
+        let text  = parts[2];
+        let decode = mode == "decode" || mode == "dec" || mode == "d";
+
+        let morse_table: &[(&str, &str)] = &[
+            ("A",".-"),("B","-..."),("C","-.-."),("D","-.."),("E","."),
+            ("F","..-."),("G","--."),("H","...."),("I",".."),("J",".---"),
+            ("K","-.-"),("L",".-.."),("M","--"),("N","-."),("O","---"),
+            ("P",".--."),("Q","--.-"),("R",".-."),("S","..."),("T","-"),
+            ("U","..-"),("V","...-"),("W",".--"),("X","-..-"),("Y","-.--"),
+            ("Z","--.."),
+            ("0","-----"),("1",".----"),("2","..---"),("3","...--"),
+            ("4","....-"),("5","....."),("6","-...."),("7","--..."),
+            ("8","---.."),("9","----."),
+            (",","--..--"),(".",".-.-.-"),("?","..--.."),("!","-.-.--"),
+            ("/","-..-."),("@",".--.-."),("&",".-..."),
+        ];
+
+        if decode {
+            let code_to_char: std::collections::HashMap<&str,&str> =
+                morse_table.iter().map(|&(c, m)| (m, c)).collect();
+            let decoded: String = text.split("   ") // triple space = word boundary
+                .map(|word| {
+                    word.split(' ')
+                        .map(|sym| code_to_char.get(sym).copied().unwrap_or("?"))
+                        .collect::<String>()
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            let _ = writeln!(out, "  Cipher:  Morse Code");
+            let _ = writeln!(out, "  Input:   {}", text);
+            let _ = writeln!(out, "  Decoded: {}", decoded);
+        } else {
+            let char_to_morse: std::collections::HashMap<&str,&str> =
+                morse_table.iter().map(|&(c, m)| (c, m)).collect();
+            let encoded: String = text.to_uppercase().chars()
+                .map(|c| {
+                    if c == ' ' { "   ".to_string() }
+                    else {
+                        let s = c.to_string();
+                        char_to_morse.get(s.as_str()).copied().unwrap_or("?").to_string() + " "
+                    }
+                })
+                .collect();
+            let _ = writeln!(out, "  Cipher:  Morse Code");
+            let _ = writeln!(out, "  Input:   {}", text);
+            let _ = writeln!(out, "  Encoded: {}", encoded.trim());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── Unknown ───
+    let _ = writeln!(out, "{}", cipher_usage());
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+fn cipher_usage() -> &'static str {
+    "Classical cipher encoder/decoder — no model, no cloud:\n\
+     \n\
+     hematite --cipher 'rot13 Hello World'               ROT13 (symmetric)\n\
+     hematite --cipher 'atbash Hello World'              Atbash (symmetric)\n\
+     hematite --cipher 'caesar 13 Hello World'           Caesar shift (with brute-force)\n\
+     hematite --cipher 'vigenere encode KEY plaintext'   Vigenère encode\n\
+     hematite --cipher 'vigenere decode KEY ciphertext'  Vigenère decode\n\
+     hematite --cipher 'railfence encode 3 WEAREDISCOVERED'  Rail Fence encode\n\
+     hematite --cipher 'railfence decode 3 WECRLTEERDSOEEVEAAID'  Rail Fence decode\n\
+     hematite --cipher 'columnar encode ZEBRA plaintext'  Columnar transposition encode\n\
+     hematite --cipher 'morse encode Hello World'        Text to Morse\n\
+     hematite --cipher 'morse decode .... . .-.. .-.. ---'  Morse to text\n\
+     \n\
+     Ciphers: rot13, atbash, caesar, vigenere, railfence, columnar, morse"
+}

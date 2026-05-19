@@ -787,6 +787,14 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Classical cipher encoder/decoder — instant, no model, no cloud. Ciphers: ROT13, Atbash, Caesar (with full brute-force table), Vigenère (encode/decode), Rail Fence (encode/decode), Columnar Transposition, Morse Code. Examples: hematite --cipher 'rot13 Hello World' | hematite --cipher 'caesar 13 Hello' | hematite --cipher 'vigenere encode KEY plaintext' | hematite --cipher 'morse encode Hello'"
+    )]
+    pub cipher: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"

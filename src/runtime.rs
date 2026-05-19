@@ -975,6 +975,7 @@ mod tests {
             probability: None,
             bitwise: None,
             set: None,
+            cipher: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
