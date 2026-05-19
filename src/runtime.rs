@@ -967,6 +967,11 @@ mod tests {
             classify_predict: None,
             classify_k: None,
             classify_method: None,
+            polyfit: None,
+            polyfit_x: None,
+            polyfit_y: None,
+            polyfit_degree: None,
+            polyfit_predict: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

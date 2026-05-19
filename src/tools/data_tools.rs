@@ -2181,3 +2181,416 @@ print("\n" + "=" * W)
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── Classification (k-NN and Naive Bayes) ────────────────────────────────────
+// Trains on labeled CSV data, predicts a class label for new input, and runs
+// leave-one-out cross-validation to report accuracy. No external libraries.
+pub async fn classify_data(
+    file_path: &str,
+    label_col: &str,
+    feature_cols: &str,
+    predict_str: &str,
+    k: usize,
+    method: &str,
+) -> Result<String, String> {
+    let hex_path:    String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_label:   String = label_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_feats:   String = feature_cols.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_predict: String = predict_str.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_method:  String = method.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, math
+from collections import Counter, defaultdict
+
+_path    = bytes.fromhex("{hex_path}").decode().strip()
+_label   = bytes.fromhex("{hex_label}").decode().strip()
+_feats_s = bytes.fromhex("{hex_feats}").decode().strip()
+_pred_s  = bytes.fromhex("{hex_predict}").decode().strip()
+_k       = {k}
+_method  = bytes.fromhex("{hex_method}").decode().strip().lower()
+W = 60
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r)
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        return d if isinstance(d, list) else next(iter(d.values()), [])
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d[0] for d in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2
+    return []
+
+rows = _load(_path)
+if not rows:
+    print("  ERROR: no rows loaded from", _path); raise SystemExit(0)
+all_cols = list(rows[0].keys())
+
+# Determine label and feature columns
+if not _label:
+    _label = all_cols[-1]
+    print("  (No --classify-label specified; using last column: %s)" % _label)
+
+if _label not in all_cols:
+    print("  ERROR: label column '%s' not found. Available: %s" % (_label, ', '.join(all_cols)))
+    raise SystemExit(0)
+
+if _feats_s:
+    feat_cols = [c.strip() for c in _feats_s.split(',') if c.strip() in all_cols]
+else:
+    feat_cols = [c for c in all_cols if c != _label]
+
+if not feat_cols:
+    print("  ERROR: no feature columns found."); raise SystemExit(0)
+
+# Extract numeric feature vectors
+def row_to_vec(row):
+    v = []
+    for c in feat_cols:
+        try: v.append(float(row.get(c, 0) or 0))
+        except: v.append(0.0)
+    return v
+
+labeled = [(row_to_vec(r), str(r[_label]).strip()) for r in rows if str(r.get(_label,'')).strip()]
+if len(labeled) < 3:
+    print("  ERROR: need at least 3 labeled rows."); raise SystemExit(0)
+
+X = [v for v,_ in labeled]
+y = [lbl for _,lbl in labeled]
+classes = sorted(set(y))
+
+print("="*W)
+print("  CLASSIFICATION")
+print("  File:    %s" % os.path.basename(_path))
+print("  Label:   %s   Features: %s" % (_label, ', '.join(feat_cols)))
+print("  Method:  %s   Classes: %s" % (_method, ', '.join(classes)))
+print("  Samples: %d" % len(labeled))
+print("="*W)
+
+# ── k-NN ──────────────────────────────────────────────────────────────────────
+def knn_predict(X_train, y_train, x_q, k):
+    dists = [(math.sqrt(sum((a-b)**2 for a,b in zip(x_q, xi))), yi)
+             for xi, yi in zip(X_train, y_train)]
+    dists.sort(key=lambda d: d[0])
+    top = [yi for _, yi in dists[:k]]
+    return Counter(top).most_common(1)[0][0]
+
+# ── Gaussian Naive Bayes ───────────────────────────────────────────────────────
+def gnb_fit(X_train, y_train):
+    classes_t = sorted(set(y_train))
+    stats = {{}}
+    priors = {{}}
+    n = len(y_train)
+    for c in classes_t:
+        idx = [i for i,yi in enumerate(y_train) if yi == c]
+        priors[c] = len(idx) / n
+        vecs = [X_train[i] for i in idx]
+        m = [sum(vecs[j][f] for j in range(len(vecs)))/len(vecs) for f in range(len(feat_cols))]
+        v = [sum((vecs[j][f]-m[f])**2 for j in range(len(vecs)))/max(len(vecs)-1,1) for f in range(len(feat_cols))]
+        stats[c] = (m, v)
+    return priors, stats
+
+def gnb_predict(priors, stats, x_q):
+    best_c = None; best_log = float('-inf')
+    for c, (m, v) in stats.items():
+        log_p = math.log(priors[c] + 1e-300)
+        for xi, mi, vi in zip(x_q, m, v):
+            vi = max(vi, 1e-9)
+            log_p += -0.5 * math.log(2*math.pi*vi) - (xi-mi)**2/(2*vi)
+        if log_p > best_log: best_log = log_p; best_c = c
+    return best_c
+
+# ── LOO cross-validation ──────────────────────────────────────────────────────
+correct = 0
+confusion = defaultdict(lambda: defaultdict(int))
+for i in range(len(labeled)):
+    Xt = [X[j] for j in range(len(X)) if j != i]
+    yt = [y[j] for j in range(len(y)) if j != i]
+    x_q = X[i]; true = y[i]
+    if _method == 'nb' or _method == 'naive_bayes' or _method == 'gnb':
+        p, s = gnb_fit(Xt, yt); pred = gnb_predict(p, s, x_q)
+    else:
+        pred = knn_predict(Xt, yt, x_q, _k)
+    confusion[true][pred] += 1
+    if pred == true: correct += 1
+
+acc = correct / len(labeled)
+print("\n  Leave-One-Out Cross-Validation")
+print("  Accuracy: %d/%d = %.2f%%" % (correct, len(labeled), acc*100))
+print()
+
+# Confusion matrix
+print("  Confusion Matrix (actual=rows, predicted=cols):")
+max_w = max(len(c) for c in classes) + 2
+print("  " + " "*(max_w) + "  " + "  ".join(c.ljust(max_w) for c in classes))
+for actual in classes:
+    row = "  " + actual.ljust(max_w) + "  "
+    row += "  ".join(str(confusion[actual].get(pred, 0)).ljust(max_w) for pred in classes)
+    print(row)
+
+# Per-class precision/recall
+print()
+print("  Per-class metrics:")
+print("  %-15s  %-10s  %-10s  %-10s" % ("Class","Precision","Recall","F1"))
+print("  " + "-"*48)
+for c in classes:
+    tp = confusion[c].get(c, 0)
+    fp = sum(confusion[other].get(c,0) for other in classes if other != c)
+    fn = sum(confusion[c].get(other,0) for other in classes if other != c)
+    prec = tp/(tp+fp) if tp+fp > 0 else 0
+    rec  = tp/(tp+fn) if tp+fn > 0 else 0
+    f1   = 2*prec*rec/(prec+rec) if prec+rec > 0 else 0
+    print("  %-15s  %-10.3f  %-10.3f  %-10.3f" % (c[:15], prec, rec, f1))
+
+# Predict new sample if provided
+if _pred_s:
+    print()
+    p_vals = [float(v.strip()) for v in _pred_s.split(',') if v.strip()]
+    if len(p_vals) != len(feat_cols):
+        print("  WARNING: --classify-predict has %d values but %d features expected" % (len(p_vals), len(feat_cols)))
+    else:
+        if _method in ('nb','naive_bayes','gnb'):
+            p2, s2 = gnb_fit(X, y); pred_new = gnb_predict(p2, s2, p_vals)
+        else:
+            pred_new = knn_predict(X, y, p_vals, _k)
+        print("  Prediction for [%s]:" % ', '.join('%.4g'%v for v in p_vals))
+        print("  => %s" % pred_new)
+
+print("="*W)
+"####,
+        hex_path    = hex_path,
+        hex_label   = hex_label,
+        hex_feats   = hex_feats,
+        hex_predict = hex_predict,
+        hex_method  = hex_method,
+        k           = k,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ── Regression analysis ───────────────────────────────────────────────────────
+pub async fn regression_analysis(
+    file_path: &str,
+    x_col: &str,
+    y_col: &str,
+    degree: usize,
+    predict_x: &str,
+) -> Result<String, String> {
+    let hex_path:    String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_x_col:  String = x_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_y_col:  String = y_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_predict: String = predict_x.bytes().map(|b| format!("{:02x}", b)).collect();
+    let deg = degree.max(1).min(10);
+
+    let script = format!(r####"import csv, sys, math
+
+_path   = bytes.fromhex("{hex_path}").decode().strip()
+_x_col  = bytes.fromhex("{hex_x_col}").decode().strip()
+_y_col  = bytes.fromhex("{hex_y_col}").decode().strip()
+_degree = {deg}
+_pred_s = bytes.fromhex("{hex_predict}").decode().strip()
+W = 64
+
+# ── load CSV ──────────────────────────────────────────────────────────────────
+with open(_path, newline="", encoding="utf-8-sig") as f:
+    reader = csv.DictReader(f)
+    rows   = list(reader)
+    header = reader.fieldnames or []
+
+if not header:
+    print("ERROR: empty file or no header"); sys.exit(1)
+
+x_col = _x_col if _x_col else header[0]
+y_col = _y_col if _y_col else ([c for c in header if c != x_col] or [header[-1]])[-1]
+
+try:
+    xs = [float(r[x_col]) for r in rows]
+    ys = [float(r[y_col]) for r in rows]
+except (KeyError, ValueError) as e:
+    print(f"ERROR: {{e}}"); sys.exit(1)
+
+n = len(xs)
+if n < 2:
+    print("ERROR: need at least 2 data points"); sys.exit(1)
+
+deg = max(1, min(_degree, 10))
+
+# ── Vandermonde least-squares via Gaussian elimination ────────────────────────
+def poly_fit(xs, ys, deg):
+    d = deg + 1
+    ATA = [[0.0]*d for _ in range(d)]
+    ATy = [0.0]*d
+    for x, y in zip(xs, ys):
+        pows = [x**k for k in range(d)]
+        for i in range(d):
+            ATy[i] += pows[i] * y
+            for j in range(d):
+                ATA[i][j] += pows[i] * pows[j]
+    mat = [ATA[i][:] + [ATy[i]] for i in range(d)]
+    for col in range(d):
+        pivot = max(range(col, d), key=lambda r: abs(mat[r][col]))
+        mat[col], mat[pivot] = mat[pivot], mat[col]
+        if abs(mat[col][col]) < 1e-12:
+            continue
+        for row in range(col+1, d):
+            f = mat[row][col] / mat[col][col]
+            for k in range(col, d+1):
+                mat[row][k] -= f * mat[col][k]
+    coeffs = [0.0]*d
+    for row in range(d-1, -1, -1):
+        coeffs[row] = mat[row][d]
+        for k in range(row+1, d):
+            coeffs[row] -= mat[row][k] * coeffs[k]
+        if abs(mat[row][row]) > 1e-12:
+            coeffs[row] /= mat[row][row]
+    return coeffs
+
+def poly_eval(coeffs, x):
+    return sum(c * x**k for k, c in enumerate(coeffs))
+
+coeffs = poly_fit(xs, ys, deg)
+
+# ── metrics ───────────────────────────────────────────────────────────────────
+y_mean = sum(ys) / n
+ss_res = sum((y - poly_eval(coeffs, x))**2 for x, y in zip(xs, ys))
+ss_tot = sum((y - y_mean)**2 for y in ys)
+r2     = 1.0 - ss_res / ss_tot if ss_tot > 1e-12 else 1.0
+rmse   = math.sqrt(ss_res / n)
+mae    = sum(abs(y - poly_eval(coeffs, x)) for x, y in zip(xs, ys)) / n
+
+if deg == 1 and n > 1:
+    sx  = math.sqrt(sum((x - sum(xs)/n)**2 for x in xs) / (n-1))
+    sy  = math.sqrt(sum((y - y_mean)**2 for y in ys) / (n-1))
+    sxy = sum((x - sum(xs)/n)*(y - y_mean) for x, y in zip(xs, ys)) / (n-1)
+    pearson_r = sxy / (sx * sy) if sx * sy > 1e-12 else 0.0
+else:
+    pearson_r = None
+
+# ── header ────────────────────────────────────────────────────────────────────
+print("=" * W)
+label = "LINEAR" if deg == 1 else f"POLYNOMIAL (degree {{deg}})"
+print(f"  REGRESSION ANALYSIS — {{label}}")
+print(f"  X: {{x_col}}   Y: {{y_col}}   N: {{n}}")
+print("=" * W)
+terms = []
+for k, c in enumerate(coeffs):
+    if abs(c) < 1e-12: continue
+    if k == 0:   terms.append(f"{{c:.6g}}")
+    elif k == 1: terms.append(f"{{c:+.6g}}*x")
+    else:        terms.append(f"{{c:+.6g}}*x^{{k}}")
+print("  y = " + " ".join(terms) if terms else "  y = 0")
+print()
+print(f"  R2      : {{r2:.6f}}")
+if pearson_r is not None:
+    print(f"  Pearson : {{pearson_r:.6f}}")
+print(f"  RMSE    : {{rmse:.6g}}")
+print(f"  MAE     : {{mae:.6g}}")
+if   r2 >= 0.95: qual = "Excellent fit (R2 >= 0.95)"
+elif r2 >= 0.80: qual = "Good fit (R2 >= 0.80)"
+elif r2 >= 0.60: qual = "Moderate fit (R2 >= 0.60)"
+else:            qual = "Weak fit (R2 < 0.60)"
+print(f"  Quality : {{qual}}")
+print()
+
+# ── ASCII scatter + fit curve ─────────────────────────────────────────────────
+ROWS, COLS = 16, W - 6
+x_min, x_max = min(xs), max(xs)
+cx_list = [x_min + (x_max - x_min)*i/(COLS-1) for i in range(COLS)] if COLS > 1 else [x_min]
+cy_list = [poly_eval(coeffs, x) for x in cx_list]
+y_min2  = min(list(ys) + cy_list)
+y_max2  = max(list(ys) + cy_list)
+
+def to_col(x):
+    return int((x - x_min) / (x_max - x_min) * (COLS-1)) if x_max != x_min else 0
+
+def to_row(y):
+    return int((y_max2 - y) / (y_max2 - y_min2) * (ROWS-1)) if y_max2 != y_min2 else ROWS//2
+
+grid = [[" "]*COLS for _ in range(ROWS)]
+for cx, cy in zip(cx_list, cy_list):
+    r, c = to_row(cy), to_col(cx)
+    if 0 <= r < ROWS and 0 <= c < COLS and grid[r][c] == " ":
+        grid[r][c] = "-"
+for x, y in zip(xs, ys):
+    r, c = to_row(y), to_col(x)
+    if 0 <= r < ROWS and 0 <= c < COLS:
+        grid[r][c] = "*"
+
+print("  Scatter (* = data, - = fit curve):")
+for i, row in enumerate(grid):
+    if i == 0:       lbl = f"{{y_max2:.3g}}"
+    elif i == ROWS-1: lbl = f"{{y_min2:.3g}}"
+    else:             lbl = ""
+    print(f"  {{lbl:>8}} |{{''.join(row)}}")
+print(f"  {{' ':>8}} +" + "-"*COLS)
+xl, xr = f"{{x_min:.3g}}", f"{{x_max:.3g}}"
+pad_w = max(0, COLS - len(xl) - len(xr))
+print("  " + " "*9 + xl + " "*pad_w + xr)
+print()
+
+# ── residuals ─────────────────────────────────────────────────────────────────
+resids = [y - poly_eval(coeffs, x) for x, y in zip(xs, ys)]
+r_min, r_max = min(resids), max(resids)
+rRs, rCs = 6, W - 6
+grid_r = [[" "]*rCs for _ in range(rRs)]
+rng    = max(abs(r_min), abs(r_max), 1e-12)
+mid_r  = rRs // 2
+for c in range(rCs):
+    grid_r[mid_r][c] = "."
+for x, res in zip(xs, resids):
+    c = int((x - x_min)/(x_max - x_min)*(rCs-1)) if x_max != x_min else 0
+    r = int((rng - res)/(2*rng)*(rRs-1))
+    if 0 <= r < rRs and 0 <= c < rCs:
+        grid_r[r][c] = "o"
+print("  Residuals (o = data, . = zero line):")
+for row in grid_r:
+    print("  " + "".join(row))
+print("  " + "-"*rCs)
+print(f"  Range: [{{r_min:.4g}}, {{r_max:.4g}}]")
+print()
+
+# ── predictions ───────────────────────────────────────────────────────────────
+if _pred_s:
+    try:
+        pred_xs = [float(v.strip()) for v in _pred_s.split(",")]
+        print("  Predictions:")
+        for px in pred_xs:
+            py = poly_eval(coeffs, px)
+            print(f"    x = {{px:.6g}}  =>  y = {{py:.6g}}")
+        print()
+    except ValueError:
+        print(f"  WARNING: bad --regression-predict value: {{_pred_s}}")
+        print()
+print("=" * W)
+"####,
+        hex_path    = hex_path,
+        hex_x_col   = hex_x_col,
+        hex_y_col   = hex_y_col,
+        hex_predict = hex_predict,
+        deg         = deg,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}

@@ -2887,6 +2887,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref file_path) = cockpit.polyfit {
+        let x_col   = cockpit.polyfit_x.as_deref().unwrap_or("");
+        let y_col   = cockpit.polyfit_y.as_deref().unwrap_or("");
+        let degree  = cockpit.polyfit_degree.unwrap_or(1);
+        let predict = cockpit.polyfit_predict.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::regression_analysis(file_path.trim(), x_col, y_col, degree, predict).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("polyfit error: {}", e),
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.fourier {
         let col         = cockpit.fourier_col.as_deref().unwrap_or("");
         let top_n       = cockpit.fourier_top.unwrap_or(10);

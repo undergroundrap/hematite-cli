@@ -750,6 +750,17 @@ pub struct CliCockpit {
     #[arg(long, value_name = "METHOD", help = "Algorithm for --classify: knn (default) or nb (Naive Bayes).")]
     pub classify_method: Option<String>,
 
+    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Polynomial curve fit — fit a degree-N polynomial to two CSV columns, compute R², RMSE, ASCII scatter+curve plot, and residual plot. Example: hematite --polyfit data.csv --polyfit-x age --polyfit-y salary --polyfit-degree 2")]
+    pub polyfit: Option<String>,
+    #[arg(long, value_name = "COL", help = "X column for --polyfit (default: first column).")]
+    pub polyfit_x: Option<String>,
+    #[arg(long, value_name = "COL", help = "Y column for --polyfit (default: last column).")]
+    pub polyfit_y: Option<String>,
+    #[arg(long, value_name = "N", help = "Polynomial degree for --polyfit (default: 1 = linear, max: 10).")]
+    pub polyfit_degree: Option<usize>,
+    #[arg(long, value_name = "X1,X2,...", help = "Predict y values for these x values with --polyfit.")]
+    pub polyfit_predict: Option<String>,
+
     #[arg(
         long,
         help_heading = "Headless Reports",
