@@ -2712,6 +2712,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref nk) = cockpit.gcd {
+        let parts: Vec<&str> = nk.split(|c: char| c == ',' || c == ' ').filter(|s| !s.is_empty()).collect();
+        if parts.len() < 2 {
+            eprintln!("Error: --gcd requires two integers (e.g. --gcd '48,18' or --gcd '48 18')");
+            std::process::exit(1);
+        }
+        let a = parts[0].trim().parse::<u128>().unwrap_or_else(|_| { eprintln!("Invalid A: {}", parts[0]); std::process::exit(1); });
+        let b = parts[1].trim().parse::<u128>().unwrap_or_else(|_| { eprintln!("Invalid B: {}", parts[1]); std::process::exit(1); });
+        let result = hematite::tools::math_util::gcd_lcm(a, b);
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref input) = cockpit.roman {
+        let result = hematite::tools::math_util::roman_info(input.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref input) = cockpit.base_convert {
+        let from = cockpit.base_from.unwrap_or(10);
+        let to   = cockpit.base_to.unwrap_or(2);
+        let result = hematite::tools::math_util::base_convert(input.trim(), from, to);
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref input) = cockpit.date {
+        let result = hematite::tools::math_util::date_calc(input.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref cidr) = cockpit.subnet {
+        let result = hematite::tools::math_util::subnet_calc(cidr.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref input) = cockpit.color {
+        let result = hematite::tools::math_util::color_convert(input.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.query_data {
         let file_path = file_path.trim();
         let sql = cockpit.sql.as_deref().unwrap_or("").trim().to_string();

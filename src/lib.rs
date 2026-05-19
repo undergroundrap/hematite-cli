@@ -879,6 +879,60 @@ pub struct CliCockpit {
     )]
     pub truth_table: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "A,B",
+        help = "GCD and LCM of two integers — no model, no cloud. Example: hematite --gcd '48,18'  or  --gcd '360 252'"
+    )]
+    pub gcd: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "N or ROMAN",
+        help = "Roman numeral conversion — no model, no cloud. Pass a number to encode or a Roman numeral to decode. Example: hematite --roman 2024  or  --roman MMXXIV"
+    )]
+    pub roman: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "N",
+        help = "Number base conversion — no model, no cloud. Pair with --base-from and --base-to. Default: --base-from 10 --base-to 2. Example: hematite --base-convert 255 --base-to 16  or  --base-convert FF --base-from 16 --base-to 10"
+    )]
+    pub base_convert: Option<String>,
+
+    #[arg(long, value_name = "N", help = "Source base for --base-convert (2–36). Default: 10.")]
+    pub base_from: Option<u32>,
+
+    #[arg(long, value_name = "N", help = "Target base for --base-convert (2–36). Default: 2.")]
+    pub base_to: Option<u32>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "EXPR",
+        help = "Date arithmetic and calendar info — no model, no cloud. Examples: hematite --date '2024-01-01 to 2024-12-31'  --date '2024-03-15 +90'  --date '2024-06-15'  --date 'unix 1700000000'"
+    )]
+    pub date: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "CIDR",
+        help = "IPv4 subnet calculator — no model, no cloud. Pass a CIDR address. Example: hematite --subnet 192.168.1.0/24  or  --subnet 10.0.0.1/8"
+    )]
+    pub subnet: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "COLOR",
+        help = "Color space conversion — no model, no cloud. Converts hex/RGB to HSL, HSV, CMYK, and WCAG luminance. Example: hematite --color '#ff8800'  or  --color 'rgb(255,136,0)'  or  --color '3f8'"
+    )]
+    pub color: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
