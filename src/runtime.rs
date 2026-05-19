@@ -972,6 +972,7 @@ mod tests {
             polyfit_y: None,
             polyfit_degree: None,
             polyfit_predict: None,
+            probability: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

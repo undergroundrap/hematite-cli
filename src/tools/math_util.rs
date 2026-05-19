@@ -1394,6 +1394,425 @@ pub fn stat_normal(query: &str) -> String {
     out
 }
 
+// ── Multi-distribution probability calculator ─────────────────────────────────
+// Distributions: normal, binomial, poisson, t, chi2, exponential, uniform, geometric
+// Operations: pdf/pmf, cdf, quantile/inv
+//
+// Syntax: DIST [op] PARAMS
+//   normal cdf 1.96              P(Z ≤ 1.96)
+//   normal pdf 0 mu=2 sd=1       f(0) for N(2,1)
+//   binomial pmf 3 n=10 p=0.4    P(X=3) for Bin(10, 0.4)
+//   binomial cdf 5 n=10 p=0.4    P(X ≤ 5)
+//   poisson pmf 2 lam=3          P(X=2) for Poi(3)
+//   t cdf 2.0 df=9               P(T ≤ 2.0) for t(9)
+//   chi2 cdf 5.99 df=2           P(X ≤ 5.99) for chi²(2)
+//   exponential cdf 1.0 lam=0.5  P(X ≤ 1.0) for Exp(0.5)
+//   uniform cdf 0.7 a=0 b=1      P(X ≤ 0.7) for Uniform(0,1)
+//   geometric pmf 3 p=0.5        P(X=3) for Geo(0.5)
+pub fn prob_calc(query: &str) -> String {
+    use std::f64::consts::PI;
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "help" || q == "?" { return prob_usage(); }
+
+    let parts: Vec<&str> = q.split_whitespace().collect();
+    if parts.is_empty() { return prob_usage(); }
+
+    // Parse named params like mu=2.5, sd=1.0
+    let get_param = |parts: &[&str], name: &str, default: f64| -> f64 {
+        parts.iter()
+            .find(|s| s.starts_with(name))
+            .and_then(|s| s.splitn(2, '=').nth(1))
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let get_positional = |parts: &[&str], idx: usize| -> Option<f64> {
+        parts.iter()
+            .filter(|s| !s.contains('='))
+            .nth(idx)
+            .and_then(|s| s.parse().ok())
+    };
+
+    let dist = parts[0];
+    // Determine op: second token if it's a known op, else "all"
+    let op_candidate = parts.get(1).copied().unwrap_or("all");
+    let (op, data_start) = if matches!(op_candidate, "cdf"|"pdf"|"pmf"|"inv"|"quantile"|"between"|"all") {
+        (op_candidate, 2usize)
+    } else {
+        ("all", 1usize)
+    };
+    let data: &[&str] = &parts[data_start..];
+
+    let mut out = String::new();
+    let sep = "=".repeat(64);
+
+    match dist {
+        "normal" | "norm" | "gaussian" => {
+            let x  = get_positional(data, 0).unwrap_or(0.0);
+            let mu = get_param(data, "mu", get_param(data, "mean", 0.0));
+            let sd = get_param(data, "sd", get_param(data, "sigma", get_param(data, "std", 1.0)));
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Normal Distribution  N(μ={}, σ={})", mu, sd);
+            let _ = writeln!(out, "{}", sep);
+            if op == "pdf" || op == "all" {
+                let _ = writeln!(out, "  PDF f({}) = {:.8}", x, normal_pdf(x, mu, sd));
+            }
+            if op == "cdf" || op == "all" {
+                let p = normal_cdf(x, mu, sd);
+                let _ = writeln!(out, "  CDF P(X ≤ {}) = {:.8}", x, p);
+                let _ = writeln!(out, "  P(X > {})     = {:.8}", x, 1.0 - p);
+                let z = (x - mu) / sd;
+                let _ = writeln!(out, "  z-score       = {:.4}", z);
+            }
+            if op == "inv" || op == "quantile" {
+                let p = get_positional(data, 0).unwrap_or(0.975);
+                let z = normal_inv_cdf(p);
+                let _ = writeln!(out, "  Quantile p={:.4}  →  x = {:.6}", p, mu + sd * z);
+            }
+            if op == "between" {
+                let a = get_positional(data, 0).unwrap_or(-1.0);
+                let b = get_positional(data, 1).unwrap_or(1.0);
+                let p = normal_cdf(b, mu, sd) - normal_cdf(a, mu, sd);
+                let _ = writeln!(out, "  P({} ≤ X ≤ {}) = {:.8}", a, b, p);
+            }
+            if op == "all" {
+                // Common quantiles
+                let _ = writeln!(out, "  Quantiles: p=.025 → {:.4}  p=.975 → {:.4}  p=.5 → {:.4}",
+                    mu + sd * normal_inv_cdf(0.025), mu + sd * normal_inv_cdf(0.975), mu);
+            }
+        }
+        "binomial" | "binom" | "bin" => {
+            let k  = get_positional(data, 0).unwrap_or(0.0) as i64;
+            let n  = get_param(data, "n", 10.0) as u64;
+            let p  = get_param(data, "p", 0.5);
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Binomial Distribution  Bin(n={}, p={})", n, p);
+            let _ = writeln!(out, "{}", sep);
+            let mean = n as f64 * p;
+            let var  = n as f64 * p * (1.0 - p);
+            let _ = writeln!(out, "  Mean={:.4}  Var={:.4}  StdDev={:.4}", mean, var, var.sqrt());
+            let binom_pmf = |k: i64, n: u64, p: f64| -> f64 {
+                if k < 0 || k > n as i64 { return 0.0; }
+                let k = k as u64;
+                // Log-space computation to avoid overflow
+                let log_binom: f64 = log_factorial(n) - log_factorial(k) - log_factorial(n-k);
+                (log_binom + k as f64 * p.ln() + (n-k) as f64 * (1.0-p).ln()).exp()
+            };
+            if op == "pmf" || op == "all" {
+                let pmf = binom_pmf(k, n, p);
+                let _ = writeln!(out, "  PMF P(X={}) = {:.8}", k, pmf);
+            }
+            if op == "cdf" || op == "all" {
+                let cdf: f64 = (0..=k).map(|i| binom_pmf(i, n, p)).sum();
+                let _ = writeln!(out, "  CDF P(X≤{}) = {:.8}", k, cdf);
+                let _ = writeln!(out, "  P(X>{})     = {:.8}", k, 1.0 - cdf);
+            }
+            if op == "all" {
+                // Show distribution for small n
+                if n <= 20 {
+                    let _ = writeln!(out, "  PMF table:");
+                    for i in 0..=n {
+                        let pmf = binom_pmf(i as i64, n, p);
+                        let bar = (pmf * 50.0) as usize;
+                        let _ = writeln!(out, "    k={:>3}  {:.6}  {}", i, pmf, "#".repeat(bar));
+                    }
+                }
+            }
+        }
+        "poisson" | "pois" => {
+            let k   = get_positional(data, 0).unwrap_or(0.0) as i64;
+            let lam = get_param(data, "lam", get_param(data, "lambda", 1.0));
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Poisson Distribution  Poi(λ={})", lam);
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Mean={:.4}  Var={:.4}  StdDev={:.4}", lam, lam, lam.sqrt());
+            let pois_pmf = |k: i64, lam: f64| -> f64 {
+                if k < 0 { return 0.0; }
+                (-lam + k as f64 * lam.ln() - log_factorial(k as u64)).exp()
+            };
+            if op == "pmf" || op == "all" {
+                let _ = writeln!(out, "  PMF P(X={}) = {:.8}", k, pois_pmf(k, lam));
+            }
+            if op == "cdf" || op == "all" {
+                let cdf: f64 = (0..=k).map(|i| pois_pmf(i, lam)).sum();
+                let _ = writeln!(out, "  CDF P(X≤{}) = {:.8}", k, cdf);
+                let _ = writeln!(out, "  P(X>{})     = {:.8}", k, 1.0 - cdf);
+            }
+            if op == "all" && lam <= 30.0 {
+                let hi = (lam + 4.0 * lam.sqrt()).ceil() as i64;
+                let _ = writeln!(out, "  PMF table (up to k={}):", hi);
+                for i in 0..=hi.min(40) {
+                    let pmf = pois_pmf(i, lam);
+                    let bar = (pmf * 60.0) as usize;
+                    let _ = writeln!(out, "    k={:>3}  {:.6}  {}", i, pmf, "#".repeat(bar));
+                }
+            }
+        }
+        "t" | "student" | "t-dist" => {
+            let x  = get_positional(data, 0).unwrap_or(0.0);
+            let df = get_param(data, "df", get_param(data, "dof", 1.0));
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Student's t Distribution  t(df={})", df);
+            let _ = writeln!(out, "{}", sep);
+            let t_pdf = |x: f64, df: f64| -> f64 {
+                let lg_n = lgamma((df + 1.0) / 2.0);
+                let lg_d = lgamma(df / 2.0);
+                let coef = (lg_n - lg_d - 0.5 * (df * PI).ln()).exp();
+                coef * (1.0 + x * x / df).powf(-(df + 1.0) / 2.0)
+            };
+            // t CDF via regularized incomplete beta
+            let t_cdf = |x: f64, df: f64| -> f64 {
+                let t2 = x * x;
+                let z  = df / (df + t2);
+                let ib = reg_inc_beta(df / 2.0, 0.5, z);
+                if x >= 0.0 { 1.0 - 0.5 * ib } else { 0.5 * ib }
+            };
+            if op == "pdf" || op == "all" {
+                let _ = writeln!(out, "  PDF f({:.4}) = {:.8}", x, t_pdf(x, df));
+            }
+            if op == "cdf" || op == "all" {
+                let p = t_cdf(x, df);
+                let _ = writeln!(out, "  CDF P(T≤{:.4}) = {:.8}", x, p);
+                let _ = writeln!(out, "  Two-tailed P  = {:.8}  (p-value for |T|≥{:.4})", 2.0 * (1.0 - t_cdf(x.abs(), df)), x.abs());
+            }
+            if op == "all" {
+                // Common critical values
+                let _ = writeln!(out, "  Critical values (two-tailed):");
+                for alpha in [0.10, 0.05, 0.01, 0.001] {
+                    // Bisect to find t s.t. 2*(1-cdf(t)) = alpha
+                    let target = 1.0 - alpha / 2.0;
+                    let cv = bisect(|t| t_cdf(t, df) - target, 0.0, 100.0, 60);
+                    let _ = writeln!(out, "    α={:.3}  t* = {:.4}", alpha, cv);
+                }
+            }
+        }
+        "chi2" | "chisquare" | "chi-square" | "chi_sq" => {
+            let x  = get_positional(data, 0).unwrap_or(1.0);
+            let df = get_param(data, "df", get_param(data, "dof", 1.0));
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Chi-Square Distribution  χ²(df={})", df);
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Mean={:.4}  Var={:.4}  StdDev={:.4}", df, 2.0*df, (2.0*df).sqrt());
+            let chi2_pdf = |x: f64, k: f64| -> f64 {
+                if x <= 0.0 { return 0.0; }
+                let lg = lgamma(k / 2.0);
+                ((k/2.0 - 1.0) * x.ln() - x / 2.0 - (k/2.0) * 2.0f64.ln() - lg).exp()
+            };
+            // Chi2 CDF via regularized incomplete gamma
+            let chi2_cdf = |x: f64, k: f64| -> f64 {
+                if x <= 0.0 { return 0.0; }
+                reg_inc_gamma(k / 2.0, x / 2.0)
+            };
+            if op == "pdf" || op == "all" {
+                let _ = writeln!(out, "  PDF f({:.4}) = {:.8}", x, chi2_pdf(x, df));
+            }
+            if op == "cdf" || op == "all" {
+                let p = chi2_cdf(x, df);
+                let _ = writeln!(out, "  CDF P(X≤{:.4}) = {:.8}", x, p);
+                let _ = writeln!(out, "  P-value (upper) = {:.8}", 1.0 - p);
+            }
+            if op == "all" {
+                let _ = writeln!(out, "  Critical values (upper tail):");
+                for alpha in [0.10, 0.05, 0.025, 0.01] {
+                    let cv = bisect(|t| chi2_cdf(t, df) - (1.0 - alpha), 0.0, df + 100.0, 80);
+                    let _ = writeln!(out, "    α={:.3}  χ² = {:.4}", alpha, cv);
+                }
+            }
+        }
+        "exponential" | "exp" | "expon" => {
+            let x   = get_positional(data, 0).unwrap_or(1.0);
+            let lam = get_param(data, "lam", get_param(data, "lambda", get_param(data, "rate", 1.0)));
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Exponential Distribution  Exp(λ={})", lam);
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Mean={:.4}  StdDev={:.4}  Median={:.4}", 1.0/lam, 1.0/lam, 2.0f64.ln()/lam);
+            if op == "pdf" || op == "all" {
+                let pdf = if x >= 0.0 { lam * (-lam * x).exp() } else { 0.0 };
+                let _ = writeln!(out, "  PDF f({:.4}) = {:.8}", x, pdf);
+            }
+            if op == "cdf" || op == "all" {
+                let p = if x >= 0.0 { 1.0 - (-lam * x).exp() } else { 0.0 };
+                let _ = writeln!(out, "  CDF P(X≤{:.4}) = {:.8}", x, p);
+                let _ = writeln!(out, "  P(X>{:.4})    = {:.8}", x, 1.0 - p);
+                let _ = writeln!(out, "  Quantile p=.5  → {:.6}  (median)", 2.0f64.ln() / lam);
+            }
+        }
+        "uniform" | "unif" => {
+            let x = get_positional(data, 0).unwrap_or(0.5);
+            let a = get_param(data, "a", get_param(data, "lo", 0.0));
+            let b = get_param(data, "b", get_param(data, "hi", 1.0));
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Uniform Distribution  U({}, {})", a, b);
+            let _ = writeln!(out, "{}", sep);
+            let rng = b - a;
+            let _ = writeln!(out, "  Mean={:.4}  Var={:.6}  StdDev={:.4}", (a+b)/2.0, rng*rng/12.0, (rng*rng/12.0).sqrt());
+            if op == "pdf" || op == "all" {
+                let pdf = if x >= a && x <= b { 1.0 / rng } else { 0.0 };
+                let _ = writeln!(out, "  PDF f({:.4}) = {:.8}", x, pdf);
+            }
+            if op == "cdf" || op == "all" {
+                let p = if x < a { 0.0 } else if x > b { 1.0 } else { (x - a) / rng };
+                let _ = writeln!(out, "  CDF P(X≤{:.4}) = {:.8}", x, p);
+            }
+        }
+        "geometric" | "geo" | "geom" => {
+            let k  = get_positional(data, 0).unwrap_or(1.0) as i64;
+            let p  = get_param(data, "p", 0.5);
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Geometric Distribution  Geo(p={})  [trials until first success]", p);
+            let _ = writeln!(out, "{}", sep);
+            let _ = writeln!(out, "  Mean={:.4}  Var={:.4}  StdDev={:.4}", 1.0/p, (1.0-p)/(p*p), ((1.0-p)/(p*p)).sqrt());
+            let geo_pmf = |k: i64, p: f64| -> f64 {
+                if k < 1 { return 0.0; }
+                (1.0 - p).powi((k-1) as i32) * p
+            };
+            if op == "pmf" || op == "all" {
+                let _ = writeln!(out, "  PMF P(X={}) = {:.8}", k, geo_pmf(k, p));
+            }
+            if op == "cdf" || op == "all" {
+                let cdf = 1.0 - (1.0 - p).powi(k as i32);
+                let _ = writeln!(out, "  CDF P(X≤{}) = {:.8}", k, cdf);
+                let _ = writeln!(out, "  P(X>{})    = {:.8}", k, 1.0 - cdf);
+            }
+            if op == "all" {
+                let _ = writeln!(out, "  PMF table:");
+                for i in 1..=10i64.min((10.0 / p) as i64) {
+                    let pmf = geo_pmf(i, p);
+                    let bar = (pmf * 50.0) as usize;
+                    let _ = writeln!(out, "    k={:>3}  {:.6}  {}", i, pmf, "#".repeat(bar));
+                }
+            }
+        }
+        _ => {
+            out.push_str(&prob_usage());
+        }
+    }
+
+    if out.trim().is_empty() || out.starts_with("Probability") {
+        return out;
+    }
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+fn log_factorial(n: u64) -> f64 {
+    (1..=n).map(|i| (i as f64).ln()).sum::<f64>()
+}
+
+fn lgamma(x: f64) -> f64 {
+    // Lanczos approximation
+    let g = 7.0;
+    let c: [f64; 9] = [
+        0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+        771.32342877765313, -176.61502916214059, 12.507343278686905,
+        -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
+    ];
+    if x < 0.5 {
+        PI.ln() - (PI * x).sin().ln() - lgamma(1.0 - x)
+    } else {
+        let x = x - 1.0;
+        let mut a = c[0];
+        for i in 1..9 { a += c[i] / (x + i as f64); }
+        let t = x + g + 0.5;
+        0.5 * (2.0 * PI).ln() + (x + 0.5) * t.ln() - t + a.ln()
+    }
+}
+
+fn reg_inc_beta(a: f64, b: f64, x: f64) -> f64 {
+    // Regularized incomplete beta via continued fraction (Lentz's method)
+    if x <= 0.0 { return 0.0; }
+    if x >= 1.0 { return 1.0; }
+    // Use symmetry for stability
+    if x > (a + 1.0) / (a + b + 2.0) {
+        return 1.0 - reg_inc_beta(b, a, 1.0 - x);
+    }
+    let lbeta = lgamma(a) + lgamma(b) - lgamma(a + b);
+    let front = (a * x.ln() + b * (1.0 - x).ln() - lbeta).exp() / a;
+    // Lentz continued fraction
+    let mut f = 1.0; let mut c_cf = 1.0; let mut d_cf = 1.0 - (a + b) * x / (a + 1.0);
+    if d_cf.abs() < 1e-30 { d_cf = 1e-30; }
+    d_cf = 1.0 / d_cf; f = d_cf;
+    for m in 1..200usize {
+        let mf = m as f64;
+        // Even step
+        let nm = mf * (b - mf) * x / ((a + 2.0*mf - 1.0) * (a + 2.0*mf));
+        d_cf = 1.0 + nm * d_cf; if d_cf.abs() < 1e-30 { d_cf = 1e-30; }
+        c_cf = 1.0 + nm / c_cf; if c_cf.abs() < 1e-30 { c_cf = 1e-30; }
+        d_cf = 1.0 / d_cf;
+        f *= d_cf * c_cf;
+        // Odd step
+        let nm2 = -(a + mf) * (a + b + mf) * x / ((a + 2.0*mf) * (a + 2.0*mf + 1.0));
+        d_cf = 1.0 + nm2 * d_cf; if d_cf.abs() < 1e-30 { d_cf = 1e-30; }
+        c_cf = 1.0 + nm2 / c_cf; if c_cf.abs() < 1e-30 { c_cf = 1e-30; }
+        d_cf = 1.0 / d_cf;
+        let delta = d_cf * c_cf;
+        f *= delta;
+        if (delta - 1.0).abs() < 3e-7 { break; }
+    }
+    front * f
+}
+
+fn reg_inc_gamma(a: f64, x: f64) -> f64 {
+    // Regularized lower incomplete gamma via series expansion
+    if x <= 0.0 { return 0.0; }
+    if x > a + 1.0 {
+        // Use continued fraction for large x
+        return 1.0 - reg_inc_gamma_upper(a, x);
+    }
+    let mut sum = 1.0 / a; let mut term = 1.0 / a;
+    for n in 1..200u64 {
+        term *= x / (a + n as f64);
+        sum  += term;
+        if term.abs() < 1e-10 * sum.abs() { break; }
+    }
+    sum * (-x + a * x.ln() - lgamma(a)).exp()
+}
+
+fn reg_inc_gamma_upper(a: f64, x: f64) -> f64 {
+    // Regularized upper incomplete gamma via Lentz CF
+    let mut f = 1.0; let mut c_cf = 1.0;
+    let b0 = x + 1.0 - a;
+    let mut d_cf = if b0.abs() < 1e-30 { 1e30 } else { 1.0 / b0 };
+    f = d_cf;
+    for i in 1..200u64 {
+        let ai = -(i as f64) * (i as f64 - a);
+        let bi = x + (2*i+1) as f64 - a;
+        d_cf = bi + ai * d_cf; if d_cf.abs() < 1e-30 { d_cf = 1e-30; }
+        c_cf = bi + ai / c_cf; if c_cf.abs() < 1e-30 { c_cf = 1e-30; }
+        d_cf = 1.0 / d_cf;
+        let delta = d_cf * c_cf;
+        f *= delta;
+        if (delta - 1.0).abs() < 3e-7 { break; }
+    }
+    f * (-x + a * x.ln() - lgamma(a)).exp()
+}
+
+fn bisect<F: Fn(f64) -> f64>(f: F, mut lo: f64, mut hi: f64, iters: usize) -> f64 {
+    for _ in 0..iters {
+        let mid = (lo + hi) / 2.0;
+        if f(mid) < 0.0 { lo = mid; } else { hi = mid; }
+    }
+    (lo + hi) / 2.0
+}
+
+fn prob_usage() -> String {
+    "Probability distributions — instant, no model, no cloud:\n\
+     \n\
+     hematite --probability 'normal cdf 1.96'              P(Z ≤ 1.96) std normal\n\
+     hematite --probability 'normal cdf 70 mu=60 sd=10'    P(X ≤ 70) for N(60,10)\n\
+     hematite --probability 'binomial pmf 3 n=10 p=0.4'    P(X=3) Bin(10,0.4)\n\
+     hematite --probability 'binomial cdf 5 n=10 p=0.4'    P(X≤5) Bin(10,0.4)\n\
+     hematite --probability 'poisson pmf 2 lam=3'          P(X=2) Poi(3)\n\
+     hematite --probability 't cdf 2.0 df=9'               P(T≤2.0) t(9)\n\
+     hematite --probability 'chi2 cdf 5.99 df=2'           P(X≤5.99) chi²(2)\n\
+     hematite --probability 'exponential cdf 1.0 lam=0.5'  P(X≤1) Exp(0.5)\n\
+     hematite --probability 'uniform cdf 0.7 a=0 b=1'      P(X≤0.7) U(0,1)\n\
+     hematite --probability 'geometric pmf 3 p=0.5'        P(X=3) Geo(0.5)\n\
+     \n\
+     Operations: pdf/pmf  cdf  inv/quantile  between  (default: show all)\n\
+     Distributions: normal  binomial  poisson  t  chi2  exponential  uniform  geometric"
+        .into()
+}
+
 // ── Unit conversion ───────────────────────────────────────────────────────────
 // Query forms:
 //   "5 km to miles"   "32 F to C"   "1 atm to Pa"   "100 mph to km/h"

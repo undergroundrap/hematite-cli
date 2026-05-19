@@ -763,6 +763,14 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Probability distribution calculator — instant, no model, no cloud. Distributions: normal, binomial, poisson, t (Student's), chi2, exponential, uniform, geometric. Operations: pdf/pmf, cdf, quantile, table, all. Examples: hematite --probability 'normal mean=0 sd=1 x=1.96' | hematite --probability 'binomial n=10 p=0.3 k=4' | hematite --probability 'poisson lambda=3 all' | hematite --probability 't df=9 x=2.262 cdf'"
+    )]
+    pub probability: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"
