@@ -672,6 +672,99 @@ hematite --triage --quiet                           # silent on healthy, exit 1 
 
 `--triage` is the "sit-down command" for IT techs. `--fix` is the natural-language problem-to-fix-plan lane. `--fix-all` is the zero-decision maintenance sweep. `--report` is the developer workstation snapshot. `--diagnose` is the staged triage that targets follow-up inspection at exactly what the health check flagged. All commands support `--report-format json` for scripting and CI integration.
 
+### Math & Science CLI
+
+Pure-Rust math tools — sub-millisecond, no model, no internet, no Python:
+
+```
+# Linear algebra
+hematite --matrix 'det [[1,2],[3,4]]'
+hematite --matrix 'inv [[1,2],[3,4]]'
+hematite --matrix 'solve [[1,2],[3,4]] [[5],[6]]'
+hematite --matrix 'qr [[1,2],[3,4]]'
+hematite --matrix 'svd [[1,2],[3,4]]'
+hematite --matrix 'chol [[4,2],[2,3]]'
+hematite --matrix 'eigen [[2,1],[1,2]]'
+
+# Symbolic calculus
+hematite --symbolic 'diff x^3 + sin(x)'
+hematite --symbolic 'integrate x^2'
+
+# Probability distributions
+hematite --probability 'normal mean=0 sd=1 1.96'   # CDF, PDF, quantiles
+hematite --probability 'binomial n=10 p=0.5 k=3'
+hematite --probability 'poisson lambda=4 k=2'
+
+# Financial math
+hematite --finance 'npv 8% -100 30 40 50'
+hematite --finance 'loan 5% 30y 200000'
+
+# Logic & sets
+hematite --logic 'A and (B or not C)'              # truth table, SAT, CNF/DNF
+hematite --set '{1,2,3} union {3,4,5}'
+hematite --set '{1,2,3,4} intersection {3,4,5}'
+hematite --set 'powerset {1,2,3}'
+
+# Graph theory
+hematite --graph 'shortest A D\nA B 2\nB D 3'
+hematite --graph 'pagerank\nA B\nB C\nC A'
+
+# Signal processing
+hematite --signal 'dft 1,0,-1,0,1,0,-1,0'
+
+# ODE solver
+hematite --ode 'dy/dt = -y y0=1 t=5'
+
+# Optimization
+hematite --optimize 'min x^2-4*x+3 a=0 b=5'
+
+# Bitwise calculator
+hematite --bitwise '0xFF AND 0x3C'
+hematite --bitwise 'ieee754 1.0'                   # IEEE 754 float bit breakdown
+
+# Classical ciphers
+hematite --cipher 'caesar 13 Hello World'
+hematite --cipher 'rot13 Hello'
+hematite --cipher 'vigenere KEY Secret'
+
+# Checksums & validation
+hematite --checksum 'Hello, World!'                # CRC-32/16, Adler-32, FNV-1a, DJB2
+hematite --validate '4532015112830366'             # Luhn/credit card
+hematite --validate '978-0-306-40615-7'            # ISBN-13
+hematite --validate '550e8400-e29b-41d4-a716-446655440000'  # UUID
+
+# String utilities
+hematite --levenshtein 'kitten vs sitting'         # edit distance + similarity scores
+hematite --text-stats 'Paste any text here...'     # Flesch-Kincaid, word/letter freq
+hematite --number-format 1234567890                # thousands, hex, binary, SI prefix, words
+hematite --sort-viz '5,3,8,1,9,2'                  # bubble/merge/quick/heap with ASCII bars
+
+# Interpolation & curve fitting
+hematite --interpolate 'spline 0,0 1,1 2,4 3,9 at 1.5'
+hematite --polyfit data.csv --polyfit-x col1 --polyfit-y col2 --polyfit-degree 2
+
+# Unit conversion
+hematite --units '100 km to miles'
+
+# Other instant utilities
+hematite --periodic Au                             # periodic table element lookup
+hematite --compute '2^10 + factorial(20)'          # arbitrary precision arithmetic
+hematite --random password --length 24             # cryptographic random values
+```
+
+Python-sandbox data analysis (uses Python stdlib only, no pip installs):
+
+```
+hematite --correlate data.csv                      # Pearson/Spearman matrix + heatmap
+hematite --timeseries data.csv                     # trend, seasonality, change points
+hematite --cluster data.csv --cluster-k 3         # k-means clustering
+hematite --pca data.csv --pca-components 3        # principal component analysis
+hematite --hypothesis '2.1,2.8,3.2' --hypothesis-test one-t --hypothesis-mu 2.0
+hematite --normalize data.csv                      # z-score, min-max, robust, L2
+hematite --fourier data.csv                        # FFT frequency analysis
+hematite --sample data.csv --sample-n 100          # random sampling / train-test split
+```
+
 ### Fastest Summary
 
 1. Install [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com/).
