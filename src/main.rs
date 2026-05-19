@@ -2619,6 +2619,61 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref expr) = cockpit.integrate {
+        let var = cockpit.int_var.as_deref().unwrap_or("x");
+        let n   = cockpit.int_n.unwrap_or(1000);
+        let parse_bound = |s: Option<&str>| -> Option<f64> {
+            let s = s?.trim();
+            // allow "pi", "e", "2*pi", etc via simple substitutions
+            let s = s.replace("pi", &std::f64::consts::PI.to_string())
+                     .replace('e',  &std::f64::consts::E.to_string());
+            s.parse::<f64>().ok()
+        };
+        let lo = parse_bound(cockpit.int_from.as_deref()).unwrap_or(0.0);
+        let hi = parse_bound(cockpit.int_to.as_deref()).unwrap_or(1.0);
+        match hematite::tools::scientific_ext::integrate(expr.trim(), var, lo, hi, n).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => { eprintln!("Error: {}", e); std::process::exit(1); }
+        }
+        return Ok(());
+    }
+
+    if let Some(ref expr) = cockpit.differentiate {
+        let var   = cockpit.int_var.as_deref().unwrap_or("x");
+        let order = cockpit.order.unwrap_or(1);
+        let at_str = cockpit.at.as_deref().unwrap_or("0");
+        let at = at_str.trim()
+            .replace("pi", &std::f64::consts::PI.to_string())
+            .replace('e',  &std::f64::consts::E.to_string())
+            .parse::<f64>()
+            .unwrap_or_else(|_| {
+                eprintln!("Error: --at must be a number (got '{}'). Use --at 3.14 or --at pi", at_str);
+                std::process::exit(1);
+            });
+        match hematite::tools::scientific_ext::differentiate(expr.trim(), var, at, order).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => { eprintln!("Error: {}", e); std::process::exit(1); }
+        }
+        return Ok(());
+    }
+
+    if let Some(ref file_path) = cockpit.profile {
+        match hematite::tools::scientific_ext::data_profile(file_path.trim()).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => { eprintln!("Error: {}", e); std::process::exit(1); }
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.query_data {
         let file_path = file_path.trim();
         let sql = cockpit.sql.as_deref().unwrap_or("").trim().to_string();

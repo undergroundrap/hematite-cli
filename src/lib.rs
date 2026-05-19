@@ -796,6 +796,48 @@ pub struct CliCockpit {
     )]
     pub fit_model: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "EXPR",
+        help = "Numerically integrate an expression — no model, no cloud. Uses adaptive Simpson's rule. Pair with --from, --to, --int-var. Example: hematite --integrate 'sin(x)' --from 0 --to pi  or  --integrate 'x^2' --from 0 --to 3"
+    )]
+    pub integrate: Option<String>,
+
+    #[arg(long, value_name = "N", help = "Lower bound for --integrate. Example: --int-from 0")]
+    pub int_from: Option<String>,
+
+    #[arg(long, value_name = "N", help = "Upper bound for --integrate. Example: --int-to pi")]
+    pub int_to: Option<String>,
+
+    #[arg(long, value_name = "VAR", help = "Integration variable for --integrate. Default: x.")]
+    pub int_var: Option<String>,
+
+    #[arg(long, value_name = "N", help = "Number of intervals for --integrate (default: 1000). Adaptive Simpson uses this as fallback.")]
+    pub int_n: Option<usize>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "EXPR",
+        help = "Numerically differentiate an expression — no model, no cloud. Uses 5-point stencil. Pair with --at and optionally --order. Example: hematite --differentiate 'x^3 + 2*x' --at 2  or  --differentiate 'sin(x)' --at 'pi/2'"
+    )]
+    pub differentiate: Option<String>,
+
+    #[arg(long, value_name = "X", help = "Point at which to evaluate --differentiate or --solve. Example: --at 3.14")]
+    pub at: Option<String>,
+
+    #[arg(long, value_name = "N", help = "Derivative order for --differentiate (1st, 2nd, 3rd, 4th). Default: 1.")]
+    pub order: Option<u8>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "FILE",
+        help = "AI-free data profile — type detection, missing values, ranges, outliers, and duplicate rows. No model, no cloud. Supports CSV, TSV, JSON, SQLite. Example: hematite --profile customers.csv"
+    )]
+    pub profile: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

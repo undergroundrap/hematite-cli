@@ -947,3 +947,272 @@ print("="*W)
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── Numerical integration ─────────────────────────────────────────────────────
+
+pub async fn integrate(expr: &str, var: &str, lo: f64, hi: f64, n: usize) -> Result<String, String> {
+    let hex_expr: String = expr.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_var:  String = var.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import math, sys
+from math import (sin,cos,tan,asin,acos,atan,atan2,sinh,cosh,tanh,
+                  sqrt,log,log2,log10,exp,floor,ceil,pi,e,inf,nan)
+
+_expr = bytes.fromhex("{hex_expr}").decode().strip().replace('^','**')
+_var  = bytes.fromhex("{hex_var}").decode().strip() or "x"
+_lo   = {lo}
+_hi   = {hi}
+_n    = {n}
+if _n < 2: _n = 1000
+
+_safe = dict(sin=sin,cos=cos,tan=tan,asin=asin,acos=acos,atan=atan,atan2=atan2,
+             sinh=sinh,cosh=cosh,tanh=tanh,sqrt=sqrt,log=log,log2=log2,log10=log10,
+             exp=exp,floor=floor,ceil=ceil,pi=pi,e=e,inf=inf,nan=nan,abs=abs)
+
+def _f(v):
+    ns = dict(_safe); ns[_var] = v
+    return eval(_expr, {{"__builtins__":{{}}}}, ns)
+
+# Adaptive Simpson's rule (recursive)
+def _simp(a, b, fa, fm, fb, tol, depth):
+    m1 = (a+b)/4; m2 = 3*(a+b)/4
+    fm1 = _f(m1); fm2 = _f(m2)
+    s1 = (b-a)/12*(fa + 4*fm1 + 2*fm + 4*fm2 + fb)
+    s0 = (b-a)/6*(fa + 4*fm + fb)
+    err = abs(s1 - s0)/15
+    if depth >= 12 or err < tol:
+        return s1 + (s1-s0)/15
+    else:
+        mid = (a+b)/2
+        return (_simp(a,mid,fa,fm1,fm,tol/2,depth+1) +
+                _simp(mid,b,fm,fm2,fb,tol/2,depth+1))
+
+# Also compute via Simpson's 1/3 rule with _n intervals for comparison
+h = (_hi - _lo) / _n
+vals = [_f(_lo + i*h) for i in range(_n+1)]
+simp_basic = h/3 * sum(
+    (vals[i] + 4*vals[i+1] + vals[i+2]) if (i+2 <= _n) else 0
+    for i in range(0, _n, 2)
+)
+
+try:
+    fa = _f(_lo); fm = _f((_lo+_hi)/2); fb = _f(_hi)
+    result = _simp(_lo, _hi, fa, fm, fb, 1e-10, 0)
+    method = "Adaptive Simpson"
+except RecursionError:
+    result = simp_basic
+    method = "Simpson 1/3 (%d intervals)" % _n
+
+print("Integral of  %s  d%s" % (_expr, _var))
+print("From %g  to  %g" % (_lo, _hi))
+print()
+print("Result:  %.10g  (via %s)" % (result, method))
+print()
+# Relative error estimate vs basic Simpson
+if method.startswith("Adaptive"):
+    err_est = abs(result - simp_basic)
+    print("Est. error: %.2e  (vs basic Simpson/%d)" % (err_est, _n))
+"####,
+        hex_expr = hex_expr,
+        hex_var  = hex_var,
+        lo       = lo,
+        hi       = hi,
+        n        = n,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 20
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ── Numerical derivative ──────────────────────────────────────────────────────
+
+pub async fn differentiate(expr: &str, var: &str, at: f64, order: u8) -> Result<String, String> {
+    let hex_expr: String = expr.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_var:  String = var.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import math, sys
+from math import (sin,cos,tan,asin,acos,atan,atan2,sinh,cosh,tanh,
+                  sqrt,log,log2,log10,exp,floor,ceil,pi,e,inf,nan)
+
+_expr  = bytes.fromhex("{hex_expr}").decode().strip().replace('^','**')
+_var   = bytes.fromhex("{hex_var}").decode().strip() or "x"
+_at    = {at}
+_order = {order}
+
+_safe = dict(sin=sin,cos=cos,tan=tan,asin=asin,acos=acos,atan=atan,atan2=atan2,
+             sinh=sinh,cosh=cosh,tanh=tanh,sqrt=sqrt,log=log,log2=log2,log10=log10,
+             exp=exp,floor=floor,ceil=ceil,pi=pi,e=e,inf=inf,nan=nan,abs=abs)
+
+def _f(v):
+    ns = dict(_safe); ns[_var] = v
+    return eval(_expr, {{"__builtins__":{{}}}}, ns)
+
+def _deriv(f, x, h=None, order=1):
+    if h is None: h = max(abs(x)*1e-5, 1e-7)
+    if order == 1:
+        # 5-point stencil: (-f(x+2h)+8f(x+h)-8f(x-h)+f(x-2h)) / 12h
+        return (-f(x+2*h) + 8*f(x+h) - 8*f(x-h) + f(x-2*h)) / (12*h)
+    elif order == 2:
+        return (f(x+h) - 2*f(x) + f(x-h)) / (h*h)
+    elif order == 3:
+        return (-f(x+2*h) + 2*f(x+h) - 2*f(x-h) + f(x-2*h)) / (2*h**3)
+    elif order == 4:
+        return (f(x+2*h) - 4*f(x+h) + 6*f(x) - 4*f(x-h) + f(x-2*h)) / (h**4)
+    else:
+        # Higher orders: repeated difference quotient
+        d = [f(x+i*h) for i in range(-order, order+1)]
+        return sum((-1)**(order-i)*math.comb(order,i)*d[i] for i in range(order+1)) / (h**order)
+
+ordinal = ["","1st","2nd","3rd","4th","5th","6th","7th","8th"]
+label = ordinal[_order] if _order < len(ordinal) else "%dth"%_order
+
+print("f(%s) = %s" % (_var, _expr))
+print("%s derivative  at  %s = %g" % (label, _var, _at))
+print()
+
+try:
+    fval = _f(_at)
+    dval = _deriv(_f, _at, order=_order)
+    print("f(%g)        = %.10g" % (_at, fval))
+    print("f'(%g) [%s] = %.10g" % (_at, label, dval))
+    if _order == 1:
+        slope = dval
+        print()
+        print("Tangent line at %s=%g:  y = %.6g + %.6g*(%s - %g)" % (_var,_at,fval,slope,_var,_at))
+except Exception as ex:
+    print("Error:", ex, file=sys.stderr); sys.exit(1)
+"####,
+        hex_expr = hex_expr,
+        hex_var  = hex_var,
+        at       = at,
+        order    = order,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 15
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ── Data profile / summarize ──────────────────────────────────────────────────
+// Model-free natural language summary of a data file: column types, ranges,
+// missing values, outliers, duplicate rows.
+
+pub async fn data_profile(file_path: &str) -> Result<String, String> {
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+
+_path = bytes.fromhex("{hex_path}").decode().strip()
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r), None
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        rows = d if isinstance(d, list) else next(iter(d.values()), [])
+        return rows, None
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return [], None
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d[0] for d in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2, None
+    return None, "Unsupported format: "+ext
+
+rows, err = _load(_path)
+if err: print("Error:", err, file=sys.stderr); sys.exit(1)
+if not rows: print("No rows found."); sys.exit(0)
+
+n = len(rows)
+cols = list(rows[0].keys())
+W = 64
+
+print("=" * W)
+print(" Data Profile:  %s" % os.path.basename(_path))
+print(" Rows: %d  |  Columns: %d" % (n, len(cols)))
+print("=" * W)
+
+def _tf(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+dup_check = set()
+dups = 0
+for r in rows:
+    k = tuple(str(r.get(c,'')) for c in cols)
+    if k in dup_check: dups += 1
+    else: dup_check.add(k)
+
+if dups:
+    print(" Duplicate rows: %d (%.1f%%)" % (dups, 100*dups/n))
+else:
+    print(" No duplicate rows.")
+print()
+
+for col in cols:
+    vals = [r.get(col,'') for r in rows]
+    missing = sum(1 for v in vals if str(v).strip() in ('','None','null','NULL','NA','N/A','NaN'))
+    nums = [_tf(v) for v in vals if _tf(v) is not None]
+    pct_miss = 100*missing/n if n else 0
+
+    print("-" * W)
+    print("  %s" % col)
+    if pct_miss > 0:
+        flag = "  [!]" if pct_miss > 20 else ""
+        print("    Missing:  %d / %d  (%.1f%%)%s" % (missing, n, pct_miss, flag))
+
+    if len(nums) > n * 0.5:
+        # Numeric column
+        nums_s = sorted(nums)
+        mn = _mean = sum(nums_s)/len(nums_s)
+        med_idx = len(nums_s)//2
+        med = nums_s[med_idx] if len(nums_s)%2 else (nums_s[med_idx-1]+nums_s[med_idx])/2
+        std = math.sqrt(sum((x-mn)**2 for x in nums_s)/len(nums_s)) if len(nums_s)>1 else 0
+        q1_i = len(nums_s)//4; q3_i = 3*len(nums_s)//4
+        q1 = nums_s[q1_i]; q3 = nums_s[q3_i]; iqr = q3 - q1
+        lo_fence = q1 - 1.5*iqr; hi_fence = q3 + 1.5*iqr
+        outliers = sum(1 for x in nums_s if x < lo_fence or x > hi_fence)
+        print("    Type:     numeric  (%d values)" % len(nums_s))
+        print("    Range:    %g  to  %g" % (nums_s[0], nums_s[-1]))
+        print("    Mean:     %g  |  Median: %g  |  Std: %g" % (mn, med, std))
+        if outliers:
+            print("    Outliers: %d (IQR fence: [%g, %g])" % (outliers, lo_fence, hi_fence))
+    else:
+        # Categorical column
+        from collections import Counter
+        vc = Counter(str(v).strip() for v in vals if str(v).strip() not in ('','None','null','NULL'))
+        top = vc.most_common(5)
+        unique = len(vc)
+        print("    Type:     categorical  (%d unique values)" % unique)
+        if unique <= 20:
+            print("    Values:   " + "  ".join("%s(%d)"%(k,c) for k,c in top))
+        else:
+            print("    Top 5:    " + "  ".join("%s(%d)"%(k,c) for k,c in top))
+
+print("=" * W)
+"####,
+        hex_path = hex_path,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
