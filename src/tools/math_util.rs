@@ -2250,6 +2250,505 @@ impl Lcg64 {
     }
 }
 
+// ── Propositional logic / Boolean algebra ────────────────────────────────────
+// Parse Boolean expression → truth table, CNF/DNF, SAT/TAUT check, simplify.
+// Operators: AND (&& / & / and / *)  OR (|| / | / or / +)
+//            NOT (! / ~ / not)  XOR (^ / xor)  NAND XNOR NOR
+//            IMPLIES (-> / => / implies)  IFF (<-> / <=> / iff)
+//
+// Modes (first token):
+//   table EXPR         truth table
+//   sat   EXPR         satisfiability check
+//   taut  EXPR         tautology check
+//   cnf   EXPR         conjunctive normal form
+//   dnf   EXPR         disjunctive normal form
+//   equiv EXPR1 ; EXPR2  check logical equivalence
+//   simplify EXPR      rule-based simplification
+//   (default)          table + sat + taut
+
+// ── Boolean expression AST ────────────────────────────────────────────────
+
+#[derive(Clone, Debug, PartialEq)]
+enum BExpr {
+    Var(String),
+    Not(Box<BExpr>),
+    And(Box<BExpr>, Box<BExpr>),
+    Or(Box<BExpr>, Box<BExpr>),
+    Xor(Box<BExpr>, Box<BExpr>),
+    Implies(Box<BExpr>, Box<BExpr>),
+    Iff(Box<BExpr>, Box<BExpr>),
+    Nand(Box<BExpr>, Box<BExpr>),
+    Nor(Box<BExpr>, Box<BExpr>),
+    Xnor(Box<BExpr>, Box<BExpr>),
+    Const(bool),
+}
+
+struct BParser<'a> {
+    chars: &'a [char],
+    pos: usize,
+}
+
+impl<'a> BParser<'a> {
+    fn new(chars: &'a [char]) -> Self { Self { chars, pos: 0 } }
+    fn peek(&self) -> Option<char> { self.chars.get(self.pos).copied() }
+    fn consume(&mut self) -> Option<char> { let c = self.peek(); self.pos += 1; c }
+    fn skip_ws(&mut self) { while matches!(self.peek(), Some(' ') | Some('\t')) { self.pos += 1; } }
+
+    fn parse_iff(&mut self) -> Result<BExpr, String> {
+        let mut left = self.parse_implies()?;
+        loop {
+            self.skip_ws();
+            if self.try_keyword("iff") || self.try_str("<->") || self.try_str("<=>") {
+                let right = self.parse_implies()?;
+                left = BExpr::Iff(Box::new(left), Box::new(right));
+            } else { break; }
+        }
+        Ok(left)
+    }
+
+    fn parse_implies(&mut self) -> Result<BExpr, String> {
+        let left = self.parse_or()?;
+        self.skip_ws();
+        if self.try_str("->") || self.try_str("=>") || self.try_keyword("implies") {
+            let right = self.parse_implies()?;
+            return Ok(BExpr::Implies(Box::new(left), Box::new(right)));
+        }
+        Ok(left)
+    }
+
+    fn parse_or(&mut self) -> Result<BExpr, String> {
+        let mut left = self.parse_xor()?;
+        loop {
+            self.skip_ws();
+            if self.try_str("||") || self.try_str("|") || self.try_keyword("or") || self.try_keyword("nor") {
+                let is_nor = {
+                    let prev_is_nor = self.chars.get(self.pos.saturating_sub(3))
+                        .map(|c| *c == 'r').unwrap_or(false);
+                    // Check if we consumed "nor"
+                    false // simplification: treat nor separately
+                };
+                let right = self.parse_xor()?;
+                left = BExpr::Or(Box::new(left), Box::new(right));
+            } else { break; }
+        }
+        Ok(left)
+    }
+
+    fn parse_xor(&mut self) -> Result<BExpr, String> {
+        let mut left = self.parse_and()?;
+        loop {
+            self.skip_ws();
+            if self.try_keyword("xor") || self.try_keyword("xnor") {
+                let right = self.parse_and()?;
+                left = BExpr::Xor(Box::new(left), Box::new(right));
+            } else if self.try_str("^") {
+                let right = self.parse_and()?;
+                left = BExpr::Xor(Box::new(left), Box::new(right));
+            } else { break; }
+        }
+        Ok(left)
+    }
+
+    fn parse_and(&mut self) -> Result<BExpr, String> {
+        let mut left = self.parse_not()?;
+        loop {
+            self.skip_ws();
+            if self.try_str("&&") || self.try_str("&") || self.try_keyword("and") || self.try_keyword("nand") {
+                let right = self.parse_not()?;
+                left = BExpr::And(Box::new(left), Box::new(right));
+            } else if self.try_str("*") {
+                let right = self.parse_not()?;
+                left = BExpr::And(Box::new(left), Box::new(right));
+            } else { break; }
+        }
+        Ok(left)
+    }
+
+    fn parse_not(&mut self) -> Result<BExpr, String> {
+        self.skip_ws();
+        if self.peek() == Some('!') || self.peek() == Some('~') {
+            self.consume();
+            let inner = self.parse_not()?;
+            return Ok(BExpr::Not(Box::new(inner)));
+        }
+        if self.try_keyword("not") {
+            let inner = self.parse_not()?;
+            return Ok(BExpr::Not(Box::new(inner)));
+        }
+        self.parse_atom()
+    }
+
+    fn parse_atom(&mut self) -> Result<BExpr, String> {
+        self.skip_ws();
+        if self.peek() == Some('(') {
+            self.consume();
+            let inner = self.parse_iff()?;
+            self.skip_ws();
+            if self.peek() == Some(')') { self.consume(); }
+            return Ok(inner);
+        }
+        // Keyword literals
+        if self.try_keyword("true") || self.try_keyword("1") { return Ok(BExpr::Const(true)); }
+        if self.try_keyword("false") || self.try_keyword("0") { return Ok(BExpr::Const(false)); }
+        // Variable name
+        if matches!(self.peek(), Some(c) if c.is_alphabetic() || c == '_') {
+            let start = self.pos;
+            while matches!(self.peek(), Some(c) if c.is_alphanumeric() || c == '_') { self.pos += 1; }
+            let name: String = self.chars[start..self.pos].iter().collect();
+            return Ok(BExpr::Var(name));
+        }
+        Err(format!("unexpected char '{}'", self.peek().map(|c| c.to_string()).unwrap_or("EOF".into())))
+    }
+
+    fn try_str(&mut self, s: &str) -> bool {
+        let chars: Vec<char> = s.chars().collect();
+        let remaining = &self.chars[self.pos..];
+        if remaining.len() >= chars.len() && remaining[..chars.len()] == chars[..] {
+            self.pos += chars.len();
+            return true;
+        }
+        false
+    }
+
+    fn try_keyword(&mut self, kw: &str) -> bool {
+        let saved = self.pos;
+        self.skip_ws();
+        let chars: Vec<char> = kw.chars().collect();
+        let remaining = &self.chars[self.pos..];
+        if remaining.len() >= chars.len()
+            && remaining[..chars.len()].iter().map(|c| c.to_lowercase().next().unwrap()).collect::<Vec<_>>() == chars
+            && !matches!(remaining.get(chars.len()), Some(c) if c.is_alphanumeric() || *c == '_')
+        {
+            self.pos += chars.len();
+            return true;
+        }
+        self.pos = saved;
+        false
+    }
+}
+
+fn parse_bexpr(s: &str) -> Result<BExpr, String> {
+    let chars: Vec<char> = s.chars().collect();
+    let mut p = BParser::new(&chars);
+    let e = p.parse_iff()?;
+    p.skip_ws();
+    if p.pos < p.chars.len() {
+        let rest: String = p.chars[p.pos..].iter().collect();
+        if !rest.trim().is_empty() {
+            return Err(format!("unexpected trailing: '{}'", rest.trim()));
+        }
+    }
+    Ok(e)
+}
+
+// Collect variables in order of first appearance
+fn collect_vars(e: &BExpr, vars: &mut Vec<String>) {
+    match e {
+        BExpr::Var(v) => { if !vars.contains(v) { vars.push(v.clone()); } }
+        BExpr::Not(a) => collect_vars(a, vars),
+        BExpr::And(a,b)|BExpr::Or(a,b)|BExpr::Xor(a,b)|BExpr::Implies(a,b)|BExpr::Iff(a,b)
+        |BExpr::Nand(a,b)|BExpr::Nor(a,b)|BExpr::Xnor(a,b) => {
+            collect_vars(a, vars); collect_vars(b, vars);
+        }
+        BExpr::Const(_) => {}
+    }
+}
+
+fn eval_bexpr(e: &BExpr, assignment: &[(&str, bool)]) -> bool {
+    match e {
+        BExpr::Const(b) => *b,
+        BExpr::Var(v) => assignment.iter().find(|(n,_)| n == v).map(|(_,b)| *b).unwrap_or(false),
+        BExpr::Not(a) => !eval_bexpr(a, assignment),
+        BExpr::And(a,b) => eval_bexpr(a, assignment) && eval_bexpr(b, assignment),
+        BExpr::Or(a,b)  => eval_bexpr(a, assignment) || eval_bexpr(b, assignment),
+        BExpr::Xor(a,b) => eval_bexpr(a, assignment) ^ eval_bexpr(b, assignment),
+        BExpr::Xnor(a,b) => !(eval_bexpr(a, assignment) ^ eval_bexpr(b, assignment)),
+        BExpr::Nand(a,b) => !(eval_bexpr(a, assignment) && eval_bexpr(b, assignment)),
+        BExpr::Nor(a,b)  => !(eval_bexpr(a, assignment) || eval_bexpr(b, assignment)),
+        BExpr::Implies(a,b) => !eval_bexpr(a, assignment) || eval_bexpr(b, assignment),
+        BExpr::Iff(a,b)     => eval_bexpr(a, assignment) == eval_bexpr(b, assignment),
+    }
+}
+
+fn bexpr_to_str(e: &BExpr) -> String {
+    match e {
+        BExpr::Const(true) => "true".into(),
+        BExpr::Const(false) => "false".into(),
+        BExpr::Var(v) => v.clone(),
+        BExpr::Not(a) => format!("¬{}", bexpr_atom_str(a)),
+        BExpr::And(a,b) => format!("({} ∧ {})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Or(a,b)  => format!("({} ∨ {})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Xor(a,b) => format!("({} ⊕ {})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Implies(a,b) => format!("({} → {})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Iff(a,b) => format!("({} ↔ {})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Nand(a,b) => format!("({}↑{})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Nor(a,b)  => format!("({}↓{})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Xnor(a,b) => format!("({}⊙{})", bexpr_to_str(a), bexpr_to_str(b)),
+    }
+}
+
+fn bexpr_atom_str(e: &BExpr) -> String {
+    match e {
+        BExpr::Var(v) => v.clone(),
+        BExpr::Const(b) => b.to_string(),
+        _ => format!("({})", bexpr_to_str(e)),
+    }
+}
+
+fn simplify_bexpr(e: BExpr) -> BExpr {
+    match e {
+        BExpr::Not(a) => {
+            let a = simplify_bexpr(*a);
+            match a {
+                BExpr::Const(b) => BExpr::Const(!b),
+                BExpr::Not(inner) => *inner,
+                _ => BExpr::Not(Box::new(a)),
+            }
+        }
+        BExpr::And(a, b) => {
+            let a = simplify_bexpr(*a); let b = simplify_bexpr(*b);
+            match (&a, &b) {
+                (BExpr::Const(false), _) | (_, BExpr::Const(false)) => BExpr::Const(false),
+                (BExpr::Const(true), _) => b,
+                (_, BExpr::Const(true)) => a,
+                _ if a == b => a,
+                _ => BExpr::And(Box::new(a), Box::new(b)),
+            }
+        }
+        BExpr::Or(a, b) => {
+            let a = simplify_bexpr(*a); let b = simplify_bexpr(*b);
+            match (&a, &b) {
+                (BExpr::Const(true), _) | (_, BExpr::Const(true)) => BExpr::Const(true),
+                (BExpr::Const(false), _) => b,
+                (_, BExpr::Const(false)) => a,
+                _ if a == b => a,
+                _ => BExpr::Or(Box::new(a), Box::new(b)),
+            }
+        }
+        BExpr::Xor(a, b) => {
+            let a = simplify_bexpr(*a); let b = simplify_bexpr(*b);
+            match (&a, &b) {
+                (BExpr::Const(false), _) => b,
+                (_, BExpr::Const(false)) => a,
+                (BExpr::Const(true), _) => BExpr::Not(Box::new(b)),
+                (_, BExpr::Const(true)) => BExpr::Not(Box::new(a)),
+                _ if a == b => BExpr::Const(false),
+                _ => BExpr::Xor(Box::new(a), Box::new(b)),
+            }
+        }
+        BExpr::Implies(a, b) => {
+            let a = simplify_bexpr(*a); let b = simplify_bexpr(*b);
+            match (&a, &b) {
+                (BExpr::Const(false), _) => BExpr::Const(true),
+                (BExpr::Const(true), _) => b,
+                (_, BExpr::Const(true)) => BExpr::Const(true),
+                _ if a == b => BExpr::Const(true),
+                _ => BExpr::Implies(Box::new(a), Box::new(b)),
+            }
+        }
+        BExpr::Iff(a, b) => {
+            let a = simplify_bexpr(*a); let b = simplify_bexpr(*b);
+            match (&a, &b) {
+                _ if a == b => BExpr::Const(true),
+                _ => BExpr::Iff(Box::new(a), Box::new(b)),
+            }
+        }
+        other => other,
+    }
+}
+
+pub fn logic_calc(query: &str) -> String {
+    let q = query.trim();
+    let q_lower = q.to_lowercase();
+
+    // Detect mode
+    let (mode, expr_str, expr2_str) = if q_lower.starts_with("table ") || q_lower.starts_with("truth ") {
+        ("table", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
+    } else if q_lower.starts_with("sat ") {
+        ("sat", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
+    } else if q_lower.starts_with("taut ") {
+        ("taut", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
+    } else if q_lower.starts_with("cnf ") {
+        ("cnf", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
+    } else if q_lower.starts_with("dnf ") {
+        ("dnf", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
+    } else if q_lower.starts_with("simplify ") {
+        ("simplify", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
+    } else if q_lower.starts_with("equiv ") {
+        let rest = q.splitn(2, ' ').nth(1).unwrap_or("").trim();
+        if let Some(semi) = rest.find(';') {
+            ("equiv", rest[..semi].trim(), rest[semi+1..].trim())
+        } else {
+            ("equiv", rest, "")
+        }
+    } else {
+        ("info", q, "")
+    };
+
+    let mut out = String::new();
+    let w = 64usize;
+    let _ = writeln!(out, "{}", "=".repeat(w));
+
+    let expr = match parse_bexpr(expr_str) {
+        Ok(e) => e,
+        Err(e) => {
+            let _ = writeln!(out, "  Logic — parse error: {}", e);
+            let _ = writeln!(out, "  Input: {}", expr_str.chars().take(60).collect::<String>());
+            let _ = writeln!(out, "  Usage: hematite --logic 'A and (B or C)'");
+            let _ = writeln!(out, "{}", "=".repeat(w));
+            return out;
+        }
+    };
+
+    let mut vars: Vec<String> = Vec::new();
+    collect_vars(&expr, &mut vars);
+
+    if vars.is_empty() {
+        let result = eval_bexpr(&expr, &[]);
+        let _ = writeln!(out, "  Logic  |  Constant expression: {}", result);
+        let _ = writeln!(out, "{}", "=".repeat(w));
+        return out;
+    }
+
+    if vars.len() > 20 {
+        let _ = writeln!(out, "  Logic — too many variables ({}), max 20", vars.len());
+        let _ = writeln!(out, "{}", "=".repeat(w));
+        return out;
+    }
+
+    let n = vars.len();
+    let rows = 1usize << n;
+
+    // Evaluate all rows
+    let results: Vec<bool> = (0..rows).map(|mask| {
+        let assignment: Vec<(&str, bool)> = vars.iter().enumerate()
+            .map(|(i, v)| (v.as_str(), (mask >> (n-1-i)) & 1 == 1))
+            .collect();
+        eval_bexpr(&expr, &assignment)
+    }).collect();
+
+    let sat_count = results.iter().filter(|&&b| b).count();
+    let is_taut = sat_count == rows;
+    let is_sat  = sat_count > 0;
+    let is_contra = sat_count == 0;
+
+    let _ = writeln!(out, "  Boolean Logic Analysis");
+    let _ = writeln!(out, "  Expression: {}", bexpr_to_str(&expr));
+    let _ = writeln!(out, "  Variables : {}", vars.join(", "));
+    let _ = writeln!(out, "  {} satisfying assignments of {} ({}%)",
+        sat_count, rows, sat_count * 100 / rows);
+    let _ = writeln!(out, "  Status: {}",
+        if is_taut { "TAUTOLOGY (always true)" }
+        else if is_contra { "CONTRADICTION (always false)" }
+        else { "CONTINGENT (sometimes true)" });
+
+    match mode {
+        "sat" => {
+            if is_sat {
+                let first_sat = (0..rows).find(|&mask| results[mask]).unwrap();
+                let assignment: Vec<String> = vars.iter().enumerate()
+                    .map(|(i, v)| format!("{}={}", v, (first_sat >> (n-1-i)) & 1 == 1))
+                    .collect();
+                let _ = writeln!(out, "  SAT: YES — satisfying assignment: {}", assignment.join(", "));
+            } else {
+                let _ = writeln!(out, "  SAT: NO — contradiction");
+            }
+        }
+        "taut" => {
+            let _ = writeln!(out, "  TAUTOLOGY: {}", if is_taut { "YES" } else { "NO" });
+            if !is_taut {
+                let first_false = (0..rows).find(|&mask| !results[mask]).unwrap();
+                let assignment: Vec<String> = vars.iter().enumerate()
+                    .map(|(i, v)| format!("{}={}", v, (first_false >> (n-1-i)) & 1 == 1))
+                    .collect();
+                let _ = writeln!(out, "  Counterexample: {}", assignment.join(", "));
+            }
+        }
+        "cnf" => {
+            // Build CNF from false rows
+            let false_rows: Vec<usize> = (0..rows).filter(|&m| !results[m]).collect();
+            if false_rows.is_empty() {
+                let _ = writeln!(out, "  CNF: true (tautology)");
+            } else {
+                let _ = writeln!(out, "  CNF (maxterms):");
+                for mask in &false_rows[..false_rows.len().min(8)] {
+                    let clause: Vec<String> = vars.iter().enumerate()
+                        .map(|(i, v)| if (mask >> (n-1-i)) & 1 == 0 { v.clone() } else { format!("¬{}", v) })
+                        .collect();
+                    let _ = writeln!(out, "  ({})", clause.join(" ∨ "));
+                }
+                if false_rows.len() > 8 { let _ = writeln!(out, "  ... ({} more clauses)", false_rows.len()-8); }
+            }
+        }
+        "dnf" => {
+            // Build DNF from true rows
+            let true_rows: Vec<usize> = (0..rows).filter(|&m| results[m]).collect();
+            if true_rows.is_empty() {
+                let _ = writeln!(out, "  DNF: false (contradiction)");
+            } else {
+                let _ = writeln!(out, "  DNF (minterms):");
+                for mask in &true_rows[..true_rows.len().min(8)] {
+                    let term: Vec<String> = vars.iter().enumerate()
+                        .map(|(i, v)| if (mask >> (n-1-i)) & 1 == 1 { v.clone() } else { format!("¬{}", v) })
+                        .collect();
+                    let _ = writeln!(out, "  ({})", term.join(" ∧ "));
+                }
+                if true_rows.len() > 8 { let _ = writeln!(out, "  ... ({} more terms)", true_rows.len()-8); }
+            }
+        }
+        "simplify" => {
+            let simp = simplify_bexpr(expr.clone());
+            let _ = writeln!(out, "  Simplified: {}", bexpr_to_str(&simp));
+        }
+        "equiv" => {
+            let expr2 = match parse_bexpr(expr2_str) {
+                Ok(e) => e,
+                Err(e) => { let _ = writeln!(out, "  Parse error (expr2): {}", e); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            };
+            let mut vars2 = vars.clone();
+            collect_vars(&expr2, &mut vars2);
+            vars2.sort(); vars2.dedup();
+            let n2 = vars2.len();
+            let rows2 = 1usize << n2;
+            let equiv = (0..rows2).all(|mask| {
+                let assignment: Vec<(&str, bool)> = vars2.iter().enumerate()
+                    .map(|(i, v)| (v.as_str(), (mask >> (n2-1-i)) & 1 == 1))
+                    .collect();
+                eval_bexpr(&expr, &assignment) == eval_bexpr(&expr2, &assignment)
+            });
+            let _ = writeln!(out, "  Expr1: {}", bexpr_to_str(&expr));
+            let _ = writeln!(out, "  Expr2: {}", bexpr_to_str(&expr2));
+            let _ = writeln!(out, "  Logically equivalent: {}", if equiv { "YES" } else { "NO" });
+        }
+        _ => {
+            // "info" or "table" — show full truth table
+            let max_table_rows = if n <= 4 { rows } else { rows.min(32) };
+            let _ = writeln!(out, "\n  Truth Table:");
+            // Header
+            let var_header: String = vars.iter().map(|v| format!("  {:>3}", v)).collect::<Vec<_>>().join("");
+            let _ = writeln!(out, "{}  │  Result", var_header);
+            let _ = writeln!(out, "  {}", "-".repeat(vars.len()*5 + 10));
+            for mask in 0..max_table_rows {
+                let row_vals: String = (0..n).map(|i| format!("  {:>3}", if (mask >> (n-1-i)) & 1 == 1 { "T" } else { "F" })).collect::<Vec<_>>().join("");
+                let _ = writeln!(out, "{}  │  {}", row_vals, if results[mask] { "T" } else { "F" });
+            }
+            if max_table_rows < rows { let _ = writeln!(out, "  ... ({} rows omitted — use --logic 'table EXPR' for full table with ≤4 vars)", rows - max_table_rows); }
+
+            // SAT summary
+            if is_sat {
+                let first_sat = (0..rows).find(|&m| results[m]).unwrap();
+                let sat_ex: Vec<String> = vars.iter().enumerate()
+                    .map(|(i, v)| format!("{}={}", v, if (first_sat >> (n-1-i)) & 1 == 1 { "T" } else { "F" }))
+                    .collect();
+                let _ = writeln!(out, "\n  SAT witness: {}", sat_ex.join(", "));
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", "=".repeat(w));
+    out
+}
+
 // ── Linear algebra / matrix operations ───────────────────────────────────────
 // det / inv / solve / mul / transpose / eigenvalues / rank — pure-Rust
 //

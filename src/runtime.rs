@@ -950,6 +950,7 @@ mod tests {
             graph: None,
             symbolic: None,
             finance: None,
+            logic: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
