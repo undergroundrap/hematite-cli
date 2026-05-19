@@ -410,16 +410,26 @@ When a local model gets uncertain, the answer is usually not "give it more freed
 Hematite includes a comprehensive offline math/science/data toolkit — no model, no cloud, no internet required. All commands run instantly from the CLI.
 
 **Pure-Rust math (sub-millisecond):**
-- `hematite --matrix 'det [[1,2],[3,4]]'` — linear algebra: det, inv, solve, mul, transpose, eigen, rank, LU
+- `hematite --matrix 'det [[1,2],[3,4]]'` — linear algebra: det, inv, solve, mul, transpose, eigen, rank, LU, QR, SVD, Cholesky, pseudoinverse
 - `hematite --symbolic 'diff x^3 + sin(x)'` — symbolic calculus: differentiate, integrate, simplify, evaluate
 - `hematite --finance 'npv 8% -100 30 40 50'` — financial math: NPV, IRR, loan, bond, Black-Scholes
 - `hematite --logic 'A and (B or not C)'` — propositional logic: truth table, SAT, tautology, CNF/DNF
-- `hematite --graph 'shortest A D\nA B 2\nB D 3'` — graph theory: BFS/DFS/Dijkstra/components/topo-sort
+- `hematite --graph 'shortest A D\nA B 2\nB D 3'` — graph theory: BFS/DFS/Dijkstra/centrality/PageRank/clustering/diameter
 - `hematite --signal 'dft 1,0,-1,0,1,0,-1,0'` — DSP: DFT, FIR filter design, convolution, waveform gen
 - `hematite --interpolate 'spline 0,0 1,1 2,4 3,9 at 1.5'` — interpolation: linear, cubic spline, Lagrange
 - `hematite --units '100 km to miles'` — unit conversion: 14 categories, 130+ units, broadcast mode
 - `hematite --ode 'dy/dt = -y y0=1 t=5'` — ODE solver: Euler/RK4/RK45, Lotka-Volterra, SIR, logistic
 - `hematite --optimize 'min x^2-4*x+3 a=0 b=5'` — optimization: golden section, Nelder-Mead, gradient descent, root finder
+- `hematite --probability 'normal mean=0 sd=1 x=1.96'` — probability distributions: normal, binomial, Poisson, t, chi2, exponential, uniform, geometric
+- `hematite --bitwise '0xFF AND 0x3C'` — bitwise calculator: AND/OR/XOR/NOT/shifts/rotates/IEEE754 float breakdown
+- `hematite --set '{1,2,3} union {3,4,5}'` — set theory: union, intersection, difference, power set, Cartesian product
+- `hematite --cipher 'caesar 13 Hello World'` — classical ciphers: ROT13, Atbash, Caesar, Vigenère, Rail Fence, Columnar, Morse
+- `hematite --text-stats 'Paste any text here...'` — readability: Flesch-Kincaid, Gunning Fog, SMOG, word/letter frequency
+- `hematite --levenshtein 'kitten vs sitting'` — string distance: Levenshtein, Damerau-Levenshtein, Hamming, Jaro-Winkler, LCS
+- `hematite --number-format 1234567890` — number representations: thousands, scientific, engineering, SI prefix, hex/bin/oct, English words
+- `hematite --sort-viz '5,3,8,1,9,2'` — sorting visualizer: bubble/insertion/selection/merge/quick/heap with ASCII bar charts
+- `hematite --checksum 'Hello, World!'` — checksums: CRC-32/16, Adler-32, FNV-1a, DJB2, SDBM, XOR, sum
+- `hematite --validate '4532015112830366'` — validation: Luhn/credit card, ISBN-10/13, EAN-13, IBAN, UUID
 
 **Python-sandbox data analysis (no external libs, uses Python stdlib only):**
 - `hematite --sample data.csv --sample-n 100` — random sampling, train/test split
@@ -430,6 +440,7 @@ Hematite includes a comprehensive offline math/science/data toolkit — no model
 - `hematite --normalize data.csv` — feature scaling: z-score, min-max, robust, L2
 - `hematite --pca data.csv --pca-components 3` — principal component analysis
 - `hematite --hypothesis '2.1,2.8,3.2' --hypothesis-test one-t --hypothesis-mu 2.0` — hypothesis tests: t-tests, chi-square, ANOVA, Mann-Whitney, Pearson, proportion z-test, CI
+- `hematite --polyfit data.csv --polyfit-x col1 --polyfit-y col2 --polyfit-degree 2` — polynomial curve fitting: R², RMSE, MAE, ASCII scatter with fit curve
 
 **Other instant utilities:**
 - `hematite --periodic Au` — periodic table element lookup
