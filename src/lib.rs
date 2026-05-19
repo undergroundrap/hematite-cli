@@ -707,6 +707,9 @@ pub struct CliCockpit {
     #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Propositional logic — truth table, SAT, tautology, CNF/DNF, equivalence, simplify. Example: hematite --logic 'A and (B or not C)'  or  'equiv A->B ; not A or B'")]
     pub logic: Option<String>,
 
+    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Signal processing (DSP) — DFT, convolution, cross-correlation, moving average, FIR filter design, waveform generation. No model, no cloud. Example: hematite --signal 'dft 1,0,-1,0'  or  'lowpass 0.1 31 hamming'  or  'gen sine 2 64'")]
+    pub signal: Option<String>,
+
     #[arg(long, help_heading = "Data Analysis", value_name = "DATA", help = "Statistical hypothesis test — t-tests, chi-square, ANOVA, Mann-Whitney, Pearson, proportion z-test, confidence intervals. Provide comma-separated numbers or 'successes,n' for proportions. Example: hematite --hypothesis '2.1,2.8,3.2,2.5' --hypothesis-test one-t --hypothesis-mu 2.0")]
     pub hypothesis: Option<String>,
 

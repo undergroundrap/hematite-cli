@@ -4688,3 +4688,437 @@ fn symbolic_usage() -> String {
      hematite --symbolic 'x^2 + 2*x at x=3'          numeric eval\n\
      Supported: + - * / ^ sin cos tan ln exp sqrt abs".into()
 }
+
+// ── Signal processing (DSP) ───────────────────────────────────────────────────
+// DFT/IDFT, convolution, cross-correlation, moving average,
+// FIR window filter design, waveform generation, RMS/SNR stats.
+// All pure-Rust — no Python subprocess, no external crates.
+
+use std::f64::consts::PI;
+
+fn dft(signal: &[f64]) -> Vec<(f64, f64)> {
+    let n = signal.len();
+    (0..n).map(|k| {
+        let (mut re, mut im) = (0.0_f64, 0.0_f64);
+        for (t, &x) in signal.iter().enumerate() {
+            let angle = -2.0 * PI * (k * t) as f64 / n as f64;
+            re += x * angle.cos();
+            im += x * angle.sin();
+        }
+        (re, im)
+    }).collect()
+}
+
+fn idft(spectrum: &[(f64, f64)]) -> Vec<f64> {
+    let n = spectrum.len();
+    (0..n).map(|t| {
+        let mut val = 0.0_f64;
+        for (k, &(re, im)) in spectrum.iter().enumerate() {
+            let angle = 2.0 * PI * (k * t) as f64 / n as f64;
+            val += re * angle.cos() - im * angle.sin();
+        }
+        val / n as f64
+    }).collect()
+}
+
+fn convolve(x: &[f64], h: &[f64]) -> Vec<f64> {
+    let n = x.len() + h.len() - 1;
+    (0..n).map(|i| {
+        let mut s = 0.0_f64;
+        for (j, &hv) in h.iter().enumerate() {
+            if i >= j && i - j < x.len() { s += x[i - j] * hv; }
+        }
+        s
+    }).collect()
+}
+
+fn xcorr(x: &[f64], y: &[f64]) -> Vec<f64> {
+    let n = x.len(); let m = y.len();
+    let out_len = n + m - 1;
+    (0..out_len).map(|lag| {
+        let lag_i = lag as isize - (m as isize - 1);
+        let mut s = 0.0_f64;
+        for (i, &xv) in x.iter().enumerate() {
+            let j = i as isize - lag_i;
+            if j >= 0 && j < m as isize { s += xv * y[j as usize]; }
+        }
+        s
+    }).collect()
+}
+
+fn moving_avg(signal: &[f64], window: usize) -> Vec<f64> {
+    let w = window.max(1);
+    signal.windows(w).map(|s| s.iter().sum::<f64>() / w as f64).collect()
+}
+
+fn hann_window(n: usize) -> Vec<f64> {
+    (0..n).map(|i| 0.5 * (1.0 - (2.0 * PI * i as f64 / (n - 1) as f64).cos())).collect()
+}
+
+fn hamming_window(n: usize) -> Vec<f64> {
+    (0..n).map(|i| 0.54 - 0.46 * (2.0 * PI * i as f64 / (n - 1) as f64).cos()).collect()
+}
+
+fn blackman_window(n: usize) -> Vec<f64> {
+    (0..n).map(|i| {
+        let a = 2.0 * PI * i as f64 / (n - 1) as f64;
+        0.42 - 0.5 * a.cos() + 0.08 * (2.0 * a).cos()
+    }).collect()
+}
+
+fn sinc(x: f64) -> f64 { if x == 0.0 { 1.0 } else { (PI * x).sin() / (PI * x) } }
+
+fn fir_lowpass(n_taps: usize, cutoff_norm: f64, window: &str) -> Vec<f64> {
+    let m = n_taps - 1;
+    let wins: Vec<f64> = match window {
+        "hann" | "hanning" => hann_window(n_taps),
+        "hamming"          => hamming_window(n_taps),
+        "blackman"         => blackman_window(n_taps),
+        _                  => vec![1.0; n_taps],
+    };
+    let mut h: Vec<f64> = (0..n_taps).map(|i| {
+        let n = i as f64 - m as f64 / 2.0;
+        2.0 * cutoff_norm * sinc(2.0 * cutoff_norm * n) * wins[i]
+    }).collect();
+    let sum: f64 = h.iter().sum();
+    if sum.abs() > 1e-12 { for v in &mut h { *v /= sum; } }
+    h
+}
+
+fn fir_highpass(n_taps: usize, cutoff_norm: f64, window: &str) -> Vec<f64> {
+    let mut h = fir_lowpass(n_taps, cutoff_norm, window);
+    for (i, v) in h.iter_mut().enumerate() {
+        *v = if i == n_taps / 2 { 1.0 - *v } else { -*v };
+    }
+    h
+}
+
+fn parse_signal(s: &str) -> Option<Vec<f64>> {
+    let v: Vec<f64> = s.split([',', ' ', '\t', ';'].as_ref())
+        .filter_map(|t| t.trim().parse::<f64>().ok())
+        .collect();
+    if v.is_empty() { None } else { Some(v) }
+}
+
+fn signal_stats(sig: &[f64]) -> (f64, f64, f64, f64) {
+    let n = sig.len() as f64;
+    let mean = sig.iter().sum::<f64>() / n;
+    let rms = (sig.iter().map(|x| x * x).sum::<f64>() / n).sqrt();
+    let min = sig.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max = sig.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    (mean, rms, min, max)
+}
+
+fn ascii_waveform(sig: &[f64], width: usize, height: usize) -> String {
+    if sig.is_empty() { return String::new(); }
+    let mn = sig.iter().cloned().fold(f64::INFINITY, f64::min);
+    let mx = sig.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let range = (mx - mn).max(1e-12);
+    let step = sig.len().max(1) as f64 / width as f64;
+    let samples: Vec<f64> = (0..width).map(|col| {
+        let idx = ((col as f64 * step) as usize).min(sig.len() - 1);
+        sig[idx]
+    }).collect();
+    let mut rows = vec![vec![' '; width]; height];
+    for (col, &val) in samples.iter().enumerate() {
+        let row = height - 1 - ((val - mn) / range * (height - 1) as f64).round() as usize;
+        let row = row.min(height - 1);
+        rows[row][col] = '█';
+    }
+    rows.iter().map(|r| r.iter().collect::<String>()).collect::<Vec<_>>().join("\n")
+}
+
+pub fn signal_calc(query: &str) -> String {
+    let mut out = String::new();
+    let w = 60;
+    let sep = "═".repeat(w);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  SIGNAL PROCESSING");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let lower = q.to_lowercase();
+
+    // --- DFT ----------------------------------------------------------------
+    if lower.starts_with("dft ") || lower.starts_with("fft ") {
+        let rest = q[4..].trim();
+        match parse_signal(rest) {
+            None => { let _ = writeln!(out, "  ERROR: no numeric values found."); }
+            Some(sig) => {
+                let n = sig.len();
+                let spectrum = dft(&sig);
+                let (mean, rms, mn, mx) = signal_stats(&sig);
+                let _ = writeln!(out, "  DFT of {}-point signal", n);
+                let _ = writeln!(out, "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}", mean, rms, mn, mx);
+                let _ = writeln!(out, "");
+                let _ = writeln!(out, "  {:>5}  {:>10}  {:>10}  {:>10}  {:>10}", "Bin", "Re", "Im", "Magnitude", "Phase°");
+                let _ = writeln!(out, "  {}", "-".repeat(52));
+                let show = (n / 2 + 1).min(20);
+                for k in 0..show {
+                    let (re, im) = spectrum[k];
+                    let mag = (re * re + im * im).sqrt();
+                    let phase = im.atan2(re).to_degrees();
+                    let _ = writeln!(out, "  {:>5}  {:>10.4}  {:>10.4}  {:>10.4}  {:>10.2}", k, re, im, mag, phase);
+                }
+                if show < n / 2 + 1 { let _ = writeln!(out, "  … ({} bins total)", n / 2 + 1); }
+                let dc = spectrum[0].0 / n as f64;
+                let _ = writeln!(out, "");
+                let _ = writeln!(out, "  DC component: {:.6}", dc);
+                let dominant = spectrum[1..n/2+1].iter().enumerate()
+                    .map(|(i, &(r, im))| (i + 1, (r*r+im*im).sqrt()))
+                    .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                    .map(|(k, mag)| (k, mag));
+                if let Some((k, mag)) = dominant {
+                    let _ = writeln!(out, "  Dominant frequency bin: {} (mag={:.4})", k, mag);
+                }
+            }
+        }
+    }
+    // --- IDFT ---------------------------------------------------------------
+    else if lower.starts_with("idft ") {
+        let rest = q[5..].trim();
+        match parse_signal(rest) {
+            None => { let _ = writeln!(out, "  ERROR: no numeric values found."); }
+            Some(vals) => {
+                if vals.len() % 2 != 0 {
+                    let _ = writeln!(out, "  ERROR: IDFT needs even number of values (re,im pairs).");
+                } else {
+                    let spectrum: Vec<(f64, f64)> = vals.chunks(2).map(|c| (c[0], c[1])).collect();
+                    let sig = idft(&spectrum);
+                    let _ = writeln!(out, "  IDFT result ({} samples):", sig.len());
+                    let _ = writeln!(out, "  {:?}", sig.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(", "));
+                }
+            }
+        }
+    }
+    // --- CONVOLVE -----------------------------------------------------------
+    else if lower.starts_with("conv ") || lower.starts_with("convolve ") {
+        let rest = q[q.find(' ').unwrap_or(0)..].trim();
+        if let Some(mid) = rest.find(" ; ").or_else(|| rest.find(" with ")).or_else(|| rest.find(" | ")) {
+            let (a_str, b_str) = rest.split_at(mid);
+            let b_str = b_str.trim_start_matches([' ', ';', '|'].as_ref()).trim_start_matches("with").trim();
+            match (parse_signal(a_str.trim()), parse_signal(b_str)) {
+                (Some(x), Some(h)) => {
+                    let y = convolve(&x, &h);
+                    let _ = writeln!(out, "  Convolution  x[{}] * h[{}] = y[{}]", x.len(), h.len(), y.len());
+                    let _ = writeln!(out, "  x: {}", x.iter().map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
+                    let _ = writeln!(out, "  h: {}", h.iter().map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
+                    let _ = writeln!(out, "  y: {}", y.iter().map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
+                    let (mean, rms, mn, mx) = signal_stats(&y);
+                    let _ = writeln!(out, "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}", mean, rms, mn, mx);
+                }
+                _ => { let _ = writeln!(out, "  ERROR: use  conv  A,B,C ; D,E,F  (separate signals with ;)"); }
+            }
+        } else {
+            let _ = writeln!(out, "  ERROR: use  conv  A,B,C ; D,E,F  (separate signals with ;)");
+        }
+    }
+    // --- XCORR --------------------------------------------------------------
+    else if lower.starts_with("xcorr ") || lower.starts_with("correlate ") {
+        let rest = q[q.find(' ').unwrap_or(0)..].trim();
+        if let Some(mid) = rest.find(" ; ").or_else(|| rest.find(" | ")) {
+            let (a_str, b_str) = rest.split_at(mid);
+            let b_str = b_str.trim_start_matches([' ', ';', '|'].as_ref()).trim();
+            match (parse_signal(a_str.trim()), parse_signal(b_str)) {
+                (Some(x), Some(y)) => {
+                    let r = xcorr(&x, &y);
+                    let peak_lag = r.iter().enumerate()
+                        .max_by(|a, b| a.1.abs().partial_cmp(&b.1.abs()).unwrap())
+                        .map(|(i, _)| i as isize - (y.len() as isize - 1));
+                    let _ = writeln!(out, "  Cross-correlation  x[{}] ⋆ y[{}] = r[{}]", x.len(), y.len(), r.len());
+                    let _ = writeln!(out, "  r: {}", r.iter().map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
+                    if let Some(lag) = peak_lag {
+                        let _ = writeln!(out, "  Peak lag: {} samples", lag);
+                    }
+                }
+                _ => { let _ = writeln!(out, "  ERROR: use  xcorr  A,B,C ; D,E,F"); }
+            }
+        } else {
+            let _ = writeln!(out, "  ERROR: use  xcorr  A,B,C ; D,E,F");
+        }
+    }
+    // --- MOVING AVERAGE -----------------------------------------------------
+    else if lower.starts_with("movavg ") || lower.starts_with("moving-avg ") || lower.starts_with("sma ") {
+        let rest = q[q.find(' ').unwrap_or(0)..].trim();
+        let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+        let window = parts[0].parse::<usize>().unwrap_or(3);
+        let data_str = if parts.len() > 1 { parts[1] } else { "" };
+        match parse_signal(data_str) {
+            None => { let _ = writeln!(out, "  ERROR: use  movavg WINDOW v1,v2,..."); }
+            Some(sig) => {
+                let smoothed = moving_avg(&sig, window);
+                let _ = writeln!(out, "  Simple Moving Average  window={}", window);
+                let _ = writeln!(out, "  Input ({} pts): {}", sig.len(), sig.iter().take(8).map(|v| format!("{:.3}", v)).collect::<Vec<_>>().join(", "));
+                let _ = writeln!(out, "  Output ({} pts): {}", smoothed.len(), smoothed.iter().take(8).map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
+                if sig.len() > 8 { let _ = writeln!(out, "  (showing first 8 of {} values)", sig.len()); }
+            }
+        }
+    }
+    // --- FIR LOW-PASS FILTER ------------------------------------------------
+    else if lower.starts_with("fir-lp ") || lower.starts_with("lowpass ") || lower.starts_with("lp ") {
+        let rest = q[q.find(' ').unwrap_or(0)..].trim();
+        let parts: Vec<&str> = rest.splitn(3, ' ').collect();
+        let cutoff = parts.get(0).and_then(|s| s.trim_end_matches('%').parse::<f64>().ok()).unwrap_or(0.25) / if rest.contains('%') { 100.0 } else { 1.0 };
+        let n_taps = parts.get(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(21);
+        let window = parts.get(2).map(|s| s.trim()).unwrap_or("hamming");
+        let h = fir_lowpass(n_taps, cutoff.min(0.5), window);
+        let _ = writeln!(out, "  FIR Low-Pass Filter");
+        let _ = writeln!(out, "  Cutoff: {:.4} (normalized, 0.5 = Nyquist)  Taps: {}  Window: {}", cutoff, n_taps, window);
+        let _ = writeln!(out, "  Coefficients:");
+        for (i, c) in h.iter().enumerate() {
+            let _ = write!(out, "  h[{:2}]={:>10.6}", i, c);
+            if (i + 1) % 4 == 0 { let _ = writeln!(out, ""); }
+        }
+        let _ = writeln!(out, "");
+        let sum: f64 = h.iter().sum();
+        let _ = writeln!(out, "  Sum of taps: {:.6}  (DC gain = {:.4} dB)", sum, 20.0 * sum.abs().log10());
+    }
+    // --- FIR HIGH-PASS FILTER -----------------------------------------------
+    else if lower.starts_with("fir-hp ") || lower.starts_with("highpass ") || lower.starts_with("hp ") {
+        let rest = q[q.find(' ').unwrap_or(0)..].trim();
+        let parts: Vec<&str> = rest.splitn(3, ' ').collect();
+        let cutoff = parts.get(0).and_then(|s| s.trim_end_matches('%').parse::<f64>().ok()).unwrap_or(0.25) / if rest.contains('%') { 100.0 } else { 1.0 };
+        let n_taps = parts.get(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(21);
+        let window = parts.get(2).map(|s| s.trim()).unwrap_or("hamming");
+        let h = fir_highpass(n_taps, cutoff.min(0.49), window);
+        let _ = writeln!(out, "  FIR High-Pass Filter");
+        let _ = writeln!(out, "  Cutoff: {:.4}  Taps: {}  Window: {}", cutoff, n_taps, window);
+        let _ = writeln!(out, "  Coefficients:");
+        for (i, c) in h.iter().enumerate() {
+            let _ = write!(out, "  h[{:2}]={:>10.6}", i, c);
+            if (i + 1) % 4 == 0 { let _ = writeln!(out, ""); }
+        }
+        let _ = writeln!(out, "");
+    }
+    // --- APPLY FILTER -------------------------------------------------------
+    else if lower.starts_with("filter ") {
+        let rest = q[7..].trim();
+        if let Some(mid) = rest.find(" ; ") {
+            let (a_str, b_str) = rest.split_at(mid);
+            let b_str = b_str[3..].trim();
+            match (parse_signal(a_str.trim()), parse_signal(b_str)) {
+                (Some(h), Some(x)) => {
+                    let y = convolve(&x, &h);
+                    let _ = writeln!(out, "  Filter applied  h[{}] * x[{}] = y[{}]", h.len(), x.len(), y.len());
+                    let (_, rms_x, _, _) = signal_stats(&x);
+                    let (_, rms_y, _, _) = signal_stats(&y);
+                    let _ = writeln!(out, "  Input  RMS: {:.4}", rms_x);
+                    let _ = writeln!(out, "  Output RMS: {:.4}", rms_y);
+                    let _ = writeln!(out, "  y: {}", y.iter().map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
+                }
+                _ => { let _ = writeln!(out, "  ERROR: use  filter h1,h2,... ; x1,x2,..."); }
+            }
+        } else {
+            let _ = writeln!(out, "  ERROR: use  filter h1,h2,... ; x1,x2,...");
+        }
+    }
+    // --- STATS / INFO -------------------------------------------------------
+    else if lower.starts_with("stats ") || lower.starts_with("info ") || lower.starts_with("rms ") {
+        let rest = q[q.find(' ').unwrap_or(0)..].trim();
+        match parse_signal(rest) {
+            None => { let _ = writeln!(out, "  ERROR: no numeric values."); }
+            Some(sig) => {
+                let n = sig.len();
+                let (mean, rms, mn, mx) = signal_stats(&sig);
+                let variance = sig.iter().map(|x| (x - mean) * (x - mean)).sum::<f64>() / n as f64;
+                let std_dev = variance.sqrt();
+                let energy: f64 = sig.iter().map(|x| x * x).sum();
+                let _ = writeln!(out, "  Signal Statistics  ({} samples)", n);
+                let _ = writeln!(out, "  Mean:     {:>12.6}", mean);
+                let _ = writeln!(out, "  RMS:      {:>12.6}", rms);
+                let _ = writeln!(out, "  Std dev:  {:>12.6}", std_dev);
+                let _ = writeln!(out, "  Min:      {:>12.6}", mn);
+                let _ = writeln!(out, "  Max:      {:>12.6}", mx);
+                let _ = writeln!(out, "  Range:    {:>12.6}", mx - mn);
+                let _ = writeln!(out, "  Energy:   {:>12.6}", energy);
+                let _ = writeln!(out, "  Power:    {:>12.6}", energy / n as f64);
+                if rms > 1e-12 {
+                    let crest = mx.abs().max(mn.abs()) / rms;
+                    let _ = writeln!(out, "  Crest:    {:>12.6}  ({:.2} dB)", crest, 20.0 * crest.log10());
+                }
+                let _ = writeln!(out, "");
+                let _ = writeln!(out, "  Waveform ({}×8):", sig.len().min(60));
+                let wave = ascii_waveform(&sig, sig.len().min(60), 8);
+                for line in wave.lines() { let _ = writeln!(out, "  |{}|", line); }
+            }
+        }
+    }
+    // --- WAVEFORM GENERATE --------------------------------------------------
+    else if lower.starts_with("gen ") || lower.starts_with("wave ") || lower.starts_with("generate ") {
+        let rest = q[q.find(' ').unwrap_or(0)..].trim();
+        let parts: Vec<&str> = rest.splitn(4, ' ').collect();
+        let shape = parts.get(0).map(|s| s.to_lowercase()).unwrap_or_else(|| "sine".into());
+        let freq: f64 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+        let n: usize = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(64);
+        let amp: f64 = parts.get(3).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+        let sig: Vec<f64> = (0..n).map(|i| {
+            let t = i as f64 / n as f64;
+            let phase = 2.0 * PI * freq * t;
+            match shape.as_str() {
+                "cos" | "cosine"   => amp * phase.cos(),
+                "square"           => amp * if phase.sin() >= 0.0 { 1.0 } else { -1.0 },
+                "sawtooth" | "saw" => amp * (2.0 * (freq * t - (freq * t + 0.5).floor())),
+                "triangle" | "tri" => amp * 2.0 * (2.0 * (freq * t - (freq * t + 0.5).floor())).abs() - 1.0,
+                "noise" | "rand"   => amp * (((i * 6364136223846793005 + 1442695040888963407) >> 33) as f64 / u32::MAX as f64 * 2.0 - 1.0),
+                _                  => amp * phase.sin(),
+            }
+        }).collect();
+        let (mean, rms, mn, mx) = signal_stats(&sig);
+        let _ = writeln!(out, "  Waveform: {}  freq={} cycles  n={}  amp={}", shape, freq, n, amp);
+        let _ = writeln!(out, "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}", mean, rms, mn, mx);
+        let _ = writeln!(out, "");
+        let wave = ascii_waveform(&sig, sig.len().min(60), 8);
+        for line in wave.lines() { let _ = writeln!(out, "  |{}|", line); }
+        let _ = writeln!(out, "");
+        let first = sig.iter().take(16).map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", ");
+        let _ = writeln!(out, "  First 16 samples: {}{}", first, if n > 16 { " …" } else { "" });
+    }
+    // --- WINDOW PREVIEW -----------------------------------------------------
+    else if lower.starts_with("window ") {
+        let parts: Vec<&str> = q.splitn(3, ' ').collect();
+        let win_type = parts.get(1).map(|s| s.to_lowercase()).unwrap_or_else(|| "hann".into());
+        let n: usize = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(32);
+        let w = match win_type.as_str() {
+            "hamming"  => hamming_window(n),
+            "blackman" => blackman_window(n),
+            _          => hann_window(n),
+        };
+        let (mean, rms, mn, mx) = signal_stats(&w);
+        let _ = writeln!(out, "  {} window  n={}", win_type, n);
+        let _ = writeln!(out, "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}", mean, rms, mn, mx);
+        let _ = writeln!(out, "");
+        let wave = ascii_waveform(&w, n.min(60), 6);
+        for line in wave.lines() { let _ = writeln!(out, "  |{}|", line); }
+        let _ = writeln!(out, "");
+        let first8 = w.iter().take(8).map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", ");
+        let _ = writeln!(out, "  First 8 coeffs: {}", first8);
+    }
+    // --- HELP ---------------------------------------------------------------
+    else {
+        let _ = writeln!(out, "{}", signal_usage());
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+fn signal_usage() -> String {
+    "Signal processing (DSP) — no model, no cloud:\n\
+     \n\
+     hematite --signal 'dft 1,0,-1,0,1,0,-1,0'         Discrete Fourier Transform\n\
+     hematite --signal 'idft 4,0,0,0 ; 0,0,0,0'        Inverse DFT (re,im pairs)\n\
+     hematite --signal 'conv 1,2,3 ; 1,-1'              Convolution (separate with ;)\n\
+     hematite --signal 'xcorr 1,0,1 ; 0,1,0'            Cross-correlation\n\
+     hematite --signal 'movavg 3 1,3,5,7,5,3,1'         3-point moving average\n\
+     hematite --signal 'lowpass 0.1 31 hamming'         FIR low-pass (cutoff taps window)\n\
+     hematite --signal 'highpass 0.3 21 hann'           FIR high-pass\n\
+     hematite --signal 'filter 0.25,0.5,0.25 ; 1,2,3,4' Apply FIR filter to signal\n\
+     hematite --signal 'stats 1,2,3,4,5'                RMS, energy, crest, waveform plot\n\
+     hematite --signal 'gen sine 2 64'                  Generate 64-pt sine, 2 cycles\n\
+     hematite --signal 'gen square 1 32 2.5'            Square wave, amp=2.5\n\
+     hematite --signal 'gen sawtooth 3 128'             Sawtooth wave\n\
+     hematite --signal 'window hann 64'                 Preview Hann window coefficients\n\
+     \n\
+     Window types: rectangular hann hamming blackman\n\
+     Wave shapes:  sine cosine square sawtooth triangle noise".into()
+}

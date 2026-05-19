@@ -951,6 +951,7 @@ mod tests {
             symbolic: None,
             finance: None,
             logic: None,
+            signal: None,
             hypothesis: None,
             hypothesis_test: None,
             hypothesis_group2: None,
