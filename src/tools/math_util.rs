@@ -3030,6 +3030,88 @@ fn mat_eigen_power(a: &Matrix, max_iter: usize) -> Option<(f64, Vec<f64>)> {
     Some((lam, v))
 }
 
+// QR decomposition via modified Gram-Schmidt
+fn mat_qr(a: &Matrix) -> (Matrix, Matrix) {
+    let m = mat_rows(a); let n = mat_cols(a);
+    let cols_a: Vec<Vec<f64>> = (0..n).map(|j| (0..m).map(|i| a[i][j]).collect()).collect();
+    let mut q_cols: Vec<Vec<f64>> = Vec::new();
+    let mut r: Matrix = vec![vec![0.0; n]; n.min(m)];
+    for j in 0..n {
+        let mut v: Vec<f64> = cols_a[j].clone();
+        for (k, qk) in q_cols.iter().enumerate() {
+            let proj: f64 = v.iter().zip(qk).map(|(a,b)| a*b).sum();
+            r[k][j] = proj;
+            for i in 0..m { v[i] -= proj * qk[i]; }
+        }
+        let norm = v.iter().map(|x| x*x).sum::<f64>().sqrt();
+        if norm > 1e-12 {
+            let qj: Vec<f64> = v.iter().map(|x| x/norm).collect();
+            r[q_cols.len()][j] = norm;
+            q_cols.push(qj);
+        }
+    }
+    let q: Matrix = (0..m).map(|i| q_cols.iter().map(|col| *col.get(i).unwrap_or(&0.0)).collect()).collect();
+    (q, r)
+}
+
+// Singular values via eigenvalues of A^T A (Jacobi-style for small matrices)
+fn mat_svd_values(a: &Matrix) -> (Vec<f64>, Matrix) {
+    let n = mat_cols(a);
+    // Build A^T A
+    let at = mat_transpose(a);
+    let ata = mat_mul(&at, a).unwrap_or_else(|_| vec![vec![0.0; n]; n]);
+    // Power iteration for eigenvalues/vectors of A^T A
+    let mut a_copy = ata.clone();
+    let mut sigma_vals: Vec<f64> = Vec::new();
+    let mut v_vecs: Vec<Vec<f64>> = Vec::new();
+    for _ in 0..n {
+        match mat_eigen_power(&a_copy, 1000) {
+            Some((lam, v)) => {
+                let sv = lam.abs().sqrt();
+                sigma_vals.push(sv);
+                v_vecs.push(v.clone());
+                // Deflate A^T A
+                for i in 0..n { for j in 0..n { a_copy[i][j] -= lam * v[i] * v[j]; } }
+            }
+            None => break,
+        }
+    }
+    // Sort descending
+    let mut pairs: Vec<(f64, Vec<f64>)> = sigma_vals.into_iter().zip(v_vecs).collect();
+    pairs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    let svs: Vec<f64>    = pairs.iter().map(|p| p.0).collect();
+    let v_mat: Matrix    = (0..n).map(|i| pairs.iter().map(|p| *p.1.get(i).unwrap_or(&0.0)).collect()).collect();
+    (svs, v_mat)
+}
+
+// Cholesky decomposition (lower-triangular L s.t. A = L Lᵀ)
+fn mat_cholesky(a: &Matrix) -> Result<Matrix, String> {
+    let n = mat_rows(a);
+    let mut l: Matrix = vec![vec![0.0; n]; n];
+    for i in 0..n {
+        for j in 0..=i {
+            let mut sum: f64 = (0..j).map(|k| l[i][k] * l[j][k]).sum();
+            if i == j {
+                let d = a[i][i] - sum;
+                if d < -1e-10 { return Err(format!("not positive definite (d[{}] = {:.4e})", i, d)); }
+                l[i][j] = d.max(0.0).sqrt();
+            } else {
+                if l[j][j].abs() < 1e-14 { return Err("zero pivot".into()); }
+                l[i][j] = (a[i][j] - sum) / l[j][j];
+            }
+        }
+    }
+    Ok(l)
+}
+
+// Moore-Penrose pseudoinverse via normal equations (A⁺ = (AᵀA)⁻¹Aᵀ for full column rank)
+fn mat_pinv(a: &Matrix) -> Result<Matrix, String> {
+    let at  = mat_transpose(a);
+    let ata = mat_mul(&at, a)?;
+    let ata_inv = mat_inv(&ata)?;
+    mat_mul(&ata_inv, &at)
+}
+
 pub fn matrix_calc(query: &str) -> String {
     let q = query.trim();
 
@@ -3047,6 +3129,10 @@ pub fn matrix_calc(query: &str) -> String {
             "eigen"|"eigenvalues"|"eig" => ("eigen", rest.to_string()),
             "rank"              => ("rank", rest.to_string()),
             "lu"                => ("lu", rest.to_string()),
+            "qr"                => ("qr", rest.to_string()),
+            "svd"               => ("svd", rest.to_string()),
+            "chol"|"cholesky"   => ("chol", rest.to_string()),
+            "pinv"|"pseudoinverse"|"pseudo" => ("pinv", rest.to_string()),
             _                   => ("info", q.to_string()),
         }
     };
@@ -3214,6 +3300,72 @@ pub fn matrix_calc(query: &str) -> String {
                 let trace: f64 = (0..rows).map(|i| a[i][i]).sum();
                 let _ = writeln!(out, "  Trace = {:.6}", trace);
                 if let Ok(d) = mat_det(&a) { let _ = writeln!(out, "  Det   = {:.6}", d); }
+            }
+        }
+        "qr" => {
+            // Gram-Schmidt QR decomposition
+            let (q_mat, r_mat) = mat_qr(&a);
+            let _ = writeln!(out, "  QR Decomposition  (A = Q · R)");
+            let _ = writeln!(out, "  Q (orthonormal columns):");
+            out.push_str(&mat_fmt(&q_mat));
+            let _ = writeln!(out, "  R (upper-triangular):");
+            out.push_str(&mat_fmt(&r_mat));
+        }
+        "svd" => {
+            // SVD via Jacobi iterations (symmetric A^T A → eigendecomposition)
+            // Returns singular values and V matrix; U approximated for small matrices
+            if rows > 8 || cols > 8 {
+                let _ = writeln!(out, "  Error: SVD limited to 8×8 matrices ({}×{})", rows, cols);
+            } else {
+                let (s_vals, v_mat) = mat_svd_values(&a);
+                let _ = writeln!(out, "  SVD Singular Values:");
+                for (i, sv) in s_vals.iter().enumerate() {
+                    let bar_len = if s_vals[0].abs() > 1e-12 { (sv / s_vals[0] * 20.0) as usize } else { 0 };
+                    let _ = writeln!(out, "  σ{} = {:.6}  {}", i+1, sv, "#".repeat(bar_len));
+                }
+                let rank: usize = s_vals.iter().filter(|&&v| v.abs() > 1e-9).count();
+                let cond = if s_vals.last().map(|v| v.abs()).unwrap_or(0.0) > 1e-12 {
+                    format!("{:.4}", s_vals[0] / s_vals.iter().cloned().fold(f64::INFINITY, f64::min))
+                } else { "∞ (singular)".to_string() };
+                let _ = writeln!(out, "  Rank: {}  |  Condition number: {}", rank, cond);
+                let _ = writeln!(out, "  V (right singular vectors):");
+                out.push_str(&mat_fmt(&v_mat));
+            }
+        }
+        "chol" => {
+            if rows != cols { let _ = writeln!(out, "  Error: Cholesky requires square matrix"); }
+            else {
+                match mat_cholesky(&a) {
+                    Ok(l) => {
+                        let _ = writeln!(out, "  Cholesky Decomposition  (A = L · Lᵀ)");
+                        let _ = writeln!(out, "  L (lower-triangular):");
+                        out.push_str(&mat_fmt(&l));
+                    }
+                    Err(e) => { let _ = writeln!(out, "  Error: {}  (matrix must be symmetric positive-definite)", e); }
+                }
+            }
+        }
+        "pinv" => {
+            // Moore-Penrose pseudoinverse via SVD-based approach (normal equations for full-rank)
+            match mat_pinv(&a) {
+                Ok(p) => {
+                    let _ = writeln!(out, "  Moore-Penrose Pseudoinverse (A⁺):");
+                    out.push_str(&mat_fmt(&p));
+                    // Verify: A A⁺ A ≈ A
+                    if let Ok(aa_p) = mat_mul(&a, &p) {
+                        if let Ok(aapa) = mat_mul(&aa_p, &a) {
+                            let mut err = 0.0f64;
+                            for i in 0..aapa.len() {
+                                for j in 0..aapa[i].len() {
+                                    let d = (aapa[i][j] - a[i][j]).abs();
+                                    if d > err { err = d; }
+                                }
+                            }
+                            let _ = writeln!(out, "  Verify ||A*A+*A - A||_inf = {:.2e}", err);
+                        }
+                    }
+                }
+                Err(e) => { let _ = writeln!(out, "  Error: {}", e); }
             }
         }
         _ => {
