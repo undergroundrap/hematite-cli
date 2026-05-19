@@ -795,6 +795,14 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "TEXT",
+        help = "Text statistics and readability analyzer — instant, no model, no cloud. Computes: character/word/sentence/paragraph counts, syllable count, average word length, Flesch Reading Ease, Flesch-Kincaid Grade Level, Gunning Fog Index, SMOG Index, Coleman-Liau Index, top-20 word frequency, letter frequency, longest words. Example: hematite --text-stats 'Paste or type any text here...'"
+    )]
+    pub text_stats: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"

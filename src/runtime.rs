@@ -976,6 +976,7 @@ mod tests {
             bitwise: None,
             set: None,
             cipher: None,
+            text_stats: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

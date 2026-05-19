@@ -7936,3 +7936,178 @@ fn cipher_usage() -> &'static str {
      \n\
      Ciphers: rot13, atbash, caesar, vigenere, railfence, columnar, morse"
 }
+
+// ─── Text statistics and readability analyzer ─────────────────────────────────
+
+pub fn text_stats(input: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  TEXT STATISTICS & READABILITY");
+    let _ = writeln!(out, "{}", sep);
+
+    let text = input.trim();
+    if text.is_empty() {
+        let _ = writeln!(out, "  No text provided. Pass text as the argument.");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // ─── Basic counts ───
+    let char_count = text.chars().count();
+    let char_no_space = text.chars().filter(|c| !c.is_whitespace()).count();
+    let byte_count = text.len();
+
+    // Words: split on whitespace
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let word_count = words.len();
+
+    // Sentences: end with . ! ? (crude but accurate enough for readability)
+    let sentence_count = text.chars().filter(|&c| c == '.' || c == '!' || c == '?').count().max(1);
+
+    // Paragraphs: blank lines
+    let paragraph_count = text.split("\n\n").filter(|p| !p.trim().is_empty()).count().max(1);
+
+    // ─── Syllable counting (heuristic: vowel groups) ───
+    let count_syllables = |word: &str| -> usize {
+        let w = word.to_lowercase();
+        let w: String = w.chars().filter(|c| c.is_alphabetic()).collect();
+        if w.is_empty() { return 0; }
+        let vowels = "aeiouy";
+        let mut count = 0usize;
+        let mut prev_vowel = false;
+        let chars: Vec<char> = w.chars().collect();
+        for &ch in &chars {
+            let is_v = vowels.contains(ch);
+            if is_v && !prev_vowel { count += 1; }
+            prev_vowel = is_v;
+        }
+        // Silent trailing 'e'
+        if w.ends_with('e') && count > 1 { count = count.saturating_sub(1); }
+        count.max(1)
+    };
+
+    let total_syllables: usize = words.iter().map(|w| count_syllables(w)).sum();
+    let avg_syllables = if word_count > 0 { total_syllables as f64 / word_count as f64 } else { 0.0 };
+
+    // ─── Readability scores ───
+    let words_per_sentence = if sentence_count > 0 { word_count as f64 / sentence_count as f64 } else { 0.0 };
+    let syllables_per_word = avg_syllables;
+
+    // Flesch Reading Ease: 206.835 - 1.015*(words/sentences) - 84.6*(syllables/word)
+    let flesch_ease = 206.835 - 1.015 * words_per_sentence - 84.6 * syllables_per_word;
+    let flesch_ease = flesch_ease.max(0.0).min(100.0);
+
+    // Flesch-Kincaid Grade Level: 0.39*(words/sentences) + 11.8*(syllables/word) - 15.59
+    let fk_grade = 0.39 * words_per_sentence + 11.8 * syllables_per_word - 15.59;
+    let fk_grade = fk_grade.max(0.0);
+
+    // Gunning Fog Index: 0.4 * ((words/sentences) + 100*(complex_words/words))
+    // Complex = 3+ syllables, not proper nouns (crude: just count syllables >= 3)
+    let complex_words = words.iter().filter(|w| count_syllables(w) >= 3).count();
+    let fog_index = 0.4 * (words_per_sentence + 100.0 * complex_words as f64 / word_count.max(1) as f64);
+
+    // SMOG: sqrt(complex * (30 / sentences)) + 3
+    let smog = (complex_words as f64 * 30.0 / sentence_count as f64).sqrt() + 3.0;
+
+    // Coleman-Liau: 0.0588*L - 0.296*S - 15.8  (L=avg letters/100 words, S=avg sentences/100 words)
+    let letters_per_100: f64 = char_no_space as f64 / word_count.max(1) as f64 * 100.0;
+    let sent_per_100:    f64 = sentence_count as f64 / word_count.max(1) as f64 * 100.0;
+    let coleman_liau = 0.0588 * letters_per_100 - 0.296 * sent_per_100 - 15.8;
+
+    // Flesch ease → grade label
+    let ease_label = if flesch_ease >= 90.0 { "Very Easy (5th grade)" }
+        else if flesch_ease >= 80.0 { "Easy (6th grade)" }
+        else if flesch_ease >= 70.0 { "Fairly Easy (7th grade)" }
+        else if flesch_ease >= 60.0 { "Standard (8th–9th grade)" }
+        else if flesch_ease >= 50.0 { "Fairly Difficult (10th–12th grade)" }
+        else if flesch_ease >= 30.0 { "Difficult (College)" }
+        else { "Very Confusing (Professional)" };
+
+    // ─── Word frequency (top 20 excluding common stop words) ───
+    let stop_words: &[&str] = &[
+        "the","a","an","and","or","but","in","on","at","to","for","of","with",
+        "is","it","its","was","are","were","be","been","being","have","has","had",
+        "do","does","did","will","would","could","should","may","might","shall",
+        "that","this","these","those","i","you","he","she","we","they","them",
+        "his","her","our","their","my","your","as","by","from","up","about",
+        "into","through","than","more","also","if","not","so","all","can",
+    ];
+    let mut freq: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for word in &words {
+        let clean: String = word.chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect::<String>()
+            .to_lowercase();
+        if !clean.is_empty() && clean.len() > 1 && !stop_words.contains(&clean.as_str()) {
+            *freq.entry(clean).or_insert(0) += 1;
+        }
+    }
+    let mut freq_sorted: Vec<(String, usize)> = freq.into_iter().collect();
+    freq_sorted.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+
+    // ─── Character frequency ───
+    let mut char_freq: std::collections::HashMap<char, usize> = std::collections::HashMap::new();
+    for ch in text.chars() {
+        if ch.is_alphabetic() { *char_freq.entry(ch.to_ascii_lowercase()).or_insert(0) += 1; }
+    }
+    let mut char_sorted: Vec<(char, usize)> = char_freq.into_iter().collect();
+    char_sorted.sort_by(|a, b| b.1.cmp(&a.1));
+
+    // ─── Average word length ───
+    let total_word_chars: usize = words.iter().map(|w| w.chars().filter(|c| c.is_alphabetic()).count()).sum();
+    let avg_word_len = if word_count > 0 { total_word_chars as f64 / word_count as f64 } else { 0.0 };
+
+    // ─── Longest words ───
+    let mut word_lengths: Vec<(&&str, usize)> = words.iter().map(|w| (w, w.chars().filter(|c| c.is_alphabetic()).count())).collect();
+    word_lengths.sort_by(|a, b| b.1.cmp(&a.1));
+    word_lengths.dedup_by_key(|w| w.1);
+
+    // ─── Output ───
+    let _ = writeln!(out, "  ─── Basic Counts ───");
+    let _ = writeln!(out, "  Characters (total):     {:>8}", char_count);
+    let _ = writeln!(out, "  Characters (no spaces): {:>8}", char_no_space);
+    let _ = writeln!(out, "  Bytes:                  {:>8}", byte_count);
+    let _ = writeln!(out, "  Words:                  {:>8}", word_count);
+    let _ = writeln!(out, "  Sentences:              {:>8}", sentence_count);
+    let _ = writeln!(out, "  Paragraphs:             {:>8}", paragraph_count);
+    let _ = writeln!(out, "  Syllables (est.):       {:>8}", total_syllables);
+    let _ = writeln!(out, "  Complex words (3+ syl): {:>8}", complex_words);
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Averages ───");
+    let _ = writeln!(out, "  Avg word length:        {:>8.2} chars", avg_word_len);
+    let _ = writeln!(out, "  Avg syllables/word:     {:>8.2}", avg_syllables);
+    let _ = writeln!(out, "  Avg words/sentence:     {:>8.2}", words_per_sentence);
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Readability Scores ───");
+    let _ = writeln!(out, "  Flesch Reading Ease:    {:>8.1}  ({})", flesch_ease, ease_label);
+    let _ = writeln!(out, "  Flesch-Kincaid Grade:   {:>8.1}  (Grade {:.0})", fk_grade, fk_grade);
+    let _ = writeln!(out, "  Gunning Fog Index:      {:>8.1}  (Grade {:.0})", fog_index, fog_index);
+    let _ = writeln!(out, "  SMOG Index:             {:>8.1}  (Grade {:.0})", smog, smog);
+    let _ = writeln!(out, "  Coleman-Liau Index:     {:>8.1}  (Grade {:.0})", coleman_liau, coleman_liau);
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Top Words (excluding stop words) ───");
+    for (word, count) in freq_sorted.iter().take(20) {
+        let bar: String = "█".repeat((count * 30 / freq_sorted[0].1.max(1)).min(30));
+        let _ = writeln!(out, "  {:>4}x  {:<20}  {}", count, word, bar);
+    }
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Letter Frequency ───");
+    let total_letters: usize = char_sorted.iter().map(|&(_, c)| c).sum();
+    for (ch, count) in char_sorted.iter().take(10) {
+        let pct = *count as f64 / total_letters.max(1) as f64 * 100.0;
+        let bar: String = "█".repeat((pct as usize * 2).min(40));
+        let _ = writeln!(out, "  '{}': {:>5} ({:5.2}%)  {}", ch, count, pct, bar);
+    }
+    if !word_lengths.is_empty() {
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  ─── Longest Words ───");
+        for (w, len) in word_lengths.iter().take(5) {
+            let clean: String = w.chars().filter(|c| c.is_alphanumeric()).collect();
+            let _ = writeln!(out, "  {} ({} chars)", clean, len);
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
