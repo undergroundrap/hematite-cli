@@ -1528,3 +1528,159 @@ else:
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── PCA — Principal Component Analysis ───────────────────────────────────────
+// Pure-Python power-iteration covariance PCA.  No numpy.
+// Reports top-N components: eigenvalue, variance explained, loadings bar chart.
+// Optionally writes a projected-coordinates CSV.
+
+pub async fn pca_analyze(
+    file_path: &str,
+    n_components: usize,
+    cols: &[&str],
+    output: &str,
+) -> Result<String, String> {
+    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_cols:   String = cols.join(",").bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, os, sys, math
+
+_path   = bytes.fromhex("{hex_path}").decode().strip()
+_cstr   = bytes.fromhex("{hex_cols}").decode().strip()
+_output = bytes.fromhex("{hex_output}").decode().strip()
+_n_comp = {n_components}
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r)
+    raise ValueError("Unsupported file type: " + ext + " (CSV/TSV only for PCA)")
+
+def _tf(v):
+    try: return float(v)
+    except: return None
+
+rows = _load(_path)
+if not rows:
+    print("No data found."); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+sel = [c.strip() for c in _cstr.split(',') if c.strip()] if _cstr else []
+num_cols = sel if sel else [c for c in all_cols if any(_tf(r.get(c,'')) is not None for r in rows[:20])]
+num_cols = [c for c in num_cols if c in all_cols]
+
+mat = []
+for r in rows:
+    vals = [_tf(r.get(c,'')) for c in num_cols]
+    if all(v is not None for v in vals):
+        mat.append(vals)
+
+n_rows = len(mat); n_cols = len(num_cols)
+if n_rows < 2 or n_cols < 2:
+    print("Need at least 2 rows and 2 numeric columns for PCA."); sys.exit(0)
+
+means = [sum(mat[i][j] for i in range(n_rows))/n_rows for j in range(n_cols)]
+X = [[mat[i][j] - means[j] for j in range(n_cols)] for i in range(n_rows)]
+
+def cov_matrix(X, nc, nr):
+    C = [[0.0]*nc for _ in range(nc)]
+    for j in range(nc):
+        for k in range(j, nc):
+            s = sum(X[i][j]*X[i][k] for i in range(nr)) / (nr-1)
+            C[j][k] = C[k][j] = s
+    return C
+
+C = cov_matrix(X, n_cols, n_rows)
+
+def mat_vec(M, v):
+    return [sum(M[i][j]*v[j] for j in range(len(v))) for i in range(len(v))]
+
+def vec_norm(v): return math.sqrt(sum(x*x for x in v))
+def vec_scale(v, s): return [x*s for x in v]
+
+n_comp = min(_n_comp, n_cols, n_rows-1)
+total_var = sum(C[j][j] for j in range(n_cols))
+eigvals = []; eigvecs = []
+Cd = [row[:] for row in C]
+
+for ci in range(n_comp):
+    v = [1.0 if j == ci % n_cols else 0.1 for j in range(n_cols)]
+    nrm = vec_norm(v); v = vec_scale(v, 1.0/nrm)
+    for _it in range(300):
+        v_new = mat_vec(Cd, v)
+        nrm = vec_norm(v_new)
+        if nrm < 1e-14: break
+        v_new = vec_scale(v_new, 1.0/nrm)
+        delta = vec_norm([v_new[j]-v[j] for j in range(n_cols)])
+        v = v_new
+        if delta < 1e-10: break
+    lam = sum(mat_vec(Cd, v)[j]*v[j] for j in range(n_cols))
+    if lam < 0: lam = 0.0
+    eigvals.append(lam)
+    eigvecs.append(v[:])
+    for i in range(n_cols):
+        for j in range(n_cols):
+            Cd[i][j] -= lam * v[i] * v[j]
+
+projected = []
+for row_x in X:
+    projected.append([sum(row_x[j]*eigvecs[c][j] for j in range(n_cols)) for c in range(n_comp)])
+
+W = 68
+print("="*W)
+print("  PCA  —  Principal Component Analysis")
+print("  File   : %s" % os.path.basename(_path))
+print("  Rows   : %d  |  Columns : %d  |  Components: %d" % (n_rows, n_cols, n_comp))
+print("  Columns: %s" % ', '.join(num_cols[:6]) + (('  +%d more' % (len(num_cols)-6)) if len(num_cols)>6 else ''))
+print("="*W)
+
+cum = 0.0
+for ci in range(n_comp):
+    pct = (eigvals[ci]/total_var*100) if total_var > 0 else 0.0
+    cum += pct
+    bar = int(round(pct / 2.5))
+    bar_str = "█"*bar + "░"*(40-bar)
+    print("\n  PC%d  eigenvalue %.4f  |  var %5.1f%%  |  cumulative %5.1f%%" % (ci+1, eigvals[ci], pct, cum))
+    print("  %s" % bar_str)
+    loads = sorted(enumerate(eigvecs[ci]), key=lambda x: -abs(x[1]))
+    print("  Top loadings:")
+    for _idx, (fidx, w) in enumerate(loads[:8]):
+        sign = '+' if w >= 0 else '-'
+        bar2 = int(abs(w)*20)
+        print("    %-22s  %s%.4f  %s" % (num_cols[fidx][:22], sign, abs(w), "▌"*bar2))
+
+print()
+print("  Projected sample (first 5 rows):")
+print("  " + "".join("  PC%-7d" % (c+1) for c in range(n_comp)))
+for row_p in projected[:5]:
+    print("  " + "".join("%+-10.4f" % v for v in row_p))
+print()
+print("="*W)
+
+if _output:
+    pc_cols = ["PC%d" % (c+1) for c in range(n_comp)]
+    with open(_output, 'w', newline='', encoding='utf-8') as fh:
+        w2 = _csv.writer(fh)
+        w2.writerow(pc_cols)
+        for row_p in projected:
+            w2.writerow(["%.8f" % v for v in row_p])
+    print("  Projected data (%d rows) saved to: %s" % (len(projected), _output))
+else:
+    print("  (Use --pca-output FILE to save projected coordinates as CSV)")
+"####,
+        hex_path   = hex_path,
+        hex_cols   = hex_cols,
+        hex_output = hex_output,
+        n_components = n_components,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 60
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}

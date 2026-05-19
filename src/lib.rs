@@ -683,6 +683,18 @@ pub struct CliCockpit {
     #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Output CSV with normalized values for --normalize.")]
     pub normalize_output: Option<String>,
 
+    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Run PCA on a CSV/TSV file. Reports eigenvalues, variance explained per component, and top loadings. Example: hematite --pca data.csv --pca-components 3")]
+    pub pca: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "N", help = "Number of principal components to compute for --pca (default: 3).")]
+    pub pca_components: Option<usize>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL1,COL2,...", help = "Columns to include in --pca, comma-separated (default: all numeric).")]
+    pub pca_cols: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Output CSV with projected coordinates for --pca.")]
+    pub pca_output: Option<String>,
+
     #[arg(
         long,
         help_heading = "Headless Reports",

@@ -943,6 +943,10 @@ mod tests {
             normalize_method: None,
             normalize_cols: None,
             normalize_output: None,
+            pca: None,
+            pca_components: None,
+            pca_cols: None,
+            pca_output: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

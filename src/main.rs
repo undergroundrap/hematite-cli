@@ -2845,6 +2845,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref file_path) = cockpit.pca {
+        let n_comp   = cockpit.pca_components.unwrap_or(3);
+        let cols_str = cockpit.pca_cols.as_deref().unwrap_or("");
+        let cols: Vec<&str> = if cols_str.is_empty() { vec![] } else { cols_str.split(',').map(str::trim).collect() };
+        let output   = cockpit.pca_output.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::pca_analyze(file_path.trim(), n_comp, &cols, output).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.percentile {
         let col = cockpit.percentile_col.as_deref().unwrap_or("");
         match hematite::tools::data_tools::percentile_report(file_path.trim(), col).await {
