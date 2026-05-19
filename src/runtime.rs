@@ -954,6 +954,7 @@ mod tests {
             signal: None,
             interpolate: None,
             units: None,
+            ode: None,
             hypothesis: None,
             hypothesis_test: None,
             hypothesis_group2: None,

@@ -5724,3 +5724,343 @@ fn units_usage() -> &'static str {
      Categories: Length Area Volume Mass Time Speed Pressure Energy\n\
                  Power Digital-Storage Angle Force Temperature Fuel-Economy"
 }
+
+// ── ODE solver ────────────────────────────────────────────────────────────────
+// Solves first-order ODEs and systems using Euler, RK4, or adaptive RK45.
+// Equations are parsed as simple expressions using the symbolic engine.
+// Supports preset equations for well-known models.
+
+// Evaluate a simple 1-variable function f(t, y) from a string.
+// Handles: constants, t, y, arithmetic +−*/^, sin/cos/exp/ln/sqrt.
+fn ode_eval_expr(expr_str: &str, t: f64, y: f64) -> f64 {
+    let substituted = expr_str
+        .replace("exp(", "\x00EXP\x00(")
+        .replace('y', &format!("({:.17e})", y))
+        .replace('t', &format!("({:.17e})", t))
+        .replace("\x00EXP\x00(", "exp(");
+    let expr = match parse_sym(&substituted) {
+        Ok(e) => e,
+        Err(_) => return f64::NAN,
+    };
+    eval_expr(&expr, "x", 0.0).unwrap_or(f64::NAN)
+}
+
+// RK4 step for scalar ODE dy/dt = f(t, y)
+fn rk4_step(f: &dyn Fn(f64, f64) -> f64, t: f64, y: f64, h: f64) -> f64 {
+    let k1 = f(t, y);
+    let k2 = f(t + h / 2.0, y + h * k1 / 2.0);
+    let k3 = f(t + h / 2.0, y + h * k2 / 2.0);
+    let k4 = f(t + h, y + h * k3);
+    y + h * (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+}
+
+// Euler step
+fn euler_step(f: &dyn Fn(f64, f64) -> f64, t: f64, y: f64, h: f64) -> f64 {
+    y + h * f(t, y)
+}
+
+// Adaptive RK45 (Dormand-Prince) — returns (y_new, error_estimate, h_used)
+fn rk45_step(f: &dyn Fn(f64, f64) -> f64, t: f64, y: f64, h: f64) -> (f64, f64) {
+    // Dormand-Prince coefficients
+    let k1 = f(t, y);
+    let k2 = f(t + h/5.0,      y + h*(k1/5.0));
+    let k3 = f(t + 3.0*h/10.0, y + h*(3.0*k1/40.0 + 9.0*k2/40.0));
+    let k4 = f(t + 4.0*h/5.0,  y + h*(44.0*k1/45.0 - 56.0*k2/15.0 + 32.0*k3/9.0));
+    let k5 = f(t + 8.0*h/9.0,  y + h*(19372.0*k1/6561.0 - 25360.0*k2/2187.0 + 64448.0*k3/6561.0 - 212.0*k4/729.0));
+    let k6 = f(t + h,           y + h*(9017.0*k1/3168.0 - 355.0*k2/33.0 + 46732.0*k3/5247.0 + 49.0*k4/176.0 - 5103.0*k5/18656.0));
+    // 5th order solution
+    let y5 = y + h*(35.0*k1/384.0 + 500.0*k3/1113.0 + 125.0*k4/192.0 - 2187.0*k5/6784.0 + 11.0*k6/84.0);
+    // 4th order for error estimate
+    let y4 = y + h*(5179.0*k1/57600.0 + 7571.0*k3/16695.0 + 393.0*k4/640.0 - 92097.0*k5/339200.0 + 187.0*k6/2100.0 + k6/40.0);
+    let err = (y5 - y4).abs();
+    (y5, err)
+}
+
+// 2D system RK4: dy1/dt = f1(t,y1,y2), dy2/dt = f2(t,y1,y2)
+fn rk4_system_step(
+    f1: &dyn Fn(f64, f64, f64) -> f64,
+    f2: &dyn Fn(f64, f64, f64) -> f64,
+    t: f64, y1: f64, y2: f64, h: f64,
+) -> (f64, f64) {
+    let k1a = f1(t, y1, y2);           let k1b = f2(t, y1, y2);
+    let k2a = f1(t+h/2.0, y1+h*k1a/2.0, y2+h*k1b/2.0);
+    let k2b = f2(t+h/2.0, y1+h*k1a/2.0, y2+h*k1b/2.0);
+    let k3a = f1(t+h/2.0, y1+h*k2a/2.0, y2+h*k2b/2.0);
+    let k3b = f2(t+h/2.0, y1+h*k2a/2.0, y2+h*k2b/2.0);
+    let k4a = f1(t+h, y1+h*k3a, y2+h*k3b);
+    let k4b = f2(t+h, y1+h*k3a, y2+h*k3b);
+    (y1 + h*(k1a+2.0*k2a+2.0*k3a+k4a)/6.0,
+     y2 + h*(k1b+2.0*k2b+2.0*k3b+k4b)/6.0)
+}
+
+fn ode_ascii_plot(ts: &[f64], ys: &[f64], width: usize, height: usize) -> String {
+    if ts.is_empty() || ys.is_empty() { return String::new(); }
+    let mn = ys.iter().cloned().fold(f64::INFINITY, f64::min);
+    let mx = ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let yrange = (mx - mn).max(1e-12);
+    let tmin = ts[0]; let tmax = ts[ts.len()-1];
+    let trange = (tmax - tmin).max(1e-12);
+    let mut grid = vec![vec![' '; width]; height];
+    for (i, (&t, &y)) in ts.iter().zip(ys.iter()).enumerate() {
+        let _ = i;
+        let col = ((t - tmin) / trange * (width - 1) as f64).round() as usize;
+        let row = height - 1 - ((y - mn) / yrange * (height - 1) as f64).round() as usize;
+        let col = col.min(width - 1); let row = row.min(height - 1);
+        grid[row][col] = '·';
+    }
+    let result = grid.iter().map(|r| r.iter().collect::<String>()).collect::<Vec<_>>().join("\n");
+    format!("{}\n  y: [{:.4} .. {:.4}]\n  t: [{:.4} .. {:.4}]", result, mn, mx, tmin, tmax)
+}
+
+pub fn ode_solve(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "═".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  ODE SOLVER");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_lowercase();
+
+    // --- Preset models ---
+    if q.starts_with("logistic") || q.contains("logistic growth") {
+        // dy/dt = r*y*(1 - y/K)
+        let tokens: Vec<&str> = query.trim().split_whitespace().collect();
+        let r: f64 = tokens.iter().position(|&t| t.to_lowercase() == "r")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.0);
+        let k: f64 = tokens.iter().position(|&t| t.to_lowercase() == "k")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(100.0);
+        let y0: f64 = tokens.iter().position(|&t| t.to_lowercase() == "y0")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(10.0);
+        let t_end: f64 = tokens.iter().position(|&t| t.to_lowercase() == "t")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(10.0);
+        let n = 200_usize;
+        let h = t_end / n as f64;
+        let _ = writeln!(out, "  Logistic Growth:  dy/dt = r·y·(1 - y/K)");
+        let _ = writeln!(out, "  r={:.4}  K={:.4}  y0={:.4}  t=[0,{:.4}]", r, k, y0, t_end);
+        let _ = writeln!(out, "");
+        let f = |_t: f64, y: f64| r * y * (1.0 - y / k);
+        let mut t = 0.0_f64; let mut y = y0;
+        let mut ts = vec![t]; let mut ys = vec![y];
+        for _ in 0..n { y = rk4_step(&f, t, y, h); t += h; ts.push(t); ys.push(y); }
+        let analytical_k = k / (1.0 + (k/y0 - 1.0) * (-r * t_end).exp());
+        let _ = writeln!(out, "  y(t_end) = {:.6}  [analytical: {:.6}]", ys[ys.len()-1], analytical_k);
+        let plot = ode_ascii_plot(&ts, &ys, 56, 10);
+        let _ = writeln!(out, ""); for line in plot.lines() { let _ = writeln!(out, "  {}", line); }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q.starts_with("exponential") || q.starts_with("decay") || q.starts_with("growth") {
+        let tokens: Vec<&str> = query.trim().split_whitespace().collect();
+        let r: f64 = tokens.iter().position(|&t| t.to_lowercase() == "r")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.0);
+        let y0: f64 = tokens.iter().position(|&t| t.to_lowercase() == "y0")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.0);
+        let t_end: f64 = tokens.iter().position(|&t| t.to_lowercase() == "t")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(5.0);
+        let n = 200_usize;
+        let h = t_end / n as f64;
+        let _ = writeln!(out, "  Exponential:  dy/dt = r·y");
+        let _ = writeln!(out, "  r={:.4}  y0={:.4}  t=[0,{:.4}]", r, y0, t_end);
+        let f = |_t: f64, y: f64| r * y;
+        let mut t = 0.0_f64; let mut y = y0;
+        let mut ts = vec![t]; let mut ys = vec![y];
+        for _ in 0..n { y = rk4_step(&f, t, y, h); t += h; ts.push(t); ys.push(y); }
+        let analytical = y0 * (r * t_end).exp();
+        let _ = writeln!(out, "  y(t_end) = {:.6}  [analytical: {:.6}]", ys[ys.len()-1], analytical);
+        let plot = ode_ascii_plot(&ts, &ys, 56, 10);
+        let _ = writeln!(out, ""); for line in plot.lines() { let _ = writeln!(out, "  {}", line); }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q.starts_with("lotka") || q.contains("predator") || q.contains("prey") {
+        // Lotka-Volterra: dx/dt = α*x - β*x*y,  dy/dt = δ*x*y - γ*y
+        let tokens: Vec<&str> = query.trim().split_whitespace().collect();
+        let alpha: f64 = tokens.iter().position(|&t| t.to_lowercase()=="alpha")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.0);
+        let beta: f64  = tokens.iter().position(|&t| t.to_lowercase()=="beta")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(0.1);
+        let delta: f64 = tokens.iter().position(|&t| t.to_lowercase()=="delta")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(0.075);
+        let gamma: f64 = tokens.iter().position(|&t| t.to_lowercase()=="gamma")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.5);
+        let x0: f64   = tokens.iter().position(|&t| t.to_lowercase()=="x0")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(10.0);
+        let y0: f64   = tokens.iter().position(|&t| t.to_lowercase()=="y0")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(5.0);
+        let t_end: f64 = tokens.iter().position(|&t| t.to_lowercase()=="t")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(30.0);
+        let n = 2000_usize; let h = t_end / n as f64;
+        let _ = writeln!(out, "  Lotka-Volterra (predator-prey)");
+        let _ = writeln!(out, "  dx/dt = {:.3}x - {:.3}xy  (prey)", alpha, beta);
+        let _ = writeln!(out, "  dy/dt = {:.3}xy - {:.3}y  (predator)", delta, gamma);
+        let _ = writeln!(out, "  x0={:.2}  y0={:.2}  t=[0,{:.1}]", x0, y0, t_end);
+        let f1 = |_t: f64, x: f64, y: f64| alpha*x - beta*x*y;
+        let f2 = |_t: f64, x: f64, y: f64| delta*x*y - gamma*y;
+        let mut t = 0.0_f64; let mut x = x0; let mut y = y0;
+        let mut ts = vec![t]; let mut xs = vec![x]; let mut ys = vec![y];
+        for _ in 0..n {
+            let (nx, ny) = rk4_system_step(&f1, &f2, t, x, y, h);
+            x = nx; y = ny; t += h;
+            ts.push(t); xs.push(x); ys.push(y);
+        }
+        let _ = writeln!(out, "  x(t_end)={:.4}  y(t_end)={:.4}", xs[xs.len()-1], ys[ys.len()-1]);
+        let _ = writeln!(out, "  Prey trajectory:");
+        let plot = ode_ascii_plot(&ts, &xs, 56, 8);
+        for line in plot.lines() { let _ = writeln!(out, "  {}", line); }
+        let _ = writeln!(out, "  Predator trajectory:");
+        let plot2 = ode_ascii_plot(&ts, &ys, 56, 8);
+        for line in plot2.lines() { let _ = writeln!(out, "  {}", line); }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q.starts_with("sir") || q.contains("susceptible") || q.contains("epidemic") {
+        // SIR model: dS/dt=-β*S*I/N, dI/dt=β*S*I/N - γ*I, dR/dt=γ*I
+        let tokens: Vec<&str> = query.trim().split_whitespace().collect();
+        let n_pop: f64 = tokens.iter().position(|&t| t.to_lowercase()=="n")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1000.0);
+        let beta: f64  = tokens.iter().position(|&t| t.to_lowercase()=="beta")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(0.3);
+        let gamma: f64 = tokens.iter().position(|&t| t.to_lowercase()=="gamma")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(0.05);
+        let i0: f64    = tokens.iter().position(|&t| t.to_lowercase()=="i0")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.0);
+        let t_end: f64 = tokens.iter().position(|&t| t.to_lowercase()=="t")
+            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(200.0);
+        let n_steps = 2000_usize; let h = t_end / n_steps as f64;
+        let r0 = beta / gamma;
+        let _ = writeln!(out, "  SIR Epidemic Model  (N={}, β={:.4}, γ={:.4}, R₀={:.2})", n_pop, beta, gamma, r0);
+        let _ = writeln!(out, "  dS/dt = -β·S·I/N   dI/dt = β·S·I/N - γ·I   dR/dt = γ·I");
+        let mut s = n_pop - i0; let mut inf = i0; let mut r = 0.0_f64;
+        let mut t = 0.0_f64;
+        let mut ts = vec![t]; let mut is = vec![inf];
+        let mut peak_i = i0; let mut peak_t = 0.0_f64;
+        for _ in 0..n_steps {
+            let ds = -beta * s * inf / n_pop;
+            let di = beta * s * inf / n_pop - gamma * inf;
+            let dr = gamma * inf;
+            s += h*ds; inf += h*di; r += h*dr; t += h;
+            if inf > peak_i { peak_i = inf; peak_t = t; }
+            ts.push(t); is.push(inf);
+        }
+        let _ = writeln!(out, "  Peak infected: {:.1} at t={:.1}", peak_i, peak_t);
+        let _ = writeln!(out, "  Final: S={:.1}  I={:.1}  R={:.1}", s, inf, r);
+        let plot = ode_ascii_plot(&ts, &is, 56, 10);
+        for line in plot.lines() { let _ = writeln!(out, "  {}", line); }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // --- Generic: dy/dt = EXPR  y0=VALUE  t=END  [n=STEPS] [method=euler|rk4|rk45] ---
+    let tokens: Vec<&str> = query.trim().split_whitespace().collect();
+
+    // Parse: "dy/dt = EXPR" form or "EXPR y0=V t=END"
+    let eq_str: String = if let Some(eq_pos) = query.find('=') {
+        // Could be "dy/dt = ..." — find the first '=' and take what's after
+        // But also y0= or t= have = so find the equation part
+        let before = &query[..eq_pos].trim().to_lowercase();
+        if before.ends_with("dy/dt") || before.ends_with("f") || before.ends_with("dydt") {
+            query[eq_pos+1..].split_whitespace()
+                .take_while(|t| !t.to_lowercase().starts_with("y0=")
+                             && !t.to_lowercase().starts_with("t=")
+                             && !t.to_lowercase().starts_with("n=")
+                             && !t.to_lowercase().starts_with("method="))
+                .collect::<Vec<_>>().join("")
+        } else { tokens[0].to_string() }
+    } else { tokens[0].to_string() };
+
+    // Extract named params
+    let get_param = |key: &str| -> Option<f64> {
+        query.split_whitespace().find(|t| t.to_lowercase().starts_with(&format!("{}=", key)))
+            .and_then(|t| t.splitn(2, '=').nth(1)?.parse().ok())
+    };
+    let get_str_param = |key: &str| -> Option<String> {
+        query.split_whitespace().find(|t| t.to_lowercase().starts_with(&format!("{}=", key)))
+            .and_then(|t| t.splitn(2, '=').nth(1).map(|s| s.to_lowercase()))
+    };
+
+    let y0     = get_param("y0").unwrap_or(1.0);
+    let t_end  = get_param("t").or_else(|| get_param("tend")).or_else(|| get_param("t_end")).unwrap_or(10.0);
+    let n      = get_param("n").map(|v| v as usize).unwrap_or(100).max(4).min(10000);
+    let method = get_str_param("method").unwrap_or_else(|| "rk4".into());
+
+    if eq_str.is_empty() || eq_str == "0" {
+        let _ = writeln!(out, "{}", ode_usage());
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let eq = eq_str.clone();
+    let f = move |t: f64, y: f64| ode_eval_expr(&eq, t, y);
+    let h = t_end / n as f64;
+
+    let _ = writeln!(out, "  dy/dt = {}   y0={}   t=[0,{}]   n={}   method={}", eq_str, y0, t_end, n, method);
+    let _ = writeln!(out, "");
+
+    let (ts, ys): (Vec<f64>, Vec<f64>) = match method.as_str() {
+        "euler" => {
+            let mut t = 0.0_f64; let mut y = y0;
+            let mut ts = vec![t]; let mut ys = vec![y];
+            for _ in 0..n { y = euler_step(&f, t, y, h); t += h; ts.push(t); ys.push(y); }
+            (ts, ys)
+        }
+        "rk45" | "adaptive" => {
+            let mut t = 0.0_f64; let mut y = y0;
+            let mut ts = vec![t]; let mut ys = vec![y];
+            let mut h_cur = h; let tol = 1e-6_f64;
+            let mut steps = 0_usize;
+            while t < t_end && steps < 100_000 {
+                let (y_new, err) = rk45_step(&f, t, y, h_cur);
+                if err < tol || h_cur < 1e-10 {
+                    t += h_cur; y = y_new; ts.push(t); ys.push(y); steps += 1;
+                }
+                let scale = if err > 0.0 { 0.9 * (tol / err).powf(0.2) } else { 2.0 };
+                h_cur = (h_cur * scale.min(5.0).max(0.1)).min(t_end - t + 1e-15);
+            }
+            (ts, ys)
+        }
+        _ => {
+            let mut t = 0.0_f64; let mut y = y0;
+            let mut ts = vec![t]; let mut ys = vec![y];
+            for _ in 0..n { y = rk4_step(&f, t, y, h); t += h; ts.push(t); ys.push(y); }
+            (ts, ys)
+        }
+    };
+
+    // Print table (max 20 rows)
+    let step = (ts.len() / 20).max(1);
+    let _ = writeln!(out, "  {:>10}  {:>16}", "t", "y");
+    let _ = writeln!(out, "  {}", "-".repeat(28));
+    for (i, (&t, &y)) in ts.iter().zip(ys.iter()).enumerate() {
+        if i % step == 0 || i == ts.len() - 1 { let _ = writeln!(out, "  {:>10.6}  {:>16.10}", t, y); }
+    }
+    let _ = writeln!(out, "");
+
+    // Plot
+    let plot = ode_ascii_plot(&ts, &ys, 56, 10);
+    for line in plot.lines() { let _ = writeln!(out, "  {}", line); }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+fn ode_usage() -> &'static str {
+    "ODE solver — no model, no cloud:\n\
+     \n\
+     Generic:\n\
+     hematite --ode 'dy/dt = -y  y0=1  t=5'          exponential decay\n\
+     hematite --ode 'dy/dt = t*y  y0=1  t=3  n=50'   custom ODE\n\
+     hematite --ode 'dy/dt = sin(t)-y  y0=0  t=20 method=rk45'  adaptive\n\
+     hematite --ode 'dy/dt = r*y  y0=0.5  t=4 method=euler'\n\
+     \n\
+     Preset models:\n\
+     hematite --ode 'exponential r=0.5 y0=1 t=5'\n\
+     hematite --ode 'logistic r=1 K=100 y0=5 t=10'\n\
+     hematite --ode 'lotka alpha=1 beta=0.1 delta=0.075 gamma=1.5 x0=10 y0=5 t=30'\n\
+     hematite --ode 'sir N=10000 beta=0.3 gamma=0.05 i0=1 t=200'\n\
+     \n\
+     Methods: euler  rk4 (default)  rk45 (adaptive)\n\
+     Params:  y0=INITIAL  t=TEND  n=STEPS  method=NAME"
+}
