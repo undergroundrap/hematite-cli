@@ -7937,6 +7937,145 @@ fn cipher_usage() -> &'static str {
      Ciphers: rot13, atbash, caesar, vigenere, railfence, columnar, morse"
 }
 
+// ─── Checksum calculator ──────────────────────────────────────────────────────
+
+pub fn checksum_calc(input: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  CHECKSUM CALCULATOR");
+    let _ = writeln!(out, "{}", sep);
+
+    let bytes: Vec<u8> = input.as_bytes().to_vec();
+    let len = bytes.len();
+
+    let _ = writeln!(out, "  Input:   \"{}\"", input);
+    let _ = writeln!(out, "  Length:  {} bytes", len);
+    let _ = writeln!(out, "");
+
+    // ─── CRC-32 (IEEE 802.3 polynomial 0xEDB88320) ───
+    let crc32 = {
+        let mut table = [0u32; 256];
+        for i in 0u32..256 {
+            let mut c = i;
+            for _ in 0..8 {
+                if c & 1 != 0 { c = 0xEDB8_8320 ^ (c >> 1); }
+                else { c >>= 1; }
+            }
+            table[i as usize] = c;
+        }
+        let mut crc: u32 = 0xFFFF_FFFF;
+        for &b in &bytes { crc = (crc >> 8) ^ table[((crc ^ b as u32) & 0xFF) as usize]; }
+        crc ^ 0xFFFF_FFFF
+    };
+
+    // ─── CRC-16 (CCITT / X.25) ───
+    let crc16 = {
+        let mut crc: u16 = 0xFFFF;
+        for &b in &bytes {
+            crc ^= (b as u16) << 8;
+            for _ in 0..8 {
+                if crc & 0x8000 != 0 { crc = (crc << 1) ^ 0x1021; }
+                else { crc <<= 1; }
+            }
+        }
+        crc
+    };
+
+    // ─── Adler-32 ───
+    let adler32 = {
+        let (mut a, mut b) = (1u32, 0u32);
+        for &byte in &bytes {
+            a = (a + byte as u32) % 65521;
+            b = (b + a) % 65521;
+        }
+        (b << 16) | a
+    };
+
+    // ─── FNV-1a 32-bit ───
+    let fnv1a_32 = {
+        let mut h: u32 = 2166136261;
+        for &b in &bytes {
+            h ^= b as u32;
+            h = h.wrapping_mul(16777619);
+        }
+        h
+    };
+
+    // ─── FNV-1a 64-bit ───
+    let fnv1a_64 = {
+        let mut h: u64 = 14695981039346656037;
+        for &b in &bytes {
+            h ^= b as u64;
+            h = h.wrapping_mul(1099511628211);
+        }
+        h
+    };
+
+    // ─── DJB2 ───
+    let djb2 = {
+        let mut h: u64 = 5381;
+        for &b in &bytes { h = h.wrapping_mul(33).wrapping_add(b as u64); }
+        h
+    };
+
+    // ─── SDBM ───
+    let sdbm = {
+        let mut h: u64 = 0;
+        for &b in &bytes {
+            h = (b as u64).wrapping_add(h.wrapping_shl(6)).wrapping_add(h.wrapping_shl(16)).wrapping_sub(h);
+        }
+        h
+    };
+
+    // ─── XOR checksum ───
+    let xor8: u8  = bytes.iter().fold(0u8,  |acc, &b| acc ^ b);
+    let xor16: u16 = bytes.chunks(2).fold(0u16, |acc, chunk| {
+        let w = if chunk.len() == 2 { (chunk[0] as u16) << 8 | chunk[1] as u16 }
+                else { (chunk[0] as u16) << 8 };
+        acc ^ w
+    });
+
+    // ─── Sum checksums ───
+    let sum8:  u8  = bytes.iter().fold(0u8,  |acc, &b| acc.wrapping_add(b));
+    let sum16: u16 = bytes.iter().fold(0u16, |acc, &b| acc.wrapping_add(b as u16));
+    let sum32: u32 = bytes.iter().fold(0u32, |acc, &b| acc.wrapping_add(b as u32));
+
+    let _ = writeln!(out, "  ─── Cyclic Redundancy Checks ───");
+    let _ = writeln!(out, "  CRC-32 (IEEE):     0x{:08X}  ({:10})", crc32, crc32);
+    let _ = writeln!(out, "  CRC-16 (CCITT):    0x{:04X}      ({:6})", crc16, crc16);
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Hash Functions ───");
+    let _ = writeln!(out, "  Adler-32:          0x{:08X}  ({:10})", adler32, adler32);
+    let _ = writeln!(out, "  FNV-1a 32:         0x{:08X}  ({:10})", fnv1a_32, fnv1a_32);
+    let _ = writeln!(out, "  FNV-1a 64:         0x{:016X}", fnv1a_64);
+    let _ = writeln!(out, "  DJB2:              0x{:016X}", djb2);
+    let _ = writeln!(out, "  SDBM:              0x{:016X}", sdbm);
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Simple Checksums ───");
+    let _ = writeln!(out, "  XOR-8:             0x{:02X}  ({})", xor8, xor8);
+    let _ = writeln!(out, "  XOR-16:            0x{:04X}  ({})", xor16, xor16);
+    let _ = writeln!(out, "  Sum-8 (mod 256):   0x{:02X}  ({})", sum8, sum8);
+    let _ = writeln!(out, "  Sum-16:            0x{:04X}  ({})", sum16, sum16);
+    let _ = writeln!(out, "  Sum-32:            0x{:08X}  ({})", sum32, sum32);
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Byte Analysis ───");
+    let _ = writeln!(out, "  Min byte:          0x{:02X}  ({})", bytes.iter().min().copied().unwrap_or(0), bytes.iter().min().copied().unwrap_or(0));
+    let _ = writeln!(out, "  Max byte:          0x{:02X}  ({})", bytes.iter().max().copied().unwrap_or(0), bytes.iter().max().copied().unwrap_or(0));
+    let avg_byte = bytes.iter().map(|&b| b as f64).sum::<f64>() / len.max(1) as f64;
+    let _ = writeln!(out, "  Avg byte value:    {:.2}", avg_byte);
+    // Hex dump (first 32 bytes)
+    if len <= 32 {
+        let _ = writeln!(out, "  Hex: {}", bytes.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" "));
+    } else {
+        let preview: String = bytes[..32].iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" ");
+        let _ = writeln!(out, "  Hex (first 32): {} ...", preview);
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
 // ─── Sorting algorithm visualizer ─────────────────────────────────────────────
 
 pub fn sort_viz(query: &str) -> String {

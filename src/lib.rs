@@ -827,6 +827,14 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "TEXT",
+        help = "Checksum calculator — instant, no model, no cloud. Computes CRC-32, CRC-16 (CCITT), Adler-32, FNV-1a 32/64, DJB2, SDBM, XOR-8/16, and Sum-8/16/32 checksums for any string. Also shows hex dump, min/max/avg byte values. Examples: hematite --checksum 'Hello, World!' | hematite --checksum '123456789'"
+    )]
+    pub checksum: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"

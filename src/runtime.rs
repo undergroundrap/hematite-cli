@@ -980,6 +980,7 @@ mod tests {
             levenshtein: None,
             number_format: None,
             sort_viz: None,
+            checksum: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
