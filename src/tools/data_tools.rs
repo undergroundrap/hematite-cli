@@ -1,8 +1,8 @@
-// ─── Data analysis tools ──────────────────────────────────────────────────────
+﻿// â”€â”€â”€ Data analysis tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Random sampling, correlation matrix, time-series analysis.
-// All use the Python code sandbox — no external deps, no model required.
+// All use the Python code sandbox â€” no external deps, no model required.
 
-// ── Random data sampling ──────────────────────────────────────────────────────
+// â”€â”€ Random data sampling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Draws N rows (or a fraction) from a CSV/TSV/JSON/SQLite file.
 // Optionally splits into train/test sets.
 
@@ -82,15 +82,15 @@ if _split > 0 and _split < 1 and _outdir:
     os.makedirs(_outdir, exist_ok=True)
     _write_csv(train, train_path)
     _write_csv(test,  test_path)
-    print("Sampled %d rows (seed=%d) → %d%% split" % (k, _seed, int(_split*100)))
-    print("Train: %d rows → %s" % (len(train), train_path))
-    print("Test:  %d rows → %s" % (len(test), test_path))
+    print("Sampled %d rows (seed=%d) â†’ %d%% split" % (k, _seed, int(_split*100)))
+    print("Train: %d rows â†’ %s" % (len(train), train_path))
+    print("Test:  %d rows â†’ %s" % (len(test), test_path))
 elif _outdir:
     base = os.path.splitext(os.path.basename(_path))[0]
     out_path = os.path.join(_outdir, base + '_sample%d.csv' % k)
     os.makedirs(_outdir, exist_ok=True)
     _write_csv(sample, out_path)
-    print("Sampled %d / %d rows (seed=%d) → %s" % (k, total, _seed, out_path))
+    print("Sampled %d / %d rows (seed=%d) â†’ %s" % (k, total, _seed, out_path))
 else:
     # Print sample to stdout as CSV
     fieldnames = list(sample[0].keys())
@@ -117,7 +117,7 @@ else:
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Correlation matrix ────────────────────────────────────────────────────────
+// â”€â”€ Correlation matrix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 pub async fn correlation_matrix(file_path: &str, method: &str) -> Result<String, String> {
     let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
@@ -167,7 +167,7 @@ if len(num_cols) < 2:
     print("Need at least 2 numeric columns. Found: %s" % ', '.join(num_cols or ['(none)']))
     sys.exit(0)
 
-# Build column vectors (paired — both must be non-null for each row)
+# Build column vectors (paired â€” both must be non-null for each row)
 def _col_vec(c): return [_tf(r.get(c,'')) for r in rows]
 
 vecs = {{c: _col_vec(c) for c in num_cols}}
@@ -209,7 +209,7 @@ matrix = [[corr_fn(vecs[a], vecs[b]) for b in num_cols] for a in num_cols]
 
 W = 64
 print("="*W)
-print(" Correlation Matrix (%s)  —  %s" % (_method.capitalize(), os.path.basename(_path)))
+print(" Correlation Matrix (%s)  â€”  %s" % (_method.capitalize(), os.path.basename(_path)))
 print("-"*W)
 # Print header
 col_w = 8
@@ -247,7 +247,7 @@ if pairs_flat:
     for _abs, v, a, b in pairs_flat[:min(5, len(pairs_flat))]:
         direction = "positive" if v > 0 else "negative"
         strength = "strong" if abs(v)>=0.7 else "moderate" if abs(v)>=0.4 else "weak"
-        print("  %s  %-15s  ×  %-15s" % (("r=%+.4f"%v), a[:15], b[:15]))
+        print("  %s  %-15s  Ã—  %-15s" % (("r=%+.4f"%v), a[:15], b[:15]))
         print("         (%s %s)" % (strength, direction))
 "####,
         hex_path   = hex_path,
@@ -262,7 +262,7 @@ if pairs_flat:
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Time-series basic analysis ────────────────────────────────────────────────
+// â”€â”€ Time-series basic analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 pub async fn timeseries_analyze(
     file_path: &str,
@@ -331,7 +331,7 @@ if not _val_col and num_cols:
 if not _val_col:
     print("No numeric value column found. Use --ts-value COL to specify one."); sys.exit(0)
 
-# Extract and sort by date string (lexicographic — works for ISO dates)
+# Extract and sort by date string (lexicographic â€” works for ISO dates)
 pairs = []
 for r in rows:
     d = str(r.get(_date_col,'')).strip()
@@ -369,28 +369,28 @@ print("="*W)
 print(" Time-Series Analysis: %s" % os.path.basename(_path))
 print(" Date column:  %s    Value column: %s" % (_date_col, _val_col))
 print("-"*W)
-print("  Points:  %d   Range: %s → %s" % (n, dates[0][:16], dates[-1][:16]))
+print("  Points:  %d   Range: %s â†’ %s" % (n, dates[0][:16], dates[-1][:16]))
 print("  Min:     %g  (at %s)" % (min(vals), dates[vals.index(min(vals))][:16]))
 print("  Max:     %g  (at %s)" % (max(vals), dates[vals.index(max(vals))][:16]))
 print("  Mean:    %.4f   Std: %.4f" % (ym, math.sqrt(sum((v-ym)**2 for v in vals)/n)))
-print("  Trend:   %.4f per step  (%s)" % (b, "↑ upward" if b>0 else "↓ downward" if b<0 else "→ flat"))
+print("  Trend:   %.4f per step  (%s)" % (b, "â†‘ upward" if b>0 else "â†“ downward" if b<0 else "â†’ flat"))
 print("  Peaks:   %d local maxima   Valleys: %d local minima" % (len(peaks), len(valleys)))
 print("-"*W)
 print("  Rolling mean (window=%d):" % _window)
 # Compact sparkline using ASCII
 W2 = 50
 rng = max(vals) - min(vals) if max(vals) != min(vals) else 1
-bar_chars = " ▁▂▃▄▅▆▇█"
+bar_chars = " â–â–‚â–ƒâ–„â–…â–†â–‡â–ˆ"
 spark = ''.join(bar_chars[min(8,int((v-min(vals))/rng*8))] for v in vals)
 # Wrap
 for i in range(0, len(spark), W2):
     chunk = spark[i:i+W2]
-    print("  [%s]  %s–%s" % (chunk, dates[i][:10], dates[min(i+W2-1,n-1)][:10]))
+    print("  [%s]  %sâ€“%s" % (chunk, dates[i][:10], dates[min(i+W2-1,n-1)][:10]))
 print("-"*W)
 # Last few rolling values
 print("  Recent rolling mean (%d-period):" % _window)
 for i in range(max(0,n-5), n):
-    flag = " ← latest" if i==n-1 else ""
+    flag = " â† latest" if i==n-1 else ""
     print("    %-16s  value=%g   roll_mean=%.4f%s" % (dates[i][:16], vals[i], roll_mean[i], flag))
 print("="*W)
 "####,
@@ -408,7 +408,7 @@ print("="*W)
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Percentile / quantile report ──────────────────────────────────────────────
+// â”€â”€ Percentile / quantile report â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Computes P1 P5 P10 P25 P50 P75 P90 P95 P99 for each numeric column
 // (or a specific column if col is non-empty).
 
@@ -475,7 +475,7 @@ else:
 
 W = 72
 print("="*W)
-print(" Percentile Report — %s  (%d rows)" % (os.path.basename(_path), len(rows)))
+print(" Percentile Report â€” %s  (%d rows)" % (os.path.basename(_path), len(rows)))
 print("-"*W)
 hdr = "%-20s %8s %8s %8s %8s %8s %8s %8s" % ("Column", "P25", "P50", "P75", "P90", "P99", "Min", "Max")
 print(hdr)
@@ -516,8 +516,8 @@ if len(target_cols) == 1:
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Pivot table ───────────────────────────────────────────────────────────────
-// Groups rows by row_col × col_col and aggregates value_col.
+// â”€â”€ Pivot table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Groups rows by row_col Ã— col_col and aggregates value_col.
 // Agg: count (default), sum, mean, min, max.
 
 pub async fn pivot_table(
@@ -637,9 +637,9 @@ for rk in row_keys:
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Multivariate linear regression ───────────────────────────────────────────
-// OLS via normal equations: β = (XᵀX)⁻¹Xᵀy
-// Supports one or more predictor columns. Reports coefficients, R², RMSE,
+// â”€â”€ Multivariate linear regression â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// OLS via normal equations: Î² = (Xáµ€X)â»Â¹Xáµ€y
+// Supports one or more predictor columns. Reports coefficients, RÂ², RMSE,
 // and predicted vs actual for first 10 rows.
 
 pub async fn linear_regression(
@@ -744,7 +744,7 @@ XtX_sq = _mat_mul_sq(Xt, X)
 Xty = [sum(Xt[i][k]*y[k] for k in range(n)) for i in range(pp+1)]
 beta = _lu_solve(XtX_sq, Xty)
 if beta is None:
-    print("Matrix is singular — check for collinear predictors."); sys.exit(1)
+    print("Matrix is singular â€” check for collinear predictors."); sys.exit(1)
 
 preds_vals = [sum(beta[j]*X[i][j] for j in range(pp+1)) for i in range(n)]
 residuals  = [y[i]-preds_vals[i] for i in range(n)]
@@ -757,7 +757,7 @@ adj_r2 = 1 - (1-r2)*(n-1)/(n-pp-1) if n > pp+1 else float('nan')
 
 W = 64
 print("="*W)
-print(" Linear Regression — %s" % os.path.basename(_path))
+print(" Linear Regression â€” %s" % os.path.basename(_path))
 print(" Target: %-20s   N=%d   Predictors=%d" % (_target, n, pp))
 print("-"*W)
 print("  Coefficients:")
@@ -765,8 +765,8 @@ print("    %-20s  %12.6f" % ("(intercept)", beta[0]))
 for i2,c2 in enumerate(_preds):
     print("    %-20s  %12.6f" % (c2[:20], beta[i2+1]))
 print("-"*W)
-print("  R²         = %.6f" % r2)
-print("  Adj. R²    = %.6f" % adj_r2)
+print("  RÂ²         = %.6f" % r2)
+print("  Adj. RÂ²    = %.6f" % adj_r2)
 print("  RMSE       = %.6f" % rmse)
 print("  Residuals  min=%.4g  max=%.4g  mean=%.4g" % (min(residuals), max(residuals), sum(residuals)/n))
 print("-"*W)
@@ -795,8 +795,8 @@ for i3 in range(min(10,n)):
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Outlier detection ─────────────────────────────────────────────────────────
-// IQR (1.5× fence) and Z-score (|z|>3) detection.
+// â”€â”€ Outlier detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// IQR (1.5Ã— fence) and Z-score (|z|>3) detection.
 // Optional: output clean CSV with outliers removed.
 
 pub async fn detect_outliers(
@@ -864,7 +864,7 @@ else:
 
 W = 68
 print("="*W)
-print(" Outlier Detection — %s  (%d rows)" % (os.path.basename(_path), len(rows)))
+print(" Outlier Detection â€” %s  (%d rows)" % (os.path.basename(_path), len(rows)))
 print("-"*W)
 
 outlier_row_indices = set()
@@ -907,7 +907,7 @@ if _output and outlier_row_indices:
         w.writeheader(); w.writerows(clean)
     print("  Clean data (%d rows) saved to: %s" % (len(clean), _output))
 elif _output:
-    print("  No outliers to remove — output file not written.")
+    print("  No outliers to remove â€” output file not written.")
 "####,
         hex_path   = hex_path,
         hex_col    = hex_col,
@@ -922,8 +922,8 @@ elif _output:
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── SVG chart generator ───────────────────────────────────────────────────────
-// Produces a self-contained SVG file — no matplotlib, no external deps.
+// â”€â”€ SVG chart generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Produces a self-contained SVG file â€” no matplotlib, no external deps.
 // Chart types: line (default), scatter, bar, histogram.
 // Reads CSV/TSV/JSON/SQLite. Auto-opens with --open flag (handled in main.rs).
 
@@ -990,7 +990,7 @@ if not _ycol:
     _ycol = num_cols[0] if num_cols else (all_cols[1] if len(all_cols)>1 else all_cols[0])
 
 if not _title:
-    _title = "%s — %s vs %s" % (os.path.basename(_path), _xcol, _ycol)
+    _title = "%s â€” %s vs %s" % (os.path.basename(_path), _xcol, _ycol)
 
 if not _out:
     base = os.path.splitext(_path)[0]
@@ -1143,7 +1143,7 @@ print("Open in any browser to view.")
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Discrete Fourier Transform / frequency analysis ───────────────────────────
+// â”€â”€ Discrete Fourier Transform / frequency analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Pure-Python DFT. Reads numeric column, reports top-N frequency components.
 
 pub async fn fourier_analysis(
@@ -1268,7 +1268,7 @@ print("="*W)
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── k-means clustering ────────────────────────────────────────────────────────
+// â”€â”€ k-means clustering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Lloyd's algorithm, pure Python, no sklearn.
 // Reports cluster centroids, sizes, inertia, and per-row assignments.
 
@@ -1403,7 +1403,7 @@ if _output:
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Normalize / standardize dataset ──────────────────────────────────────────
+// â”€â”€ Normalize / standardize dataset â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Applies min-max scaling or z-score standardization to numeric columns.
 // Outputs a new CSV with scaled values and reports the scaling parameters.
 
@@ -1513,7 +1513,7 @@ if _output:
         w.writeheader(); w.writerows(out_rows)
     print("Normalized data (%d rows) saved to: %s" % (len(out_rows), _output))
 else:
-    print("  (No --normalize-output specified — use --normalize-output FILE to save scaled CSV)")
+    print("  (No --normalize-output specified â€” use --normalize-output FILE to save scaled CSV)")
 "####,
         hex_path   = hex_path,
         hex_cols   = hex_cols,
@@ -1529,7 +1529,7 @@ else:
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── PCA — Principal Component Analysis ───────────────────────────────────────
+// â”€â”€ PCA â€” Principal Component Analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Pure-Python power-iteration covariance PCA.  No numpy.
 // Reports top-N components: eigenvalue, variance explained, loadings bar chart.
 // Optionally writes a projected-coordinates CSV.
@@ -1631,7 +1631,7 @@ for row_x in X:
 
 W = 68
 print("="*W)
-print("  PCA  —  Principal Component Analysis")
+print("  PCA  â€”  Principal Component Analysis")
 print("  File   : %s" % os.path.basename(_path))
 print("  Rows   : %d  |  Columns : %d  |  Components: %d" % (n_rows, n_cols, n_comp))
 print("  Columns: %s" % ', '.join(num_cols[:6]) + (('  +%d more' % (len(num_cols)-6)) if len(num_cols)>6 else ''))
@@ -1642,7 +1642,7 @@ for ci in range(n_comp):
     pct = (eigvals[ci]/total_var*100) if total_var > 0 else 0.0
     cum += pct
     bar = int(round(pct / 2.5))
-    bar_str = "█"*bar + "░"*(40-bar)
+    bar_str = "â–ˆ"*bar + "â–‘"*(40-bar)
     print("\n  PC%d  eigenvalue %.4f  |  var %5.1f%%  |  cumulative %5.1f%%" % (ci+1, eigvals[ci], pct, cum))
     print("  %s" % bar_str)
     loads = sorted(enumerate(eigvecs[ci]), key=lambda x: -abs(x[1]))
@@ -1650,7 +1650,7 @@ for ci in range(n_comp):
     for _idx, (fidx, w) in enumerate(loads[:8]):
         sign = '+' if w >= 0 else '-'
         bar2 = int(abs(w)*20)
-        print("    %-22s  %s%.4f  %s" % (num_cols[fidx][:22], sign, abs(w), "▌"*bar2))
+        print("    %-22s  %s%.4f  %s" % (num_cols[fidx][:22], sign, abs(w), "â–Œ"*bar2))
 
 print()
 print("  Projected sample (first 5 rows):")
@@ -1685,9 +1685,9 @@ else:
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Statistical hypothesis testing ───────────────────────────────────────────
+// â”€â”€ Statistical hypothesis testing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // t-tests, chi-square, ANOVA, Mann-Whitney, Pearson, proportion z-test,
-// confidence intervals — all via Python stdlib (statistics, math only).
+// confidence intervals â€” all via Python stdlib (statistics, math only).
 pub async fn hypothesis_test(
     test_type: &str,
     group1_str: &str,
@@ -2001,7 +2001,7 @@ print("="*W)
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Descriptive statistics ─────────────────────────────────────────────────────
+// â”€â”€ Descriptive statistics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Full per-column stats: mean, median, mode, std, variance, skewness, kurtosis,
 // percentiles (P5/P25/P50/P75/P95), IQR, outliers, ASCII histogram.
 pub async fn describe_stats(
@@ -2106,7 +2106,7 @@ def ascii_hist(vals, bins=16, width=36):
     for i, c in enumerate(counts):
         lo = mn + i*bw; hi = lo+bw
         bar = int(c / max_c * width)
-        lines.append("  [%8.3g, %8.3g)  %s %d" % (lo, hi, '█'*bar, c))
+        lines.append("  [%8.3g, %8.3g)  %s %d" % (lo, hi, 'â–ˆ'*bar, c))
     return lines
 
 print("=" * W)
@@ -2182,7 +2182,7 @@ print("\n" + "=" * W)
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Classification (k-NN and Naive Bayes) ────────────────────────────────────
+// â”€â”€ Classification (k-NN and Naive Bayes) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Trains on labeled CSV data, predicts a class label for new input, and runs
 // leave-one-out cross-validation to report accuracy. No external libraries.
 pub async fn classify_data(
@@ -2278,7 +2278,7 @@ print("  Method:  %s   Classes: %s" % (_method, ', '.join(classes)))
 print("  Samples: %d" % len(labeled))
 print("="*W)
 
-# ── k-NN ──────────────────────────────────────────────────────────────────────
+# â”€â”€ k-NN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def knn_predict(X_train, y_train, x_q, k):
     dists = [(math.sqrt(sum((a-b)**2 for a,b in zip(x_q, xi))), yi)
              for xi, yi in zip(X_train, y_train)]
@@ -2286,7 +2286,7 @@ def knn_predict(X_train, y_train, x_q, k):
     top = [yi for _, yi in dists[:k]]
     return Counter(top).most_common(1)[0][0]
 
-# ── Gaussian Naive Bayes ───────────────────────────────────────────────────────
+# â”€â”€ Gaussian Naive Bayes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def gnb_fit(X_train, y_train):
     classes_t = sorted(set(y_train))
     stats = {{}}
@@ -2311,7 +2311,7 @@ def gnb_predict(priors, stats, x_q):
         if log_p > best_log: best_log = log_p; best_c = c
     return best_c
 
-# ── LOO cross-validation ──────────────────────────────────────────────────────
+# â”€â”€ LOO cross-validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 correct = 0
 confusion = defaultdict(lambda: defaultdict(int))
 for i in range(len(labeled)):
@@ -2385,7 +2385,7 @@ print("="*W)
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
 
-// ── Regression analysis ───────────────────────────────────────────────────────
+// â”€â”€ Regression analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 pub async fn regression_analysis(
     file_path: &str,
     x_col: &str,
@@ -2408,7 +2408,7 @@ _degree = {deg}
 _pred_s = bytes.fromhex("{hex_predict}").decode().strip()
 W = 64
 
-# ── load CSV ──────────────────────────────────────────────────────────────────
+# â”€â”€ load CSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with open(_path, newline="", encoding="utf-8-sig") as f:
     reader = csv.DictReader(f)
     rows   = list(reader)
@@ -2432,7 +2432,7 @@ if n < 2:
 
 deg = max(1, min(_degree, 10))
 
-# ── Vandermonde least-squares via Gaussian elimination ────────────────────────
+# â”€â”€ Vandermonde least-squares via Gaussian elimination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def poly_fit(xs, ys, deg):
     d = deg + 1
     ATA = [[0.0]*d for _ in range(d)]
@@ -2467,7 +2467,7 @@ def poly_eval(coeffs, x):
 
 coeffs = poly_fit(xs, ys, deg)
 
-# ── metrics ───────────────────────────────────────────────────────────────────
+# â”€â”€ metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 y_mean = sum(ys) / n
 ss_res = sum((y - poly_eval(coeffs, x))**2 for x, y in zip(xs, ys))
 ss_tot = sum((y - y_mean)**2 for y in ys)
@@ -2483,10 +2483,10 @@ if deg == 1 and n > 1:
 else:
     pearson_r = None
 
-# ── header ────────────────────────────────────────────────────────────────────
+# â”€â”€ header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 print("=" * W)
 label = "LINEAR" if deg == 1 else f"POLYNOMIAL (degree {{deg}})"
-print(f"  REGRESSION ANALYSIS — {{label}}")
+print(f"  REGRESSION ANALYSIS â€” {{label}}")
 print(f"  X: {{x_col}}   Y: {{y_col}}   N: {{n}}")
 print("=" * W)
 terms = []
@@ -2509,7 +2509,7 @@ else:            qual = "Weak fit (R2 < 0.60)"
 print(f"  Quality : {{qual}}")
 print()
 
-# ── ASCII scatter + fit curve ─────────────────────────────────────────────────
+# â”€â”€ ASCII scatter + fit curve â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 ROWS, COLS = 16, W - 6
 x_min, x_max = min(xs), max(xs)
 cx_list = [x_min + (x_max - x_min)*i/(COLS-1) for i in range(COLS)] if COLS > 1 else [x_min]
@@ -2545,7 +2545,7 @@ pad_w = max(0, COLS - len(xl) - len(xr))
 print("  " + " "*9 + xl + " "*pad_w + xr)
 print()
 
-# ── residuals ─────────────────────────────────────────────────────────────────
+# â”€â”€ residuals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 resids = [y - poly_eval(coeffs, x) for x, y in zip(xs, ys)]
 r_min, r_max = min(resids), max(resids)
 rRs, rCs = 6, W - 6
@@ -2566,7 +2566,7 @@ print("  " + "-"*rCs)
 print(f"  Range: [{{r_min:.4g}}, {{r_max:.4g}}]")
 print()
 
-# ── predictions ───────────────────────────────────────────────────────────────
+# â”€â”€ predictions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if _pred_s:
     try:
         pred_xs = [float(v.strip()) for v in _pred_s.split(",")]
