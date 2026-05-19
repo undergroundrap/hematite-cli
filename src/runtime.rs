@@ -955,6 +955,7 @@ mod tests {
             interpolate: None,
             units: None,
             ode: None,
+            optimize: None,
             hypothesis: None,
             hypothesis_test: None,
             hypothesis_group2: None,

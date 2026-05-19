@@ -719,6 +719,9 @@ pub struct CliCockpit {
     #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "ODE solver — solves ordinary differential equations using Euler, RK4, or adaptive RK45. Preset models: logistic, exponential, Lotka-Volterra, SIR. Example: hematite --ode 'dy/dt = -y  y0=1  t=5'  or  'logistic r=1 K=100 y0=5 t=10'")]
     pub ode: Option<String>,
 
+    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Numerical optimization — minimize/maximize 1D/2D functions, gradient descent, root finding. No model. Example: hematite --optimize 'min x^2-4*x+3 a=0 b=5'  or  'max sin(x) a=0 b=6.28'  or  'root x^3-2 a=0 b=2'")]
+    pub optimize: Option<String>,
+
     #[arg(long, help_heading = "Data Analysis", value_name = "DATA", help = "Statistical hypothesis test — t-tests, chi-square, ANOVA, Mann-Whitney, Pearson, proportion z-test, confidence intervals. Provide comma-separated numbers or 'successes,n' for proportions. Example: hematite --hypothesis '2.1,2.8,3.2,2.5' --hypothesis-test one-t --hypothesis-mu 2.0")]
     pub hypothesis: Option<String>,
 

@@ -6064,3 +6064,279 @@ fn ode_usage() -> &'static str {
      Methods: euler  rk4 (default)  rk45 (adaptive)\n\
      Params:  y0=INITIAL  t=TEND  n=STEPS  method=NAME"
 }
+
+// ── Numerical optimization ─────────────────────────────────────────────────────
+// Golden-section search (1D), gradient descent (nD), Nelder-Mead simplex (2D).
+// Evaluates arbitrary expressions via the symbolic engine.
+
+fn opt_eval(expr_str: &str, x: f64, y: f64) -> f64 {
+    let s = expr_str
+        .replace("exp(", "\x00E\x00(")
+        .replace('y', &format!("({:.17e})", y))
+        .replace('x', &format!("({:.17e})", x))
+        .replace("\x00E\x00(", "exp(");
+    match parse_sym(&s) {
+        Ok(e) => eval_expr(&e, "z", 0.0).unwrap_or(f64::NAN),
+        Err(_) => f64::NAN,
+    }
+}
+
+// Golden-section search: minimize f over [a, b]
+fn golden_section(f: &dyn Fn(f64) -> f64, mut a: f64, mut b: f64, tol: f64, max_iter: usize) -> (f64, f64, usize) {
+    let phi = (5.0_f64.sqrt() - 1.0) / 2.0;
+    let mut c = b - phi * (b - a);
+    let mut d = a + phi * (b - a);
+    let mut fc = f(c); let mut fd = f(d);
+    let mut iters = 0;
+    while (b - a).abs() > tol && iters < max_iter {
+        if fc < fd { b = d; d = c; fd = fc; c = b - phi * (b - a); fc = f(c); }
+        else        { a = c; c = d; fc = fd; d = a + phi * (b - a); fd = f(d); }
+        iters += 1;
+    }
+    let x_min = (a + b) / 2.0;
+    (x_min, f(x_min), iters)
+}
+
+// Finite-difference gradient
+fn grad(f: &dyn Fn(&[f64]) -> f64, x: &[f64], h: f64) -> Vec<f64> {
+    x.iter().enumerate().map(|(i, _)| {
+        let mut xp = x.to_vec(); xp[i] += h;
+        let mut xm = x.to_vec(); xm[i] -= h;
+        (f(&xp) - f(&xm)) / (2.0 * h)
+    }).collect()
+}
+
+// Gradient descent with backtracking line search
+fn gradient_descent(
+    f: &dyn Fn(&[f64]) -> f64,
+    x0: &[f64], max_iter: usize, tol: f64,
+) -> (Vec<f64>, f64, usize) {
+    let mut x = x0.to_vec();
+    let mut iters = 0;
+    let mut alpha = 0.1_f64;
+    for _ in 0..max_iter {
+        let g = grad(f, &x, 1e-6);
+        let gnorm = g.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if gnorm < tol { break; }
+        // backtracking
+        let fx = f(&x);
+        let mut step = alpha;
+        let mut x_new = x.iter().zip(g.iter()).map(|(&xi, &gi)| xi - step * gi).collect::<Vec<_>>();
+        let mut tries = 0;
+        while f(&x_new) > fx - 0.5 * step * gnorm * gnorm && tries < 30 {
+            step *= 0.5; tries += 1;
+            x_new = x.iter().zip(g.iter()).map(|(&xi, &gi)| xi - step * gi).collect();
+        }
+        alpha = step;
+        x = x_new;
+        iters += 1;
+    }
+    let fval = f(&x);
+    (x, fval, iters)
+}
+
+// Nelder-Mead simplex for 2D
+fn nelder_mead(f: &dyn Fn(f64, f64) -> f64, x0: f64, y0: f64, max_iter: usize, tol: f64) -> (f64, f64, f64, usize) {
+    let g = |p: &[f64; 2]| f(p[0], p[1]);
+    let mut s = [[x0, y0], [x0 + 1.0, y0], [x0, y0 + 1.0]];
+    let mut iters = 0;
+    loop {
+        // sort by function value
+        let mut fs: [(f64, usize); 3] = [(g(&s[0]), 0), (g(&s[1]), 1), (g(&s[2]), 2)];
+        fs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        let (_, i_best) = fs[0]; let (_, i_worst) = fs[2]; let (_, i_2nd) = fs[1];
+        // convergence
+        let spread = (fs[2].0 - fs[0].0).abs();
+        if spread < tol || iters >= max_iter { break; }
+        // centroid of best two
+        let cx = (s[i_best][0] + s[i_2nd][0]) / 2.0;
+        let cy = (s[i_best][1] + s[i_2nd][1]) / 2.0;
+        // reflect
+        let rx = 2.0 * cx - s[i_worst][0];
+        let ry = 2.0 * cy - s[i_worst][1];
+        let fr = g(&[rx, ry]);
+        if fr < fs[0].0 {
+            // expand
+            let ex = 3.0 * cx - 2.0 * s[i_worst][0];
+            let ey = 3.0 * cy - 2.0 * s[i_worst][1];
+            if g(&[ex, ey]) < fr { s[i_worst] = [ex, ey]; } else { s[i_worst] = [rx, ry]; }
+        } else if fr < fs[1].0 {
+            s[i_worst] = [rx, ry];
+        } else {
+            // contract
+            let kx = 0.5 * (cx + s[i_worst][0]);
+            let ky = 0.5 * (cy + s[i_worst][1]);
+            if g(&[kx, ky]) < fs[2].0 {
+                s[i_worst] = [kx, ky];
+            } else {
+                // shrink
+                for j in 1..3 {
+                    let idx = fs[j].1;
+                    s[idx] = [(s[i_best][0]+s[idx][0])/2.0, (s[i_best][1]+s[idx][1])/2.0];
+                }
+            }
+        }
+        iters += 1;
+    }
+    let mut fs: [(f64, usize); 3] = [(g(&s[0]), 0), (g(&s[1]), 1), (g(&s[2]), 2)];
+    fs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    let best = s[fs[0].1];
+    (best[0], best[1], fs[0].0, iters)
+}
+
+pub fn optimize_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "═".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  NUMERICAL OPTIMIZATION");
+    let _ = writeln!(out, "{}", sep);
+
+    let tokens: Vec<&str> = query.trim().split_whitespace().collect();
+    if tokens.is_empty() {
+        let _ = writeln!(out, "{}", optimize_usage());
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let get_param = |key: &str| -> Option<f64> {
+        query.split_whitespace()
+            .find(|t| t.to_lowercase().starts_with(&format!("{}=", key)))
+            .and_then(|t| t.splitn(2, '=').nth(1)?.parse().ok())
+    };
+    let mode = tokens[0].to_lowercase();
+
+    match mode.as_str() {
+        // --- 1D minimize/maximize ---
+        "min" | "minimize" | "max" | "maximize" | "find-min" | "find-max" => {
+            let maximize = mode == "max" || mode == "maximize" || mode == "find-max";
+            let f_str = tokens.get(1).copied().unwrap_or("x^2");
+            let a = get_param("a").or_else(|| get_param("from")).unwrap_or(-10.0);
+            let b = get_param("b").or_else(|| get_param("to")).unwrap_or(10.0);
+            let tol = get_param("tol").unwrap_or(1e-8);
+            let max_iter = get_param("iter").map(|v| v as usize).unwrap_or(500);
+
+            let sign = if maximize { -1.0_f64 } else { 1.0_f64 };
+            let f = |x: f64| sign * opt_eval(f_str, x, 0.0);
+            let (x_opt, f_opt_signed, iters) = golden_section(&f, a, b, tol, max_iter);
+            let f_opt = if maximize { -f_opt_signed } else { f_opt_signed };
+
+            let _ = writeln!(out, "  {} f(x) = {}   x ∈ [{}, {}]",
+                if maximize { "Maximize" } else { "Minimize" }, f_str, a, b);
+            let _ = writeln!(out, "  Converged in {} iterations (tol={:.2e})", iters, tol);
+            let _ = writeln!(out, "");
+            let _ = writeln!(out, "  x* = {:.10}  f(x*) = {:.10}", x_opt, f_opt);
+            let _ = writeln!(out, "");
+
+            // ASCII plot
+            let n_plot = 56_usize;
+            let ys: Vec<f64> = (0..n_plot).map(|i| {
+                let x = a + i as f64 * (b - a) / (n_plot - 1) as f64;
+                opt_eval(f_str, x, 0.0)
+            }).collect();
+            let ymin = ys.iter().cloned().fold(f64::INFINITY, f64::min);
+            let ymax = ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let yrange = (ymax - ymin).max(1e-12);
+            let h = 10_usize;
+            let mut grid = vec![vec![' '; n_plot]; h];
+            for (col, &y) in ys.iter().enumerate() {
+                let row = h - 1 - ((y - ymin) / yrange * (h - 1) as f64).round() as usize;
+                let row = row.min(h - 1);
+                grid[row][col] = '·';
+            }
+            // mark x*
+            let opt_col = ((x_opt - a) / (b - a) * (n_plot - 1) as f64).round() as usize;
+            let opt_row = h - 1 - ((f_opt - ymin) / yrange * (h - 1) as f64).round() as usize;
+            if opt_col < n_plot && opt_row < h { grid[opt_row][opt_col] = '★'; }
+            for row in &grid { let _ = writeln!(out, "  |{}|", row.iter().collect::<String>()); }
+            let _ = writeln!(out, "  f: [{:.4} .. {:.4}]   x: [{:.4} .. {:.4}]   ★=optimum", ymin, ymax, a, b);
+        }
+
+        // --- 2D Nelder-Mead ---
+        "min2" | "minimize2" | "max2" | "maximize2" | "simplex" => {
+            let maximize = mode.starts_with("max");
+            let f_str = tokens.get(1).copied().unwrap_or("x^2+y^2");
+            let x0 = get_param("x0").unwrap_or(0.0);
+            let y0 = get_param("y0").unwrap_or(0.0);
+            let max_iter = get_param("iter").map(|v| v as usize).unwrap_or(1000);
+            let tol = get_param("tol").unwrap_or(1e-8);
+            let sign = if maximize { -1.0_f64 } else { 1.0_f64 };
+            let f = |x: f64, y: f64| sign * opt_eval(f_str, x, y);
+            let (xopt, yopt, fval_s, iters) = nelder_mead(&f, x0, y0, max_iter, tol);
+            let fval = if maximize { -fval_s } else { fval_s };
+            let _ = writeln!(out, "  {} f(x,y) = {}   start: ({}, {})",
+                if maximize { "Maximize" } else { "Minimize" }, f_str, x0, y0);
+            let _ = writeln!(out, "  Nelder-Mead simplex  iterations={}", iters);
+            let _ = writeln!(out, "");
+            let _ = writeln!(out, "  x* = {:.10}", xopt);
+            let _ = writeln!(out, "  y* = {:.10}", yopt);
+            let _ = writeln!(out, "  f(x*,y*) = {:.10}", fval);
+        }
+
+        // --- nD gradient descent ---
+        "gradient" | "gd" | "grad-descent" => {
+            let f_str = tokens.get(1).copied().unwrap_or("x^2");
+            let x0_str = tokens.get(2).copied().unwrap_or("0");
+            let x0: Vec<f64> = x0_str.split(',').filter_map(|s| s.parse().ok()).collect();
+            let x0 = if x0.is_empty() { vec![0.0] } else { x0 };
+            let max_iter = get_param("iter").map(|v| v as usize).unwrap_or(2000);
+            let tol = get_param("tol").unwrap_or(1e-7);
+            let f = |v: &[f64]| opt_eval(f_str, v[0], v.get(1).copied().unwrap_or(0.0));
+            let (x_opt, f_opt, iters) = gradient_descent(&f, &x0, max_iter, tol);
+            let _ = writeln!(out, "  Gradient Descent  f = {}   x0={:?}", f_str, x0);
+            let _ = writeln!(out, "  Iterations: {}", iters);
+            let _ = writeln!(out, "");
+            let _ = writeln!(out, "  x* = {:?}", x_opt.iter().map(|v| format!("{:.10}", v)).collect::<Vec<_>>());
+            let _ = writeln!(out, "  f(x*) = {:.10}", f_opt);
+        }
+
+        // --- Root finding (bisection) ---
+        "root" | "find-root" | "zero" => {
+            let f_str = tokens.get(1).copied().unwrap_or("x^2-2");
+            let a = get_param("a").or_else(|| get_param("from")).unwrap_or(-10.0);
+            let b = get_param("b").or_else(|| get_param("to")).unwrap_or(10.0);
+            let tol = get_param("tol").unwrap_or(1e-10);
+            let max_iter = get_param("iter").map(|v| v as usize).unwrap_or(200);
+            let f = |x: f64| opt_eval(f_str, x, 0.0);
+            let fa = f(a); let fb = f(b);
+            if fa * fb > 0.0 {
+                let _ = writeln!(out, "  Root finding: f(x) = {}   [{}, {}]", f_str, a, b);
+                let _ = writeln!(out, "  ERROR: f(a) and f(b) must have opposite signs for bisection.");
+                let _ = writeln!(out, "  f({}) = {:.6}  f({}) = {:.6}", a, fa, b, fb);
+            } else {
+                let mut lo = a; let mut hi = b;
+                let mut iters = 0;
+                while (hi - lo).abs() > tol && iters < max_iter {
+                    let mid = (lo + hi) / 2.0;
+                    if f(lo) * f(mid) <= 0.0 { hi = mid; } else { lo = mid; }
+                    iters += 1;
+                }
+                let root = (lo + hi) / 2.0;
+                let _ = writeln!(out, "  Root finding: f(x) = {}   [{}, {}]", f_str, a, b);
+                let _ = writeln!(out, "  Bisection: {} iterations (tol={:.2e})", iters, tol);
+                let _ = writeln!(out, "");
+                let _ = writeln!(out, "  x* = {:.12}  f(x*) = {:.3e}", root, f(root));
+            }
+        }
+
+        _ => { let _ = writeln!(out, "{}", optimize_usage()); }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+fn optimize_usage() -> &'static str {
+    "Numerical optimization — no model, no cloud:\n\
+     \n\
+     hematite --optimize 'min x^2-4*x+3 a=0 b=5'       minimize 1D\n\
+     hematite --optimize 'max sin(x) a=0 b=6.28'        maximize 1D\n\
+     hematite --optimize 'min2 x^2+y^2 x0=3 y0=2'       minimize 2D (Nelder-Mead)\n\
+     hematite --optimize 'gradient x^4-4*x^2 0'         gradient descent\n\
+     hematite --optimize 'root x^3-2 a=0 b=2'           find root (bisection)\n\
+     hematite --optimize 'min (x-2)^2+(x-3)^2 a=-5 b=8' least-squares style\n\
+     \n\
+     Parameters:  a=  b=  range bounds  x0=  y0=  start point\n\
+                  tol=  tolerance (default 1e-8)\n\
+                  iter=  max iterations (default 500)\n\
+     Expressions: x y t sin cos exp ln sqrt ^ + - * /"
+}

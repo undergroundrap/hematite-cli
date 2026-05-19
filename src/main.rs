@@ -2851,6 +2851,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref query) = cockpit.optimize {
+        let result = hematite::tools::math_util::optimize_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
     if let Some(ref group1) = cockpit.hypothesis {
         let test_type = cockpit.hypothesis_test.as_deref().unwrap_or("one-t");
         let group2    = cockpit.hypothesis_group2.as_deref().unwrap_or("");
