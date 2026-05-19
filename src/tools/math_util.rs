@@ -5335,3 +5335,392 @@ pub fn interpolate_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ── Unit conversion ───────────────────────────────────────────────────────────
+// Pure-Rust lookup tables. Handles VALUE FROM_UNIT to TO_UNIT, or just
+// VALUE UNIT for a multi-target broadcast. Temperature uses offset math.
+
+struct UnitDef {
+    names: &'static [&'static str],
+    to_base: f64,   // multiply by this to reach SI base; NaN for temperature
+}
+
+struct UnitCat {
+    name: &'static str,
+    base: &'static str,
+    units: &'static [UnitDef],
+}
+
+static UNIT_TABLE: &[UnitCat] = &[
+    UnitCat { name: "Length", base: "m", units: &[
+        UnitDef { names: &["m","meter","metre","meters","metres"], to_base: 1.0 },
+        UnitDef { names: &["km","kilometer","kilometre","kilometers","kilometres"], to_base: 1e3 },
+        UnitDef { names: &["cm","centimeter","centimetre","centimeters","centimetres"], to_base: 0.01 },
+        UnitDef { names: &["mm","millimeter","millimetre","millimeters","millimetres"], to_base: 0.001 },
+        UnitDef { names: &["um","micrometer","micrometre","micron"], to_base: 1e-6 },
+        UnitDef { names: &["nm","nanometer","nanometre"], to_base: 1e-9 },
+        UnitDef { names: &["mi","mile","miles"], to_base: 1609.344 },
+        UnitDef { names: &["yd","yard","yards"], to_base: 0.9144 },
+        UnitDef { names: &["ft","foot","feet"], to_base: 0.3048 },
+        UnitDef { names: &["in","inch","inches"], to_base: 0.0254 },
+        UnitDef { names: &["nmi","nautical_mile","nm_sea"], to_base: 1852.0 },
+        UnitDef { names: &["ly","lightyear","light_year"], to_base: 9.461e15 },
+        UnitDef { names: &["au","astronomical_unit"], to_base: 1.496e11 },
+        UnitDef { names: &["pc","parsec"], to_base: 3.086e16 },
+        UnitDef { names: &["angstrom","ang"], to_base: 1e-10 },
+    ]},
+    UnitCat { name: "Area", base: "m2", units: &[
+        UnitDef { names: &["m2","sqm","square_meter","square_metre"], to_base: 1.0 },
+        UnitDef { names: &["km2","sqkm","square_kilometer"], to_base: 1e6 },
+        UnitDef { names: &["cm2","sqcm","square_centimeter"], to_base: 1e-4 },
+        UnitDef { names: &["mm2","sqmm","square_millimeter"], to_base: 1e-6 },
+        UnitDef { names: &["ha","hectare","hectares"], to_base: 1e4 },
+        UnitDef { names: &["acre","acres"], to_base: 4046.856 },
+        UnitDef { names: &["ft2","sqft","square_foot","square_feet"], to_base: 0.09290304 },
+        UnitDef { names: &["in2","sqin","square_inch"], to_base: 6.4516e-4 },
+        UnitDef { names: &["mi2","sqmi","square_mile"], to_base: 2.58999e6 },
+        UnitDef { names: &["yd2","sqyd","square_yard"], to_base: 0.83612736 },
+    ]},
+    UnitCat { name: "Volume", base: "m3", units: &[
+        UnitDef { names: &["m3","cbm","cubic_meter","cubic_metre"], to_base: 1.0 },
+        UnitDef { names: &["l","liter","litre","liters","litres"], to_base: 0.001 },
+        UnitDef { names: &["ml","milliliter","millilitre","milliliters","millilitres"], to_base: 1e-6 },
+        UnitDef { names: &["cl","centiliter","centilitre"], to_base: 1e-5 },
+        UnitDef { names: &["dl","deciliter","decilitre"], to_base: 1e-4 },
+        UnitDef { names: &["gal","gallon","gallons"], to_base: 0.00378541 },
+        UnitDef { names: &["qt","quart","quarts"], to_base: 9.46353e-4 },
+        UnitDef { names: &["pt","pint","pints"], to_base: 4.73176e-4 },
+        UnitDef { names: &["cup","cups"], to_base: 2.36588e-4 },
+        UnitDef { names: &["floz","fl_oz","fluid_ounce","fluid_ounces"], to_base: 2.95735e-5 },
+        UnitDef { names: &["tbsp","tablespoon","tablespoons"], to_base: 1.47868e-5 },
+        UnitDef { names: &["tsp","teaspoon","teaspoons"], to_base: 4.92892e-6 },
+        UnitDef { names: &["ft3","cbft","cubic_foot","cubic_feet"], to_base: 0.0283168 },
+        UnitDef { names: &["in3","cbin","cubic_inch"], to_base: 1.63871e-5 },
+        UnitDef { names: &["bbl","barrel","barrels"], to_base: 0.158987 },
+    ]},
+    UnitCat { name: "Mass", base: "kg", units: &[
+        UnitDef { names: &["kg","kilogram","kilograms","kilo"], to_base: 1.0 },
+        UnitDef { names: &["g","gram","grams"], to_base: 0.001 },
+        UnitDef { names: &["mg","milligram","milligrams"], to_base: 1e-6 },
+        UnitDef { names: &["ug","microgram","micrograms"], to_base: 1e-9 },
+        UnitDef { names: &["t","tonne","metric_ton","tonnes"], to_base: 1000.0 },
+        UnitDef { names: &["lb","pound","pounds","lbs"], to_base: 0.453592 },
+        UnitDef { names: &["oz","ounce","ounces"], to_base: 0.0283495 },
+        UnitDef { names: &["st","stone","stones"], to_base: 6.35029 },
+        UnitDef { names: &["ton","short_ton","tons"], to_base: 907.185 },
+        UnitDef { names: &["long_ton","long_tons"], to_base: 1016.05 },
+        UnitDef { names: &["ct","carat","carats"], to_base: 2e-4 },
+        UnitDef { names: &["gr","grain","grains"], to_base: 6.47989e-5 },
+        UnitDef { names: &["u","amu","dalton"], to_base: 1.66054e-27 },
+    ]},
+    UnitCat { name: "Time", base: "s", units: &[
+        UnitDef { names: &["s","sec","second","seconds"], to_base: 1.0 },
+        UnitDef { names: &["ms","millisecond","milliseconds"], to_base: 0.001 },
+        UnitDef { names: &["us","microsecond","microseconds"], to_base: 1e-6 },
+        UnitDef { names: &["ns","nanosecond","nanoseconds"], to_base: 1e-9 },
+        UnitDef { names: &["min","minute","minutes"], to_base: 60.0 },
+        UnitDef { names: &["h","hr","hour","hours"], to_base: 3600.0 },
+        UnitDef { names: &["d","day","days"], to_base: 86400.0 },
+        UnitDef { names: &["wk","week","weeks"], to_base: 604800.0 },
+        UnitDef { names: &["mo","month","months"], to_base: 2.628e6 },
+        UnitDef { names: &["yr","year","years"], to_base: 3.156e7 },
+        UnitDef { names: &["decade","decades"], to_base: 3.156e8 },
+        UnitDef { names: &["century","centuries"], to_base: 3.156e9 },
+    ]},
+    UnitCat { name: "Speed", base: "m/s", units: &[
+        UnitDef { names: &["mps","m/s","meter_per_second"], to_base: 1.0 },
+        UnitDef { names: &["kph","km/h","kmh","kilometer_per_hour"], to_base: 1.0/3.6 },
+        UnitDef { names: &["mph","mi/h","mile_per_hour"], to_base: 0.44704 },
+        UnitDef { names: &["kn","kt","knot","knots"], to_base: 0.514444 },
+        UnitDef { names: &["fps","ft/s","foot_per_second"], to_base: 0.3048 },
+        UnitDef { names: &["mach"], to_base: 343.0 },
+        UnitDef { names: &["c","speed_of_light"], to_base: 2.998e8 },
+    ]},
+    UnitCat { name: "Pressure", base: "Pa", units: &[
+        UnitDef { names: &["pa","pascal","pascals"], to_base: 1.0 },
+        UnitDef { names: &["kpa","kilopascal","kilopascals"], to_base: 1000.0 },
+        UnitDef { names: &["mpa","megapascal","megapascals"], to_base: 1e6 },
+        UnitDef { names: &["bar","bars"], to_base: 1e5 },
+        UnitDef { names: &["mbar","millibar","millibars"], to_base: 100.0 },
+        UnitDef { names: &["atm","atmosphere","atmospheres"], to_base: 101325.0 },
+        UnitDef { names: &["torr","mmhg"], to_base: 133.322 },
+        UnitDef { names: &["psi","pound_per_square_inch"], to_base: 6894.76 },
+        UnitDef { names: &["inhg","in_hg","inches_of_mercury"], to_base: 3386.39 },
+    ]},
+    UnitCat { name: "Energy", base: "J", units: &[
+        UnitDef { names: &["j","joule","joules"], to_base: 1.0 },
+        UnitDef { names: &["kj","kilojoule","kilojoules"], to_base: 1000.0 },
+        UnitDef { names: &["mj","megajoule","megajoules"], to_base: 1e6 },
+        UnitDef { names: &["gj","gigajoule","gigajoules"], to_base: 1e9 },
+        UnitDef { names: &["cal","calorie","calories"], to_base: 4.184 },
+        UnitDef { names: &["kcal","kilocalorie","kilocalories","food_calorie"], to_base: 4184.0 },
+        UnitDef { names: &["wh","watt_hour","watt_hours"], to_base: 3600.0 },
+        UnitDef { names: &["kwh","kilowatt_hour","kilowatt_hours"], to_base: 3.6e6 },
+        UnitDef { names: &["mwh","megawatt_hour"], to_base: 3.6e9 },
+        UnitDef { names: &["gwh","gigawatt_hour"], to_base: 3.6e12 },
+        UnitDef { names: &["btu","british_thermal_unit"], to_base: 1055.06 },
+        UnitDef { names: &["ev","electronvolt","electron_volt"], to_base: 1.602e-19 },
+        UnitDef { names: &["ftlb","ft_lb","foot_pound"], to_base: 1.35582 },
+        UnitDef { names: &["erg","ergs"], to_base: 1e-7 },
+    ]},
+    UnitCat { name: "Power", base: "W", units: &[
+        UnitDef { names: &["w","watt","watts"], to_base: 1.0 },
+        UnitDef { names: &["kw","kilowatt","kilowatts"], to_base: 1000.0 },
+        UnitDef { names: &["mw","megawatt","megawatts"], to_base: 1e6 },
+        UnitDef { names: &["gw","gigawatt","gigawatts"], to_base: 1e9 },
+        UnitDef { names: &["hp","horsepower"], to_base: 745.7 },
+        UnitDef { names: &["btu_h","btu_per_hour"], to_base: 0.29307 },
+        UnitDef { names: &["mw_th","milliwatt"], to_base: 1e-3 },
+    ]},
+    UnitCat { name: "Digital Storage", base: "bytes", units: &[
+        UnitDef { names: &["b","bit","bits"], to_base: 0.125 },
+        UnitDef { names: &["byte","bytes"], to_base: 1.0 },
+        UnitDef { names: &["kb","kilobyte","kilobytes"], to_base: 1000.0 },
+        UnitDef { names: &["mb","megabyte","megabytes"], to_base: 1e6 },
+        UnitDef { names: &["gb","gigabyte","gigabytes"], to_base: 1e9 },
+        UnitDef { names: &["tb","terabyte","terabytes"], to_base: 1e12 },
+        UnitDef { names: &["pb","petabyte","petabytes"], to_base: 1e15 },
+        UnitDef { names: &["kib","kibibyte","kibibytes"], to_base: 1024.0 },
+        UnitDef { names: &["mib","mebibyte","mebibytes"], to_base: 1048576.0 },
+        UnitDef { names: &["gib","gibibyte","gibibytes"], to_base: 1073741824.0 },
+        UnitDef { names: &["tib","tebibyte","tebibytes"], to_base: 1.0995e12 },
+        UnitDef { names: &["kbps","kilobit_per_second"], to_base: 125.0 },
+        UnitDef { names: &["mbps","megabit_per_second"], to_base: 125000.0 },
+        UnitDef { names: &["gbps","gigabit_per_second"], to_base: 125000000.0 },
+    ]},
+    UnitCat { name: "Angle", base: "rad", units: &[
+        UnitDef { names: &["rad","radian","radians"], to_base: 1.0 },
+        UnitDef { names: &["deg","degree","degrees"], to_base: std::f64::consts::PI / 180.0 },
+        UnitDef { names: &["grad","gradian","gradians","gon"], to_base: std::f64::consts::PI / 200.0 },
+        UnitDef { names: &["rev","revolution","turn","turns"], to_base: 2.0 * std::f64::consts::PI },
+        UnitDef { names: &["arcmin","arcminute","arcminutes"], to_base: std::f64::consts::PI / 10800.0 },
+        UnitDef { names: &["arcsec","arcsecond","arcseconds"], to_base: std::f64::consts::PI / 648000.0 },
+    ]},
+    UnitCat { name: "Force", base: "N", units: &[
+        UnitDef { names: &["n","newton","newtons"], to_base: 1.0 },
+        UnitDef { names: &["kn_f","kilonewton","kilonewtons"], to_base: 1000.0 },
+        UnitDef { names: &["lbf","pound_force","pounds_force"], to_base: 4.44822 },
+        UnitDef { names: &["kgf","kilogram_force"], to_base: 9.80665 },
+        UnitDef { names: &["dyn","dyne","dynes"], to_base: 1e-5 },
+        UnitDef { names: &["gf","gram_force"], to_base: 0.00980665 },
+    ]},
+    UnitCat { name: "Temperature", base: "K", units: &[
+        UnitDef { names: &["k","kelvin","kelvins"], to_base: f64::NAN },
+        UnitDef { names: &["c","celsius","degc"], to_base: f64::NAN },
+        UnitDef { names: &["f","fahrenheit","degf"], to_base: f64::NAN },
+        UnitDef { names: &["r","rankine","degr"], to_base: f64::NAN },
+    ]},
+    UnitCat { name: "Fuel Economy", base: "L/100km", units: &[
+        UnitDef { names: &["l/100km","lpkm","liter_per_100km"], to_base: 1.0 },
+        UnitDef { names: &["mpg","mile_per_gallon","miles_per_gallon"], to_base: f64::NAN },
+        UnitDef { names: &["km/l","kpl","kilometer_per_liter"], to_base: f64::NAN },
+    ]},
+];
+
+fn units_to_base(val: f64, from_lower: &str) -> Option<(f64, usize)> {
+    for (cat_idx, cat) in UNIT_TABLE.iter().enumerate() {
+        for entry in cat.units {
+            if entry.names.iter().any(|n| *n == from_lower) {
+                if cat.name == "Temperature" {
+                    let k = temp_to_kelvin(val, from_lower)?;
+                    return Some((k, cat_idx));
+                }
+                if cat.name == "Fuel Economy" {
+                    let l100 = fuel_to_l100(val, from_lower)?;
+                    return Some((l100, cat_idx));
+                }
+                return Some((val * entry.to_base, cat_idx));
+            }
+        }
+    }
+    None
+}
+
+fn units_from_base(base_val: f64, to_lower: &str, cat_idx: usize) -> Option<f64> {
+    let cat = &UNIT_TABLE[cat_idx];
+    for entry in cat.units {
+        if entry.names.iter().any(|n| *n == to_lower) {
+            if cat.name == "Temperature" { return kelvin_to_temp(base_val, to_lower); }
+            if cat.name == "Fuel Economy" { return l100_to_fuel(base_val, to_lower); }
+            return Some(base_val / entry.to_base);
+        }
+    }
+    None
+}
+
+fn temp_to_kelvin(val: f64, unit: &str) -> Option<f64> {
+    match unit {
+        "k" | "kelvin" | "kelvins" => Some(val),
+        "c" | "celsius" | "degc"   => Some(val + 273.15),
+        "f" | "fahrenheit" | "degf" => Some((val + 459.67) * 5.0 / 9.0),
+        "r" | "rankine" | "degr"   => Some(val * 5.0 / 9.0),
+        _ => None,
+    }
+}
+
+fn kelvin_to_temp(k: f64, unit: &str) -> Option<f64> {
+    match unit {
+        "k" | "kelvin" | "kelvins"  => Some(k),
+        "c" | "celsius" | "degc"    => Some(k - 273.15),
+        "f" | "fahrenheit" | "degf" => Some(k * 9.0 / 5.0 - 459.67),
+        "r" | "rankine" | "degr"    => Some(k * 9.0 / 5.0),
+        _ => None,
+    }
+}
+
+fn fuel_to_l100(val: f64, unit: &str) -> Option<f64> {
+    match unit {
+        "l/100km" | "lpkm" | "liter_per_100km" => Some(val),
+        "mpg" | "mile_per_gallon" | "miles_per_gallon" => Some(235.215 / val),
+        "km/l" | "kpl" | "kilometer_per_liter" => Some(100.0 / val),
+        _ => None,
+    }
+}
+
+fn l100_to_fuel(l100: f64, unit: &str) -> Option<f64> {
+    match unit {
+        "l/100km" | "lpkm" | "liter_per_100km" => Some(l100),
+        "mpg" | "mile_per_gallon" | "miles_per_gallon" => Some(235.215 / l100),
+        "km/l" | "kpl" | "kilometer_per_liter" => Some(100.0 / l100),
+        _ => None,
+    }
+}
+
+fn find_unit_category(unit_lower: &str) -> Option<usize> {
+    for (i, cat) in UNIT_TABLE.iter().enumerate() {
+        for entry in cat.units {
+            if entry.names.iter().any(|n| *n == unit_lower) { return Some(i); }
+        }
+    }
+    None
+}
+
+fn fmt_unit_val(v: f64) -> String {
+    if v == 0.0 { return "0".into(); }
+    let abs = v.abs();
+    if abs >= 1e9 || abs < 1e-4 { format!("{:.6e}", v) }
+    else if abs >= 1000.0        { format!("{:.4}", v) }
+    else                         { format!("{:.8}", v) }
+}
+
+pub fn units_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "═".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  UNIT CONVERSION");
+    let _ = writeln!(out, "{}", sep);
+
+    // Parse: "VALUE FROM [to|in|->] TO"  or  "VALUE FROM"  (broadcast)
+    let q = query.trim();
+    let tokens: Vec<&str> = q.split_whitespace().collect();
+
+    if tokens.is_empty() {
+        let _ = writeln!(out, "{}", units_usage());
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // First token must be a number
+    let val = match tokens[0].replace(',', "").parse::<f64>() {
+        Ok(v) => v,
+        Err(_) => {
+            // maybe "list CATEGORY"
+            if tokens[0].to_lowercase() == "list" {
+                let cat_query = tokens[1..].join(" ").to_lowercase();
+                for cat in UNIT_TABLE {
+                    if cat_query.is_empty() || cat.name.to_lowercase().contains(&cat_query) {
+                        let _ = writeln!(out, "  {}  (base: {})", cat.name, cat.base);
+                        for entry in cat.units {
+                            let _ = writeln!(out, "    {}", entry.names[0]);
+                        }
+                        let _ = writeln!(out, "");
+                    }
+                }
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            }
+            let _ = writeln!(out, "  ERROR: first token must be a number. Got '{}'", tokens[0]);
+            let _ = writeln!(out, "{}", units_usage());
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+    };
+
+    if tokens.len() < 2 {
+        let _ = writeln!(out, "  ERROR: need VALUE UNIT  e.g.  5 km");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let from_raw = tokens[1].to_lowercase();
+
+    // Skip connector tokens: "to", "in", "->", "as"
+    let connector_set = ["to", "in", "->", "as", "into"];
+    let to_raw: Option<String> = tokens[2..].iter()
+        .find(|t| !connector_set.contains(&t.to_lowercase().as_str()))
+        .map(|t| t.to_lowercase());
+
+    // Look up source unit
+    let (base_val, cat_idx) = match units_to_base(val, &from_raw) {
+        Some(v) => v,
+        None => {
+            let _ = writeln!(out, "  ERROR: unknown unit '{}'.", tokens[1]);
+            let _ = writeln!(out, "  Tip: run  hematite --units list  to see all units.");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+    };
+
+    let cat = &UNIT_TABLE[cat_idx];
+
+    if let Some(to_unit) = to_raw {
+        // Single target conversion
+        match units_from_base(base_val, &to_unit, cat_idx) {
+            Some(result) => {
+                let _ = writeln!(out, "  {} {} = {} {}", val, tokens[1], fmt_unit_val(result), &to_unit);
+            }
+            None => {
+                // Check if to_unit exists in a different category
+                if let Some(other_idx) = find_unit_category(&to_unit) {
+                    let _ = writeln!(out, "  ERROR: '{}' is a {} unit, but '{}' is {}.",
+                        &to_unit, UNIT_TABLE[other_idx].name, tokens[1], cat.name);
+                } else {
+                    let _ = writeln!(out, "  ERROR: unknown target unit '{}'.", &to_unit);
+                }
+            }
+        }
+    } else {
+        // Broadcast: convert to all units in the category
+        let _ = writeln!(out, "  {} {}  =", val, tokens[1]);
+        let _ = writeln!(out, "  {:>30}  unit", "value");
+        let _ = writeln!(out, "  {}", "-".repeat(42));
+        for entry in cat.units {
+            let to_name = entry.names[0];
+            if to_name == from_raw { continue; }
+            if let Some(result) = units_from_base(base_val, to_name, cat_idx) {
+                let abs = result.abs();
+                // skip values that are so tiny or huge they're not useful
+                if abs > 0.0 && (abs < 1e-30 || abs > 1e30) { continue; }
+                let _ = writeln!(out, "  {:>30}  {}", fmt_unit_val(result), to_name);
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+fn units_usage() -> &'static str {
+    "Usage:\n\
+     hematite --units '100 km to miles'       convert single value\n\
+     hematite --units '32 f to c'             temperature: 32°F → °C\n\
+     hematite --units '5 kg'                  broadcast: kg to all mass units\n\
+     hematite --units '1 kwh to j'            energy: kWh → Joules\n\
+     hematite --units '1 gbps to mbps'        digital storage speed\n\
+     hematite --units '2.5 atm to psi'        pressure\n\
+     hematite --units 'list length'           list all length units\n\
+     hematite --units 'list'                  list all categories\n\
+     \n\
+     Categories: Length Area Volume Mass Time Speed Pressure Energy\n\
+                 Power Digital-Storage Angle Force Temperature Fuel-Economy"
+}

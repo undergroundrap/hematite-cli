@@ -953,6 +953,7 @@ mod tests {
             logic: None,
             signal: None,
             interpolate: None,
+            units: None,
             hypothesis: None,
             hypothesis_test: None,
             hypothesis_group2: None,

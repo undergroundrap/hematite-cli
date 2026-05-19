@@ -713,6 +713,9 @@ pub struct CliCockpit {
     #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Interpolation & curve fitting — linear, cubic spline, Lagrange polynomial, nearest-neighbor, with ASCII curve preview. Example: hematite --interpolate 'spline 0,0 1,1 2,4 3,9 at 1.5'  or  'linear 0,0 10,100 at 3,7'")]
     pub interpolate: Option<String>,
 
+    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Unit conversion — 14 categories, 130+ units. Length, mass, temperature, energy, digital storage, pressure, angle, and more. Example: hematite --units '100 km to miles'  or  '98.6 f to c'  or  '5 kg'  or  'list length'")]
+    pub units: Option<String>,
+
     #[arg(long, help_heading = "Data Analysis", value_name = "DATA", help = "Statistical hypothesis test — t-tests, chi-square, ANOVA, Mann-Whitney, Pearson, proportion z-test, confidence intervals. Provide comma-separated numbers or 'successes,n' for proportions. Example: hematite --hypothesis '2.1,2.8,3.2,2.5' --hypothesis-test one-t --hypothesis-mu 2.0")]
     pub hypothesis: Option<String>,
 
