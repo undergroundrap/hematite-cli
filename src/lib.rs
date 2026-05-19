@@ -803,6 +803,14 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "String distance metrics — instant, no model, no cloud. Computes: Levenshtein, Damerau-Levenshtein, Hamming, Jaro, Jaro-Winkler, LCS similarity, longest common substring. Separate the two strings with ' vs ' or ','. Examples: hematite --levenshtein 'kitten vs sitting' | hematite --levenshtein 'hello, helo'"
+    )]
+    pub levenshtein: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"

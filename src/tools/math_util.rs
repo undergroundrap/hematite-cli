@@ -7937,6 +7937,185 @@ fn cipher_usage() -> &'static str {
      Ciphers: rot13, atbash, caesar, vigenere, railfence, columnar, morse"
 }
 
+// ─── String distance metrics ──────────────────────────────────────────────────
+
+pub fn string_dist(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  STRING DISTANCE METRICS");
+    let _ = writeln!(out, "{}", sep);
+
+    // Split on " vs " or " | " to get two strings
+    let (a, b) = if let Some(pos) = query.find(" vs ") {
+        (query[..pos].trim(), query[pos+4..].trim())
+    } else if let Some(pos) = query.find(" | ") {
+        (query[..pos].trim(), query[pos+3..].trim())
+    } else {
+        // Try splitting on comma if no quoted form
+        let parts: Vec<&str> = query.splitn(2, ',').collect();
+        if parts.len() == 2 {
+            (parts[0].trim(), parts[1].trim())
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --levenshtein '<string1> vs <string2>'");
+            let _ = writeln!(out, "         hematite --levenshtein 'kitten vs sitting'");
+            let _ = writeln!(out, "         hematite --levenshtein 'hello, helo'");
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+    };
+
+    let _ = writeln!(out, "  String A: \"{}\"  (len={})", a, a.chars().count());
+    let _ = writeln!(out, "  String B: \"{}\"  (len={})", b, b.chars().count());
+    let _ = writeln!(out, "");
+
+    let ac: Vec<char> = a.chars().collect();
+    let bc: Vec<char> = b.chars().collect();
+    let m = ac.len();
+    let n = bc.len();
+
+    // ─── Levenshtein edit distance ───
+    let lev_dist = {
+        let mut dp = vec![vec![0usize; n + 1]; m + 1];
+        for i in 0..=m { dp[i][0] = i; }
+        for j in 0..=n { dp[0][j] = j; }
+        for i in 1..=m {
+            for j in 1..=n {
+                if ac[i-1] == bc[j-1] {
+                    dp[i][j] = dp[i-1][j-1];
+                } else {
+                    dp[i][j] = 1 + dp[i-1][j-1].min(dp[i-1][j]).min(dp[i][j-1]);
+                }
+            }
+        }
+        dp[m][n]
+    };
+    let max_len = m.max(n).max(1);
+    let lev_sim = 1.0 - lev_dist as f64 / max_len as f64;
+
+    // ─── Damerau-Levenshtein (transpositions allowed) ───
+    let dl_dist = {
+        let mut dp = vec![vec![0usize; n + 1]; m + 1];
+        for i in 0..=m { dp[i][0] = i; }
+        for j in 0..=n { dp[0][j] = j; }
+        for i in 1..=m {
+            for j in 1..=n {
+                let cost = if ac[i-1] == bc[j-1] { 0 } else { 1 };
+                dp[i][j] = (dp[i-1][j] + 1)
+                    .min(dp[i][j-1] + 1)
+                    .min(dp[i-1][j-1] + cost);
+                if i > 1 && j > 1 && ac[i-1] == bc[j-2] && ac[i-2] == bc[j-1] {
+                    dp[i][j] = dp[i][j].min(dp[i-2][j-2] + cost);
+                }
+            }
+        }
+        dp[m][n]
+    };
+
+    // ─── Hamming distance (same-length strings only) ───
+    let hamming = if m == n {
+        let h = ac.iter().zip(bc.iter()).filter(|(a, b)| a != b).count();
+        Some(h)
+    } else {
+        None
+    };
+
+    // ─── Jaro similarity ───
+    let jaro = {
+        if m == 0 && n == 0 { 1.0f64 }
+        else if m == 0 || n == 0 { 0.0f64 }
+        else {
+            let match_dist = (m.max(n) / 2).saturating_sub(1);
+            let mut s1_matches = vec![false; m];
+            let mut s2_matches = vec![false; n];
+            let mut matches = 0usize;
+            for i in 0..m {
+                let start = i.saturating_sub(match_dist);
+                let end = (i + match_dist + 1).min(n);
+                for j in start..end {
+                    if !s2_matches[j] && ac[i] == bc[j] {
+                        s1_matches[i] = true;
+                        s2_matches[j] = true;
+                        matches += 1;
+                        break;
+                    }
+                }
+            }
+            if matches == 0 { 0.0 }
+            else {
+                let s1m: Vec<char> = ac.iter().enumerate().filter(|(i,_)| s1_matches[*i]).map(|(_,c)| *c).collect();
+                let s2m: Vec<char> = bc.iter().enumerate().filter(|(i,_)| s2_matches[*i]).map(|(_,c)| *c).collect();
+                let transpositions = s1m.iter().zip(s2m.iter()).filter(|(a,b)| a != b).count() / 2;
+                let mf = matches as f64;
+                (mf / m as f64 + mf / n as f64 + (mf - transpositions as f64) / mf) / 3.0
+            }
+        }
+    };
+
+    // ─── Jaro-Winkler ───
+    let jaro_winkler = {
+        let prefix_len = ac.iter().zip(bc.iter()).take(4).take_while(|(a,b)| a == b).count();
+        let p = 0.1f64;
+        jaro + prefix_len as f64 * p * (1.0 - jaro)
+    };
+    let jaro_winkler = jaro_winkler.min(1.0);
+
+    // ─── LCS length ───
+    let lcs_len = {
+        let mut dp = vec![vec![0usize; n + 1]; m + 1];
+        for i in 1..=m {
+            for j in 1..=n {
+                if ac[i-1] == bc[j-1] { dp[i][j] = dp[i-1][j-1] + 1; }
+                else { dp[i][j] = dp[i-1][j].max(dp[i][j-1]); }
+            }
+        }
+        dp[m][n]
+    };
+    let lcs_sim = if max_len > 0 { lcs_len as f64 / max_len as f64 } else { 0.0 };
+
+    // ─── Longest common substring ───
+    let (lcsub_len, lcsub) = {
+        let mut best_len = 0usize;
+        let mut best_end = 0usize;
+        let mut dp = vec![vec![0usize; n + 1]; m + 1];
+        for i in 1..=m {
+            for j in 1..=n {
+                if ac[i-1] == bc[j-1] {
+                    dp[i][j] = dp[i-1][j-1] + 1;
+                    if dp[i][j] > best_len {
+                        best_len = dp[i][j];
+                        best_end = i;
+                    }
+                }
+            }
+        }
+        let substr: String = ac[best_end.saturating_sub(best_len)..best_end].iter().collect();
+        (best_len, substr)
+    };
+
+    // ─── Output ───
+    let _ = writeln!(out, "  ─── Edit Distance ───");
+    let _ = writeln!(out, "  Levenshtein:            {:>6}  (similarity: {:.1}%)", lev_dist, lev_sim * 100.0);
+    let _ = writeln!(out, "  Damerau-Levenshtein:    {:>6}  (allows transpositions)", dl_dist);
+    if let Some(h) = hamming {
+        let _ = writeln!(out, "  Hamming:                {:>6}  (substitutions only)", h);
+    } else {
+        let _ = writeln!(out, "  Hamming:          n/a (strings must be same length)");
+    }
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Similarity Scores (0=no match, 1=identical) ───");
+    let _ = writeln!(out, "  Jaro:                 {:.6}  ({:.1}%)", jaro, jaro * 100.0);
+    let _ = writeln!(out, "  Jaro-Winkler:         {:.6}  ({:.1}%)", jaro_winkler, jaro_winkler * 100.0);
+    let _ = writeln!(out, "  LCS similarity:       {:.6}  ({:.1}%)", lcs_sim, lcs_sim * 100.0);
+    let _ = writeln!(out, "");
+    let _ = writeln!(out, "  ─── Common Subsequence / Substring ───");
+    let _ = writeln!(out, "  LCS length:           {}  ({:.1}% of max length)", lcs_len, lcs_sim * 100.0);
+    let _ = writeln!(out, "  Longest common sub:   \"{}\"  (length {})", lcsub, lcsub_len);
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
 // ─── Text statistics and readability analyzer ─────────────────────────────────
 
 pub fn text_stats(input: &str) -> String {

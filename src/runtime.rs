@@ -977,6 +977,7 @@ mod tests {
             set: None,
             cipher: None,
             text_stats: None,
+            levenshtein: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
