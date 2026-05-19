@@ -2249,3 +2249,472 @@ impl Lcg64 {
         (self.next_u64() >> 11) as f64 / (1u64 << 53) as f64
     }
 }
+
+// ── Graph theory ──────────────────────────────────────────────────────────────
+// Parses an edge list, then runs BFS/DFS/Dijkstra/components/topo-sort.
+//
+// Input format — one edge per line or semicolon-separated:
+//   A B          (unweighted, undirected)
+//   A B 5        (weighted)
+//   A->B or A->B:5   (directed)
+//   A-B or A-B:5     (undirected)
+//
+// Modes (first word of query before the edge list):
+//   bfs FROM       breadth-first search from a node
+//   dfs FROM       depth-first search from a node
+//   shortest FROM TO   Dijkstra shortest path
+//   components     connected components
+//   topo           topological sort (directed)
+//   info           degree table + basic stats (default)
+
+pub fn graph_theory(query: &str) -> String {
+    let q = query.trim();
+
+    // Split mode/args from edge list
+    // Edge list starts when a line/token contains a separator or is all non-alpha… heuristic:
+    // Look for the first token containing '-', '>' or a digit after a space — that's the edge list.
+    // But first try to strip a known mode keyword from the front.
+
+    let (mode, rest) = {
+        let tokens: Vec<&str> = q.splitn(2, |c: char| c == '\n' || c == ';').collect();
+        let first_line = tokens[0].trim();
+        let _fl_lower = first_line.to_lowercase();
+        // Check if the entire first line looks like a mode+args header (no edge separators)
+        let looks_like_mode = !first_line.contains("->") && !first_line.contains(" - ")
+            && first_line.split_whitespace().count() <= 3;
+        if looks_like_mode {
+            let words: Vec<&str> = first_line.splitn(2, char::is_whitespace).collect();
+            let m = words[0].to_lowercase();
+            let after_mode = words.get(1).copied().unwrap_or("").trim();
+            let rest_str = if tokens.len() > 1 {
+                format!("{}\n{}", after_mode, tokens[1])
+            } else {
+                after_mode.to_string()
+            };
+            match m.as_str() {
+                "bfs"|"dfs"|"shortest"|"path"|"components"|"topo"|"topological"|"info"|"degree" => {
+                    (m, rest_str)
+                }
+                _ => {
+                    // The first line might be part of an edge list; treat the whole thing as "info"
+                    ("info".to_string(), q.to_string())
+                }
+            }
+        } else {
+            ("info".to_string(), q.to_string())
+        }
+    };
+
+    // Parse edge list
+    // Edges separated by newline or semicolon
+    let edge_strs: Vec<&str> = rest.split(|c: char| c == '\n' || c == ';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let mut directed = false;
+    let mut nodes: Vec<String> = Vec::new();
+    let mut edges: Vec<(String, String, f64)> = Vec::new();
+
+    let node_id = |name: &str, nodes: &mut Vec<String>| -> usize {
+        if let Some(p) = nodes.iter().position(|n| n == name) {
+            p
+        } else {
+            nodes.push(name.to_string());
+            nodes.len() - 1
+        }
+    };
+
+    for line in &edge_strs {
+        let line = line.trim();
+        if line.is_empty() { continue; }
+        // Detect directed
+        let (a, b, w, dir) = if let Some(pos) = line.find("->") {
+            directed = true;
+            let a = line[..pos].trim().trim_matches(':');
+            let rest2 = line[pos+2..].trim();
+            let (b, w) = parse_node_weight(rest2);
+            (a, b, w, true)
+        } else if let Some(pos) = line.find(" - ").or_else(|| {
+            // "A-B" but avoid matching negative numbers
+            let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
+            if parts.len() >= 2 {
+                // space-separated "A B [w]"
+                None
+            } else {
+                // Check for single hyphen between non-numeric tokens
+                let hp = line.find('-');
+                if let Some(h) = hp {
+                    if h > 0 && !line[..h].trim().parse::<f64>().is_ok() {
+                        Some(h)
+                    } else { None }
+                } else { None }
+            }
+        }) {
+            let sep_len = if line[pos..].starts_with(" - ") { 3 } else { 1 };
+            let a = line[..pos].trim();
+            let rest2 = line[pos+sep_len..].trim();
+            let (b, w) = parse_node_weight(rest2);
+            (a, b, w, false)
+        } else {
+            // Space-separated: "A B [w]"
+            let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
+            if parts.len() < 2 {
+                node_id(line, &mut nodes);
+                continue;
+            }
+            let a = parts[0].trim();
+            let b_raw = parts[1].trim();
+            // b_raw may be "NodeName:weight" or just "NodeName"; weight may be parts[2]
+            let (b, w) = if let Some(cp) = b_raw.find(':') {
+                let wt = b_raw[cp+1..].parse::<f64>().unwrap_or(1.0);
+                (&b_raw[..cp], wt)
+            } else {
+                let wt = parts.get(2).and_then(|s| s.trim().parse::<f64>().ok()).unwrap_or(1.0);
+                (b_raw, wt)
+            };
+            (a, b, w, false)
+        };
+
+        if a.is_empty() || b.is_empty() { continue; }
+        let ai = node_id(a, &mut nodes);
+        let bi = node_id(b, &mut nodes);
+        edges.push((nodes[ai].clone(), nodes[bi].clone(), w));
+        if !dir { /* undirected edge added both ways below */ }
+    }
+
+    if nodes.is_empty() {
+        return graph_usage();
+    }
+
+    let n = nodes.len();
+
+    // Build adjacency list: adj[i] = Vec<(j, weight)>
+    let mut adj: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
+    for (a_name, b_name, w) in &edges {
+        let ai = nodes.iter().position(|x| x == a_name).unwrap();
+        let bi = nodes.iter().position(|x| x == b_name).unwrap();
+        adj[ai].push((bi, *w));
+        if !directed {
+            adj[bi].push((ai, *w));
+        }
+    }
+
+    let mut out = String::new();
+    let w = 64usize;
+    let _ = writeln!(out, "{}", "=".repeat(w));
+    let _ = writeln!(out, "  Graph Analysis  |  {} nodes  |  {} edges  |  {}",
+        n, edges.len(),
+        if directed { "directed" } else { "undirected" });
+    let _ = writeln!(out, "{}", "=".repeat(w));
+
+    match mode.as_str() {
+        "bfs" => {
+            let start_name = rest.split_whitespace().next().unwrap_or(&nodes[0]);
+            let start = nodes.iter().position(|x| x == start_name).unwrap_or(0);
+            let order = bfs_order(&adj, start, n);
+            let _ = writeln!(out, "  BFS from \"{}\":", nodes[start]);
+            let _ = writeln!(out, "  Visit order: {}", order.iter().map(|&i| nodes[i].as_str()).collect::<Vec<_>>().join(" → "));
+        }
+        "dfs" => {
+            let start_name = rest.split_whitespace().next().unwrap_or(&nodes[0]);
+            let start = nodes.iter().position(|x| x == start_name).unwrap_or(0);
+            let order = dfs_order(&adj, start, n);
+            let _ = writeln!(out, "  DFS from \"{}\":", nodes[start]);
+            let _ = writeln!(out, "  Visit order: {}", order.iter().map(|&i| nodes[i].as_str()).collect::<Vec<_>>().join(" → "));
+        }
+        "shortest" | "path" => {
+            let parts: Vec<&str> = rest.split_whitespace().collect();
+            let from_name = parts.first().copied().unwrap_or(&nodes[0]);
+            let to_name   = parts.get(1).copied().unwrap_or(&nodes[n-1]);
+            let from = nodes.iter().position(|x| x == from_name).unwrap_or(0);
+            let to   = nodes.iter().position(|x| x == to_name).unwrap_or(n.saturating_sub(1));
+            match dijkstra(&adj, from, to, n) {
+                Some((dist, path)) => {
+                    let path_str = path.iter().map(|&i| nodes[i].as_str()).collect::<Vec<_>>().join(" → ");
+                    let _ = writeln!(out, "  Shortest path: {} → {}", nodes[from], nodes[to]);
+                    let _ = writeln!(out, "  Distance: {:.4}", dist);
+                    let _ = writeln!(out, "  Path: {}", path_str);
+                }
+                None => {
+                    let _ = writeln!(out, "  No path from \"{}\" to \"{}\"", nodes[from], nodes[to]);
+                }
+            }
+            // Also show all-pairs distances from source
+            let dists = dijkstra_all(&adj, from, n);
+            let _ = writeln!(out, "\n  All distances from \"{}\":", nodes[from]);
+            for (i, d) in dists.iter().enumerate() {
+                if i == from { continue; }
+                if *d == f64::INFINITY {
+                    let _ = writeln!(out, "    → {:<20}  unreachable", &nodes[i]);
+                } else {
+                    let _ = writeln!(out, "    → {:<20}  {:.4}", &nodes[i], d);
+                }
+            }
+        }
+        "components" => {
+            let comps = connected_components(&adj, n, directed);
+            let _ = writeln!(out, "  Connected components: {}", comps.len());
+            for (ci, comp) in comps.iter().enumerate() {
+                let names: Vec<&str> = comp.iter().map(|&i| nodes[i].as_str()).collect();
+                let _ = writeln!(out, "  [{}] {}", ci+1, names.join(", "));
+            }
+        }
+        "topo" | "topological" => {
+            match topo_sort(&adj, n) {
+                Ok(order) => {
+                    let _ = writeln!(out, "  Topological sort:");
+                    let _ = writeln!(out, "  {}", order.iter().map(|&i| nodes[i].as_str()).collect::<Vec<_>>().join(" → "));
+                }
+                Err(_) => {
+                    let _ = writeln!(out, "  Cycle detected — topological sort not possible.");
+                }
+            }
+        }
+        _ => {
+            // Default: degree table + basic stats
+            let mut in_deg  = vec![0usize; n];
+            let mut out_deg = vec![0usize; n];
+            for (ai, nbrs) in adj.iter().enumerate() {
+                out_deg[ai] = nbrs.len();
+                for &(bi, _) in nbrs {
+                    in_deg[bi] += 1;
+                }
+            }
+            let _ = writeln!(out, "  {:<20}  {:>8}  {:>8}", "Node", if directed {"Out-deg"} else {"Degree"}, if directed {"In-deg"} else {""});
+            let _ = writeln!(out, "  {}", "-".repeat(40));
+            let mut sorted_nodes: Vec<usize> = (0..n).collect();
+            sorted_nodes.sort_by(|&a, &b| out_deg[b].cmp(&out_deg[a]));
+            for &i in &sorted_nodes {
+                if directed {
+                    let _ = writeln!(out, "  {:<20}  {:>8}  {:>8}", &nodes[i], out_deg[i], in_deg[i]);
+                } else {
+                    let _ = writeln!(out, "  {:<20}  {:>8}", &nodes[i], out_deg[i]);
+                }
+            }
+            // Connectivity
+            let comps = connected_components(&adj, n, directed);
+            let _ = writeln!(out, "\n  Components: {}  |  {}",
+                comps.len(),
+                if comps.len() == 1 { "connected".to_string() } else { "disconnected".to_string() });
+            // Check for cycles via DFS
+            let has_cycle = detect_cycle(&adj, n, directed);
+            let _ = writeln!(out, "  Cycles: {}", if has_cycle { "yes" } else { "none detected" });
+            if directed {
+                match topo_sort(&adj, n) {
+                    Ok(order) => {
+                        let _ = writeln!(out, "  Topo order: {}", order.iter().map(|&i| nodes[i].as_str()).collect::<Vec<_>>().join(" → "));
+                    }
+                    Err(_) => {}
+                }
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", "=".repeat(w));
+    out
+}
+
+fn parse_node_weight(s: &str) -> (&str, f64) {
+    // "NodeName:weight" or "NodeName weight"
+    if let Some(pos) = s.find(':') {
+        let name = &s[..pos];
+        let w = s[pos+1..].trim().parse::<f64>().unwrap_or(1.0);
+        (name.trim(), w)
+    } else {
+        let parts: Vec<&str> = s.splitn(2, char::is_whitespace).collect();
+        let name = parts[0].trim();
+        let w = parts.get(1).and_then(|x| x.trim().parse::<f64>().ok()).unwrap_or(1.0);
+        (name, w)
+    }
+}
+
+fn bfs_order(adj: &[Vec<(usize, f64)>], start: usize, n: usize) -> Vec<usize> {
+    let mut visited = vec![false; n];
+    let mut queue = std::collections::VecDeque::new();
+    let mut order = Vec::new();
+    visited[start] = true;
+    queue.push_back(start);
+    while let Some(u) = queue.pop_front() {
+        order.push(u);
+        let mut nbrs: Vec<usize> = adj[u].iter().map(|&(v,_)| v).collect();
+        nbrs.sort();
+        for v in nbrs {
+            if !visited[v] { visited[v] = true; queue.push_back(v); }
+        }
+    }
+    order
+}
+
+fn dfs_order(adj: &[Vec<(usize, f64)>], start: usize, n: usize) -> Vec<usize> {
+    let mut visited = vec![false; n];
+    let mut stack = vec![start];
+    let mut order = Vec::new();
+    while let Some(u) = stack.pop() {
+        if visited[u] { continue; }
+        visited[u] = true;
+        order.push(u);
+        let mut nbrs: Vec<usize> = adj[u].iter().map(|&(v,_)| v).collect();
+        nbrs.sort_by(|a, b| b.cmp(a));
+        for v in nbrs { if !visited[v] { stack.push(v); } }
+    }
+    order
+}
+
+fn dijkstra(adj: &[Vec<(usize, f64)>], from: usize, to: usize, n: usize) -> Option<(f64, Vec<usize>)> {
+    use std::collections::BinaryHeap;
+    use std::cmp::Ordering;
+    #[derive(PartialEq)]
+    struct State { cost: f64, node: usize }
+    impl Eq for State {}
+    impl PartialOrd for State {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+    }
+    impl Ord for State {
+        fn cmp(&self, other: &Self) -> Ordering {
+            other.cost.partial_cmp(&self.cost).unwrap_or(Ordering::Equal)
+        }
+    }
+
+    let mut dist = vec![f64::INFINITY; n];
+    let mut prev = vec![usize::MAX; n];
+    dist[from] = 0.0;
+    let mut heap = BinaryHeap::new();
+    heap.push(State { cost: 0.0, node: from });
+
+    while let Some(State { cost, node }) = heap.pop() {
+        if node == to { break; }
+        if cost > dist[node] { continue; }
+        for &(v, w) in &adj[node] {
+            let next_cost = dist[node] + w;
+            if next_cost < dist[v] {
+                dist[v] = next_cost;
+                prev[v] = node;
+                heap.push(State { cost: next_cost, node: v });
+            }
+        }
+    }
+
+    if dist[to] == f64::INFINITY { return None; }
+    let mut path = Vec::new();
+    let mut cur = to;
+    while cur != usize::MAX {
+        path.push(cur);
+        cur = prev[cur];
+    }
+    path.reverse();
+    Some((dist[to], path))
+}
+
+fn dijkstra_all(adj: &[Vec<(usize, f64)>], from: usize, n: usize) -> Vec<f64> {
+    use std::collections::BinaryHeap;
+    use std::cmp::Ordering;
+    #[derive(PartialEq)]
+    struct State { cost: f64, node: usize }
+    impl Eq for State {}
+    impl PartialOrd for State {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+    }
+    impl Ord for State {
+        fn cmp(&self, other: &Self) -> Ordering {
+            other.cost.partial_cmp(&self.cost).unwrap_or(Ordering::Equal)
+        }
+    }
+    let mut dist = vec![f64::INFINITY; n];
+    dist[from] = 0.0;
+    let mut heap = BinaryHeap::new();
+    heap.push(State { cost: 0.0, node: from });
+    while let Some(State { cost, node }) = heap.pop() {
+        if cost > dist[node] { continue; }
+        for &(v, w) in &adj[node] {
+            let nc = dist[node] + w;
+            if nc < dist[v] { dist[v] = nc; heap.push(State { cost: nc, node: v }); }
+        }
+    }
+    dist
+}
+
+fn connected_components(adj: &[Vec<(usize, f64)>], n: usize, directed: bool) -> Vec<Vec<usize>> {
+    // For directed graphs, use weakly connected components (ignore direction)
+    let mut visited = vec![false; n];
+    let mut comps = Vec::new();
+    for start in 0..n {
+        if visited[start] { continue; }
+        let mut comp = Vec::new();
+        let mut stack = vec![start];
+        while let Some(u) = stack.pop() {
+            if visited[u] { continue; }
+            visited[u] = true;
+            comp.push(u);
+            for &(v, _) in &adj[u] {
+                if !visited[v] { stack.push(v); }
+            }
+            if directed {
+                // Also traverse reverse edges for weak connectivity
+                for other in 0..n {
+                    if !visited[other] && adj[other].iter().any(|&(t,_)| t == u) {
+                        stack.push(other);
+                    }
+                }
+            }
+        }
+        comp.sort();
+        comps.push(comp);
+    }
+    comps
+}
+
+fn topo_sort(adj: &[Vec<(usize, f64)>], n: usize) -> Result<Vec<usize>, ()> {
+    let mut in_deg = vec![0usize; n];
+    for u in 0..n {
+        for &(v,_) in &adj[u] { in_deg[v] += 1; }
+    }
+    let mut queue: std::collections::VecDeque<usize> = (0..n).filter(|&i| in_deg[i]==0).collect();
+    let mut order = Vec::new();
+    while let Some(u) = queue.pop_front() {
+        order.push(u);
+        for &(v,_) in &adj[u] {
+            in_deg[v] -= 1;
+            if in_deg[v] == 0 { queue.push_back(v); }
+        }
+    }
+    if order.len() == n { Ok(order) } else { Err(()) }
+}
+
+fn detect_cycle(adj: &[Vec<(usize, f64)>], n: usize, directed: bool) -> bool {
+    // DFS-based cycle detection
+    let mut color = vec![0u8; n]; // 0=white 1=gray 2=black
+    fn dfs_cycle(u: usize, adj: &[Vec<(usize, f64)>], color: &mut Vec<u8>, directed: bool, parent: usize) -> bool {
+        color[u] = 1;
+        for &(v, _) in &adj[u] {
+            if color[v] == 0 {
+                if dfs_cycle(v, adj, color, directed, u) { return true; }
+            } else if directed && color[v] == 1 {
+                return true;
+            } else if !directed && v != parent {
+                return true;
+            }
+        }
+        color[u] = 2;
+        false
+    }
+    for start in 0..n {
+        if color[start] == 0 {
+            if dfs_cycle(start, adj, &mut color, directed, usize::MAX) { return true; }
+        }
+    }
+    false
+}
+
+fn graph_usage() -> String {
+    "Graph theory — edge list input:\n\
+     hematite --graph 'A B\\nB C\\nC D'                  info (degree table, components)\n\
+     hematite --graph 'bfs A\\nA B\\nB C\\nA C'           BFS from node A\n\
+     hematite --graph 'dfs A\\nA B\\nB C\\nA C'           DFS from node A\n\
+     hematite --graph 'shortest A D\\nA B 2\\nB D 3\\nA D 10'  Dijkstra shortest path\n\
+     hematite --graph 'components\\nA B\\nC D'            connected components\n\
+     hematite --graph 'topo\\nA->B\\nA->C\\nB->D'          topological sort\n\
+     \n\
+     Edge formats: 'A B' 'A B 5' 'A->B' 'A->B:5' 'A-B:3'\n\
+     Weighted edges: add weight as third token or after colon".into()
+}

@@ -695,6 +695,9 @@ pub struct CliCockpit {
     #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Output CSV with projected coordinates for --pca.")]
     pub pca_output: Option<String>,
 
+    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Graph theory — parse an edge list and run BFS/DFS/Dijkstra/components/topo-sort. Example: hematite --graph 'shortest A D\\nA B 2\\nB D 3'")]
+    pub graph: Option<String>,
+
     #[arg(
         long,
         help_heading = "Headless Reports",

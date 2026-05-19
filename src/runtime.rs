@@ -947,6 +947,7 @@ mod tests {
             pca_components: None,
             pca_cols: None,
             pca_output: None,
+            graph: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
