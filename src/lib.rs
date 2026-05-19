@@ -838,6 +838,47 @@ pub struct CliCockpit {
     )]
     pub profile: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "N",
+        help = "Prime number info — no model, no cloud. Primality test, factorization, divisors, Euler's φ, σ(n), nearest primes. Example: hematite --prime 97  or  --prime 360"
+    )]
+    pub prime: Option<u64>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "TYPE",
+        help = "Generate a numeric sequence — no model, no cloud. Types: arithmetic  geometric  fibonacci  prime  square  triangular  cube  power2. Pair with --seq-count, --seq-start, --seq-step. Example: hematite --sequence fibonacci --seq-count 20"
+    )]
+    pub sequence: Option<String>,
+
+    #[arg(long, value_name = "N", help = "Number of terms for --sequence (default: 10).")]
+    pub seq_count: Option<usize>,
+
+    #[arg(long, value_name = "N", help = "Starting value for --sequence (default: 1).")]
+    pub seq_start: Option<f64>,
+
+    #[arg(long, value_name = "N", help = "Step or ratio for --sequence (default: 1 for arithmetic, 2 for geometric).")]
+    pub seq_step: Option<f64>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "N K",
+        help = "Combinations and permutations — no model, no cloud. Computes C(n,k) and P(n,k). Pass two integers separated by a space or comma. Example: hematite --choose '10 3'  or  --choose '52,5'"
+    )]
+    pub choose: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "EXPR",
+        help = "Boolean truth table — no model, no cloud. Variables are single letters (A, B, C). Operators: AND OR NOT XOR NAND NOR (or ∧ ∨ ¬ ⊕). Example: hematite --truth-table '(A AND B) OR NOT C'"
+    )]
+    pub truth_table: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

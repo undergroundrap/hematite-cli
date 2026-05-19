@@ -2674,6 +2674,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(n) = cockpit.prime {
+        let result = hematite::tools::math_util::prime_info(n);
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref kind) = cockpit.sequence {
+        let count = cockpit.seq_count.unwrap_or(10);
+        let start = cockpit.seq_start.unwrap_or(1.0);
+        let step  = cockpit.seq_step.unwrap_or(1.0);
+        let result = hematite::tools::math_util::generate_sequence(kind.trim(), count, start, step);
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref nk) = cockpit.choose {
+        let parts: Vec<&str> = nk.split(|c: char| c == ',' || c == ' ').filter(|s| !s.is_empty()).collect();
+        if parts.len() < 2 {
+            eprintln!("Error: --choose requires two integers N and K (e.g. --choose '10 3' or --choose '10,3')");
+            std::process::exit(1);
+        }
+        let n = parts[0].trim().parse::<u64>().unwrap_or_else(|_| { eprintln!("Invalid N: {}", parts[0]); std::process::exit(1); });
+        let k = parts[1].trim().parse::<u64>().unwrap_or_else(|_| { eprintln!("Invalid K: {}", parts[1]); std::process::exit(1); });
+        let result = hematite::tools::math_util::combinatorics(n, k);
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
+    if let Some(ref expr) = cockpit.truth_table {
+        let result = hematite::tools::math_util::truth_table(expr.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.query_data {
         let file_path = file_path.trim();
         let sql = cockpit.sql.as_deref().unwrap_or("").trim().to_string();

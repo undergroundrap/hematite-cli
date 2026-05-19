@@ -883,6 +883,13 @@ mod tests {
             at: None,
             order: None,
             profile: None,
+            prime: None,
+            sequence: None,
+            seq_count: None,
+            seq_start: None,
+            seq_step: None,
+            choose: None,
+            truth_table: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
