@@ -402,6 +402,295 @@ pub fn gcd_lcm(a: u128, b: u128) -> String {
     format!("GCD({a}, {b}) = {g}\nLCM({a}, {b}) = {l}")
 }
 
+// ── Extended number theory ────────────────────────────────────────────────────
+// Query forms:
+//   "extgcd 35 15"         — extended Euclidean algorithm
+//   "crt 2 3 3 5"          — Chinese Remainder Theorem: x ≡ 2 (mod 3), x ≡ 3 (mod 5)
+//   "mobius 12"            — Möbius function μ(n)
+//   "modinv 7 13"          — modular inverse of 7 mod 13
+//   "modpow 3 10 1000"     — 3^10 mod 1000
+//   "cf 355/113"           — continued fraction expansion
+//   "goldbach 28"          — Goldbach conjecture: express as sum of two primes
+//   "totient 36"           — Euler's totient φ(n) (already in prime_info, but here as standalone)
+//   "jacobi 5 15"          — Jacobi symbol (a/n)
+//   "fermat 17"            — Fermat primality witness check
+
+pub fn number_theory(query: &str) -> String {
+    let q = query.trim();
+    let tokens: Vec<&str> = q.split_whitespace().collect();
+    if tokens.is_empty() {
+        return nt_usage();
+    }
+    match tokens[0].to_lowercase().as_str() {
+        "extgcd" | "xgcd" => {
+            if tokens.len() < 3 { return "Usage: extgcd A B".into(); }
+            let a: i128 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
+            let b: i128 = match tokens[2].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[2]) };
+            let (g, x, y) = ext_gcd(a, b);
+            format!(
+                "Extended GCD({}, {}):\n  GCD = {}\n  Bézout: {}×{} + {}×{} = {}\n  (verify: {}×{} + {}×{} = {})",
+                a, b, g, x, a, y, b, g, x, a, y, b, x*a + y*b
+            )
+        }
+        "crt" => {
+            // Interleaved: crt r1 m1 r2 m2 ...
+            if tokens.len() < 5 || tokens.len() % 2 == 0 {
+                return "Usage: crt r1 m1 r2 m2 [r3 m3 ...]\n  Example: crt 2 3 3 5  (x ≡ 2 mod 3 and x ≡ 3 mod 5)".into();
+            }
+            let pairs: Vec<(i128,i128)> = tokens[1..].chunks(2)
+                .filter_map(|c| {
+                    let r = c[0].parse::<i128>().ok()?;
+                    let m = c[1].parse::<i128>().ok()?;
+                    Some((r, m))
+                })
+                .collect();
+            if pairs.len() < 2 { return "Need at least 2 remainder-modulus pairs.".into(); }
+            match crt(&pairs) {
+                Some((x, m)) => {
+                    let mut out = format!("Chinese Remainder Theorem:\n");
+                    for (r, mo) in &pairs { out.push_str(&format!("  x ≡ {} (mod {})\n", r, mo)); }
+                    out.push_str(&format!("Solution: x ≡ {} (mod {})  [smallest positive: {}]", x, m, ((x % m) + m) % m));
+                    out
+                }
+                None => "No solution — moduli are not pairwise coprime.".into(),
+            }
+        }
+        "mobius" | "möbius" | "mu" => {
+            if tokens.len() < 2 { return "Usage: mobius N".into(); }
+            let n: u64 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
+            let mu = mobius(n);
+            let explanation = match mu {
+                0  => "n has a squared prime factor → μ(n) = 0",
+                1  => "n is squarefree with even number of prime factors → μ(n) = 1",
+                -1 => "n is squarefree with odd number of prime factors → μ(n) = -1",
+                _  => "",
+            };
+            format!("Möbius function μ({}) = {}\n  {}", n, mu, explanation)
+        }
+        "modinv" => {
+            if tokens.len() < 3 { return "Usage: modinv A MOD".into(); }
+            let a: i128 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
+            let m: i128 = match tokens[2].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[2]) };
+            match mod_inv(a, m) {
+                Some(inv) => format!("Modular inverse: {}⁻¹ ≡ {} (mod {})\nVerify: {} × {} = {} ≡ 1 (mod {})", a, inv, m, a, inv, a*inv, m),
+                None => format!("No modular inverse: gcd({}, {}) ≠ 1 (not coprime)", a, m),
+            }
+        }
+        "modpow" | "powmod" => {
+            if tokens.len() < 4 { return "Usage: modpow BASE EXP MOD".into(); }
+            let base: u128 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
+            let exp:  u128 = match tokens[2].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[2]) };
+            let modu: u128 = match tokens[3].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[3]) };
+            if modu == 0 { return "Modulus cannot be zero.".into(); }
+            let result = mod_pow(base, exp, modu);
+            format!("{}^{} mod {} = {}", base, exp, modu, result)
+        }
+        "cf" | "cfrac" | "continued_fraction" => {
+            if tokens.len() < 2 { return "Usage: cf N/D  or  cf DECIMAL".into(); }
+            let input = tokens[1];
+            let (num, den) = if input.contains('/') {
+                let parts: Vec<&str> = input.splitn(2, '/').collect();
+                let n: i64 = parts[0].parse().unwrap_or(0);
+                let d: i64 = parts[1].parse().unwrap_or(1);
+                (n, d)
+            } else if let Ok(f) = input.parse::<f64>() {
+                // Approximate as fraction with denominator up to 1e6
+                let scale = 1_000_000i64;
+                ((f * scale as f64).round() as i64, scale)
+            } else {
+                return format!("Cannot parse: {}", input);
+            };
+            if den == 0 { return "Denominator cannot be zero.".into(); }
+            let coeffs = cf_expansion(num, den, 20);
+            let convergents = cf_convergents(&coeffs);
+            let mut out = format!("Continued fraction of {}/{} = {}:\n", num, den, num as f64 / den as f64);
+            out.push_str(&format!("  CF = [{}]\n", coeffs.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("; ")));
+            out.push_str("  Convergents:\n");
+            for (p, q) in &convergents {
+                out.push_str(&format!("    {}/{} = {:.8}\n", p, q, *p as f64 / *q as f64));
+            }
+            out
+        }
+        "goldbach" => {
+            if tokens.len() < 2 { return "Usage: goldbach N (must be even, > 2)".into(); }
+            let n: u64 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
+            if n <= 2 || n % 2 != 0 { return format!("{} must be even and > 2 for Goldbach's conjecture.", n); }
+            let pairs: Vec<(u64,u64)> = (2..=n/2)
+                .filter(|&p| is_prime(p) && is_prime(n - p))
+                .map(|p| (p, n - p))
+                .collect();
+            let mut out = format!("Goldbach decompositions of {}:\n", n);
+            if pairs.is_empty() {
+                out.push_str("  No decompositions found (unexpected for n > 2).\n");
+            } else {
+                for (p, q) in pairs.iter().take(10) {
+                    out.push_str(&format!("  {} = {} + {}\n", n, p, q));
+                }
+                if pairs.len() > 10 { out.push_str(&format!("  ... ({} total decompositions)\n", pairs.len())); }
+            }
+            out
+        }
+        "totient" | "phi" | "euler" => {
+            if tokens.len() < 2 { return "Usage: totient N".into(); }
+            let n: u64 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
+            let phi = euler_totient(n);
+            format!("Euler's totient φ({}) = {}\n  (count of integers 1..{} coprime to {})", n, phi, n, n)
+        }
+        "jacobi" => {
+            if tokens.len() < 3 { return "Usage: jacobi A N (N must be odd)".into(); }
+            let a: i64 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
+            let n: i64 = match tokens[2].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[2]) };
+            if n <= 0 || n % 2 == 0 { return "N must be a positive odd integer.".into(); }
+            let j = jacobi_symbol(a, n);
+            let meaning = match j {
+                0  => "a is not coprime to n",
+                1  => "a is a quadratic residue mod n (or n is composite)",
+                -1 => "a is a quadratic non-residue mod n",
+                _  => "",
+            };
+            format!("Jacobi symbol ({}/{}) = {}\n  {}", a, n, j, meaning)
+        }
+        _ => {
+            // Try to interpret as a single number for a complete number theory report
+            if let Ok(n) = tokens[0].parse::<u64>() {
+                nt_report(n)
+            } else {
+                nt_usage()
+            }
+        }
+    }
+}
+
+fn nt_usage() -> String {
+    "Number theory operations:\n\
+     hematite --number-theory 'extgcd 35 15'\n\
+     hematite --number-theory 'crt 2 3 3 5'\n\
+     hematite --number-theory 'mobius 30'\n\
+     hematite --number-theory 'modinv 7 13'\n\
+     hematite --number-theory 'modpow 3 10 1000'\n\
+     hematite --number-theory 'cf 355/113'\n\
+     hematite --number-theory 'goldbach 28'\n\
+     hematite --number-theory 'totient 36'\n\
+     hematite --number-theory 'jacobi 5 15'\n\
+     hematite --number-theory '42'    (full report for a number)".into()
+}
+
+fn nt_report(n: u64) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "Number theory report for {}", n);
+    let _ = writeln!(out, "  Euler's totient φ(n) = {}", euler_totient(n));
+    let _ = writeln!(out, "  Möbius μ(n) = {}", mobius(n));
+    if n < 1_000_000 {
+        let sigma: u64 = (1..=n).filter(|d| n % d == 0).sum();
+        let _ = writeln!(out, "  Sum of divisors σ(n) = {}", sigma);
+        if sigma == 2 * n { let _ = writeln!(out, "  → Perfect number!"); }
+        else if sigma > 2 * n { let _ = writeln!(out, "  → Abundant number"); }
+        else { let _ = writeln!(out, "  → Deficient number"); }
+    }
+    if n >= 4 && n % 2 == 0 {
+        if let Some((p, q)) = (2..=n/2).filter(|&p| is_prime(p) && is_prime(n - p)).map(|p| (p, n-p)).next() {
+            let _ = writeln!(out, "  Goldbach: {} = {} + {}", n, p, q);
+        }
+    }
+    out
+}
+
+fn ext_gcd(a: i128, b: i128) -> (i128, i128, i128) {
+    if b == 0 { return (a, 1, 0); }
+    let (g, x1, y1) = ext_gcd(b, a % b);
+    (g, y1, x1 - (a / b) * y1)
+}
+
+fn mod_inv(a: i128, m: i128) -> Option<i128> {
+    let (g, x, _) = ext_gcd(a.rem_euclid(m), m);
+    if g != 1 { return None; }
+    Some(x.rem_euclid(m))
+}
+
+fn mod_pow(mut base: u128, mut exp: u128, modu: u128) -> u128 {
+    if modu == 1 { return 0; }
+    let mut result = 1u128;
+    base %= modu;
+    while exp > 0 {
+        if exp % 2 == 1 { result = result.wrapping_mul(base) % modu; }
+        exp /= 2;
+        base = base.wrapping_mul(base) % modu;
+    }
+    result
+}
+
+fn crt(pairs: &[(i128, i128)]) -> Option<(i128, i128)> {
+    let mut x = pairs[0].0;
+    let mut m = pairs[0].1;
+    for &(r, mi) in &pairs[1..] {
+        let g = gcd(m as u128, mi.unsigned_abs()) as i128;
+        if (r - x) % g != 0 { return None; }
+        let lcm = m / g * mi;
+        let inv = mod_inv(m / g, mi / g)?;
+        x = x + m * ((r - x) / g % (mi / g) * inv % (mi / g));
+        m = lcm;
+        x = x.rem_euclid(m);
+    }
+    Some((x, m))
+}
+
+fn mobius(n: u64) -> i32 {
+    if n == 1 { return 1; }
+    let factors = factorize(n);
+    for (_, exp) in &factors { if *exp > 1 { return 0; } }
+    if factors.len() % 2 == 0 { 1 } else { -1 }
+}
+
+fn euler_totient(n: u64) -> u64 {
+    if n == 0 { return 0; }
+    let factors = factorize(n);
+    let mut phi = n;
+    for (p, _) in factors { phi = phi / p * (p - 1); }
+    phi
+}
+
+fn cf_expansion(mut num: i64, mut den: i64, max_terms: usize) -> Vec<i64> {
+    let mut coeffs = Vec::new();
+    for _ in 0..max_terms {
+        coeffs.push(num / den);
+        let rem = num % den;
+        if rem == 0 { break; }
+        num = den; den = rem;
+    }
+    coeffs
+}
+
+fn cf_convergents(coeffs: &[i64]) -> Vec<(i64, i64)> {
+    let mut result = Vec::new();
+    let (mut p_prev, mut q_prev) = (1i64, 0i64);
+    let (mut p_curr, mut q_curr) = (coeffs[0], 1i64);
+    result.push((p_curr, q_curr));
+    for &a in &coeffs[1..] {
+        let p_next = a * p_curr + p_prev;
+        let q_next = a * q_curr + q_prev;
+        result.push((p_next, q_next));
+        p_prev = p_curr; q_prev = q_curr;
+        p_curr = p_next; q_curr = q_next;
+    }
+    result
+}
+
+fn jacobi_symbol(mut a: i64, mut n: i64) -> i32 {
+    if n <= 0 || n % 2 == 0 { return 0; }
+    let mut result = 1i32;
+    a = a.rem_euclid(n);
+    while a != 0 {
+        while a % 2 == 0 {
+            a /= 2;
+            if n % 8 == 3 || n % 8 == 5 { result = -result; }
+        }
+        std::mem::swap(&mut a, &mut n);
+        if a % 4 == 3 && n % 4 == 3 { result = -result; }
+        a %= n;
+    }
+    if n == 1 { result } else { 0 }
+}
+
 // ── Roman numerals ────────────────────────────────────────────────────────────
 
 pub fn to_roman(mut n: u64) -> String {

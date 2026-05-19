@@ -618,6 +618,12 @@ pub struct CliCockpit {
     )]
     pub plot_y: Option<String>,
 
+    #[arg(long, help_heading = "Headless Reports", value_name = "TEXT", help = "Chart title for --plot (auto-generated if omitted).")]
+    pub plot_title: Option<String>,
+
+    #[arg(long, help_heading = "Headless Reports", value_name = "FILE", help = "Output SVG file path for --plot (default: <input>_plot.svg).")]
+    pub plot_output: Option<String>,
+
     #[arg(
         long,
         help_heading = "Headless Reports",
@@ -964,6 +970,14 @@ pub struct CliCockpit {
         help = "2D/3D vector math — instant, no model. Ops: dot, cross, +, -, scalar*, mag, norm, angle, proj. Example: hematite --vectors '[1,2,3] dot [4,5,6]'  'mag [3,4]'  '[1,2,3] cross [0,0,1]'"
     )]
     pub vectors: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "QUERY",
+        help = "Number theory — instant, no model. Ops: extgcd, crt (Chinese Remainder Theorem), mobius, modinv, modpow, cf (continued fractions), goldbach, totient, jacobi. Example: hematite --number-theory 'modpow 3 10 1000'  'crt 2 3 3 5'  'goldbach 28'  'cf 355/113'  '42'"
+    )]
+    pub number_theory: Option<String>,
 
     #[arg(
         long,

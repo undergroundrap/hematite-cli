@@ -921,3 +921,224 @@ elif _output:
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── SVG chart generator ───────────────────────────────────────────────────────
+// Produces a self-contained SVG file — no matplotlib, no external deps.
+// Chart types: line (default), scatter, bar, histogram.
+// Reads CSV/TSV/JSON/SQLite. Auto-opens with --open flag (handled in main.rs).
+
+pub async fn plot_chart(
+    file_path: &str,
+    x_col: &str,
+    y_col: &str,
+    chart_type: &str,
+    title: &str,
+    output: &str,
+) -> Result<String, String> {
+    let hex_path:  String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_x:     String = x_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_y:     String = y_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_type:  String = chart_type.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_title: String = title.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_out:   String = output.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+
+_path  = bytes.fromhex("{hex_path}").decode().strip()
+_xcol  = bytes.fromhex("{hex_x}").decode().strip()
+_ycol  = bytes.fromhex("{hex_y}").decode().strip()
+_ctype = bytes.fromhex("{hex_type}").decode().strip().lower() or "line"
+_title = bytes.fromhex("{hex_title}").decode().strip()
+_out   = bytes.fromhex("{hex_out}").decode().strip()
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r)
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        return d if isinstance(d, list) else next(iter(d.values()), [])
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d2[0] for d2 in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2
+    print("Unsupported: "+ext, file=sys.stderr); sys.exit(1)
+
+def _tf(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+rows = _load(_path)
+if not rows:
+    print("No rows found."); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+num_cols = [c for c in all_cols if sum(1 for r in rows if _tf(r.get(c,'')) is not None) >= len(rows)*0.5]
+
+if not _xcol:
+    _xcol = all_cols[0]
+if not _ycol:
+    _ycol = num_cols[0] if num_cols else (all_cols[1] if len(all_cols)>1 else all_cols[0])
+
+if not _title:
+    _title = "%s — %s vs %s" % (os.path.basename(_path), _xcol, _ycol)
+
+if not _out:
+    base = os.path.splitext(_path)[0]
+    _out = base + "_plot.svg"
+
+# Extract data points
+def _to_num_or_str(v): return _tf(v) if _tf(v) is not None else str(v).strip()
+
+raw_pairs = [(_to_num_or_str(r.get(_xcol,'')), _tf(r.get(_ycol,''))) for r in rows]
+pairs = [(x,y) for x,y in raw_pairs if y is not None]
+
+if not pairs:
+    print("No plottable data in columns '%s' vs '%s'." % (_xcol, _ycol)); sys.exit(0)
+
+# For bar/histogram: bucket string x values
+xs_raw = [p[0] for p in pairs]
+ys = [p[1] for p in pairs]
+
+# SVG dimensions
+W = 800; H = 500; PAD = 70; TW = W-2*PAD; TH = H-2*PAD
+
+def _esc(s): return str(s).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
+
+def _scale(vals, lo, hi, out_lo, out_hi):
+    if hi == lo: return [out_lo + (out_hi-out_lo)/2 for _ in vals]
+    return [out_lo + (v-lo)/(hi-lo)*(out_hi-out_lo) for v in vals]
+
+svg_parts = []
+svg_parts.append('<?xml version="1.0" encoding="UTF-8"?>')
+svg_parts.append('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" style="background:#1e1e2e">' % (W, H))
+svg_parts.append('<style>text{{font-family:monospace;fill:#cdd6f4}}line{{stroke:#45475a}}circle{{opacity:0.8}}</style>')
+# Title
+svg_parts.append('<text x="%d" y="28" font-size="15" text-anchor="middle" font-weight="bold">%s</text>' % (W//2, _esc(_title)))
+# Axes
+svg_parts.append('<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#89b4fa" stroke-width="1.5"/>' % (PAD, PAD, PAD, H-PAD))
+svg_parts.append('<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#89b4fa" stroke-width="1.5"/>' % (PAD, H-PAD, W-PAD, H-PAD))
+# Axis labels
+svg_parts.append('<text x="%d" y="%d" font-size="12" text-anchor="middle">%s</text>' % (W//2, H-10, _esc(_xcol)))
+svg_parts.append('<text x="15" y="%d" font-size="12" text-anchor="middle" transform="rotate(-90,15,%d)">%s</text>' % (H//2, H//2, _esc(_ycol)))
+
+if _ctype == 'bar' or (not all(isinstance(x, (int,float)) for x in xs_raw)):
+    # Bar chart: group by string x
+    from collections import OrderedDict
+    groups = OrderedDict()
+    for x,y in pairs:
+        k = str(x)
+        groups.setdefault(k, []).append(y)
+    labels = list(groups.keys())[:30]
+    bar_vals = [sum(groups[k])/len(groups[k]) for k in labels]
+    bw = TW / max(len(labels),1) * 0.8
+    x_positions = [PAD + (i+0.5) * TW / max(len(labels),1) for i in range(len(labels))]
+    ymin = min(0, min(bar_vals)); ymax = max(bar_vals) if bar_vals else 1
+    if ymin == ymax: ymax = ymin + 1
+    def _sy(v): return H-PAD - (v-ymin)/(ymax-ymin)*TH
+    for i,(lbl,v) in enumerate(zip(labels,bar_vals)):
+        x0 = x_positions[i] - bw/2
+        y0 = _sy(max(v,0)); y1 = _sy(min(v,0))
+        bar_h = abs(y0-y1)
+        svg_parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#89b4fa" rx="2"/>' % (x0, min(y0,y1), bw, max(bar_h,1)))
+        if len(labels) <= 15:
+            svg_parts.append('<text x="%.1f" y="%d" font-size="10" text-anchor="middle" transform="rotate(-45,%.1f,%d)">%s</text>' % (x_positions[i], H-PAD+14, x_positions[i], H-PAD+14, _esc(lbl[:12])))
+    # y-axis ticks
+    for tick in [ymin, (ymin+ymax)/2, ymax]:
+        sy = _sy(tick)
+        svg_parts.append('<line x1="%d" y1="%.1f" x2="%d" y2="%.1f" stroke="#45475a"/>' % (PAD, sy, W-PAD, sy))
+        svg_parts.append('<text x="%d" y="%.1f" font-size="10" text-anchor="end">%.3g</text>' % (PAD-4, sy+4, tick))
+
+elif _ctype == 'histogram':
+    n_bins = min(30, max(5, int(math.sqrt(len(ys)))))
+    ymin_h = min(ys); ymax_h = max(ys)
+    if ymin_h == ymax_h: ymax_h = ymin_h + 1
+    bin_w = (ymax_h-ymin_h)/n_bins
+    counts = [0]*n_bins
+    for v in ys:
+        idx = min(int((v-ymin_h)/bin_w), n_bins-1)
+        counts[idx] += 1
+    bar_w = TW/n_bins
+    cmax = max(counts) if counts else 1
+    for i,c in enumerate(counts):
+        x0 = PAD + i*bar_w
+        bar_h2 = c/cmax * TH
+        y0 = H-PAD-bar_h2
+        svg_parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#a6e3a1" rx="1"/>' % (x0, y0, bar_w-1, bar_h2))
+    for i in range(5):
+        tick_v = ymin_h + i*(ymax_h-ymin_h)/4
+        sx = PAD + (tick_v-ymin_h)/(ymax_h-ymin_h)*TW
+        svg_parts.append('<text x="%.1f" y="%d" font-size="10" text-anchor="middle">%.3g</text>' % (sx, H-PAD+14, tick_v))
+    for i in range(5):
+        tick_c = i*cmax/4
+        sy = H-PAD - tick_c/cmax*TH
+        svg_parts.append('<text x="%d" y="%.1f" font-size="10" text-anchor="end">%d</text>' % (PAD-4, sy+4, int(tick_c)))
+
+else:
+    # Line or scatter: numeric x required
+    xs_num = [p[0] if isinstance(p[0],(int,float)) else i for i,p in enumerate(pairs)]
+    xmin = min(xs_num); xmax = max(xs_num)
+    ymin2 = min(ys); ymax2 = max(ys)
+    if xmin == xmax: xmax = xmin+1
+    if ymin2 == ymax2: ymax2 = ymin2+1
+    def _sx2(v): return PAD + (v-xmin)/(xmax-xmin)*TW
+    def _sy2(v): return H-PAD - (v-ymin2)/(ymax2-ymin2)*TH
+    # Grid
+    for i in range(5):
+        gx = PAD + i*TW/4; gy = H-PAD - i*TH/4
+        svg_parts.append('<line x1="%.1f" y1="%d" x2="%.1f" y2="%d" stroke="#313244" stroke-dasharray="4"/>' % (gx,PAD,gx,H-PAD))
+        svg_parts.append('<line x1="%d" y1="%.1f" x2="%d" y2="%.1f" stroke="#313244" stroke-dasharray="4"/>' % (PAD,gy,W-PAD,gy))
+    # x ticks
+    for i in range(5):
+        tv = xmin + i*(xmax-xmin)/4
+        sx2 = _sx2(tv)
+        svg_parts.append('<text x="%.1f" y="%d" font-size="10" text-anchor="middle">%.3g</text>' % (sx2, H-PAD+14, tv))
+    # y ticks
+    for i in range(5):
+        tv = ymin2 + i*(ymax2-ymin2)/4
+        sy2 = _sy2(tv)
+        svg_parts.append('<text x="%d" y="%.1f" font-size="10" text-anchor="end">%.3g</text>' % (PAD-4, sy2+4, tv))
+    pts = list(zip(xs_num, ys))
+    pts.sort(key=lambda p: p[0])
+    sx_list = [_sx2(x) for x,_ in pts]
+    sy_list = [_sy2(y) for _,y in pts]
+    if _ctype != 'scatter' and len(pts) > 1:
+        path_d = "M %.1f %.1f " % (sx_list[0], sy_list[0])
+        path_d += " ".join("L %.1f %.1f" % (sx_list[i], sy_list[i]) for i in range(1,len(pts)))
+        svg_parts.append('<path d="%s" fill="none" stroke="#89b4fa" stroke-width="2"/>' % path_d)
+    for i in range(len(pts)):
+        svg_parts.append('<circle cx="%.1f" cy="%.1f" r="3" fill="#cba6f7"/>' % (sx_list[i], sy_list[i]))
+
+svg_parts.append('</svg>')
+svg_content = '\n'.join(svg_parts)
+
+with open(_out, 'w', encoding='utf-8') as fh:
+    fh.write(svg_content)
+
+print("Chart saved: %s  (%d data points  type=%s)" % (_out, len(pairs), _ctype))
+print("Open in any browser to view.")
+"####,
+        hex_path  = hex_path,
+        hex_x     = hex_x,
+        hex_y     = hex_y,
+        hex_type  = hex_type,
+        hex_title = hex_title,
+        hex_out   = hex_out,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}

@@ -2787,6 +2787,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref query) = cockpit.number_theory {
+        let result = hematite::tools::math_util::number_theory(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.percentile {
         let col = cockpit.percentile_col.as_deref().unwrap_or("");
         match hematite::tools::data_tools::percentile_report(file_path.trim(), col).await {
@@ -2838,6 +2845,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match hematite::tools::data_tools::detect_outliers(file_path.trim(), col, output).await {
             Ok(result) => {
                 println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
+    if let Some(ref file_path) = cockpit.plot {
+        let x_col      = cockpit.plot_x.as_deref().unwrap_or("");
+        let y_col      = cockpit.plot_y.as_deref().unwrap_or("");
+        let chart_type = cockpit.plot_type.as_deref().unwrap_or("line");
+        let title      = cockpit.plot_title.as_deref().unwrap_or("");
+        let output     = cockpit.plot_output.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::plot_chart(file_path.trim(), x_col, y_col, chart_type, title, output).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                // Auto-open if --open flag set
+                if cockpit.open {
+                    let svg_path = if output.is_empty() {
+                        let base = std::path::Path::new(file_path.trim())
+                            .with_extension("")
+                            .to_string_lossy()
+                            .to_string();
+                        format!("{}_plot.svg", base)
+                    } else {
+                        output.to_string()
+                    };
+                    open_path(std::path::Path::new(&svg_path));
+                }
                 if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
             }
             Err(e) => eprintln!("Error: {}", e),
@@ -2914,61 +2950,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    if let Some(ref path_str) = cockpit.plot {
-        let path_str = path_str.trim();
-        let plot_type = cockpit
-            .plot_type
-            .as_deref()
-            .unwrap_or("histogram")
-            .trim()
-            .to_ascii_lowercase();
-        let x_col = cockpit.plot_x.as_deref().unwrap_or("").trim().to_string();
-        let y_col = cockpit.plot_y.as_deref().unwrap_or("").trim().to_string();
-
-        let ts = hematite::agent::report_export::timestamp_label();
-        let safe_ts: String = ts
-            .chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
-            .collect();
-        let report_dir = hematite::tools::file_ops::hematite_dir().join("reports");
-        let _ = std::fs::create_dir_all(&report_dir);
-
-        let out_path = if let Some(ref explicit) = cockpit.output {
-            std::path::PathBuf::from(explicit)
-        } else {
-            report_dir.join(format!("plot-{}.html", safe_ts))
-        };
-
-        eprintln!("Plotting {}...", path_str);
-        match hematite::tools::scientific::plot_dataset(
-            path_str,
-            &plot_type,
-            &x_col,
-            &y_col,
-            &out_path.to_string_lossy(),
-        )
-        .await
-        {
-            Ok(_) => {
-                println!("Chart saved: {}", out_path.display());
-                if cockpit.clipboard {
-                    copy_to_clipboard(&out_path.to_string_lossy());
-                    println!("Path copied to clipboard.");
-                }
-                if cockpit.open {
-                    open_path(&out_path);
-                }
-                if cockpit.notify {
-                    show_toast("Hematite Plot", &format!("Chart ready: {}", out_path.display()));
-                }
-            }
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                std::process::exit(1);
-            }
-        }
-        return Ok(());
-    }
 
     if let Some(ref path_str) = cockpit.analyze {
         let path_str = path_str.trim();
